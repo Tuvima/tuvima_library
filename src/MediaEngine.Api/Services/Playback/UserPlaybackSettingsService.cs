@@ -45,11 +45,6 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
     private static readonly HashSet<string> ReadingModeValues = BuildSet(
         PlaybackPreferenceValues.Paginated,
         PlaybackPreferenceValues.Scroll);
-    private static readonly HashSet<string> ThemeValues = BuildSet(
-        PlaybackPreferenceValues.Dark,
-        PlaybackPreferenceValues.Sepia,
-        PlaybackPreferenceValues.Light,
-        PlaybackPreferenceValues.System);
     private static readonly HashSet<string> LineSpacingValues = BuildSet(
         PlaybackPreferenceValues.Compact,
         PlaybackPreferenceValues.Comfortable,
@@ -218,7 +213,6 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         settings.Listening.DefaultSleepTimer = NormalizeToken(settings.Listening.DefaultSleepTimer);
         settings.Listening.OutputPreference = NormalizeToken(settings.Listening.OutputPreference);
         settings.Reading.ReadingMode = NormalizeToken(settings.Reading.ReadingMode);
-        settings.Reading.Theme = NormalizeToken(settings.Reading.Theme);
         settings.Reading.LineSpacing = NormalizeToken(settings.Reading.LineSpacing);
         settings.Reading.Margins = NormalizeToken(settings.Reading.Margins);
         settings.Reading.DefaultComicMode = NormalizeToken(settings.Reading.DefaultComicMode);
@@ -259,7 +253,6 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         RequireAllowed(settings.Listening.DefaultSleepTimer, SleepTimerValues, nameof(settings.Listening.DefaultSleepTimer));
         RequireAllowed(settings.Listening.OutputPreference, OutputValues, nameof(settings.Listening.OutputPreference));
         RequireAllowed(settings.Reading.ReadingMode, ReadingModeValues, nameof(settings.Reading.ReadingMode));
-        RequireAllowed(settings.Reading.Theme, ThemeValues, nameof(settings.Reading.Theme));
         RequireAllowed(settings.Reading.LineSpacing, LineSpacingValues, nameof(settings.Reading.LineSpacing));
         RequireAllowed(settings.Reading.Margins, MarginValues, nameof(settings.Reading.Margins));
         RequireAllowed(settings.Reading.DefaultComicMode, ComicModeValues, nameof(settings.Reading.DefaultComicMode));

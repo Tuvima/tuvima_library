@@ -2,3 +2,5 @@
     display: grid;
     gap: 18px;
 }
+.activity-page__advanced { margin-top: 1rem; }
+.activity-page__advanced > summary { cursor: pointer; padding: .8rem 0; font-weight: 600; font-size: .95rem; }

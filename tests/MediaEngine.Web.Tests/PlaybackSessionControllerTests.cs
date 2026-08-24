@@ -109,6 +109,22 @@ public sealed class PlaybackSessionControllerTests
     }
 
     [Fact]
+    public async Task PlayAudiobookAsync_StartsFromBeginningWhenAutomaticResumeIsDisabled()
+    {
+        var settings = UserPlaybackSettingsDto.CreateDefaults(Guid.NewGuid());
+        settings.General.ResumePlayback = false;
+        var service = new PlaybackSessionController(null!, null!, preferences: new PlaybackPreferencesStub(settings));
+        var audiobook = CreateAudiobookItem("Dungeon Crawler Carl", "stream://dungeon-crawler-carl") with
+        {
+            InitialPositionSeconds = 123,
+        };
+
+        await service.PlayAudiobookAsync(audiobook, "Dungeon Crawler Carl");
+
+        Assert.Equal(0, service.CurrentTimeSeconds);
+    }
+
+    [Fact]
     public async Task PlayAudiobookChapterAsync_UsesExactChapterStartWithoutResumeRewind()
     {
         var service = new PlaybackSessionController(null!, null!);
@@ -538,5 +554,15 @@ public sealed class PlaybackSessionControllerTests
                 Content = JsonContent.Create(payload),
             };
         }
+    }
+
+    private sealed class PlaybackPreferencesStub(UserPlaybackSettingsDto settings) : IUserPlaybackPreferencesAccessor
+    {
+        public Task<UserPlaybackSettingsDto?> GetAsync(CancellationToken ct = default) =>
+            Task.FromResult<UserPlaybackSettingsDto?>(settings);
+
+        public void UpdateCache(UserPlaybackSettingsDto next) { }
+
+        public void Invalidate() { }
     }
 }

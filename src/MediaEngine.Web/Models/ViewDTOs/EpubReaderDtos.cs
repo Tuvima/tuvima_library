@@ -7,5 +7,4 @@ public sealed record ReaderSettingsDto
     public int FontSize { get; set; } = 18;
     public double LineHeight { get; set; } = 1.8;
     public int Margins { get; set; } = 48;
-    public string Theme { get; set; } = "dark";
 }

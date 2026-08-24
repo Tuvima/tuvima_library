@@ -18,25 +18,34 @@
 }
 else
 {
-    <div class="settings-playback-page settings-plugin-page">
+    <div class="tl-page settings-plugin-page">
         @if (!string.IsNullOrWhiteSpace(_error))
         {
             <AppAlert Tone="AppUiTone.Error">@_error</AppAlert>
         }
-        @if (NormalizedSubsection == "catalog")
+        @if (NormalizedSubsection == "overview")
+        {
+            @OverviewSummary()
+            @InstalledPluginsPanel()
+            @if (ConfiguredPlugin is not null)
+            {
+                <AppCard Title="@($"Configure {ConfiguredPlugin.Name}")" Description="@ConfiguredPlugin.Description" Class="settings-plugin-configure-panel">
+                    @if (!string.IsNullOrWhiteSpace(ConfiguredPlugin.LoadError))
+                    {
+                        <AppAlert Tone="AppUiTone.Warning" Class="mb-3">@ConfiguredPlugin.LoadError</AppAlert>
+                    }
+                    @PluginSettingsPanel(ConfiguredPlugin)
+                </AppCard>
+            }
+            @AdvancedPluginLinks()
+        }
+        else if (NormalizedSubsection == "catalog")
         {
             @ApprovedCatalogPanel()
         }
         else
         {
-            @if (NormalizedSubsection == "overview")
-            {
-                @OverviewSummary()
-                <AppAlert Tone="AppUiTone.Info">
-                    Plugin list, enable/disable, plugin-provided settings, health checks, jobs, delete actions, and the approved GitHub catalog use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
-                </AppAlert>
-            }
-            @PluginManager()
+            @AdvancedPluginPanel()
         }
     </div>
 }
@@ -46,7 +55,6 @@ else
 
     private string NormalizedSubsection => Subsection?.Trim().ToLowerInvariant() switch
     {
-        "settings" => "settings",
         "jobs-health" => "jobs-health",
         "catalog" => "catalog",
         "capabilities" => "capabilities",
@@ -63,67 +71,87 @@ else
     private bool _loading = true;
     private string? _error;
     private string? _selectedPluginId;
-    private string _search = "";
-    private string _filter = "all";
+    private string? _configurePluginId;
     private string? _deletePluginId;
 
-    private IEnumerable<PluginSummaryResponse> FilteredPlugins => _plugins.Where(MatchesFilter);
-
     private PluginSummaryResponse? SelectedPlugin => _plugins.FirstOrDefault(p => string.Equals(p.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase));
+    private PluginSummaryResponse? ConfiguredPlugin => _plugins.FirstOrDefault(p => string.Equals(p.Id, _configurePluginId, StringComparison.OrdinalIgnoreCase));
 
-    private RenderFragment OverviewSummary() => @<AppCard Class="settings-summary-strip settings-plugin-summary">
-        <div class="settings-plugin-summary__grid">
-            <AppMetricCard Icon="@Icons.Material.Outlined.Extension" Label="Plugins" Value="@_plugins.Count.ToString()" Tone="AppUiTone.Primary" />
-            <AppMetricCard Icon="@Icons.Material.Outlined.PowerSettingsNew" Label="Enabled" Value="@_plugins.Count(p => p.Enabled).ToString()" Tone="AppUiTone.Success" />
-            <AppMetricCard Icon="@Icons.Material.Outlined.DynamicFeed" Label="Dynamic" Value="@_plugins.Count(p => !p.IsBuiltIn).ToString()" Tone="AppUiTone.Info" />
-            <AppMetricCard Icon="@Icons.Material.Outlined.ReportProblem" Label="Needs setup" Value="@_plugins.Count(p => !string.IsNullOrWhiteSpace(p.LoadError)).ToString()" Tone="AppUiTone.Warning" />
-            <div class="settings-plugin-summary__actions">
-                <AppButton Label="Reload" StartIcon="@Icons.Material.Outlined.Refresh" Tone="AppUiTone.Primary" OnClick="@ReloadAsync" />
-            </div>
-        </div>
+    private IReadOnlyList<AppSelectOption> PluginOptions => _plugins
+        .Select(plugin => new AppSelectOption(plugin.Id, plugin.Name))
+        .ToList();
+
+    private RenderFragment OverviewSummary() => @<div class="settings-plugin-summary__grid">
+        <AppCard Title="Installed" Class="settings-plugin-summary__card">
+            <strong>@_plugins.Count</strong>
+            <span>Available on this server</span>
+        </AppCard>
+        <AppCard Title="Enabled" Class="settings-plugin-summary__card">
+            <strong>@_plugins.Count(plugin => plugin.Enabled)</strong>
+            <span>Currently active</span>
+        </AppCard>
+        <AppCard Title="Needs setup" Class="settings-plugin-summary__card">
+            <strong>@_plugins.Count(plugin => !string.IsNullOrWhiteSpace(plugin.LoadError))</strong>
+            <span>Requires administrator attention</span>
+        </AppCard>
+    </div>;
+
+    private RenderFragment InstalledPluginsPanel() => @<AppCard Title="Installed plugins" Description="Enable extensions and open the settings each plugin actually provides.">
+        @if (_plugins.Count == 0)
+        {
+            <AppEmptyState Title="No installed plugins" Message="The Engine did not return any installed extensions." />
+        }
+        else
+        {
+            <AppTable Class="settings-plugin-installed-table">
+                <thead>
+                    <tr><th>Plugin</th><th>Purpose</th><th>Status</th><th>Version</th><th><span class="sr-only">Actions</span></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var plugin in _plugins)
+                    {
+                        <tr>
+                            <td>
+                                <strong class="settings-plugin-table-title">@plugin.Name</strong>
+                                <span class="settings-plugin-table-meta">@(plugin.IsBuiltIn ? "Built-in" : "Extension")</span>
+                            </td>
+                            <td>@plugin.Description</td>
+                            <td>
+                                <AppSwitchRow Label="@(plugin.Enabled ? "Enabled" : "Disabled")"
+                                              Value="@plugin.Enabled"
+                                              ValueChanged="@(value => SetEnabledAsync(plugin, value))"
+                                              StopClickPropagation="true" />
+                                @if (!string.IsNullOrWhiteSpace(plugin.LoadError))
+                                {
+                                    <AppStatusBadge Text="Needs setup" Tone="AppUiTone.Warning" />
+                                }
+                            </td>
+                            <td>@plugin.Version</td>
+                            <td>
+                                <AppButton Label="Configure" Size="AppControlSize.Compact" OnClick="@(() => ConfigurePlugin(plugin.Id))" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </AppTable>
+        }
     </AppCard>;
 
-    private RenderFragment PluginManager() => @<div class="settings-plugin-manager">
-        <AppCard Class="settings-plugin-list-panel">
-            <AppSearchField Value="@_search"
-                            ValueChanged="@((string? value) => _search = value ?? string.Empty)"
-                            Placeholder="Search plugins..." />
-            <AppActionBar Align="AppHorizontalAlignment.Start" Class="settings-plugin-filter-row">
-                @FilterButton("all", "All")
-                @FilterButton("enabled", "Enabled")
-                @FilterButton("dynamic", "Dynamic")
-                @FilterButton("setup", "Needs setup")
-            </AppActionBar>
-            <div class="settings-plugin-list">
-                @foreach (var plugin in FilteredPlugins)
-                {
-                    var selected = string.Equals(plugin.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase);
-                    <div class="settings-plugin-list-item @(selected ? "settings-plugin-list-item--selected" : null)"
-                         role="button"
-                         tabindex="0"
-                         @onkeydown="@(args => HandlePluginKeyDown(args, plugin.Id))"
-                         @onclick="@(() => SelectPlugin(plugin.Id))">
-                        <span class="settings-plugin-list-item__icon"><MudIcon Icon="@PluginIcon(plugin)" Size="Size.Small" /></span>
-                        <span class="settings-plugin-list-item__body">
-                            <span class="settings-plugin-list-item__title">@plugin.Name</span>
-                            <span class="settings-plugin-list-item__meta">@plugin.Id - v@(plugin.Version)</span>
-                            <span class="settings-plugin-list-item__chips">
-                                <span>@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")</span>
-                                @if (plugin.ToolRequirements.Count > 0) { <span>Tools</span> }
-                                @if (plugin.AiPermissions.Count > 0) { <span>AI</span> }
-                                @if (!string.IsNullOrWhiteSpace(plugin.LoadError)) { <span class="settings-plugin-list-item__chip--warning">Setup</span> }
-                            </span>
-                        </span>
-                        <AppSwitchRow Value="@plugin.Enabled"
-                                      ValueChanged="@(v => SetEnabledAsync(plugin, v))"
-                                      StopClickPropagation="true"
-                                      Class="settings-plugin-list-item__toggle" />
-                    </div>
-                }
-            </div>
-            <div class="settings-plugin-list-count">@FilteredPlugins.Count() of @_plugins.Count plugins shown</div>
+    private RenderFragment AdvancedPluginLinks() => @<AppCard Title="Advanced plugin management" Description="Operational and destructive controls stay out of the everyday plugin list.">
+        <SettingsAdvancedLinkRow Title="Health & Jobs" Description="Run plugin health checks and inspect recent background jobs." Href="/settings/plugins/jobs-health" ActionLabel="Open" />
+        <SettingsAdvancedLinkRow Title="Approved Catalog" Description="View extensions approved by the configured catalog." Href="/settings/plugins/catalog" ActionLabel="Open" />
+        <SettingsAdvancedLinkRow Title="Capabilities & AI permissions" Description="Review declared capabilities, tools, and AI access." Href="/settings/plugins/capabilities" ActionLabel="Review" />
+        <SettingsAdvancedLinkRow Title="Danger Zone" Description="Delete removable plugins; built-in plugins cannot be deleted." Href="/settings/plugins/danger" ActionLabel="Open" />
+        <AppAlert Tone="AppUiTone.Info" Class="mt-3">
+            Installed plugin controls and plugin-provided settings use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
+        </AppAlert>
+    </AppCard>;
+
+    private RenderFragment AdvancedPluginPanel() => @<text>
+        <AppCard Title="@AdvancedTitle" Description="@AdvancedDescription">
+            <AppSelect Label="Plugin" Value="@_selectedPluginId" ValueChanged="@SelectPluginValue" Options="@PluginOptions" />
         </AppCard>
-        <AppCard Class="settings-plugin-detail-panel">
+        <AppCard>
             @if (SelectedPlugin is null)
             {
                 <AppEmptyState Title="No plugin selected" Message="Choose an installed plugin to inspect this section." />
@@ -135,29 +163,35 @@ else
                     <div class="settings-plugin-detail-header">
                         <span class="settings-plugin-detail-header__icon"><MudIcon Icon="@PluginIcon(plugin)" /></span>
                         <div class="settings-plugin-detail-header__copy">
-                            <div class="settings-plugin-detail-header__title-row">
-                                <span class="settings-plugin-detail-header__title">@plugin.Name</span>
-                                <AppChip Text="@plugin.Version" />
-                                <AppChip Text="@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")" Tone="@(plugin.IsBuiltIn ? AppUiTone.Neutral : AppUiTone.Info)" />
-                            </div>
-                            <div class="settings-plugin-detail-header__id">@plugin.Id</div>
-                            <div class="settings-plugin-detail-header__description">@plugin.Description</div>
+                            <strong class="settings-plugin-detail-header__title">@plugin.Name</strong>
+                            <span class="settings-plugin-detail-header__description">@plugin.Description</span>
                         </div>
-                        <AppSwitchRow Value="@plugin.Enabled" ValueChanged="@(v => SetEnabledAsync(plugin, v))" Class="settings-plugin-detail-header__switch" />
+                        <AppStatusBadge Text="@(plugin.Enabled ? "Enabled" : "Disabled")" Tone="@(plugin.Enabled ? AppUiTone.Success : AppUiTone.Neutral)" />
                     </div>
-                    @if (!string.IsNullOrWhiteSpace(plugin.LoadError))
-                    {
-                        <AppAlert Tone="AppUiTone.Warning">@plugin.LoadError</AppAlert>
-                    }
                     @PluginSubsection(plugin)
                 </div>
             }
         </AppCard>
-    </div>;
+    </text>;
+
+    private string AdvancedTitle => NormalizedSubsection switch
+    {
+        "jobs-health" => "Health & Jobs",
+        "capabilities" => "Capabilities & AI permissions",
+        "danger" => "Danger Zone",
+        _ => "Plugin details",
+    };
+
+    private string AdvancedDescription => NormalizedSubsection switch
+    {
+        "jobs-health" => "Check one plugin's current health and recent operations.",
+        "capabilities" => "Review what one plugin declares and can access.",
+        "danger" => "Remove a dynamic plugin with an explicit confirmation.",
+        _ => "Inspect one installed plugin.",
+    };
 
     private RenderFragment PluginSubsection(PluginSummaryResponse plugin) => NormalizedSubsection switch
     {
-        "settings" => PluginSettingsPanel(plugin),
         "jobs-health" => PluginHealthJobsPanel(plugin),
         "capabilities" => PluginCapabilitiesPanel(plugin),
         "danger" => DangerPanel(plugin),
@@ -336,6 +370,12 @@ else
         await LoadAsync();
     }
 
+    protected override async Task OnParametersSetAsync()
+    {
+        if (NormalizedSubsection == "catalog" && _approvedCatalog is null && !_approvedCatalogLoading)
+            await LoadApprovedCatalogAsync();
+    }
+
     private async Task LoadAsync()
     {
         _loading = true;
@@ -346,7 +386,6 @@ else
             if (_plugins.Count > 0 && SelectedPlugin is null)
                 _selectedPluginId = _plugins[0].Id;
 
-            _approvedCatalog ??= await Orchestrator.GetApprovedPluginCatalogAsync();
         }
         catch
         {
@@ -369,10 +408,17 @@ else
         _deletePluginId = null;
     }
 
-    private void HandlePluginKeyDown(KeyboardEventArgs args, string pluginId)
+    private void SelectPluginValue(string? pluginId)
     {
-        if (args.Key is "Enter" or " ")
+        if (!string.IsNullOrWhiteSpace(pluginId))
             SelectPlugin(pluginId);
+    }
+
+    private void ConfigurePlugin(string pluginId)
+    {
+        _configurePluginId = string.Equals(_configurePluginId, pluginId, StringComparison.OrdinalIgnoreCase)
+            ? null
+            : pluginId;
     }
 
     private async Task SetEnabledAsync(PluginSummaryResponse plugin, bool enabled)
@@ -461,30 +507,6 @@ else
             _approvedCatalogLoading = false;
         }
     }
-
-    private bool MatchesFilter(PluginSummaryResponse plugin)
-    {
-        if (!string.IsNullOrWhiteSpace(_search))
-        {
-            var text = $"{plugin.Name} {plugin.Id} {plugin.Description}";
-            if (!text.Contains(_search, StringComparison.OrdinalIgnoreCase))
-                return false;
-        }
-
-        return _filter switch
-        {
-            "enabled" => plugin.Enabled,
-            "dynamic" => !plugin.IsBuiltIn,
-            "setup" => !string.IsNullOrWhiteSpace(plugin.LoadError),
-            _ => true,
-        };
-    }
-
-    private RenderFragment FilterButton(string value, string label) => @<AppButton Label="@label"
-                                                                                   ButtonStyle="@(string.Equals(_filter, value, StringComparison.OrdinalIgnoreCase) ? AppButtonStyle.Filled : AppButtonStyle.Outlined)"
-                                                                                   Tone="AppUiTone.Primary"
-                                                                                   Size="AppControlSize.Compact"
-                                                                                   OnClick="@(() => _filter = value)" />;
 
     private RenderFragment SettingEditor(PluginSummaryResponse plugin, PluginSettingDefinition setting)
     {

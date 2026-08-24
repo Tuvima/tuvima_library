@@ -46,3 +46,6 @@
     .provider-row__last-tested { grid-column: 1; }
     .provider-row__actions { grid-column: 2; grid-row: auto; align-self: end; }
 }
+.metadata-overview-section { display:grid; gap:.75rem; margin-top:1.5rem; padding-top:1.25rem; border-top:1px solid var(--tl-border-subtle); }
+.metadata-overview-section > header h2 { margin:0; font-size:1.2rem; }
+.metadata-overview-section > header p { margin:.25rem 0 0; color:var(--tl-text-muted); font-size:.9rem; }

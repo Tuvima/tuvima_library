@@ -6,18 +6,15 @@
 @implements IDisposable
 
 <div class="activity-events">
-    <AppFilterBar Search="@_search"
-                  SearchChanged="@OnSearchChanged"
-                  OnSearchDebounced="@OnSearchDebounced"
-                  Placeholder="Search visible events..."
-                  Loading="@_loading"
-                  OnRefresh="@LoadAsync">
+    <header class="activity-events__heading"><div><h2>Recent activity</h2><p>Library operations and administrative changes.</p></div></header>
+    <AppFilterBar Loading="@_loading" OnRefresh="@LoadAsync">
         <AppSelect
             Value="@_eventType"
             ValueChanged="@OnEventTypeChanged"
             Options="@EventTypeOptions"
             Label="Event Type"
             Class="activity-events__filter" />
+        <AppSelect Value="@_dateRange" ValueChanged="@OnDateRangeChanged" Options="@DateRangeOptions" Label="Date" Class="activity-events__filter" />
     </AppFilterBar>
 
     @if (_runId is { } runId)
@@ -55,18 +52,12 @@
     private List<ActivityTimelineEventDto> _events = [];
     private bool _loading = true;
     private string? _eventType;
-    private string? _search;
+    private string _dateRange = "7d";
     private Guid? _runId;
 
-    private IReadOnlyList<ActivityTimelineEventDto> VisibleEvents =>
-        string.IsNullOrWhiteSpace(_search)
-            ? _events
-            : _events
-                .Where(item =>
-                    Contains(item.Label, _search)
-                    || Contains(item.Detail, _search)
-                    || Contains(item.Source, _search))
-                .ToList();
+    private IReadOnlyList<ActivityTimelineEventDto> VisibleEvents => _events.Where(item => item.OccurredAt >= RangeStart).ToList();
+    private DateTimeOffset RangeStart => _dateRange switch { "today" => DateTimeOffset.Now.Date, "30d" => DateTimeOffset.Now.AddDays(-30), "all" => DateTimeOffset.MinValue, _ => DateTimeOffset.Now.AddDays(-7) };
+    private static readonly IReadOnlyList<AppSelectOption> DateRangeOptions = [new("today","Today"),new("7d","Last 7 days"),new("30d","Last 30 days"),new("all","All loaded activity")];
 
     protected override async Task OnInitializedAsync()
     {
@@ -93,7 +84,9 @@
                 _entries = await Orchestrator.GetRecentActivityAsync(100);
             }
 
-            _events = _entries.Select(ToTimelineEvent).ToList();
+            var profiles = await Orchestrator.GetProfilesAsync();
+            var names = profiles.ToDictionary(profile => profile.Id.ToString(), profile => profile.DisplayName, StringComparer.OrdinalIgnoreCase);
+            _events = _entries.Select(entry => ToTimelineEvent(entry, names)).ToList();
         }
         finally
         {
@@ -101,13 +94,7 @@
         }
     }
 
-    private Task OnSearchChanged(string? value)
-    {
-        _search = value;
-        return Task.CompletedTask;
-    }
-
-    private Task OnSearchDebounced(string _) => Task.CompletedTask;
+    private Task OnDateRangeChanged(string? value) { _dateRange = string.IsNullOrWhiteSpace(value) ? "7d" : value; return Task.CompletedTask; }
 
     private async Task OnEventTypeChanged(string? value)
     {
@@ -137,7 +124,7 @@
         return Guid.TryParse(raw, out var parsed) ? parsed : null;
     }
 
-    private static ActivityTimelineEventDto ToTimelineEvent(ActivityEntryResponse entry) =>
+    private static ActivityTimelineEventDto ToTimelineEvent(ActivityEntryResponse entry, IReadOnlyDictionary<string,string> profileNames) =>
         new()
         {
             OccurredAt = DateTimeOffset.TryParse(entry.OccurredAt, out var occurredAt)
@@ -147,6 +134,7 @@
             Label = ActionLabel(entry.ActionType),
             Detail = entry.Detail,
             Source = StringHelpers.FirstNonBlankOr("", entry.CollectionName, entry.EntityType),
+            Actor = !string.IsNullOrWhiteSpace(entry.ProfileId) && profileNames.TryGetValue(entry.ProfileId, out var actor) ? actor : "System",
             Tone = ActionTone(entry.ActionType),
         };
 

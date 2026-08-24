@@ -244,6 +244,9 @@ public sealed class ActivityTimelineEventDto
     [JsonPropertyName("source")]
     public string? Source { get; set; }
 
+    [JsonPropertyName("actor")]
+    public string? Actor { get; set; }
+
     [JsonPropertyName("tone")]
     public string Tone { get; set; } = "neutral";
 }

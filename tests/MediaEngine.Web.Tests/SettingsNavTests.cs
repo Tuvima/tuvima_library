@@ -13,7 +13,8 @@ public sealed class SettingsNavTests
         Assert.Contains("<MediaSectionShell Title=\"Settings\"", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AccordionNavigation=\"true\"", settingsSource, StringComparison.Ordinal);
         Assert.Contains("settings-mobile-navigation", settingsSource, StringComparison.Ordinal);
-        Assert.Contains("<SettingsSubsectionNav", settingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SettingsSubsectionNav", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("<SidebarPageHeader", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<SidebarPageShell", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<SidebarNavGroup", settingsSource, StringComparison.Ordinal);
         Assert.Contains("media-section-shell__rail-item--child", mediaShellSource, StringComparison.Ordinal);
@@ -60,12 +61,11 @@ public sealed class SettingsNavTests
     [Fact]
     public void RouteFor_Overview_UsesProfileSettingsUrl()
     {
-        Assert.Equal("/settings/profile/profile", SettingsNav.RouteFor(SettingsSection.Overview));
+        Assert.Equal("/settings/profile", SettingsNav.RouteFor(SettingsSection.Overview));
     }
 
     [Theory]
-    [InlineData(SettingsSection.Overview, "profile", "/settings/profile/profile")]
-    [InlineData(SettingsSection.Playback, "watching", "/settings/playback/watching")]
+    [InlineData(SettingsSection.ActivityLogs, "batches", "/settings/activity/batches")]
     [InlineData(SettingsSection.LocalAi, "models", "/settings/ai/models")]
     [InlineData(SettingsSection.Providers, "priority", "/settings/providers/priority")]
     [InlineData(SettingsSection.Providers, "enrichment", "/settings/providers/enrichment")]
@@ -85,12 +85,11 @@ public sealed class SettingsNavTests
             .ToArray();
 
         Assert.Equal([
-            "Overview",
             "Models & Runtime",
-            "Features & Vocabulary",
+            "Vocabulary",
             "Automation",
         ], labels);
-        Assert.Equal("overview", SettingsNav.GetDefaultSubsection(SettingsSection.LocalAi).Slug);
+        Assert.Equal("models", SettingsNav.GetDefaultSubsection(SettingsSection.LocalAi).Slug);
         Assert.Null(SettingsNav.ResolveSubsection(SettingsSection.LocalAi, "unknown"));
     }
 
@@ -99,29 +98,32 @@ public sealed class SettingsNavTests
     {
         var subsections = SettingsNav.GetSubsections(SettingsSection.Providers).ToArray();
 
-        Assert.Equal(["Providers", "Enrichment", "Source Priority", "Health"], subsections.Select(item => item.Label));
-        Assert.Equal(["overview", "enrichment", "priority", "health"], subsections.Select(item => item.Slug));
+        Assert.Equal(["Enrichment", "Source Priority", "Health"], subsections.Select(item => item.Label));
+        Assert.Equal(["enrichment", "priority", "health"], subsections.Select(item => item.Slug));
     }
 
     [Fact]
-    public void EveryVisibleSettingsSection_HasSidebarSubsections()
+    public void SummaryFirstSections_UseRootRoutesWithoutRequiringSubsections()
     {
-        Assert.All(SettingsNav.TreeGroups.SelectMany(group => group.Sections), section =>
-            Assert.NotEmpty(SettingsNav.GetSubsections(section)));
+        Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Overview));
+        Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Playback));
+        Assert.Empty(SettingsNav.GetSubsections(SettingsSection.AdminOverview));
+        Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Review));
+        Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Server));
     }
 
     [Theory]
     [InlineData(SettingsSection.AdminOverview, "/settings/system")]
-    [InlineData(SettingsSection.Playback, "/settings/playback/general")]
-    [InlineData(SettingsSection.Libraries, "/settings/media-management/overview")]
+    [InlineData(SettingsSection.Playback, "/settings/playback")]
+    [InlineData(SettingsSection.Libraries, "/settings/media-management")]
     [InlineData(SettingsSection.DevHarness, "/settings/developer/options")]
-    [InlineData(SettingsSection.Providers, "/settings/providers/overview")]
-    [InlineData(SettingsSection.LocalAi, "/settings/ai/overview")]
-    [InlineData(SettingsSection.Plugins, "/settings/plugins/overview")]
-    [InlineData(SettingsSection.Delivery, "/settings/delivery/transcoding")]
-    [InlineData(SettingsSection.Access, "/settings/access/profiles")]
-    [InlineData(SettingsSection.Server, "/settings/server/backups")]
-    [InlineData(SettingsSection.ActivityLogs, "/settings/activity/events")]
+    [InlineData(SettingsSection.Providers, "/settings/providers")]
+    [InlineData(SettingsSection.LocalAi, "/settings/ai")]
+    [InlineData(SettingsSection.Plugins, "/settings/plugins")]
+    [InlineData(SettingsSection.Delivery, "/settings/delivery")]
+    [InlineData(SettingsSection.Access, "/settings/access")]
+    [InlineData(SettingsSection.Server, "/settings/backup-recovery")]
+    [InlineData(SettingsSection.ActivityLogs, "/settings/activity")]
     [InlineData(SettingsSection.Review, "/settings/review")]
     [InlineData(SettingsSection.ProviderTester, "/settings/provider-tester")]
     [InlineData(SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
@@ -144,22 +146,20 @@ public sealed class SettingsNavTests
         var resolution = SettingsNav.ResolveRoute(null, "Administrator");
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
-        Assert.Equal("/settings/profile/profile", resolution.CanonicalRoute);
+        Assert.Equal("/settings/profile", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
         Assert.True(resolution.IsKnownRoute);
         Assert.True(resolution.ShouldRedirect);
     }
 
     [Fact]
-    public void ResolveRoute_AdminSegment_MapsToAdminOverview()
+    public void ResolveRoute_RemovedAdminAlias_IsUnknown()
     {
         var resolution = SettingsNav.ResolveRoute("admin", "Administrator");
 
-        Assert.Equal(SettingsSection.AdminOverview, resolution.Section);
-        Assert.Equal("/settings/system", resolution.CanonicalRoute);
-        Assert.False(resolution.IsCanonicalRoute);
-        Assert.True(resolution.IsKnownRoute);
-        Assert.True(resolution.RequestedSectionAllowed);
+        Assert.Equal(SettingsSection.Overview, resolution.Section);
+        Assert.Equal("/not-found", resolution.CanonicalRoute);
+        Assert.False(resolution.IsKnownRoute);
         Assert.True(resolution.ShouldRedirect);
     }
 
@@ -169,7 +169,7 @@ public sealed class SettingsNavTests
         var resolution = SettingsNav.ResolveRoute("profile", "Administrator");
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
-        Assert.Equal("/settings/profile/profile", resolution.CanonicalRoute);
+        Assert.Equal("/settings/profile", resolution.CanonicalRoute);
         Assert.True(resolution.IsCanonicalRoute);
         Assert.True(resolution.IsKnownRoute);
         Assert.True(resolution.RequestedSectionAllowed);
@@ -190,27 +190,18 @@ public sealed class SettingsNavTests
     }
 
     [Theory]
-    [InlineData("harness", SettingsSection.DevHarness, "/settings/developer/options")]
-    [InlineData("ingestion-harness", SettingsSection.DevHarness, "/settings/developer/options")]
-    [InlineData("models", SettingsSection.LocalAi, "/settings/ai/overview")]
-    [InlineData("features", SettingsSection.LocalAi, "/settings/ai/overview")]
-    [InlineData("vocabulary", SettingsSection.LocalAi, "/settings/ai/overview")]
-    [InlineData("schedule", SettingsSection.LocalAi, "/settings/ai/overview")]
-    [InlineData("encode", SettingsSection.Delivery, "/settings/delivery/transcoding")]
-    [InlineData("offline-downloads", SettingsSection.Delivery, "/settings/delivery/transcoding")]
-    [InlineData("users", SettingsSection.Access, "/settings/access/profiles")]
-    [InlineData("security", SettingsSection.Access, "/settings/access/profiles")]
-    [InlineData("apikeys", SettingsSection.Access, "/settings/access/profiles")]
-    [InlineData("api-keys", SettingsSection.Access, "/settings/access/profiles")]
-    public void ResolveRoute_LegacyAliases_RedirectToCanonicalRoutes(string alias, SettingsSection expectedSection, string expectedRoute)
+    [InlineData("models")]
+    [InlineData("features")]
+    [InlineData("encode")]
+    [InlineData("users")]
+    [InlineData("security")]
+    [InlineData("api-keys")]
+    public void ResolveRoute_RemovedAliasesAreUnknown(string alias)
     {
         var resolution = SettingsNav.ResolveRoute(alias, "Administrator");
 
-        Assert.Equal(expectedSection, resolution.Section);
-        Assert.Equal(expectedRoute, resolution.CanonicalRoute);
-        Assert.False(resolution.IsCanonicalRoute);
-        Assert.True(resolution.IsKnownRoute);
-        Assert.True(resolution.RequestedSectionAllowed);
+        Assert.Equal("/not-found", resolution.CanonicalRoute);
+        Assert.False(resolution.IsKnownRoute);
         Assert.True(resolution.ShouldRedirect);
     }
 
@@ -220,7 +211,7 @@ public sealed class SettingsNavTests
         var resolution = SettingsNav.ResolveRoute("providers", "Viewer");
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
-        Assert.Equal("/settings/profile/profile", resolution.CanonicalRoute);
+        Assert.Equal("/settings/profile", resolution.CanonicalRoute);
         Assert.False(resolution.IsCanonicalRoute);
         Assert.True(resolution.IsKnownRoute);
         Assert.False(resolution.RequestedSectionAllowed);
@@ -273,7 +264,7 @@ public sealed class SettingsNavTests
             "Activity & Audit",
             "Playback & Delivery",
             "Users & Access",
-            "System",
+            "Backup & Recovery",
         ], adminLabels);
 
         var adminGroup = SettingsNav.TreeGroups.Single(group => group.Key == "administration");
@@ -300,8 +291,7 @@ public sealed class SettingsNavTests
 
     [Theory]
     [InlineData("review", SettingsSection.Review, "/settings/review")]
-    [InlineData("activity", SettingsSection.ActivityLogs, "/settings/activity/events")]
-    [InlineData("activity-log", SettingsSection.ActivityLogs, "/settings/activity/events")]
+    [InlineData("activity", SettingsSection.ActivityLogs, "/settings/activity")]
     [InlineData("provider-tester", SettingsSection.ProviderTester, "/settings/provider-tester")]
     [InlineData("enrichment-tester", SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
     public void ResolveRoute_SecondaryRoutes_StillResolveForAdmins(string segment, SettingsSection expectedSection, string expectedRoute)
@@ -316,7 +306,7 @@ public sealed class SettingsNavTests
 
     [Theory]
     [InlineData("administration", SettingsSection.AdminOverview, "/settings/system")]
-    [InlineData("personal", SettingsSection.Overview, "/settings/profile/profile")]
+    [InlineData("personal", SettingsSection.Overview, "/settings/profile")]
     public void GroupDefaults_ResolveToExpectedCanonicalRoutes(string groupKey, SettingsSection expectedSection, string expectedRoute)
     {
         var section = SettingsNav.GetDefaultSection(groupKey);
@@ -326,7 +316,6 @@ public sealed class SettingsNavTests
     }
 
     [Theory]
-    [InlineData("overview")]
     [InlineData("incoming")]
     [InlineData("libraries")]
     [InlineData("activity")]

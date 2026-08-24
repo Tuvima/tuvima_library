@@ -503,7 +503,6 @@ public sealed class ReadingSettingsDto
 {
     public string ReadingMode { get; set; } = PlaybackPreferenceValues.Paginated;
     public int FontSizePercent { get; set; } = 100;
-    public string Theme { get; set; } = PlaybackPreferenceValues.System;
     public string LineSpacing { get; set; } = PlaybackPreferenceValues.Comfortable;
     public string Margins { get; set; } = PlaybackPreferenceValues.Medium;
     public bool KeepScreenAwake { get; set; } = true;
@@ -538,10 +537,6 @@ public static class PlaybackPreferenceValues
     public const string EndOfEpisode = "EndOfEpisode";
     public const string Paginated = "Paginated";
     public const string Scroll = "Scroll";
-    public const string Dark = "Dark";
-    public const string Sepia = "Sepia";
-    public const string Light = "Light";
-    public const string System = "System";
     public const string Compact = "Compact";
     public const string Comfortable = "Comfortable";
     public const string Spacious = "Spacious";

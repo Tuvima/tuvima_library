@@ -24,7 +24,8 @@ public sealed class UiCleanupGuardTests
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ApiKeysTab.razor");
 
-        Assert.Contains("tl-table-transparent", source, StringComparison.Ordinal);
+        Assert.Contains("<AppTable>", source, StringComparison.Ordinal);
+        Assert.Contains("api-keys-page__table-wrap", source, StringComparison.Ordinal);
         Assert.Contains("tl-inline-code", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Style=\"background: transparent", source, StringComparison.Ordinal);
         Assert.DoesNotContain("style=\"font-family: monospace", source, StringComparison.Ordinal);

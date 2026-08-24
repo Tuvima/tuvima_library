@@ -116,7 +116,7 @@
     private bool _saving;
     private bool _engineUnavailable;
     private bool _creatingPersonal;
-    private string _libraryFilter = "all";
+    private string _libraryFilter = "read";
     private int _wizardStep = 1;
     private LibraryFolderDto _draft = NewPersonalLibrary(null);
     private readonly Dictionary<string, PathTestResultDto> _pathResults = new(StringComparer.OrdinalIgnoreCase);
@@ -211,37 +211,41 @@
     }
 
     private RenderFragment OverviewSurface(bool readOnly) => @<div class="media-management__overview">
-        <div class="media-management-metrics" aria-label="Media management summary">
-            @ManagementMetric("Libraries", _configuration!.Libraries.Count.ToString(), "Configured libraries", Icons.Material.Outlined.FolderCopy)
-            @ManagementMetric("Folders & sources", SourceCount.ToString(), "Across all libraries and incoming folders", Icons.Material.Outlined.FolderOpen)
-            @ManagementMetric("Monitored sources", MonitoredSourceCount.ToString(), "Configured to include subfolders", Icons.Material.Outlined.Visibility)
-            @ManagementMetric("Source health", OverallSourceStatus, OverallSourceDescription, Icons.Material.Outlined.HealthAndSafety)
-        </div>
+        <AppSegmentedControl Value="@_libraryFilter"
+                             ValueChanged="@SetLibraryFilter"
+                             Options="@LibraryFilterOptions.Where(option => option.Value != "all").ToList()"
+                             AriaLabel="Choose a media area" />
 
         <AppCard Class="media-management-card">
             <div class="media-management-card__heading">
-                <div><h3>Library health</h3><p>A compact view of configured libraries. Source access remains “Not checked” until a path check is run.</p></div>
-                <AppButton Href="/settings/media-management/libraries" Label="Manage libraries" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+                <div><h3>@TitleCase(_libraryFilter) folders</h3><p>Configured locations in this media area. Open a library to change its storage and organization rules.</p></div>
+                <AppButton Href="/settings/media-management/libraries" Label="Manage folders" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
             </div>
-            <div class="media-management-table" role="table" aria-label="Library health">
-                <div class="media-management-table__head" role="row"><span>Library</span><span>Area</span><span>Metadata</span><span>Folders</span><span>Status</span></div>
-                @foreach (var library in _configuration.Libraries.OrderBy(library => library.Area).ThenBy(library => library.Name))
+            @if (FilteredLibraries.Count == 0)
+            {
+                <AppPageState Kind="AppPageStateKind.Empty" Icon="@AreaIcon(_libraryFilter)" Title="No folders in this area" Message="Choose another media area or configure its first folder." />
+            }
+            else
+            {
+            <div class="media-management-table media-management-table--summary" role="table" aria-label="Configured folders">
+                <div class="media-management-table__head" role="row"><span>Library</span><span>Type</span><span>Folders</span><span>Status</span></div>
+                @foreach (var library in FilteredLibraries)
                 {
                     <AppNativeButton Type="button" Class="media-management-table__row" OnClick="@(() => OpenLibrary(library))">
                         <span class="media-management-table__identity"><MudIcon Icon="@AreaIcon(library.Area)" Size="Size.Small" /><strong>@library.Name</strong></span>
-                        <span>@TitleCase(library.Area)</span>
-                        <span>@PolicyLabel(library.MetadataPolicy)</span>
+                        <span>@(library.Kind == "personal" ? "Personal" : "Catalogued")</span>
                         <span>@library.Sources.Count</span>
                         <AppStatusBadge Text="@LibraryStatus(library)" Tone="@LibraryStatusTone(library)" />
                     </AppNativeButton>
                 }
             </div>
+            }
         </AppCard>
 
         <div class="media-management__aside-grid">
             <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-info">
                 <MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" />
-                <div><strong>Incoming activity</strong><p>@IncomingSummary</p><a href="/settings/media-management/activity">Open activity</a></div>
+                <div><strong>Incoming</strong><p>@IncomingSummary</p><a href="/settings/media-management/incoming">Manage incoming folders</a></div>
             </AppPanel>
             <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-info">
                 <MudIcon Icon="@Icons.Material.Outlined.Shield" />
@@ -260,7 +264,15 @@
             <div class="media-management-source-list">
                 @foreach (var source in _configuration!.IncomingSources)
                 {
-                    <div class="media-management-source" @key="source.Id">
+                    <details class="media-management-source media-management-source--incoming" @key="source.Id">
+                        <summary>
+                            <span class="media-management-table__identity"><MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" /><strong>@(string.IsNullOrWhiteSpace(source.Path) ? "New incoming folder" : source.Path)</strong></span>
+                            <span>@TitleCase(source.Purpose)</span>
+                            <span>@IncomingSourceSummary(source)</span>
+                            <AppStatusBadge Text="@PathStatus(source.Path)" Tone="@PathTone(source.Path)" />
+                            <span class="media-management-source__edit">Edit</span>
+                        </summary>
+                        <div class="media-management-source__editor">
                         <div class="media-management-source__path">
                             <MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" />
                             <AppTextField Value="@source.Path" ValueChanged="@((string? value) => source.Path = value ?? string.Empty)"
@@ -285,7 +297,8 @@
                                            Tone="AppUiTone.Error" Disabled="@(readOnly || _engineUnavailable)"
                                            OnClick="@(() => RemoveIncomingSource(source))" />
                         </div>
-                    </div>
+                        </div>
+                    </details>
                 }
             </div>
         </AppCard>
@@ -324,7 +337,7 @@
             else
             {
                 <div class="media-management-table media-management-table--libraries" role="table" aria-label="Configured libraries">
-                    <div class="media-management-table__head" role="row"><span>Library</span><span>Type</span><span>Folders</span><span>Items</span><span>Storage</span><span>Status</span></div>
+                    <div class="media-management-table__head" role="row"><span>Library</span><span>Type</span><span>Folders</span><span>Status</span></div>
                     @foreach (var library in FilteredLibraries)
                     {
                         <AppNativeButton Type="button"
@@ -333,8 +346,6 @@
                             <span class="media-management-table__identity"><MudIcon Icon="@AreaIcon(library.Area)" Size="Size.Small" /><strong>@library.Name</strong></span>
                             <span>@(library.Kind == "personal" ? "Personal" : "Catalogued") · @TitleCase(library.Area)</span>
                             <span>@library.Sources.Count</span>
-                            <span class="media-management-table__unavailable">Not reported</span>
-                            <span class="media-management-table__unavailable">Not reported</span>
                             <AppStatusBadge Text="@LibraryStatus(library)" Tone="@LibraryStatusTone(library)" />
                         </AppNativeButton>
                     }
@@ -630,39 +641,6 @@
         }
     }
 
-    private int SourceCount => (_configuration?.Libraries.Sum(library => library.Sources.Count) ?? 0)
-        + (_configuration?.IncomingSources.Count ?? 0);
-
-    private int MonitoredSourceCount => (_configuration?.Libraries.SelectMany(library => library.Sources).Count(source => source.IncludeSubdirectories) ?? 0)
-        + (_configuration?.IncomingSources.Count(source => source.IncludeSubdirectories) ?? 0);
-
-    private string OverallSourceStatus
-    {
-        get
-        {
-            var paths = AllConfiguredPaths;
-            if (paths.Count == 0) return "No sources";
-            if (paths.Any(path => PathStatus(path) is "Missing path" or "Missing" or "Permission issue")) return "Needs attention";
-            if (paths.All(path => PathStatus(path) == "Healthy")) return "Healthy";
-            return "Not checked";
-        }
-    }
-
-    private string OverallSourceDescription => OverallSourceStatus switch
-    {
-        "Healthy" => "All checked source paths are accessible",
-        "Needs attention" => "At least one checked source is inaccessible",
-        "No sources" => "No source folders are configured",
-        _ => "Run a path check from a library to verify access",
-    };
-
-    private IReadOnlyList<string> AllConfiguredPaths => _configuration is null
-        ? []
-        : _configuration.Libraries.SelectMany(library => library.Sources).Select(source => source.Path)
-            .Concat(_configuration.IncomingSources.Select(source => source.Path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
     private string IncomingSummary => _configuration?.IncomingSources.Count switch
     {
         null or 0 => "No shared incoming folders are configured.",
@@ -683,11 +661,6 @@
 
     private bool CanFinishWizard => !string.IsNullOrWhiteSpace(_draft.Sources[0].Path)
         && _draft.AcceptedIntakeModes.Count > 0;
-
-    private static RenderFragment ManagementMetric(string label, string value, string detail, string icon) => @<AppCard Class="media-management-metric">
-        <span class="media-management-metric__icon"><MudIcon Icon="@icon" /></span>
-        <span><small>@label</small><strong>@value</strong><em>@detail</em></span>
-    </AppCard>;
 
     private async Task LoadAsync()
     {

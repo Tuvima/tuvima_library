@@ -9,7 +9,8 @@ public sealed class Phase6SettingsAdminHardeningTests
 
         Assert.Contains("System Status", source, StringComparison.Ordinal);
         Assert.Contains("Recent Activity", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/activity/events", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/activity", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("/settings/activity/events", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<BackupRecoveryPanel", source, StringComparison.Ordinal);
         Assert.DoesNotContain("/settings/ingestion", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Operational Snapshot", source, StringComparison.Ordinal);
@@ -49,11 +50,10 @@ public sealed class Phase6SettingsAdminHardeningTests
         var settings = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
 
         Assert.DoesNotContain("aria-label=\"Media Management sections\"", source, StringComparison.Ordinal);
-        Assert.Contains("new(\"overview\", \"Overview\"", nav, StringComparison.Ordinal);
         Assert.Contains("new(\"incoming\", \"Incoming\"", nav, StringComparison.Ordinal);
         Assert.Contains("new(\"libraries\", \"Libraries\"", nav, StringComparison.Ordinal);
         Assert.Contains("new(\"activity\", \"Activity\"", nav, StringComparison.Ordinal);
-        Assert.Contains("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
 
         Assert.Contains("Structured libraries", source, StringComparison.Ordinal);
         Assert.Contains("Personal libraries (View)", source, StringComparison.Ordinal);
@@ -226,16 +226,18 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void AccessSettings_UsesRealApiKeyTabAndMarksUnpersistedControls()
+    public void AccessSettings_UsesRealAuthenticationKeysAndProfileLinkedAccounts()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersAccessSettingsTab.razor");
+        var users = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersTab.razor");
 
         Assert.Contains("<ApiKeysTab />", source, StringComparison.Ordinal);
         Assert.Contains("Authentication", source, StringComparison.Ordinal);
-        Assert.Contains("Linked Accounts", source, StringComparison.Ordinal);
+        Assert.Contains("GetProfileExternalLoginsAsync", users, StringComparison.Ordinal);
+        Assert.Contains("Sign-in accounts", users, StringComparison.Ordinal);
         Assert.DoesNotContain("Owner Administrator\", \"library:read, ingest:write", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Access Rules", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Sessions", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Active sessions", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using System.Text.Json
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Models.ViewDTOs
@@ -7,18 +7,15 @@
 @inject UIOrchestratorService Orchestrator
 @inject IUserPlaybackPreferencesAccessor PreferencesAccessor
 @inject ISnackbar Snackbar
-@inject NavigationManager Nav
 
 @if (_loading)
 {
-    <MudStack Spacing="3">
-        <MudSkeleton Height="72px" />
-        <MudSkeleton Height="56px" />
-        <MudGrid Spacing="3">
-            <MudItem xs="12" md="6"><MudSkeleton Height="220px" /></MudItem>
-            <MudItem xs="12" md="6"><MudSkeleton Height="220px" /></MudItem>
-        </MudGrid>
-    </MudStack>
+    <div class="playback-settings-skeleton" aria-label="Loading playback preferences">
+        @for (var index = 0; index < 4; index++)
+        {
+            <MudSkeleton Height="220px" />
+        }
+    </div>
 }
 else if (!string.IsNullOrWhiteSpace(_loadError))
 {
@@ -26,433 +23,121 @@ else if (!string.IsNullOrWhiteSpace(_loadError))
 }
 else if (_settings is not null)
 {
-    <MudStack Spacing="4" Class="settings-playback-page">
+    <div class="settings-playback-page" data-playback-section="overview">
         @if (!string.IsNullOrWhiteSpace(_saveError))
         {
-            <AppAlert Severity="Severity.Error" Variant="Variant.Outlined">@_saveError</AppAlert>
+            <AppAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true">@_saveError</AppAlert>
         }
 
-        <section class="settings-playback-section"
-                 data-playback-section="@ActiveSubsection"
-                 aria-label="@PlaybackSectionLabel">
-        @if (ActiveSubsection == "general")
-        {
-                <div class="settings-tab-panel playback-general-grid">
-                    <SettingsSectionPanel Title="Resume & Progress"
-                                          Description="Manage how progress is tracked and resumed."
-                                          Icon="@Icons.Material.Outlined.Update"
-                                          Class="tl-card settings-section-card playback-general-card playback-general-card--resume">
-                        @PlainBoolRow("Resume playback automatically", "Automatically resume from where you left off.", _settings.General.ResumePlayback, v => UpdateAndSaveAsync(() => _settings.General.ResumePlayback = v))
-                        @PlainBoolRow("Ask before resuming", "Always ask for confirmation before resuming content.", _settings.General.AskBeforeResuming, v => UpdateAndSaveAsync(() => _settings.General.AskBeforeResuming = v))
-                        @PlainBoolRow("Track partial progress", "Save progress for partially watched or listened content.", _settings.General.TrackPartiallyPlayedItems, v => UpdateAndSaveAsync(() => _settings.General.TrackPartiallyPlayedItems = v))
-                        @PlainIntSelectRow("Minimum progress to track", "Progress must reach this threshold to be saved.", _settings.General.MinimumProgressToTrackPercent, MinimumProgressOptions, v => UpdateAndSaveAsync(() => _settings.General.MinimumProgressToTrackPercent = v), "%")
-                    </SettingsSectionPanel>
+        <div class="playback-settings-grid">
+            <SettingsSectionPanel Title="Resume & Progress"
+                                  Description="Choose whether long-form playback starts where you left off."
+                                  Class="tl-card settings-section-card playback-settings-card">
+                @BoolRow(
+                    "Resume automatically",
+                    "Continue from your last saved position when you return to a video or audiobook.",
+                    _settings.General.ResumePlayback,
+                    value => UpdateAndSaveAsync(() => _settings.General.ResumePlayback = value))
+            </SettingsSectionPanel>
 
-                    <SettingsSectionPanel Title="Cross-format Sync"
-                                          Description="Keep your progress in sync across formats."
-                                          Icon="@Icons.Material.Outlined.CloudSync"
-                                          Class="tl-card settings-section-card playback-general-card playback-general-card--sync">
-                        @PlainBoolRow("Sync ebook & audiobook progress", "Sync reading and listening positions.", _settings.General.SyncProgressBetweenBookAndAudiobook, v => UpdateAndSaveAsync(() => _settings.General.SyncProgressBetweenBookAndAudiobook = v))
-                        @PlainBoolRow("Spoiler-safe progress", "Only sync progress from completed items.", _settings.General.SpoilerSafeProgress, v => UpdateAndSaveAsync(() => _settings.General.SpoilerSafeProgress = v))
-                        @PlainBoolRow("Sync across devices", "Keep progress in sync across all your devices.", _settings.General.SyncAcrossDevices, v => UpdateAndSaveAsync(() => _settings.General.SyncAcrossDevices = v))
-                        @PlainIntSelectRow("Sync frequency", "How often we sync your progress.", _settings.General.SyncFrequencyMinutes, SyncFrequencyOptions, v => UpdateAndSaveAsync(() => _settings.General.SyncFrequencyMinutes = v), " min", _settings.General.SyncAcrossDevices)
-                    </SettingsSectionPanel>
+            <SettingsSectionPanel Title="Watching"
+                                  Description="Defaults used when a video playback session starts."
+                                  Class="tl-card settings-section-card playback-settings-card">
+                @DecimalSelectRow(
+                    "Default playback speed",
+                    "Applied when a movie or episode begins.",
+                    _settings.Watching.DefaultPlaybackSpeed,
+                    VideoSpeedOptions,
+                    value => UpdateAndSaveAsync(() => _settings.Watching.DefaultPlaybackSpeed = value))
+                @IntSelectRow(
+                    "Skip back",
+                    "The default amount used by the player rewind control.",
+                    _settings.Watching.SkipBackSeconds,
+                    WatchingSkipBackOptions,
+                    value => UpdateAndSaveAsync(() => _settings.Watching.SkipBackSeconds = value))
+                @IntSelectRow(
+                    "Skip forward",
+                    "The default amount used by the player forward control.",
+                    _settings.Watching.SkipForwardSeconds,
+                    WatchingSkipForwardOptions,
+                    value => UpdateAndSaveAsync(() => _settings.Watching.SkipForwardSeconds = value))
+            </SettingsSectionPanel>
 
-                    <SettingsSectionPanel Title="Default Playback Behavior"
-                                          Description="Set defaults for playback across your library."
-                                          Icon="@Icons.Material.Outlined.PlayCircleOutline"
-                                          Class="tl-card settings-section-card playback-general-card playback-general-card--defaults">
-                        <div class="playback-defaults-grid">
-                            <div class="playback-field-group">
-                                <label class="playback-field-label">Default audio language</label>
-                                <span class="playback-field-description">Preferred audio language for media.</span>
-                                <AppSelect T="string"
-                                           Value="@_settings.Subtitles.AudioLanguage"
-                                           ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Subtitles.AudioLanguage = v))"
-                                           Variant="Variant.Outlined"
-                                           Margin="Margin.Dense"
-                                           Size="AppControlSize.Compact"
-                                           Class="playback-general-select">
-                                    @foreach (var option in LanguageOptions)
-                                    {
-                                        <MudSelectItem T="string" Value="@option">@option</MudSelectItem>
-                                    }
-                                </AppSelect>
-                            </div>
+            <SettingsSectionPanel Title="Listening"
+                                  Description="Defaults used when an audiobook playback session starts."
+                                  Class="tl-card settings-section-card playback-settings-card">
+                @DecimalSelectRow(
+                    "Audiobook default speed",
+                    "Applied when an audiobook begins.",
+                    _settings.Listening.AudiobookDefaultSpeed,
+                    AudiobookSpeedOptions,
+                    value => UpdateAndSaveAsync(() => _settings.Listening.AudiobookDefaultSpeed = value))
+                @IntSelectRow(
+                    "Skip back",
+                    "The default amount used by the player rewind control.",
+                    _settings.Listening.SkipBackSeconds,
+                    ListeningSkipBackOptions,
+                    value => UpdateAndSaveAsync(() => _settings.Listening.SkipBackSeconds = value))
+                @IntSelectRow(
+                    "Skip forward",
+                    "The default amount used by the player forward control.",
+                    _settings.Listening.SkipForwardSeconds,
+                    ListeningSkipForwardOptions,
+                    value => UpdateAndSaveAsync(() => _settings.Listening.SkipForwardSeconds = value))
+                @IntSelectRow(
+                    "Resume rewind",
+                    "Rewind slightly when resuming so spoken context is not lost.",
+                    _settings.Listening.ResumeRewindSeconds,
+                    ListeningResumeRewindOptions,
+                    value => UpdateAndSaveAsync(() => _settings.Listening.ResumeRewindSeconds = value))
+            </SettingsSectionPanel>
 
-                            <div class="playback-field-group">
-                                <label class="playback-field-label">Preferred subtitle style</label>
-                                <span class="playback-field-description">Default style for subtitles.</span>
-                                <div class="playback-subtitle-style-control">
-                                    <span class="playback-subtitle-style-control__sample">Aa</span>
-                                    <span class="playback-subtitle-style-control__name">@SubtitleStyleLabel(_settings.Subtitles.SubtitleStyle)</span>
-                                    <AppButton Size="AppControlSize.Compact"
-                                               ButtonStyle="AppButtonStyle.Outlined"
-                                               OnClick="OpenSubtitleSettings">Customize</AppButton>
-                                </div>
-                            </div>
-
-                            <div class="playback-field-group">
-                                <label class="playback-field-label">Skip intervals</label>
-                                <span class="playback-field-description">Default skip amounts.</span>
-                                <div class="settings-interval-actions">
-                                    <SettingsIntervalAction Icon="@Icons.Material.Outlined.Replay10"
-                                                            Value="@($"{_settings.Watching.SkipBackSeconds} sec")"
-                                                            Label="Back"
-                                                            AriaLabel="Configure skip back interval"
-                                                            OnClick="OpenWatchingSettings" />
-                                    <SettingsIntervalAction Icon="@Icons.Material.Outlined.Forward30"
-                                                            Value="@($"{_settings.Watching.SkipForwardSeconds} sec")"
-                                                            Label="Forward"
-                                                            AriaLabel="Configure skip forward interval"
-                                                            OnClick="OpenWatchingSettings" />
-                                </div>
-                            </div>
-                        </div>
-                        <div class="playback-default-toggle-grid">
-                            @PlainBoolRow("Remember playback speed", "Remember and apply your last playback speed.", RememberPlaybackSpeed, UpdateRememberPlaybackSpeedAsync)
-                            @PlainBoolRow("Auto-play next episode", "Automatically play the next episode in a series.", _settings.Watching.AutoplayNextEpisode, v => UpdateAndSaveAsync(() => _settings.Watching.AutoplayNextEpisode = v))
-                        </div>
-                    </SettingsSectionPanel>
-
-                    <SettingsSectionPanel Title="Reading Preferences"
-                                          Description="Set defaults for ebooks and documents."
-                                          Icon="@Icons.Material.Outlined.MenuBook"
-                                          Class="tl-card settings-section-card playback-general-card playback-general-card--reading">
-                        <div class="playback-reading-field">
-                            <label class="playback-field-label">Reading theme</label>
-                            <AppSegmentedControl Options="@ReadingThemeOptions"
-                                                 Value="@_settings.Reading.Theme"
-                                                 ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Reading.Theme = v))"
-                                                 Size="AppControlSize.Compact"
-                                                 AriaLabel="Reading theme" />
-                        </div>
-                        <div class="playback-reading-field">
-                            <label class="playback-field-label">Font size</label>
-                            <div class="playback-font-stepper" role="group" aria-label="Reading font size">
-                                <AppButton Label="−"
-                                           ButtonStyle="AppButtonStyle.Text"
-                                           Size="AppControlSize.Compact"
-                                           Class="playback-font-stepper__button"
-                                           aria-label="Decrease reading font size"
-                                           Disabled="@(_settings.Reading.FontSizePercent <= 80)"
-                                           OnClick="@(() => AdjustReadingFontSizeAsync(-5))" />
-                                <output>@($"{_settings.Reading.FontSizePercent}%")</output>
-                                <AppButton Label="+"
-                                           ButtonStyle="AppButtonStyle.Text"
-                                           Size="AppControlSize.Compact"
-                                           Class="playback-font-stepper__button"
-                                           aria-label="Increase reading font size"
-                                           Disabled="@(_settings.Reading.FontSizePercent >= 160)"
-                                           OnClick="@(() => AdjustReadingFontSizeAsync(5))" />
-                            </div>
-                        </div>
-                        <div class="playback-reading-field">
-                            <label class="playback-field-label">Page turn style</label>
-                            <AppSelect T="string"
-                                       Value="@_settings.Reading.ReadingMode"
-                                       ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Reading.ReadingMode = v))"
-                                       Variant="Variant.Outlined"
-                                       Margin="Margin.Dense"
-                                       Size="AppControlSize.Compact"
-                                       Class="playback-general-select">
-                                @foreach (var option in ReadingModeOptions)
-                                {
-                                    <MudSelectItem T="string" Value="@option">@ReadingModeLabel(option)</MudSelectItem>
-                                }
-                            </AppSelect>
-                        </div>
-                    </SettingsSectionPanel>
-
-                    <SettingsSectionPanel Title="Preview"
-                                          Description="See how your reading and subtitles will look."
-                                          Icon="@Icons.Material.Outlined.Preview"
-                                          Class="tl-card settings-section-card playback-general-card playback-general-card--preview">
-                        <div class="playback-preview-shell">
-                            <div class="playback-preview-tabs" aria-hidden="true">
-                                <span class="is-active">Reading Preview</span>
-                                <span>Subtitle Preview</span>
-                            </div>
-                            <div class="playback-preview-grid">
-                                <AppCssElement Tag="div" Class="playback-reading-sample" Css="@ReadingPreviewStyle">
-                                    <p>It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness...</p>
-                                    <cite>— Charles Dickens, A Tale of Two Cities</cite>
-                                </AppCssElement>
-                                <AppCssElement Tag="div" Class="playback-subtitle-sample" Css="@SubtitlePreviewStyle">
-                                    <span>This is how your subtitles<br />will appear on screen.</span>
-                                </AppCssElement>
-                            </div>
-                        </div>
-                    </SettingsSectionPanel>
+            <SettingsSectionPanel Title="Reading"
+                                  Description="Reading controls stay close to the book you are using."
+                                  Class="tl-card settings-section-card playback-settings-card playback-settings-card--guidance">
+                <div class="playback-guidance">
+                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Medium" aria-hidden="true" />
+                    <div>
+                        <MudText Typo="Typo.body1">Adjust text while reading</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Font, spacing, margins, and page controls are available in the reader and are saved on that device.
+                        </MudText>
+                    </div>
                 </div>
-        }
-        else if (ActiveSubsection == "watching")
-        {
-                <MudGrid Spacing="3" Class="settings-tab-panel">
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Video Speed" Icon="@Icons.Material.Outlined.Speed">
-                            <div class="settings-slider-block">
-                                @SliderHeader("Default playback speed", DisplayFormat.FormatSpeedSetting(_settings.Watching.DefaultPlaybackSpeed))
-                                <MudSlider T="double" Class="settings-slider" Value="@((double)_settings.Watching.DefaultPlaybackSpeed)" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Watching.DefaultPlaybackSpeed = (decimal)v))" Min="0.5" Max="2.0" Step="0.05" Color="Color.Primary" />
-                                @SliderLabels([new("0.5x", 0), new("1.0x", 33.333), new("1.5x", 66.667), new("2.0x", 100)])
-                            </div>
-                            <AppButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Restore" OnClick="@(() => UpdateAndSaveAsync(() => _settings.Watching.DefaultPlaybackSpeed = 1.0m))">Reset to 1.0x</AppButton>
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Skip Controls" Icon="@Icons.Material.Outlined.Replay10">
-                            @IntSelect("Skip back", _settings.Watching.SkipBackSeconds, WatchingSkipBackOptions, v => UpdateAndSaveAsync(() => _settings.Watching.SkipBackSeconds = v), " seconds")
-                            @IntSelect("Skip forward", _settings.Watching.SkipForwardSeconds, WatchingSkipForwardOptions, v => UpdateAndSaveAsync(() => _settings.Watching.SkipForwardSeconds = v), " seconds")
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Episode Behavior" Icon="@Icons.Material.Outlined.PlaylistPlay">
-                            @BoolRow(Icons.Material.Outlined.PlaylistPlay, "Autoplay next episode", "Start the next episode automatically.", _settings.Watching.AutoplayNextEpisode, v => UpdateAndSaveAsync(() => _settings.Watching.AutoplayNextEpisode = v))
-                            @BoolRow(Icons.Material.Outlined.FastForward, "Continue from credits", "Resume near the credit point when available.", _settings.Watching.ContinueFromCredits, v => UpdateAndSaveAsync(() => _settings.Watching.ContinueFromCredits = v))
-                            @BoolRow(Icons.Material.Outlined.Speed, "Remember per-title playback speed", "Keep custom speeds for individual titles.", _settings.Watching.RememberPerTitlePlaybackSpeed, v => UpdateAndSaveAsync(() => _settings.Watching.RememberPerTitlePlaybackSpeed = v))
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Quality & Artwork" Icon="@Icons.Material.Outlined.HighQuality">
-                            @StringSelect("Preferred video quality", _settings.Watching.PreferredVideoQuality, VideoQualityOptions, v => UpdateAndSaveAsync(() => _settings.Watching.PreferredVideoQuality = v))
-                            @BoolRow(Icons.Material.Outlined.Panorama, "Prefer hero banners", "Use wide artwork when available.", _settings.Watching.PreferHeroBanners, v => UpdateAndSaveAsync(() => _settings.Watching.PreferHeroBanners = v))
-                            <AppAlert Severity="Severity.Info" Variant="Variant.Outlined">Server delivery and transcoding settings are managed by administrators under Playback & Delivery.</AppAlert>
-                        </SettingsSectionPanel>
-                    </MudItem>
-                </MudGrid>
-        }
-        else if (ActiveSubsection == "listening")
-        {
-                <MudGrid Spacing="3" Class="settings-tab-panel">
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Audiobook Speed" Icon="@Icons.Material.Outlined.Speed">
-                            <div class="settings-slider-block">
-                                @SliderHeader("Audiobook default speed", DisplayFormat.FormatSpeedSetting(_settings.Listening.AudiobookDefaultSpeed))
-                                <MudSlider T="double" Class="settings-slider" Value="@((double)_settings.Listening.AudiobookDefaultSpeed)" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookDefaultSpeed = (decimal)v))" Min="0.5" Max="3.0" Step="0.05" Color="Color.Primary" />
-                                @SliderLabels([new("0.5x", 0), new("1.0x", 20), new("1.5x", 40), new("2.0x", 60), new("3.0x", 100)])
-                            </div>
-                            <AppButton Variant="Variant.Text" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Outlined.Restore" OnClick="@(() => UpdateAndSaveAsync(() => _settings.Listening.AudiobookDefaultSpeed = 1.25m))">Reset to 1.25x</AppButton>
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Skip & Silence" Icon="@Icons.Material.Outlined.Forward">
-                            @IntSelect("Skip back", _settings.Listening.SkipBackSeconds, ListeningSkipBackOptions, v => UpdateAndSaveAsync(() => _settings.Listening.SkipBackSeconds = v), " seconds")
-                            @IntSelect("Skip forward", _settings.Listening.SkipForwardSeconds, ListeningSkipForwardOptions, v => UpdateAndSaveAsync(() => _settings.Listening.SkipForwardSeconds = v), " seconds")
-                            @IntSelect("Resume rewind", _settings.Listening.ResumeRewindSeconds, ListeningResumeRewindOptions, v => UpdateAndSaveAsync(() => _settings.Listening.ResumeRewindSeconds = v), " seconds")
-                            @BoolRow(Icons.Material.Outlined.VolumeOff, "Skip silence", "Reduce long silent gaps when supported.", _settings.Listening.SkipSilence, v => UpdateAndSaveAsync(() => _settings.Listening.SkipSilence = v))
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Music Behavior" Icon="@Icons.Material.Outlined.GraphicEq">
-                            @BoolRow(Icons.Material.Outlined.GraphicEq, "Music crossfade", "Blend between tracks.", _settings.Listening.MusicCrossfade, v => UpdateAndSaveAsync(() => _settings.Listening.MusicCrossfade = v))
-                            <div class="settings-slider-block">
-                                @SliderHeader("Crossfade length", $"{_settings.Listening.CrossfadeSeconds}s")
-                                <MudSlider T="int" Class="settings-slider" Value="_settings.Listening.CrossfadeSeconds" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Listening.CrossfadeSeconds = v))" Min="1" Max="15" Step="1" Disabled="@(!_settings.Listening.MusicCrossfade)" Color="Color.Primary" />
-                                @SliderLabels([new("1s", 0), new("5s", 28.571), new("10s", 64.286), new("15s", 100)])
-                            </div>
-                            @BoolRow(Icons.Material.Outlined.Speed, "Remember per-title playback speed", "Keep custom speeds for individual titles.", _settings.Listening.RememberPerTitlePlaybackSpeed, v => UpdateAndSaveAsync(() => _settings.Listening.RememberPerTitlePlaybackSpeed = v))
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Sleep & Output" Icon="@Icons.Material.Outlined.Bedtime">
-                            @StringSelect("Sleep timer", _settings.Listening.DefaultSleepTimer, SleepTimerOptions, v => UpdateAndSaveAsync(() => _settings.Listening.DefaultSleepTimer = v), SleepLabel)
-                            @BoolRow(Icons.Material.Outlined.Timer, "End-of-chapter timer", "Allow sleep timer to stop at the end of the current chapter.", _settings.Listening.AllowEndOfChapterSleepTimer, v => UpdateAndSaveAsync(() => _settings.Listening.AllowEndOfChapterSleepTimer = v))
-                            @StringSelect("Output preference", _settings.Listening.OutputPreference, OutputOptions, v => UpdateAndSaveAsync(() => _settings.Listening.OutputPreference = v))
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12">
-                        <MudExpansionPanels Elevation="0" Dense="true">
-                            <MudExpansionPanel Text="Advanced listening and history controls">
-                                <MudGrid Spacing="2">
-                                    <MudItem xs="12" md="6">@IntSelect("Listen history threshold", _settings.Listening.AudiobookListenQualificationSeconds, ListeningQualificationOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookListenQualificationSeconds = v), " seconds")</MudItem>
-                                    <MudItem xs="12" md="6">@IntSelect("History limit", _settings.Listening.AudiobookHistoryLimit, ListeningHistoryLimitOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookHistoryLimit = v), " positions")</MudItem>
-                                    <MudItem xs="12" md="6">@IntSelect("Resume regression guard", _settings.Listening.AudiobookResumeRegressionGuardSeconds, ListeningResumeGuardOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookResumeRegressionGuardSeconds = v), " seconds")</MudItem>
-                                    <MudItem xs="12" md="6">@IntSelect("Near-start guard", _settings.Listening.AudiobookNearStartGuardSeconds, ListeningNearStartGuardOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookNearStartGuardSeconds = v), " seconds")</MudItem>
-                                    <MudItem xs="12" md="6">@IntSelect("History segment gap", _settings.Listening.AudiobookHistoryActiveSegmentGapSeconds, ListeningSegmentGapOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookHistoryActiveSegmentGapSeconds = v), " seconds")</MudItem>
-                                    <MudItem xs="12" md="6">@IntSelect("History jump tolerance", _settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds, ListeningJumpToleranceOptions, v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds = v), " seconds")</MudItem>
-                                </MudGrid>
-                            </MudExpansionPanel>
-                        </MudExpansionPanels>
-                    </MudItem>
-                </MudGrid>
-        }
-        else if (ActiveSubsection == "reading")
-        {
-                <MudGrid Spacing="3" Class="settings-tab-panel">
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Reading Mode" Icon="@Icons.Material.Outlined.ChromeReaderMode">
-                            @StringSelect("Reading mode", _settings.Reading.ReadingMode, ReadingModeOptions, v => UpdateAndSaveAsync(() => _settings.Reading.ReadingMode = v))
-                            @StringSelect("Comic mode", _settings.Reading.DefaultComicMode, ComicOptions, v => UpdateAndSaveAsync(() => _settings.Reading.DefaultComicMode = v))
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Typography" Icon="@Icons.Material.Outlined.FormatSize">
-                            <div class="settings-slider-block">
-                                @SliderHeader("Font size", $"{_settings.Reading.FontSizePercent}%")
-                                <MudSlider T="int" Class="settings-slider" Value="_settings.Reading.FontSizePercent" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Reading.FontSizePercent = v))" Min="80" Max="160" Step="5" Color="Color.Primary" />
-                                @SliderLabels([new("80%", 0), new("100%", 25), new("120%", 50), new("140%", 75), new("160%", 100)])
-                            </div>
-                            @StringSelect("Theme", _settings.Reading.Theme, ThemeOptions, v => UpdateAndSaveAsync(() => _settings.Reading.Theme = v))
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Page Layout" Icon="@Icons.Material.Outlined.ViewAgenda">
-                            @StringSelect("Line spacing", _settings.Reading.LineSpacing, SpacingOptions, v => UpdateAndSaveAsync(() => _settings.Reading.LineSpacing = v))
-                            @StringSelect("Margins", _settings.Reading.Margins, MarginOptions, v => UpdateAndSaveAsync(() => _settings.Reading.Margins = v))
-                            @BoolRow(Icons.Material.Outlined.WbSunny, "Keep screen awake", "Prevent dimming while reading.", _settings.Reading.KeepScreenAwake, v => UpdateAndSaveAsync(() => _settings.Reading.KeepScreenAwake = v))
-                            @BoolRow(Icons.Material.Outlined.Timeline, "Show chapter progress", "Show progress inside each chapter.", _settings.Reading.ShowChapterProgress, v => UpdateAndSaveAsync(() => _settings.Reading.ShowChapterProgress = v))
-                            @BoolRow(Icons.Material.Outlined.Numbers, "Show page numbers", "Show page numbers where available.", _settings.Reading.ShowPageNumbers, v => UpdateAndSaveAsync(() => _settings.Reading.ShowPageNumbers = v))
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Preview" Icon="@Icons.Material.Outlined.Preview">
-                            <AppPanel Elevation="0" Class="tl-card tl-card--flush settings-reading-preview">
-                                <MudText Typo="Typo.subtitle1">@Display(_settings.Reading.Theme) reader preview</MudText>
-                                <MudText Typo="Typo.body2">A short passage shows the selected font scale, spacing, and page layout preferences without changing your actual reader.</MudText>
-                            </AppPanel>
-                        </SettingsSectionPanel>
-                    </MudItem>
-                </MudGrid>
-        }
-        else
-        {
-                <MudGrid Spacing="3" Class="settings-tab-panel">
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Language Defaults" Icon="@Icons.Material.Outlined.Translate">
-                            @StringSelect("Default subtitle language", _settings.Subtitles.DefaultSubtitleLanguage, LanguageOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.DefaultSubtitleLanguage = v))
-                            @StringSelect("Forced subtitles mode", _settings.Subtitles.ForcedSubtitlesMode, ForcedSubtitleOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.ForcedSubtitlesMode = v))
-                            @StringSelect("Audio language", _settings.Subtitles.AudioLanguage, LanguageOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.AudioLanguage = v))
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12" lg="6">
-                        <SettingsSectionPanel Title="Subtitle Appearance" Icon="@Icons.Material.Outlined.Subtitles">
-                            @StringSelect("Subtitle size", _settings.Subtitles.SubtitleSize, SubtitleSizeOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.SubtitleSize = v), Display)
-                            @BoolRow(Icons.Material.Outlined.Subtitles, "Subtitle background", "Add a readable background behind subtitles.", _settings.Subtitles.SubtitleBackground, v => UpdateAndSaveAsync(() => _settings.Subtitles.SubtitleBackground = v))
-                            @StringSelect("Subtitle position", _settings.Subtitles.SubtitlePosition, SubtitlePositionOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.SubtitlePosition = v))
-                            @StringSelect("Subtitle style", _settings.Subtitles.SubtitleStyle, SubtitleStyleOptions, v => UpdateAndSaveAsync(() => _settings.Subtitles.SubtitleStyle = v), Display)
-                        </SettingsSectionPanel>
-                    </MudItem>
-                    <MudItem xs="12">
-                        <SettingsSectionPanel Title="Preview" Icon="@Icons.Material.Outlined.Visibility">
-                            <AppPanel Elevation="0" Class="tl-card tl-card--flush settings-subtitle-preview">
-                                <MudText Typo="@SubtitlePreviewTypo" Color="@SubtitlePreviewColor">The quick brown fox jumps over the lazy dog.</MudText>
-                                <AppChip T="string" Variant="Variant.Outlined">@Display(_settings.Subtitles.SubtitleStyle) - @Display(_settings.Subtitles.SubtitlePosition)</AppChip>
-                            </AppPanel>
-                        </SettingsSectionPanel>
-                    </MudItem>
-                </MudGrid>
-        }
-        </section>
-    </MudStack>
-}
-@code {
-    [Parameter] public string Subsection { get; set; } = "general";
+            </SettingsSectionPanel>
 
+            <SettingsSectionPanel Title="Subtitles & Languages"
+                                  Description="Track choices depend on the media that is currently playing."
+                                  Class="tl-card settings-section-card playback-settings-card playback-settings-card--guidance">
+                <div class="playback-guidance">
+                    <MudIcon Icon="@Icons.Material.Outlined.Subtitles" Size="Size.Medium" aria-hidden="true" />
+                    <div>
+                        <MudText Typo="Typo.body1">Choose tracks in the player</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Audio, captions, and subtitle appearance are available from the playback controls when supported.
+                        </MudText>
+                    </div>
+                </div>
+            </SettingsSectionPanel>
+        </div>
+    </div>
+}
+
+@code {
     private readonly JsonSerializerOptions _jsonOptions = MediaEngineJson.Web;
     private UserPlaybackSettingsDto? _settings;
-    private UserPlaybackSettingsDto? _savedSettings;
     private ProfileViewModel? _activeProfile;
-    private string ActiveSubsection => Subsection.ToLowerInvariant() switch
-    {
-        "watching" => "watching",
-        "listening" => "listening",
-        "reading" => "reading",
-        "subtitles" => "subtitles",
-        _ => "general",
-    };
-    private string PlaybackSectionLabel => ActiveSubsection switch
-    {
-        "watching" => "Watching preferences",
-        "listening" => "Listening preferences",
-        "reading" => "Reading preferences",
-        "subtitles" => "Subtitle preferences",
-        _ => "General playback preferences",
-    };
     private bool _loading = true;
     private string? _loadError;
     private string? _saveError;
 
+    private static readonly decimal[] VideoSpeedOptions = [0.5m, 0.75m, 1m, 1.25m, 1.5m, 2m];
+    private static readonly decimal[] AudiobookSpeedOptions = [0.5m, 0.75m, 1m, 1.25m, 1.5m, 1.75m, 2m, 2.5m, 3m];
     private static readonly int[] WatchingSkipBackOptions = [5, 10, 15, 30];
     private static readonly int[] WatchingSkipForwardOptions = [10, 30, 60, 90];
     private static readonly int[] ListeningSkipBackOptions = [10, 15, 30];
     private static readonly int[] ListeningSkipForwardOptions = [15, 30, 60];
     private static readonly int[] ListeningResumeRewindOptions = [0, 5, 10, 15, 30];
-    private static readonly int[] ListeningQualificationOptions = [15, 30, 60, 120, 300];
-    private static readonly int[] ListeningHistoryLimitOptions = [10, 25, 50];
-    private static readonly int[] ListeningResumeGuardOptions = [0, 30, 60, 90, 180, 300];
-    private static readonly int[] ListeningNearStartGuardOptions = [0, 15, 30, 60, 120];
-    private static readonly int[] ListeningSegmentGapOptions = [10, 20, 30, 60, 120];
-    private static readonly int[] ListeningJumpToleranceOptions = [5, 12, 20, 30, 60];
-    private static readonly int[] MinimumProgressOptions = [1, 3, 5, 10, 15, 25];
-    private static readonly int[] SyncFrequencyOptions = [5, 15, 30, 60];
-    private static readonly int[] ThresholdOptions = [50, 60, 70, 80, 90, 95, 100];
-    private static readonly string[] LanguageOptions = ["English", "Spanish", "French", "German", "Japanese", "Original"];
-    private static readonly string[] VideoQualityOptions = [PlaybackPreferenceValues.Auto, PlaybackPreferenceValues.Original, PlaybackPreferenceValues.High, PlaybackPreferenceValues.Balanced, PlaybackPreferenceValues.DataSaver];
-    private static readonly string[] SleepTimerOptions = [PlaybackPreferenceValues.Off, "5", "10", "15", "30", "45", "60", PlaybackPreferenceValues.EndOfChapter, PlaybackPreferenceValues.EndOfEpisode];
-    private static readonly string[] OutputOptions = [PlaybackPreferenceValues.Auto, PlaybackPreferenceValues.Headphones, PlaybackPreferenceValues.Speakers, PlaybackPreferenceValues.Bluetooth];
-    private static readonly string[] ReadingModeOptions = [PlaybackPreferenceValues.Paginated, PlaybackPreferenceValues.Scroll];
-    private static readonly string[] ThemeOptions = [PlaybackPreferenceValues.Dark, PlaybackPreferenceValues.Sepia, PlaybackPreferenceValues.Light, PlaybackPreferenceValues.System];
-    private static readonly string[] SpacingOptions = [PlaybackPreferenceValues.Compact, PlaybackPreferenceValues.Comfortable, PlaybackPreferenceValues.Spacious];
-    private static readonly string[] MarginOptions = [PlaybackPreferenceValues.Narrow, PlaybackPreferenceValues.Medium, PlaybackPreferenceValues.Wide];
-    private static readonly string[] ComicOptions = [PlaybackPreferenceValues.Page, PlaybackPreferenceValues.Webtoon, PlaybackPreferenceValues.DoublePage, PlaybackPreferenceValues.FitWidth];
-    private static readonly string[] ForcedSubtitleOptions = [PlaybackPreferenceValues.Auto, PlaybackPreferenceValues.Always, PlaybackPreferenceValues.Never];
-    private static readonly string[] SubtitleSizeOptions = [PlaybackPreferenceValues.Small, PlaybackPreferenceValues.Medium, PlaybackPreferenceValues.Large, PlaybackPreferenceValues.ExtraLarge];
-    private static readonly string[] SubtitlePositionOptions = [PlaybackPreferenceValues.Bottom, PlaybackPreferenceValues.Top];
-    private static readonly string[] SubtitleStyleOptions = [PlaybackPreferenceValues.Clean, PlaybackPreferenceValues.HighContrast, PlaybackPreferenceValues.Shadowed];
-    private static readonly IReadOnlyList<AppSelectOption> ReadingThemeOptions =
-    [
-        new(PlaybackPreferenceValues.System, "Follow system"),
-        new(PlaybackPreferenceValues.Dark, "Dark"),
-        new(PlaybackPreferenceValues.Light, "Light"),
-        new(PlaybackPreferenceValues.Sepia, "Sepia"),
-    ];
-
-    private string ProfileName => string.IsNullOrWhiteSpace(_activeProfile?.DisplayName) ? "Current profile" : _activeProfile.DisplayName;
-    private string ProfileRole => string.IsNullOrWhiteSpace(_activeProfile?.Role) ? "User" : _activeProfile.Role;
-    private string Initials => GetInitials(ProfileName);
-    private static string EnabledLabel(bool value) => value ? "on" : "off";
-    private bool RememberPlaybackSpeed =>
-        _settings?.Watching.RememberPerTitlePlaybackSpeed == true
-        && _settings.Listening.RememberPerTitlePlaybackSpeed;
-    private string ReadingPreviewStyle
-    {
-        get
-        {
-            if (_settings is null)
-                return string.Empty;
-
-            var palette = _settings.Reading.Theme switch
-            {
-                PlaybackPreferenceValues.Dark => (Background: "#121826", Text: "#eef2f8"),
-                PlaybackPreferenceValues.Light => (Background: "#f5f1e8", Text: "#1f2937"),
-                PlaybackPreferenceValues.Sepia => (Background: "#eee2c7", Text: "#3f3327"),
-                _ => (Background: "#e9e2d2", Text: "#302a24"),
-            };
-            var fontSize = (13d * _settings.Reading.FontSizePercent / 100d)
-                .ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-            return $"background: {palette.Background}; color: {palette.Text}; font-size: {fontSize}px;";
-        }
-    }
-    private string SubtitlePreviewStyle => _settings?.Subtitles.SubtitleBackground == true
-        ? "background: linear-gradient(155deg, #43505b 0%, #1d2731 48%, #0b1017 100%); --subtitle-preview-background: rgba(0, 0, 0, .78);"
-        : "background: linear-gradient(155deg, #43505b 0%, #1d2731 48%, #0b1017 100%); --subtitle-preview-background: transparent;";
-    private Typo SubtitlePreviewTypo => _settings?.Subtitles.SubtitleSize switch
-    {
-        PlaybackPreferenceValues.Small => Typo.caption,
-        PlaybackPreferenceValues.Large => Typo.h6,
-        PlaybackPreferenceValues.ExtraLarge => Typo.h5,
-        _ => Typo.subtitle1,
-    };
-
-    private Color SubtitlePreviewColor => _settings?.Subtitles.SubtitleStyle == PlaybackPreferenceValues.HighContrast
-        ? Color.Warning
-        : Color.Default;
-
-    private void OpenWatchingSettings() =>
-        Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Playback, "watching"));
-
-    private void OpenSubtitleSettings() =>
-        Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Playback, "subtitles"));
 
     protected override async Task OnInitializedAsync()
     {
@@ -461,7 +146,6 @@ else if (_settings is not null)
             _activeProfile = await Orchestrator.GetActiveProfileAsync();
             var loaded = await PreferencesAccessor.GetAsync();
             _settings = Clone(loaded ?? UserPlaybackSettingsDto.CreateDefaults(_activeProfile?.Id ?? Guid.Empty));
-            _savedSettings = Clone(_settings);
         }
         catch
         {
@@ -473,156 +157,93 @@ else if (_settings is not null)
         }
     }
 
-    private RenderFragment BoolRow(string title, string description, bool value, Func<bool, Task> changed) =>
-        BoolRow(Icons.Material.Outlined.Tune, title, description, value, changed);
-
-    private RenderFragment BoolRow(string icon, string title, string description, bool value, Func<bool, Task> changed) => @<div class="settings-preference-row">
-        <span class="settings-preference-row__icon">
-            <MudIcon Icon="@icon" Size="Size.Small" Color="Color.Primary" />
-        </span>
-        <MudStack Spacing="0" Class="settings-preference-row__text">
+    private RenderFragment BoolRow(string title, string description, bool value, Func<bool, Task> changed) => @<div class="playback-preference-row">
+        <div class="playback-preference-row__copy">
             <MudText Typo="Typo.body1">@title</MudText>
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@description</MudText>
-        </MudStack>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@description</MudText>
+        </div>
         <AppSwitchRow T="bool" Value="@value" ValueChanged="@changed" Color="Color.Primary" AriaLabel="@title" />
     </div>;
 
-    private RenderFragment PlainBoolRow(string title, string description, bool value, Func<bool, Task> changed) => @<div class="settings-preference-row settings-preference-row--plain">
-        <MudStack Spacing="0" Class="settings-preference-row__text">
+    private RenderFragment IntSelectRow(
+        string title,
+        string description,
+        int value,
+        IReadOnlyList<int> options,
+        Func<int, Task> changed) => @<div class="playback-preference-row">
+        <div class="playback-preference-row__copy">
             <MudText Typo="Typo.body1">@title</MudText>
-            <MudText Typo="Typo.caption" Class="settings-helper-text">@description</MudText>
-        </MudStack>
-        <AppSwitchRow T="bool" Value="@value" ValueChanged="@changed" Color="Color.Primary" AriaLabel="@title" />
-    </div>;
-
-    private RenderFragment PlainIntSelectRow(string title, string description, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix, bool enabled = true) => @<div class="settings-preference-row settings-preference-row--plain">
-        <MudStack Spacing="0" Class="settings-preference-row__text">
-            <MudText Typo="Typo.body1">@title</MudText>
-            <MudText Typo="Typo.caption" Class="settings-helper-text">@description</MudText>
-        </MudStack>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@description</MudText>
+        </div>
         <AppIntSelect Value="@value"
                       ValueChanged="@changed"
                       Variant="Variant.Outlined"
                       Margin="Margin.Dense"
                       Dense="true"
-                      Disabled="@(!enabled)"
                       Size="AppControlSize.Compact"
-                      Class="settings-field--row-control playback-inline-select">
+                      Class="playback-preference-row__select"
+                      aria-label="@title">
             @foreach (var option in options)
             {
-                <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
+                <MudSelectItem T="int" Value="@option">@($"{option} seconds")</MudSelectItem>
             }
         </AppIntSelect>
     </div>;
 
-    private RenderFragment IntSelectRow(string icon, string title, string description, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix) => @<div class="settings-preference-row">
-        <span class="settings-preference-row__icon">
-            <MudIcon Icon="@icon" Size="Size.Small" Color="Color.Primary" />
-        </span>
-        <MudStack Spacing="0" Class="settings-preference-row__text">
+    private RenderFragment DecimalSelectRow(
+        string title,
+        string description,
+        decimal value,
+        IReadOnlyList<decimal> options,
+        Func<decimal, Task> changed) => @<div class="playback-preference-row">
+        <div class="playback-preference-row__copy">
             <MudText Typo="Typo.body1">@title</MudText>
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@description</MudText>
-        </MudStack>
-        <AppIntSelect Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Size="AppControlSize.Compact" Class="settings-field--row-control">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@description</MudText>
+        </div>
+        <AppSelect Value="@value.ToString(System.Globalization.CultureInfo.InvariantCulture)"
+                   ValueChanged="@(raw => OnDecimalChangedAsync(raw, changed))"
+                   Variant="Variant.Outlined"
+                   Margin="Margin.Dense"
+                   Dense="true"
+                   Size="AppControlSize.Compact"
+                   Class="playback-preference-row__select"
+                   aria-label="@title">
             @foreach (var option in options)
             {
-                <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
-            }
-        </AppIntSelect>
-    </div>;
-
-    private RenderFragment IntSelect(string label, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix) => @<div class="settings-select-row">
-        <MudText Typo="Typo.caption" Class="settings-select-row__label">@label</MudText>
-        <AppIntSelect Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Size="AppControlSize.Compact" Class="settings-field--menu-control settings-field--number-control">
-            @foreach (var option in options)
-            {
-                <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
-            }
-        </AppIntSelect>
-    </div>;
-
-    private RenderFragment StringSelect(string label, string value, IReadOnlyList<string> options, Func<string, Task> changed, Func<string, string>? formatter = null) => @<div class="settings-select-row">
-        <MudText Typo="Typo.caption" Class="settings-select-row__label">@label</MudText>
-        <AppSelect T="string" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Size="AppControlSize.Compact" Class="settings-field--menu-control settings-field--text-control">
-            @foreach (var option in options)
-            {
-                <MudSelectItem T="string" Value="@option">@((formatter ?? Display)(option))</MudSelectItem>
+                <MudSelectItem T="string" Value="@option.ToString(System.Globalization.CultureInfo.InvariantCulture)">@DisplayFormat.FormatSpeedSetting(option)</MudSelectItem>
             }
         </AppSelect>
     </div>;
 
-    private RenderFragment Glance(string title, string icon, string value) => @<MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="settings-glance-item">
-        <MudIcon Icon="@icon" Color="Color.Primary" />
-        <MudStack Spacing="0">
-            <MudText Typo="Typo.subtitle2">@title</MudText>
-            <MudText Typo="Typo.caption" Color="Color.Secondary">@value</MudText>
-        </MudStack>
-    </MudStack>;
+    private static Task OnDecimalChangedAsync(string? raw, Func<decimal, Task> changed) =>
+        decimal.TryParse(raw, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? changed(value)
+            : Task.CompletedTask;
 
-    private RenderFragment SummaryMetric(string icon, string label, string value, Color color) => @<MudStack Spacing="1" Class="settings-summary-metric">
-        <MudIcon Icon="@icon" Color="@color" />
-        <MudText Typo="Typo.caption" Color="Color.Secondary">@label</MudText>
-        <MudText Typo="Typo.subtitle1">@value</MudText>
-    </MudStack>;
-
-    private RenderFragment SliderHeader(string label, string value) => @<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="settings-slider-header">
-        <MudText Typo="Typo.body2">@label</MudText>
-        <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined">@($"Current: {value}")</AppChip>
-    </MudStack>;
-
-    private static RenderFragment SliderLabels(IReadOnlyList<SliderMark> marks) => @<div class="settings-slider-scale" aria-hidden="true">
-        @foreach (var mark in marks)
-        {
-            <AppCssElement Tag="span"
-                           Class="settings-slider-mark"
-                           Css="@($"--settings-slider-position: {mark.Position.ToString(System.Globalization.CultureInfo.InvariantCulture)}%")">@mark.Label</AppCssElement>
-        }
-    </div>;
-
-    private sealed record SliderMark(string Label, double Position);
-
-    private async Task UpdateAndSaveAsync(Action action)
+    private async Task UpdateAndSaveAsync(Action update)
     {
-        action();
+        update();
         _saveError = null;
         await SaveAsync();
     }
-
-    private Task UpdateRememberPlaybackSpeedAsync(bool value) =>
-        UpdateAndSaveAsync(() =>
-        {
-            if (_settings is null)
-                return;
-
-            _settings.Watching.RememberPerTitlePlaybackSpeed = value;
-            _settings.Listening.RememberPerTitlePlaybackSpeed = value;
-        });
-
-    private Task AdjustReadingFontSizeAsync(int delta) =>
-        UpdateAndSaveAsync(() =>
-        {
-            if (_settings is not null)
-                _settings.Reading.FontSizePercent = Math.Clamp(_settings.Reading.FontSizePercent + delta, 80, 160);
-        });
 
     private async Task SaveAsync()
     {
         if (_settings is null)
             return;
 
-        _saveError = null;
-
         try
         {
             var saved = await Orchestrator.SavePlaybackSettingsAsync(_settings);
-            if (saved is not null)
+            if (saved is null)
             {
-                _settings = Clone(saved);
-                _savedSettings = Clone(saved);
-                PreferencesAccessor.UpdateCache(saved);
+                _saveError = "Playback and reading settings could not be saved.";
+                Snackbar.Add(_saveError, Severity.Error);
+                return;
             }
 
-            StateHasChanged();
+            _settings = Clone(saved);
+            PreferencesAccessor.UpdateCache(saved);
         }
         catch
         {
@@ -639,50 +260,4 @@ else if (_settings is not null)
         JsonSerializer.Deserialize<UserPlaybackSettingsDto>(
             JsonSerializer.Serialize(source, _jsonOptions),
             _jsonOptions) ?? UserPlaybackSettingsDto.CreateDefaults(source.ProfileId);
-
-    private static string OnOff(bool value) => value ? "On" : "Off";
-    private static string GetInitials(string value)
-    {
-        var words = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return words.Length switch
-        {
-            0 => "U",
-            1 => words[0][0].ToString().ToUpperInvariant(),
-            _ => string.Concat(words.Take(2).Select(word => char.ToUpperInvariant(word[0]))),
-        };
-    }
-
-    private static string SleepLabel(string value) => value switch
-    {
-        PlaybackPreferenceValues.Off => "Off",
-        PlaybackPreferenceValues.EndOfChapter => "End of chapter",
-        PlaybackPreferenceValues.EndOfEpisode => "End of episode",
-        _ => $"{value} minutes",
-    };
-
-    private static string ReadingModeLabel(string value) => value switch
-    {
-        PlaybackPreferenceValues.Paginated => "Animated",
-        PlaybackPreferenceValues.Scroll => "Continuous scroll",
-        _ => Display(value),
-    };
-
-    private static string SubtitleStyleLabel(string value) => value switch
-    {
-        PlaybackPreferenceValues.Clean => "Tuvima Default",
-        PlaybackPreferenceValues.HighContrast => "High Contrast",
-        PlaybackPreferenceValues.Shadowed => "Shadowed",
-        _ => Display(value),
-    };
-
-    private static string Display(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return "Not set";
-
-        return string.Concat(value.Select((character, index) =>
-            index > 0 && char.IsUpper(character) && !char.IsUpper(value[index - 1])
-                ? $" {character}"
-                : character.ToString()));
-    }
 }

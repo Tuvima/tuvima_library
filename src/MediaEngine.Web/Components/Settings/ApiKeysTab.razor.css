@@ -1,0 +1,4 @@
+.api-keys-page__table-wrap {
+    min-width: 0;
+    overflow-x: auto;
+}

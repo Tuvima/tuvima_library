@@ -180,8 +180,8 @@ public sealed class UiArchitectureGuardrailTests
         Assert.DoesNotContain("@code", markup);
         Assert.Contains("public partial class IngestionLiveDashboard", codeBehind);
         Assert.Contains("public sealed class IngestionDashboardSelectionState", selection);
-        Assert.Contains("library-update-stage-cards", css);
-        Assert.Contains("library-update-stage-detail-panel", css);
+        Assert.Contains("library-update-stage-cards", markup);
+        Assert.Contains("library-update-stage-detail-panel", markup);
 
         var retiredCssFamilies = new[]
         {
@@ -220,7 +220,7 @@ public sealed class UiArchitectureGuardrailTests
         Assert.DoesNotContain("<SidebarPageHeader", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("<nav", shell, StringComparison.Ordinal);
         Assert.Contains("<SidebarPageHeader", settings, StringComparison.Ordinal);
-        Assert.Contains("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
         Assert.Contains("<MetadataAdminShell ActiveSubsection=\"@Subsection\">", providers, StringComparison.Ordinal);
         Assert.DoesNotContain("<h2>Enrichment</h2>", enrichment, StringComparison.Ordinal);
         Assert.DoesNotContain("<h2>Source Priority</h2>", priority, StringComparison.Ordinal);

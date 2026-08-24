@@ -1,5 +1,6 @@
 using Bunit;
 using MediaEngine.Web.Components.Pages;
+using MediaEngine.Web.Components.Settings;
 using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.AspNetCore.Components;
@@ -205,11 +206,27 @@ public sealed class SharedUiPrimitiveTests : AsyncBunitContext
             .Add(component => component.ActiveSubsection, "health")
             .Add(component => component.AriaLabel, "Metadata sections"));
 
-        Assert.Equal(4, cut.FindAll("a.settings-subsection-nav__item").Count);
+        Assert.Equal(3, cut.FindAll("a.settings-subsection-nav__item").Count);
         var active = cut.Find("a[href='/settings/providers/health']");
         Assert.Equal("page", active.GetAttribute("aria-current"));
-        Assert.Equal("true", active.GetAttribute("aria-selected"));
+        Assert.Null(active.GetAttribute("aria-selected"));
+        Assert.Null(active.GetAttribute("role"));
         Assert.Contains("is-active", active.ClassList);
+    }
+
+    [Fact]
+    public void SettingsAdvancedLinkRow_RendersOneSemanticDestination()
+    {
+        var cut = Render<SettingsAdvancedLinkRow>(parameters => parameters
+            .Add(component => component.Title, "Variant storage")
+            .Add(component => component.Description, "Manage prepared media storage.")
+            .Add(component => component.Href, "/settings/delivery/storage")
+            .Add(component => component.ActionLabel, "Manage"));
+
+        var link = cut.Find("a.settings-advanced-link-row__action");
+        Assert.Equal("/settings/delivery/storage", link.GetAttribute("href"));
+        Assert.Contains("Variant storage", cut.Markup);
+        Assert.Contains("Manage", link.TextContent);
     }
 
     [Fact]

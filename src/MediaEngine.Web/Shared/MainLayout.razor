@@ -31,7 +31,7 @@
 
 <a class="skip-to-content" href="#main-content">@L["Layout_SkipToContent"]</a>
 
-<AppCssElement Tag="div" Class="layout-accent-scope" Css="@LayoutAccentStyle" @onclick="CloseOpenShellMenus">
+<AppCssElement Tag="div" Class="layout-accent-scope" @onclick="CloseOpenShellMenus">
 <MudLayout Class="@LayoutShellClass">
     <MudAppBar Fixed="true" Elevation="0" Dense="true" Class="@AppBarClass">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="layout-shell__left-rail">
@@ -156,9 +156,6 @@
     private bool IsDetailShell => IsDetailPath(_currentPath);
     private bool IsCinematicShell => IsDetailShell || string.Equals(_currentPath, "/", StringComparison.Ordinal);
     private string LayoutShellClass => IsCinematicShell ? "app-bg app-bg--cinematic" : "app-bg";
-    private string LayoutAccentStyle => string.IsNullOrWhiteSpace(DeviceContext.Settings.AccentColor)
-        ? string.Empty
-        : $"--tl-accent-primary: {DeviceContext.Settings.AccentColor}; --app-primary: {DeviceContext.Settings.AccentColor};";
     private string AppBarClass => IsCinematicShell
         ? "layout-shell__appbar layout-shell__appbar--cinematic"
         : "layout-shell__appbar";
