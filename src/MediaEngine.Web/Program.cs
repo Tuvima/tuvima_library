@@ -136,14 +136,26 @@ void ConfigureEngineClient(HttpClient client)
         client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
 }
 
-// AddHttpClient<IClient, TClient> wires the interface directly to the typed-client
-// factory so the HttpClient it receives has the correct BaseAddress and default headers.
-// A separate AddScoped<IClient, TClient> would resolve HttpClient via the default
-// (unconfigured, no BaseAddress) registration, causing every Engine call to fail silently.
-builder.Services.AddHttpClient<IEngineApiClient, EngineApiClient>(ConfigureEngineClient);
+// The circuit-scoped client owns a circuit-scoped active-profile accessor. Its
+// server-only handler signs eligible View/Collections requests after the final URI
+// is known; the Engine API key is never serialized into browser state.
+builder.Services.AddScoped<ActiveProfileAccessor>();
+builder.Services.AddScoped<IActiveProfileAccessor>(services => services.GetRequiredService<ActiveProfileAccessor>());
+builder.Services.AddScoped<IEngineApiClient>(services =>
+{
+    var assertionHandler = new ViewProfileAssertionHandler(
+        services.GetRequiredService<IActiveProfileAccessor>(),
+        apiKey)
+    {
+        InnerHandler = new HttpClientHandler(),
+    };
+    var client = new HttpClient(assertionHandler);
+    ConfigureEngineClient(client);
+    return ActivatorUtilities.CreateInstance<EngineApiClient>(services, client);
+});
 builder.Services.AddScoped<EngineApiFailureState>();
 
-// Named "EngineApi" client — same base address and API key as the typed client above.
+// Named "EngineApi" client — same base address and API key as the scoped client above.
 // Used by ad-hoc pages (e.g. the Enrichment Tester) that need direct HttpClient access
 // without routing through IEngineApiClient.
 builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient);
