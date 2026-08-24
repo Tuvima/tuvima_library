@@ -20,7 +20,10 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("IsVideo", source, StringComparison.Ordinal);
         Assert.Contains("IsDocument", source, StringComparison.Ordinal);
         Assert.Contains("IsAudio", source, StringComparison.Ordinal);
-        Assert.Contains("profileId=", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("profileId=", source, StringComparison.Ordinal);
+        Assert.Contains("ViewMediaGrantService", source, StringComparison.Ordinal);
+        Assert.Contains("/view-media/{grant.Value}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToAbsoluteEngineUrl", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SupplyParameterFromQuery", source, StringComparison.Ordinal);
         Assert.Contains("Photos quick filters", source, StringComparison.Ordinal);
         Assert.Contains(">All</AppNativeButton>", source, StringComparison.Ordinal);

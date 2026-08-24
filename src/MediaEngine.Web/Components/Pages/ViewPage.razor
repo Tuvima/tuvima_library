@@ -4,6 +4,7 @@
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
+@inject ViewMediaGrantService MediaGrants
 @implements IDisposable
 
 @namespace MediaEngine.Web.Components.Pages
@@ -119,7 +120,7 @@
                                                                  OnClick="@(_ => OpenItem(item))">
                                                     @if (IsVisual(item) && !string.IsNullOrWhiteSpace(item.ThumbnailUrl))
                                                     {
-                                                        <img src="@AssetUrl(item.ThumbnailUrl)" alt="@DisplayTitle(item)" loading="lazy" />
+                                                        <img src="@AssetUrl(item, ViewMediaResourceKind.Thumbnail)" alt="@DisplayTitle(item)" loading="lazy" />
                                                         @if (IsVideo(item))
                                                         {
                                                             <span class="view-tile__play"><MudIcon Icon="@Icons.Material.Filled.PlayArrow" /></span>
@@ -174,7 +175,7 @@
                 <AppNativeButton Type="button" Class="view-viewer__action" AriaLabel="Toggle favorite" OnClick="@(_ => ToggleFavoriteAsync(_activeItem))">
                     <MudIcon Icon="@(_activeItem.Favorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
                 </AppNativeButton>
-                <a class="view-viewer__action" href="@AssetUrl(_activeItem.ContentUrl)" target="_blank" rel="noopener" aria-label="Open original">
+                <a class="view-viewer__action" href="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" target="_blank" rel="noopener" aria-label="Open original">
                     <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" />
                 </a>
                 <AppNativeButton Type="button" Class="view-viewer__action" AriaLabel="@(_activeItem.Hidden ? "Restore item" : "Hide item")" OnClick="@(_ => ToggleHiddenAsync(_activeItem))">
@@ -188,11 +189,11 @@
         <div class="view-viewer__content" @onclick:stopPropagation="true">
             @if (IsVideo(_activeItem))
             {
-                <video src="@AssetUrl(_activeItem.ContentUrl)" poster="@AssetUrl(_activeItem.ThumbnailUrl)" controls autoplay></video>
+                <video src="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" poster="@AssetUrl(_activeItem, ViewMediaResourceKind.Thumbnail)" controls autoplay></video>
             }
             else if (IsAudio(_activeItem))
             {
-                <div class="view-viewer__audio"><MudIcon Icon="@Icons.Material.Outlined.Audiotrack" /><audio src="@AssetUrl(_activeItem.ContentUrl)" controls autoplay></audio></div>
+                <div class="view-viewer__audio"><MudIcon Icon="@Icons.Material.Outlined.Audiotrack" /><audio src="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" controls autoplay></audio></div>
             }
             else if (IsDocument(_activeItem))
             {
@@ -200,7 +201,7 @@
             }
             else
             {
-                <img src="@AssetUrl(_activeItem.ContentUrl)" alt="@DisplayTitle(_activeItem)" />
+                <img src="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" alt="@DisplayTitle(_activeItem)" />
             }
         </div>
     </div>
@@ -211,6 +212,7 @@
     private LocalAssetPageDto? _page;
     private LocalAssetDto? _activeItem;
     private CancellationTokenSource? _searchCts;
+    private readonly Dictionary<(Guid LibraryId, Guid AssetId, ViewMediaResourceKind Kind), CachedMediaGrant> _mediaGrants = [];
     private Guid? _loadedLibraryId;
     private Guid? _activeProfileId;
     private string _search = string.Empty;
@@ -407,12 +409,23 @@
         _activeItem = remove ? null : updated;
     }
 
-    private string AssetUrl(string path)
+    private string AssetUrl(LocalAssetDto item, ViewMediaResourceKind kind)
     {
-        var absolute = ApiClient.ToAbsoluteEngineUrl(path);
-        if (!_activeProfileId.HasValue) return absolute;
-        var separator = absolute.Contains('?', StringComparison.Ordinal) ? '&' : '?';
-        return $"{absolute}{separator}profileId={_activeProfileId.Value:D}";
+        if (!_activeProfileId.HasValue)
+        {
+            return string.Empty;
+        }
+
+        var key = (item.LibraryId, item.Id, kind);
+        var refreshAfter = DateTimeOffset.UtcNow.AddSeconds(30);
+        if (!_mediaGrants.TryGetValue(key, out var cached) || cached.ExpiresAt <= refreshAfter)
+        {
+            var grant = MediaGrants.Create(_activeProfileId.Value, item.LibraryId, item.Id, kind);
+            cached = new CachedMediaGrant($"/view-media/{grant.Value}", grant.ExpiresAt);
+            _mediaGrants[key] = cached;
+        }
+
+        return cached.Url;
     }
     private string QuickFilterClass(string filter)
     {
@@ -457,6 +470,7 @@
         _libraries = [];
         _page = null;
         _loadedLibraryId = null;
+        _mediaGrants.Clear();
         await OnParametersSetAsync();
         StateHasChanged();
     });
@@ -467,4 +481,6 @@
         _searchCts?.Cancel();
         _searchCts?.Dispose();
     }
+
+    private sealed record CachedMediaGrant(string Url, DateTimeOffset ExpiresAt);
 }
