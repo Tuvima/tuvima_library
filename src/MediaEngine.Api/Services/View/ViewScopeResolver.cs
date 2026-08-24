@@ -80,15 +80,21 @@ public sealed class ViewScopeResolver(IViewScopeStore store) : IViewScopeResolve
         ViewScopeStoreEntry caller,
         IReadOnlyList<ViewScopeStoreEntry> shareable)
     {
-        var result = new List<ViewScopeOption> { new(ViewScopeKind.Mine, caller.Policy.ProfileId) };
+        var result = new List<ViewScopeOption>
+        {
+            new(ViewScopeKind.Mine, caller.Policy.ProfileId,
+                string.IsNullOrWhiteSpace(caller.DisplayName) ? "Mine" : caller.DisplayName,
+                caller.AvatarColor, caller.AvatarUrl),
+        };
         if (!caller.Policy.AccessSharedView)
         {
             return result;
         }
 
-        result.Add(new ViewScopeOption(ViewScopeKind.Shared, null));
+        result.Add(new ViewScopeOption(ViewScopeKind.Shared, null, "Shared View"));
         result.AddRange(shareable.Where(profile => profile.Policy.ProfileId != caller.Policy.ProfileId).Select(profile =>
-            new ViewScopeOption(ViewScopeKind.Profile, profile.Policy.ProfileId)));
+            new ViewScopeOption(ViewScopeKind.Profile, profile.Policy.ProfileId,
+                profile.DisplayName, profile.AvatarColor, profile.AvatarUrl)));
         return result;
     }
 }

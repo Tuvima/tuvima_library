@@ -32,12 +32,14 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<IViewPersonalSpaceRepository, ViewPersonalSpaceRepository>();
         services.AddSingleton<IViewGalleryRepository, ViewGalleryRepository>();
         services.AddSingleton<ViewLibraryService>();
-        services.AddSingleton<IViewScopeStore, ViewScopeStore>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<IViewRequestProfileContext, HttpViewRequestProfileContext>();
+        services.AddSingleton<IViewScopeStore, ViewScopePersistenceService>();
         services.AddSingleton<IViewScopeResolver, ViewScopeResolver>();
-        services.AddSingleton<IViewResourceStore, ViewResourceStore>();
+        services.AddSingleton<IViewResourceStore, ViewResourcePersistenceService>();
         services.AddSingleton<IViewResourceAuthorizationService, ViewResourceAuthorizationService>();
-        services.AddSingleton<IViewAssetQueryBackend, ViewAssetQueryBackend>();
-        services.AddSingleton<IViewQueryOrchestrator, ViewQueryOrchestrator>();
+        services.AddSingleton<IViewAssetQueryBackend, ViewAssetQueryService>();
+        services.AddScoped<IViewQueryOrchestrator, ViewQueryOrchestrator>();
         services.AddSingleton<LibraryReorganizationService>();
         services.AddSingleton<IFileHashCacheRepository, FileHashCacheRepository>();
         services.AddSingleton(_ => new TuvimaDataPaths(configuredPath: null));

@@ -24,7 +24,10 @@ public sealed record ViewRequestProfile(Guid ProfileId, string Role);
 /// </summary>
 public sealed record ViewScopeStoreEntry(
     ViewProfilePolicy Policy,
-    ViewPersonalSpace? PersonalSpace);
+    ViewPersonalSpace? PersonalSpace,
+    string DisplayName = "",
+    string AvatarColor = "#7C4DFF",
+    string? AvatarUrl = null);
 
 public sealed record ResolvedViewScope(
     ViewScopeKind Kind,
@@ -35,7 +38,12 @@ public sealed record ResolvedViewScope(
     public bool ContainsLibrary(Guid libraryId) => LibraryIds.Contains(libraryId);
 }
 
-public sealed record ViewScopeOption(ViewScopeKind Kind, Guid? ProfileId);
+public sealed record ViewScopeOption(
+    ViewScopeKind Kind,
+    Guid? ProfileId,
+    string Label,
+    string? AvatarColor = null,
+    string? AvatarUrl = null);
 
 public sealed record ViewScopeResolution(
     ResolvedViewScope Scope,

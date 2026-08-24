@@ -7,17 +7,21 @@ using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.View;
 
-public sealed class ViewScopeStore(
+public sealed class ViewScopePersistenceService(
     IProfileRepository profiles,
     IViewProfileRepository policies,
     IViewPersonalSpaceRepository spaces) : IViewScopeStore
 {
     public async Task<ViewScopeStoreEntry?> FindProfileAsync(Guid profileId, CancellationToken ct = default)
     {
-        if (await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false) is null) return null;
+        var profile = await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false);
+        if (profile is null) return null;
         return new ViewScopeStoreEntry(
             await policies.GetPolicyAsync(profileId, ct).ConfigureAwait(false),
-            await spaces.GetByOwnerAsync(profileId, ct).ConfigureAwait(false));
+            await spaces.GetByOwnerAsync(profileId, ct).ConfigureAwait(false),
+            profile.DisplayName,
+            profile.AvatarColor,
+            profile.AvatarImagePath is null ? null : $"/profiles/{profile.Id:D}/avatar");
     }
 
     public async Task<IReadOnlyList<ViewScopeStoreEntry>> GetProfilesAsync(CancellationToken ct = default)
@@ -27,13 +31,16 @@ public sealed class ViewScopeStore(
         {
             result.Add(new ViewScopeStoreEntry(
                 await policies.GetPolicyAsync(profile.Id, ct).ConfigureAwait(false),
-                await spaces.GetByOwnerAsync(profile.Id, ct).ConfigureAwait(false)));
+                await spaces.GetByOwnerAsync(profile.Id, ct).ConfigureAwait(false),
+                profile.DisplayName,
+                profile.AvatarColor,
+                profile.AvatarImagePath is null ? null : $"/profiles/{profile.Id:D}/avatar"));
         }
         return result;
     }
 }
 
-public sealed class ViewResourceStore(
+public sealed class ViewResourcePersistenceService(
     ILocalAssetRepository assets,
     IViewGalleryRepository galleries,
     IViewPersonalSpaceRepository spaces) : IViewResourceStore
@@ -55,7 +62,9 @@ public sealed class ViewResourceStore(
                 resourceId,
                 gallery.OwnerProfileId,
                 space?.LibraryId,
-                shares.Select(share => share.ProfileId).ToHashSet());
+                shares.Select(share => share.ProfileId).ToHashSet(),
+                shares.Where(share => share.Permission == ViewGallerySharePermission.Contribute)
+                    .Select(share => share.ProfileId).ToHashSet());
         }
 
         var item = assets.Find(resourceId, ct);
@@ -95,7 +104,7 @@ public sealed class ViewResourceStore(
     }
 }
 
-public sealed class ViewAssetQueryBackend(ILocalAssetRepository assets) : IViewAssetQueryBackend
+public sealed class ViewAssetQueryService(ILocalAssetRepository assets) : IViewAssetQueryBackend
 {
     public Task<ViewAssetTimelinePageDto> QueryAsync(
         ViewAssetQueryPlan plan,
