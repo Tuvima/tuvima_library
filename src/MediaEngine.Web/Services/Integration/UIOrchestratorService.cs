@@ -5,6 +5,7 @@ using MediaEngine.Contracts.Ai;
 using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Progress;
 using MediaEngine.Contracts.Realtime;
 using MediaEngine.Contracts.Reports;
@@ -245,6 +246,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         }
         return ok;
     }
+
+    public Task<ViewProfilePolicyDto?> GetViewProfilePolicyAsync(
+        Guid id,
+        CancellationToken ct = default) =>
+        _api.GetViewProfilePolicyAsync(id, ct);
+
+    public Task<ViewProfilePolicyDto?> UpdateViewProfilePolicyAsync(
+        Guid id,
+        UpdateViewProfilePolicyRequest request,
+        CancellationToken ct = default) =>
+        _api.UpdateViewProfilePolicyAsync(id, request, ct);
 
     public async Task<ProfileViewModel?> UploadProfileAvatarAsync(
         Guid id,

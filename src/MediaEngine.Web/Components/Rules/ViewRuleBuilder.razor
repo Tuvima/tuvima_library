@@ -1,0 +1,32 @@
+@namespace MediaEngine.Web.Components.Rules
+
+<SharedRuleBuilder Registry="@ViewRuleRegistry.Instance"
+                   Definition="@Definition"
+                   DefinitionChanged="@DefinitionChanged"
+                   SortField="@SortField"
+                   SortFieldChanged="@SortFieldChanged"
+                   SortDirection="@SortDirection"
+                   SortDirectionChanged="@SortDirectionChanged"
+                   SecondarySortField="@SecondarySortField"
+                   SecondarySortFieldChanged="@SecondarySortFieldChanged"
+                   SecondarySortDirection="@SecondarySortDirection"
+                   SecondarySortDirectionChanged="@SecondarySortDirectionChanged"
+                   Changed="@Changed"
+                   Density="@Density"
+                   PreviewLoader="@PreviewLoader" />
+
+@code {
+    [Parameter, EditorRequired] public CollectionRuleDefinitionViewModel Definition { get; set; } = new();
+    [Parameter] public EventCallback<CollectionRuleDefinitionViewModel> DefinitionChanged { get; set; }
+    [Parameter] public string? SortField { get; set; } = "captured_date";
+    [Parameter] public EventCallback<string?> SortFieldChanged { get; set; }
+    [Parameter] public string SortDirection { get; set; } = "desc";
+    [Parameter] public EventCallback<string> SortDirectionChanged { get; set; }
+    [Parameter] public string? SecondarySortField { get; set; }
+    [Parameter] public EventCallback<string?> SecondarySortFieldChanged { get; set; }
+    [Parameter] public string? SecondarySortDirection { get; set; }
+    [Parameter] public EventCallback<string?> SecondarySortDirectionChanged { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public string Density { get; set; } = "editor";
+    [Parameter] public Func<RuleBuilderPreviewRequest, CancellationToken, Task<CollectionPreviewResult?>>? PreviewLoader { get; set; }
+}

@@ -1,6 +1,6 @@
 ﻿-- =============================================================================
 -- Tuvima Library - SQLite initialization script
--- Current storage epoch: guid-blob-v1
+-- Current storage epoch: guid-blob-v2
 --
 -- Internal UUIDs are stored as 16-byte BLOBs where the current domain model owns
 -- the identifier. External provider identifiers, QIDs, hashes, URLs, and file
@@ -517,14 +517,58 @@ CREATE TABLE IF NOT EXISTS media_assets (
     writeback_next_retry_at  INTEGER
 , library_id TEXT, is_orphaned INTEGER NOT NULL DEFAULT 0, orphaned_at TEXT);
 
--- Generalized local assets are the mixed-media model for personal View
--- libraries. A logical item is library-scoped and may be composed of
+-- A Personal Space is the stable View identity owned by exactly one profile.
+-- library_id remains the bridge to configured intake libraries while sources
+-- and devices describe where files came from. Shared View is intentionally not
+-- persisted here: it is an authorized projection across Personal Spaces.
+CREATE TABLE IF NOT EXISTS view_personal_spaces (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    owner_profile_id    BLOB NOT NULL UNIQUE REFERENCES profiles(id) ON DELETE CASCADE,
+    library_id          BLOB NOT NULL UNIQUE,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS view_sources (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    personal_space_id   BLOB NOT NULL REFERENCES view_personal_spaces(id) ON DELETE CASCADE,
+    source_type         TEXT NOT NULL
+                            CHECK (source_type IN ('folder', 'browser_upload', 'device_import',
+                                                   'mobile_backup', 'network', 'other')),
+    name                TEXT NOT NULL,
+    source_key          TEXT,
+    last_activity_at    TEXT,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL,
+    UNIQUE (personal_space_id, source_key)
+);
+
+CREATE TABLE IF NOT EXISTS view_devices (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    personal_space_id   BLOB NOT NULL REFERENCES view_personal_spaces(id) ON DELETE CASCADE,
+    source_id           BLOB REFERENCES view_sources(id) ON DELETE SET NULL,
+    client_device_id    TEXT NOT NULL,
+    name                TEXT NOT NULL,
+    make                TEXT,
+    model               TEXT,
+    last_backup_at      TEXT,
+    backup_state        TEXT NOT NULL DEFAULT 'unknown'
+                            CHECK (backup_state IN ('unknown', 'idle', 'backing_up', 'complete', 'error')),
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL,
+    UNIQUE (personal_space_id, client_device_id)
+);
+
+-- Generalized local assets are the mixed-media model for personal View.
+-- A logical item is explicitly owner- and Personal-Space-scoped and may be composed of
 -- several exact, hash-addressed files (for example HEIC + MOV Live Photos,
 -- RAW + JPEG + XMP sets, or generated previews). Each physical file retains
 -- every path at which it was observed, so exact duplicates never erase source
 -- provenance. This model is intentionally independent from catalogue identity.
 CREATE TABLE IF NOT EXISTS local_items (
     id                  BLOB NOT NULL PRIMARY KEY,
+    personal_space_id   BLOB NOT NULL REFERENCES view_personal_spaces(id) ON DELETE CASCADE,
+    owner_profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     library_id          BLOB NOT NULL,
     media_kind          TEXT NOT NULL
                             CHECK (media_kind IN ('image', 'video', 'document', 'audio', 'other')),
@@ -535,7 +579,10 @@ CREATE TABLE IF NOT EXISTS local_items (
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL,
     favorite            INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
-    hidden              INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1))
+    hidden              INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1)),
+    archived_at         TEXT,
+    trashed_at          TEXT,
+    UNIQUE (personal_space_id, id)
 );
 
 CREATE TABLE IF NOT EXISTS local_item_metadata (
@@ -567,6 +614,8 @@ CREATE TABLE IF NOT EXISTS local_file_sources (
     id                  BLOB NOT NULL PRIMARY KEY,
     file_id             BLOB NOT NULL REFERENCES local_files(id) ON DELETE CASCADE,
     library_id          BLOB NOT NULL,
+    source_id           BLOB REFERENCES view_sources(id) ON DELETE SET NULL,
+    device_id           BLOB REFERENCES view_devices(id) ON DELETE SET NULL,
     file_path           TEXT NOT NULL,
     modified_at         TEXT NOT NULL,
     indexed_at          TEXT NOT NULL,
@@ -592,23 +641,60 @@ CREATE TABLE IF NOT EXISTS local_item_tags (
     PRIMARY KEY (item_id, tag)
 );
 
-CREATE TABLE IF NOT EXISTS local_collections (
+CREATE TABLE IF NOT EXISTS view_galleries (
     id                  BLOB NOT NULL PRIMARY KEY,
-    library_id          BLOB NOT NULL,
+    owner_profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    personal_space_id   BLOB NOT NULL REFERENCES view_personal_spaces(id) ON DELETE CASCADE,
     name                TEXT NOT NULL,
     description         TEXT,
-    collection_kind     TEXT NOT NULL DEFAULT 'collection'
-                            CHECK (collection_kind IN ('album', 'collection')),
+    gallery_kind        TEXT NOT NULL CHECK (gallery_kind IN ('manual', 'smart')),
+    smart_rule_json     TEXT CHECK (smart_rule_json IS NULL OR json_valid(smart_rule_json)),
+    cover_item_id       BLOB REFERENCES local_items(id) ON DELETE SET NULL,
+    sort_order          INTEGER NOT NULL DEFAULT 0,
     created_at          TEXT NOT NULL,
-    modified_at         TEXT NOT NULL
+    updated_at          TEXT NOT NULL,
+    CHECK ((gallery_kind = 'manual' AND smart_rule_json IS NULL)
+        OR (gallery_kind = 'smart' AND smart_rule_json IS NOT NULL))
 );
 
-CREATE TABLE IF NOT EXISTS local_collection_items (
-    collection_id       BLOB NOT NULL REFERENCES local_collections(id) ON DELETE CASCADE,
+CREATE TABLE IF NOT EXISTS view_gallery_items (
+    gallery_id          BLOB NOT NULL REFERENCES view_galleries(id) ON DELETE CASCADE,
     item_id             BLOB NOT NULL REFERENCES local_items(id) ON DELETE CASCADE,
     position            INTEGER NOT NULL DEFAULT 0,
     added_at            TEXT NOT NULL,
-    PRIMARY KEY (collection_id, item_id)
+    PRIMARY KEY (gallery_id, item_id)
+);
+
+CREATE TABLE IF NOT EXISTS view_gallery_shares (
+    gallery_id          BLOB NOT NULL REFERENCES view_galleries(id) ON DELETE CASCADE,
+    profile_id          BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    permission          TEXT NOT NULL DEFAULT 'view' CHECK (permission IN ('view', 'contribute')),
+    shared_at           TEXT NOT NULL,
+    PRIMARY KEY (gallery_id, profile_id)
+);
+
+-- Personal-media inputs for administrator-authored Custom Collections. Each
+-- row remains a dynamic Gallery reference or a saved View rule; local asset
+-- IDs and expanded Gallery membership are intentionally absent.
+CREATE TABLE IF NOT EXISTS collection_view_sources (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    collection_id       BLOB NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    owner_profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    source_kind         TEXT NOT NULL CHECK (source_kind IN ('gallery', 'smart_rule')),
+    gallery_id          BLOB REFERENCES view_galleries(id) ON DELETE CASCADE,
+    rule_version        INTEGER CHECK (rule_version IS NULL OR rule_version = 1),
+    rule_json           TEXT CHECK (
+                            rule_json IS NULL
+                            OR CASE WHEN json_valid(rule_json)
+                                    THEN json_type(rule_json) = 'object'
+                                    ELSE 0 END),
+    position            INTEGER NOT NULL DEFAULT 0 CHECK (position >= 0),
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL,
+    CHECK ((source_kind = 'gallery'
+            AND gallery_id IS NOT NULL AND rule_version IS NULL AND rule_json IS NULL)
+        OR (source_kind = 'smart_rule'
+            AND gallery_id IS NULL AND rule_version IS NOT NULL AND rule_json IS NOT NULL))
 );
 
 -- Reserved for optional, provenance-aware inferred metadata. The table does
@@ -655,16 +741,39 @@ BEGIN
      WHERE rowid = (SELECT rowid FROM local_item_search_keys WHERE item_id = OLD.id);
 END;
 
+CREATE INDEX IF NOT EXISTS ix_view_personal_spaces_library
+    ON view_personal_spaces(library_id, owner_profile_id);
+CREATE INDEX IF NOT EXISTS ix_view_sources_space_activity
+    ON view_sources(personal_space_id, last_activity_at DESC, id);
+CREATE INDEX IF NOT EXISTS ix_view_devices_space_backup
+    ON view_devices(personal_space_id, last_backup_at DESC, id);
+CREATE INDEX IF NOT EXISTS ix_local_items_owner_timeline
+    ON local_items(owner_profile_id, archived_at, trashed_at,
+                   COALESCE(captured_at, created_at) DESC, id DESC);
 CREATE INDEX IF NOT EXISTS ix_local_items_library_timeline
-    ON local_items(library_id, hidden, captured_at DESC, created_at DESC, id);
+    ON local_items(library_id, archived_at, trashed_at,
+                   COALESCE(captured_at, created_at) DESC, id DESC);
+CREATE INDEX IF NOT EXISTS ix_local_items_space_timeline
+    ON local_items(personal_space_id, archived_at, trashed_at,
+                   COALESCE(captured_at, created_at) DESC, id DESC);
 CREATE INDEX IF NOT EXISTS ix_local_items_library_kind
-    ON local_items(library_id, media_kind, hidden);
+    ON local_items(library_id, media_kind, hidden, archived_at, trashed_at);
+CREATE INDEX IF NOT EXISTS ix_local_items_library_favorite_timeline
+    ON local_items(library_id, favorite, archived_at, trashed_at,
+                   COALESCE(captured_at, created_at) DESC, id DESC);
+CREATE INDEX IF NOT EXISTS ix_local_item_metadata_location
+    ON local_item_metadata(location_name, latitude, longitude, item_id)
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_local_files_hash
     ON local_files(content_hash COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS ix_local_file_sources_file
     ON local_file_sources(file_id, indexed_at DESC);
 CREATE INDEX IF NOT EXISTS ix_local_file_sources_library
     ON local_file_sources(library_id, file_path COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS ix_local_file_sources_source
+    ON local_file_sources(source_id, indexed_at DESC, id);
+CREATE INDEX IF NOT EXISTS ix_local_file_sources_device
+    ON local_file_sources(device_id, indexed_at DESC, id);
 CREATE INDEX IF NOT EXISTS ix_local_item_files_item
     ON local_item_files(item_id, role, position);
 CREATE INDEX IF NOT EXISTS ix_local_item_files_file
@@ -672,10 +781,29 @@ CREATE INDEX IF NOT EXISTS ix_local_item_files_file
 CREATE UNIQUE INDEX IF NOT EXISTS ux_local_item_single_primary
     ON local_item_files(item_id)
     WHERE role = 'primary';
-CREATE INDEX IF NOT EXISTS ix_local_collection_items_collection
-    ON local_collection_items(collection_id, position, added_at);
+CREATE INDEX IF NOT EXISTS ix_view_galleries_owner_order
+    ON view_galleries(owner_profile_id, sort_order, updated_at DESC, id);
+CREATE INDEX IF NOT EXISTS ix_view_galleries_space_kind
+    ON view_galleries(personal_space_id, gallery_kind, updated_at DESC, id);
+CREATE INDEX IF NOT EXISTS ix_view_gallery_items_gallery
+    ON view_gallery_items(gallery_id, position, added_at, item_id);
+CREATE INDEX IF NOT EXISTS ix_view_gallery_items_item
+    ON view_gallery_items(item_id, gallery_id);
+CREATE INDEX IF NOT EXISTS ix_view_gallery_shares_profile
+    ON view_gallery_shares(profile_id, shared_at DESC, gallery_id);
+CREATE INDEX IF NOT EXISTS ix_local_item_tags_tag
+    ON local_item_tags(tag, item_id);
+CREATE INDEX IF NOT EXISTS ix_collection_view_sources_collection
+    ON collection_view_sources(collection_id, position, id);
+CREATE INDEX IF NOT EXISTS ix_collection_view_sources_owner
+    ON collection_view_sources(owner_profile_id, source_kind, collection_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_collection_view_sources_gallery
+    ON collection_view_sources(collection_id, gallery_id)
+    WHERE source_kind = 'gallery';
 CREATE INDEX IF NOT EXISTS ix_local_item_annotations_item
     ON local_item_annotations(item_id, annotation_kind, created_at);
+CREATE INDEX IF NOT EXISTS ix_local_item_annotations_lookup
+    ON local_item_annotations(annotation_kind, annotation_value, item_id);
 
 CREATE TABLE IF NOT EXISTS media_operation_events (
   id             BLOB PRIMARY KEY,
@@ -1057,6 +1185,31 @@ CREATE TABLE IF NOT EXISTS profiles (
     created_at   TEXT NOT NULL
 , navigation_config TEXT);
 
+-- Administrator-owned View capability policy. Access to Shared View and
+-- contribution to Shared View are deliberately independent permissions.
+CREATE TABLE IF NOT EXISTS profile_view_policies (
+    profile_id              BLOB NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+    view_enabled            INTEGER NOT NULL DEFAULT 1 CHECK (view_enabled IN (0, 1)),
+    access_shared_view      INTEGER NOT NULL DEFAULT 0 CHECK (access_shared_view IN (0, 1)),
+    include_in_shared_view  INTEGER NOT NULL DEFAULT 0 CHECK (include_in_shared_view IN (0, 1)),
+    share_galleries         INTEGER NOT NULL DEFAULT 0 CHECK (share_galleries IN (0, 1)),
+    updated_at              TEXT NOT NULL
+);
+
+-- User-owned presentation preferences travel with the profile across devices.
+-- Scope authorization and revoked-scope fallback are resolved above storage.
+CREATE TABLE IF NOT EXISTS profile_view_preferences (
+    profile_id              BLOB NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+    last_scope_kind         TEXT CHECK (last_scope_kind IS NULL OR last_scope_kind IN ('shared', 'mine', 'profile')),
+    last_scope_profile_id   BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+    timeline_density        TEXT NOT NULL DEFAULT 'comfortable'
+                                 CHECK (timeline_density IN ('compact', 'comfortable', 'relaxed')),
+    updated_at              TEXT NOT NULL,
+    CHECK ((last_scope_kind = 'profile' AND last_scope_profile_id IS NOT NULL)
+        OR (last_scope_kind IS NULL OR last_scope_kind IN ('shared', 'mine'))
+           AND last_scope_profile_id IS NULL)
+);
+
 CREATE TABLE IF NOT EXISTS provider_config (
     provider_id BLOB    NOT NULL REFERENCES metadata_providers(id) ON DELETE CASCADE,
     key         TEXT    NOT NULL,
@@ -1261,7 +1414,7 @@ CREATE TABLE IF NOT EXISTS storage_metadata (
 );
 
 INSERT OR REPLACE INTO storage_metadata (key, value)
-VALUES ('storage_epoch', 'guid-blob-v1');
+VALUES ('storage_epoch', 'guid-blob-v2');
 
 CREATE TABLE IF NOT EXISTS system_activity (
     id           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,

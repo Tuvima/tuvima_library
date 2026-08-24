@@ -34,7 +34,7 @@ Tuvima Library starts with the story.
 
 Choose the folders Tuvima Library should watch and it builds a rich, browsable library around them. It identifies each item, adds useful metadata and artwork, connects related works where it has trustworthy evidence, and remembers your progress. Instead of searching through folders and filenames, you can explore the ideas, people, series, and creative worlds represented by the media you own.
 
-Not every file needs an online identity. Personal View libraries keep photos, short videos, documents, audio notes, home videos, lectures, and unmatched files local-only, bypassing retail providers and Wikidata. Their mixed local asset index supports date browsing, search, favorites, hidden items, compound files, duplicate sources, and file metadata while source policy determines whether originals may be organized.
+Not every file needs an online identity. View gives each enabled profile one Personal Space for photos, short videos, documents, audio notes, home videos, lectures, and other local media. Multiple folders and devices can feed that space without becoming separate photo libraries. Personal media bypasses retail providers and Wikidata; its local index supports date browsing, search, favorites, archive and trash state, Galleries, compound files, duplicate sources, and available file metadata while source policy continues to protect originals.
 
 See the [Beta Roadmap](https://tuvima.github.io/tuvima_library/product/beta-roadmap/) for the architectural priority order and the post-beta photo-intelligence boundary.
 

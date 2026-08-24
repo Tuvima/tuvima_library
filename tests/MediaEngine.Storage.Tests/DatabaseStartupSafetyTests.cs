@@ -34,7 +34,15 @@ public sealed class DatabaseStartupSafetyTests
             "local_items",
             "local_files",
             "local_file_sources",
-            "local_collections",
+            "view_personal_spaces",
+            "view_sources",
+            "view_devices",
+            "view_galleries",
+            "view_gallery_items",
+            "view_gallery_shares",
+            "collection_view_sources",
+            "profile_view_policies",
+            "profile_view_preferences",
         ];
 
         foreach (var table in requiredTables)
@@ -50,6 +58,17 @@ public sealed class DatabaseStartupSafetyTests
             "idx_media_assets_file_path_root",
             "idx_ingestion_batches_status",
             "idx_ingestion_batch_artifacts_batch",
+            "ix_local_items_owner_timeline",
+            "ix_local_items_space_timeline",
+            "ix_local_items_library_favorite_timeline",
+            "ix_local_item_metadata_location",
+            "ix_view_galleries_owner_order",
+            "ix_view_gallery_shares_profile",
+            "ix_local_item_tags_tag",
+            "ix_local_item_annotations_lookup",
+            "ix_collection_view_sources_collection",
+            "ix_collection_view_sources_owner",
+            "ux_collection_view_sources_gallery",
         ];
 
         foreach (var index in requiredIndexes)
@@ -71,6 +90,8 @@ public sealed class DatabaseStartupSafetyTests
                      "photo_sources",
                      "photo_albums",
                      "photo_album_items",
+                     "local_collections",
+                     "local_collection_items",
                  })
         {
             Assert.False(TableExists(conn, retiredTable),
@@ -86,7 +107,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v1", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v2", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
 
         (string Table, string Column)[] internalGuidColumns =
         [
@@ -197,18 +218,41 @@ public sealed class DatabaseStartupSafetyTests
             ("media_assets", "edition_id"),
             ("local_items", "id"),
             ("local_items", "library_id"),
+            ("local_items", "personal_space_id"),
+            ("local_items", "owner_profile_id"),
             ("local_item_metadata", "item_id"),
             ("local_files", "id"),
             ("local_file_sources", "id"),
             ("local_file_sources", "file_id"),
             ("local_file_sources", "library_id"),
+            ("local_file_sources", "source_id"),
+            ("local_file_sources", "device_id"),
             ("local_item_files", "item_id"),
             ("local_item_files", "file_id"),
             ("local_item_tags", "item_id"),
-            ("local_collections", "id"),
-            ("local_collections", "library_id"),
-            ("local_collection_items", "collection_id"),
-            ("local_collection_items", "item_id"),
+            ("view_personal_spaces", "id"),
+            ("view_personal_spaces", "owner_profile_id"),
+            ("view_personal_spaces", "library_id"),
+            ("view_sources", "id"),
+            ("view_sources", "personal_space_id"),
+            ("view_devices", "id"),
+            ("view_devices", "personal_space_id"),
+            ("view_devices", "source_id"),
+            ("view_galleries", "id"),
+            ("view_galleries", "owner_profile_id"),
+            ("view_galleries", "personal_space_id"),
+            ("view_galleries", "cover_item_id"),
+            ("view_gallery_items", "gallery_id"),
+            ("view_gallery_items", "item_id"),
+            ("view_gallery_shares", "gallery_id"),
+            ("view_gallery_shares", "profile_id"),
+            ("collection_view_sources", "id"),
+            ("collection_view_sources", "collection_id"),
+            ("collection_view_sources", "owner_profile_id"),
+            ("collection_view_sources", "gallery_id"),
+            ("profile_view_policies", "profile_id"),
+            ("profile_view_preferences", "profile_id"),
+            ("profile_view_preferences", "last_scope_profile_id"),
             ("local_item_annotations", "id"),
             ("local_item_annotations", "item_id"),
             ("local_item_search_keys", "item_id"),
@@ -295,6 +339,54 @@ public sealed class DatabaseStartupSafetyTests
         Assert.Equal("TEXT", ColumnType(conn, "media_assets", "content_hash"));
         Assert.Equal("TEXT", ColumnType(conn, "bridge_ids", "provider_id"));
         Assert.Equal("TEXT", ColumnType(conn, "provider_response_cache", "provider_id"));
+    }
+
+    [Fact]
+    public void FreshDatabase_ViewOwnershipAndGalleryForeignKeysTargetCurrentTables()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        using var conn = fixture.Database.CreateConnection();
+
+        (string Table, string Column, string TargetTable, string TargetColumn)[] expected =
+        [
+            ("view_personal_spaces", "owner_profile_id", "profiles", "id"),
+            ("view_sources", "personal_space_id", "view_personal_spaces", "id"),
+            ("view_devices", "personal_space_id", "view_personal_spaces", "id"),
+            ("view_devices", "source_id", "view_sources", "id"),
+            ("local_items", "personal_space_id", "view_personal_spaces", "id"),
+            ("local_items", "owner_profile_id", "profiles", "id"),
+            ("local_file_sources", "source_id", "view_sources", "id"),
+            ("local_file_sources", "device_id", "view_devices", "id"),
+            ("view_galleries", "owner_profile_id", "profiles", "id"),
+            ("view_galleries", "personal_space_id", "view_personal_spaces", "id"),
+            ("view_galleries", "cover_item_id", "local_items", "id"),
+            ("view_gallery_items", "gallery_id", "view_galleries", "id"),
+            ("view_gallery_items", "item_id", "local_items", "id"),
+            ("view_gallery_shares", "gallery_id", "view_galleries", "id"),
+            ("view_gallery_shares", "profile_id", "profiles", "id"),
+            ("collection_view_sources", "collection_id", "collections", "id"),
+            ("collection_view_sources", "owner_profile_id", "profiles", "id"),
+            ("collection_view_sources", "gallery_id", "view_galleries", "id"),
+            ("profile_view_policies", "profile_id", "profiles", "id"),
+            ("profile_view_preferences", "profile_id", "profiles", "id"),
+            ("profile_view_preferences", "last_scope_profile_id", "profiles", "id"),
+        ];
+
+        foreach (var foreignKey in expected)
+        {
+            using var command = conn.CreateCommand();
+            command.CommandText = $"""
+                SELECT COUNT(1)
+                  FROM pragma_foreign_key_list('{foreignKey.Table}')
+                 WHERE "from" = $column AND "table" = $targetTable AND "to" = $targetColumn;
+                """;
+            command.Parameters.AddWithValue("$column", foreignKey.Column);
+            command.Parameters.AddWithValue("$targetTable", foreignKey.TargetTable);
+            command.Parameters.AddWithValue("$targetColumn", foreignKey.TargetColumn);
+            Assert.True(Convert.ToInt64(command.ExecuteScalar()) == 1L,
+                $"Missing foreign key {foreignKey.Table}.{foreignKey.Column} -> {foreignKey.TargetTable}.{foreignKey.TargetColumn}.");
+        }
     }
 
     [Fact]
@@ -400,7 +492,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v1", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v2", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.True(TableExists(conn, "review_queue"));
     }
 
@@ -414,6 +506,27 @@ public sealed class DatabaseStartupSafetyTests
 
         Assert.Contains("Legacy databases are not migrated in place", ex.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("TUVIMA_STORAGE_RESET", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PreviousGuidBlobEpoch_FailsFastInsteadOfPartiallyApplyingViewSchema()
+    {
+        using var fixture = TempDatabase.Create();
+        using (var conn = new SqliteConnection($"Data Source={fixture.Path};Pooling=False"))
+        {
+            conn.Open();
+            using var command = conn.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE storage_metadata (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL);
+                INSERT INTO storage_metadata (key, value) VALUES ('storage_epoch', 'guid-blob-v1');
+                CREATE TABLE local_items (id BLOB NOT NULL PRIMARY KEY, library_id BLOB NOT NULL);
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        var exception = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
+        Assert.Contains("guid-blob-v2", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("not migrated in place", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -436,7 +549,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v1", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v2", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("BLOB", ColumnType(conn, "metadata_providers", "id"));
         Assert.True(TableExists(conn, "review_queue"));
 

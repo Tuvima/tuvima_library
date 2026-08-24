@@ -19,9 +19,11 @@ where the library appears in the product.
 
 `Photos` and `General` are not library kinds. Phone photos, short videos,
 documents, artwork, home movies, audio notes, and other personal files belong
-to user-created personal libraries in View. Presentation modes such as Gallery,
-Mixed Gallery, Timeline, Video, Documents, Audio, and Mixed change browsing;
-they do not change the underlying library kind.
+to the owning profile's Personal Space in View. A Personal Space may be backed
+by several internal personal libraries, sources, or devices, but those are
+intake and storage details rather than separate user-facing photo libraries.
+Galleries organize assets without changing the underlying library kind or
+moving source files.
 
 ## Processing flow
 
@@ -122,11 +124,17 @@ required for ingestion or search.
 
 ## Access
 
-Personal libraries declare an owner and visibility: Private, Shared with
-selected profiles, or Household. The same access decision is enforced for
-browse, search, thumbnails, originals, downloads, uploads, and management.
-Administrator access is an explicit policy rather than an assumption in the
-Dashboard.
+Every Personal Space has an explicit owning profile. Profiles independently
+control whether View is enabled, whether they may browse Shared View, whether
+their own Personal Space contributes to Shared View, and whether they may share
+Galleries. Shared View is a virtual authorized aggregation; it never copies or
+moves media into a physical master library.
+
+The Engine resolves Shared, Mine, and permitted profile scopes from trusted
+profile identity. The same resource authorization decision is enforced for
+browse, search, thumbnails, originals, downloads, Galleries, People, Places,
+and Collection projections. Administrator configuration rights are distinct
+from ordinary content-browsing rights.
 
 ## Pre-beta cutover policy
 
@@ -142,14 +150,10 @@ moves, renames, writeback, overwrite, or deletion.
 
 ## Visual validation and intentional differences
 
-Media Management and View were checked at 1920×1080 and at a 390×844 mobile
-viewport against the product references. The implemented hierarchy retains the
-reference's compact cards, status badges, area navigation, source controls,
-mixed-media filters, summary rail, and mobile stacking.
-
 The references use a permanent left rail as primary app navigation. Tuvima
-intentionally keeps Read, Watch, Listen, View, and Collections in its existing
-top navigation, with the established Settings or View rail beneath it. Media
-Management uses a visible inner row for Overview, Incoming, Read, Watch,
-Listen, and View. Empty View libraries show a truthful scan-ready state rather
-than fabricated thumbnails, counts, or backup progress.
+keeps Read, Watch, Listen, View, and Collections in its existing top navigation,
+with the established Settings or View rail beneath it. View's rail contains
+only Photos, Galleries, People, and Places; filters and source management remain
+in the content area or Settings. Empty surfaces show truthful capability or
+intake guidance rather than fabricated thumbnails, people, counts, or backup
+progress.

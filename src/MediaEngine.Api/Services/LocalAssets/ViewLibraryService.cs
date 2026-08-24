@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using SkiaSharp;
@@ -17,6 +18,7 @@ public sealed class ViewLibraryService(
     ILocalAssetRepository repository,
     IConfigurationLoader configuration,
     ILibraryAccessEvaluator accessEvaluator,
+    IViewPersonalSpaceRepository spaces,
     ILogger<ViewLibraryService> logger)
 {
     private const int MaxDocumentCharacters = 256 * 1024;
@@ -184,7 +186,7 @@ public sealed class ViewLibraryService(
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    var result = await IndexGroupAsync(libraryId, group, ct);
+                    var result = await IndexGroupAsync(library, source, group, ct);
                     if (result.ItemAdded) itemsAdded++;
                     filesAdded += result.FilesAdded;
                     sourcesAdded += result.SourcesAdded;
@@ -251,7 +253,54 @@ public sealed class ViewLibraryService(
         if (group is null)
             throw new InvalidDataException("The uploaded local asset could not be grouped for indexing.");
 
-        return await IndexGroupAsync(libraryId, group, ct);
+        return await IndexGroupAsync(library, source, group, ct);
+    }
+
+    public async Task<LocalAssetUpsertResult> UploadAsync(
+        Guid ownerProfileId,
+        string fileName,
+        Stream content,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        ArgumentNullException.ThrowIfNull(content);
+        var settings = configuration.LoadLibraries();
+        if (!settings.PersonalLibraryPolicy.AllowBrowserUpload)
+            throw new InvalidOperationException("Browser upload is disabled by administrator policy.");
+        var library = GetPersonalViewLibraries().SingleOrDefault(candidate =>
+            Guid.TryParse(candidate.OwnerProfileId, out var owner) && owner == ownerProfileId)
+            ?? throw new InvalidOperationException("The profile does not have a configured Personal Space.");
+        if (!library.AcceptedIntakeModes.Contains(LibraryIntakeModes.BrowserUpload, StringComparer.Ordinal))
+            throw new InvalidOperationException("The Personal Space does not accept browser uploads.");
+        var destination = library.PrimaryDestination
+            ?? library.Sources.FirstOrDefault(source => source.IsWritable && source.IsManaged)
+            ?? throw new InvalidOperationException("The Personal Space has no managed upload destination.");
+        Directory.CreateDirectory(destination.Path);
+        var safeName = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(safeName) || TryCreateCandidate(safeName) is null)
+            throw new InvalidDataException("The uploaded file type is not supported by View.");
+        var stem = Path.GetFileNameWithoutExtension(safeName);
+        var extension = Path.GetExtension(safeName);
+        var finalPath = Path.Combine(destination.Path, safeName);
+        if (File.Exists(finalPath))
+            finalPath = Path.Combine(destination.Path, $"{stem}-{Guid.NewGuid():N}{extension}");
+        var temporaryPath = finalPath + $".{Guid.NewGuid():N}.uploading";
+        try
+        {
+            await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write,
+                FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await content.CopyToAsync(output, ct);
+            }
+            File.Move(temporaryPath, finalPath);
+            return await IndexPathAsync(Guid.Parse(library.Id), finalPath, ct)
+                ?? throw new InvalidOperationException("The uploaded file could not be indexed.");
+        }
+        catch
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            throw;
+        }
     }
 
     private int Count(Guid libraryId, string? mediaKind, CancellationToken ct) =>
@@ -288,11 +337,19 @@ public sealed class ViewLibraryService(
     }
 
     private async Task<LocalAssetUpsertResult> IndexGroupAsync(
-        Guid libraryId,
+        LibraryFolderConfig library,
+        LibrarySourceConfig configuredSource,
         AssetGroup group,
         CancellationToken ct)
     {
+        var libraryId = Guid.Parse(library.Id);
+        if (!Guid.TryParse(library.OwnerProfileId, out var ownerProfileId) || ownerProfileId == Guid.Empty)
+            throw new InvalidDataException("A View library must have a configured owner profile.");
+        var space = await spaces.GetByOwnerAsync(ownerProfileId, ct)
+            ?? await spaces.CreateAsync(ownerProfileId, libraryId, ct);
         var metadata = ReadMetadata(group.Primary);
+        var source = await ResolveSourceAsync(space, configuredSource, ct);
+        var device = await ResolveDeviceAsync(space, source, configuredSource, metadata, ct);
         var registrations = new List<LocalAssetFileRegistration>(group.Files.Count);
         foreach (var member in group.Files)
         {
@@ -304,7 +361,9 @@ public sealed class ViewLibraryService(
                 member.Candidate.Type.MimeType,
                 info.Length,
                 new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
-                member.Role));
+                member.Role,
+                SourceId: source.Id,
+                DeviceId: device?.Id));
 
             if (metadata.DurationSeconds is null
                 && member.Candidate.Type.MediaKind is LocalAssetMediaKinds.Video or LocalAssetMediaKinds.Audio)
@@ -314,21 +373,77 @@ public sealed class ViewLibraryService(
         }
 
         return await repository.UpsertAsync(new LocalAssetRegistration(
-            libraryId,
-            group.Primary.Type.MediaKind,
-            metadata.Title ?? Path.GetFileNameWithoutExtension(group.Primary.Path),
-            metadata.CapturedAt,
-            registrations,
-            metadata.Width,
-            metadata.Height,
-            metadata.DurationSeconds,
-            metadata.PageCount,
+            LibraryId: libraryId,
+            PersonalSpaceId: space.Id,
+            OwnerProfileId: ownerProfileId,
+            MediaKind: group.Primary.Type.MediaKind,
+            Title: metadata.Title ?? Path.GetFileNameWithoutExtension(group.Primary.Path),
+            CapturedAt: metadata.CapturedAt,
+            Files: registrations,
+            Width: metadata.Width,
+            Height: metadata.Height,
+            DurationSeconds: metadata.DurationSeconds,
+            PageCount: metadata.PageCount,
+            DeviceMake: metadata.DeviceMake,
+            DeviceModel: metadata.DeviceModel,
+            Latitude: metadata.Latitude,
+            Longitude: metadata.Longitude,
+            LocationName: metadata.LocationName,
+            DocumentText: metadata.DocumentText), ct);
+    }
+
+    private async Task<ViewSource> ResolveSourceAsync(
+        ViewPersonalSpace space,
+        LibrarySourceConfig configured,
+        CancellationToken ct)
+    {
+        var key = string.IsNullOrWhiteSpace(configured.Id) ? Path.GetFullPath(configured.Path) : configured.Id;
+        var existing = (await spaces.GetSourcesAsync(space.Id, ct))
+            .FirstOrDefault(candidate => string.Equals(candidate.SourceKey, key, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null) return existing;
+        var now = DateTimeOffset.UtcNow;
+        return await spaces.UpsertSourceAsync(new ViewSource(
+            Guid.Empty,
+            space.Id,
+            ViewSourceType.Folder,
+            Path.GetFileName(Path.TrimEndingDirectorySeparator(configured.Path)),
+            key,
+            now,
+            now,
+            now), ct);
+    }
+
+    private async Task<ViewDevice?> ResolveDeviceAsync(
+        ViewPersonalSpace space,
+        ViewSource source,
+        LibrarySourceConfig configured,
+        LocalMetadata metadata,
+        CancellationToken ct)
+    {
+        var clientId = configured.DeviceId;
+        if (string.IsNullOrWhiteSpace(clientId)
+            && string.IsNullOrWhiteSpace(metadata.DeviceMake)
+            && string.IsNullOrWhiteSpace(metadata.DeviceModel))
+            return null;
+        clientId = string.IsNullOrWhiteSpace(clientId)
+            ? $"metadata:{metadata.DeviceMake}:{metadata.DeviceModel}"
+            : clientId;
+        var existing = (await spaces.GetDevicesAsync(space.Id, ct))
+            .FirstOrDefault(candidate => string.Equals(candidate.ClientDeviceId, clientId, StringComparison.Ordinal));
+        if (existing is not null) return existing;
+        var now = DateTimeOffset.UtcNow;
+        return await spaces.UpsertDeviceAsync(new ViewDevice(
+            Guid.Empty,
+            space.Id,
+            source.Id,
+            clientId,
+            metadata.DeviceModel ?? metadata.DeviceMake ?? "Imported device",
             metadata.DeviceMake,
             metadata.DeviceModel,
-            metadata.Latitude,
-            metadata.Longitude,
-            metadata.LocationName,
-            metadata.DocumentText), ct);
+            null,
+            ViewDeviceBackupState.Unknown,
+            now,
+            now), ct);
     }
 
     private static FileCandidate? TryCreateCandidate(string path)

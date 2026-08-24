@@ -2,6 +2,7 @@ using MediaEngine.Contracts.Profiles;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.PersonalMedia;
 
 namespace MediaEngine.Api.Services.ReadServices;
 
@@ -31,6 +32,26 @@ internal static class ProfileContractMapper
         LinkedAt = login.LinkedAt,
         LastLoginAt = login.LastLoginAt,
     };
+
+    internal static ViewProfilePolicyDto ToResponse(ViewProfilePolicy policy) => new()
+    {
+        ProfileId = policy.ProfileId,
+        ViewEnabled = policy.ViewEnabled,
+        AccessSharedView = policy.AccessSharedView,
+        IncludeInSharedView = policy.IncludeInSharedView,
+        AllowGallerySharing = policy.ShareGalleries,
+        UpdatedAt = policy.UpdatedAt,
+    };
+
+    internal static ViewProfilePolicy ToDomain(
+        Guid profileId,
+        UpdateViewProfilePolicyRequest request) => new(
+            profileId,
+            request.ViewEnabled,
+            request.AccessSharedView,
+            request.IncludeInSharedView,
+            request.AllowGallerySharing,
+            null);
 
     internal static TasteProfileDto ToResponse(TasteProfile profile) => new()
     {

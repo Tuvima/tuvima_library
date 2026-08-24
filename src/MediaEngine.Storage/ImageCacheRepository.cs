@@ -39,7 +39,7 @@ public sealed class ImageCacheRepository : IImageCacheRepository
     }
 
     /// <inheritdoc/>
-    public Task InsertAsync(
+    public async Task InsertAsync(
         string contentHash,
         string filePath,
         string? sourceUrl = null,
@@ -48,44 +48,45 @@ public sealed class ImageCacheRepository : IImageCacheRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(contentHash);
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
-        using var conn = _db.CreateConnection();
-        using var transaction = conn.BeginTransaction();
-        conn.Execute("""
-            INSERT OR IGNORE INTO image_cache
-                (content_hash, file_path, source_url, downloaded_at)
-            VALUES
-                (@contentHash, @filePath, @sourceUrl, @downloadedAt);
-            """,
-            new
-            {
-                contentHash,
-                filePath,
-                sourceUrl = NormalizeSourceUrl(sourceUrl),
-                downloadedAt = DateTimeOffset.UtcNow.ToString("O"),
-            }, transaction);
-
-        if (!string.IsNullOrWhiteSpace(sourceUrl))
+        await _db.ExecuteWriteAsync((conn, transaction, token) =>
         {
+            token.ThrowIfCancellationRequested();
             conn.Execute("""
-                INSERT INTO image_cache_sources
-                    (source_url, content_hash, first_seen_at)
+                INSERT OR IGNORE INTO image_cache
+                    (content_hash, file_path, source_url, downloaded_at)
                 VALUES
-                    (@sourceUrl, @contentHash, @firstSeenAt)
-                ON CONFLICT(source_url) DO UPDATE SET
-                    content_hash = excluded.content_hash;
+                    (@contentHash, @filePath, @sourceUrl, @downloadedAt);
                 """,
                 new
                 {
-                    sourceUrl = NormalizeSourceUrl(sourceUrl),
                     contentHash,
-                    firstSeenAt = DateTimeOffset.UtcNow.ToString("O"),
+                    filePath,
+                    sourceUrl = NormalizeSourceUrl(sourceUrl),
+                    downloadedAt = DateTimeOffset.UtcNow.ToString("O"),
                 },
                 transaction);
-        }
 
-        transaction.Commit();
+            if (!string.IsNullOrWhiteSpace(sourceUrl))
+            {
+                conn.Execute("""
+                    INSERT INTO image_cache_sources
+                        (source_url, content_hash, first_seen_at)
+                    VALUES
+                        (@sourceUrl, @contentHash, @firstSeenAt)
+                    ON CONFLICT(source_url) DO UPDATE SET
+                        content_hash = excluded.content_hash;
+                    """,
+                    new
+                    {
+                        sourceUrl = NormalizeSourceUrl(sourceUrl),
+                        contentHash,
+                        firstSeenAt = DateTimeOffset.UtcNow.ToString("O"),
+                    },
+                    transaction);
+            }
 
-        return Task.CompletedTask;
+            return true;
+        }, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

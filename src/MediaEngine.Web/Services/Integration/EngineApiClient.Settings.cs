@@ -182,6 +182,48 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public async Task<ViewProfilePolicyDto?> GetViewProfilePolicyAsync(
+        Guid id,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<ViewProfilePolicyDto>(
+                $"/profiles/{id:D}/settings/view", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /profiles/{Id}/settings/view failed", id);
+            return null;
+        }
+    }
+
+    public async Task<ViewProfilePolicyDto?> UpdateViewProfilePolicyAsync(
+        Guid id,
+        UpdateViewProfilePolicyRequest request,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync(
+                $"/profiles/{id:D}/settings/view", request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            return await response.Content.ReadFromJsonAsync<ViewProfilePolicyDto>(
+                cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /profiles/{Id}/settings/view failed", id);
+            return null;
+        }
+    }
+
     public async Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
     {
         try
