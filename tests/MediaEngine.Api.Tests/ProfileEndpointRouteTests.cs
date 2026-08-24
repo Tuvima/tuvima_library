@@ -47,6 +47,24 @@ public sealed class ProfileEndpointRouteTests
         Assert.Contains("[\"media_kind\"] = \"reading\"", readerSource, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ViewPolicyEndpoints_AreProfileScopedAndAdministratorOnly()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ProfileEndpoints.cs"));
+
+        var getStart = source.IndexOf("group.MapGet(\"/{id:guid}/settings/view\"", StringComparison.Ordinal);
+        var putStart = source.IndexOf("group.MapPut(\"/{id:guid}/settings/view\"", StringComparison.Ordinal);
+        var playbackPut = source.IndexOf("group.MapPut(\"/{id:guid}/settings/playback\"", StringComparison.Ordinal);
+
+        Assert.True(getStart >= 0);
+        Assert.True(putStart > getStart);
+        Assert.True(playbackPut > putStart);
+        Assert.Contains(".RequireAdmin();", source[getStart..putStart], StringComparison.Ordinal);
+        Assert.Contains(".RequireAdmin();", source[putStart..playbackPut], StringComparison.Ordinal);
+        Assert.Contains("IViewProfileRepository viewProfiles", source[getStart..playbackPut], StringComparison.Ordinal);
+        Assert.DoesNotContain("RequireAnyRole", source[getStart..playbackPut], StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(string relativePath)
     {
         var baseDir = AppContext.BaseDirectory;

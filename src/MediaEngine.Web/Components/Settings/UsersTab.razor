@@ -70,6 +70,11 @@
                                     <td><AppChip Text="@row.Role" Tone="@RoleTone(row.Role)" /></td>
                                     <td><span class="users-table__muted">@row.Created</span></td>
                                     <td class="users-table__actions">
+                                        <AppIconButton Icon="@Icons.Material.Outlined.PhotoLibrary"
+                                                       Tooltip="Manage View access"
+                                                       AriaLabel="@($"Manage View access for {row.DisplayName}")"
+                                                       Disabled="@row.Id.Equals(Guid.Empty)"
+                                                       OnClick="@(() => OpenViewPolicyDialogAsync(row))" />
                                         <AppIconButton Icon="@Icons.Material.Outlined.ManageAccounts"
                                                        Tooltip="Manage sign-in accounts"
                                                        AriaLabel="@($"Manage sign-in accounts for {row.DisplayName}")"
@@ -88,6 +93,22 @@
                     </AppTable>
                 </div>
             }
+        </SettingsSectionPanel>
+
+        <SettingsSectionPanel Title="View administration"
+                              Description="View keeps each profile's personal media separate from the catalogued library."
+                              Icon="@Icons.Material.Outlined.PhotoLibrary">
+            <AppAlert Tone="AppUiTone.Info">
+                Folder sources and connected devices are managed as real personal-library sources. Face grouping and other local analysis use the existing Local AI settings; there are no separate or simulated View AI controls.
+            </AppAlert>
+            <SettingsAdvancedLinkRow Title="Folders and sources"
+                                     Description="Attach or review personal media folders in Media Management."
+                                     Href="/settings/media-management/libraries"
+                                     ActionLabel="Manage" />
+            <SettingsAdvancedLinkRow Title="Local AI"
+                                     Description="Review the server's existing local analysis models and schedules."
+                                     Href="/settings/ai"
+                                     ActionLabel="View" />
         </SettingsSectionPanel>
 
         <SettingsSectionPanel Title="Advanced"
@@ -134,6 +155,58 @@
                        Tone="AppUiTone.Primary"
                        Disabled="@(string.IsNullOrWhiteSpace(_newDisplayName) || _creating)"
                        OnClick="@CreateProfileAsync" />
+        </AppActionBar>
+    </FooterContent>
+</AppDialog>
+
+<AppDialog @bind-Visible="_viewPolicyOpen"
+           Title="View access"
+           Icon="@Icons.Material.Outlined.PhotoLibrary"
+           Size="Small"
+           Options="@_dialogOptions"
+           OnClose="@CloseViewPolicyDialog">
+    <ChildContent>
+        @if (_selectedViewUser is not null)
+        {
+            <div class="users-dialog-title">@_selectedViewUser.DisplayName</div>
+        }
+
+        @if (_viewPolicyLoading)
+        {
+            <AppProgressBar Indeterminate="true" Class="users-page__progress" />
+        }
+        else if (_viewPolicyUnavailable)
+        {
+            <AppAlert Tone="AppUiTone.Error">
+                View policy could not be loaded from the Engine. No placeholder settings are shown.
+            </AppAlert>
+        }
+        else
+        {
+            <div class="users-view-policy" aria-label="View profile policy">
+                <AppSwitchRow @bind-Value="_viewEnabled"
+                              Label="View enabled"
+                              Description="Show this profile's private personal-media space in View." />
+                <AppSwitchRow @bind-Value="_accessSharedView"
+                              Label="Access Shared View"
+                              Description="Allow this profile to browse the Shared View aggregate." />
+                <AppSwitchRow @bind-Value="_includeInSharedView"
+                              Label="Include in Shared View"
+                              Description="Contribute this profile's eligible personal media to Shared View. This is independent from access." />
+                <AppSwitchRow @bind-Value="_allowGallerySharing"
+                              Label="Allow Gallery Sharing"
+                              Description="Allow this profile to share individual Galleries with other profiles." />
+            </div>
+        }
+    </ChildContent>
+    <FooterContent>
+        <AppActionBar>
+            <AppButton Label="Cancel" OnClick="@CloseViewPolicyDialog" />
+            <AppButton Label="@(_viewPolicySaving ? "Saving…" : "Save")"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@(_viewPolicyLoading || _viewPolicyUnavailable || _viewPolicySaving)"
+                       OnClick="@SaveViewPolicyAsync" />
         </AppActionBar>
     </FooterContent>
 </AppDialog>
@@ -235,6 +308,15 @@
     private string _newLoginSubject = string.Empty;
     private string? _newLoginEmail;
     private string? _newLoginDisplayName;
+    private bool _viewPolicyOpen;
+    private bool _viewPolicyLoading;
+    private bool _viewPolicySaving;
+    private bool _viewPolicyUnavailable;
+    private UserRow? _selectedViewUser;
+    private bool _viewEnabled;
+    private bool _accessSharedView;
+    private bool _includeInSharedView;
+    private bool _allowGallerySharing;
 
     private int AdministratorCount => _allRows.Count(row =>
         string.Equals(row.Role, "Administrator", StringComparison.OrdinalIgnoreCase));
@@ -344,6 +426,61 @@
         ResetExternalLoginForm();
         _externalLogins = await Orchestrator.GetProfileExternalLoginsAsync(row.Id);
         _externalLoginsLoading = false;
+    }
+
+    private async Task OpenViewPolicyDialogAsync(UserRow row)
+    {
+        _selectedViewUser = row;
+        _viewPolicyOpen = true;
+        _viewPolicyLoading = true;
+        _viewPolicyUnavailable = false;
+
+        var policy = await Orchestrator.GetViewProfilePolicyAsync(row.Id);
+        _viewPolicyLoading = false;
+        if (policy is null)
+        {
+            _viewPolicyUnavailable = true;
+            return;
+        }
+
+        _viewEnabled = policy.ViewEnabled;
+        _accessSharedView = policy.AccessSharedView;
+        _includeInSharedView = policy.IncludeInSharedView;
+        _allowGallerySharing = policy.AllowGallerySharing;
+    }
+
+    private void CloseViewPolicyDialog()
+    {
+        _viewPolicyOpen = false;
+        _selectedViewUser = null;
+        _viewPolicyUnavailable = false;
+    }
+
+    private async Task SaveViewPolicyAsync()
+    {
+        if (_selectedViewUser is null)
+            return;
+
+        _viewPolicySaving = true;
+        var saved = await Orchestrator.UpdateViewProfilePolicyAsync(
+            _selectedViewUser.Id,
+            new UpdateViewProfilePolicyRequest
+            {
+                ViewEnabled = _viewEnabled,
+                AccessSharedView = _accessSharedView,
+                IncludeInSharedView = _includeInSharedView,
+                AllowGallerySharing = _allowGallerySharing,
+            });
+        _viewPolicySaving = false;
+
+        if (saved is null)
+        {
+            Snackbar.Add("Could not save View access.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"View access saved for {_selectedViewUser.DisplayName}.", Severity.Success);
+        CloseViewPolicyDialog();
     }
 
     private void CloseExternalLoginsDialog()
