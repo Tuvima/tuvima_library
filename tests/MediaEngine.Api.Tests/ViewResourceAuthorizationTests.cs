@@ -124,6 +124,42 @@ public sealed class ViewResourceAuthorizationTests
         Assert.Equal([owner.PersonalSpace!.LibraryId], decision.Scope.LibraryIds);
     }
 
+    [Fact]
+    public async Task ViewOnlyGalleryShareCannotContribute()
+    {
+        var caller = State(access: false, include: false);
+        var owner = State(access: false, include: false);
+        var galleryId = Guid.NewGuid();
+        var service = Create([caller, owner], new ViewResourceDescriptor(
+            ViewResourceKind.Gallery, galleryId, owner.Policy.ProfileId,
+            owner.PersonalSpace!.LibraryId,
+            new HashSet<Guid> { caller.Policy.ProfileId },
+            new HashSet<Guid>()));
+
+        var decision = await service.AuthorizeAsync(Identity(caller), new ViewResourceRequest(
+            ViewScopeRequest.Mine, ViewResourceKind.Gallery, galleryId, ViewResourceAction.Contribute));
+
+        Assert.Equal(ViewAccessOutcome.NotFound, decision.Outcome);
+    }
+
+    [Fact]
+    public async Task ContributeGalleryShareNarrowsMutationToTheGalleryOwnersLibrary()
+    {
+        var caller = State(access: false, include: false);
+        var owner = State(access: false, include: false);
+        var galleryId = Guid.NewGuid();
+        var grants = new HashSet<Guid> { caller.Policy.ProfileId };
+        var service = Create([caller, owner], new ViewResourceDescriptor(
+            ViewResourceKind.Gallery, galleryId, owner.Policy.ProfileId,
+            owner.PersonalSpace!.LibraryId, grants, grants));
+
+        var decision = await service.AuthorizeAsync(Identity(caller), new ViewResourceRequest(
+            ViewScopeRequest.Mine, ViewResourceKind.Gallery, galleryId, ViewResourceAction.Contribute));
+
+        Assert.True(decision.IsAllowed);
+        Assert.Equal([owner.PersonalSpace.LibraryId], decision.Scope!.LibraryIds);
+    }
+
     [Theory]
     [InlineData(ViewResourceKind.Asset)]
     [InlineData(ViewResourceKind.Thumbnail)]

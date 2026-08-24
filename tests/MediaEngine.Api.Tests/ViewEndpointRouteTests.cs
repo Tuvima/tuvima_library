@@ -33,6 +33,10 @@ public sealed class ViewEndpointRouteTests
         Assert.DoesNotContain("MapGet(\"/{libraryId:guid}\"", endpoint, StringComparison.Ordinal);
         Assert.Contains("IViewRequestProfileContext", endpoint, StringComparison.Ordinal);
         Assert.Contains("IViewResourceAuthorizationService", endpoint, StringComparison.Ordinal);
+        Assert.Contains(": ViewScopeRequest.Shared;", endpoint, StringComparison.Ordinal);
+        Assert.Contains("AuthorizeOwnedItemAsync", endpoint, StringComparison.Ordinal);
+        Assert.Contains("if (bitmap is null) return Results.NoContent();", endpoint, StringComparison.Ordinal);
+        Assert.Contains("catch { return Results.NoContent(); }", endpoint, StringComparison.Ordinal);
     }
 
     private static string FindRepoRoot()

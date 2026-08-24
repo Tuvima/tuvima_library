@@ -39,6 +39,7 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<IViewResourceStore, ViewResourcePersistenceService>();
         services.AddSingleton<IViewResourceAuthorizationService, ViewResourceAuthorizationService>();
         services.AddSingleton<IViewAssetQueryBackend, ViewAssetQueryService>();
+        services.AddSingleton<IViewSmartGalleryQueryService, ViewSmartGalleryQueryService>();
         services.AddScoped<IViewQueryOrchestrator, ViewQueryOrchestrator>();
         services.AddSingleton<LibraryReorganizationService>();
         services.AddSingleton<IFileHashCacheRepository, FileHashCacheRepository>();

@@ -70,6 +70,7 @@ public static class ViewEndpoints
                 return Access(result.Outcome, result.Page);
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (InvalidOperationException exception) { return ApiErrors.Unprocessable(exception.Message); }
         }).WithName("GetViewAssets").Produces<ViewAssetTimelinePageDto>();
 
         group.MapPost("/uploads", async (IFormFile file,
@@ -278,11 +279,10 @@ public static class ViewEndpoints
     private static void MapFlag(RouteGroupBuilder group, string name,
         Func<ILocalAssetRepository, Guid, bool, CancellationToken, Task<bool>> operation) =>
         group.MapPut($"/items/{{id:guid}}/{name}", async (Guid id, SetLocalAssetFlagRequest request,
-            IViewRequestProfileContext identity, IViewProfileRepository preferences,
+            IViewRequestProfileContext identity,
             IViewResourceAuthorizationService authorization, ILocalAssetRepository assets, CancellationToken ct) =>
         {
-            var decision = await AuthorizeItemAsync(id, ViewResourceKind.Asset, ViewResourceAction.Contribute,
-                null, null, identity, preferences, authorization, ct);
+            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
             return !decision.IsAllowed ? Access(decision.Outcome)
                 : await operation(assets, id, request.Value, ct) ? Results.NoContent() : Missing();
         }).WithName($"SetViewItem{char.ToUpperInvariant(name[0])}{name[1..]}")
@@ -290,11 +290,10 @@ public static class ViewEndpoints
 
     private static void MapLifecycle(RouteGroupBuilder group, string name, LocalAssetLifecycleState state) =>
         group.MapPost($"/items/{{id:guid}}/{name}", async (Guid id,
-            IViewRequestProfileContext identity, IViewProfileRepository preferences,
+            IViewRequestProfileContext identity,
             IViewResourceAuthorizationService authorization, ILocalAssetRepository assets, CancellationToken ct) =>
         {
-            var decision = await AuthorizeItemAsync(id, ViewResourceKind.Asset, ViewResourceAction.Contribute,
-                null, null, identity, preferences, authorization, ct);
+            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
             return !decision.IsAllowed ? Access(decision.Outcome)
                 : await assets.SetLifecycleStateAsync(id, state, ct) ? Results.NoContent() : Missing();
         }).WithName($"{char.ToUpperInvariant(name[0])}{name[1..]}ViewItem")
@@ -315,6 +314,12 @@ public static class ViewEndpoints
         authorization.AuthorizeAsync(identity.Current,
             new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, id, action), ct);
 
+    private static Task<ViewAccessDecision> AuthorizeOwnedItemAsync(Guid id,
+        IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization, CancellationToken ct) =>
+        authorization.AuthorizeAsync(identity.Current,
+            new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Asset, id,
+                ViewResourceAction.Contribute), ct);
+
     private static async Task<ViewScopeRequest> GetScopeAsync(Guid profileId, string? scope,
         Guid? scopeProfileId, IViewProfileRepository repository, CancellationToken ct)
     {
@@ -322,7 +327,7 @@ public static class ViewEndpoints
         var saved = await repository.GetPreferencesAsync(profileId, ct);
         return saved.LastScopeKind.HasValue
             ? new ViewScopeRequest(saved.LastScopeKind.Value, saved.LastScopeProfileId)
-            : ViewScopeRequest.Mine;
+            : ViewScopeRequest.Shared;
     }
 
     private static ViewScopeRequest ParseScope(string? value, Guid? profileId) =>
@@ -361,7 +366,7 @@ public static class ViewEndpoints
         {
             using var input = File.OpenRead(file.FilePath);
             using var bitmap = SKBitmap.Decode(input);
-            if (bitmap is null) return Results.File(file.FilePath, file.MimeType);
+            if (bitmap is null) return Results.NoContent();
             const int maxEdge = 640;
             var scale = Math.Min(1d, maxEdge / (double)Math.Max(bitmap.Width, bitmap.Height));
             using var resized = bitmap.Resize(new SKImageInfo(
@@ -372,7 +377,7 @@ public static class ViewEndpoints
             using var data = image.Encode(SKEncodedImageFormat.Jpeg, 82);
             return Results.Bytes(data.ToArray(), "image/jpeg");
         }
-        catch { return Results.File(file.FilePath, file.MimeType); }
+        catch { return Results.NoContent(); }
     }
 
 }
