@@ -1,4 +1,5 @@
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Providers.Services;
@@ -27,6 +28,9 @@ public static class TuvimaHostedServiceCollectionExtensions
         services.AddHostedService<MediaOperationRecoveryHostedService>();
         services.AddHostedService<ArtworkRenditionRepairStartupService>();
         services.AddHostedService<RejectedFileCleanupService>();
+        services.AddSingleton<ViewSourceIndexingOptions>();
+        services.AddSingleton<IViewSourceWatcherFactory, FileSystemViewSourceWatcherFactory>();
+        services.AddHostedService<ViewSourceIndexingHostedService>();
         services.AddHostedService<RetagSweepWorker>();
         services.AddHostedService<MissingUniverseSweepService>();
 

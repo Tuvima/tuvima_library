@@ -19,7 +19,7 @@ public sealed class ViewLibraryService(
     IConfigurationLoader configuration,
     ILibraryAccessEvaluator accessEvaluator,
     IViewPersonalSpaceRepository spaces,
-    ILogger<ViewLibraryService> logger)
+    ILogger<ViewLibraryService> logger) : IViewPathIndexer
 {
     private const int MaxDocumentCharacters = 256 * 1024;
 
