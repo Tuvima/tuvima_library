@@ -7,6 +7,7 @@ using MediaEngine.Api.Realtime;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.HealthChecks;
+using MediaEngine.Api.Services.View;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
@@ -80,6 +81,8 @@ builder.Services.AddProblemDetails(options =>
     };
 });
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<IViewRequestProfileContext, HttpViewRequestProfileContext>();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new() { Title = "Tuvima Library API", Version = "v1" });
