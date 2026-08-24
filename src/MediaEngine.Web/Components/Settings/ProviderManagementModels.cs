@@ -99,17 +99,3 @@ public sealed class ProviderEditorDraft
         PrimaryEndpoint.Trim(),
         ApiKeyReplacement);
 }
-
-public sealed class ProviderPriorityItem
-{
-    public string Key { get; init; } = string.Empty;
-    public string DisplayName { get; init; } = string.Empty;
-    public string? LogoUrl { get; init; }
-    public string Icon { get; init; } = string.Empty;
-    public string AccentColor { get; init; } = string.Empty;
-    public string? Purpose { get; set; }
-    public bool GloballyEnabled { get; init; }
-    public string HealthStatus { get; init; } = "Not checked";
-    public string? SystemRole { get; init; }
-    public bool RequiredSystemProvider { get; init; }
-}

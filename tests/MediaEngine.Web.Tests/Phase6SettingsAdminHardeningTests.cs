@@ -117,23 +117,23 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("GetProviderStatusAsync", source, StringComparison.Ordinal);
         Assert.Contains("TestProviderAsync", source, StringComparison.Ordinal);
         Assert.Contains("SaveProviderConfigAsync", source, StringComparison.Ordinal);
-        Assert.Contains("UpdateHydrationSettingsAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Provider Setup", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Source Priority", source, StringComparison.Ordinal);
         Assert.Contains("[\"Books\", \"Audiobooks\", \"Comics\", \"Movies\", \"TV\", \"Music\"]", source, StringComparison.Ordinal);
-        Assert.Contains("ContextualProviderName", source, StringComparison.Ordinal);
+        Assert.Contains("Where(IsUserVisibleProvider)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ContextualProviderName", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MetadataSettings_ReadsConfiguredPipelinesAndSeparatesCanonicalResponsibilities()
+    public void MetadataSettings_ReadsConfiguredPipelinesAndExplainsCanonicalResponsibilities()
     {
         var page = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\MetadataSettingsPage.razor");
         var state = ReadRepoFile(@"src\MediaEngine.Web\Services\Integration\MetadataSettingsStateService.cs");
 
         Assert.Contains("GetPipelinesAsync", state, StringComparison.Ordinal);
-        Assert.Contains("BuildPipeline(mediaType, pipelines", state, StringComparison.Ordinal);
-        Assert.Contains("Provider identifiers are sent to Wikidata", page, StringComparison.Ordinal);
-        Assert.Contains("This layer does not identify media", page, StringComparison.Ordinal);
+        Assert.Contains("BuildFlow(mediaType, pipelines, providers)", state, StringComparison.Ordinal);
+        Assert.Contains("Canonical identity", page, StringComparison.Ordinal);
+        Assert.Contains("What Happens Next", page, StringComparison.Ordinal);
         Assert.DoesNotContain("DragIndicator", page, StringComparison.Ordinal);
         Assert.DoesNotContain("SavePipelinesAsync", page, StringComparison.Ordinal);
     }
@@ -183,7 +183,7 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void MetadataSettings_UseTheDedicatedThreeSurfaceExperience()
+    public void MetadataSettings_UseTheDedicatedTwoSurfaceExperience()
     {
         var settings = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
         var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
@@ -201,8 +201,9 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.DoesNotContain("Metadata & Matching", nav, StringComparison.Ordinal);
         Assert.Contains("\"metadata\"", nav, StringComparison.Ordinal);
         Assert.Contains("\"providers\", \"Providers\"", nav, StringComparison.Ordinal);
-        Assert.Contains("\"enrichment\", \"Enrichment\"", nav, StringComparison.Ordinal);
-        Assert.Contains("\"canonical\", \"Canonical & Universes\"", nav, StringComparison.Ordinal);
+        Assert.Contains("\"ingestion-flow\", \"Ingestion Flow\"", nav, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"enrichment\", \"Enrichment\"", nav, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"canonical\", \"Canonical & Universes\"", nav, StringComparison.Ordinal);
     }
 
     [Fact]

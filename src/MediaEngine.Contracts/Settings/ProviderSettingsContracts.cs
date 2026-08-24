@@ -268,9 +268,3 @@ public sealed class ProviderConfigUpdateDto
     [JsonPropertyName("custom_icon_name")]
     public string? CustomIconName { get; set; }
 }
-
-public sealed class ProviderPriorityRequest
-{
-    [JsonPropertyName("order")]
-    public List<string> Order { get; init; } = [];
-}

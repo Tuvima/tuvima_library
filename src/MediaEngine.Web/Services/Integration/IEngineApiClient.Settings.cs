@@ -191,9 +191,6 @@ public partial interface IEngineApiClient
     /// <summary>DELETE /settings/providers/{name} — disable/delete a provider.</summary>
     Task<bool> DeleteProviderAsync(string name, CancellationToken ct = default);
 
-    /// <summary>PUT /settings/providers/priority — save provider priority order.</summary>
-    Task<bool> UpdateProviderPriorityAsync(List<string> order, CancellationToken ct = default);
-
     // ── Organization template ─────────────────────────────────────────────────
 
     /// <summary>GET /settings/organization-template — current file organization template + preview.</summary>

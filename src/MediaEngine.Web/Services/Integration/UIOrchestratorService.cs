@@ -440,10 +440,6 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> DeleteProviderAsync(string name, CancellationToken ct = default)
         => _api.DeleteProviderAsync(name, ct);
 
-    /// <summary>Saves the provider priority order.</summary>
-    public Task<bool> UpdateProviderPriorityAsync(List<string> order, CancellationToken ct = default)
-        => _api.UpdateProviderPriorityAsync(order, ct);
-
     /// <summary>Most recent error detail from the last failed API call.</summary>
     public string? LastApiError => _api.LastError;
 

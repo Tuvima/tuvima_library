@@ -5,95 +5,102 @@ namespace MediaEngine.Web.Tests;
 public sealed class MetadataSettingsCompositionTests
 {
     [Fact]
-    public void MetadataSettings_ComposesTheThreeProductSurfaces()
+    public void MetadataSettings_ComposesOnlyProvidersAndIngestionFlow()
     {
         var page = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
-        var state = Read("src/MediaEngine.Web/Services/Integration/MetadataSettingsStateService.cs");
+        var nav = Read("src/MediaEngine.Web/Models/ViewDTOs/SettingsNav.cs");
 
-        Assert.Contains("<SettingsSubsectionNav", page, StringComparison.Ordinal);
-        Assert.Contains("ProvidersOverview()", page, StringComparison.Ordinal);
-        Assert.Contains("EnrichmentOverview()", page, StringComparison.Ordinal);
-        Assert.Contains("CanonicalOverview()", page, StringComparison.Ordinal);
-        Assert.DoesNotContain("Source Priority", page, StringComparison.Ordinal);
-        Assert.Contains("[\"Books\", \"Audiobooks\", \"Comics\", \"Movies\", \"TV\", \"Music\"]", state, StringComparison.Ordinal);
-        Assert.Contains("\"artwork\", \"Artwork\"", state, StringComparison.Ordinal);
-        Assert.Contains("\"lyrics\", \"Lyrics\"", state, StringComparison.Ordinal);
-        Assert.Contains("\"subtitles\", \"Subtitles\"", state, StringComparison.Ordinal);
-        Assert.Contains("\"people\", \"People\"", state, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"ratings\", \"Ratings\"", state, StringComparison.Ordinal);
-        Assert.False(File.Exists(PathFor("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor")));
-        Assert.False(File.Exists(PathFor("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor")));
-        Assert.False(File.Exists(PathFor("src/MediaEngine.Web/Components/Settings/ProviderHealthSurface.razor")));
+        Assert.Contains("ProvidersPage()", page, StringComparison.Ordinal);
+        Assert.Contains("ProviderDetailPage()", page, StringComparison.Ordinal);
+        Assert.Contains("IngestionFlowPage()", page, StringComparison.Ordinal);
+        Assert.Contains("\"providers\", \"Providers\"", nav, StringComparison.Ordinal);
+        Assert.Contains("\"ingestion-flow\", \"Ingestion Flow\"", nav, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"enrichment\", \"Enrichment\"", nav, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"canonical\", \"Canonical & Universes\"", nav, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnrichmentOverview", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("CanonicalOverview", page, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ProviderHealth_IsEmbeddedAndUsesRecordedEngineState()
+    public void Providers_AreOneProviderKeyInventoryWithTruthfulFilters()
     {
         var page = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
         var state = Read("src/MediaEngine.Web/Services/Integration/MetadataSettingsStateService.cs");
 
-        Assert.Contains("TestProviderAsync", page, StringComparison.Ordinal);
+        Assert.Contains("_snapshot!.Providers", page, StringComparison.Ordinal);
+        Assert.Contains("Search providers", page, StringComparison.Ordinal);
+        Assert.Contains("Needs setup", page, StringComparison.Ordinal);
+        Assert.Contains("Connected", page, StringComparison.Ordinal);
+        Assert.Contains("ProviderRoute(provider.Key)", page, StringComparison.Ordinal);
+        Assert.Contains("Where(IsUserVisibleProvider)", state, StringComparison.Ordinal);
+        Assert.DoesNotContain("ContextualProviderName", state, StringComparison.Ordinal);
+        Assert.DoesNotContain("ProviderRoute(pipeline.MediaType)", page, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IngestionFlow_DerivesRolesStagesAndOutputsFromLiveConfiguration()
+    {
+        var page = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
+        var state = Read("src/MediaEngine.Web/Services/Integration/MetadataSettingsStateService.cs");
+
+        Assert.Contains("GetPipelinesAsync", state, StringComparison.Ordinal);
         Assert.Contains("GetProviderStatusAsync", state, StringComparison.Ordinal);
-        Assert.Contains("HealthLabel(status)", state, StringComparison.Ordinal);
-        Assert.DoesNotContain("98%", page, StringComparison.Ordinal);
-        Assert.DoesNotContain("209 ms", page, StringComparison.Ordinal);
+        Assert.Contains("GetHydrationSettingsAsync", state, StringComparison.Ordinal);
+        Assert.Contains("RoleLabel(entry, index)", state, StringComparison.Ordinal);
+        Assert.Contains("\"Primary\"", state, StringComparison.Ordinal);
+        Assert.Contains("\"Secondary\"", state, StringComparison.Ordinal);
+        Assert.Contains("\"Fallback\"", state, StringComparison.Ordinal);
+        Assert.Contains("catalogue.RequiredSystemProvider ? \"Required\" : \"Optional\"", state, StringComparison.Ordinal);
+        Assert.Contains("flow.Results", page, StringComparison.Ordinal);
+        Assert.Contains("Order and roles come from the active Engine configuration", page, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Enrichment_OwnsTheRealRefreshSchedule()
+    public void ProviderConfiguration_ProtectsSecretsAndRequiredProviders()
     {
-        var enrichment = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
+        var page = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
+
+        Assert.Contains("Provider enabled", page, StringComparison.Ordinal);
+        Assert.Contains("Disabled=\"@provider.RequiredSystemProvider\"", page, StringComparison.Ordinal);
+        Assert.Contains("The stored credential is never returned", page, StringComparison.Ordinal);
+        Assert.Contains("InputType=\"InputType.Password\"", page, StringComparison.Ordinal);
+        Assert.Contains("TestProviderAsync", page, StringComparison.Ordinal);
+        Assert.Contains("SaveProviderConfigAsync", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateHydrationSettingsAsync", page, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EnrichmentRefreshSchedule_MovedToOperationalIngestionPage()
+    {
+        var metadata = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
+        var ingestion = Read("src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor");
         var schedule = Read("src/MediaEngine.Web/Components/Settings/EnrichmentRefreshSchedulePanel.razor");
 
-        Assert.Contains("<EnrichmentRefreshSchedulePanel", enrichment, StringComparison.Ordinal);
+        Assert.DoesNotContain("<EnrichmentRefreshSchedulePanel", metadata, StringComparison.Ordinal);
+        Assert.Contains("<EnrichmentRefreshSchedulePanel", ingestion, StringComparison.Ordinal);
         Assert.Contains("GetEnrichmentRefreshScheduleAsync", schedule, StringComparison.Ordinal);
         Assert.Contains("QueueEnrichmentRefreshNowAsync", schedule, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ArtworkSettings_ProtectManualChoicesAndExposeOnlyRealPolicy()
-    {
-        var page = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
-
-        Assert.Contains("Initial Artwork", page, StringComparison.Ordinal);
-        Assert.Contains("Additional Artwork", page, StringComparison.Ordinal);
-        Assert.Contains("Fill missing artwork automatically", page, StringComparison.Ordinal);
-        Assert.Contains("Keep manually selected artwork", page, StringComparison.Ordinal);
-        Assert.Contains("always protected from automation", page, StringComparison.Ordinal);
-        Assert.Contains("Use existing local artwork", page, StringComparison.Ordinal);
-        Assert.Contains("Built in", page, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void LibraryOverview_ExplainsTheConfiguredMetadataPipeline()
+    public void LibraryOverview_UsesTheSameConfiguredFlowSnapshot()
     {
         var libraries = Read("src/MediaEngine.Web/Components/Settings/LibrariesTab.razor");
         var summary = Read("src/MediaEngine.Web/Components/Settings/MetadataPipelineStrip.razor");
 
         Assert.Contains("<MetadataPipelineStrip", libraries, StringComparison.Ordinal);
-        Assert.Contains("Stage 1 — Metadata Provider", summary, StringComparison.Ordinal);
-        Assert.Contains("Stage 2 — Canonical Identity", summary, StringComparison.Ordinal);
-        Assert.Contains("Stage 3 — Enrichment", summary, StringComparison.Ordinal);
-        Assert.Contains("Manage Metadata Settings", summary, StringComparison.Ordinal);
+        Assert.Contains("_pipeline.Identification", summary, StringComparison.Ordinal);
+        Assert.Contains("_pipeline.Enrichment", summary, StringComparison.Ordinal);
+        Assert.Contains("/settings/metadata/ingestion-flow", summary, StringComparison.Ordinal);
         Assert.Contains("Local metadata only", summary, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void NeedsReview_KeepsItsWorkflowBehindASimplerResponsiveSummary()
+    public void RemovedMetadataWorkspaceComponents_RemainRetired()
     {
-        var review = Read("src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor");
-        var css = Read("src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor.css");
-
-        Assert.Contains("items need review", review, StringComparison.Ordinal);
-        Assert.Contains("settings-review-table-header", review, StringComparison.Ordinal);
-        Assert.Contains("Why it is here", review, StringComparison.Ordinal);
-        Assert.Contains("Dismiss from review", review, StringComparison.Ordinal);
-        Assert.DoesNotContain("settings-review-inspector", review, StringComparison.Ordinal);
-        Assert.Contains("OpenReviewEditorAsync", review, StringComparison.Ordinal);
-        Assert.Contains("DismissAsync", review, StringComparison.Ordinal);
-        Assert.Contains("@media(max-width:900px)", css, StringComparison.Ordinal);
-        Assert.Contains("flex-wrap:wrap", css, StringComparison.Ordinal);
-        Assert.DoesNotContain("min-width: 660px", css, StringComparison.Ordinal);
+        Assert.False(File.Exists(PathFor("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor")));
+        Assert.False(File.Exists(PathFor("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor")));
+        Assert.False(File.Exists(PathFor("src/MediaEngine.Web/Components/Settings/ProviderHealthSurface.razor")));
     }
 
     private static string Read(string relativePath) => File.ReadAllText(PathFor(relativePath));

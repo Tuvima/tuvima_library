@@ -75,8 +75,9 @@ public sealed class Wave5AccessibilityGuardrailTests
 
         Assert.Contains("<AppButton Label=\"Configure\"", plugins);
         Assert.DoesNotContain("role=\"button\"", plugins);
-        Assert.Contains("<AppButton Label=\"Manage\"", metadata);
+        Assert.Contains("<AppButton Label=\"Configure\"", metadata);
         Assert.Contains("aria-label=\"Used for\"", metadata);
+        Assert.Contains("role=\"table\"", metadata);
         Assert.DoesNotContain("role=\"button\"", metadata);
         Assert.Contains("HandleItemKeyDownAsync", activity);
     }

@@ -1,6 +1,6 @@
 ---
 title: "How to Configure Metadata Providers"
-summary: "Set up provider keys, priorities, and defaults so enrichment behaves the way you expect."
+summary: "Set up provider keys and defaults, then review the configured ingestion flow."
 audience: "user"
 category: "guide"
 product_area: "providers"
@@ -20,7 +20,7 @@ This guide explains what metadata providers are, which ones work out of the box,
 
 When the Engine identifies a file in your library, it reaches out to external sources to gather extra information: cover art, descriptions, ratings, cast and crew, identifiers like ISBNs or TMDB IDs, and more. These external sources are called **metadata providers**.
 
-The Providers screen is organized around the same numbered stages shown on the Ingestion page:
+Metadata has two pages. **Providers** lists every user-visible provider once, regardless of media type. **Ingestion Flow** is a read-only explanation of the same numbered stages used by the Engine:
 
 1. **Retail providers** (Stage 3: Retail Match) - run after file details are read. These gather practical information: cover art, descriptions, ratings, and identifiers. The Engine uses this data both to enrich your library and to improve its confidence in identifying what the file is.
 
@@ -57,9 +57,9 @@ TMDB supplies cover art, descriptions, cast and crew, ratings, and backdrops for
 1. Go to `https://www.themoviedb.org/settings/api` and create a free account.
 2. Request an API key (choose "Developer" use type).
 3. Copy the key.
-4. In the Dashboard, go to **Settings -> Providers** and keep **Retail Lookup** selected.
-5. Find TMDB in the Provider Library and paste your key into the API Key field in the settings panel.
-6. Click **Save Provider**.
+4. In the Dashboard, go to **Settings -> Metadata -> Providers**.
+5. Find TMDB, choose **Configure**, and paste your key into the API Key field.
+6. Click **Save Changes**.
 
 ### Comic Vine
 
@@ -68,9 +68,9 @@ Comic Vine supplies metadata for comics - issue numbers, story arcs, publishers,
 1. Go to `https://comicvine.gamespot.com/api/` and create a free account.
 2. Click **Get API Key**.
 3. Copy the key.
-4. In the Dashboard, go to **Settings -> Providers** and keep **Retail Lookup** selected.
-5. Find Comic Vine in the Provider Library and paste your key into the API Key field in the settings panel.
-6. Click **Save Provider**.
+4. In the Dashboard, go to **Settings -> Metadata -> Providers**.
+5. Find Comic Vine, choose **Configure**, and paste your key into the API Key field.
+6. Click **Save Changes**.
 
 ---
 
@@ -122,19 +122,13 @@ When a bridge ID resolves, Wikidata supplies canonical identity, relationship fa
 
 ---
 
-## Controlling provider order
+## Reviewing provider order and roles
 
-For each media type, you can control which provider's data is preferred when multiple providers return conflicting information. This is the **provider priority** order.
+Open **Settings -> Metadata -> Ingestion Flow** to see the active order for each media type. The page labels providers as Primary, Secondary, Fallback, Required, or Optional and shows the outputs contributed at each stage. It is intentionally read-only so inspecting the flow cannot accidentally change ingestion behavior.
 
-1. Go to **Settings -> Providers**.
-2. Select **Retail Lookup**.
-3. Select the media type you want to adjust (Books, Movies, TV, and so on).
-4. You will see the providers listed in their current priority order.
-5. Drag providers up or down to change the order. Providers at the top are preferred over providers further down.
+Provider execution order remains media-scoped in `config/pipelines.json`. Sequential chains run in listed order, passing bridge IDs forward. For music, the default configuration assigns MusicBrainz the `identity` role and Apple the `enrichment` role with `requires_identity: true` plus `use_as_identity_fallback: true`. Apple's `accepted_transition` points back to MusicBrainz for one reconciliation attempt only when Apple supplied the fallback identity. `max_provider_attempts` is an absolute safety budget. Query clauses, candidate paths, nested release constraints, creator-list behavior, transition hint fields, and retry counts all live in validated JSON configuration rather than provider-name branches in the worker.
 
-The provider priority affects how providers run and how the Priority Cascade resolves conflicts. Sequential chains run in listed order, passing bridge IDs forward. For music, the default configuration assigns MusicBrainz the `identity` role and Apple the `enrichment` role with `requires_identity: true` plus `use_as_identity_fallback: true`. Apple's `accepted_transition` points back to MusicBrainz for one reconciliation attempt only when Apple supplied the fallback identity. `max_provider_attempts` is an absolute safety budget. Query clauses, candidate paths, nested release constraints, creator-list behavior, transition hint fields, and retry counts all live in validated JSON configuration rather than provider-name branches in the worker.
-
-The **Canonical Identity** stage is intentionally different. It shows Wikidata identity, bridge, and relationship settings so you can understand what canonical data is being tracked; it does not assign providers to media types. The **Enrichment & Artwork** stage shows focused enrichment providers such as Fanart.tv, LRCLIB, and OpenSubtitles.
+Wikidata appears in the same provider inventory as every other provider. Ingestion Flow shows its required canonical-identity role separately from optional post-match providers such as Fanart.tv, LRCLIB, and OpenSubtitles.
 
 ---
 
@@ -150,8 +144,8 @@ Providers differ in what languages they support. Each provider has a **language 
 
 To change the language strategy for a provider:
 
-1. Go to **Settings -> Providers**.
-2. Click the provider you want to configure.
+1. Go to **Settings -> Metadata -> Providers**.
+2. Choose **Configure** for the provider you want to update.
 3. Find the **Language Strategy** dropdown in the provider's settings panel.
 4. Select the strategy you want and click **Save**.
 

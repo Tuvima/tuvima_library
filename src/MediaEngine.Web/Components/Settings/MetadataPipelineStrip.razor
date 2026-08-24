@@ -79,22 +79,20 @@ else if (_pipeline is not null)
         finally { _loading = false; }
     }
 
-    private string PrimaryProviderSummary => _pipeline is null || _pipeline.Providers.Count == 0
+    private string PrimaryProviderSummary => _pipeline is null || _pipeline.Identification.Count == 0
         ? "Not configured"
-        : string.Join(" + ", _pipeline.Providers.Select(provider => provider.DisplayName));
+        : string.Join(" + ", _pipeline.Identification.Select(provider => provider.DisplayName));
 
     private string EnrichmentSummary
     {
         get
         {
-            if (_snapshot is null || _pipeline is null) return "Not configured";
-            var relevant = _snapshot.Enrichment.Where(item => item.AppliesTo.Contains(_pipeline.MediaType, StringComparer.OrdinalIgnoreCase)
-                || item.AppliesTo.Contains(_pipeline.Lane, StringComparer.OrdinalIgnoreCase)).ToList();
-            return relevant.Count == 0 ? "No optional services" : string.Join(" · ", relevant.Select(item => $"{item.Title} {(item.Enabled ? "enabled" : "available")}"));
+            if (_pipeline is null) return "Not configured";
+            return _pipeline.Enrichment.Count == 0
+                ? "No optional services"
+                : string.Join(" · ", _pipeline.Enrichment.Select(item => $"{item.DisplayName} {(item.Enabled && !item.NeedsSetup ? "enabled" : "available")}"));
         }
     }
 
-    private string ManageHref => _pipeline is null
-        ? "/settings/metadata/providers"
-        : $"/settings/metadata/providers/{MetadataSettingsStateService.MediaTypeSlug(_pipeline.MediaType)}";
+    private const string ManageHref = "/settings/metadata/ingestion-flow";
 }

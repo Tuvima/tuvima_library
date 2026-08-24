@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=625; api=0; web-client=87
+# scopes: contracts=623; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6180,15 +6180,6 @@
 [contracts] MediaEngine.Contracts.Settings.ProviderIconPathResponse
   kind=class | converter=default | number-handling=default | unmapped=default
   path: System.String | json=path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
-[contracts] MediaEngine.Contracts.Settings.ProviderPriorityOrderResponse
-  kind=class | converter=default | number-handling=default | unmapped=default
-  order: System.Collections.Generic.List<System.String> | json=order | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
-[contracts] MediaEngine.Contracts.Settings.ProviderPriorityRequest
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Order: System.Collections.Generic.List<System.String> | json=order | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"order":[]}
 
 [contracts] MediaEngine.Contracts.Settings.ProviderSampleClaimDto
   kind=class | converter=default | number-handling=default | unmapped=default

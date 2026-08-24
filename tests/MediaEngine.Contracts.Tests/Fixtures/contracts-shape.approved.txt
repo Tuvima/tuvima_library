@@ -5177,12 +5177,6 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderHealthStat
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderIconPathResponse
   path: System.String | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderPriorityOrderResponse
-  order: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,init
-
-MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderPriorityRequest
-  Order: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,init
-
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderSampleClaimDto
   Key: System.String | nullability=not-null | accessors=get,init
   Value: System.String | nullability=not-null | accessors=get,init

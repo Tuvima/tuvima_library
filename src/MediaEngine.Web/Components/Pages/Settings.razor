@@ -342,14 +342,11 @@
     {
         if (string.IsNullOrWhiteSpace(detail)) return true;
         if (section != SettingsSection.Providers) return false;
-        var normalized = detail.Trim().ToLowerInvariant();
-        return subsection switch
-        {
-            "providers" => normalized is "books" or "audiobooks" or "comics" or "movies" or "tv" or "music",
-            "enrichment" => normalized is "artwork" or "lyrics" or "subtitles" or "people",
-            _ => false,
-        };
+        return subsection == "providers" && IsProviderRouteKey(detail);
     }
+
+    private static bool IsProviderRouteKey(string value) => value.All(character =>
+        char.IsLetterOrDigit(character) || character is '_' or '-');
 
     private void OnReviewCountChanged()
     {
@@ -420,22 +417,7 @@
     {
         if (_activeSection != SettingsSection.Providers || string.IsNullOrWhiteSpace(Detail))
             return SettingsNav.GetItem(_activeSection).Label;
-
-        if (_activeSubsection == "enrichment")
-            return $"{TitleCaseRouteValue(Detail)} Enrichment";
-
-        var mediaType = MetadataSettingsStateService.NormalizeMediaType(Detail);
-        var label = mediaType switch
-        {
-            "Movies" => "Movie",
-            "TV" => "TV",
-            "Music" => "Music",
-            "Books" => "Book",
-            "Audiobooks" => "Audiobook",
-            "Comics" => "Comic",
-            _ => TitleCaseRouteValue(Detail),
-        };
-        return $"{label} Metadata Provider";
+        return "Provider Configuration";
     }
 
     private string GetSubsectionLabel() => string.IsNullOrWhiteSpace(_activeSubsection)
@@ -482,21 +464,14 @@
     {
         if (!string.IsNullOrWhiteSpace(Detail))
         {
-            return _activeSubsection == "enrichment"
-                ? "Configure a later-stage service that enhances media after identification."
-                : "Review the configured Stage 1 provider, connection, and the core data it supplies during ingest.";
+            return "Configure this provider and review every place it participates in ingestion.";
         }
 
         return _activeSubsection switch
         {
-            "enrichment" => "Add richer details after media has been identified and made ready.",
-            "canonical" => "Wikidata connects identified media to stable identities, relationships, and universes.",
-            _ => "Identify media and gather the first metadata and artwork used during ingest.",
+            "ingestion-flow" => "See which providers run at each stage and what they add to every media type.",
+            _ => "Manage every metadata, canonical identity, and enrichment provider in one place.",
         };
     }
-
-    private static string TitleCaseRouteValue(string? value) => string.IsNullOrWhiteSpace(value)
-        ? string.Empty
-        : string.Concat(char.ToUpperInvariant(value.Trim()[0]), value.Trim()[1..].ToLowerInvariant());
 
 }

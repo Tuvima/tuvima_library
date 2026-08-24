@@ -39,8 +39,6 @@ namespace MediaEngine.Api.Models;
 
 // -- PUT /settings/providers/{name}/config ------------------------------------
 
-// -- PUT /settings/providers/priority -----------------------------------------
-
 // -- GET /metadata/claims/{entityId} ------------------------------------------
 
 public sealed class ClaimDto

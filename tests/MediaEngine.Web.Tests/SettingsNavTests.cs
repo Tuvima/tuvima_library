@@ -68,8 +68,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.ActivityLogs, "batches", "/settings/activity/batches")]
     [InlineData(SettingsSection.LocalAi, "models", "/settings/ai/models")]
     [InlineData(SettingsSection.Providers, "providers", "/settings/metadata/providers")]
-    [InlineData(SettingsSection.Providers, "enrichment", "/settings/metadata/enrichment")]
-    [InlineData(SettingsSection.Providers, "canonical", "/settings/metadata/canonical")]
+    [InlineData(SettingsSection.Providers, "ingestion-flow", "/settings/metadata/ingestion-flow")]
     public void RouteFor_Subsection_UsesNestedCanonicalUrl(
         SettingsSection section,
         string subsection,
@@ -95,12 +94,12 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void MetadataManagement_UsesThreeClearPipelineSubsections()
+    public void MetadataManagement_UsesTwoClearSubsections()
     {
         var subsections = SettingsNav.GetSubsections(SettingsSection.Providers).ToArray();
 
-        Assert.Equal(["Providers", "Enrichment", "Canonical & Universes"], subsections.Select(item => item.Label));
-        Assert.Equal(["providers", "enrichment", "canonical"], subsections.Select(item => item.Slug));
+        Assert.Equal(["Providers", "Ingestion Flow"], subsections.Select(item => item.Label));
+        Assert.Equal(["providers", "ingestion-flow"], subsections.Select(item => item.Slug));
     }
 
     [Fact]

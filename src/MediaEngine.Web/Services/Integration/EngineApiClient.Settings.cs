@@ -751,30 +751,6 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<bool> UpdateProviderPriorityAsync(
-        List<string> order, CancellationToken ct = default)
-    {
-        try
-        {
-            var body = new { order };
-            var resp = await _http.PutAsJsonAsync("/settings/providers/priority", body, ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                var detail = await resp.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning("PUT /settings/providers/priority returned {Status}: {Detail}",
-                    (int)resp.StatusCode, detail);
-                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
-            }
-            return resp.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "PUT /settings/providers/priority failed");
-            LastError = ex.Message;
-            return false;
-        }
-    }
-
     // -- Activity log (/activity) -------------------------------------------
 
     public async Task<List<ActivityEntryResponse>> GetRecentActivityAsync(

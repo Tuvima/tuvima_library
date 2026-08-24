@@ -1,5 +1,6 @@
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Web.Components.Settings;
 using MediaEngine.Web.Components.Shared;
 using MudBlazor;
 using PipelineConfiguration = MediaEngine.Contracts.Settings.PipelineConfiguration;
@@ -7,6 +8,10 @@ using PipelineProviderEntry = MediaEngine.Contracts.Settings.PipelineProviderEnt
 
 namespace MediaEngine.Web.Services.Integration;
 
+/// <summary>
+/// Composes the provider inventory and explanatory ingestion flow from the
+/// Engine's live provider catalogue, status, pipeline, and hydration settings.
+/// </summary>
 public sealed class MetadataSettingsStateService
 {
     public static readonly string[] MediaTypeOrder = ["Books", "Audiobooks", "Comics", "Movies", "TV", "Music"];
@@ -32,16 +37,14 @@ public sealed class MetadataSettingsStateService
         var statuses = (await statusesTask).ToDictionary(status => status.Name, StringComparer.OrdinalIgnoreCase);
         var pipelines = await pipelinesTask ?? new PipelineConfiguration();
         var hydration = await hydrationTask;
-        var mediaPipelines = MediaTypeOrder
-            .Select(mediaType => BuildPipeline(mediaType, pipelines, catalogue, statuses))
+        var providers = catalogue
+            .Where(IsUserVisibleProvider)
+            .Select(provider => BuildProvider(provider, statuses.GetValueOrDefault(provider.Name), pipelines, hydration))
+            .OrderBy(provider => provider.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToList();
+        var flows = MediaTypeOrder.Select(mediaType => BuildFlow(mediaType, pipelines, providers)).ToList();
 
-        return new MetadataSettingsSnapshot(
-            mediaPipelines,
-            BuildEnrichment(catalogue, statuses, hydration),
-            catalogue.FirstOrDefault(provider => string.Equals(provider.Name, "wikidata_reconciliation", StringComparison.OrdinalIgnoreCase)),
-            statuses,
-            hydration);
+        return new MetadataSettingsSnapshot(providers, flows, statuses, hydration);
     }
 
     public static string NormalizeMediaType(string? value)
@@ -85,27 +88,167 @@ public sealed class MetadataSettingsStateService
 
     public static string LaneFor(string mediaType) => NormalizeMediaType(mediaType) switch
     {
-        "Books" or "Audiobooks" or "Comics" => "Read",
+        "Books" or "Comics" => "Read",
         "Movies" or "TV" => "Watch",
-        "Music" => "Listen",
+        "Audiobooks" or "Music" => "Listen",
         _ => "Other",
     };
 
-    public static string ContextualProviderName(string providerKey, string mediaType, string fallback) =>
-        string.Equals(providerKey, "apple_api", StringComparison.OrdinalIgnoreCase)
-            ? NormalizeMediaType(mediaType) == "Music" ? "Apple Music" : "Apple Books"
-            : fallback;
+    private MetadataProviderInventoryItem BuildProvider(
+        ProviderCatalogueDto catalogue,
+        ProviderStatusDto? status,
+        PipelineConfiguration pipelines,
+        HydrationSettingsDto? hydration)
+    {
+        var mediaTypes = catalogue.MediaTypes
+            .Select(NormalizeMediaType)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(MediaOrder)
+            .ToList();
+        var participations = BuildParticipations(catalogue, status, pipelines, hydration, mediaTypes);
+        var enabled = status?.Enabled ?? catalogue.Enabled;
+        var requiresKey = status?.RequiresApiKey ?? catalogue.RequiresKey;
+        var hasKey = status?.HasApiKey ?? !requiresKey;
+        var logo = catalogue.IconPath;
+        if (!string.IsNullOrWhiteSpace(logo) && !logo.StartsWith('/')) logo = "/" + logo.TrimStart('/');
 
-    private MetadataMediaPipeline BuildPipeline(
+        return new MetadataProviderInventoryItem(
+            catalogue.Name,
+            catalogue.DisplayName,
+            DescriptionFor(catalogue, participations),
+            catalogue.Category,
+            catalogue.Domain,
+            logo,
+            _catalogueService.GetAccent(catalogue.Name, catalogue.MaterialIcon).Icon,
+            catalogue.AccentColor,
+            mediaTypes,
+            mediaTypes.Select(LaneFor).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+            catalogue.Capabilities,
+            catalogue.HydrationStages,
+            catalogue.SystemRole,
+            catalogue.RequiredSystemProvider,
+            enabled,
+            requiresKey,
+            hasKey,
+            requiresKey && !hasKey,
+            HealthLabel(status),
+            HealthTone(status),
+            participations,
+            catalogue,
+            status);
+    }
+
+    private static IReadOnlyList<MetadataProviderParticipation> BuildParticipations(
+        ProviderCatalogueDto catalogue,
+        ProviderStatusDto? status,
+        PipelineConfiguration pipelines,
+        HydrationSettingsDto? hydration,
+        IReadOnlyList<string> configuredMediaTypes)
+    {
+        var result = new List<MetadataProviderParticipation>();
+        foreach (var mediaType in MediaTypeOrder)
+        {
+            var ordered = pipelines.GetPipelineForMediaType(mediaType).Providers.OrderBy(entry => entry.Rank).ToList();
+            for (var index = 0; index < ordered.Count; index++)
+            {
+                var entry = ordered[index];
+                if (!string.Equals(entry.Name, catalogue.Name, StringComparison.OrdinalIgnoreCase)) continue;
+                result.Add(new MetadataProviderParticipation(
+                    mediaType,
+                    LaneFor(mediaType),
+                    1,
+                    "Identify & initial metadata",
+                    RoleLabel(entry, index),
+                    entry.Purpose,
+                    ContributionLabels(mediaType, catalogue.Capabilities, status, entry),
+                    status?.Enabled ?? catalogue.Enabled));
+            }
+        }
+
+        var appliesTo = configuredMediaTypes.Count > 0 ? configuredMediaTypes : MediaTypeOrder;
+        if (catalogue.HydrationStages.Contains(2))
+        {
+            foreach (var mediaType in appliesTo)
+            {
+                result.Add(new MetadataProviderParticipation(
+                    mediaType,
+                    LaneFor(mediaType),
+                    2,
+                    "Canonical identity",
+                    catalogue.RequiredSystemProvider ? "Required" : "Optional",
+                    catalogue.SystemRole,
+                    CanonicalOutputs(catalogue.Capabilities),
+                    status?.Enabled ?? catalogue.Enabled));
+            }
+        }
+
+        var suppliesLaterEnrichment = catalogue.HydrationStages.Contains(3)
+            || string.Equals(catalogue.Category, "Enrichment", StringComparison.OrdinalIgnoreCase)
+            || (string.Equals(catalogue.SystemRole, "canonical_source", StringComparison.OrdinalIgnoreCase)
+                && catalogue.Capabilities.Any(capability => capability is ProviderCapabilityId.People or ProviderCapabilityId.Relationships));
+        if (suppliesLaterEnrichment)
+        {
+            foreach (var mediaType in appliesTo)
+            {
+                result.Add(new MetadataProviderParticipation(
+                    mediaType,
+                    LaneFor(mediaType),
+                    3,
+                    "Enrichment after match",
+                    catalogue.RequiredSystemProvider ? "Required" : "Optional",
+                    "enrichment",
+                    EnrichmentOutputs(catalogue),
+                    (status?.Enabled ?? catalogue.Enabled) && (hydration?.Stage3Enabled ?? true)));
+            }
+        }
+
+        return result
+            .GroupBy(item => (item.MediaType, item.Stage), new MediaStageComparer())
+            .Select(group => group.First())
+            .OrderBy(item => MediaOrder(item.MediaType))
+            .ThenBy(item => item.Stage)
+            .ToList();
+    }
+
+    private static MetadataMediaPipeline BuildFlow(
         string mediaType,
         PipelineConfiguration configuration,
-        IReadOnlyList<ProviderCatalogueDto> catalogue,
-        IReadOnlyDictionary<string, ProviderStatusDto> statuses)
+        IReadOnlyList<MetadataProviderInventoryItem> providers)
     {
-        var pipeline = configuration.GetPipelineForMediaType(mediaType);
-        var providers = pipeline.Providers
-            .OrderBy(provider => provider.Rank)
-            .Select((provider, index) => BuildParticipant(mediaType, provider, index, catalogue, statuses))
+        var providerLookup = providers.ToDictionary(provider => provider.Key, StringComparer.OrdinalIgnoreCase);
+        var participants = providers
+            .SelectMany(provider => provider.Participations
+                .Where(item => string.Equals(item.MediaType, mediaType, StringComparison.OrdinalIgnoreCase))
+                .Select(item => new MetadataFlowParticipant(
+                    provider.Key,
+                    provider.DisplayName,
+                    item.RoleLabel,
+                    item.Stage,
+                    item.Outputs,
+                    item.Enabled,
+                    provider.NeedsSetup,
+                    provider.LogoUrl,
+                    provider.Icon,
+                    provider.AccentColor,
+                    provider.HealthLabel,
+                    provider.HealthTone)))
+            .ToList();
+
+        var stageOneOrder = configuration.GetPipelineForMediaType(mediaType).Providers
+            .OrderBy(entry => entry.Rank)
+            .Select(entry => entry.Name)
+            .ToList();
+        var stageOne = stageOneOrder
+            .Where(key => providerLookup.ContainsKey(key))
+            .Select(key => participants.First(item => item.Stage == 1 && string.Equals(item.ProviderKey, key, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        var canonical = participants.Where(item => item.Stage == 2).OrderBy(item => item.DisplayName).ToList();
+        var enrichment = participants.Where(item => item.Stage == 3).OrderBy(item => item.DisplayName).ToList();
+        var results = participants
+            .Where(item => item.Enabled && !item.NeedsSetup)
+            .SelectMany(item => item.Outputs)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         return new MetadataMediaPipeline(
@@ -113,128 +256,101 @@ public sealed class MetadataSettingsStateService
             MediaTypeLabel(mediaType),
             LaneFor(mediaType),
             MediaTypeIcon(mediaType),
-            DescriptionFor(mediaType),
-            pipeline.Strategy.ToString(),
-            providers);
+            configuration.GetPipelineForMediaType(mediaType).Strategy.ToString(),
+            stageOne,
+            canonical,
+            enrichment,
+            results);
     }
 
-    private MetadataProviderParticipant BuildParticipant(
-        string mediaType,
-        PipelineProviderEntry entry,
-        int index,
-        IReadOnlyList<ProviderCatalogueDto> catalogue,
-        IReadOnlyDictionary<string, ProviderStatusDto> statuses)
-    {
-        var catalog = catalogue.FirstOrDefault(provider => string.Equals(provider.Name, entry.Name, StringComparison.OrdinalIgnoreCase));
-        statuses.TryGetValue(entry.Name, out var status);
-        var rawName = catalog?.DisplayName ?? status?.DisplayName ?? _catalogueService.GetDisplayName(entry.Name);
-        var name = ContextualProviderName(entry.Name, mediaType, rawName);
-        var role = RoleLabel(entry, index);
-        var capabilities = ContributionLabels(mediaType, catalog, status, entry);
-        var logo = catalog?.IconPath;
-        if (!string.IsNullOrWhiteSpace(logo) && !logo.StartsWith('/')) logo = "/" + logo.TrimStart('/');
-        var accent = catalog?.AccentColor ?? _catalogueService.GetAccentColor(entry.Name);
-        var icon = _catalogueService.GetAccent(entry.Name, catalog?.MaterialIcon ?? status?.CustomIconName).Icon;
-
-        return new MetadataProviderParticipant(
-            entry.Name,
-            name,
-            role,
-            entry.Purpose,
-            entry.UseAsIdentityFallback,
-            status?.Enabled ?? catalog?.Enabled == true,
-            HealthLabel(status),
-            HealthTone(status),
-            logo,
-            icon,
-            accent,
-            capabilities,
-            catalog,
-            status);
-    }
-
-    private static IReadOnlyList<MetadataEnrichmentCapability> BuildEnrichment(
-        IReadOnlyList<ProviderCatalogueDto> catalogue,
-        IReadOnlyDictionary<string, ProviderStatusDto> statuses,
-        HydrationSettingsDto? hydration)
-    {
-        return
-        [
-            Enrichment("artwork", "Artwork", "Adds additional backgrounds and logos after identification.", "fanart_tv", ["Movies", "TV", "Music"], Icons.Material.Outlined.Image, catalogue, statuses, hydration),
-            Enrichment("lyrics", "Lyrics", "Adds synchronized and plain-text lyrics for music.", "lrclib", ["Music"], Icons.Material.Outlined.Lyrics, catalogue, statuses, hydration),
-            Enrichment("subtitles", "Subtitles", "Finds subtitles and stores normalized text tracks for video.", "opensubtitles", ["Movies", "TV"], Icons.Material.Outlined.Subtitles, catalogue, statuses, hydration),
-            Enrichment("people", "People", "Adds contributor biographies, portraits, relationships, and roles.", "wikidata_reconciliation", ["Read", "Watch", "Listen"], Icons.Material.Outlined.People, catalogue, statuses, hydration),
-        ];
-    }
-
-    private static MetadataEnrichmentCapability Enrichment(
-        string id,
-        string title,
-        string description,
-        string providerKey,
-        IReadOnlyList<string> appliesTo,
-        string icon,
-        IReadOnlyList<ProviderCatalogueDto> catalogue,
-        IReadOnlyDictionary<string, ProviderStatusDto> statuses,
-        HydrationSettingsDto? hydration)
-    {
-        var provider = catalogue.FirstOrDefault(candidate => string.Equals(candidate.Name, providerKey, StringComparison.OrdinalIgnoreCase));
-        statuses.TryGetValue(providerKey, out var status);
-        var enabled = status?.Enabled ?? provider?.Enabled == true;
-        if (id is "artwork" or "people") enabled &= hydration?.Stage3Enabled == true;
-        return new MetadataEnrichmentCapability(id, title, description, providerKey,
-            provider?.DisplayName ?? providerKey, appliesTo, icon, enabled,
-            HealthLabel(status), HealthTone(status), provider, status);
-    }
+    private static bool IsUserVisibleProvider(ProviderCatalogueDto provider) =>
+        provider.Capabilities.Count > 0
+        || provider.HydrationStages.Count > 0
+        || provider.RequiredSystemProvider
+        || !string.IsNullOrWhiteSpace(provider.SystemRole);
 
     private static IReadOnlyList<string> ContributionLabels(
         string mediaType,
-        ProviderCatalogueDto? catalogue,
+        IReadOnlyList<string> capabilities,
         ProviderStatusDto? status,
         PipelineProviderEntry entry)
     {
         var contributions = new List<string>();
         if (string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase) || entry.UseAsIdentityFallback)
             contributions.Add("Identity");
-        var capabilities = catalogue?.Capabilities ?? [];
         if (capabilities.Contains(ProviderCapabilityId.Metadata, StringComparer.OrdinalIgnoreCase))
-            contributions.Add(NormalizeMediaType(mediaType) switch { "Comics" => "Issue Details", "Music" => "Album Details", "TV" => "Episode Details", _ => "Details" });
+            contributions.Add(NormalizeMediaType(mediaType) switch { "Comics" => "Issue details", "Music" => "Album details", "TV" => "Episode details", _ => "Metadata" });
         if (capabilities.Contains(ProviderCapabilityId.Artwork, StringComparer.OrdinalIgnoreCase))
         {
             contributions.Add(NormalizeMediaType(mediaType) is "Movies" or "TV" ? "Poster" : "Cover");
             if (NormalizeMediaType(mediaType) is "Movies" or "TV") contributions.Add("Background");
         }
         if (capabilities.Contains(ProviderCapabilityId.Ratings, StringComparer.OrdinalIgnoreCase)) contributions.Add("Ratings");
-        if (capabilities.Contains(ProviderCapabilityId.People, StringComparer.OrdinalIgnoreCase) && NormalizeMediaType(mediaType) is "Movies" or "TV") contributions.Add("Cast Seeds");
+        if (capabilities.Contains(ProviderCapabilityId.People, StringComparer.OrdinalIgnoreCase)) contributions.Add("People seeds");
         if (contributions.Count == 0 && status?.AvailableFields is { Count: > 0 }) contributions.Add("Metadata");
         return contributions.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    private static string RoleLabel(PipelineProviderEntry entry, int index)
+    private static IReadOnlyList<string> CanonicalOutputs(IReadOnlyList<string> capabilities)
     {
-        if (entry.UseAsIdentityFallback) return "Identity fallback & metadata assistant";
-        if (string.Equals(entry.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase)) return "Additional metadata assistant";
-        if (index == 0 && string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase)) return "Primary identity provider";
-        if (string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase)) return "Additional identity source";
-        return "Pipeline participant";
+        var outputs = new List<string> { "Canonical identity" };
+        if (capabilities.Contains(ProviderCapabilityId.Relationships, StringComparer.OrdinalIgnoreCase)) outputs.Add("Relationships");
+        return outputs;
     }
 
-    private static string DescriptionFor(string mediaType) => NormalizeMediaType(mediaType) switch
+    private static IReadOnlyList<string> EnrichmentOutputs(ProviderCatalogueDto provider)
     {
-        "Books" => "Identity, book details, and cover artwork.",
-        "Audiobooks" => "Identity, audiobook details, and cover artwork.",
-        "Comics" => "Identity, issue details, and cover artwork.",
-        "Movies" => "Identity, movie details, poster, and background.",
-        "TV" => "Identity, episode details, poster, and background.",
-        "Music" => "Track and album identity, details, and cover artwork.",
-        _ => "Media identification and initial metadata.",
-    };
+        var outputs = new List<string>();
+        foreach (var capability in provider.Capabilities)
+        {
+            switch (capability.ToLowerInvariant())
+            {
+                case ProviderCapabilityId.Artwork:
+                    if (string.Equals(provider.Category, "Image", StringComparison.OrdinalIgnoreCase))
+                        outputs.AddRange(["Backgrounds", "Logos"]);
+                    else
+                        outputs.Add("Artwork");
+                    break;
+                case ProviderCapabilityId.Lyrics:
+                    outputs.AddRange(["Lyrics", "Synchronized lyrics"]);
+                    break;
+                case ProviderCapabilityId.Subtitles:
+                    outputs.AddRange(["Subtitles", "Text tracks"]);
+                    break;
+                case ProviderCapabilityId.People:
+                    outputs.AddRange(["People details", "Portraits"]);
+                    break;
+                case ProviderCapabilityId.Relationships:
+                    outputs.Add("Relationships");
+                    break;
+            }
+        }
+        return outputs.Count == 0 ? ["Additional metadata"] : outputs.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    private static string RoleLabel(PipelineProviderEntry entry, int index)
+    {
+        if (entry.UseAsIdentityFallback) return "Fallback";
+        if (string.Equals(entry.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase)) return "Optional";
+        if (index == 0 && string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase)) return "Primary";
+        if (string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase)) return "Secondary";
+        return "Participant";
+    }
+
+    private static string DescriptionFor(ProviderCatalogueDto provider, IReadOnlyList<MetadataProviderParticipation> participations)
+    {
+        if (provider.RequiredSystemProvider) return "Required canonical identity and relationship provider.";
+        var stages = participations.Select(item => item.Stage).Distinct().Order().ToList();
+        if (stages.SequenceEqual([1])) return "Identifies media and supplies initial metadata during ingest.";
+        if (stages.Contains(3) && !stages.Contains(1)) return "Adds optional information after media has been identified.";
+        return "Contributes metadata and enrichment across the ingestion flow.";
+    }
 
     public static string HealthLabel(ProviderStatusDto? status)
     {
         if (status is null) return "Not checked";
         if (!status.Enabled) return "Disabled";
-        if (status.RequiresApiKey && !status.HasApiKey) return "Authentication required";
+        if (status.RequiresApiKey && !status.HasApiKey) return "Needs setup";
         if (string.Equals(status.HealthStatus, "Down", StringComparison.OrdinalIgnoreCase)) return "Unavailable";
         if (string.Equals(status.HealthStatus, "Degraded", StringComparison.OrdinalIgnoreCase)) return "Degraded";
         return status.IsReachable || string.Equals(status.HealthStatus, "Healthy", StringComparison.OrdinalIgnoreCase) ? "Connected" : "Enabled";
@@ -242,60 +358,97 @@ public sealed class MetadataSettingsStateService
 
     public static AppUiTone HealthTone(ProviderStatusDto? status) => HealthLabel(status) switch
     {
-        "Connected" => AppUiTone.Success,
-        "Enabled" => AppUiTone.Success,
-        "Degraded" or "Authentication required" => AppUiTone.Warning,
+        "Connected" or "Enabled" => AppUiTone.Success,
+        "Degraded" or "Needs setup" => AppUiTone.Warning,
         "Unavailable" => AppUiTone.Error,
         _ => AppUiTone.Neutral,
     };
+
+    private static int MediaOrder(string mediaType)
+    {
+        var index = Array.FindIndex(MediaTypeOrder, value => string.Equals(value, mediaType, StringComparison.OrdinalIgnoreCase));
+        return index >= 0 ? index : int.MaxValue;
+    }
+
+    private sealed class MediaStageComparer : IEqualityComparer<(string MediaType, int Stage)>
+    {
+        public bool Equals((string MediaType, int Stage) x, (string MediaType, int Stage) y) =>
+            x.Stage == y.Stage && string.Equals(x.MediaType, y.MediaType, StringComparison.OrdinalIgnoreCase);
+
+        public int GetHashCode((string MediaType, int Stage) obj) =>
+            HashCode.Combine(StringComparer.OrdinalIgnoreCase.GetHashCode(obj.MediaType), obj.Stage);
+    }
 }
 
 public sealed record MetadataSettingsSnapshot(
+    IReadOnlyList<MetadataProviderInventoryItem> Providers,
     IReadOnlyList<MetadataMediaPipeline> MediaPipelines,
-    IReadOnlyList<MetadataEnrichmentCapability> Enrichment,
-    ProviderCatalogueDto? Wikidata,
     IReadOnlyDictionary<string, ProviderStatusDto> Statuses,
     HydrationSettingsDto? Hydration)
 {
+    public MetadataProviderInventoryItem? ProviderFor(string? key) => Providers.FirstOrDefault(provider =>
+        string.Equals(provider.Key, key, StringComparison.OrdinalIgnoreCase));
+
     public MetadataMediaPipeline? PipelineFor(string? mediaType) => MediaPipelines.FirstOrDefault(pipeline =>
         string.Equals(pipeline.MediaType, MetadataSettingsStateService.NormalizeMediaType(mediaType), StringComparison.OrdinalIgnoreCase));
 }
+
+public sealed record MetadataProviderInventoryItem(
+    string Key,
+    string DisplayName,
+    string Description,
+    string Category,
+    string Domain,
+    string? LogoUrl,
+    string Icon,
+    string AccentColor,
+    IReadOnlyList<string> MediaTypes,
+    IReadOnlyList<string> Lanes,
+    IReadOnlyList<string> Capabilities,
+    IReadOnlyList<int> HydrationStages,
+    string? SystemRole,
+    bool RequiredSystemProvider,
+    bool Enabled,
+    bool RequiresKey,
+    bool HasKey,
+    bool NeedsSetup,
+    string HealthLabel,
+    AppUiTone HealthTone,
+    IReadOnlyList<MetadataProviderParticipation> Participations,
+    ProviderCatalogueDto Catalogue,
+    ProviderStatusDto? Status);
+
+public sealed record MetadataProviderParticipation(
+    string MediaType,
+    string Lane,
+    int Stage,
+    string StageLabel,
+    string RoleLabel,
+    string? Purpose,
+    IReadOnlyList<string> Outputs,
+    bool Enabled);
 
 public sealed record MetadataMediaPipeline(
     string MediaType,
     string Label,
     string Lane,
     string Icon,
-    string Description,
     string Strategy,
-    IReadOnlyList<MetadataProviderParticipant> Providers);
+    IReadOnlyList<MetadataFlowParticipant> Identification,
+    IReadOnlyList<MetadataFlowParticipant> CanonicalIdentity,
+    IReadOnlyList<MetadataFlowParticipant> Enrichment,
+    IReadOnlyList<string> Results);
 
-public sealed record MetadataProviderParticipant(
-    string Key,
+public sealed record MetadataFlowParticipant(
+    string ProviderKey,
     string DisplayName,
     string RoleLabel,
-    string? Purpose,
-    bool IsIdentityFallback,
+    int Stage,
+    IReadOnlyList<string> Outputs,
     bool Enabled,
-    string HealthLabel,
-    AppUiTone HealthTone,
+    bool NeedsSetup,
     string? LogoUrl,
     string Icon,
     string AccentColor,
-    IReadOnlyList<string> Contributions,
-    ProviderCatalogueDto? Catalogue,
-    ProviderStatusDto? Status);
-
-public sealed record MetadataEnrichmentCapability(
-    string Id,
-    string Title,
-    string Description,
-    string ProviderKey,
-    string ProviderName,
-    IReadOnlyList<string> AppliesTo,
-    string Icon,
-    bool Enabled,
     string HealthLabel,
-    AppUiTone HealthTone,
-    ProviderCatalogueDto? Catalogue,
-    ProviderStatusDto? Status);
+    AppUiTone HealthTone);

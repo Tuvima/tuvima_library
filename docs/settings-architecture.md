@@ -55,7 +55,7 @@ Settings/Admin uses explicit status labels so admins can tell whether a control 
 - **Read-only** means the setting is loaded from config/state but cannot be changed at runtime from the Dashboard.
 - **Requires restart**, **Requires provider credentials**, and **Requires admin role** describe specific blockers before a setting can take effect.
 
-Folders, provider configuration, provider priority, transcoding policy, profile management, API keys, activity retention, plugin enablement, and dynamic plugin settings should use typed Engine API/orchestrator paths. Metadata, Local AI, Delivery, Access, and Plugin subsections that are not fully backed must remain disabled or explicitly marked partial/not connected.
+Folders, provider configuration, media-scoped pipeline configuration, transcoding policy, profile management, API keys, activity retention, plugin enablement, and dynamic plugin settings should use typed Engine API/orchestrator paths. Metadata, Local AI, Delivery, Access, and Plugin subsections that are not fully backed must remain disabled or explicitly marked partial/not connected.
 
 Folder saves update `config/libraries.json`; the Engine attempts to hot-swap
 watchers when configured source folders exist and are accessible. Catalogued

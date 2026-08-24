@@ -164,8 +164,7 @@ public static class SettingsNav
             [SettingsSection.Providers] =
             [
                 new("providers", "Providers", Icons.Material.Outlined.Dns),
-                new("enrichment", "Enrichment", Icons.Material.Outlined.AutoAwesome),
-                new("canonical", "Canonical & Universes", Icons.Material.Outlined.AccountTree),
+                new("ingestion-flow", "Ingestion Flow", Icons.Material.Outlined.AccountTree),
             ],
             [SettingsSection.ActivityLogs] =
             [

@@ -27,15 +27,6 @@ public sealed record ProviderHealthStatusResponse(
     string? DownSince);
 
 /// <summary>
-/// Response promoted from the anonymous <c>new { order = request.Order }</c>
-/// previously returned by <c>PUT /settings/providers/priority</c>. The
-/// lower-case <c>order</c> property name matches the original anonymous
-/// member exactly — see the wire-compatibility note on
-/// <see cref="ProviderHealthStatusResponse"/>.
-/// </summary>
-public sealed record ProviderPriorityOrderResponse(List<string> order);
-
-/// <summary>
 /// Shared "operation acknowledged" response promoted from the anonymous
 /// <c>new { saved = true }</c> shape used by several settings save endpoints
 /// (hydration, pipelines, media types). The lower-case <c>saved</c> property

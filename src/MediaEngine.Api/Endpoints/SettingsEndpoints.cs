@@ -31,8 +31,6 @@ using ProviderHealthRecord = MediaEngine.Domain.Entities.ProviderHealthRecord;
 // import would make every unqualified use of those pre-existing names ambiguous (CS0104).
 using ProviderHealthStatusResponse = MediaEngine.Contracts.Settings.ProviderHealthStatusResponse;
 using ProviderIconPathResponse = MediaEngine.Contracts.Settings.ProviderIconPathResponse;
-using ProviderPriorityOrderResponse = MediaEngine.Contracts.Settings.ProviderPriorityOrderResponse;
-using ProviderPriorityRequest = MediaEngine.Contracts.Settings.ProviderPriorityRequest;
 using ProviderSampleClaim = MediaEngine.Contracts.Settings.ProviderSampleClaimDto;
 using ProviderSampleRequest = MediaEngine.Contracts.Settings.ProviderSampleRequest;
 using ProviderSampleResponse = MediaEngine.Contracts.Settings.ProviderSampleResultDto;
@@ -851,30 +849,6 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
-
-        // ── PUT /settings/providers/priority ────────────────────────────────────
-        // Saves the provider priority order.
-
-        grp.MapPut("/providers/priority", (
-            ProviderPriorityRequest request,
-            IConfigurationLoader configLoader) =>
-        {
-            if (request.Order is null || request.Order.Count == 0)
-            {
-                return ApiErrors.BadRequest("Order list cannot be empty.");
-            }
-
-            var core = configLoader.LoadCore();
-            core.ProviderPriority = request.Order;
-            configLoader.SaveCore(core);
-
-            return Results.Ok(new ProviderPriorityOrderResponse(request.Order));
-        })
-        .WithName("UpdateProviderPriority")
-        .WithSummary("Saves the provider priority order for metadata harvesting.")
-        .Produces<ProviderPriorityOrderResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── GET /settings/hydration ──────────────────────────────────────────
