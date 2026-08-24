@@ -10,6 +10,8 @@ namespace MediaEngine.Contracts.LocalAssets;
 public sealed record LocalAssetDto(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("library_id")] Guid LibraryId,
+    [property: JsonPropertyName("personal_space_id")] Guid PersonalSpaceId,
+    [property: JsonPropertyName("owner_profile_id")] Guid OwnerProfileId,
     [property: JsonPropertyName("media_kind")] string MediaKind,
     [property: JsonPropertyName("title")] string? Title,
     [property: JsonPropertyName("file_name")] string FileName,
@@ -27,6 +29,8 @@ public sealed record LocalAssetDto(
     [property: JsonPropertyName("location_name")] string? LocationName,
     [property: JsonPropertyName("favorite")] bool Favorite,
     [property: JsonPropertyName("hidden")] bool Hidden,
+    [property: JsonPropertyName("archived_at")] DateTimeOffset? ArchivedAt,
+    [property: JsonPropertyName("trashed_at")] DateTimeOffset? TrashedAt,
     [property: JsonPropertyName("source_count")] int SourceCount,
     [property: JsonPropertyName("files")] IReadOnlyList<LocalAssetFileDto> Files,
     [property: JsonPropertyName("tags")] IReadOnlyList<string> Tags,
@@ -67,28 +71,6 @@ public sealed record LocalAssetScanResultDto(
     [property: JsonPropertyName("sources_added")] int SourcesAdded,
     [property: JsonPropertyName("duplicates_found")] int DuplicatesFound,
     [property: JsonPropertyName("errors")] int Errors);
-
-public sealed record LocalCollectionDto(
-    [property: JsonPropertyName("id")] Guid Id,
-    [property: JsonPropertyName("library_id")] Guid LibraryId,
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("description")] string? Description,
-    [property: JsonPropertyName("collection_kind")] string CollectionKind,
-    [property: JsonPropertyName("item_count")] int ItemCount,
-    [property: JsonPropertyName("cover_item_id")] Guid? CoverItemId,
-    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt);
-
-public sealed record CreateLocalCollectionRequest(
-    [property: JsonPropertyName("library_id")] Guid LibraryId,
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("description")] string? Description = null,
-    [property: JsonPropertyName("collection_kind")] string CollectionKind = "collection");
-
-public sealed record AddLocalCollectionItemsRequest(
-    [property: JsonPropertyName("item_ids")] IReadOnlyList<Guid> ItemIds);
-
-public sealed record AddLocalCollectionItemsResult(
-    [property: JsonPropertyName("added")] int Added);
 
 public sealed record SetLocalAssetFlagRequest(
     [property: JsonPropertyName("value")] bool Value);

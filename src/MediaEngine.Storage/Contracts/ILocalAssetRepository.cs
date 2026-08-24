@@ -10,12 +10,12 @@ namespace MediaEngine.Storage.Contracts;
 public interface ILocalAssetRepository
 {
     LocalAssetPageDto Query(LocalAssetQuery query, CancellationToken ct = default);
+    LocalAssetTimelinePage QueryTimeline(LocalAssetTimelineQuery query, CancellationToken ct = default);
     LocalAssetDto? Find(Guid itemId, CancellationToken ct = default);
     LocalAssetContentLocation? ResolveContent(
         Guid itemId,
         string role = LocalAssetFileRoles.Primary,
         CancellationToken ct = default);
-    IReadOnlyList<LocalCollectionDto> GetCollections(Guid libraryId, CancellationToken ct = default);
 
     Task<LocalAssetUpsertResult> UpsertAsync(
         LocalAssetRegistration registration,
@@ -25,19 +25,13 @@ public interface ILocalAssetRepository
         bool? favorite,
         bool? hidden,
         CancellationToken ct = default);
+    Task<bool> SetLifecycleStateAsync(
+        Guid itemId,
+        LocalAssetLifecycleState state,
+        CancellationToken ct = default);
     Task ReplaceTagsAsync(
         Guid itemId,
         IReadOnlyCollection<string> tags,
-        CancellationToken ct = default);
-    Task<LocalCollectionDto> CreateCollectionAsync(
-        Guid libraryId,
-        string name,
-        string? description,
-        string collectionKind,
-        CancellationToken ct = default);
-    Task<int> AddToCollectionAsync(
-        Guid collectionId,
-        IReadOnlyCollection<Guid> itemIds,
         CancellationToken ct = default);
     Task<Guid> AddAnnotationAsync(
         Guid itemId,
@@ -54,10 +48,47 @@ public sealed record LocalAssetQuery(
     bool FavoritesOnly = false,
     bool IncludeHidden = false,
     bool HiddenOnly = false,
-    Guid? CollectionId = null);
+    Guid? GalleryId = null,
+    LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active);
+
+public sealed record LocalAssetTimelineQuery(
+    IReadOnlyCollection<Guid> AuthorizedLibraryIds,
+    int Limit = 100,
+    DateTimeOffset? BeforeEffectiveAt = null,
+    Guid? BeforeItemId = null,
+    string? Search = null,
+    IReadOnlyCollection<string>? MediaKinds = null,
+    bool FavoritesOnly = false,
+    bool IncludeHidden = false,
+    Guid? GalleryId = null,
+    LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active);
+
+public sealed record LocalAssetTimelineCursor(DateTimeOffset EffectiveAt, Guid ItemId);
+
+public sealed record LocalAssetTimelinePage(
+    IReadOnlyList<LocalAssetDto> Items,
+    LocalAssetTimelineCursor? NextCursor,
+    bool HasMore);
+
+public enum LocalAssetLifecycleFilter
+{
+    Active,
+    Archived,
+    Trashed,
+    All,
+}
+
+public enum LocalAssetLifecycleState
+{
+    Active,
+    Archived,
+    Trashed,
+}
 
 public sealed record LocalAssetRegistration(
     Guid LibraryId,
+    Guid PersonalSpaceId,
+    Guid OwnerProfileId,
     string MediaKind,
     string? Title,
     DateTimeOffset? CapturedAt,
@@ -84,7 +115,9 @@ public sealed record LocalAssetFileRegistration(
     long ByteSize,
     DateTimeOffset ModifiedAt,
     string Role = LocalAssetFileRoles.Primary,
-    string? DerivativeKind = null);
+    string? DerivativeKind = null,
+    Guid? SourceId = null,
+    Guid? DeviceId = null);
 
 public sealed record LocalAssetUpsertResult(
     Guid ItemId,
@@ -96,6 +129,9 @@ public sealed record LocalAssetContentLocation(
     Guid ItemId,
     Guid FileId,
     Guid LibraryId,
+    Guid OwnerProfileId,
+    Guid? SourceId,
+    Guid? DeviceId,
     string FilePath,
     string MimeType,
     long ByteSize,
