@@ -53,6 +53,8 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("new(\"Galleries\", \"/view/galleries\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"People\", \"/view/people\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"Places\", \"/view/places\"", shell, StringComparison.Ordinal);
+        Assert.Contains("new SmartGalleryNavigationDropTarget", shell, StringComparison.Ordinal);
+        Assert.Contains("This Gallery updates automatically from its rules.", shell, StringComparison.Ordinal);
         Assert.Equal(1, shell.Split("new(\"Photos\", \"/view\"", StringSplitOptions.None).Length - 1);
         Assert.DoesNotContain("Libraries", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Favorites", shell, StringComparison.Ordinal);

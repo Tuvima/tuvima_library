@@ -33,7 +33,7 @@
                     gallery.ItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
                     DropTarget: gallery.Kind == MediaEngine.Domain.PersonalMedia.ViewGalleryKind.Manual
                         ? new ManualGalleryNavigationDropTarget(gallery.Id)
-                        : null))
+                        : new SmartGalleryNavigationDropTarget(gallery.Id)))
                 .ToList();
             items.Add(new("New Gallery", "/view/galleries?create=true", Icons.Material.Outlined.Add,
                 Exact: true, DropTarget: new NewGalleryNavigationDropTarget()));
@@ -69,13 +69,19 @@
                     var result = await ApiClient.AddViewGalleryItemsAsync(target.GalleryId, assetIds);
                     if (result is not null)
                     {
-                        Snackbar.Add(result.Added == 1 ? $"Added one item to {gallery.Name}." : $"Added {result.Added} items to {gallery.Name}.", Severity.Success);
+                        var alreadyPresent = result.AlreadyPresent > 0
+                            ? $" · {result.AlreadyPresent} already in Gallery"
+                            : string.Empty;
+                        Snackbar.Add($"{result.Added} added{alreadyPresent}", Severity.Success);
                         await Workspace.LoadGalleriesAsync(force: true);
                     }
                     break;
                 case NewGalleryNavigationDropTarget:
                     Workspace.StageNewGalleryItems(assetIds);
                     Nav.NavigateTo("/view/galleries?create=true");
+                    break;
+                case SmartGalleryNavigationDropTarget:
+                    Snackbar.Add("This Gallery updates automatically from its rules.", Severity.Info);
                     break;
             }
 
