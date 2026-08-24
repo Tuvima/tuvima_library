@@ -50,15 +50,40 @@ else
     private async Task LoadMoreAsync() { if (_page?.NextCursor is null) return; _loadingMore = true; var next = await ApiClient.GetViewAssetsAsync(Query(_page.NextCursor)); if (next is not null) _page = next with { Items = [.. _page.Items, .. next.Items] }; _loadingMore = false; }
     private async Task ScopeChangedAsync(ChangeEventArgs args) { var parts = args.Value?.ToString()?.Split(':', 2) ?? []; if (parts.Length == 0 || !Enum.TryParse<ViewScopeKind>(parts[0], true, out var kind)) return; Guid? profile = parts.Length == 2 && Guid.TryParse(parts[1], out var parsed) ? parsed : null; if (await Workspace.SelectScopeAsync(kind, profile)) await LoadAsync(); }
     private async Task DensityChangedAsync(ChangeEventArgs args) { if (Enum.TryParse<ViewTimelineDensity>(args.Value?.ToString(), out var density)) await Workspace.SetDensityAsync(density); }
-    private async Task SearchChanged(object? value) { _search = value?.ToString() ?? ""; _searchCts?.Cancel(); _searchCts?.Dispose(); _searchCts = new(); try { await Task.Delay(250, _searchCts.Token); await LoadAsync(); } catch (OperationCanceledException) { } }
+    private async Task SearchChanged(object? value)
+    {
+        _search = value?.ToString() ?? "";
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        var search = new CancellationTokenSource();
+        _searchCts = search;
+        try
+        {
+            await Task.Delay(250, search.Token);
+            _loading = true;
+            var page = await ApiClient.GetViewAssetsAsync(Query(), search.Token);
+            if (!search.IsCancellationRequested)
+            {
+                _page = page;
+                _selected.Clear();
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            if (ReferenceEquals(_searchCts, search)) _loading = false;
+        }
+    }
     private async Task SetFilterAsync(string filter) { _filter = filter; await LoadAsync(); } private string FilterClass(string filter) => $"view-kind-tab{(_filter == filter ? " is-active" : "")}"; private string SelectedScopeValue => ScopeValue(Workspace.ScopeKind, Workspace.ScopeProfileId); private static string ScopeValue(ViewScopeKind kind, Guid? profile) => $"{kind}:{profile?.ToString("D")}";
     private async Task UploadMediaAsync(InputFileChangeEventArgs args) { if (_uploading) return; var file = args.File; _uploadFileName = file.Name; _uploadError = null; _uploading = true; try { await using var stream = file.OpenReadStream(file.Size); var result = await ApiClient.UploadViewMediaAsync(stream, file.Name, file.ContentType); if (!result.Success) { _uploadError = result.ErrorMessage ?? "The Engine rejected this upload."; return; } Snackbar.Add($"Added {file.Name} to Photos.", Severity.Success); await LoadAsync(); } catch (Exception ex) { _uploadError = $"The file could not be uploaded: {ex.Message}"; } finally { _uploading = false; _uploadFileName = null; } }
     private void OpenItem(LocalAssetDto item) => _activeItem = item; private void CloseItem() => _activeItem = null; private IReadOnlyList<LocalAssetDto> VisibleItems => _page?.Items ?? []; private int ActiveIndex => _activeItem is null ? -1 : VisibleItems.ToList().FindIndex(i => i.Id == _activeItem.Id); private bool HasPrevious => ActiveIndex > 0; private bool HasNext => ActiveIndex >= 0 && ActiveIndex < VisibleItems.Count - 1; private void PreviousItem() { if (HasPrevious) _activeItem = VisibleItems[ActiveIndex - 1]; } private void NextItem() { if (HasNext) _activeItem = VisibleItems[ActiveIndex + 1]; }
     private void ToggleSelection(Guid id) { if (!_selected.Add(id)) _selected.Remove(id); } private void SelectDateGroup(IReadOnlyCollection<Guid> ids) { var select = ids.Any(id => !_selected.Contains(id)); foreach (var id in ids) { if (select) _selected.Add(id); else _selected.Remove(id); } } private void ClearSelection() => _selected.Clear(); private void BeginDrag(Guid id) => AssetDrag.Begin(_selected.Contains(id) ? _selected : [id]); private void EndDrag() => AssetDrag.Clear();
-    private async Task AddSelectionToGalleryAsync(Guid id) { await ApiClient.AddViewGalleryItemsAsync(id, _selected); Snackbar.Add("Added selection to Gallery.", Severity.Success); ClearSelection(); } private async Task AddActiveToGalleryAsync(Guid id) { if (_activeItem is not null) await ApiClient.AddViewGalleryItemsAsync(id, [_activeItem.Id]); }
+    private async Task AddSelectionToGalleryAsync(Guid id) { var result = await ApiClient.AddViewGalleryItemsAsync(id, _selected); if (result is not null) Snackbar.Add(GalleryResult(result), Severity.Success); ClearSelection(); }
+    private async Task AddActiveToGalleryAsync(Guid id) { if (_activeItem is null) return; var result = await ApiClient.AddViewGalleryItemsAsync(id, [_activeItem.Id]); if (result is not null) Snackbar.Add(GalleryResult(result), Severity.Success); }
+    private static string GalleryResult(AddViewGalleryItemsResponseDto result) => result.AlreadyPresent > 0 ? $"{result.Added} added · {result.AlreadyPresent} already in Gallery" : $"{result.Added} added";
     private Task ArchiveSelectionAsync() => MutateSelectionAsync(ApiClient.ArchiveViewItemAsync, "Archived selected items."); private Task TrashSelectionAsync() => MutateSelectionAsync(ApiClient.TrashViewItemAsync, "Moved selected items to Trash."); private async Task MutateSelectionAsync(Func<Guid, CancellationToken, Task<bool>> action, string message) { foreach (var id in _selected.ToList()) await action(id, default); Snackbar.Add(message, Severity.Success); await LoadAsync(); }
     private async Task ToggleFavoriteAsync() { if (_activeItem is null) return; var value = !_activeItem.Favorite; if (await ApiClient.SetViewItemFavoriteAsync(_activeItem.Id, value)) Replace(_activeItem with { Favorite = value }); } private async Task ArchiveActiveAsync() { if (_activeItem is not null && await ApiClient.ArchiveViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task TrashActiveAsync() { if (_activeItem is not null && await ApiClient.TrashViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task RemoveActiveAsync() { _activeItem = null; await LoadAsync(); } private void Replace(LocalAssetDto updated) { _activeItem = updated; if (_page is not null) _page = _page with { Items = _page.Items.Select(i => i.Id == updated.Id ? updated : i).ToList() }; }
     private string AssetUrl(LocalAssetDto item, ViewMediaResourceKind kind) { if (!_profileId.HasValue) return ""; var key = (item.LibraryId, item.Id, kind); if (!_grants.TryGetValue(key, out var cached) || cached.ExpiresAt <= DateTimeOffset.UtcNow.AddSeconds(30)) { var grant = MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind); cached = new($"/view-media/{grant.Value}", grant.ExpiresAt); _grants[key] = cached; } return cached.Url; }
     private string EmptyTitle => !string.IsNullOrWhiteSpace(_search) ? "No matching items" : _filter switch { "favorites" => "No favorites yet", "videos" => "No videos yet", "archive" => "Archive is empty", "trash" => "Trash is empty", "hidden" => "No hidden items", "documents" => "No documents yet", _ => "No personal media yet" }; private string EmptyMessage => !string.IsNullOrWhiteSpace(_search) ? "Try a different search." : "Items matching this View filter will appear here.";
-    private void OnProfileChanged() => _ = InvokeAsync(async () => { _grants.Clear(); await InitializeAsync(); StateHasChanged(); }); public void Dispose() { Orchestrator.OnProfileChanged -= OnProfileChanged; _searchCts?.Cancel(); _searchCts?.Dispose(); } private sealed record CachedMediaGrant(string Url, DateTimeOffset ExpiresAt);
+    private void OnProfileChanged() => _ = InvokeAsync(async () => { _grants.Clear(); Workspace.Reset(); await InitializeAsync(); StateHasChanged(); }); public void Dispose() { Orchestrator.OnProfileChanged -= OnProfileChanged; _searchCts?.Cancel(); _searchCts?.Dispose(); } private sealed record CachedMediaGrant(string Url, DateTimeOffset ExpiresAt);
 }
