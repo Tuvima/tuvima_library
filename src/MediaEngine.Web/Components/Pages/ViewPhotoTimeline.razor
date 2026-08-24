@@ -1,0 +1,49 @@
+@using System.Globalization
+@using MediaEngine.Contracts.LocalAssets
+@namespace MediaEngine.Web.Components.Pages
+<main class="view-timeline" aria-label="Photos timeline">
+@foreach (var month in Months)
+{
+    <section class="view-month" aria-labelledby="@MonthId(month.Key)"><h2 id="@MonthId(month.Key)">@month.Key.ToString("MMMM yyyy", CultureInfo.CurrentCulture)</h2>
+    @foreach (var day in Days(month))
+    {
+        var ids = day.Select(item => item.Id).ToList();
+        <section class="view-date-group" aria-labelledby="@DayId(day.Key)"><div class="view-date-group__heading"><h3 id="@DayId(day.Key)">@day.Key.ToString("dddd, MMM d", CultureInfo.CurrentCulture)</h3><AppNativeButton Type="button" AriaLabel="@($"Select all {ids.Count} items from {day.Key:MMMM d}")" OnClick="@(_ => OnSelectDateGroup.InvokeAsync(ids))">Select @ids.Count</AppNativeButton></div><div class="view-grid">
+        @foreach (var item in day)
+        {
+            <article class="view-tile view-tile--@Kind(item) view-tile--@Orientation(item)" draggable="true" @ondragstart="@(_ => OnDragStarted.InvokeAsync(item.Id))" @ondragend="@(_ => OnDragEnded.InvokeAsync())">
+                <span class="view-tile__select"><AppCheckbox Value="@Selected.Contains(item.Id)" ValueChanged="@(_ => OnToggleSelection.InvokeAsync(item.Id))" Label="@($"Select {Title(item)}")" /></span>
+                <AppNativeButton Type="button" Class="view-tile__surface" AriaLabel="@($"Open {Title(item)}")" OnClick="@(_ => OnOpen.InvokeAsync(item))">
+                    @if (Visual(item)) { <img src="@ThumbnailUrl(item)" alt="@Title(item)" loading="lazy" /> } else { <span class="view-tile__file-icon"><MudIcon Icon="@Icons.Material.Outlined.Description" /></span> }
+                    <span class="view-tile__gradient"></span><span class="view-tile__copy"><strong>@Title(item)</strong><small>@(item.LocationName ?? item.MimeType)</small></span>
+                    @if (item.DurationSeconds is > 0) { <span class="view-tile__duration">@Duration(item.DurationSeconds.Value)</span> }
+                </AppNativeButton>
+            </article>
+        }
+        </div></section>
+    }
+    </section>
+}
+</main>
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<LocalAssetDto> Items { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlySet<Guid> Selected { get; set; } = new HashSet<Guid>();
+    [Parameter, EditorRequired] public Func<LocalAssetDto, string> ThumbnailUrl { get; set; } = _ => string.Empty;
+    [Parameter] public EventCallback<LocalAssetDto> OnOpen { get; set; }
+    [Parameter] public EventCallback<Guid> OnToggleSelection { get; set; }
+    [Parameter] public EventCallback<IReadOnlyCollection<Guid>> OnSelectDateGroup { get; set; }
+    [Parameter] public EventCallback<Guid> OnDragStarted { get; set; }
+    [Parameter] public EventCallback OnDragEnded { get; set; }
+    private IEnumerable<IGrouping<DateTimeOffset, LocalAssetDto>> Months => Items.OrderByDescending(Date).GroupBy(i => StartOfMonth(Date(i)));
+    private static IEnumerable<IGrouping<DateTimeOffset, LocalAssetDto>> Days(IEnumerable<LocalAssetDto> month) => month.GroupBy(i => StartOfDay(Date(i))).OrderByDescending(g => g.Key);
+    private static DateTimeOffset Date(LocalAssetDto item) => item.CapturedAt ?? item.CreatedAt;
+    private static DateTimeOffset StartOfMonth(DateTimeOffset d) => new(d.Year, d.Month, 1, 0, 0, 0, d.Offset);
+    private static DateTimeOffset StartOfDay(DateTimeOffset d) => new(d.Year, d.Month, d.Day, 0, 0, 0, d.Offset);
+    private static string MonthId(DateTimeOffset date) => $"view-{date:yyyy-MM}";
+    private static string DayId(DateTimeOffset date) => $"view-{date:yyyy-MM-dd}";
+    private static string Title(LocalAssetDto item) => string.IsNullOrWhiteSpace(item.Title) ? item.FileName : item.Title;
+    private static bool Visual(LocalAssetDto item) => item.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) || item.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
+    private static string Kind(LocalAssetDto item) => item.MediaKind.ToLowerInvariant();
+    private static string Orientation(LocalAssetDto item) => item.Width is > 0 && item.Height is > 0 ? item.Width > item.Height * 1.15 ? "landscape" : item.Height > item.Width * 1.15 ? "portrait" : "square" : "standard";
+    private static string Duration(double seconds) => TimeSpan.FromSeconds(seconds).TotalHours >= 1 ? TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture) : TimeSpan.FromSeconds(seconds).ToString(@"m\:ss", CultureInfo.InvariantCulture);
+}

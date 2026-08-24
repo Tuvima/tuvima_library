@@ -24,15 +24,15 @@ public static class ViewEndpoints
             if (identity.Current is not { } caller) return Unauthenticated();
             var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
             var result = await resolver.ResolveAsync(caller, requested, ct);
-            return result is null ? Missing() : Results.Ok(result);
-        }).WithName("GetViewScopes").Produces<ViewScopeResolution>();
+            return result is null ? Missing() : Results.Ok(ToContract(result));
+        }).WithName("GetViewScopes").Produces<ViewScopeResolutionDto>();
 
         group.MapGet("/preferences", async (IViewRequestProfileContext identity,
             IViewProfileRepository repository, CancellationToken ct) =>
             identity.Current is not { } caller
                 ? Unauthenticated()
-                : Results.Ok(await repository.GetPreferencesAsync(caller.ProfileId, ct)))
-            .WithName("GetViewPreferences").Produces<ViewProfilePreferences>();
+                : Results.Ok(ToContract(await repository.GetPreferencesAsync(caller.ProfileId, ct))))
+            .WithName("GetViewPreferences").Produces<ViewPreferencesDto>();
 
         group.MapPut("/preferences", async (ViewPreferencesRequest request,
             IViewRequestProfileContext identity, IViewProfileRepository repository,
@@ -48,10 +48,10 @@ public static class ViewEndpoints
                     resolution.Scope.Kind, resolution.Scope.ProfileId,
                     request.TimelineDensity, DateTimeOffset.UtcNow);
                 await repository.SavePreferencesAsync(value, ct);
-                return Results.Ok(value);
+                return Results.Ok(ToContract(value));
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
-        }).WithName("UpdateViewPreferences").Produces<ViewProfilePreferences>();
+        }).WithName("UpdateViewPreferences").Produces<ViewPreferencesDto>();
 
         group.MapGet("/assets", async (string? scope, Guid? scopeProfileId,
             int? limit, string? cursor, string? q, string[]? kind,
@@ -65,7 +65,7 @@ public static class ViewEndpoints
                 var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
                 var result = await queries.QueryAsync(new ViewAssetQueryRequest(
                     requested, PagedRequest.From(0, limit, 120, 500).Limit, cursor, q, kind,
-                    favorite == true, hidden == true, galleryId,
+                    favorite == true, hidden == true, hidden == true, galleryId,
                     ParseLifecycle(lifecycle)), ct);
                 return Access(result.Outcome, result.Page);
             }
@@ -83,13 +83,15 @@ public static class ViewEndpoints
             try
             {
                 await using var input = file.OpenReadStream();
-                return Results.Ok(await service.UploadAsync(caller.ProfileId, file.FileName, input, ct));
+                var result = await service.UploadAsync(caller.ProfileId, file.FileName, input, ct);
+                return Results.Ok(new ViewUploadResponseDto(
+                    result.ItemId, result.ItemAdded, result.FilesAdded, result.SourcesAdded));
             }
             catch (Exception exception) when (exception is ArgumentException or InvalidDataException or InvalidOperationException)
             {
                 return ApiErrors.BadRequest(exception.Message);
             }
-        }).WithName("UploadViewAsset").Produces<LocalAssetUpsertResult>().DisableAntiforgery();
+        }).WithName("UploadViewAsset").Produces<ViewUploadResponseDto>().DisableAntiforgery();
 
         group.MapGet("/items/{id:guid}", async (Guid id, string? scope, Guid? scopeProfileId,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
@@ -154,8 +156,8 @@ public static class ViewEndpoints
         {
             if (identity.Current is not { } caller) return Unauthenticated();
             return Results.Ok(new ViewGalleryListResponse(
-                await repository.GetOwnedAsync(caller.ProfileId, ct),
-                await repository.GetSharedWithAsync(caller.ProfileId, ct)));
+                (await repository.GetOwnedAsync(caller.ProfileId, ct)).Select(ToContract).ToList(),
+                (await repository.GetSharedWithAsync(caller.ProfileId, ct)).Select(ToContract).ToList()));
         }).WithName("GetViewGalleries").Produces<ViewGalleryListResponse>();
 
         group.MapPost("/galleries", async (ViewGalleryRequest request,
@@ -170,10 +172,10 @@ public static class ViewEndpoints
                 var gallery = await repository.CreateAsync(new CreateViewGalleryCommand(
                     caller.ProfileId, space.Id, request.Name, request.Kind,
                     request.Description, request.SmartRuleJson, request.CoverItemId, request.SortOrder), ct);
-                return Results.Created($"/view/galleries/{gallery.Id:D}", gallery);
+                return Results.Created($"/view/galleries/{gallery.Id:D}", ToContract(gallery));
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
-        }).WithName("CreateViewGallery").Produces<ViewGallery>(StatusCodes.Status201Created);
+        }).WithName("CreateViewGallery").Produces<ViewGalleryDto>(StatusCodes.Status201Created);
 
         group.MapGet("/galleries/{id:guid}", async (Guid id,
             IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
@@ -181,8 +183,8 @@ public static class ViewEndpoints
         {
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Read, identity, authorization, ct);
             return decision.IsAllowed && await repository.GetAsync(id, ct) is { } gallery
-                ? Results.Ok(gallery) : Access(decision.Outcome);
-        }).WithName("GetViewGallery").Produces<ViewGallery>();
+                ? Results.Ok(ToContract(gallery)) : Access(decision.Outcome);
+        }).WithName("GetViewGallery").Produces<ViewGalleryDto>();
 
         group.MapPut("/galleries/{id:guid}", async (Guid id, ViewGalleryRequest request,
             IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
@@ -195,10 +197,10 @@ public static class ViewEndpoints
                 var gallery = await repository.UpdateAsync(new UpdateViewGalleryCommand(
                     id, request.Name, request.Description, request.Kind,
                     request.SmartRuleJson, request.CoverItemId, request.SortOrder), ct);
-                return gallery is null ? Missing() : Results.Ok(gallery);
+                return gallery is null ? Missing() : Results.Ok(ToContract(gallery));
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
-        }).WithName("UpdateViewGallery").Produces<ViewGallery>();
+        }).WithName("UpdateViewGallery").Produces<ViewGalleryDto>();
 
         group.MapDelete("/galleries/{id:guid}", async (Guid id,
             IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
@@ -217,9 +219,9 @@ public static class ViewEndpoints
         {
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Read, identity, authorization, ct);
             return !decision.IsAllowed ? Access(decision.Outcome)
-                : Results.Ok(await repository.GetItemsAsync(id, afterPosition, afterItemId,
-                    PagedRequest.From(0, limit, 100, 500).Limit, ct));
-        }).WithName("GetViewGalleryItems").Produces<ViewGalleryItemPage>();
+                : Results.Ok(ToContract(await repository.GetItemsAsync(id, afterPosition, afterItemId,
+                    PagedRequest.From(0, limit, 100, 500).Limit, ct)));
+        }).WithName("GetViewGalleryItems").Produces<ViewGalleryItemPageDto>();
 
         group.MapPost("/galleries/{id:guid}/items", async (Guid id, ViewGalleryItemsRequest request,
             IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
@@ -227,8 +229,8 @@ public static class ViewEndpoints
         {
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Contribute, identity, authorization, ct);
             return !decision.IsAllowed ? Access(decision.Outcome)
-                : Results.Ok(await repository.AddItemsAsync(id, request.ItemIds, ct));
-        }).WithName("AddViewGalleryItems").Produces<AddViewGalleryItemsResult>();
+                : Results.Ok(ToContract(await repository.AddItemsAsync(id, request.ItemIds, ct)));
+        }).WithName("AddViewGalleryItems").Produces<AddViewGalleryItemsResponseDto>();
 
         group.MapDelete("/galleries/{id:guid}/items", async (Guid id, ViewGalleryItemsRequest request,
             IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
@@ -258,8 +260,8 @@ public static class ViewEndpoints
         {
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Manage, identity, authorization, ct);
             return !decision.IsAllowed ? Access(decision.Outcome)
-                : Results.Ok(await repository.GetSharesAsync(id, ct));
-        }).WithName("GetViewGalleryShares").Produces<IReadOnlyList<ViewGalleryShare>>();
+                : Results.Ok((await repository.GetSharesAsync(id, ct)).Select(ToContract).ToList());
+        }).WithName("GetViewGalleryShares").Produces<IReadOnlyList<ViewGalleryShareDto>>();
 
         group.MapPut("/galleries/{id:guid}/shares", async (Guid id, ViewGallerySharesRequest request,
             IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
@@ -358,6 +360,45 @@ public static class ViewEndpoints
 
     private static IResult Missing() => ApiErrors.NotFound("The View resource was not found.");
     private static IResult Unauthenticated() => ApiErrors.Problem(401, "Authentication required.", "A trusted View profile is required.");
+
+    private static ViewScopeResolutionDto ToContract(ViewScopeResolution value) =>
+        new(
+            new ViewResolvedScopeDto(
+                value.Scope.Kind,
+                value.Scope.ProfileId,
+                value.Scope.WasFallback),
+            value.AvailableScopes
+                .Select(option => new ViewScopeOptionDto(
+                    option.Kind,
+                    option.ProfileId,
+                    option.Label,
+                    option.AvatarColor,
+                    option.AvatarUrl))
+                .ToList());
+
+    private static ViewPreferencesDto ToContract(ViewProfilePreferences value) =>
+        new(
+            value.ProfileId,
+            value.LastScopeKind,
+            value.LastScopeProfileId,
+            value.TimelineDensity,
+            value.UpdatedAt);
+
+    private static ViewGalleryDto ToContract(ViewGallery value) =>
+        new(value.Id, value.OwnerProfileId, value.PersonalSpaceId, value.Name,
+            value.Description, value.Kind, value.SmartRuleJson, value.CoverItemId,
+            value.SortOrder, value.ItemCount, value.CreatedAt, value.UpdatedAt);
+
+    private static ViewGalleryItemPageDto ToContract(ViewGalleryItemPage value) =>
+        new(value.Items.Select(item => new ViewGalleryItemDto(
+                item.GalleryId, item.ItemId, item.Position, item.AddedAt)).ToList(),
+            value.NextPosition, value.NextItemId, value.HasMore);
+
+    private static AddViewGalleryItemsResponseDto ToContract(AddViewGalleryItemsResult value) =>
+        new(value.Added, value.AlreadyPresent);
+
+    private static ViewGalleryShareDto ToContract(ViewGalleryShare value) =>
+        new(value.GalleryId, value.ProfileId, value.Permission, value.SharedAt);
 
     private static IResult Thumbnail(LocalAssetContentLocation file)
     {

@@ -2559,6 +2559,10 @@ MediaEngine.Contracts.Library.MediaEngine.Contracts.Library.UnlinkedWorkDto
   MediaType: System.String | nullability=not-null | accessors=get,init
   WikidataQid: System.String | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.AddViewGalleryItemsResponseDto
+  Added: System.Int32 | nullability=not-null | accessors=get,init
+  AlreadyPresent: System.Int32 | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.LocalAssetDto
   Id: System.Guid | nullability=not-null | accessors=get,init
   LibraryId: System.Guid | nullability=not-null | accessors=get,init
@@ -2621,6 +2625,75 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewAssetTim
   NextCursor: System.String | nullability=nullable | accessors=get,init
   HasMore: System.Boolean | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewDiscoveryCapabilityDto
+  State: System.String | nullability=not-null | accessors=get,init
+  HasIndexedData: System.Boolean | nullability=not-null | accessors=get,init
+  AutomaticProcessingAvailable: System.Boolean | nullability=not-null | accessors=get,init
+  Message: System.String | nullability=not-null | accessors=get,init
+  EvidenceKinds: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewDiscoveryCapabilityStates
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  OwnerProfileId: System.Guid | nullability=not-null | accessors=get,init
+  PersonalSpaceId: System.Guid | nullability=not-null | accessors=get,init
+  Name: System.String | nullability=not-null | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  Kind: MediaEngine.Domain.PersonalMedia.ViewGalleryKind | nullability=not-null | accessors=get,init
+  SmartRuleJson: System.String | nullability=nullable | accessors=get,init
+  CoverItemId: System.Guid? | nullability=nullable | accessors=get,init
+  SortOrder: System.Int32 | nullability=not-null | accessors=get,init
+  ItemCount: System.Int32 | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryItemDto
+  GalleryId: System.Guid | nullability=not-null | accessors=get,init
+  ItemId: System.Guid | nullability=not-null | accessors=get,init
+  Position: System.Int32 | nullability=not-null | accessors=get,init
+  AddedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryItemPageDto
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewGalleryItemDto> | nullability=not-null | accessors=get,init
+  NextPosition: System.Int32? | nullability=nullable | accessors=get,init
+  NextItemId: System.Guid? | nullability=nullable | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryItemsRequest
+  ItemIds: System.Collections.Generic.IReadOnlyCollection<System.Guid> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryListResponse
+  Owned: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewGalleryDto> | nullability=not-null | accessors=get,init
+  SharedWithYou: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewGalleryDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryPositionRequest
+  Position: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryRequest
+  Name: System.String | nullability=not-null | accessors=get,init
+  Kind: MediaEngine.Domain.PersonalMedia.ViewGalleryKind | nullability=not-null | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  SmartRuleJson: System.String | nullability=nullable | accessors=get,init
+  CoverItemId: System.Guid? | nullability=nullable | accessors=get,init
+  SortOrder: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryShareDto
+  GalleryId: System.Guid | nullability=not-null | accessors=get,init
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  Permission: MediaEngine.Domain.PersonalMedia.ViewGallerySharePermission | nullability=not-null | accessors=get,init
+  SharedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGalleryShareRequest
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  Permission: MediaEngine.Domain.PersonalMedia.ViewGallerySharePermission | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewGallerySharesRequest
+  Shares: System.Collections.Generic.IReadOnlyCollection<MediaEngine.Contracts.LocalAssets.ViewGalleryShareRequest> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewItemsRemovedResponse
+  Removed: System.Int32 | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewLibrarySummaryDto
   Id: System.Guid | nullability=not-null | accessors=get,init
   Name: System.String | nullability=not-null | accessors=get,init
@@ -2631,6 +2704,71 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewLibraryS
   VideoCount: System.Int32 | nullability=not-null | accessors=get,init
   DocumentCount: System.Int32 | nullability=not-null | accessors=get,init
   AudioCount: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPeoplePageDto
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewPersonDto> | nullability=not-null | accessors=get,init
+  NextCursor: System.String | nullability=nullable | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get,init
+  Capability: MediaEngine.Contracts.LocalAssets.ViewDiscoveryCapabilityDto | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPersonDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+  AssetCount: System.Int32 | nullability=not-null | accessors=get,init
+  RepresentativeLibraryId: System.Guid | nullability=not-null | accessors=get,init
+  RepresentativeAssetId: System.Guid | nullability=not-null | accessors=get,init
+  AnnotationKinds: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  ProvenanceSources: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  HasReviewedEvidence: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPlaceDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  Name: System.String | nullability=not-null | accessors=get,init
+  Latitude: System.Double | nullability=not-null | accessors=get,init
+  Longitude: System.Double | nullability=not-null | accessors=get,init
+  AssetCount: System.Int32 | nullability=not-null | accessors=get,init
+  RepresentativeLibraryId: System.Guid | nullability=not-null | accessors=get,init
+  RepresentativeAssetId: System.Guid | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPlacesPageDto
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewPlaceDto> | nullability=not-null | accessors=get,init
+  NextCursor: System.String | nullability=nullable | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get,init
+  Capability: MediaEngine.Contracts.LocalAssets.ViewDiscoveryCapabilityDto | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPreferencesDto
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  Scope: MediaEngine.Domain.PersonalMedia.ViewScopeKind? | nullability=nullable | accessors=get,init
+  ScopeProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  TimelineDensity: MediaEngine.Domain.PersonalMedia.ViewTimelineDensity | nullability=not-null | accessors=get,init
+  UpdatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPreferencesRequest
+  Scope: System.String | nullability=nullable | accessors=get,init
+  ScopeProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  TimelineDensity: MediaEngine.Domain.PersonalMedia.ViewTimelineDensity | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewResolvedScopeDto
+  Kind: MediaEngine.Domain.PersonalMedia.ViewScopeKind | nullability=not-null | accessors=get,init
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  WasFallback: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewScopeOptionDto
+  Kind: MediaEngine.Domain.PersonalMedia.ViewScopeKind | nullability=not-null | accessors=get,init
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  AvatarColor: System.String | nullability=nullable | accessors=get,init
+  AvatarUrl: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewScopeResolutionDto
+  Scope: MediaEngine.Contracts.LocalAssets.ViewResolvedScopeDto | nullability=not-null | accessors=get,init
+  AvailableScopes: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewScopeOptionDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewUploadResponseDto
+  ItemId: System.Guid | nullability=not-null | accessors=get,init
+  ItemAdded: System.Boolean | nullability=not-null | accessors=get,init
+  FilesAdded: System.Int32 | nullability=not-null | accessors=get,init
+  SourcesAdded: System.Int32 | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Maintenance.MediaEngine.Contracts.Maintenance.InitialSweepStartedResponse
   Started: System.Boolean | nullability=not-null | accessors=get,init

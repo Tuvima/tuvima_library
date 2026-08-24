@@ -15,7 +15,7 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
         var row = connection.QuerySingleOrDefault<GalleryRow>(new CommandDefinition(
             SelectGallerySql + " WHERE vg.id = @galleryId GROUP BY vg.id;",
             new { galleryId }, cancellationToken: ct));
-        return Task.FromResult(row is null ? null : Map(row));
+        return Task.FromResult(row is null ? null : MapWithDynamicCount(connection, row, ct));
     }
 
     public Task<IReadOnlyList<ViewGallery>> GetOwnedAsync(Guid ownerProfileId, CancellationToken ct = default)
@@ -29,7 +29,8 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
              GROUP BY vg.id
              ORDER BY vg.sort_order, vg.updated_at DESC, vg.id;
             """, new { ownerProfileId }, cancellationToken: ct));
-        return Task.FromResult<IReadOnlyList<ViewGallery>>(rows.Select(Map).ToList());
+        return Task.FromResult<IReadOnlyList<ViewGallery>>(
+            rows.Select(row => MapWithDynamicCount(connection, row, ct)).ToList());
     }
 
     public Task<IReadOnlyList<ViewGallery>> GetSharedWithAsync(Guid profileId, CancellationToken ct = default)
@@ -44,7 +45,8 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
              GROUP BY vg.id
              ORDER BY vgs.shared_at DESC, vg.id;
             """, new { profileId }, cancellationToken: ct));
-        return Task.FromResult<IReadOnlyList<ViewGallery>>(rows.Select(Map).ToList());
+        return Task.FromResult<IReadOnlyList<ViewGallery>>(
+            rows.Select(row => MapWithDynamicCount(connection, row, ct)).ToList());
     }
 
     public Task<ViewGallery> CreateAsync(CreateViewGalleryCommand command, CancellationToken ct = default)
@@ -424,6 +426,42 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
         row.Name, row.Description, row.GalleryKind == "manual" ? ViewGalleryKind.Manual : ViewGalleryKind.Smart,
         row.SmartRuleJson, row.CoverItemId, row.SortOrder, row.ItemCount,
         DateTimeOffset.Parse(row.CreatedAt), DateTimeOffset.Parse(row.UpdatedAt));
+
+    private static ViewGallery MapWithDynamicCount(
+        System.Data.IDbConnection connection,
+        GalleryRow row,
+        CancellationToken ct)
+    {
+        var gallery = Map(row);
+        if (gallery.Kind != ViewGalleryKind.Smart || string.IsNullOrWhiteSpace(gallery.SmartRuleJson))
+            return gallery;
+
+        try
+        {
+            var compiled = LocalAssetSmartRuleSqlCompiler.Compile(
+                ViewSmartGalleryRules.Parse(gallery.SmartRuleJson));
+            var parameters = new DynamicParameters();
+            parameters.Add("SmartSpaceId", GuidSql.ToBlob(gallery.PersonalSpaceId), System.Data.DbType.Binary);
+            parameters.AddDynamicParams(compiled.Parameters);
+            var count = connection.ExecuteScalar<int>(new CommandDefinition($$"""
+                SELECT COUNT(1)
+                  FROM local_items li
+                  LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
+                 WHERE li.personal_space_id = @SmartSpaceId
+                   AND li.hidden = 0
+                   AND li.archived_at IS NULL
+                   AND li.trashed_at IS NULL
+                   AND ({{compiled.Predicate}});
+                """, parameters, cancellationToken: ct));
+            return gallery with { ItemCount = count };
+        }
+        catch (ArgumentException)
+        {
+            // Corrupt or obsolete rules fail closed. The Gallery remains visible
+            // to its owner for repair without exposing an incorrect count.
+            return gallery with { ItemCount = 0 };
+        }
+    }
     private static string ToStorage(ViewGalleryKind kind) => kind == ViewGalleryKind.Manual ? "manual" : "smart";
     private static string ToStorage(ViewGallerySharePermission permission) =>
         permission == ViewGallerySharePermission.View ? "view" : "contribute";

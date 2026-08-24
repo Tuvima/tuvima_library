@@ -1,0 +1,39 @@
+@page "/view/galleries/{GalleryId:guid}"
+@using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Domain.PersonalMedia
+@inject IEngineApiClient ApiClient
+@inject ViewWorkspaceService Workspace
+@inject ISnackbar Snackbar
+@inject UIOrchestratorService Orchestrator
+@inject ViewMediaGrantService MediaGrants
+@namespace MediaEngine.Web.Components.Pages
+<PageTitle>Gallery - Tuvima</PageTitle>
+<ViewSectionShell><div class="view-feature-page">
+@if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Gallery" Message="Opening Gallery items." /> }
+else if (_gallery is null) { <AppErrorState Title="Gallery unavailable" Message="This Gallery was not found or is not shared with the active profile." /> }
+else
+{
+    <header class="view-feature-page__header"><div><span>@_gallery.Kind Gallery</span><h1>@_gallery.Name</h1><p>@(_gallery.Description ?? $"{_gallery.ItemCount} items")</p><dl><div><dt>Items</dt><dd>@_gallery.ItemCount</dd></div><div><dt>Owner</dt><dd>@(_gallery.OwnerProfileId == _profileId ? "You" : "Shared owner")</dd></div><div><dt>Membership</dt><dd>@(_gallery.Kind == ViewGalleryKind.Smart ? "Updates from saved rules" : "Items you add")</dd></div></dl>@if (_gallery.Kind == ViewGalleryKind.Smart) { <details><summary>Smart rule summary</summary><code>@_gallery.SmartRuleJson</code></details> }</div></header>
+    @if (_page?.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="This Gallery is empty" Message="Select photos and use Add to Gallery, or drag photos onto this Gallery in the View sidebar." /> }
+    else if (_page is not null) { <ViewPhotoTimeline Items="@_page.Items" Selected="@_selected" ThumbnailUrl="Thumbnail" OnOpen="Open" OnToggleSelection="Toggle" OnSelectDateGroup="SelectGroup" /> @if (_gallery.Kind == ViewGalleryKind.Manual && _selected.Count > 0) { <AppButton Variant="Variant.Outlined" OnClick="RemoveAsync">Remove from Gallery</AppButton> } }
+}
+</div></ViewSectionShell>
+@if (_active is not null) { <ViewImmersiveViewer Item="@_active" HasPrevious="@(ActiveIndex > 0)" HasNext="@(ActiveIndex >= 0 && ActiveIndex < (_page?.Items.Count ?? 0) - 1)" ContentUrl="@Resource(_active, ViewMediaResourceKind.Content)" ThumbnailUrl="@Thumbnail(_active)" OnClose="@(() => _active = null)" OnPrevious="Previous" OnNext="Next" OnFavorite="FavoriteAsync" OnArchive="ArchiveAsync" OnTrash="TrashAsync" ManualGalleries="@Workspace.OwnedGalleries.Where(g => g.Kind == ViewGalleryKind.Manual).ToList()" OnAddToGallery="AddToGalleryAsync" /> }
+@code {
+    [Parameter] public Guid GalleryId { get; set; }
+    private ViewGalleryDto? _gallery; private ViewAssetTimelinePageDto? _page; private LocalAssetDto? _active; private readonly HashSet<Guid> _selected = []; private bool _loading = true; private Guid? _profileId;
+    protected override async Task OnParametersSetAsync() { _loading = true; _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; _gallery = await ApiClient.GetViewGalleryAsync(GalleryId); if (_gallery is not null) { await Workspace.InitializeAsync(); _page = await ApiClient.GetViewAssetsAsync(new(Workspace.ScopeKind, Workspace.ScopeProfileId, GalleryId: GalleryId)); } _loading = false; }
+    private void Toggle(Guid id) { if (!_selected.Add(id)) _selected.Remove(id); }
+    private void SelectGroup(IReadOnlyCollection<Guid> ids) { foreach (var id in ids) _selected.Add(id); }
+    private async Task RemoveAsync() { if (_gallery?.Kind != ViewGalleryKind.Manual) return; await ApiClient.RemoveViewGalleryItemsAsync(GalleryId, _selected); Snackbar.Add("Removed selected items from the Gallery.", Severity.Success); await OnParametersSetAsync(); }
+    private void Open(LocalAssetDto item) => _active = item;
+    private int ActiveIndex => _active is null ? -1 : (_page?.Items.ToList().FindIndex(i => i.Id == _active.Id) ?? -1);
+    private void Previous() { if (ActiveIndex > 0) _active = _page!.Items[ActiveIndex - 1]; }
+    private void Next() { if (ActiveIndex >= 0 && ActiveIndex < (_page?.Items.Count ?? 0) - 1) _active = _page!.Items[ActiveIndex + 1]; }
+    private async Task FavoriteAsync() { if (_active is null) return; var value = !_active.Favorite; if (await ApiClient.SetViewItemFavoriteAsync(_active.Id, value)) _active = _active with { Favorite = value }; }
+    private async Task ArchiveAsync() { if (_active is not null && await ApiClient.ArchiveViewItemAsync(_active.Id)) { _active = null; await OnParametersSetAsync(); } }
+    private async Task TrashAsync() { if (_active is not null && await ApiClient.TrashViewItemAsync(_active.Id)) { _active = null; await OnParametersSetAsync(); } }
+    private async Task AddToGalleryAsync(Guid id) { if (_active is not null) await ApiClient.AddViewGalleryItemsAsync(id, [_active.Id]); }
+    private string Thumbnail(LocalAssetDto item) => Resource(item, ViewMediaResourceKind.Thumbnail);
+    private string Resource(LocalAssetDto item, ViewMediaResourceKind kind) => _profileId.HasValue ? $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind).Value}" : string.Empty;
+}

@@ -178,6 +178,12 @@ public sealed class LocalAssetRepositoryTests : IDisposable
             FavoritesOnly: true,
             IncludeHidden: true,
             HiddenOnly: true)).Items);
+        Assert.Empty(_repository.QueryTimeline(new LocalAssetTimelineQuery([libraryId])).Items);
+        Assert.Equal(first.ItemId, Assert.Single(_repository.QueryTimeline(new LocalAssetTimelineQuery(
+            [libraryId],
+            FavoritesOnly: true,
+            IncludeHidden: true,
+            HiddenOnly: true)).Items).Id);
 
         var gallery = await _galleries.CreateAsync(new CreateViewGalleryCommand(
             owner.ProfileId, owner.SpaceId, "Family", ViewGalleryKind.Manual,

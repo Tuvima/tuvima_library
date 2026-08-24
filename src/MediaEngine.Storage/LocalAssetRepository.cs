@@ -218,6 +218,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         var parameters = new DynamicParameters(new
         {
             query.IncludeHidden,
+            query.HiddenOnly,
             query.FavoritesOnly,
             Lifecycle = (int)query.Lifecycle,
             HasMediaKinds = mediaKinds.Length == 0 ? 0 : 1,
@@ -254,7 +255,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
               FROM local_items li
               LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
              WHERE ({{libraryPredicate}})
-               AND (@IncludeHidden = 1 OR li.hidden = 0)
+               AND ((@HiddenOnly = 1 AND li.hidden = 1)
+                    OR (@HiddenOnly = 0 AND (@IncludeHidden = 1 OR li.hidden = 0)))
                AND (@FavoritesOnly = 0 OR li.favorite = 1)
                AND (@Lifecycle = 3
                     OR (@Lifecycle = 0 AND li.archived_at IS NULL AND li.trashed_at IS NULL)

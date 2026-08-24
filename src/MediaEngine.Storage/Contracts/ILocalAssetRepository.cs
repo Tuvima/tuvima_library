@@ -61,6 +61,7 @@ public sealed record LocalAssetTimelineQuery(
     IReadOnlyCollection<string>? MediaKinds = null,
     bool FavoritesOnly = false,
     bool IncludeHidden = false,
+    bool HiddenOnly = false,
     Guid? GalleryId = null,
     LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active,
     CollectionRuleDefinition? SmartRule = null);

@@ -143,6 +143,31 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
+    public void SaveLibraries_RejectsMultiplePersonalLibrariesForOneProfile()
+    {
+        using var temp = TempConfig.Create();
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var config = new LibrariesConfiguration
+        {
+            Libraries =
+            [
+                CreateValidPersonalLibrary(
+                    "11111111-1111-4111-8111-111111111111",
+                    "11111111-aaaa-4111-8111-111111111111",
+                    @"C:\media\phone"),
+                CreateValidPersonalLibrary(
+                    "22222222-2222-4222-8222-222222222222",
+                    "22222222-aaaa-4222-8222-222222222222",
+                    @"D:\media\archive"),
+            ],
+        };
+
+        var ex = Assert.Throws<ConfigValidationException>(() => loader.SaveLibraries(config));
+
+        Assert.Contains("one Personal Space", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SaveLibraries_RejectsMissingIdentityUnsupportedPolicyAndImplicitPrimaryDestination()
     {
         using var temp = TempConfig.Create();
@@ -541,6 +566,37 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
                 },
             },
         ],
+    };
+
+    private static LibraryFolderConfig CreateValidPersonalLibrary(
+        string libraryId,
+        string sourceId,
+        string path) => new()
+    {
+        Id = libraryId,
+        Name = "Personal Space",
+        Kind = LibraryKinds.Personal,
+        Area = LibraryAreas.View,
+        Presentation = LibraryPresentations.MixedGallery,
+        MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
+        Sources =
+        [
+            new LibrarySourceConfig
+            {
+                Id = sourceId,
+                Path = path,
+                Role = LibrarySourceRoles.PrimaryDestination,
+                ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
+                AccessMode = LibrarySourceAccessModes.Writable,
+                ParticipatesInOrganization = true,
+            },
+        ],
+        PrimaryDestinationSourceId = sourceId,
+        OwnerProfileId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        Visibility = LibraryVisibility.Private,
+        AcceptedIntakeModes = [LibraryIntakeModes.BrowserUpload],
+        DuplicatePolicy = LibraryDuplicatePolicies.SkipExact,
+        OrganizationPolicy = new() { Mode = LibraryOrganizationModes.CaptureYearMonth },
     };
 
     private sealed class TempConfig : IDisposable
