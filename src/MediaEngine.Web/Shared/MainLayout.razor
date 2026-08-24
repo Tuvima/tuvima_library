@@ -8,6 +8,7 @@
 @inject DashboardAuthUiOptions AuthUi
 @inject NavigationManager Nav
 @inject IEngineApiClient ApiClient
+@inject IConfiguration Configuration
 @inject IStringLocalizer<SharedStrings> L
 @inject ILogger<MainLayout> Logger
 @implements IAsyncDisposable
@@ -186,7 +187,9 @@
         }
 
         var currentRoute = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0];
-        if (!currentRoute.Equals("setup/network", StringComparison.OrdinalIgnoreCase))
+        var networkSetupWizardEnabled = Configuration.GetValue<bool>("Features:NetworkSetupWizardEnabled");
+        if (networkSetupWizardEnabled
+            && !currentRoute.Equals("setup/network", StringComparison.OrdinalIgnoreCase))
         {
             var networkSettings = await ApiClient.GetNetworkSettingsAsync();
             if (networkSettings is { SetupCompleted: false })

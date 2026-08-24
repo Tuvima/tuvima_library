@@ -31,6 +31,18 @@ public sealed class NetworkSettingsUiTests
     }
 
     [Fact]
+    public void IncompleteNetworkWizardDoesNotGateStartupUntilTheFeatureIsEnabled()
+    {
+        var layout = Read(@"src\MediaEngine.Web\Shared\MainLayout.razor");
+        var appSettings = Read(@"src\MediaEngine.Web\appsettings.json");
+
+        Assert.Contains("Features:NetworkSetupWizardEnabled", layout, StringComparison.Ordinal);
+        Assert.Contains("networkSetupWizardEnabled", layout, StringComparison.Ordinal);
+        Assert.Contains("\"NetworkSetupWizardEnabled\": false", appSettings, StringComparison.Ordinal);
+        Assert.Contains("networkSettings is { SetupCompleted: false }", layout, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RemoteAccessDoesNotPretendAnUnavailableProviderExists()
     {
         var source = Read(@"src\MediaEngine.Web\Components\Settings\RemoteAccessSettingsPanel.razor");
