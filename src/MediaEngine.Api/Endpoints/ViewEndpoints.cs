@@ -8,6 +8,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Storage.Contracts;
+using Microsoft.AspNetCore.Mvc;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -323,7 +324,7 @@ public static class ViewEndpoints
                 : Results.Ok(ToContract(await repository.AddItemsAsync(id, request.ItemIds, ct)));
         }).WithName("AddViewGalleryItems").Produces<AddViewGalleryItemsResponseDto>();
 
-        group.MapDelete("/galleries/{id:guid}/items", async (Guid id, ViewGalleryItemsRequest request,
+        group.MapDelete("/galleries/{id:guid}/items", async (Guid id, [FromBody] ViewGalleryItemsRequest request,
             IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
