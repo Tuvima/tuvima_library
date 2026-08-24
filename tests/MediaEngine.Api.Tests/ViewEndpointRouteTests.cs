@@ -26,7 +26,15 @@ public sealed class ViewEndpointRouteTests
         Assert.Contains("/items/{id:guid}/content", endpoint, StringComparison.Ordinal);
         Assert.Contains("/items/{id:guid}/thumbnail", endpoint, StringComparison.Ordinal);
         Assert.Contains("/galleries", endpoint, StringComparison.Ordinal);
+        Assert.Contains("/admin/profiles/{profileId:guid}/sources", endpoint, StringComparison.Ordinal);
         Assert.Contains("/admin/libraries/{libraryId:guid}/scan", endpoint, StringComparison.Ordinal);
+        var sourcesRoute = endpoint.IndexOf("/admin/profiles/{profileId:guid}/sources", StringComparison.Ordinal);
+        var scanRoute = endpoint.IndexOf("/admin/libraries/{libraryId:guid}/scan", sourcesRoute, StringComparison.Ordinal);
+        Assert.True(sourcesRoute >= 0 && scanRoute > sourcesRoute);
+        Assert.Contains(".RequireAdmin();", endpoint[sourcesRoute..scanRoute], StringComparison.Ordinal);
+        Assert.Contains("new ViewPersonalSpaceAdminReviewDto(profileId, null, [], [])", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("SourceKey", endpoint[sourcesRoute..scanRoute], StringComparison.Ordinal);
+        Assert.DoesNotContain("ClientDeviceId", endpoint[sourcesRoute..scanRoute], StringComparison.Ordinal);
         Assert.DoesNotContain("Guid? profileId, HttpContext", endpoint, StringComparison.Ordinal);
         Assert.Contains("Guid? scopeProfileId", endpoint, StringComparison.Ordinal);
         Assert.DoesNotContain("MapGet(\"/libraries\"", endpoint, StringComparison.Ordinal);

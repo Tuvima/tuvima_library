@@ -72,6 +72,48 @@ public sealed class EngineApiClientViewPolicyTests
         Assert.False(policy.IncludeInSharedView);
     }
 
+    [Fact]
+    public async Task GetViewProfileSourcesAsync_UsesSafeAdministratorReviewRoute()
+    {
+        using var http = CreateHttpClient(request =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal($"/view/admin/profiles/{ProfileId:D}/sources", request.RequestUri!.AbsolutePath);
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent($$"""
+                    {
+                      "profile_id": "{{ProfileId:D}}",
+                      "personal_space": {
+                        "id": "bf270036-a9ad-4d95-a65f-672bf163a074",
+                        "created_at": "2026-08-20T08:00:00Z",
+                        "updated_at": "2026-08-23T09:00:00Z"
+                      },
+                      "sources": [{
+                        "id": "13fb5fea-eaf6-4f89-8bc5-bb7ec379da94",
+                        "source_type": "folder",
+                        "name": "Family imports",
+                        "last_activity_at": "2026-08-23T08:30:00Z",
+                        "created_at": "2026-08-20T08:00:00Z",
+                        "updated_at": "2026-08-23T08:30:00Z"
+                      }],
+                      "devices": []
+                    }
+                    """, Encoding.UTF8, "application/json"),
+            });
+        });
+        var client = new EngineApiClient(http, NullLogger<EngineApiClient>.Instance);
+
+        var review = await client.GetViewProfileSourcesAsync(ProfileId);
+
+        Assert.NotNull(review);
+        Assert.Equal(ProfileId, review.ProfileId);
+        Assert.NotNull(review.PersonalSpace);
+        Assert.Equal("Family imports", Assert.Single(review.Sources).Name);
+        Assert.Equal("folder", review.Sources[0].SourceType);
+        Assert.Empty(review.Devices);
+    }
+
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, Task<HttpResponseMessage>> responder) =>
         new(new StubHttpMessageHandler(responder))
         {

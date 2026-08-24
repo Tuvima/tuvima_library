@@ -111,6 +111,14 @@ public sealed partial class EngineApiClient
         return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<ViewItemsRemovedResponse>(cancellationToken: ct) : null;
     }
 
+    public Task<ViewPersonalSpaceAdminReviewDto?> GetViewProfileSourcesAsync(
+        Guid profileId,
+        CancellationToken ct = default) =>
+        GetAsync<ViewPersonalSpaceAdminReviewDto>(
+            "GET /view/admin/profiles/{profileId}/sources",
+            $"/view/admin/profiles/{profileId:D}/sources",
+            ct: ct);
+
     private Task<bool> LifecycleAsync(Guid itemId, string action, CancellationToken ct) =>
         PostAsync("POST /view/items/{id}/lifecycle", $"/view/items/{itemId:D}/{action}", new { }, ct: ct);
 

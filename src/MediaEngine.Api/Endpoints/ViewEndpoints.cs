@@ -6,6 +6,7 @@ using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using SkiaSharp;
 
@@ -140,6 +141,31 @@ public static class ViewEndpoints
         MapLifecycle(group, "trash", LocalAssetLifecycleState.Trashed);
         MapLifecycle(group, "restore", LocalAssetLifecycleState.Active);
         MapGalleries(group);
+
+        group.MapGet("/admin/profiles/{profileId:guid}/sources", async (
+            Guid profileId, IProfileService profiles, IViewPersonalSpaceRepository spaces,
+            CancellationToken ct) =>
+        {
+            if (await profiles.GetProfileAsync(profileId, ct) is null)
+            {
+                return ApiErrors.NotFound($"Profile '{profileId}' not found.");
+            }
+
+            var space = await spaces.GetByOwnerAsync(profileId, ct);
+            if (space is null)
+            {
+                return Results.Ok(new ViewPersonalSpaceAdminReviewDto(profileId, null, [], []));
+            }
+
+            var sources = await spaces.GetSourcesAsync(space.Id, ct);
+            var devices = await spaces.GetDevicesAsync(space.Id, ct);
+            return Results.Ok(ToAdminReview(profileId, space, sources, devices));
+        })
+        .WithName("GetViewProfileSources")
+        .WithSummary("Review the persisted Personal Space sources and devices for one profile.")
+        .Produces<ViewPersonalSpaceAdminReviewDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAdmin();
 
         group.MapPost("/admin/libraries/{libraryId:guid}/scan", async (
             Guid libraryId, ViewLibraryService service, CancellationToken ct) =>
@@ -399,6 +425,51 @@ public static class ViewEndpoints
 
     private static ViewGalleryShareDto ToContract(ViewGalleryShare value) =>
         new(value.GalleryId, value.ProfileId, value.Permission, value.SharedAt);
+
+    private static ViewPersonalSpaceAdminReviewDto ToAdminReview(
+        Guid profileId,
+        ViewPersonalSpace space,
+        IReadOnlyList<ViewSource> sources,
+        IReadOnlyList<ViewDevice> devices) =>
+        new(
+            profileId,
+            new ViewPersonalSpaceAdminDto(space.Id, space.CreatedAt, space.UpdatedAt),
+            sources.Select(source => new ViewSourceAdminDto(
+                source.Id,
+                SourceTypeValue(source.SourceType),
+                source.Name,
+                source.LastActivityAt,
+                source.CreatedAt,
+                source.UpdatedAt)).ToList(),
+            devices.Select(device => new ViewDeviceAdminDto(
+                device.Id,
+                device.SourceId,
+                device.Name,
+                device.Make,
+                device.Model,
+                device.LastBackupAt,
+                BackupStateValue(device.BackupState),
+                device.CreatedAt,
+                device.UpdatedAt)).ToList());
+
+    private static string SourceTypeValue(ViewSourceType value) => value switch
+    {
+        ViewSourceType.Folder => "folder",
+        ViewSourceType.BrowserUpload => "browser_upload",
+        ViewSourceType.DeviceImport => "device_import",
+        ViewSourceType.MobileBackup => "mobile_backup",
+        ViewSourceType.Network => "network",
+        _ => "other",
+    };
+
+    private static string BackupStateValue(ViewDeviceBackupState value) => value switch
+    {
+        ViewDeviceBackupState.Idle => "idle",
+        ViewDeviceBackupState.BackingUp => "backing_up",
+        ViewDeviceBackupState.Complete => "complete",
+        ViewDeviceBackupState.Error => "error",
+        _ => "unknown",
+    };
 
     private static IResult Thumbnail(LocalAssetContentLocation file)
     {
