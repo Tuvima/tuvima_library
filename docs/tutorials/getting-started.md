@@ -97,7 +97,7 @@ If your Engine runs on a different URL, set `TUVIMA_ENGINE_URL` before starting 
 
 Open **Settings > Media Management**.
 
-Confirm or create the logical libraries you need. Use `catalogued / enriched` for known books, movies, TV, music, audiobooks, and comics. Use `personal / local-only` in the View area for photos, short videos, documents, audio notes, home movies, and other private files. For each source, explicitly choose **Managed by Tuvima** or **Existing library**; existing sources are always indexed in place and never modified. Confirm path checks, then save.
+Confirm or create the logical libraries you need. Use `catalogued / enriched` for known books, movies, TV, music, audiobooks, and comics. For photos, short videos, documents, audio notes, home movies, and other private files, attach a `personal / local-only` source to the owning profile's View Personal Space. Multiple sources or devices can feed that one user-facing space. For each source, explicitly choose **Managed by Tuvima** or **Existing library**; existing sources are always indexed in place and never modified. Confirm path checks, then save.
 
 Save changes, then scan the relevant source from Media Management. Open **Settings > Providers** if provider credentials need attention, and open **Settings > Ingestion** to watch progress.
 

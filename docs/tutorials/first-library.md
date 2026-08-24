@@ -39,9 +39,9 @@ Copy a small set of supported files into the Watch Folder. Start with a few know
 - one movie or TV file
 - one album track or audiobook
 - one comic archive if you use comics
-- a few mixed local files if you configured a personal View library
+- a few mixed local files if you configured a source for your View Personal Space
 
-For photos, home videos, documents, lectures, audio notes, or private unmatched content, use a personal View library with **Local only**. Tuvima will not send those items through retail providers, Wikidata, or identity review. Files in an Existing library source remain in place; Managed by Tuvima sources may be organized only according to their explicit policy.
+For photos, home videos, documents, lectures, audio notes, or private unmatched content, attach a **Local only** source to the owning profile's View Personal Space. Tuvima will not send those items through retail providers, Wikidata, or identity review. Files in an Existing library source remain in place; Managed by Tuvima sources may be organized only according to their explicit policy.
 
 Supported formats are listed in [Media Types](../reference/media-types.md).
 
@@ -78,7 +78,7 @@ Items do not appear everywhere immediately.
 - **Listen** shows music and audiobooks.
 - **Search** finds library items across media lanes.
 - **Collections** organizes automatic broader rollups, published curated collections, lane-level shelves, and people when they are backed by real library data.
-- **View** shows personal mixed media by library with local search, date grouping, favorites, hidden items, and file details.
+- **View** shows the active Photos scope (Shared View when permitted, otherwise My Photos) with local search, date grouping, personal states, Galleries, and file details.
 - **Review Queue** holds items that need human confirmation.
 
 An item is eligible for browse surfaces only after it has a real title, resolved media type, and settled artwork outcome. Items that are uncertain stay in Review Queue instead of being shown as if they were correct.
