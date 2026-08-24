@@ -585,6 +585,12 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionEn
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionFeaturedRequest
   Featured: System.Boolean | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionGalleryReferenceDto
+  GalleryId: System.Guid | nullability=not-null | accessors=get,init
+  Name: System.String | nullability=not-null | accessors=get,init
+  GalleryKind: System.String | nullability=not-null | accessors=get,init
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionGroupDetailDto
   CollectionId: System.Guid | nullability=not-null | accessors=get,init
   DisplayName: System.String | nullability=not-null | accessors=get,init
@@ -768,6 +774,26 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionMe
 
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionParentResponse
   parentCollection: MediaEngine.Contracts.Collections.ParentCollectionSummary | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionPersonalMediaSourceDto
+  SourceId: System.Guid | nullability=not-null | accessors=get,init
+  CollectionId: System.Guid | nullability=not-null | accessors=get,init
+  OwnerProfileId: System.Guid | nullability=not-null | accessors=get,init
+  Kind: System.String | nullability=not-null | accessors=get,init
+  GalleryId: System.Guid? | nullability=nullable | accessors=get,init
+  RuleVersion: System.Int32? | nullability=nullable | accessors=get,init
+  RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | nullability=nullable | accessors=get,init
+  Position: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionPersonalMediaSourceKinds
+
+MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionPersonalMediaSourceWriteRequest
+  Kind: System.String | nullability=not-null | accessors=get,init
+  GalleryId: System.Guid? | nullability=nullable | accessors=get,init
+  RuleVersion: System.Int32? | nullability=nullable | accessors=get,init
+  RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | nullability=nullable | accessors=get,init
+  Position: System.Int32 | nullability=not-null | accessors=get,init
+  AdditionalMembers: System.Collections.Generic.Dictionary<System.String, System.Text.Json.JsonElement> | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionPlacementRequest
   Location: System.String | nullability=not-null | accessors=get,init

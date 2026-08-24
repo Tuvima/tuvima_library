@@ -764,6 +764,8 @@ CREATE INDEX IF NOT EXISTS ix_local_items_library_favorite_timeline
 CREATE INDEX IF NOT EXISTS ix_local_item_metadata_location
     ON local_item_metadata(location_name, latitude, longitude, item_id)
     WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+CREATE INDEX IF NOT EXISTS ix_local_items_active_discovery
+    ON local_items(library_id, hidden, archived_at, trashed_at, id);
 CREATE INDEX IF NOT EXISTS ix_local_files_hash
     ON local_files(content_hash COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS ix_local_file_sources_file
@@ -804,6 +806,10 @@ CREATE INDEX IF NOT EXISTS ix_local_item_annotations_item
     ON local_item_annotations(item_id, annotation_kind, created_at);
 CREATE INDEX IF NOT EXISTS ix_local_item_annotations_lookup
     ON local_item_annotations(annotation_kind, annotation_value, item_id);
+CREATE INDEX IF NOT EXISTS ix_local_item_annotations_people
+    ON local_item_annotations(annotation_kind, reviewed_at, annotation_value, item_id)
+    WHERE annotation_kind IN ('person_name', 'named_person', 'face_name',
+                              'person_identity', 'face_identity');
 
 CREATE TABLE IF NOT EXISTS media_operation_events (
   id             BLOB PRIMARY KEY,
