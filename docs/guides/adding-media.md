@@ -1,6 +1,6 @@
 ---
 title: "How to Add Media to Your Library"
-summary: "Use configured folders, scans, and supported formats to bring media into Tuvima Library cleanly."
+summary: "Use governed catalogued sources or a profile's View Personal Space to bring media into Tuvima Library safely."
 audience: "user"
 category: "guide"
 product_area: "library"
@@ -12,13 +12,20 @@ tags:
 
 # How to Add Media to Your Library
 
-Tuvima Library brings files in through configured folders. You can leave a folder watched for ongoing additions, or use scans to import existing files in batches.
+Tuvima Library brings files in through governed sources. Catalogued media can
+use watched folders and administrator batch scans. Personal media enters one
+View Personal Space per enabled profile and follows a separate local-only path.
 
 ## Choose A Folder Strategy
 
 **Watch folder workflow** is best for day-to-day use. Put new files in the watched folder and Tuvima picks them up automatically or during the next scan.
 
 **Batch import workflow** is best for an existing collection. Point Tuvima at a folder, scan it, and work through any review items before adding more.
+
+These scan/review instructions apply to catalogued Read, Watch, and Listen
+media. For View, attach one or more personal sources to the owning profile's
+Personal Space or use browser upload. View has no user-facing library picker,
+and its scan endpoint is an administrator recovery/diagnostic action.
 
 For large existing libraries, start with one media lane at a time. It is easier to tune providers and review rules with a smaller batch.
 
@@ -29,7 +36,7 @@ For large existing libraries, start with one media lane at a time. It is easier 
 3. Choose a library kind, area, presentation, and metadata policy, then add its stable sources and explicit primary destination.
 4. Mark each source **Managed by Tuvima** or **Existing library**, then confirm path checks. Existing sources require only read access and can never be modified.
 5. Save the settings.
-6. Run **Scan saved watch folder**.
+6. For a catalogued source only, start the administrator import scan.
 
 Open **Settings > Ingestion** to monitor progress.
 
@@ -46,11 +53,21 @@ Open **Settings > Ingestion** to monitor progress.
 | View | Images | JPG/JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC/HEIF, AVIF, and supported RAW companions |
 | View | Mixed local media | Short video, PDF/Office/text documents, and common audio formats |
 
-Use a **personal View** library with **Local only** or **Manual** metadata for images, home videos, documents, audio notes, lectures, and content that should never be sent through external matching. These items bypass catalogue identity and the Review Queue.
+Use the profile's View Personal Space with an internal `personal` source and
+**Local only** or **Manual** metadata for images, home videos, documents, audio
+notes, lectures, and content that should never be sent through external
+matching. Multiple sources do not become multiple browsing destinations. These items
+bypass catalogue identity and Review Queue.
 
-MP3, M4A, MP4, MKV, AVI, and WEBM can be ambiguous. Tuvima uses folder context, embedded metadata, filename patterns, and classification logic to decide whether a file is music, audiobook, movie, or TV. If it cannot decide safely, the item goes to Review Queue.
+MP3, M4A, MP4, MKV, AVI, and WEBM can be ambiguous in catalogued intake. Tuvima
+uses folder context, embedded metadata, filename patterns, and classification
+logic to decide whether a file is music, audiobook, movie, or TV. If it cannot
+decide safely, the catalogued item goes to Review Queue. View keeps the local
+asset usable without sending it into that identity workflow.
 
 ## What Happens When A File Arrives
+
+The following provider/enrichment stages describe catalogued intake:
 
 1. **Settle:** wait for file activity to stop.
 2. **Fingerprint:** compute a stable identity for duplicate detection.
@@ -63,6 +80,12 @@ MP3, M4A, MP4, MKV, AVI, and WEBM can be ambiguous. Tuvima uses folder context, 
 9. **Stages 6-8 Enrichment:** expand people, universe relationships, lyrics/subtitles, and deeper artwork.
 10. **Settle artwork:** decide whether rich artwork is present, missing, or still pending.
 11. **Surface:** show the item only where it is ready and backed by real data.
+
+View stops after the deterministic local steps needed to make the asset usable:
+settle, hash, extract available file/capture metadata, retain every source path,
+group compound files, and update timeline/search state. It never calls retail
+providers or Wikidata. Favorite, Hidden, Archive, Trash, Restore, and Gallery
+actions change database organization only and do not modify originals.
 
 ## When Items Become Visible
 

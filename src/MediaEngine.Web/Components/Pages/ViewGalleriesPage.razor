@@ -1,0 +1,61 @@
+@page "/view/galleries"
+@using System.Text.Json
+@using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Contracts.Collections
+@using MediaEngine.Domain.PersonalMedia
+@using MediaEngine.Web.Components.Rules
+@inject IEngineApiClient ApiClient
+@inject ViewWorkspaceService Workspace
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@namespace MediaEngine.Web.Components.Pages
+
+<PageTitle>Galleries - Tuvima</PageTitle>
+<ViewSectionShell>
+<div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>Galleries</h1><p>Organize personal photos and videos without changing their source files.</p></div><AppButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => OpenEditor())"><MudIcon Icon="@Icons.Material.Outlined.Add" /> New Gallery</AppButton></header>
+@if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Galleries" Message="Opening your Galleries." /> }
+else if (Workspace.OwnedGalleries.Count == 0 && Workspace.SharedGalleries.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="No Galleries yet" Message="Create a Manual Gallery or a rule-driven Smart Gallery." /> }
+else
+{
+    @if (Workspace.OwnedGalleries.Count > 0) { <section><h2>My Galleries</h2><div class="view-gallery-grid">@foreach (var gallery in Workspace.OwnedGalleries) { <a class="view-gallery-card" href="@($"/view/galleries/{gallery.Id:D}")"><MudIcon Icon="@(gallery.Kind == ViewGalleryKind.Smart ? Icons.Material.Outlined.AutoAwesome : Icons.Material.Outlined.PhotoAlbum)" /><strong>@gallery.Name</strong><span>@gallery.ItemCount items · @gallery.Kind</span></a> }</div></section> }
+    @if (Workspace.SharedGalleries.Count > 0) { <section><h2>Shared with you</h2><div class="view-gallery-grid">@foreach (var gallery in Workspace.SharedGalleries) { <a class="view-gallery-card" href="@($"/view/galleries/{gallery.Id:D}")"><MudIcon Icon="@Icons.Material.Outlined.People" /><strong>@gallery.Name</strong><span>@gallery.ItemCount items</span></a> }</div></section> }
+}
+@if (_editing)
+{
+    <section class="view-gallery-editor" role="dialog" aria-modal="true" aria-labelledby="gallery-editor-title"><h2 id="gallery-editor-title">New Gallery</h2><label>Name <AppNativeInput Value="@_name" ValueChanged="@(v => _name = v?.ToString() ?? "")" AriaLabel="Gallery name" /></label><label>Description <AppNativeInput Value="@_description" ValueChanged="@(v => _description = v?.ToString() ?? "")" AriaLabel="Gallery description" /></label><fieldset><legend>Gallery type</legend><AppNativeButton Type="button" Class="@(_kind == ViewGalleryKind.Manual ? "is-active" : "")" OnClick="@(_ => _kind = ViewGalleryKind.Manual)">Manual</AppNativeButton><AppNativeButton Type="button" Class="@(_kind == ViewGalleryKind.Smart ? "is-active" : "")" OnClick="@(_ => _kind = ViewGalleryKind.Smart)">Smart</AppNativeButton></fieldset>
+        @if (_kind == ViewGalleryKind.Smart) { <ViewRuleBuilder Definition="@_rules" DefinitionChanged="RulesChanged" /> }
+        @if (!string.IsNullOrWhiteSpace(_error)) { <p role="alert">@_error</p> }
+        <div><AppButton Variant="Variant.Text" OnClick="@(() => _editing = false)">Cancel</AppButton><AppButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_saving" OnClick="SaveAsync">Create Gallery</AppButton></div>
+    </section>
+}
+</div>
+</ViewSectionShell>
+
+@code {
+    [SupplyParameterFromQuery(Name="create")] public bool CreateRequested { get; set; }
+    private bool _loading = true, _editing, _saving; private string _name = "", _description = ""; private string? _error; private ViewGalleryKind _kind = ViewGalleryKind.Manual; private CollectionRuleDefinitionViewModel _rules = new();
+    protected override async Task OnInitializedAsync() { await Workspace.LoadGalleriesAsync(force: true); _loading = false; if (CreateRequested || Workspace.PendingNewGalleryItems.Count > 0) OpenEditor(); }
+    private void OpenEditor() { _editing = true; _error = null; }
+    private Task RulesChanged(CollectionRuleDefinitionViewModel value) { _rules = value; return Task.CompletedTask; }
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_name)) { _error = "Enter a Gallery name."; return; }
+        var completeRules = _rules.Groups.Where(g => g.Conditions.Any(IsCompleteRule)).ToList();
+        if (_kind == ViewGalleryKind.Smart && completeRules.Count == 0) { _error = "A Smart Gallery needs at least one complete rule."; return; }
+        _saving = true; var json = _kind == ViewGalleryKind.Smart ? JsonSerializer.Serialize(ToContract(_rules)) : null;
+        var created = await ApiClient.CreateViewGalleryAsync(new(_name.Trim(), _kind, string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(), json));
+        if (created is null) { _error = "The Gallery could not be created."; _saving = false; return; }
+        var pending = Workspace.TakePendingNewGalleryItems(); if (_kind == ViewGalleryKind.Manual && pending.Count > 0) await ApiClient.AddViewGalleryItemsAsync(created.Id, pending);
+        await Workspace.LoadGalleriesAsync(force: true); Snackbar.Add($"Created {created.Name}.", Severity.Success); Nav.NavigateTo($"/view/galleries/{created.Id:D}");
+    }
+    private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) => !string.IsNullOrWhiteSpace(rule.Field) && (rule.Op is "known" or "unknown" or "has_any_value" or "has_no_known_value" || !string.IsNullOrWhiteSpace(rule.Value) || rule.Values is { Length: > 0 });
+    private static CollectionRuleDefinitionDto ToContract(CollectionRuleDefinitionViewModel source) => new()
+    {
+        Version = 1,
+        Groups = source.Groups.Select(group => new CollectionRuleGroupDto
+        {
+            Id = group.Id, JoinWithPrevious = group.JoinWithPrevious, MatchMode = group.MatchMode,
+            Conditions = group.Conditions.Where(IsCompleteRule).Select(condition => new CollectionRulePredicateDto { Field = condition.Field, Op = condition.Op, Value = condition.Value, DisplayValue = condition.DisplayValue, Values = condition.Values, DisplayValues = condition.DisplayValues }).ToList(),
+        }).Where(group => group.Conditions.Count > 0).ToList(),
+    };
+}

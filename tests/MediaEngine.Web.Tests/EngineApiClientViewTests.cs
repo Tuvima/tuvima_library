@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Web.Services.Integration;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -8,113 +9,96 @@ namespace MediaEngine.Web.Tests;
 public sealed class EngineApiClientViewTests
 {
     [Fact]
-    public async Task UploadViewMediaAsync_PostsMultipartFileAndExplicitDestination()
+    public async Task UploadViewMediaAsync_PostsOnlyMultipartFileToCleanRoute()
     {
-        var libraryId = Guid.Parse("22222222-2222-4222-8222-222222222222");
-        string? multipartBody = null;
-        string? requestContentType = null;
-        using var http = new HttpClient(new StubHttpMessageHandler(request =>
-        {
-            requestContentType = request.Content?.Headers.ContentType?.MediaType;
-            multipartBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(
-                    $$"""{"path":"C:\\view\\photo.jpg","mediaType":"","destinationLibraryId":"{{libraryId:D}}"}""",
-                    Encoding.UTF8,
-                    "application/json"),
-            };
-        })) { BaseAddress = new Uri("http://localhost:61495/") };
-        var client = new EngineApiClient(http, NullLogger<EngineApiClient>.Instance);
-        await using var stream = new MemoryStream([1, 2, 3, 4]);
-
-        var result = await client.UploadViewMediaAsync(
-            libraryId,
-            stream,
-            "photo.jpg",
-            "image/jpeg");
-
-        Assert.True(result.Success);
-        Assert.Equal(libraryId.ToString("D"), result.Upload?.destinationLibraryId);
-        Assert.Equal("multipart/form-data", requestContentType);
-        Assert.Contains("name=file; filename=photo.jpg", multipartBody, StringComparison.Ordinal);
-        Assert.Contains("Content-Type: image/jpeg", multipartBody, StringComparison.Ordinal);
-        Assert.Contains("name=destinationLibraryId", multipartBody, StringComparison.Ordinal);
-        Assert.Contains(libraryId.ToString("D"), multipartBody, StringComparison.Ordinal);
+        var itemId = Guid.NewGuid(); string? body = null; string? path = null;
+        using var http = Http(request => { path = request.RequestUri!.PathAndQuery; body = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult(); return Json(HttpStatusCode.OK, $$"""{"item_id":"{{itemId}}","item_added":true,"files_added":1,"sources_added":1}"""); });
+        var client = Client(http); await using var stream = new MemoryStream([1, 2, 3]);
+        var result = await client.UploadViewMediaAsync(stream, "photo.jpg", "image/jpeg");
+        Assert.True(result.Success); Assert.Equal(itemId, result.Upload?.ItemId); Assert.Equal("/view/uploads", path);
+        Assert.Contains("name=file; filename=photo.jpg", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("library", body, StringComparison.OrdinalIgnoreCase); Assert.DoesNotContain("profile", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public async Task UploadViewMediaAsync_ReturnsServerPolicyDetailOnBadRequest()
     {
-        using var http = new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.BadRequest)
-        {
-            Content = new StringContent(
-                "{\"title\":\"Bad Request\",\"detail\":\"Browser upload is disabled for personal libraries by administrator policy.\"}",
-                Encoding.UTF8,
-                "application/problem+json"),
-        })) { BaseAddress = new Uri("http://localhost:61495/") };
-        var client = new EngineApiClient(http, NullLogger<EngineApiClient>.Instance);
+        using var http = Http(_ => Json(HttpStatusCode.BadRequest, "{\"title\":\"Bad Request\",\"detail\":\"Browser upload is disabled.\"}", "application/problem+json"));
         await using var stream = new MemoryStream([1]);
-
-        var result = await client.UploadViewMediaAsync(Guid.NewGuid(), stream, "photo.jpg", "image/jpeg");
-
-        Assert.False(result.Success);
-        Assert.Equal(
-            "Browser upload is disabled for personal libraries by administrator policy.",
-            result.ErrorMessage);
+        var result = await Client(http).UploadViewMediaAsync(stream, "photo.jpg", "image/jpeg");
+        Assert.False(result.Success); Assert.Equal("Browser upload is disabled.", result.ErrorMessage);
     }
 
     [Fact]
-    public async Task ViewClient_UsesProfileScopedLibraryItemAndMutationRoutes()
+    public async Task ViewClient_UsesTrustedCleanScopeAssetDiscoveryAndMutationRoutes()
     {
-        var profileId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        var libraryId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-        var itemId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-        var requests = new List<(HttpMethod Method, string PathAndQuery)>();
-        using var http = new HttpClient(new StubHttpMessageHandler(request =>
+        var itemId = Guid.NewGuid(); var requests = new List<(HttpMethod Method, string Path)>();
+        using var http = Http(request =>
         {
             requests.Add((request.Method, request.RequestUri!.PathAndQuery));
-            var body = request.RequestUri.AbsolutePath switch
+            var json = request.RequestUri.AbsolutePath switch
             {
-                "/view/libraries" => "[]",
-                var path when path.EndsWith("/scan", StringComparison.Ordinal) => $$"""
-                    {"library_id":"{{libraryId}}","files_seen":0,"items_added":0,"files_added":0,"sources_added":0,"duplicates_found":0,"errors":0}
-                    """,
-                var path when request.Method == HttpMethod.Get && path == $"/view/{libraryId:D}" =>
-                    "{\"items\":[],\"offset\":0,\"limit\":120,\"total\":0,\"has_more\":false}",
-                _ => string.Empty,
+                "/view/scopes" => "{\"scope\":{\"kind\":0,\"profile_id\":null,\"was_fallback\":false},\"available_scopes\":[]}",
+                "/view/assets" => "{\"items\":[],\"next_cursor\":null,\"has_more\":false}",
+                "/view/people" => "{\"items\":[],\"next_cursor\":null,\"has_more\":false,\"capability\":{\"state\":\"empty\",\"has_indexed_data\":false,\"automatic_processing_available\":false,\"message\":\"None\",\"evidence_kinds\":[]}}",
+                _ => "",
             };
-            return new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(body, Encoding.UTF8, "application/json"),
-            };
-        })) { BaseAddress = new Uri("http://localhost:61495/") };
-        var client = new EngineApiClient(http, NullLogger<EngineApiClient>.Instance);
-
-        await client.GetViewLibrariesAsync(profileId);
-        await client.GetViewItemsAsync(libraryId, profileId, "summer trip", "media", favorites: true, hidden: true);
-        await client.ScanViewLibraryAsync(libraryId, profileId);
-        await client.SetViewItemFavoriteAsync(libraryId, itemId, profileId, true);
-        await client.SetViewItemHiddenAsync(libraryId, itemId, profileId, true);
-
-        Assert.Contains(requests, request => request == (HttpMethod.Get, $"/view/libraries?profileId={profileId:D}"));
-        var itemRequest = Assert.Single(
-            requests,
-            request => request.Method == HttpMethod.Get
-                && request.PathAndQuery.StartsWith($"/view/{libraryId:D}?", StringComparison.Ordinal));
-        Assert.Contains($"profileId={profileId:D}", itemRequest.PathAndQuery, StringComparison.Ordinal);
-        Assert.Contains("q=summer%20trip", itemRequest.PathAndQuery, StringComparison.Ordinal);
-        Assert.Contains("kind=media", itemRequest.PathAndQuery, StringComparison.Ordinal);
-        Assert.Contains("favorite=true", itemRequest.PathAndQuery, StringComparison.Ordinal);
-        Assert.Contains("hidden=true", itemRequest.PathAndQuery, StringComparison.Ordinal);
-        Assert.Contains(requests, request => request == (HttpMethod.Post, $"/view/{libraryId:D}/scan?profileId={profileId:D}"));
-        Assert.Contains(requests, request => request == (HttpMethod.Put, $"/view/{libraryId:D}/items/{itemId:D}/favorite?profileId={profileId:D}"));
-        Assert.Contains(requests, request => request == (HttpMethod.Put, $"/view/{libraryId:D}/items/{itemId:D}/hidden?profileId={profileId:D}"));
+            return Json(HttpStatusCode.OK, json);
+        });
+        var client = Client(http);
+        await client.GetViewScopesAsync(ViewScopeKind.Shared);
+        await client.GetViewAssetsAsync(new(ViewScopeKind.Shared, Search: "summer trip", Kinds: ["video"], FavoritesOnly: true));
+        await client.GetViewPeopleAsync(new(ViewScopeKind.Mine, Search: "Sarah"));
+        await client.SetViewItemFavoriteAsync(itemId, true); await client.ArchiveViewItemAsync(itemId);
+        Assert.Contains(requests, r => r.Path.StartsWith("/view/scopes?", StringComparison.Ordinal));
+        Assert.Contains(requests, r => r.Path.Contains("/view/assets?scope=shared", StringComparison.Ordinal) && r.Path.Contains("q=summer%20trip", StringComparison.Ordinal) && r.Path.Contains("kind=video", StringComparison.Ordinal));
+        Assert.Contains(requests, r => r.Path.Contains("/view/people?scope=mine", StringComparison.Ordinal));
+        Assert.Contains(requests, r => r == (HttpMethod.Put, $"/view/items/{itemId:D}/favorite")); Assert.Contains(requests, r => r == (HttpMethod.Post, $"/view/items/{itemId:D}/archive"));
+        Assert.DoesNotContain(requests, r => r.Path.Contains("profileId=", StringComparison.OrdinalIgnoreCase) || r.Path.Contains("/view/libraries", StringComparison.Ordinal));
     }
 
-    private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler
+    [Fact]
+    public async Task GallerySharingClient_UsesCountFreeDiscoveryAndExactReplacementRoutes()
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(responder(request));
+        var galleryId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        var requests = new List<(HttpMethod Method, string Path, string? Body)>();
+        using var http = Http(request =>
+        {
+            requests.Add((
+                request.Method,
+                request.RequestUri!.PathAndQuery,
+                request.Content?.ReadAsStringAsync().GetAwaiter().GetResult()));
+            if (request.Method == HttpMethod.Put)
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+
+            var json = request.RequestUri.AbsolutePath == "/view/share-targets"
+                ? $$"""[{"profile_id":"{{targetId}}","display_name":"Sarah","avatar_color":"#7457D9","avatar_url":null}]"""
+                : $$"""[{"gallery_id":"{{galleryId}}","profile_id":"{{targetId}}","permission":0,"shared_at":"2026-08-23T12:00:00Z"}]""";
+            return Json(HttpStatusCode.OK, json);
+        });
+        var client = Client(http);
+
+        var targets = await client.GetViewGalleryShareTargetsAsync();
+        var shares = await client.GetViewGallerySharesAsync(galleryId);
+        var replaced = await client.ReplaceViewGallerySharesAsync(
+            galleryId, [new(targetId, ViewGallerySharePermission.Contribute)]);
+
+        Assert.Equal(targetId, Assert.Single(targets!).ProfileId);
+        Assert.Equal(targetId, Assert.Single(shares!).ProfileId);
+        Assert.True(replaced);
+        Assert.Contains(requests, request => request == (HttpMethod.Get, "/view/share-targets", null));
+        Assert.Contains(requests, request => request.Method == HttpMethod.Get
+            && request.Path == $"/view/galleries/{galleryId:D}/shares");
+        var put = Assert.Single(requests, request => request.Method == HttpMethod.Put);
+        Assert.Equal($"/view/galleries/{galleryId:D}/shares", put.Path);
+        Assert.Contains($"\"profile_id\":\"{targetId:D}\"", put.Body, StringComparison.Ordinal);
+        Assert.Contains("\"permission\":1", put.Body, StringComparison.Ordinal);
+        Assert.All(requests, request => Assert.DoesNotContain("profileId=", request.Path, StringComparison.OrdinalIgnoreCase));
     }
+
+    private static EngineApiClient Client(HttpClient http) => new(http, NullLogger<EngineApiClient>.Instance);
+    private static HttpClient Http(Func<HttpRequestMessage, HttpResponseMessage> respond) => new(new Stub(respond)) { BaseAddress = new Uri("http://localhost:61495/") };
+    private static HttpResponseMessage Json(HttpStatusCode status, string json, string media = "application/json") => new(status) { Content = new StringContent(json, Encoding.UTF8, media) };
+    private sealed class Stub(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler { protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => Task.FromResult(respond(request)); }
 }

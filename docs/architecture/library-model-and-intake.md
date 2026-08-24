@@ -19,9 +19,11 @@ where the library appears in the product.
 
 `Photos` and `General` are not library kinds. Phone photos, short videos,
 documents, artwork, home movies, audio notes, and other personal files belong
-to user-created personal libraries in View. Presentation modes such as Gallery,
-Mixed Gallery, Timeline, Video, Documents, Audio, and Mixed change browsing;
-they do not change the underlying library kind.
+to the owning profile's Personal Space in View. A Personal Space has one
+internal `personal` library bridge and may receive files from several sources
+or devices. The library, source, and device records are intake/provenance
+details rather than separate user-facing destinations. Galleries organize
+assets without changing library kind or moving source files.
 
 ## Processing flow
 
@@ -35,10 +37,12 @@ Source
 ```
 
 An intake request records its origin, actor, and optional destination library.
-Direct-to-library actions such as browser upload, drag-and-drop, mobile backup,
-connected-device import, and API intake must retain the stable destination
-library ID through the pipeline. A shared incoming source has no destination
-hint and invokes routing rules instead.
+Direct-to-space actions retain the owning profile, Personal Space, stable
+destination library ID, and source/device provenance through the pipeline.
+Browser upload is implemented. Drag-and-drop, mobile backup, connected-device
+import, and API intake remain modeled producer types for future clients; their
+presence in configuration or storage is not evidence of a working client. A
+shared incoming source has no destination hint and invokes routing rules instead.
 
 Shared incoming currently auto-routes only to a single eligible catalogued
 library. A personal/View candidate is classified but parked for review because
@@ -120,13 +124,35 @@ object detection are not part of the core View implementation. Future
 annotations may add provenance, confidence, and model version without becoming
 required for ingestion or search.
 
+Archive and Trash are reversible database states. They remove items from the
+normal timeline but never rename, move, overwrite, or delete the original.
+Gallery removal and Gallery deletion likewise remove only organizational state.
+Any future permanent-file operation must separately prove ownership, source
+containment, managed/writable policy, and a fresh explicit confirmation.
+
 ## Access
 
-Personal libraries declare an owner and visibility: Private, Shared with
-selected profiles, or Household. The same access decision is enforced for
-browse, search, thumbnails, originals, downloads, uploads, and management.
-Administrator access is an explicit policy rather than an assumption in the
-Dashboard.
+Every Personal Space has an explicit owning profile. Profiles independently
+control whether View is enabled, whether they may browse Shared View, whether
+their own Personal Space contributes to Shared View, and whether they may share
+Galleries. Shared View is a virtual authorized aggregation; it never copies or
+moves media into a physical master library.
+
+The Engine resolves Shared, Mine, and permitted profile scopes from trusted
+profile identity. The same resource authorization decision is enforced for
+browse, search, thumbnails, originals, downloads, Galleries, People, Places,
+and Collection projections. Administrator configuration rights are distinct
+from ordinary content-browsing rights.
+
+A selected-profile Gallery share is independent of Shared View. A caller may
+read a specifically shared Gallery without gaining access to that profile's
+Personal Space or other assets. Manual Gallery contribution requires its own
+permission. Smart Galleries accept no manual membership.
+
+Administrator-authored Collections may reference a whole Gallery or store a
+versioned View rule. They never store a list of personal asset IDs. Gallery
+membership and rule results remain dynamic, and every projection rechecks the
+viewer's View authorization before returning metadata, counts, or previews.
 
 ## Pre-beta cutover policy
 
@@ -142,14 +168,16 @@ moves, renames, writeback, overwrite, or deletion.
 
 ## Visual validation and intentional differences
 
-Media Management and View were checked at 1920×1080 and at a 390×844 mobile
-viewport against the product references. The implemented hierarchy retains the
-reference's compact cards, status badges, area navigation, source controls,
-mixed-media filters, summary rail, and mobile stacking.
-
 The references use a permanent left rail as primary app navigation. Tuvima
-intentionally keeps Read, Watch, Listen, View, and Collections in its existing
-top navigation, with the established Settings or View rail beneath it. Media
-Management uses a visible inner row for Overview, Incoming, Read, Watch,
-Listen, and View. Empty View libraries show a truthful scan-ready state rather
-than fabricated thumbnails, counts, or backup progress.
+keeps Read, Watch, Listen, View, and Collections in its existing top navigation,
+with the established Settings or View rail beneath it. View's rail contains
+only Photos, Galleries, People, and Places; filters and source management remain
+in the content area or Settings. Empty surfaces show truthful capability or
+intake guidance rather than fabricated thumbnails, people, counts, or backup
+progress.
+
+Places is list-first and is derived only from real GPS or normalized local
+location metadata. A future map must preserve that accessible list and must not
+contact an unconfigured third-party tile provider. People is similarly
+evidence-first: it can show named/reviewed provenance-aware annotations, but it
+must not imply that face recognition exists or fabricate unnamed identities.

@@ -103,12 +103,23 @@
                         case "items":
                             @RenderItemsTab()
                             break;
+                        case "personal-media":
+                            break;
                         case "history":
                             @RenderHistoryTab()
                             break;
                         default:
                             @RenderDetailsTab()
                             break;
+                    }
+
+                    @if (!IsPlaylistDialog)
+                    {
+                        <div hidden="@(!string.Equals(_activeTab, "personal-media", StringComparison.OrdinalIgnoreCase))">
+                            <CollectionPersonalMediaSection @ref="_personalMediaSection"
+                                                            CollectionId="@(EditingCollection?.Id ?? _createdCollectionId)"
+                                                            Changed="MarkDirtyAsync" />
+                        </div>
                     }
                 </div>
 
@@ -151,6 +162,7 @@
         ("artwork", "Artwork", Icons.Material.Outlined.PhotoLibrary),
         ("items", "Contents", Icons.Material.Outlined.Inventory2),
         ("rules", "Rules", Icons.Material.Outlined.FilterAlt),
+        ("personal-media", "Personal media", Icons.Material.Outlined.PhotoLibrary),
         ("history", "History", Icons.Material.Outlined.History),
     ];
     private static readonly (string Id, string Slot, string Label, string Icon)[] ArtworkTabs =
@@ -206,6 +218,8 @@
     private bool _showItemPicker;
     private List<CollectionMediaLookupDto> _lookupItems = [];
     private List<ManualCollectionItem> _manualItems = [];
+    private CollectionPersonalMediaSection? _personalMediaSection;
+    private Guid? _createdCollectionId;
 
     private bool IsPlaylist => string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
     private bool IsSmartPlaylist => string.Equals(_collectionType, "Smart", StringComparison.OrdinalIgnoreCase);
@@ -372,6 +386,11 @@
     }
 
     private void MarkDirty() => _hasUnsavedChanges = true;
+    private Task MarkDirtyAsync()
+    {
+        MarkDirty();
+        return Task.CompletedTask;
+    }
 
     private Task OnNameChanged(string value)
     {
@@ -729,6 +748,13 @@
             return;
         }
 
+        if (_personalMediaSection is not null && !_personalMediaSection.Validate(out var personalMediaError))
+        {
+            Snackbar.Add(personalMediaError ?? "Complete the personal-media source before saving.", Severity.Warning);
+            _activeTab = "personal-media";
+            return;
+        }
+
         _saving = true;
         StateHasChanged();
 
@@ -737,13 +763,13 @@
             var definition = _rulesEnabled ? BuildPersistableDefinition() : new CollectionRuleDefinitionViewModel();
 
             var normalizedSortField = string.IsNullOrWhiteSpace(_sortField) ? null : _sortField;
-            Guid? savedCollectionId = EditingCollection?.Id;
+            Guid? savedCollectionId = EditingCollection?.Id ?? _createdCollectionId;
             var ok = false;
 
-            if (EditingCollection is not null)
+            if (savedCollectionId.HasValue)
             {
                 ok = await ApiClient.UpdateCollectionAsync(
-                    EditingCollection.Id,
+                    savedCollectionId.Value,
                     _name,
                     _description,
                     _iconName,
@@ -771,6 +797,7 @@
                     Request.ActiveProfileId,
                     secondarySortField: _secondarySortField,
                     secondarySortDirection: _secondarySortDirection);
+                _createdCollectionId = savedCollectionId;
                 ok = savedCollectionId.HasValue;
             }
 
@@ -786,6 +813,18 @@
 
             if (savedCollectionId.HasValue)
             {
+                if (_personalMediaSection is not null
+                    && !await _personalMediaSection.SaveAsync(savedCollectionId.Value))
+                {
+                    Snackbar.Add(
+                        string.IsNullOrWhiteSpace(_personalMediaSection.LastError)
+                            ? "The Collection was saved, but its personal-media sources could not be saved. Try again."
+                            : _personalMediaSection.LastError,
+                        Severity.Error);
+                    _activeTab = "personal-media";
+                    return;
+                }
+
                 foreach (var (slot, file) in _artworkFiles)
                 {
                     await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);

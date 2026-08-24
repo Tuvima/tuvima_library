@@ -1,6 +1,6 @@
 ---
 title: "Your First Library"
-summary: "Add a folder, scan media, watch ingestion progress, and understand how Tuvima organizes the result."
+summary: "Add a governed source, begin catalogued or personal-media intake, and understand where Tuvima shows the result."
 audience: "user"
 category: "tutorial"
 product_area: "library"
@@ -12,7 +12,9 @@ tags:
 
 # Your First Library
 
-This tutorial walks through the first practical loop: configure a folder, scan it, watch ingestion, and resolve anything Tuvima cannot identify safely.
+This tutorial walks through the first practical loop: configure a governed
+source, begin the appropriate intake path, watch catalogued ingestion when
+applicable, and understand where the result appears.
 
 **Prerequisite:** The Engine and Dashboard are running. If not, start with [Getting Started](getting-started.md).
 
@@ -39,21 +41,27 @@ Copy a small set of supported files into the Watch Folder. Start with a few know
 - one movie or TV file
 - one album track or audiobook
 - one comic archive if you use comics
-- a few mixed local files if you configured a personal View library
+- a few mixed local files if you configured a source for your View Personal Space
 
-For photos, home videos, documents, lectures, audio notes, or private unmatched content, use a personal View library with **Local only**. Tuvima will not send those items through retail providers, Wikidata, or identity review. Files in an Existing library source remain in place; Managed by Tuvima sources may be organized only according to their explicit policy.
+For photos, home videos, documents, lectures, audio notes, or private unmatched content, attach a **Local only** source to the owning profile's View Personal Space. Tuvima will not send those items through retail providers, Wikidata, or identity review. Files in an Existing library source remain in place; Managed by Tuvima sources may be organized only according to their explicit policy.
 
 Supported formats are listed in [Media Types](../reference/media-types.md).
 
-## Step 3 - Start A Scan
+## Step 3 - Begin The Correct Intake Path
 
-Start the first scan from **Settings > Media Management** for the source you configured.
+For a catalogued Read, Watch, or Listen library, start the administrator scan
+from **Settings > Media Management** when importing an existing folder. Then
+open **Settings > Ingestion**.
 
-Then open **Settings > Ingestion**.
+For View, select the owning profile and open `/view`. The profile's Personal
+Space is the user-facing destination; sources and devices are provenance, not
+library choices. Browser upload resolves that space automatically. A View
+library scan exists only for administrator recovery/diagnostics and is not the
+normal Photos workflow.
 
 ## Step 4 - Watch The Pipeline
 
-When a file is discovered, the Engine moves through these broad stages:
+For catalogued media, the Engine moves through these broad stages:
 
 1. **Settle** - wait until the file is no longer being copied.
 2. **Fingerprint** - compute a stable file identity for duplicate detection.
@@ -68,6 +76,11 @@ When a file is discovered, the Engine moves through these broad stages:
 
 SignalR tells the Dashboard when to refresh the ingestion snapshot while ingestion is running, so you should not need to refresh the page.
 
+Personal View media takes a separate local-only path: settle, fingerprint,
+extract safe local metadata, retain source/device paths, group compound files,
+and update the local search/timeline index. It does not enter retail matching,
+Wikidata, canonical claims, or Review Queue.
+
 ## Step 5 - Understand Where Items Appear
 
 Items do not appear everywhere immediately.
@@ -78,10 +91,18 @@ Items do not appear everywhere immediately.
 - **Listen** shows music and audiobooks.
 - **Search** finds library items across media lanes.
 - **Collections** organizes automatic broader rollups, published curated collections, lane-level shelves, and people when they are backed by real library data.
-- **View** shows personal mixed media by library with local search, date grouping, favorites, hidden items, and file details.
+- **View** exposes exactly Photos, Galleries, People, and Places. Photos uses
+  the saved authorized scope; first use prefers Shared View when permitted and
+  Mine otherwise. Revoked saved scopes fall back to Shared when still
+  permitted, then Mine. People and Places remain truthful capability states in
+  the current Dashboard even though evidence-based Engine queries exist.
 - **Review Queue** holds items that need human confirmation.
 
-An item is eligible for browse surfaces only after it has a real title, resolved media type, and settled artwork outcome. Items that are uncertain stay in Review Queue instead of being shown as if they were correct.
+A catalogued item is eligible for browse surfaces only after it has a real
+title, resolved media type, and settled artwork outcome. Items that are
+uncertain stay in Review Queue instead of being shown as if they were correct.
+Personal View assets are available from local index state and never enter that
+catalogue readiness/review gate.
 
 ## Step 6 - Resolve Review Items
 

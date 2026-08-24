@@ -113,6 +113,7 @@ public static class JsonConfigValidator
 
         var ids = new HashSet<Guid>();
         var sourceIds = new HashSet<Guid>();
+        var personalOwners = new HashSet<Guid>();
         var normalizedPaths = new List<(string Path, string Field)>();
         for (var index = 0; index < config.Libraries.Count; index++)
         {
@@ -169,6 +170,13 @@ public static class JsonConfigValidator
 
             ValidateLibrarySemantics(library, prefix, errors);
             ValidateProfileIds(library, prefix, errors);
+            if (library.Kind == LibraryKinds.Personal
+                && Guid.TryParse(library.OwnerProfileId, out var personalOwnerId)
+                && personalOwnerId != Guid.Empty
+                && !personalOwners.Add(personalOwnerId))
+            {
+                errors.Add($"{prefix}.owner_profile_id already owns a personal library; add folders and devices as sources of that profile's one Personal Space.");
+            }
 
             var intakeModes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var intakeMode in library.AcceptedIntakeModes)

@@ -876,6 +876,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionEditorShell.razor"));
         var ruleBuilder = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionRuleBuilder.razor"));
+        var sharedRuleBuilder = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Rules", "SharedRuleBuilder.razor"));
         var valuePicker = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionRuleValuePicker.razor"));
 
         Assert.Contains("<MediaEditorSurface", source);
@@ -890,7 +891,8 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.Contains("collection-editor-field", source);
         Assert.Equal(1, source.Split("OnClick=\"SaveCollection\"", StringSplitOptions.None).Length - 1);
         Assert.Contains("<CollectionRuleBuilder", source);
-        Assert.Contains("<CollectionRuleValuePicker", ruleBuilder);
+        Assert.Contains("<SharedRuleBuilder", ruleBuilder);
+        Assert.Contains("<CollectionRuleValuePicker", sharedRuleBuilder);
         Assert.Contains("Select all shown", valuePicker);
         Assert.Contains("GetCollectionFieldValuesAsync", valuePicker);
         Assert.Contains("GetCollectionEntityFieldValuesAsync", valuePicker);
@@ -904,6 +906,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionEditorShell.razor"));
         var ruleBuilder = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionRuleBuilder.razor"));
+        var sharedRuleBuilder = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Rules", "SharedRuleBuilder.razor"));
 
         Assert.Contains("SmartPlaylist", source);
         Assert.Contains("Smart Playlist", source);
@@ -911,10 +914,11 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.DoesNotContain("Show in My Profile and Search", source);
         Assert.DoesNotContain("<MudSelectItem T=\"string\" Value=\"@(\"media_type\")\">Media Type</MudSelectItem>", source);
         Assert.Contains("RenderRulesSection", source);
-        Assert.Contains("Add group", ruleBuilder);
-        Assert.Contains("collection-rule-builder__group", ruleBuilder);
-        Assert.Contains("collection-rule-builder__row", ruleBuilder);
-        Assert.Contains("app-dialog-select", ruleBuilder);
+        Assert.Contains("CollectionRuleCatalog.Instance", ruleBuilder);
+        Assert.Contains("Add group", sharedRuleBuilder);
+        Assert.Contains("collection-rule-builder__group", sharedRuleBuilder);
+        Assert.Contains("collection-rule-builder__row", sharedRuleBuilder);
+        Assert.Contains("app-dialog-select", sharedRuleBuilder);
     }
 
     [Fact]

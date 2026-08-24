@@ -1,8 +1,14 @@
 using Bunit;
 using MediaEngine.Web.Components.MediaHub;
+using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Integration;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Net;
+using System.Text;
 using MudBlazor;
 using MudBlazor.Services;
 
@@ -14,6 +20,10 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddMudServices();
+        var http = new HttpClient(new GalleryHandler()) { BaseAddress = new Uri("http://localhost/") };
+        Services.AddSingleton<IEngineApiClient>(new EngineApiClient(http, NullLogger<EngineApiClient>.Instance));
+        Services.AddSingleton<ViewWorkspaceService>();
+        Services.AddSingleton<ViewAssetDragService>();
     }
 
     [Fact]
@@ -40,6 +50,28 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
         Assert.Empty(cut.FindAll(".media-section-shell__rail-item--parent"));
         Assert.Empty(cut.FindAll(".media-section-shell__rail-chevron"));
         Assert.NotNull(cut.Find("#content-slot"));
+    }
+
+    [Fact]
+    public void ViewSectionShell_RendersExactlyFourPrimaryDestinationsAndTracksRoute()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/view");
+        var cut = Render<ViewSectionShell>(parameters => parameters
+            .AddChildContent("<section id=\"view-slot\">View content</section>"));
+
+        Assert.Equal(4, cut.FindAll("#media-section-nav-view, #media-section-nav-view-galleries, #media-section-nav-view-people, #media-section-nav-view-places").Count);
+        Assert.Equal("Photos", cut.Find("#media-section-nav-view").TextContent.Trim());
+        Assert.Equal("Galleries", cut.Find("#media-section-nav-view-galleries").TextContent.Trim());
+        Assert.Equal("People", cut.Find("#media-section-nav-view-people").TextContent.Trim());
+        Assert.Equal("Places", cut.Find("#media-section-nav-view-places").TextContent.Trim());
+        Assert.Equal("page", cut.Find("#media-section-nav-view").GetAttribute("aria-current"));
+
+        navigationManager.NavigateTo("/view/places");
+
+        cut.WaitForAssertion(() =>
+            Assert.Equal("page", cut.Find("#media-section-nav-view-places").GetAttribute("aria-current")));
+        Assert.NotNull(cut.Find("#view-slot"));
     }
 
     [Fact]
@@ -83,6 +115,71 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
         Assert.Single(cut.FindAll(".media-section-shell__rail-children"));
     }
 
+    [Fact]
+    public void MediaSectionShell_DeliversTypedPlaylistDropEvent()
+    {
+        var playlistId = Guid.NewGuid();
+        MediaSectionNavigationDropEvent? received = null;
+        var navigation = new[]
+        {
+            new MediaSectionNavigationGroup("Playlists",
+            [
+                new("Road trip", "/listen/music/playlists/road-trip", Icons.Material.Outlined.PlaylistPlay,
+                    DropTarget: new PlaylistNavigationDropTarget(playlistId)),
+            ]),
+        };
+
+        var cut = Render<MediaSectionShell>(parameters => parameters
+            .Add(component => component.Title, "Listen")
+            .Add(component => component.NavigationGroups, navigation)
+            .Add(component => component.OnNavigationItemDrop,
+                EventCallback.Factory.Create<MediaSectionNavigationDropEvent>(this, value => received = value))
+            .AddChildContent("<section>Listen content</section>"));
+
+        var target = cut.Find(".media-section-shell__rail-item.is-drop-target");
+        target.TriggerEvent("ondrop", new DragEventArgs());
+
+        var playlistTarget = Assert.IsType<PlaylistNavigationDropTarget>(received?.Target);
+        Assert.Equal(playlistId, playlistTarget.PlaylistId);
+        Assert.Equal("Road trip", received?.Item.Label);
+    }
+
+    [Fact]
+    public void MediaSectionShell_ExpandsForDragAndAllowsNestedGalleryDropTargets()
+    {
+        var galleryId = Guid.NewGuid();
+        MediaSectionNavigationDropEvent? received = null;
+        var navigation = new[]
+        {
+            new MediaSectionNavigationGroup("View",
+            [
+                new("Galleries", "/view/galleries", Icons.Material.Outlined.Collections,
+                    Children:
+                    [
+                        new("Family", $"/view/galleries/{galleryId:D}", Icons.Material.Outlined.PhotoAlbum,
+                            DropTarget: new ManualGalleryNavigationDropTarget(galleryId)),
+                        new("New Gallery", "/view/galleries/new", Icons.Material.Outlined.Add,
+                            DropTarget: new NewGalleryNavigationDropTarget()),
+                    ]),
+            ]),
+        };
+
+        var cut = Render<MediaSectionShell>(parameters => parameters
+            .Add(component => component.Title, "View")
+            .Add(component => component.NavigationGroups, navigation)
+            .Add(component => component.OnNavigationItemDrop,
+                EventCallback.Factory.Create<MediaSectionNavigationDropEvent>(this, value => received = value))
+            .AddChildContent("<section>View content</section>"));
+
+        cut.Find("#media-section-nav-view-galleries").TriggerEvent("ondragenter", new DragEventArgs());
+        var nestedTarget = cut.Find($"#media-section-nav-view-galleries-{galleryId:D}");
+        nestedTarget.TriggerEvent("ondrop", new DragEventArgs());
+
+        var galleryTarget = Assert.IsType<ManualGalleryNavigationDropTarget>(received?.Target);
+        Assert.Equal(galleryId, galleryTarget.GalleryId);
+        Assert.Equal(2, cut.FindAll(".media-section-shell__rail-item--child.is-drop-target").Count);
+    }
+
     private static IReadOnlyList<MediaSectionNavigationGroup> BuildNestedNavigation() =>
     [
         new("Admin Settings",
@@ -101,4 +198,13 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
                 ]),
         ]),
     ];
+
+    private sealed class GalleryHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"owned\":[],\"shared_with_you\":[]}", Encoding.UTF8, "application/json"),
+            });
+    }
 }

@@ -1,0 +1,95 @@
+@namespace MediaEngine.Web.Components.Pages
+@inject ViewWorkspaceService Workspace
+@inject ViewAssetDragService AssetDrag
+@inject IEngineApiClient ApiClient
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<MediaSectionShell Title="View"
+                   NavigationGroups="@NavigationGroups"
+                   OnNavigationItemDrop="HandleNavigationDropAsync">
+    @ChildContent
+</MediaSectionShell>
+
+@code {
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+    [Parameter] public EventCallback<MediaSectionNavigationDropEvent> OnNavigationItemDrop { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Workspace.LoadGalleriesAsync();
+    }
+
+    private IReadOnlyList<MediaSectionNavigationItem> GalleryShortcuts
+    {
+        get
+        {
+            var items = Workspace.OwnedGalleries
+                .Take(6)
+                .Select(gallery => new MediaSectionNavigationItem(
+                    gallery.Name,
+                    $"/view/galleries/{gallery.Id:D}",
+                    Icons.Material.Outlined.PhotoAlbum,
+                    gallery.ItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    DropTarget: gallery.Kind == MediaEngine.Domain.PersonalMedia.ViewGalleryKind.Manual
+                        ? new ManualGalleryNavigationDropTarget(gallery.Id)
+                        : new SmartGalleryNavigationDropTarget(gallery.Id)))
+                .ToList();
+            items.Add(new("New Gallery", "/view/galleries?create=true", Icons.Material.Outlined.Add,
+                Exact: true, DropTarget: new NewGalleryNavigationDropTarget()));
+            items.Add(new("View all", "/view/galleries", Icons.Material.Outlined.ArrowForward, Exact: true));
+            return items;
+        }
+    }
+
+    private IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups =>
+    [
+        new("View",
+        [
+            new("Photos", "/view", Icons.Material.Outlined.PhotoLibrary, Exact: true),
+            new("Galleries", "/view/galleries", Icons.Material.Outlined.Collections,
+                Exact: true,
+                Children: GalleryShortcuts),
+            new("People", "/view/people", Icons.Material.Outlined.People, Exact: true),
+            new("Places", "/view/places", Icons.Material.Outlined.Place, Exact: true),
+        ]),
+    ];
+
+    private async Task HandleNavigationDropAsync(MediaSectionNavigationDropEvent dropEvent)
+    {
+        try
+        {
+            if (!AssetDrag.HasItems) return;
+            var assetIds = AssetDrag.AssetIds.ToList();
+            switch (dropEvent.Target)
+            {
+                case ManualGalleryNavigationDropTarget target:
+                    var gallery = Workspace.OwnedGalleries.FirstOrDefault(value => value.Id == target.GalleryId);
+                    if (gallery?.Kind != MediaEngine.Domain.PersonalMedia.ViewGalleryKind.Manual) return;
+                    var result = await ApiClient.AddViewGalleryItemsAsync(target.GalleryId, assetIds);
+                    if (result is not null)
+                    {
+                        var alreadyPresent = result.AlreadyPresent > 0
+                            ? $" · {result.AlreadyPresent} already in Gallery"
+                            : string.Empty;
+                        Snackbar.Add($"{result.Added} added{alreadyPresent}", Severity.Success);
+                        await Workspace.LoadGalleriesAsync(force: true);
+                    }
+                    break;
+                case NewGalleryNavigationDropTarget:
+                    Workspace.StageNewGalleryItems(assetIds);
+                    Nav.NavigateTo("/view/galleries?create=true");
+                    break;
+                case SmartGalleryNavigationDropTarget:
+                    Snackbar.Add("This Gallery updates automatically from its rules.", Severity.Info);
+                    break;
+            }
+
+            if (OnNavigationItemDrop.HasDelegate) await OnNavigationItemDrop.InvokeAsync(dropEvent);
+        }
+        finally
+        {
+            AssetDrag.Clear();
+        }
+    }
+}

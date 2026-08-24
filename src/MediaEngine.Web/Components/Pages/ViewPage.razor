@@ -1,603 +1,99 @@
 @page "/view"
-@page "/view/{LibraryId:guid}"
-@using System.Globalization
 @using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Domain.PersonalMedia
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-@inject NavigationManager Nav
+@inject ViewWorkspaceService Workspace
+@inject ViewAssetDragService AssetDrag
+@inject ViewMediaGrantService MediaGrants
 @implements IDisposable
-
 @namespace MediaEngine.Web.Components.Pages
 
-<PageTitle>@(SelectedLibrary?.Name ?? "View") - Tuvima</PageTitle>
-
-<MediaSectionShell Title="View" NavigationGroups="@NavigationGroups">
-    <div class="view-page">
-        @if (_loadingLibraries)
-        {
-            <AppPageState Kind="AppPageStateKind.Loading" Title="Loading View" Message="Finding your personal libraries." />
-        }
-        else if (_libraries.Count == 0)
-        {
-            <AppPageState Kind="AppPageStateKind.Empty"
-                          Title="No View libraries yet"
-                          Message="Create a personal library in Media Management to browse local photos, videos, documents, and audio together." />
-        }
-        else if (SelectedLibrary is null)
-        {
-            <AppPageState Kind="AppPageStateKind.Unavailable"
-                          Title="Library not found"
-                          Message="Choose one of your View libraries from the library rail." />
-        }
-        else
-        {
-            <header class="view-header">
-                <div class="view-header__identity">
-                    <span class="view-header__eyebrow">View library</span>
-                    <h1>@SelectedLibrary.Name</h1>
-                    <p>@PresentationLabel(SelectedLibrary.Presentation) · @VisibilityLabel(SelectedLibrary.Visibility)</p>
-                </div>
-                <div class="view-header__actions">
-                    @if (_libraries.Count > 1)
-                    {
-                        <label class="view-library-picker">
-                            <span>Library</span>
-                            <AppNativeSelect Value="@SelectedLibrary.Id.ToString("D")" ValueChanged="LibraryChanged" AriaLabel="Choose a View library">
-                                @foreach (var library in _libraries)
-                                {
-                                    <option value="@library.Id.ToString("D")">@library.Name</option>
-                                }
-                            </AppNativeSelect>
-                        </label>
-                    }
-                    <label class="view-add-media@(_uploading ? " is-busy" : string.Empty)" aria-disabled="@_uploading">
-                        <InputFile class="view-add-media__input"
-                                   OnChange="UploadMediaAsync"
-                                   disabled="@_uploading"
-                                   accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
-                        <span class="view-add-media__label">
-                            <MudIcon Icon="@Icons.Material.Outlined.Add" />
-                            @(_uploading ? "Uploading…" : "Add media")
-                        </span>
-                    </label>
-                    <AppButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Outlined.Sync"
-                               Disabled="@_scanning"
-                               OnClick="ScanAsync">
-                        @(_scanning ? "Scanning…" : "Scan library")
-                    </AppButton>
-                </div>
-            </header>
-
-            @if (_uploading)
-            {
-                <section class="view-upload-status" role="status" aria-live="polite" aria-busy="true">
-                    <span>Uploading @_uploadFileName to @SelectedLibrary.Name…</span>
-                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
-                </section>
-            }
-            else if (!string.IsNullOrWhiteSpace(_uploadError))
-            {
-                <section class="view-upload-status is-error" role="alert">
-                    <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" />
-                    <span>@_uploadError</span>
-                </section>
-            }
-
-            <section class="view-toolbar" aria-label="View filters">
-                <label class="view-search">
-                    <MudIcon Icon="@Icons.Material.Outlined.Search" />
-                    <AppNativeInput Type="search"
-                                    Value="@_search"
-                                    ValueChanged="SearchChanged"
-                                    Placeholder="Search names, dates, devices, locations, and tags"
-                                    AriaLabel="Search this View library" />
-                </label>
-                <div class="view-kind-tabs" role="tablist" aria-label="Content type">
-                    <AppNativeButton Type="button" Class="@KindClass("all")" AriaLabel="Show all items" OnClick="@(_ => SetKindAsync("all"))">All</AppNativeButton>
-                    <AppNativeButton Type="button" Class="@KindClass("media")" AriaLabel="Show media" OnClick="@(_ => SetKindAsync("media"))">Media</AppNativeButton>
-                    <AppNativeButton Type="button" Class="@KindClass("document")" AriaLabel="Show documents" OnClick="@(_ => SetKindAsync("document"))">Documents</AppNativeButton>
-                </div>
-                <div class="view-quick-filters">
-                    <AppNativeButton Type="button" Class="@FlagClass(_favoritesOnly)" AriaLabel="Show favorites" OnClick="@(_ => ToggleFavoritesAsync())">
-                        <MudIcon Icon="@(_favoritesOnly ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
-                        <span>Favorites</span>
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="@FlagClass(_hiddenOnly)" AriaLabel="Show hidden items" OnClick="@(_ => ToggleHiddenFilterAsync())">
-                        <MudIcon Icon="@Icons.Material.Outlined.VisibilityOff" />
-                        <span>Hidden</span>
-                    </AppNativeButton>
-                </div>
-            </section>
-
-            <div class="view-workspace">
-                <div class="view-results">
-                    @if (_loadingItems)
-                    {
-                        <AppPageState Kind="AppPageStateKind.Loading" Title="Loading library" Message="Building your local timeline." />
-                    }
-                    else if (_page is null)
-                    {
-                        <AppErrorState Title="View could not be loaded"
-                                       Message="The Dashboard could not load this personal library from the Engine."
-                                       Retry="LoadItemsAsync" />
-                    }
-                    else if (_page.Items.Count == 0)
-                    {
-                        <section class="view-empty">
-                            <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" />
-                            <h2>@EmptyTitle</h2>
-                            <p>@EmptyMessage</p>
-                            <AppButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Sync" OnClick="ScanAsync">Scan library</AppButton>
-                        </section>
-                    }
-                    else
-                    {
-                        <main class="view-timeline">
-                            @foreach (var group in DateGroups)
-                            {
-                                <section class="view-date-group" aria-labelledby="@DateGroupId(group.Key)">
-                                    <div class="view-date-group__heading">
-                                        <h2 id="@DateGroupId(group.Key)">@DateHeading(group.Key)</h2>
-                                        <span>@CountLabel(group.Count(), "item")</span>
-                                    </div>
-                                    <div class="view-grid">
-                                        @foreach (var item in group)
-                                        {
-                                            <article class="view-tile view-tile--@KindSlug(item)">
-                                                <AppNativeButton Type="button"
-                                                                 Class="view-tile__surface"
-                                                                 AriaLabel="@($"Open {DisplayTitle(item)}")"
-                                                                 OnClick="@(_ => OpenItem(item))">
-                                                    @if (IsVisual(item) && !string.IsNullOrWhiteSpace(item.ThumbnailUrl))
-                                                    {
-                                                        <img src="@AssetUrl(item.ThumbnailUrl)" alt="@DisplayTitle(item)" loading="lazy" />
-                                                        @if (IsVideo(item))
-                                                        {
-                                                            <span class="view-tile__play"><MudIcon Icon="@Icons.Material.Filled.PlayArrow" /></span>
-                                                        }
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="view-tile__file-icon"><MudIcon Icon="@KindIcon(item)" /></span>
-                                                    }
-                                                    <span class="view-tile__gradient"></span>
-                                                    <span class="view-tile__copy">
-                                                        <strong>@DisplayTitle(item)</strong>
-                                                        <small>@ItemMeta(item)</small>
-                                                    </span>
-                                                    @if (item.DurationSeconds is > 0)
-                                                    {
-                                                        <span class="view-tile__duration">@Duration(item.DurationSeconds.Value)</span>
-                                                    }
-                                                </AppNativeButton>
-                                            </article>
-                                        }
-                                    </div>
-                                </section>
-                            }
-                        </main>
-
-                        @if (_page.HasMore)
-                        {
-                            <div class="view-load-more">
-                                <AppButton Variant="Variant.Outlined" Color="Color.Default" Disabled="@_loadingMore" OnClick="LoadMoreAsync">
-                                    @(_loadingMore ? "Loading…" : "Load more")
-                                </AppButton>
-                            </div>
-                        }
-                    }
-                </div>
-
-                <aside class="view-summary" aria-label="Library details">
-                    <section class="view-summary__card">
-                        <h2>At a glance</h2>
-                        <div class="view-stat-grid">
-                            <div><strong>@SelectedLibrary.ImageCount.ToString("N0")</strong><span>Images</span></div>
-                            <div><strong>@SelectedLibrary.VideoCount.ToString("N0")</strong><span>Videos</span></div>
-                            <div><strong>@SelectedLibrary.DocumentCount.ToString("N0")</strong><span>Documents</span></div>
-                            <div><strong>@SelectedLibrary.AudioCount.ToString("N0")</strong><span>Audio</span></div>
-                        </div>
-                    </section>
-                    <section class="view-summary__card">
-                        <h2>Library details</h2>
-                        <dl>
-                            <div><dt>Presentation</dt><dd>@PresentationLabel(SelectedLibrary.Presentation)</dd></div>
-                            <div><dt>Visibility</dt><dd>@VisibilityLabel(SelectedLibrary.Visibility)</dd></div>
-                            <div><dt>Total items</dt><dd>@SelectedLibrary.ItemCount.ToString("N0")</dd></div>
-                        </dl>
-                    </section>
-                </aside>
-            </div>
-        }
-    </div>
-</MediaSectionShell>
-
-@if (_activeItem is not null)
+<PageTitle>Photos - Tuvima</PageTitle>
+<ViewSectionShell>
+<div class="view-page view-density--@Workspace.Density.ToString().ToLowerInvariant()">
+@if (_initializing) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Photos" Message="Opening your personal space." /> }
+else if (Workspace.Scopes is null) { <AppErrorState Title="Photos could not be loaded" Message="The Dashboard could not resolve an authorized View scope." Retry="InitializeAsync" /> }
+else
 {
-    <div class="view-viewer" role="dialog" aria-modal="true" aria-label="Local item viewer" @onclick="CloseItem">
-        <header class="view-viewer__bar" @onclick:stopPropagation="true">
-            <div>
-                <strong>@DisplayTitle(_activeItem)</strong>
-                <small>@ItemDate(_activeItem).ToLocalTime().ToString("MMMM d, yyyy · h:mm tt", CultureInfo.CurrentCulture)</small>
-            </div>
-            <div class="view-viewer__actions">
-                <AppNativeButton Type="button" Class="view-viewer__action" AriaLabel="Toggle favorite" OnClick="@(_ => ToggleFavoriteAsync(_activeItem))">
-                    <MudIcon Icon="@(_activeItem.Favorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
-                </AppNativeButton>
-                <a class="view-viewer__action" href="@AssetUrl(_activeItem.ContentUrl)" target="_blank" rel="noopener" aria-label="Open original">
-                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" />
-                </a>
-                <AppNativeButton Type="button" Class="view-viewer__action" AriaLabel="@(_activeItem.Hidden ? "Restore item" : "Hide item")" OnClick="@(_ => ToggleHiddenAsync(_activeItem))">
-                    <MudIcon Icon="@(_activeItem.Hidden ? Icons.Material.Outlined.Visibility : Icons.Material.Outlined.VisibilityOff)" />
-                </AppNativeButton>
-                <AppNativeButton Type="button" Class="view-viewer__action" AriaLabel="Close viewer" OnClick="@(_ => CloseItem())">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" />
-                </AppNativeButton>
-            </div>
-        </header>
-        <div class="view-viewer__content" @onclick:stopPropagation="true">
-            @if (IsVideo(_activeItem))
-            {
-                <video src="@AssetUrl(_activeItem.ContentUrl)" poster="@AssetUrl(_activeItem.ThumbnailUrl)" controls autoplay></video>
-            }
-            else if (IsAudio(_activeItem))
-            {
-                <div class="view-viewer__audio"><MudIcon Icon="@Icons.Material.Outlined.Audiotrack" /><audio src="@AssetUrl(_activeItem.ContentUrl)" controls autoplay></audio></div>
-            }
-            else if (IsDocument(_activeItem))
-            {
-                <div class="view-viewer__document"><MudIcon Icon="@Icons.Material.Outlined.Description" /><p>Open the original document to view its contents.</p></div>
-            }
-            else
-            {
-                <img src="@AssetUrl(_activeItem.ContentUrl)" alt="@DisplayTitle(_activeItem)" />
-            }
-        </div>
-    </div>
+    <header class="view-header"><div class="view-header__identity"><span class="view-header__eyebrow">View</span><h1>Photos</h1><p>@ScopeDescription</p></div><div class="view-header__actions">
+        <label>Scope <AppNativeSelect Value="@SelectedScopeValue" OnChange="ScopeChangedAsync" aria-label="Authorized photo scope">@foreach (var scope in Workspace.Scopes.AvailableScopes) { <option value="@ScopeValue(scope.Kind, scope.ProfileId)">@scope.Label</option> }</AppNativeSelect></label>
+        <label>Density <AppNativeSelect Value="@Workspace.Density.ToString()" OnChange="DensityChangedAsync" aria-label="Timeline density">@foreach (var density in Enum.GetValues<ViewTimelineDensity>()) { <option value="@density">@density</option> }</AppNativeSelect></label>
+        <label class="view-add-media@(_uploading ? " is-busy" : string.Empty)" aria-disabled="@_uploading"><InputFile class="view-add-media__input" OnChange="UploadMediaAsync" disabled="@_uploading" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" /><span class="view-add-media__label"><MudIcon Icon="@Icons.Material.Outlined.Add" />@(_uploading ? "Uploading…" : "Add media")</span></label>
+    </div></header>
+    @if (_uploading) { <section class="view-upload-status" role="status" aria-live="polite"><span>Uploading @_uploadFileName…</span><MudProgressLinear Color="Color.Primary" Indeterminate="true" /></section> }
+    @if (!string.IsNullOrWhiteSpace(_uploadError)) { <section class="view-upload-status is-error" role="alert">@_uploadError</section> }
+    <section class="view-toolbar" aria-label="View filters">
+        <label class="view-search"><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Type="search" Value="@_search" ValueChanged="SearchChanged" Placeholder="Search photos, dates, devices, locations, and tags" AriaLabel="Search Photos" /></label>
+        <div class="view-kind-tabs" role="tablist" aria-label="Photos quick filters">@foreach (var filter in PrimaryFilters) { <AppNativeButton Type="button" Class="@FilterClass(filter.Key)" AriaLabel="@filter.Value" OnClick="@(_ => SetFilterAsync(filter.Key))">@filter.Value</AppNativeButton> }<AppNativeButton Type="button" Class="view-kind-tab" AriaLabel="More photo filters" OnClick="@(_ => _showMoreFilters = !_showMoreFilters)">More filters</AppNativeButton></div>
+        @if (_showMoreFilters) { <div class="view-kind-tabs" aria-label="More filters"><AppNativeButton Type="button" Class="@FilterClass("hidden")" OnClick="@(_ => SetFilterAsync("hidden"))">Hidden</AppNativeButton><AppNativeButton Type="button" Class="@FilterClass("trash")" OnClick="@(_ => SetFilterAsync("trash"))">Trash</AppNativeButton><AppNativeButton Type="button" Class="@FilterClass("documents")" OnClick="@(_ => SetFilterAsync("documents"))">Documents</AppNativeButton></div> }
+    </section>
+    @if (_selected.Count > 0) { <ViewSelectionToolbar Count="@_selected.Count" ManualGalleries="@Workspace.OwnedGalleries.Where(g => g.Kind == ViewGalleryKind.Manual).ToList()" OnClear="ClearSelection" OnAddToGallery="AddSelectionToGalleryAsync" OnFavorite="FavoriteSelectionAsync" OnArchive="ArchiveSelectionAsync" OnRestore="RestoreSelectionAsync" ShowRestore="@(_filter is "archive" or "trash")" OnTrash="TrashSelectionAsync" ShowTrash="@(_filter != "trash")" /> }
+    @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Photos" Message="Building your personal timeline." /> }
+    else if (_page is null) { <AppErrorState Title="Photos could not be loaded" Message="The Engine did not return a timeline." Retry="LoadAsync" /> }
+    else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@EmptyTitle" Message="@EmptyMessage" /> }
+    else { <ViewPhotoTimeline Items="@_page.Items" Selected="@_selected" ThumbnailUrl="@(item => AssetUrl(item, ViewMediaResourceKind.Thumbnail))" OnOpen="OpenItem" OnToggleSelection="ToggleSelection" OnSelectDateGroup="SelectDateGroup" OnDragStarted="BeginDrag" OnDragEnded="EndDrag" /> @if (_page.HasMore) { <div class="view-load-more"><AppButton Variant="Variant.Outlined" Disabled="@_loadingMore" OnClick="LoadMoreAsync">@(_loadingMore ? "Loading…" : "Load more")</AppButton></div> } }
 }
+</div>
+</ViewSectionShell>
+@if (_activeItem is not null) { <ViewImmersiveViewer Item="@_activeItem" HasPrevious="@HasPrevious" HasNext="@HasNext" ContentUrl="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" ThumbnailUrl="@AssetUrl(_activeItem, ViewMediaResourceKind.Thumbnail)" OnClose="CloseItem" OnPrevious="PreviousItem" OnNext="NextItem" OnFavorite="ToggleFavoriteAsync" OnArchive="ArchiveActiveAsync" OnRestore="RestoreActiveAsync" OnTrash="TrashActiveAsync" ManualGalleries="@Workspace.OwnedGalleries.Where(g => g.Kind == ViewGalleryKind.Manual).ToList()" OnAddToGallery="AddActiveToGalleryAsync" /> }
 
 @code {
-    [Parameter] public Guid? LibraryId { get; set; }
-    [SupplyParameterFromQuery(Name = "scope")] public string? Scope { get; set; }
-
-    private IReadOnlyList<ViewLibrarySummaryDto> _libraries = [];
-    private LocalAssetPageDto? _page;
-    private LocalAssetDto? _activeItem;
-    private CancellationTokenSource? _searchCts;
-    private Guid? _loadedLibraryId;
-    private string? _loadedScope;
-    private Guid? _activeProfileId;
-    private string _search = string.Empty;
-    private string _kind = "all";
-    private bool _favoritesOnly;
-    private bool _hiddenOnly;
-    private bool _loadingLibraries = true;
-    private bool _loadingItems;
-    private bool _loadingMore;
-    private bool _scanning;
-    private bool _uploading;
-    private string? _uploadFileName;
-    private string? _uploadError;
-
-    private ViewLibrarySummaryDto? SelectedLibrary =>
-        LibraryId.HasValue
-            ? _libraries.FirstOrDefault(library => library.Id == LibraryId.Value)
-            : _libraries.FirstOrDefault();
-
-    private IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups =>
-        _libraries.Count == 0
-            ? []
-            :
-            [
-                new MediaSectionNavigationGroup(
-                    "Browse",
-                    SelectedLibrary is null
-                        ? []
-                        :
-                        [
-                            new MediaSectionNavigationItem("All", ScopeRoute("all"), Icons.Material.Outlined.GridView, Exact: true),
-                            new MediaSectionNavigationItem("Recent", ScopeRoute("recent"), Icons.Material.Outlined.History, Exact: true),
-                            new MediaSectionNavigationItem("Favorites", ScopeRoute("favorites"), Icons.Material.Outlined.FavoriteBorder, Exact: true),
-                            new MediaSectionNavigationItem("Videos", ScopeRoute("videos"), Icons.Material.Outlined.VideoLibrary, Exact: true),
-                            new MediaSectionNavigationItem("Documents", ScopeRoute("documents"), Icons.Material.Outlined.Description, Exact: true),
-                        ]),
-                new MediaSectionNavigationGroup(
-                    "Libraries",
-                    _libraries.Select(library => new MediaSectionNavigationItem(
-                        library.Name,
-                        $"/view/{library.Id:D}",
-                        Icons.Material.Outlined.Folder,
-                        library.ItemCount.ToString("N0", CultureInfo.CurrentCulture),
-                        Exact: true)).ToList()),
-            ];
-
-    private IEnumerable<IGrouping<DateTimeOffset, LocalAssetDto>> DateGroups =>
-        (_page?.Items ?? [])
-            .OrderByDescending(ItemDate)
-            .GroupBy(item =>
-            {
-                var date = ItemDate(item);
-                return new DateTimeOffset(date.Year, date.Month, 1, 0, 0, 0, date.Offset);
-            });
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (!_activeProfileId.HasValue)
-        {
-            Orchestrator.OnProfileChanged -= OnProfileChanged;
-            Orchestrator.OnProfileChanged += OnProfileChanged;
-            _activeProfileId = (await Orchestrator.GetActiveProfileAsync())?.Id;
-        }
-
-        if (!_activeProfileId.HasValue)
-        {
-            _loadingLibraries = false;
-            return;
-        }
-
-        if (_libraries.Count == 0)
-        {
-            _loadingLibraries = true;
-            _libraries = await ApiClient.GetViewLibrariesAsync(_activeProfileId.Value);
-            _loadingLibraries = false;
-        }
-
-        var selectedId = SelectedLibrary?.Id;
-        var normalizedScope = NormalizeScope(Scope);
-        if (selectedId.HasValue
-            && (selectedId != _loadedLibraryId || normalizedScope != _loadedScope))
-        {
-            var libraryChanged = selectedId != _loadedLibraryId;
-            _loadedLibraryId = selectedId;
-            _loadedScope = normalizedScope;
-            if (libraryChanged)
-                _search = string.Empty;
-            ApplyScope(normalizedScope);
-            await LoadItemsAsync();
-        }
-    }
-
-    private async Task LoadItemsAsync()
-    {
-        if (SelectedLibrary is null || !_activeProfileId.HasValue) return;
-        _loadingItems = true;
-        _page = await ApiClient.GetViewItemsAsync(
-            SelectedLibrary.Id,
-            _activeProfileId.Value,
-            _search,
-            _kind == "all" ? null : _kind,
-            _favoritesOnly,
-            _hiddenOnly);
-        _loadingItems = false;
-    }
-
+    private static readonly IReadOnlyDictionary<string, string> PrimaryFilters = new Dictionary<string, string> { ["all"] = "All", ["favorites"] = "Favorites", ["videos"] = "Videos", ["archive"] = "Archive" };
+    private ViewAssetTimelinePageDto? _page; private LocalAssetDto? _activeItem; private readonly HashSet<Guid> _selected = []; private readonly Dictionary<(Guid, Guid, ViewMediaResourceKind), CachedMediaGrant> _grants = [];
+    private CancellationTokenSource? _searchCts; private Guid? _profileId; private string _search = ""; private string _filter = "all"; private bool _initializing = true, _loading, _loadingMore, _uploading, _showMoreFilters; private string? _uploadFileName, _uploadError;
+    protected override async Task OnInitializedAsync() { Orchestrator.OnProfileChanged += OnProfileChanged; await InitializeAsync(); }
+    private async Task InitializeAsync() { _initializing = true; _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await Workspace.InitializeAsync(); await Workspace.LoadGalleriesAsync(); _initializing = false; await LoadAsync(); }
+    private ViewAssetQueryOptions Query(string? cursor = null) => new(Workspace.ScopeKind, Workspace.ScopeProfileId, cursor, _search, _filter switch { "videos" => ["video"], "documents" => ["document"], _ => null }, _filter == "favorites", _filter == "hidden", _filter switch { "archive" => "archived", "trash" => "trashed", _ => "active" });
+    private async Task LoadAsync() { _loading = true; _page = await ApiClient.GetViewAssetsAsync(Query()); _selected.Clear(); _loading = false; }
+    private async Task LoadMoreAsync() { if (_page?.NextCursor is null) return; _loadingMore = true; var next = await ApiClient.GetViewAssetsAsync(Query(_page.NextCursor)); if (next is not null) _page = next with { Items = [.. _page.Items, .. next.Items] }; _loadingMore = false; }
+    private async Task ScopeChangedAsync(ChangeEventArgs args) { var parts = args.Value?.ToString()?.Split(':', 2) ?? []; if (parts.Length == 0 || !Enum.TryParse<ViewScopeKind>(parts[0], true, out var kind)) return; Guid? profile = parts.Length == 2 && Guid.TryParse(parts[1], out var parsed) ? parsed : null; if (await Workspace.SelectScopeAsync(kind, profile)) await LoadAsync(); }
+    private async Task DensityChangedAsync(ChangeEventArgs args) { if (Enum.TryParse<ViewTimelineDensity>(args.Value?.ToString(), out var density)) await Workspace.SetDensityAsync(density); }
     private async Task SearchChanged(object? value)
     {
-        _search = value?.ToString() ?? string.Empty;
+        _search = value?.ToString() ?? "";
         _searchCts?.Cancel();
         _searchCts?.Dispose();
-        _searchCts = new CancellationTokenSource();
+        var search = new CancellationTokenSource();
+        _searchCts = search;
         try
         {
-            await Task.Delay(250, _searchCts.Token);
-            await LoadItemsAsync();
+            await Task.Delay(250, search.Token);
+            _loading = true;
+            var page = await ApiClient.GetViewAssetsAsync(Query(), search.Token);
+            if (!search.IsCancellationRequested)
+            {
+                _page = page;
+                _selected.Clear();
+            }
         }
         catch (OperationCanceledException) { }
-    }
-
-    private async Task SetKindAsync(string kind) { _kind = kind; await LoadItemsAsync(); }
-    private async Task ToggleFavoritesAsync() { _favoritesOnly = !_favoritesOnly; await LoadItemsAsync(); }
-    private async Task ToggleHiddenFilterAsync() { _hiddenOnly = !_hiddenOnly; await LoadItemsAsync(); }
-
-    private async Task ScanAsync()
-    {
-        if (SelectedLibrary is null || !_activeProfileId.HasValue) return;
-        _scanning = true;
-        var result = await ApiClient.ScanViewLibraryAsync(SelectedLibrary.Id, _activeProfileId.Value);
-        _scanning = false;
-        if (result is null)
-        {
-            Snackbar.Add("The library scan could not be started.", Severity.Error);
-            return;
-        }
-
-        Snackbar.Add(
-            $"Added {CountLabel(result.ItemsAdded, "item")}; found {CountLabel(result.DuplicatesFound, "duplicate")}.",
-            result.Errors == 0 ? Severity.Success : Severity.Warning);
-        _libraries = await ApiClient.GetViewLibrariesAsync(_activeProfileId.Value);
-        await LoadItemsAsync();
-    }
-
-    private async Task UploadMediaAsync(InputFileChangeEventArgs args)
-    {
-        if (SelectedLibrary is null || _uploading) return;
-
-        var file = args.File;
-        _uploadError = null;
-        _uploadFileName = file.Name;
-        if (file.Size <= 0)
-        {
-            _uploadError = "The selected file is empty and cannot be uploaded.";
-            return;
-        }
-
-        _uploading = true;
-        try
-        {
-            await using var stream = file.OpenReadStream(file.Size);
-            var result = await ApiClient.UploadViewMediaAsync(
-                SelectedLibrary.Id,
-                stream,
-                file.Name,
-                file.ContentType);
-            if (!result.Success)
-            {
-                _uploadError = result.ErrorMessage ?? "The Engine rejected this upload.";
-                Snackbar.Add(_uploadError, Severity.Error);
-                return;
-            }
-
-            Snackbar.Add($"Added {file.Name} to {SelectedLibrary.Name}.", Severity.Success);
-            if (_activeProfileId.HasValue)
-                _libraries = await ApiClient.GetViewLibrariesAsync(_activeProfileId.Value);
-            await LoadItemsAsync();
-        }
-        catch (Exception ex)
-        {
-            _uploadError = $"The file could not be uploaded: {ex.Message}";
-            Snackbar.Add(_uploadError, Severity.Error);
-        }
         finally
         {
-            _uploading = false;
-            _uploadFileName = null;
+            if (ReferenceEquals(_searchCts, search)) _loading = false;
         }
     }
-
-    private async Task LoadMoreAsync()
+    private async Task SetFilterAsync(string filter) { _filter = filter; await LoadAsync(); } private string FilterClass(string filter) => $"view-kind-tab{(_filter == filter ? " is-active" : "")}"; private string SelectedScopeValue => ScopeValue(Workspace.ScopeKind, Workspace.ScopeProfileId); private static string ScopeValue(ViewScopeKind kind, Guid? profile) => $"{kind}:{profile?.ToString("D")}";
+    private string ScopeDescription => Workspace.ScopeKind switch
     {
-        if (SelectedLibrary is null || _page is null || !_activeProfileId.HasValue) return;
-        _loadingMore = true;
-        var next = await ApiClient.GetViewItemsAsync(
-            SelectedLibrary.Id,
-            _activeProfileId.Value,
-            _search,
-            _kind == "all" ? null : _kind,
-            _favoritesOnly,
-            _hiddenOnly,
-            _page.Items.Count,
-            _page.Limit);
-        if (next is not null)
-            _page = next with { Items = _page.Items.Concat(next.Items).ToList() };
-        _loadingMore = false;
-    }
-
-    private void OpenItem(LocalAssetDto item) => _activeItem = item;
-    private void CloseItem() => _activeItem = null;
-
-    private Task LibraryChanged(object? value)
-    {
-        if (Guid.TryParse(value?.ToString(), out var libraryId))
-            Nav.NavigateTo($"/view/{libraryId:D}");
-        return Task.CompletedTask;
-    }
-
-    private string ScopeRoute(string scope)
-    {
-        if (SelectedLibrary is null) return "/view";
-        var route = $"/view/{SelectedLibrary.Id:D}";
-        return scope == "all" ? route : $"{route}?scope={scope}";
-    }
-
-    private static string NormalizeScope(string? scope) => scope?.ToLowerInvariant() switch
-    {
-        "recent" => "recent",
-        "favorites" => "favorites",
-        "videos" => "videos",
-        "documents" => "documents",
-        _ => "all",
+        ViewScopeKind.Mine => "Your private photo and video timeline.",
+        ViewScopeKind.Profile => $"Photos and videos shared by {SelectedScopeLabel}.",
+        _ => "Photos and videos available in your Shared View."
     };
-
-    private void ApplyScope(string scope)
-    {
-        _kind = scope switch
-        {
-            "videos" => "video",
-            "documents" => "document",
-            _ => "all",
-        };
-        _favoritesOnly = scope == "favorites";
-        _hiddenOnly = false;
-    }
-
-    private async Task ToggleFavoriteAsync(LocalAssetDto item)
-    {
-        if (SelectedLibrary is null || !_activeProfileId.HasValue) return;
-        var value = !item.Favorite;
-        if (!await ApiClient.SetViewItemFavoriteAsync(SelectedLibrary.Id, item.Id, _activeProfileId.Value, value)) return;
-        ReplaceItem(item with { Favorite = value }, remove: _favoritesOnly && !value);
-    }
-
-    private async Task ToggleHiddenAsync(LocalAssetDto item)
-    {
-        if (SelectedLibrary is null || !_activeProfileId.HasValue) return;
-        var value = !item.Hidden;
-        if (!await ApiClient.SetViewItemHiddenAsync(SelectedLibrary.Id, item.Id, _activeProfileId.Value, value)) return;
-        ReplaceItem(item with { Hidden = value }, remove: !_hiddenOnly || !value);
-        Snackbar.Add(value ? "Item hidden from the main library." : "Item restored to the main library.", Severity.Success);
-    }
-
-    private void ReplaceItem(LocalAssetDto updated, bool remove)
-    {
-        if (_page is not null)
-        {
-            _page = _page with
-            {
-                Items = remove
-                    ? _page.Items.Where(item => item.Id != updated.Id).ToList()
-                    : _page.Items.Select(item => item.Id == updated.Id ? updated : item).ToList(),
-                Total = remove ? Math.Max(0, _page.Total - 1) : _page.Total,
-            };
-        }
-        _activeItem = remove ? null : updated;
-    }
-
-    private string AssetUrl(string path)
-    {
-        var absolute = ApiClient.ToAbsoluteEngineUrl(path);
-        if (!_activeProfileId.HasValue) return absolute;
-        var separator = absolute.Contains('?', StringComparison.Ordinal) ? '&' : '?';
-        return $"{absolute}{separator}profileId={_activeProfileId.Value:D}";
-    }
-    private string KindClass(string kind) => $"view-kind-tab{(_kind == kind ? " is-active" : string.Empty)}";
-    private static string FlagClass(bool active) => $"view-quick-filter{(active ? " is-active" : string.Empty)}";
-    private static string DisplayTitle(LocalAssetDto item) => string.IsNullOrWhiteSpace(item.Title) ? item.FileName : item.Title;
-    private static DateTimeOffset ItemDate(LocalAssetDto item) => item.CapturedAt ?? item.CreatedAt;
-    private static bool IsVideo(LocalAssetDto item) => item.MediaKind.Equals("video", StringComparison.OrdinalIgnoreCase) || item.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
-    private static bool IsAudio(LocalAssetDto item) => item.MediaKind.Equals("audio", StringComparison.OrdinalIgnoreCase) || item.MimeType.StartsWith("audio/", StringComparison.OrdinalIgnoreCase);
-    private static bool IsDocument(LocalAssetDto item) => item.MediaKind.Equals("document", StringComparison.OrdinalIgnoreCase) || item.MediaKind.Equals("documents", StringComparison.OrdinalIgnoreCase);
-    private static bool IsVisual(LocalAssetDto item) => !IsDocument(item) && !IsAudio(item);
-    private static string KindSlug(LocalAssetDto item) => IsVideo(item) ? "video" : IsAudio(item) ? "audio" : IsDocument(item) ? "document" : "image";
-    private static string KindIcon(LocalAssetDto item) => IsAudio(item)
-        ? Icons.Material.Outlined.Audiotrack
-        : IsDocument(item)
-            ? Icons.Material.Outlined.Description
-            : IsVideo(item)
-                ? Icons.Material.Outlined.VideoLibrary
-                : Icons.Material.Outlined.Image;
-    private static string ItemMeta(LocalAssetDto item) => IsDocument(item) && item.PageCount is > 0
-        ? CountLabel(item.PageCount.Value, "page")
-        : item.LocationName ?? item.MimeType;
-    private static string Duration(double seconds) => TimeSpan.FromSeconds(seconds).TotalHours >= 1
-        ? TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
-        : TimeSpan.FromSeconds(seconds).ToString(@"m\:ss", CultureInfo.InvariantCulture);
-    private static string CountLabel(int count, string singular) => $"{count.ToString("N0", CultureInfo.CurrentCulture)} {(count == 1 ? singular : singular + "s")}";
-    private static string PresentationLabel(string value) => string.IsNullOrWhiteSpace(value) ? "Mixed gallery" : value.Replace('_', ' ').Replace('-', ' ');
-    private static string VisibilityLabel(string value) => string.IsNullOrWhiteSpace(value) ? "Private" : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('_', ' '));
-    private static string DateHeading(DateTimeOffset date) => date.ToString("MMMM yyyy", CultureInfo.CurrentCulture);
-    private static string DateGroupId(DateTimeOffset date) => $"view-{date:yyyy-MM}";
-
-    private string EmptyTitle => !string.IsNullOrWhiteSpace(_search) ? "No matching items" : _favoritesOnly ? "No favorites yet" : _hiddenOnly ? "No hidden items" : "This library is ready";
-    private string EmptyMessage => !string.IsNullOrWhiteSpace(_search) ? "Try a different name, date, device, location, or tag." : _favoritesOnly ? "Favorite items from the grid and they will collect here." : _hiddenOnly ? "Items hidden from the main library appear here." : "Scan the library to index its local media and documents.";
-
-    private void OnProfileChanged() => _ = InvokeAsync(async () =>
-    {
-        _activeProfileId = (await Orchestrator.GetActiveProfileAsync())?.Id;
-        _libraries = [];
-        _page = null;
-        _loadedLibraryId = null;
-        _loadedScope = null;
-        await OnParametersSetAsync();
-        StateHasChanged();
-    });
-
-    public void Dispose()
-    {
-        Orchestrator.OnProfileChanged -= OnProfileChanged;
-        _searchCts?.Cancel();
-        _searchCts?.Dispose();
-    }
+    private string SelectedScopeLabel => Workspace.Scopes?.AvailableScopes.FirstOrDefault(scope =>
+        scope.Kind == Workspace.ScopeKind && scope.ProfileId == Workspace.ScopeProfileId)?.Label ?? "this profile";
+    private async Task UploadMediaAsync(InputFileChangeEventArgs args) { if (_uploading) return; var file = args.File; _uploadFileName = file.Name; _uploadError = null; _uploading = true; try { await using var stream = file.OpenReadStream(file.Size); var result = await ApiClient.UploadViewMediaAsync(stream, file.Name, file.ContentType); if (!result.Success) { _uploadError = result.ErrorMessage ?? "The Engine rejected this upload."; return; } Snackbar.Add($"Added {file.Name} to Photos.", Severity.Success); await LoadAsync(); } catch (Exception ex) { _uploadError = $"The file could not be uploaded: {ex.Message}"; } finally { _uploading = false; _uploadFileName = null; } }
+    private void OpenItem(LocalAssetDto item) => _activeItem = item; private void CloseItem() => _activeItem = null; private IReadOnlyList<LocalAssetDto> VisibleItems => _page?.Items ?? []; private int ActiveIndex => _activeItem is null ? -1 : VisibleItems.ToList().FindIndex(i => i.Id == _activeItem.Id); private bool HasPrevious => ActiveIndex > 0; private bool HasNext => ActiveIndex >= 0 && ActiveIndex < VisibleItems.Count - 1; private void PreviousItem() { if (HasPrevious) _activeItem = VisibleItems[ActiveIndex - 1]; } private void NextItem() { if (HasNext) _activeItem = VisibleItems[ActiveIndex + 1]; }
+    private void ToggleSelection(Guid id) { if (!_selected.Add(id)) _selected.Remove(id); } private void SelectDateGroup(IReadOnlyCollection<Guid> ids) { var select = ids.Any(id => !_selected.Contains(id)); foreach (var id in ids) { if (select) _selected.Add(id); else _selected.Remove(id); } } private void ClearSelection() => _selected.Clear(); private void BeginDrag(Guid id) => AssetDrag.Begin(_selected.Contains(id) ? _selected : [id]); private void EndDrag() => AssetDrag.Clear();
+    private async Task AddSelectionToGalleryAsync(Guid id) { var result = await ApiClient.AddViewGalleryItemsAsync(id, _selected); if (result is not null) Snackbar.Add(GalleryResult(result), Severity.Success); ClearSelection(); }
+    private async Task AddActiveToGalleryAsync(Guid id) { if (_activeItem is null) return; var result = await ApiClient.AddViewGalleryItemsAsync(id, [_activeItem.Id]); if (result is not null) Snackbar.Add(GalleryResult(result), Severity.Success); }
+    private static string GalleryResult(AddViewGalleryItemsResponseDto result) => result.AlreadyPresent > 0 ? $"{result.Added} added · {result.AlreadyPresent} already in Gallery" : $"{result.Added} added";
+    private Task ArchiveSelectionAsync() => MutateSelectionAsync(ApiClient.ArchiveViewItemAsync, "Archived selected items."); private Task TrashSelectionAsync() => MutateSelectionAsync(ApiClient.TrashViewItemAsync, "Moved selected items to Trash."); private async Task MutateSelectionAsync(Func<Guid, CancellationToken, Task<bool>> action, string message) { foreach (var id in _selected.ToList()) await action(id, default); Snackbar.Add(message, Severity.Success); await LoadAsync(); }
+    private Task FavoriteSelectionAsync() => MutateSelectionAsync((id, ct) => ApiClient.SetViewItemFavoriteAsync(id, true, ct), "Favorited selected items.");
+    private Task RestoreSelectionAsync() => MutateSelectionAsync(ApiClient.RestoreViewItemAsync, "Restored selected items to Photos.");
+    private async Task ToggleFavoriteAsync() { if (_activeItem is null) return; var value = !_activeItem.Favorite; if (await ApiClient.SetViewItemFavoriteAsync(_activeItem.Id, value)) Replace(_activeItem with { Favorite = value }); } private async Task ArchiveActiveAsync() { if (_activeItem is not null && await ApiClient.ArchiveViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task RestoreActiveAsync() { if (_activeItem is not null && await ApiClient.RestoreViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task TrashActiveAsync() { if (_activeItem is not null && await ApiClient.TrashViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task RemoveActiveAsync() { _activeItem = null; await LoadAsync(); } private void Replace(LocalAssetDto updated) { _activeItem = updated; if (_page is not null) _page = _page with { Items = _page.Items.Select(i => i.Id == updated.Id ? updated : i).ToList() }; }
+    private string AssetUrl(LocalAssetDto item, ViewMediaResourceKind kind) { if (!_profileId.HasValue) return ""; var key = (item.LibraryId, item.Id, kind); if (!_grants.TryGetValue(key, out var cached) || cached.ExpiresAt <= DateTimeOffset.UtcNow.AddSeconds(30)) { var grant = MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind); cached = new($"/view-media/{grant.Value}", grant.ExpiresAt); _grants[key] = cached; } return cached.Url; }
+    private string EmptyTitle => !string.IsNullOrWhiteSpace(_search) ? "No matching items" : _filter switch { "favorites" => "No favorites yet", "videos" => "No videos yet", "archive" => "Archive is empty", "trash" => "Trash is empty", "hidden" => "No hidden items", "documents" => "No documents yet", _ => "No personal media yet" }; private string EmptyMessage => !string.IsNullOrWhiteSpace(_search) ? "Try a different search." : "Items matching this View filter will appear here.";
+    private void OnProfileChanged() => _ = InvokeAsync(async () => { _grants.Clear(); Workspace.Reset(); await InitializeAsync(); StateHasChanged(); }); public void Dispose() { Orchestrator.OnProfileChanged -= OnProfileChanged; _searchCts?.Cancel(); _searchCts?.Dispose(); } private sealed record CachedMediaGrant(string Url, DateTimeOffset ExpiresAt);
 }

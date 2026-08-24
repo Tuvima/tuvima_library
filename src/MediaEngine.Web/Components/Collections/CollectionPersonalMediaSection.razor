@@ -1,0 +1,283 @@
+@namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Contracts.Collections
+@using MediaEngine.Web.Components.Rules
+@using MediaEngine.Web.Components.MediaEditor
+
+@inject ICollectionPersonalMediaClient Client
+
+<section class="collection-personal-media" aria-labelledby="collection-personal-media-title">
+    <header class="collection-personal-media__header">
+        <div>
+            <span class="collection-personal-media__eyebrow">View / Personal media</span>
+            <h3 id="collection-personal-media-title">Personal media sources</h3>
+            <p>Reference a whole Gallery or define one Collection-owned smart View rule. Personal files are resolved live and are never copied into Collection membership.</p>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <div class="collection-editor-empty collection-editor-empty--compact">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+            <span>Loading Gallery references…</span>
+        </div>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(_loadError))
+        {
+            <div class="collection-personal-media__notice" role="status">
+                <MudIcon Icon="@Icons.Material.Outlined.Info" />
+                <span>@_loadError</span>
+            </div>
+        }
+
+        <MediaEditorPanel Title="Gallery references" Description="Select Galleries as complete, live sources. Individual photos and videos are intentionally not offered here.">
+            @if (_galleries.Count == 0)
+            {
+                <div class="collection-editor-empty collection-editor-empty--compact">
+                    <MudIcon Icon="@Icons.Material.Outlined.Collections" />
+                    <strong>No Galleries available</strong>
+                    <span>Create a Gallery in View first, then return here to reference it.</span>
+                </div>
+            }
+            else
+            {
+                <div class="collection-personal-media__gallery-list" role="list" aria-label="Gallery references">
+                    @foreach (var gallery in _galleries)
+                    {
+                        var selected = _selectedGalleryIds.Contains(gallery.GalleryId);
+                        <AppNativeButton Type="button"
+                                         Class="@(selected ? "collection-personal-media__gallery is-selected" : "collection-personal-media__gallery")"
+                                         OnClick="@(() => ToggleGalleryAsync(gallery.GalleryId))">
+                            <MudIcon Icon="@(gallery.GalleryKind == "smart" ? Icons.Material.Outlined.AutoAwesomeMotion : Icons.Material.Outlined.PhotoLibrary)" />
+                            <span>
+                                <strong>@gallery.Name</strong>
+                                <small>@(gallery.GalleryKind == "smart" ? "Smart Gallery" : "Manual Gallery")</small>
+                            </span>
+                            <MudIcon Icon="@(selected ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.AddCircleOutline)" />
+                        </AppNativeButton>
+                    }
+                </div>
+            }
+        </MediaEditorPanel>
+
+        <MediaEditorPanel Title="Smart View rule" Description="Optionally add one dynamic personal-media source using the shared typed View rule builder.">
+            <div class="collection-personal-media__smart-toggle">
+                <div>
+                    <strong>Collection-owned smart rule</strong>
+                    <span>Matches personal media at view time under each viewer’s current authorization.</span>
+                </div>
+                <AppNativeButton Type="button" Class="@(_smartRuleEnabled ? "is-selected" : null)" OnClick="ToggleSmartRuleAsync">
+                    @(_smartRuleEnabled ? "Enabled" : "Add rule")
+                </AppNativeButton>
+            </div>
+
+            @if (_smartRuleEnabled)
+            {
+                <ViewRuleBuilder Definition="@_viewRuleDefinition"
+                                 DefinitionChanged="OnRuleDefinitionChanged"
+                                 SortField="@_sortField"
+                                 SortFieldChanged="@(value => _sortField = value)"
+                                 SortDirection="@_sortDirection"
+                                 SortDirectionChanged="@(value => _sortDirection = value)"
+                                 SecondarySortField="@_secondarySortField"
+                                 SecondarySortFieldChanged="@(value => _secondarySortField = value)"
+                                 SecondarySortDirection="@_secondarySortDirection"
+                                 SecondarySortDirectionChanged="@(value => _secondarySortDirection = value)"
+                                 Changed="NotifyChangedAsync"
+                                 Density="editor" />
+            }
+        </MediaEditorPanel>
+    }
+</section>
+
+@code {
+    [Parameter] public Guid? CollectionId { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+
+    private readonly HashSet<Guid> _selectedGalleryIds = [];
+    private List<CollectionGalleryReferenceDto> _galleries = [];
+    private List<CollectionPersonalMediaSourceDto> _originalSources = [];
+    private bool _loading = true;
+    private bool _smartRuleEnabled;
+    private string? _loadError;
+    private string? _sortField = "captured_date";
+    private string _sortDirection = "desc";
+    private string? _secondarySortField;
+    private string? _secondarySortDirection;
+    private CollectionRuleDefinitionViewModel _viewRuleDefinition = EmptyDefinition();
+
+    public string? LastError => _loadError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _galleries = (await Client.GetEligibleGalleriesAsync()).ToList();
+        if (CollectionId.HasValue)
+            _originalSources = (await Client.GetSourcesAsync(CollectionId.Value)).ToList();
+
+        _selectedGalleryIds.UnionWith(_originalSources
+            .Where(source => source.Kind == CollectionPersonalMediaSourceKinds.Gallery && source.GalleryId.HasValue)
+            .Select(source => source.GalleryId!.Value));
+        var smart = _originalSources.FirstOrDefault(source => source.Kind == CollectionPersonalMediaSourceKinds.SmartRule);
+        if (smart?.RuleDefinition is not null)
+        {
+            _smartRuleEnabled = true;
+            _viewRuleDefinition = ToViewModel(smart.RuleDefinition);
+        }
+        _loadError = Client.LastError;
+        _loading = false;
+    }
+
+    public bool Validate(out string? error)
+    {
+        error = null;
+        if (!_smartRuleEnabled)
+            return true;
+        if (_viewRuleDefinition.AllConditions.Any(IsCompleteRule))
+            return true;
+        error = "Add at least one complete condition to the personal-media smart View rule.";
+        return false;
+    }
+
+    public async Task<bool> SaveAsync(Guid collectionId, CancellationToken ct = default)
+    {
+        if (!Validate(out var validationError))
+        {
+            _loadError = validationError;
+            return false;
+        }
+
+        var desiredExistingIds = new HashSet<Guid>();
+        var position = 0;
+        foreach (var galleryId in _selectedGalleryIds)
+        {
+            var existing = _originalSources.FirstOrDefault(source =>
+                source.Kind == CollectionPersonalMediaSourceKinds.Gallery
+                && source.GalleryId == galleryId);
+            var request = new CollectionPersonalMediaSourceWriteRequest
+            {
+                Kind = CollectionPersonalMediaSourceKinds.Gallery,
+                GalleryId = galleryId,
+                Position = position++,
+            };
+            var saved = existing is null
+                ? await Client.AddSourceAsync(collectionId, request, ct)
+                : await Client.UpdateSourceAsync(collectionId, existing.SourceId, request, ct);
+            if (saved is null)
+            {
+                _loadError = Client.LastError;
+                return false;
+            }
+            if (existing is not null)
+                desiredExistingIds.Add(existing.SourceId);
+        }
+
+        if (_smartRuleEnabled)
+        {
+            var existing = _originalSources.FirstOrDefault(source => source.Kind == CollectionPersonalMediaSourceKinds.SmartRule);
+            var request = new CollectionPersonalMediaSourceWriteRequest
+            {
+                Kind = CollectionPersonalMediaSourceKinds.SmartRule,
+                RuleVersion = 1,
+                RuleDefinition = ToContract(_viewRuleDefinition),
+                Position = position,
+            };
+            var saved = existing is null
+                ? await Client.AddSourceAsync(collectionId, request, ct)
+                : await Client.UpdateSourceAsync(collectionId, existing.SourceId, request, ct);
+            if (saved is null)
+            {
+                _loadError = Client.LastError;
+                return false;
+            }
+            if (existing is not null)
+                desiredExistingIds.Add(existing.SourceId);
+        }
+
+        foreach (var removed in _originalSources.Where(source => !desiredExistingIds.Contains(source.SourceId)))
+        {
+            if (!await Client.RemoveSourceAsync(collectionId, removed.SourceId, ct))
+            {
+                _loadError = Client.LastError;
+                return false;
+            }
+        }
+
+        _originalSources = (await Client.GetSourcesAsync(collectionId, ct)).ToList();
+        _loadError = Client.LastError;
+        return string.IsNullOrWhiteSpace(_loadError);
+    }
+
+    private async Task ToggleGalleryAsync(Guid galleryId)
+    {
+        if (!_selectedGalleryIds.Add(galleryId))
+            _selectedGalleryIds.Remove(galleryId);
+        await NotifyChangedAsync();
+    }
+
+    private async Task ToggleSmartRuleAsync()
+    {
+        _smartRuleEnabled = !_smartRuleEnabled;
+        await NotifyChangedAsync();
+    }
+
+    private async Task OnRuleDefinitionChanged(CollectionRuleDefinitionViewModel definition)
+    {
+        _viewRuleDefinition = definition;
+        await NotifyChangedAsync();
+    }
+
+    private Task NotifyChangedAsync() => Changed.InvokeAsync();
+
+    private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) =>
+        !string.IsNullOrWhiteSpace(rule.Field)
+        && (rule.Op is "known" or "unknown" or "has_any_value" or "has_no_known_value"
+            || !string.IsNullOrWhiteSpace(rule.Value)
+            || rule.Values is { Length: > 0 });
+
+    private static CollectionRuleDefinitionViewModel EmptyDefinition() => new()
+    {
+        Version = 1,
+        Groups = [new CollectionRuleGroupViewModel { Conditions = [new CollectionRulePredicateViewModel()] }],
+    };
+
+    private static CollectionRuleDefinitionViewModel ToViewModel(CollectionRuleDefinitionDto source) => new()
+    {
+        Version = source.Version,
+        Groups = source.Groups.Select(group => new CollectionRuleGroupViewModel
+        {
+            Id = group.Id,
+            JoinWithPrevious = group.JoinWithPrevious,
+            MatchMode = group.MatchMode,
+            Conditions = group.Conditions.Select(condition => new CollectionRulePredicateViewModel
+            {
+                Field = condition.Field,
+                Op = condition.Op,
+                Value = condition.Value,
+                DisplayValue = condition.DisplayValue,
+                Values = condition.Values,
+                DisplayValues = condition.DisplayValues,
+            }).ToList(),
+        }).ToList(),
+    };
+
+    private static CollectionRuleDefinitionDto ToContract(CollectionRuleDefinitionViewModel source) => new()
+    {
+        Version = source.Version,
+        Groups = source.Groups.Select(group => new CollectionRuleGroupDto
+        {
+            Id = group.Id,
+            JoinWithPrevious = group.JoinWithPrevious,
+            MatchMode = group.MatchMode,
+            Conditions = group.Conditions.Where(IsCompleteRule).Select(condition => new CollectionRulePredicateDto
+            {
+                Field = condition.Field,
+                Op = condition.Op,
+                Value = condition.Value,
+                DisplayValue = condition.DisplayValue,
+                Values = condition.Values,
+                DisplayValues = condition.DisplayValues,
+            }).ToList(),
+        }).Where(group => group.Conditions.Count > 0).ToList(),
+    };
+}

@@ -12,6 +12,7 @@ public sealed class ActiveProfileSessionService : IDisposable
 
     private readonly IJSRuntime _js;
     private readonly IEngineApiClient _api;
+    private readonly ActiveProfileAccessor _activeProfileAccessor;
     private readonly SemaphoreSlim _profilesGate = new(1, 1);
     private List<ProfileViewModel> _profiles = [];
     private ProfileViewModel? _activeProfile;
@@ -19,10 +20,14 @@ public sealed class ActiveProfileSessionService : IDisposable
     private bool _storageLoaded;
     private bool _profilesLoaded;
 
-    public ActiveProfileSessionService(IJSRuntime js, IEngineApiClient api)
+    public ActiveProfileSessionService(
+        IJSRuntime js,
+        IEngineApiClient api,
+        ActiveProfileAccessor? activeProfileAccessor = null)
     {
         _js = js;
         _api = api;
+        _activeProfileAccessor = activeProfileAccessor ?? new ActiveProfileAccessor();
     }
 
     public ProfileViewModel? CurrentProfile => _activeProfile;
@@ -49,6 +54,7 @@ public sealed class ActiveProfileSessionService : IDisposable
             _profiles = await _api.GetProfilesAsync(ct);
             _profilesLoaded = true;
             _activeProfile = await ResolveActiveProfileAsync(_profiles, ct);
+            _activeProfileAccessor.SetProfile(_activeProfile?.Id);
             return [.. _profiles];
         }
         finally
@@ -79,6 +85,7 @@ public sealed class ActiveProfileSessionService : IDisposable
 
         _cachedProfileId = profileId;
         _activeProfile = profile;
+        _activeProfileAccessor.SetProfile(profileId);
         _storageLoaded = true;
         await SaveAsync(profileId, ct);
         return profile;

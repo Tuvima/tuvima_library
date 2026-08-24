@@ -57,7 +57,13 @@ Settings/Admin uses explicit status labels so admins can tell whether a control 
 
 Folders, provider configuration, provider priority, transcoding policy, profile management, API keys, activity retention, plugin enablement, and dynamic plugin settings should use typed Engine API/orchestrator paths. Metadata, Local AI, Delivery, Access, and Plugin subsections that are not fully backed must remain disabled or explicitly marked partial/not connected.
 
-Folder saves update `config/libraries.json`; the Engine attempts to hot-swap watchers when the configured source folders exist and are accessible. A rescan is still recommended after folder changes because files already present in a new source folder may need to be reprocessed. The old single `WatchDirectory` value is not a normal runtime fallback for ingestion.
+Folder saves update `config/libraries.json`; the Engine attempts to hot-swap
+watchers when configured source folders exist and are accessible. Catalogued
+Read/Watch/Listen sources may need an administrator rescan when a newly attached
+folder already contains files. A View source feeds the owning profile's single
+Personal Space; its scan endpoint is recovery/diagnostic behavior, not an
+ordinary Photos action. The old single `WatchDirectory` value is not a normal
+runtime fallback for ingestion.
 
 Provider settings load from `config/providers/*.json`, `config/secrets/*.json`, provider health records, and `config/pipelines.json`. Credentials are never returned in plaintext; the UI can show only whether a required credential is present. Provider strategy meanings are:
 

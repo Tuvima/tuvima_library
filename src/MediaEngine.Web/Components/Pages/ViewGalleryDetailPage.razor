@@ -1,0 +1,564 @@
+@page "/view/galleries/{GalleryId:guid}"
+@using System.Text.Json
+@using MediaEngine.Contracts.Collections
+@using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Domain.PersonalMedia
+@using MediaEngine.Web.Components.Rules
+@inject IEngineApiClient ApiClient
+@inject ViewWorkspaceService Workspace
+@inject ISnackbar Snackbar
+@inject UIOrchestratorService Orchestrator
+@inject ViewMediaGrantService MediaGrants
+@inject NavigationManager Nav
+@namespace MediaEngine.Web.Components.Pages
+
+<PageTitle>@(_gallery is null ? "Gallery" : _gallery.Name) - Tuvima</PageTitle>
+
+<ViewSectionShell>
+    <div class="view-feature-page">
+        @if (_loading)
+        {
+            <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Gallery" Message="Opening Gallery items." />
+        }
+        else if (_gallery is null)
+        {
+            <AppErrorState Title="Gallery unavailable" Message="This Gallery was not found or is not shared with the active profile." />
+        }
+        else
+        {
+            <header class="view-feature-page__header">
+                <div class="view-feature-page__identity">
+                    <span>@_gallery.Kind Gallery</span>
+                    <h1>@_gallery.Name</h1>
+                    <p>@(_gallery.Description ?? $"{_gallery.ItemCount} items")</p>
+                    <dl>
+                        <div><dt>Items</dt><dd>@_gallery.ItemCount</dd></div>
+                        <div><dt>Owner</dt><dd>@(IsOwner ? "You" : "Shared owner")</dd></div>
+                        <div><dt>Membership</dt><dd>@(_gallery.Kind == ViewGalleryKind.Smart ? "Updates from saved rules" : "Items people add")</dd></div>
+                    </dl>
+                    @if (_gallery.Kind == ViewGalleryKind.Smart)
+                    {
+                        <details>
+                            <summary>Smart rule summary</summary>
+                            <code>@_gallery.SmartRuleJson</code>
+                        </details>
+                    }
+                </div>
+                @if (IsOwner)
+                {
+                    <div class="view-feature-page__actions" role="group" aria-label="Gallery management">
+                        <AppButton Label="Edit" Variant="Variant.Outlined" OnClick="OpenEdit" />
+                        @if (_shareTargets is not null)
+                        {
+                            <AppButton Label="Share" Variant="Variant.Outlined" OnClick="OpenShareAsync" />
+                        }
+                        <AppButton Label="Delete" Variant="Variant.Text" Tone="AppUiTone.Error" OnClick="@(() => _deleteOpen = true)" />
+                    </div>
+                }
+            </header>
+
+            @if (_page?.Items.Count == 0)
+            {
+                <AppPageState Kind="AppPageStateKind.Empty"
+                              Title="This Gallery is empty"
+                              Message="@(_gallery.Kind == ViewGalleryKind.Smart
+                                  ? "Items will appear when they match this Gallery's saved rules."
+                                  : "Select photos and use Add to Gallery, or drag photos onto this Gallery in the View sidebar.")" />
+            }
+            else if (_page is not null)
+            {
+                <ViewPhotoTimeline Items="@_page.Items"
+                                   Selected="@_selected"
+                                   ThumbnailUrl="Thumbnail"
+                                   OnOpen="Open"
+                                   OnToggleSelection="Toggle"
+                                   OnSelectDateGroup="SelectGroup" />
+                @if (_gallery.Kind == ViewGalleryKind.Manual && _selected.Count > 0)
+                {
+                    <AppButton Variant="Variant.Outlined" OnClick="RemoveAsync">Remove from Gallery</AppButton>
+                }
+            }
+        }
+    </div>
+</ViewSectionShell>
+
+@if (_active is not null)
+{
+    <ViewImmersiveViewer Item="@_active"
+                         HasPrevious="@(ActiveIndex > 0)"
+                         HasNext="@(ActiveIndex >= 0 && ActiveIndex < (_page?.Items.Count ?? 0) - 1)"
+                         ContentUrl="@Resource(_active, ViewMediaResourceKind.Content)"
+                         ThumbnailUrl="@Thumbnail(_active)"
+                         OnClose="@(() => _active = null)"
+                         OnPrevious="Previous"
+                         OnNext="Next"
+                         OnFavorite="FavoriteAsync"
+                         OnArchive="ArchiveAsync"
+                         OnTrash="TrashAsync"
+                         ManualGalleries="@Workspace.OwnedGalleries.Where(gallery => gallery.Kind == ViewGalleryKind.Manual).ToList()"
+                         OnAddToGallery="AddToGalleryAsync" />
+}
+
+<AppDialog @bind-Visible="_editOpen"
+           Title="Edit Gallery"
+           Subtitle="Update this Gallery without changing or moving source files."
+           Icon="@Icons.Material.Outlined.Edit"
+           Size="Large">
+    <ChildContent>
+        <AppForm>
+            <AppTextField @bind-Value="_editName" Label="Name" MaxLength="120" />
+            <AppTextarea @bind-Value="_editDescription" Label="Description (optional)" />
+            @if (_gallery?.Kind == ViewGalleryKind.Smart)
+            {
+                <AppAlert Tone="AppUiTone.Info">
+                    Smart Gallery membership remains rule-driven. Items cannot be added or removed manually.
+                </AppAlert>
+                <ViewRuleBuilder Definition="@_editRules" DefinitionChanged="EditRulesChanged" />
+            }
+            @if (!string.IsNullOrWhiteSpace(_editError))
+            {
+                <AppAlert Tone="AppUiTone.Error">@_editError</AppAlert>
+            }
+        </AppForm>
+    </ChildContent>
+    <FooterContent>
+        <AppActionBar>
+            <AppButton Label="Cancel" OnClick="@(() => _editOpen = false)" />
+            <AppButton Label="@(_savingEdit ? "Saving…" : "Save changes")"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@_savingEdit"
+                       OnClick="SaveEditAsync" />
+        </AppActionBar>
+    </FooterContent>
+</AppDialog>
+
+<AppDialog @bind-Visible="_shareOpen"
+           Title="Share Gallery"
+           Subtitle="Choose enabled profiles. This shares only this Gallery, not your Personal Space."
+           Icon="@Icons.Material.Outlined.People"
+           Size="Small">
+    <ChildContent>
+        @if (_loadingShares)
+        {
+            <AppProgressBar Indeterminate="true" />
+        }
+        else if (_shareTargets is { Count: 0 })
+        {
+            <AppAlert Tone="AppUiTone.Info">No other View-enabled profiles are available.</AppAlert>
+        }
+        else if (_shareTargets is not null)
+        {
+            <div class="view-gallery-share-list" aria-label="Gallery share recipients">
+                @foreach (var target in _shareTargets)
+                {
+                    <div class="view-gallery-share-row">
+                        <AppAvatar ImageUrl="@target.AvatarUrl"
+                                   AltText=""
+                                   Initials="@AvatarInitial(target.DisplayName)"
+                                   AccentColor="@target.AvatarColor"
+                                   Class="view-gallery-share-avatar" />
+                        <AppCheckbox Value="@IsShareSelected(target.ProfileId)"
+                                     ValueChanged="@(value => SetShareSelected(target.ProfileId, value))"
+                                     Label="@target.DisplayName" />
+                        <AppNativeSelect Value="@PermissionValue(target.ProfileId)"
+                                         OnChange="@(args => SharePermissionChanged(target.ProfileId, args))"
+                                         Disabled="@(!IsShareSelected(target.ProfileId))"
+                                         aria-label="@($"Permission for {target.DisplayName}")">
+                            <option value="view">Can view</option>
+                            <option value="contribute">Can contribute</option>
+                        </AppNativeSelect>
+                    </div>
+                }
+            </div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_shareError))
+        {
+            <AppAlert Tone="AppUiTone.Error">@_shareError</AppAlert>
+        }
+    </ChildContent>
+    <FooterContent>
+        <AppActionBar>
+            <AppButton Label="Cancel" OnClick="@(() => _shareOpen = false)" />
+            <AppButton Label="@(_savingShares ? "Saving…" : "Save sharing")"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@(_loadingShares || _savingShares)"
+                       OnClick="SaveSharesAsync" />
+        </AppActionBar>
+    </FooterContent>
+</AppDialog>
+
+<AppDialog @bind-Visible="_deleteOpen"
+           Title="Delete Gallery?"
+           Subtitle="The Gallery will be removed. Its photos and source files will remain untouched."
+           Icon="@Icons.Material.Outlined.Delete"
+           Size="Small">
+    <ChildContent>
+        @if (!string.IsNullOrWhiteSpace(_deleteError))
+        {
+            <AppAlert Tone="AppUiTone.Error">@_deleteError</AppAlert>
+        }
+    </ChildContent>
+    <FooterContent>
+        <AppActionBar>
+            <AppButton Label="Cancel" OnClick="@(() => _deleteOpen = false)" />
+            <AppButton Label="@(_deleting ? "Deleting…" : "Delete Gallery")"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Error"
+                       Disabled="@_deleting"
+                       OnClick="DeleteAsync" />
+        </AppActionBar>
+    </FooterContent>
+</AppDialog>
+
+@code {
+    [Parameter] public Guid GalleryId { get; set; }
+
+    private ViewGalleryDto? _gallery;
+    private ViewAssetTimelinePageDto? _page;
+    private LocalAssetDto? _active;
+    private readonly HashSet<Guid> _selected = [];
+    private Guid? _profileId;
+    private bool _loading = true;
+
+    private bool _editOpen;
+    private bool _savingEdit;
+    private string _editName = string.Empty;
+    private string? _editDescription;
+    private string? _editError;
+    private CollectionRuleDefinitionViewModel _editRules = EmptyRules();
+
+    private bool _shareOpen;
+    private bool _loadingShares;
+    private bool _savingShares;
+    private string? _shareError;
+    private IReadOnlyList<ViewGalleryShareTargetDto>? _shareTargets;
+    private readonly Dictionary<Guid, ViewGallerySharePermission> _shareDraft = [];
+
+    private bool _deleteOpen;
+    private bool _deleting;
+    private string? _deleteError;
+
+    private bool IsOwner => _gallery is not null && _profileId == _gallery.OwnerProfileId;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        _selected.Clear();
+        _active = null;
+        _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id;
+        _gallery = await ApiClient.GetViewGalleryAsync(GalleryId);
+        _shareTargets = null;
+        if (_gallery is not null)
+        {
+            await Workspace.InitializeAsync();
+            _page = await ApiClient.GetViewAssetsAsync(new(
+                Workspace.ScopeKind,
+                Workspace.ScopeProfileId,
+                GalleryId: GalleryId));
+            if (IsOwner)
+                _shareTargets = await ApiClient.GetViewGalleryShareTargetsAsync();
+        }
+        _loading = false;
+    }
+
+    private void Toggle(Guid id)
+    {
+        if (!_selected.Add(id)) _selected.Remove(id);
+    }
+
+    private void SelectGroup(IReadOnlyCollection<Guid> ids)
+    {
+        foreach (var id in ids) _selected.Add(id);
+    }
+
+    private async Task RemoveAsync()
+    {
+        if (_gallery?.Kind != ViewGalleryKind.Manual) return;
+        var result = await ApiClient.RemoveViewGalleryItemsAsync(GalleryId, _selected);
+        if (result is null)
+        {
+            Snackbar.Add("The selected items could not be removed.", Severity.Error);
+            return;
+        }
+        Snackbar.Add("Removed selected items from the Gallery.", Severity.Success);
+        await OnParametersSetAsync();
+    }
+
+    private void Open(LocalAssetDto item) => _active = item;
+    private int ActiveIndex => _active is null ? -1 : (_page?.Items.ToList().FindIndex(item => item.Id == _active.Id) ?? -1);
+    private void Previous() { if (ActiveIndex > 0) _active = _page!.Items[ActiveIndex - 1]; }
+    private void Next() { if (ActiveIndex >= 0 && ActiveIndex < (_page?.Items.Count ?? 0) - 1) _active = _page!.Items[ActiveIndex + 1]; }
+
+    private async Task FavoriteAsync()
+    {
+        if (_active is null) return;
+        var value = !_active.Favorite;
+        if (await ApiClient.SetViewItemFavoriteAsync(_active.Id, value))
+            _active = _active with { Favorite = value };
+    }
+
+    private async Task ArchiveAsync()
+    {
+        if (_active is not null && await ApiClient.ArchiveViewItemAsync(_active.Id))
+        {
+            _active = null;
+            await OnParametersSetAsync();
+        }
+    }
+
+    private async Task TrashAsync()
+    {
+        if (_active is not null && await ApiClient.TrashViewItemAsync(_active.Id))
+        {
+            _active = null;
+            await OnParametersSetAsync();
+        }
+    }
+
+    private async Task AddToGalleryAsync(Guid galleryId)
+    {
+        if (_active is not null) await ApiClient.AddViewGalleryItemsAsync(galleryId, [_active.Id]);
+    }
+
+    private void OpenEdit()
+    {
+        if (!IsOwner || _gallery is null) return;
+        _editName = _gallery.Name;
+        _editDescription = _gallery.Description;
+        _editRules = _gallery.Kind == ViewGalleryKind.Smart
+            ? ParseRules(_gallery.SmartRuleJson)
+            : EmptyRules();
+        _editError = null;
+        _editOpen = true;
+    }
+
+    private Task EditRulesChanged(CollectionRuleDefinitionViewModel value)
+    {
+        _editRules = value;
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveEditAsync()
+    {
+        if (!IsOwner || _gallery is null || _savingEdit) return;
+        if (string.IsNullOrWhiteSpace(_editName))
+        {
+            _editError = "Enter a Gallery name.";
+            return;
+        }
+
+        var ruleJson = _gallery.Kind == ViewGalleryKind.Smart
+            ? SerializeRules(_editRules)
+            : null;
+        if (_gallery.Kind == ViewGalleryKind.Smart && ruleJson is null)
+        {
+            _editError = "A Smart Gallery needs at least one complete rule.";
+            return;
+        }
+
+        _savingEdit = true;
+        _editError = null;
+        try
+        {
+            var updated = await ApiClient.UpdateViewGalleryAsync(
+                GalleryId,
+                new ViewGalleryRequest(
+                    _editName.Trim(),
+                    _gallery.Kind,
+                    string.IsNullOrWhiteSpace(_editDescription) ? null : _editDescription.Trim(),
+                    ruleJson,
+                    _gallery.CoverItemId,
+                    _gallery.SortOrder));
+            if (updated is null)
+            {
+                _editError = "The Gallery could not be updated.";
+                return;
+            }
+
+            _gallery = updated;
+            _editOpen = false;
+            await Workspace.LoadGalleriesAsync(force: true);
+            Snackbar.Add("Gallery updated.", Severity.Success);
+        }
+        finally
+        {
+            _savingEdit = false;
+        }
+    }
+
+    private async Task OpenShareAsync()
+    {
+        if (!IsOwner || _shareTargets is null) return;
+        _shareOpen = true;
+        _loadingShares = true;
+        _shareError = null;
+        _shareDraft.Clear();
+        try
+        {
+            var shares = await ApiClient.GetViewGallerySharesAsync(GalleryId);
+            if (shares is null)
+            {
+                _shareError = "Sharing details could not be loaded.";
+                return;
+            }
+
+            var eligible = _shareTargets.Select(target => target.ProfileId).ToHashSet();
+            foreach (var share in shares.Where(share => eligible.Contains(share.ProfileId)))
+                _shareDraft[share.ProfileId] = share.Permission;
+        }
+        finally
+        {
+            _loadingShares = false;
+        }
+    }
+
+    private bool IsShareSelected(Guid profileId) => _shareDraft.ContainsKey(profileId);
+    private static string AvatarInitial(string displayName) =>
+        string.IsNullOrWhiteSpace(displayName) ? "?" : displayName.Trim()[..1].ToUpperInvariant();
+    private string PermissionValue(Guid profileId) =>
+        _shareDraft.GetValueOrDefault(profileId) == ViewGallerySharePermission.Contribute
+            ? "contribute"
+            : "view";
+
+    private void SetShareSelected(Guid profileId, bool selected)
+    {
+        if (selected)
+            _shareDraft.TryAdd(profileId, ViewGallerySharePermission.View);
+        else
+            _shareDraft.Remove(profileId);
+    }
+
+    private void SharePermissionChanged(Guid profileId, ChangeEventArgs args)
+    {
+        if (!_shareDraft.ContainsKey(profileId)) return;
+        _shareDraft[profileId] = string.Equals(args.Value?.ToString(), "contribute", StringComparison.Ordinal)
+            ? ViewGallerySharePermission.Contribute
+            : ViewGallerySharePermission.View;
+    }
+
+    private async Task SaveSharesAsync()
+    {
+        if (!IsOwner || _savingShares) return;
+        _savingShares = true;
+        _shareError = null;
+        try
+        {
+            var shares = _shareDraft
+                .OrderBy(pair => pair.Key)
+                .Select(pair => new ViewGalleryShareRequest(pair.Key, pair.Value))
+                .ToList();
+            if (!await ApiClient.ReplaceViewGallerySharesAsync(GalleryId, shares))
+            {
+                _shareError = "Gallery sharing could not be saved.";
+                return;
+            }
+
+            _shareOpen = false;
+            Snackbar.Add(shares.Count == 0 ? "Gallery sharing removed." : "Gallery sharing updated.", Severity.Success);
+        }
+        finally
+        {
+            _savingShares = false;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (!IsOwner || _deleting) return;
+        _deleting = true;
+        _deleteError = null;
+        try
+        {
+            if (!await ApiClient.DeleteViewGalleryAsync(GalleryId))
+            {
+                _deleteError = "The Gallery could not be deleted.";
+                return;
+            }
+
+            await Workspace.LoadGalleriesAsync(force: true);
+            Snackbar.Add("Gallery deleted. Its media was not changed.", Severity.Success);
+            Nav.NavigateTo("/view/galleries");
+        }
+        finally
+        {
+            _deleting = false;
+        }
+    }
+
+    private static CollectionRuleDefinitionViewModel ParseRules(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return EmptyRules();
+        try
+        {
+            var source = JsonSerializer.Deserialize<CollectionRuleDefinitionDto>(json);
+            if (source is null) return EmptyRules();
+            return new CollectionRuleDefinitionViewModel
+            {
+                Version = source.Version,
+                Groups = source.Groups.Select(group => new CollectionRuleGroupViewModel
+                {
+                    Id = group.Id,
+                    JoinWithPrevious = group.JoinWithPrevious,
+                    MatchMode = group.MatchMode,
+                    Conditions = group.Conditions.Select(condition => new CollectionRulePredicateViewModel
+                    {
+                        Field = condition.Field,
+                        Op = condition.Op,
+                        Value = condition.Value,
+                        DisplayValue = condition.DisplayValue,
+                        Values = condition.Values,
+                        DisplayValues = condition.DisplayValues,
+                    }).ToList(),
+                }).ToList(),
+            };
+        }
+        catch (JsonException)
+        {
+            return EmptyRules();
+        }
+    }
+
+    private static string? SerializeRules(CollectionRuleDefinitionViewModel source)
+    {
+        var contract = new CollectionRuleDefinitionDto
+        {
+            Version = 1,
+            Groups = source.Groups.Select(group => new CollectionRuleGroupDto
+            {
+                Id = group.Id,
+                JoinWithPrevious = group.JoinWithPrevious,
+                MatchMode = group.MatchMode,
+                Conditions = group.Conditions.Where(IsCompleteRule).Select(condition => new CollectionRulePredicateDto
+                {
+                    Field = condition.Field,
+                    Op = condition.Op,
+                    Value = condition.Value,
+                    DisplayValue = condition.DisplayValue,
+                    Values = condition.Values,
+                    DisplayValues = condition.DisplayValues,
+                }).ToList(),
+            }).Where(group => group.Conditions.Count > 0).ToList(),
+        };
+        return contract.Groups.Count == 0 ? null : JsonSerializer.Serialize(contract);
+    }
+
+    private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) =>
+        !string.IsNullOrWhiteSpace(rule.Field)
+        && (rule.Op is "known" or "unknown" or "has_any_value" or "has_no_known_value"
+            || !string.IsNullOrWhiteSpace(rule.Value)
+            || rule.Values is { Length: > 0 });
+
+    private static CollectionRuleDefinitionViewModel EmptyRules() => new()
+    {
+        Version = 1,
+        Groups = [new CollectionRuleGroupViewModel { Conditions = [new CollectionRulePredicateViewModel()] }],
+    };
+
+    private string Thumbnail(LocalAssetDto item) => Resource(item, ViewMediaResourceKind.Thumbnail);
+    private string Resource(LocalAssetDto item, ViewMediaResourceKind kind) =>
+        _profileId.HasValue
+            ? $"/view-media/{MediaGrants.Create(_profileId.Value, item.LibraryId, item.Id, kind).Value}"
+            : string.Empty;
+}

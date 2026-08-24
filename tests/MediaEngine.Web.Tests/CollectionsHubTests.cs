@@ -280,6 +280,9 @@ public sealed class CollectionsHubTests
         var pickerCssPath = GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\AddToCollectionDialog.razor.css");
         var editor = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionEditorShell.razor"));
         var ruleBuilder = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionRuleBuilder.razor"));
+        var sharedRuleBuilder = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Rules\SharedRuleBuilder.razor"));
+        var collectionCatalog = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Rules\CollectionRuleCatalog.cs"));
+        var ruleConfiguration = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Rules\RuleBuilderConfiguration.cs"));
         var collectionsPage = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor"));
         var sectionConfiguration = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsSectionConfiguration.cs"));
 
@@ -296,16 +299,17 @@ public sealed class CollectionsHubTests
         Assert.Contains("How should this", wizard, StringComparison.Ordinal);
         Assert.Contains("<CollectionRuleBuilder", wizard, StringComparison.Ordinal);
         Assert.Contains("<CollectionRuleBuilder", editor, StringComparison.Ordinal);
-        Assert.Contains("Build rules", ruleBuilder, StringComparison.Ordinal);
-        Assert.DoesNotContain("Live matches", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("Sort results", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("Add group", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("Add condition", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("Search rule types", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("::deep .collection-rule-builder__picker-option", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionRuleBuilder.razor.css")), StringComparison.Ordinal);
+        Assert.Contains("CollectionRuleCatalog.Instance", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Build rules", collectionCatalog, StringComparison.Ordinal);
+        Assert.DoesNotContain("Live matches", sharedRuleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Sort results", sharedRuleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Add group", sharedRuleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Add condition", sharedRuleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Search rule types", sharedRuleBuilder, StringComparison.Ordinal);
+        Assert.Contains("::deep .collection-rule-builder__picker-option", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Rules\SharedRuleBuilder.razor.css")), StringComparison.Ordinal);
         Assert.Contains("SecondarySortField", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("<CollectionRuleValuePicker", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("is any of", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("<CollectionRuleValuePicker", sharedRuleBuilder, StringComparison.Ordinal);
+        Assert.Contains("is any of", ruleConfiguration, StringComparison.Ordinal);
         var valuePicker = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionRuleValuePicker.razor"));
         Assert.Contains("Select all shown", valuePicker, StringComparison.Ordinal);
         Assert.Contains("CheckBox", valuePicker, StringComparison.Ordinal);
@@ -336,7 +340,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("OpenItemPickerAsync", editor, StringComparison.Ordinal);
         Assert.Contains("item(s) in this collection", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-editor-column-title\">Available", editor, StringComparison.Ordinal);
-        Assert.Contains("UsesLibraryValues", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("RuleValueProviderKind.CollectionLibrary", collectionCatalog, StringComparison.Ordinal);
         Assert.Contains("GetCollectionFieldValuesAsync", valuePicker, StringComparison.Ordinal);
         Assert.Contains("collection-editor-workspace", editor, StringComparison.Ordinal);
         Assert.Contains("sme-section-nav collection-editor-rail", editor, StringComparison.Ordinal);

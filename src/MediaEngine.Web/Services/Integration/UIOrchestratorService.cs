@@ -2,9 +2,11 @@ using System.Net.Sockets;
 using System.Text.Json;
 using MediaEngine.Contracts.Admin;
 using MediaEngine.Contracts.Ai;
+using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Progress;
 using MediaEngine.Contracts.Realtime;
 using MediaEngine.Contracts.Reports;
@@ -245,6 +247,22 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         }
         return ok;
     }
+
+    public Task<ViewProfilePolicyDto?> GetViewProfilePolicyAsync(
+        Guid id,
+        CancellationToken ct = default) =>
+        _api.GetViewProfilePolicyAsync(id, ct);
+
+    public Task<ViewProfilePolicyDto?> UpdateViewProfilePolicyAsync(
+        Guid id,
+        UpdateViewProfilePolicyRequest request,
+        CancellationToken ct = default) =>
+        _api.UpdateViewProfilePolicyAsync(id, request, ct);
+
+    public Task<ViewPersonalSpaceAdminReviewDto?> GetViewProfileSourcesAsync(
+        Guid id,
+        CancellationToken ct = default) =>
+        _api.GetViewProfileSourcesAsync(id, ct);
 
     public async Task<ProfileViewModel?> UploadProfileAvatarAsync(
         Guid id,

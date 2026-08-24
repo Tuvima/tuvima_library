@@ -1,0 +1,1 @@
+.view-selection-toolbar { position: sticky; z-index: 12; top: .5rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .65rem .8rem; border: 1px solid rgba(167,139,250,.32); border-radius: .7rem; background: rgba(15,23,42,.96); box-shadow: 0 .5rem 2rem rgba(0,0,0,.3); }

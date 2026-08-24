@@ -30,8 +30,11 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 | Capability readiness | Partial | Media assets can expose explicit readiness rows for identity, enrichment, text tracks, commercial skip, writeback, AI, and plugin work. More workers will be wired over time. |
 | Ingestion dashboard | Partial | Active operations, recent batches, folder health, provider health, progress, and review reasons are visible from durable Engine data where available. |
 | Settings > Media Management | Live | Catalogued and personal libraries, stable sources, incoming locations, source safety, organization, metadata, ownership, visibility, intake, and duplicate policies are backed by Engine/config APIs. |
-| Personal View libraries | Live | Administrators can create mixed local libraries whose local-only or manual policy bypasses retail providers, Wikidata matching, and identity review. |
-| View | Live (MVP) | A mixed local index provides library-scoped timeline/gallery browsing, search, thumbnails, favorites, hidden items, compound-file grouping, content-hash duplicate tracking, and local camera/GPS/document details where available. |
+| View Personal Spaces | Live | Each enabled profile resolves one Personal Space. One configured `personal` library and any number of sources or devices may feed it; eligible folders are watched and reconciled in the background. Administrators can review safe source/device summaries without seeing paths, secrets, or client identifiers. Local-only/manual personal media bypasses retail providers, Wikidata, canonical claims, and Review Queue. |
+| View: Photos | Live | `/view` uses the four-item View shell and same-origin media grants. Trusted Shared, Mine, and permitted profile scopes drive a cursor-paged mixed-media timeline with search, filters, uploads, selection, favorites, hidden state, archive, trash, restore, Gallery placement, managed thumbnails, and an accessible immersive viewer. Original files are never modified by browsing or thumbnail generation. |
+| View: Galleries | Live | Manual and rule-driven Smart Galleries support creation, editing, deletion, item paging, duplicate-safe membership, drag/drop placement, ordering, and owner-selected profile sharing. Policy-gated recipients receive view or contribute access; deleting a Gallery never deletes media. Public-link sharing is not implemented. |
+| View: People and Places | Partial | People browses only named or reviewed provenance-aware annotations and shows a truthful capability state when no producer exists. Places renders real GPS/place aggregates in a privacy-safe local cluster surface and accessible place cards. Face recognition and third-party map tiles are not implemented. |
+| View in Collections | Live | Administrators can attach a whole Gallery or a versioned View smart rule in the Collection editor. Individual local asset IDs are rejected, saved sources remain dynamic, and every projection reapplies View authorization without leaking unauthorized counts. |
 | Backup and recovery | Live | Administrators can create, list, download, validate, stage, and apply backups containing the data store and non-secret configuration. |
 | Settings > Providers | Live | Provider catalogue/status/config, credential state, health, tests, and pipeline priority are backed where the Engine exposes them. |
 | Settings > Local AI | Live | Model inventory, download/cancel/load/unload, hardware profile, benchmark, resources, feature flags, vocabulary, and schedules are connected where endpoints exist. |
@@ -51,15 +54,18 @@ These items are not presented as complete user workflows yet:
 - Richer playlist editing, recommendation automation, smart collections, and broader discovery intelligence.
 - Full remote-access hardening and account/session policy beyond the local-first role/API-key model.
 - Interoperability targets such as OPDS, Audiobookshelf-compatible APIs, import wizards, webhooks, and PWA behavior.
-- Post-beta photo intelligence: face/object/OCR search, maps, memories, remote sharing, and mobile upload/sync.
-- Trusted-profile end-user personal-library creation. Administrators can create
-  and govern View libraries now, but API-key requests do not yet carry the
-  profile identity needed for a safe self-service creation endpoint.
-- Mobile-backup and connected-device producers. Their policy and intake modes
-  are modeled, but device-specific clients are not part of this implementation.
-- Automatic shared-incoming routing into personal View libraries. Mixed local
-  candidates are classified and left in place for review today; direct personal
-  browser uploads already index through View without catalogue processing.
+- Post-beta photo intelligence: face recognition, object/scene detection, OCR,
+  captions, embeddings, semantic search, memories, and AI-assisted organization.
+- Privacy-safe map rendering, remote/public-link sharing, and mobile
+  upload/backup/sync. GPS-based place aggregation exists, but these client and
+  presentation experiences are not implemented.
+- Device-specific mobile-backup and connected-device producers. Source/device
+  records and intake policy vocabulary exist so future clients have a safe
+  target, but they are not working backup products today.
+- Automatic shared-incoming routing into a profile's Personal Space. Mixed
+  local candidates are classified and left for attention today; explicit
+  browser uploads already resolve the caller's Personal Space and bypass
+  catalogue processing.
 
 ## Product Guardrails
 

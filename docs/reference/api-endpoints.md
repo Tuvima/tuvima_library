@@ -18,7 +18,10 @@ Interactive documentation: `http://localhost:61495/swagger`
 
 All endpoints require authentication unless noted. Three roles: **Administrator** (full access), **Curator** (browse + metadata), **Consumer** (browse only). API keys are passed as `X-Api-Key` header.
 
-Paginated GET endpoints accept `offset`/`limit` query parameters. `limit` is clamped server-side (default varies by endpoint; capped at 250 unless the endpoint's documented default already exceeds that) so a caller cannot force an unbounded read.
+Most paginated GET endpoints accept `offset`/`limit` query parameters. View
+timeline and discovery endpoints use opaque/keyset `cursor` plus `limit`, and
+Manual Gallery membership uses position/item keysets. Limits are clamped
+server-side so a caller cannot force an unbounded read.
 
 JSON errors use RFC 7807 Problem Details through the shared `ApiErrors`
 factories. JSON success bodies use named `MediaEngine.Contracts` types, and
@@ -85,17 +88,42 @@ from mutation.
 
 ## View
 
-Personal View routes require an active `profileId` and apply the configured owner, visibility, authorized-profile, and administrator policy before returning local content.
+Personal View routes require the trusted profile assertion established by the
+Dashboard. The server-to-server `X-Tuvima-View-Profile`,
+`X-Tuvima-View-Timestamp`, and `X-Tuvima-View-Signature` headers bind the active
+profile to the exact method/path/query through HMAC-SHA256 using the already
+validated API key. They are accepted only for `/view` and `/collections`, must
+be within the configured short skew window, and are not browser credentials.
+
+Browser-supplied profile, library, Gallery, scope-profile, or asset IDs are
+never treated as authority. Friendly Shared, Mine, and permitted Profile scopes
+are resolved by the Engine before any asset, Gallery, People, Places,
+thumbnail, original-file, or personal-media Collection query runs. Direct
+unauthorized identifiers return the same not-found shape as missing resources.
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/view/libraries` | List personal View libraries readable by the active profile | Required |
-| GET | `/view/{libraryId}` | Search and page mixed local assets by kind, favorite, hidden, or collection | Required + library read |
-| POST | `/view/{libraryId}/scan` | Index configured sources in place using local metadata only | Administrator + library manage |
-| PUT | `/view/{libraryId}/items/{id}/favorite` | Set a profile-visible item flag | Required + library contribute |
-| PUT | `/view/{libraryId}/items/{id}/hidden` | Hide or restore a local item | Required + library contribute |
-| GET | `/view/{libraryId}/items/{id}/content` | Stream the owned/referenced original with range support | Required + library read |
-| GET | `/view/{libraryId}/items/{id}/thumbnail` | Return a bounded local image derivative when supported | Required + library read |
+| GET | `/view/scopes` | Resolve the selected/default scope and return only authorized labeled scope options | Required + trusted profile |
+| GET, PUT | `/view/preferences` | Read or persist the active profile's last scope and timeline density | Required + trusted profile |
+| GET | `/view/assets` | Cursor-page authorized mixed local assets by scope, search, kind, state, or Gallery | Required + scope read |
+| POST | `/view/uploads` | Upload to the caller's server-resolved Personal Space | Required + Personal Space owner |
+| GET | `/view/items/{id}` | Read authorized personal-asset metadata | Required + asset read |
+| GET | `/view/items/{id}/content` | Stream an authorized original with range support | Required + asset read |
+| GET | `/view/items/{id}/thumbnail` | Return a bounded local image preview when supported | Required + asset read |
+| PUT | `/view/items/{id}/favorite` | Set favorite state on an owned asset | Required + asset owner |
+| PUT | `/view/items/{id}/hidden` | Set hidden state on an owned asset | Required + asset owner |
+| POST | `/view/items/{id}/archive` | Archive an owned asset without changing its file | Required + asset owner |
+| POST | `/view/items/{id}/trash` | Soft-delete an owned asset without deleting its original | Required + asset owner |
+| POST | `/view/items/{id}/restore` | Restore an archived or trashed owned asset | Required + asset owner |
+| GET, POST | `/view/galleries` | List owned/shared Galleries or create an owned Gallery | Required + trusted profile |
+| GET, PUT, DELETE | `/view/galleries/{id}` | Read or manage an authorized Gallery | Required + Gallery permission |
+| GET, POST, DELETE | `/view/galleries/{id}/items` | Page or mutate Manual Gallery membership | Required + Gallery permission |
+| GET, PUT | `/view/galleries/{id}/shares` | Read or replace selected-profile Gallery shares | Owner + Gallery sharing enabled |
+| GET | `/view/share-targets` | Return only enabled profiles the caller may select as Gallery share recipients | Required + trusted profile |
+| GET | `/view/people` | Cursor-page named/reviewed, provenance-aware people annotations within an authorized scope; no face-recognition claim | Required + scope read |
+| GET | `/view/places` | Cursor-page real GPS/place aggregates within an authorized scope; no map/tile request | Required + scope read |
+| GET | `/view/admin/profiles/{profileId}/sources` | Return an administrator-safe source/device summary without paths, secrets, client identifiers, or invented capacity | Administrator |
+| POST | `/view/admin/libraries/{libraryId}/scan` | Recovery/admin scan for a configured personal library | Administrator |
 
 ## Works
 
@@ -118,6 +146,9 @@ Personal View routes require an active `profileId` and apply the configured owne
 | POST | `/collections/reconcile` | Dry-run or run collection shelf repair for already-ingested media. Body: `dry_run`, `batch_size`, `max_items`. Returns candidate, processed, assigned, skipped, failed, and elapsed counts. | Curator |
 | GET | `/collections/{collectionId}/series-manifest` | Ordered Wikidata series checklist with total, owned, missing, provisional, ambiguous counts and named entries | Required |
 | GET | `/collections/search?q=` | SQL-backed search across visible library works, canonical values, and collection names. Returns up to 20 work results. | Required |
+| GET | `/collections/personal-media/galleries` | List Galleries eligible for the administrator's Collection editor without exposing individual assets | Administrator + trusted profile |
+| GET | `/collections/{id}/personal-media` | Return count-free Gallery/rule sources after reapplying the viewer's View authorization | Required + trusted profile |
+| POST, PUT, DELETE | `/collections/{id}/personal-media[/{sourceId}]` | Manage whole-Gallery references or a versioned View rule; individual asset identifiers are rejected | Administrator + trusted profile |
 | GET | `/persons?catalog=true&q=&role=&lane=&sort=&offset=&limit=` | Paged canonical primary contributors on owned works for Collections / People | Required |
 | GET | `/persons/role-counts?catalog=true` | Canonical owned-library contributor counts grouped by role | Required |
 
