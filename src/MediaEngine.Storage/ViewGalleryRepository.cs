@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
@@ -16,7 +15,7 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
         var row = connection.QuerySingleOrDefault<GalleryRow>(new CommandDefinition(
             SelectGallerySql + " WHERE vg.id = @galleryId GROUP BY vg.id;",
             new { galleryId }, cancellationToken: ct));
-        return Task.FromResult(row is null ? null : Map(row));
+        return Task.FromResult(row is null ? null : MapWithDynamicCount(connection, row, ct));
     }
 
     public Task<IReadOnlyList<ViewGallery>> GetOwnedAsync(Guid ownerProfileId, CancellationToken ct = default)
@@ -30,7 +29,8 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
              GROUP BY vg.id
              ORDER BY vg.sort_order, vg.updated_at DESC, vg.id;
             """, new { ownerProfileId }, cancellationToken: ct));
-        return Task.FromResult<IReadOnlyList<ViewGallery>>(rows.Select(Map).ToList());
+        return Task.FromResult<IReadOnlyList<ViewGallery>>(
+            rows.Select(row => MapWithDynamicCount(connection, row, ct)).ToList());
     }
 
     public Task<IReadOnlyList<ViewGallery>> GetSharedWithAsync(Guid profileId, CancellationToken ct = default)
@@ -45,7 +45,8 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
              GROUP BY vg.id
              ORDER BY vgs.shared_at DESC, vg.id;
             """, new { profileId }, cancellationToken: ct));
-        return Task.FromResult<IReadOnlyList<ViewGallery>>(rows.Select(Map).ToList());
+        return Task.FromResult<IReadOnlyList<ViewGallery>>(
+            rows.Select(row => MapWithDynamicCount(connection, row, ct)).ToList());
     }
 
     public Task<ViewGallery> CreateAsync(CreateViewGalleryCommand command, CancellationToken ct = default)
@@ -353,15 +354,114 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
             return null;
         }
         if (string.IsNullOrWhiteSpace(json)) throw new ArgumentException("Smart Galleries require a rule definition.");
-        try { using var _ = JsonDocument.Parse(json); }
-        catch (JsonException exception) { throw new ArgumentException("Smart Gallery rule must be valid JSON.", nameof(json), exception); }
-        return json.Trim();
+        return ViewSmartGalleryRules.Normalize(json);
+    }
+
+    public Task<bool> IsItemSharedWithProfileAsync(
+        Guid itemId,
+        Guid profileId,
+        CancellationToken ct = default)
+    {
+        ValidateId(itemId, nameof(itemId));
+        ValidateId(profileId, nameof(profileId));
+        ct.ThrowIfCancellationRequested();
+        using var connection = database.CreateConnection();
+        if (connection.ExecuteScalar<long>(new CommandDefinition("""
+                SELECT EXISTS (
+                    SELECT 1
+                      FROM view_gallery_items vgi
+                      JOIN view_galleries vg ON vg.id = vgi.gallery_id AND vg.gallery_kind = 'manual'
+                      JOIN view_gallery_shares vgs ON vgs.gallery_id = vg.id
+                     WHERE vgi.item_id = @itemId AND vgs.profile_id = @profileId
+                );
+                """, new { itemId, profileId }, cancellationToken: ct)) != 0)
+        {
+            return Task.FromResult(true);
+        }
+
+        var smartGalleries = connection.Query<SharedSmartGalleryRow>(new CommandDefinition("""
+            SELECT vg.personal_space_id AS PersonalSpaceId, vg.smart_rule_json AS SmartRuleJson
+              FROM view_galleries vg
+              JOIN view_gallery_shares vgs ON vgs.gallery_id = vg.id
+             WHERE vgs.profile_id = @profileId
+               AND vg.gallery_kind = 'smart'
+               AND vg.smart_rule_json IS NOT NULL;
+            """, new { profileId }, cancellationToken: ct));
+        foreach (var gallery in smartGalleries)
+        {
+            LocalAssetSmartRuleSql compiled;
+            try
+            {
+                compiled = LocalAssetSmartRuleSqlCompiler.Compile(
+                    ViewSmartGalleryRules.Parse(gallery.SmartRuleJson));
+            }
+            catch (ArgumentException)
+            {
+                // Obsolete or corrupt rules fail closed and never grant asset access.
+                continue;
+            }
+
+            var parameters = new DynamicParameters();
+            parameters.Add("SharedItemId", GuidSql.ToBlob(itemId), System.Data.DbType.Binary);
+            parameters.Add("SharedSpaceId", GuidSql.ToBlob(gallery.PersonalSpaceId), System.Data.DbType.Binary);
+            parameters.AddDynamicParams(compiled.Parameters);
+            if (connection.ExecuteScalar<long>(new CommandDefinition($$"""
+                    SELECT EXISTS (
+                        SELECT 1
+                          FROM local_items li
+                          LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
+                         WHERE li.id = @SharedItemId
+                           AND li.personal_space_id = @SharedSpaceId
+                           AND ({{compiled.Predicate}})
+                    );
+                    """, parameters, cancellationToken: ct)) != 0)
+            {
+                return Task.FromResult(true);
+            }
+        }
+        return Task.FromResult(false);
     }
 
     private static ViewGallery Map(GalleryRow row) => new(row.Id, row.OwnerProfileId, row.PersonalSpaceId,
         row.Name, row.Description, row.GalleryKind == "manual" ? ViewGalleryKind.Manual : ViewGalleryKind.Smart,
         row.SmartRuleJson, row.CoverItemId, row.SortOrder, row.ItemCount,
         DateTimeOffset.Parse(row.CreatedAt), DateTimeOffset.Parse(row.UpdatedAt));
+
+    private static ViewGallery MapWithDynamicCount(
+        System.Data.IDbConnection connection,
+        GalleryRow row,
+        CancellationToken ct)
+    {
+        var gallery = Map(row);
+        if (gallery.Kind != ViewGalleryKind.Smart || string.IsNullOrWhiteSpace(gallery.SmartRuleJson))
+            return gallery;
+
+        try
+        {
+            var compiled = LocalAssetSmartRuleSqlCompiler.Compile(
+                ViewSmartGalleryRules.Parse(gallery.SmartRuleJson));
+            var parameters = new DynamicParameters();
+            parameters.Add("SmartSpaceId", GuidSql.ToBlob(gallery.PersonalSpaceId), System.Data.DbType.Binary);
+            parameters.AddDynamicParams(compiled.Parameters);
+            var count = connection.ExecuteScalar<int>(new CommandDefinition($$"""
+                SELECT COUNT(1)
+                  FROM local_items li
+                  LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
+                 WHERE li.personal_space_id = @SmartSpaceId
+                   AND li.hidden = 0
+                   AND li.archived_at IS NULL
+                   AND li.trashed_at IS NULL
+                   AND ({{compiled.Predicate}});
+                """, parameters, cancellationToken: ct));
+            return gallery with { ItemCount = count };
+        }
+        catch (ArgumentException)
+        {
+            // Corrupt or obsolete rules fail closed. The Gallery remains visible
+            // to its owner for repair without exposing an incorrect count.
+            return gallery with { ItemCount = 0 };
+        }
+    }
     private static string ToStorage(ViewGalleryKind kind) => kind == ViewGalleryKind.Manual ? "manual" : "smart";
     private static string ToStorage(ViewGallerySharePermission permission) =>
         permission == ViewGallerySharePermission.View ? "view" : "contribute";
@@ -383,4 +483,6 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
     { public Guid GalleryId { get; init; } public Guid ItemId { get; init; } public int Position { get; init; } public string AddedAt { get; init; } = string.Empty; }
     private sealed class ShareRow
     { public Guid GalleryId { get; init; } public Guid ProfileId { get; init; } public string Permission { get; init; } = string.Empty; public string SharedAt { get; init; } = string.Empty; }
+    private sealed class SharedSmartGalleryRow
+    { public Guid PersonalSpaceId { get; init; } public string SmartRuleJson { get; init; } = string.Empty; }
 }

@@ -125,7 +125,7 @@ File watching is source-folder aware. A flush that contains files from one sourc
         "intake_role": "direct"
       }],
       "primary_destination_source_id": "44444444-aaaa-4444-8444-444444444444",
-      "visibility": "household",
+      "visibility": "shared",
       "accepted_intake_modes": ["incoming_folder", "browser_upload"],
       "duplicate_policy": "skip_exact",
       "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
@@ -148,7 +148,9 @@ The Dashboard's Ingestion page uses `GET /ingestion/operations`, backed by `IIng
 - `stage_progress` rows in the snapshot for the numbered user-facing stage bars
 - `ingestion_batch_artifacts` for batch-scoped media, metadata, artwork, people, relationship, QID, and review artifacts used by later Activity rollups
 - `review_queue` for actionable review reason groups
-- `config/libraries.json` for Read, Watch, Listen, and View libraries, stable sources, destinations, and incoming locations
+- `config/libraries.json` for Read, Watch, Listen, the internal personal-library
+  bridges behind View Personal Spaces, stable sources, destinations, and
+  incoming locations
 - `provider_health` and provider config files for provider status
 - runtime `IngestionOptions` and `core.json` for organization rule summaries
 

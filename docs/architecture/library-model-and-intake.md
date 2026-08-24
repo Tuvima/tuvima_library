@@ -19,11 +19,11 @@ where the library appears in the product.
 
 `Photos` and `General` are not library kinds. Phone photos, short videos,
 documents, artwork, home movies, audio notes, and other personal files belong
-to the owning profile's Personal Space in View. A Personal Space may be backed
-by several internal personal libraries, sources, or devices, but those are
-intake and storage details rather than separate user-facing photo libraries.
-Galleries organize assets without changing the underlying library kind or
-moving source files.
+to the owning profile's Personal Space in View. A Personal Space has one
+internal `personal` library bridge and may receive files from several sources
+or devices. The library, source, and device records are intake/provenance
+details rather than separate user-facing destinations. Galleries organize
+assets without changing library kind or moving source files.
 
 ## Processing flow
 
@@ -37,10 +37,12 @@ Source
 ```
 
 An intake request records its origin, actor, and optional destination library.
-Direct-to-library actions such as browser upload, drag-and-drop, mobile backup,
-connected-device import, and API intake must retain the stable destination
-library ID through the pipeline. A shared incoming source has no destination
-hint and invokes routing rules instead.
+Direct-to-space actions retain the owning profile, Personal Space, stable
+destination library ID, and source/device provenance through the pipeline.
+Browser upload is implemented. Drag-and-drop, mobile backup, connected-device
+import, and API intake remain modeled producer types for future clients; their
+presence in configuration or storage is not evidence of a working client. A
+shared incoming source has no destination hint and invokes routing rules instead.
 
 Shared incoming currently auto-routes only to a single eligible catalogued
 library. A personal/View candidate is classified but parked for review because
@@ -122,6 +124,12 @@ object detection are not part of the core View implementation. Future
 annotations may add provenance, confidence, and model version without becoming
 required for ingestion or search.
 
+Archive and Trash are reversible database states. They remove items from the
+normal timeline but never rename, move, overwrite, or delete the original.
+Gallery removal and Gallery deletion likewise remove only organizational state.
+Any future permanent-file operation must separately prove ownership, source
+containment, managed/writable policy, and a fresh explicit confirmation.
+
 ## Access
 
 Every Personal Space has an explicit owning profile. Profiles independently
@@ -135,6 +143,16 @@ profile identity. The same resource authorization decision is enforced for
 browse, search, thumbnails, originals, downloads, Galleries, People, Places,
 and Collection projections. Administrator configuration rights are distinct
 from ordinary content-browsing rights.
+
+A selected-profile Gallery share is independent of Shared View. A caller may
+read a specifically shared Gallery without gaining access to that profile's
+Personal Space or other assets. Manual Gallery contribution requires its own
+permission. Smart Galleries accept no manual membership.
+
+Administrator-authored Collections may reference a whole Gallery or store a
+versioned View rule. They never store a list of personal asset IDs. Gallery
+membership and rule results remain dynamic, and every projection rechecks the
+viewer's View authorization before returning metadata, counts, or previews.
 
 ## Pre-beta cutover policy
 
@@ -157,3 +175,9 @@ only Photos, Galleries, People, and Places; filters and source management remain
 in the content area or Settings. Empty surfaces show truthful capability or
 intake guidance rather than fabricated thumbnails, people, counts, or backup
 progress.
+
+Places is list-first and is derived only from real GPS or normalized local
+location metadata. A future map must preserve that accessible list and must not
+contact an unconfigured third-party tile provider. People is similarly
+evidence-first: it can show named/reviewed provenance-aware annotations, but it
+must not imply that face recognition exists or fabricate unnamed identities.

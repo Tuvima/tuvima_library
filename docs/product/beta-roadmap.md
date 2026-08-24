@@ -20,7 +20,8 @@ This roadmap orders work by dependency and risk, not by visual novelty. A beta m
 
 - Restore from public package sources without a developer-specific local feed.
 - Seed container configuration only when the mounted configuration folder is empty.
-- Use portable container paths for catalogued and personal View libraries.
+- Use portable container paths for catalogued libraries and the internal
+  `personal` library that backs each View Personal Space.
 - Preserve user configuration during Windows upgrades.
 
 **Rationale:** every later feature is irrelevant if a clean machine cannot install, start, and retain its settings predictably.
@@ -28,7 +29,9 @@ This roadmap orders work by dependency and risk, not by visual novelty. A beta m
 ### 2. First-class library policy — implemented
 
 - Give every library a stable ID, kind, source paths, intake mode, and metadata policy.
-- Keep exactly `catalogued` and `personal` as library kinds; represent photos and other private local files as personal libraries in View.
+- Keep exactly `catalogued` and `personal` as library kinds. Each enabled
+  profile has one user-facing Personal Space backed by a `personal` library;
+  sources and devices do not become separate browsing destinations in View.
 - Support enriched, local-preferred, local-only, and manual metadata policies.
 - Bypass retail, provider, Wikidata, and review-queue work for local-only and manual libraries.
 - Keep photo assets outside the work/edition/canonical-claim graph.
@@ -62,15 +65,29 @@ This roadmap orders work by dependency and risk, not by visual novelty. A beta m
 - Default personal/home-video libraries to local-only behavior.
 - Make source path, recursion, read-only behavior, and matching policy visible.
 
-### 2. Personal View Library MVP — implemented
+### 2. View Personal Space MVP — foundation implemented, Dashboard partial
 
-- Index configured photo folders in place without provider matching or file moves.
-- Deduplicate content by hash while retaining every source path.
-- Browse a date-grouped timeline with paging and filename search.
-- Generate thumbnails lazily and open the original locally.
-- Favorite, hide, select, create albums, and add selections to albums.
-- Read captured date, dimensions, camera details, and GPS when present.
-- Run an initial background index and periodic refresh.
+- Resolve Shared, Mine, and permitted Profile scopes from trusted profile
+  identity before querying content.
+- Index configured personal sources in place without provider matching or file
+  moves, deduplicating physical bytes while retaining source paths and logical
+  ownership.
+- Cursor-page a date-grouped timeline and search deterministic local metadata.
+- Proxy thumbnails and originals through short-lived, profile-bound,
+  same-origin grants rather than exposing Engine credentials to the browser.
+- Persist favorite, hidden, archive, trash, and restore state without mutating
+  originals.
+- Persist Manual and Smart Galleries; Manual Gallery membership is unique and
+  Smart Galleries use the shared versioned rule model.
+- Read captured date, dimensions, camera details, document text, and GPS when
+  locally available.
+- Keep administrator scan as a recovery/diagnostic endpoint. Normal View
+  onboarding is attaching sources to the profile's Personal Space, not choosing
+  among sources or repeatedly starting a manual scan.
+
+The remaining P1 work is connecting all lifecycle, selection, Gallery,
+People, Places, and Collection actions in the Dashboard and completing the
+responsive/accessibility release gate.
 
 ### 3. Regression and release gates — required for every beta candidate
 
@@ -91,14 +108,14 @@ Implement these during beta only when telemetry, issue reports, or real collecti
 ### 1. Photo operations
 
 - Folder/file change watching rather than periodic reconciliation alone.
-- Batch move between albums, batch visibility changes, and album ordering.
+- Batch Gallery placement, batch visibility changes, and Manual Gallery ordering.
 - Better timezone normalization and explicit “date unknown” grouping.
 - RAW/HEIF support based on verified cross-platform decoder availability.
 - Thumbnail cache retention, regeneration, and storage diagnostics.
 
 ### 2. Library operations
 
-- Per-library scan history, pause/resume, and more precise failure reporting.
+- Per-source indexing history, pause/resume, and more precise failure reporting.
 - A preview of how metadata policy affects a file before saving a library.
 - Safer path conflict detection across overlapping libraries.
 - Import/export of library definitions without secrets.
@@ -126,7 +143,9 @@ Implement these during beta only when telemetry, issue reports, or real collecti
 
 ### 3. Sharing and multi-device workflows
 
-- Shareable albums only after authentication, authorization, expiration, and audit logging are production-ready.
+- Public-link Gallery sharing only after authentication, authorization,
+  expiration, revocation, and audit logging are production-ready. Selected-profile
+  Gallery sharing is the only persisted sharing model in the beta foundation.
 - Mobile upload/sync, conflict handling, and resumable transfers.
 - Optional video transcodes and motion-photo pairing for photo-library video assets.
 

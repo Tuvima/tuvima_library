@@ -20,7 +20,7 @@ Queue workflows.
 
 The product presents one **Personal Space** per enabled profile. A Personal
 Space may use several sources or devices, but those sources describe where
-files came from rather than creating separate user-facing photo libraries.
+files came from rather than creating separate user-facing destinations.
 Existing library and source identifiers remain useful implementation details.
 
 ## Identity and ownership
@@ -144,8 +144,17 @@ third-party tile request.
 People consumes provenance-aware local annotations when a real processor has
 produced them. When processing is unavailable or incomplete, the UI presents a
 truthful capability state. Face recognition, semantic search, OCR, object
-detection, captions, and embeddings run asynchronously through the existing
-Local AI architecture and never block ingestion or asset availability.
+detection, captions, and embeddings are future integrations. If implemented,
+they must run asynchronously through the existing Local AI architecture and
+must never block ingestion or asset availability.
+
+Current implementation truth: the Engine exposes authorized Places and People
+queries, but the Dashboard routes still present truthful capability states.
+Places aggregates only real GPS/place metadata. People returns only named or
+reviewed provenance-aware annotations and reports when no capable producer has
+created them. Face recognition, object/scene detection, OCR, captions,
+embeddings, semantic search, mobile backup/sync, public-link sharing, and map
+rendering are not implemented features.
 
 ## Scale and safety
 
@@ -158,3 +167,75 @@ Existing and read-only sources remain immutable. Personal-media work must not
 weaken path containment or source mutation policy. The pre-beta reset rule
 allows obsolete application database and configuration state to be rebuilt; it
 does not authorize modifying or deleting user-owned originals.
+
+## Static implementation and release review
+
+This section is the review checklist for the current foundation. It records
+the boundary that static inspection can establish and the obligations that
+still require runtime and visual evidence before release.
+
+### Authorization boundary
+
+- The Dashboard signs eligible `/view` and `/collections` Engine requests with
+  profile, timestamp, and HMAC signature headers. The signature binds the exact
+  HTTP method, path, and query, and the Engine enforces a short clock-skew
+  window. A query-string profile ID is not authentication.
+- Scope resolution turns Shared, Mine, or permitted Profile selections into
+  authorized Personal Space/library IDs. Asset lists, search, content,
+  thumbnails, Galleries, People, Places, and personal-media Collection sources
+  must consume that result instead of caller-provided library arrays.
+- Resource authorization is repeated for direct identifiers. Missing and
+  unauthorized View resources share the same not-found behavior so IDs cannot
+  be enumerated. Owned-item mutations do not become available merely because a
+  caller can read Shared View.
+- A selected-profile Gallery share authorizes that Gallery only. It does not
+  grant Shared View, another Gallery, or arbitrary access to the owner's
+  Personal Space. Collection projections reauthorize their Gallery or rule
+  source and remain count-free when the viewer cannot resolve it.
+- Browser media uses a short-lived, profile/library/asset/resource-bound grant
+  on the Dashboard's same origin. The proxy supports range requests while
+  keeping Engine API keys and trusted-profile assertions out of browser URLs.
+
+### Filesystem and lifecycle safety
+
+- Logical deduplication retains every physical source path; identical hashes do
+  not collapse profiles or Personal Spaces into shared ownership.
+- Favorite, Hidden, Archive, Trash, Restore, Gallery membership, and Gallery
+  deletion modify SQLite state only. They do not mutate originals.
+- Existing/read-only sources remain immutable. A future permanent delete or
+  move must pass the existing source-mutation gate, resolve an exact contained
+  path, prove managed/writable policy, and require an explicit destructive
+  confirmation. The development database reset policy is not file authority.
+- Derivatives and thumbnails are replaceable cache artifacts. They must never
+  overwrite an original or become the only recorded copy of user media.
+
+### Query and scale review
+
+- Timeline paging is keyset/cursor based on effective capture/import time plus
+  stable item ID. Gallery membership uses position plus item ID. Deep `OFFSET`
+  paging and per-item follow-up reads are outside the supported design.
+- SQLite indexes cover owner/space/library timeline scans, media kind,
+  favorite/lifecycle filters, source/device provenance, hashes, tags, GPS,
+  Gallery ordering/shares, Collection View sources, and annotation lookup.
+  Metadata search uses `local_item_search` FTS with a GUID-to-rowid mapping.
+- Release verification must include `EXPLAIN QUERY PLAN` checks and a seeded
+  large-library scenario. Index presence alone is not proof that a changed
+  predicate or sort order remains efficient.
+
+### Responsive and accessibility obligations
+
+- The standard View shell exposes exactly four primary links—Photos,
+  Galleries, People, and Places—with one current-page state. Shared View,
+  Favorites, Videos, Archive, Hidden, Trash, and Recently Added remain content
+  scopes/filters, not extra rail destinations.
+- Keyboard users must be able to reach scope, search, filters, asset selection,
+  Gallery actions, and the viewer; focus must remain visible, bulk selection
+  must announce count/state, and dialogs/viewers must trap and restore focus.
+- Date groups, asset buttons, Gallery cards, and people/place results need
+  semantic names that do not depend on thumbnails, color, hover, or map markers.
+  Places must always retain an accessible list alternative.
+- Before release, capture and inspect Photos, Galleries, People, and Places at
+  1920×1080, the normal 1440-pixel desktop width, a tablet width, and a narrow
+  mobile width. Verify empty/loading/error states, long names, zoom/text scaling,
+  overflow, selection toolbars, dialogs, and reduced-motion behavior. Static
+  review does not substitute for this visual and assistive-technology pass.

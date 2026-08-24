@@ -84,23 +84,10 @@ public sealed class ViewResourcePersistenceService(
         Guid requestingProfileId,
         CancellationToken ct)
     {
-        var shared = await galleries.GetSharedWithAsync(requestingProfileId, ct).ConfigureAwait(false);
-        foreach (var gallery in shared.Where(candidate => candidate.Kind == ViewGalleryKind.Manual))
-        {
-            int? position = null;
-            Guid? cursorId = null;
-            do
-            {
-                var page = await galleries.GetItemsAsync(gallery.Id, position, cursorId, 200, ct)
-                    .ConfigureAwait(false);
-                if (page.Items.Any(item => item.ItemId == itemId))
-                    return new HashSet<Guid> { requestingProfileId };
-                position = page.NextPosition;
-                cursorId = page.NextItemId;
-                if (!page.HasMore) break;
-            } while (true);
-        }
-        return new HashSet<Guid>();
+        return await galleries.IsItemSharedWithProfileAsync(itemId, requestingProfileId, ct)
+            .ConfigureAwait(false)
+            ? new HashSet<Guid> { requestingProfileId }
+            : new HashSet<Guid>();
     }
 }
 
@@ -121,7 +108,8 @@ public sealed class ViewAssetQueryService(ILocalAssetRepository assets) : IViewA
             plan.FavoritesOnly,
             plan.IncludeHidden,
             plan.GalleryId,
-            plan.Lifecycle), ct);
+            plan.Lifecycle,
+            plan.SmartRule), ct);
         return Task.FromResult(new ViewAssetTimelinePageDto(
             page.Items,
             ViewTimelineCursorCodec.Encode(page.NextCursor),
