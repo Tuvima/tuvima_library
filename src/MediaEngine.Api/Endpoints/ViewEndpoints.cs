@@ -216,9 +216,11 @@ public static class ViewEndpoints
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Read, identity, authorization, ct);
-            return !decision.IsAllowed ? Access(decision.Outcome)
-                : Results.Ok(await repository.GetItemsAsync(id, afterPosition, afterItemId,
-                    PagedRequest.From(0, limit, 100, 500).Limit, ct));
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            if (await repository.GetAsync(id, ct) is { Kind: ViewGalleryKind.Smart })
+                return SmartGalleryUnavailable();
+            return Results.Ok(await repository.GetItemsAsync(id, afterPosition, afterItemId,
+                PagedRequest.From(0, limit, 100, 500).Limit, ct));
         }).WithName("GetViewGalleryItems").Produces<ViewGalleryItemPage>();
 
         group.MapPost("/galleries/{id:guid}/items", async (Guid id, ViewGalleryItemsRequest request,
@@ -226,8 +228,10 @@ public static class ViewEndpoints
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Contribute, identity, authorization, ct);
-            return !decision.IsAllowed ? Access(decision.Outcome)
-                : Results.Ok(await repository.AddItemsAsync(id, request.ItemIds, ct));
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            if (await repository.GetAsync(id, ct) is { Kind: ViewGalleryKind.Smart })
+                return SmartGalleryUnavailable();
+            return Results.Ok(await repository.AddItemsAsync(id, request.ItemIds, ct));
         }).WithName("AddViewGalleryItems").Produces<AddViewGalleryItemsResult>();
 
         group.MapDelete("/galleries/{id:guid}/items", async (Guid id, ViewGalleryItemsRequest request,
@@ -235,9 +239,11 @@ public static class ViewEndpoints
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Contribute, identity, authorization, ct);
-            return !decision.IsAllowed ? Access(decision.Outcome)
-                : Results.Ok(new ViewItemsRemovedResponse(
-                    await repository.RemoveItemsAsync(id, request.ItemIds, ct)));
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            if (await repository.GetAsync(id, ct) is { Kind: ViewGalleryKind.Smart })
+                return SmartGalleryUnavailable();
+            return Results.Ok(new ViewItemsRemovedResponse(
+                await repository.RemoveItemsAsync(id, request.ItemIds, ct)));
         }).WithName("RemoveViewGalleryItems").Produces<ViewItemsRemovedResponse>();
 
         group.MapPut("/galleries/{id:guid}/items/{itemId:guid}/position", async (
@@ -246,9 +252,11 @@ public static class ViewEndpoints
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Contribute, identity, authorization, ct);
-            return !decision.IsAllowed ? Access(decision.Outcome)
-                : await repository.SetItemPositionAsync(id, itemId, request.Position, ct)
-                    ? Results.NoContent() : Missing();
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            if (await repository.GetAsync(id, ct) is { Kind: ViewGalleryKind.Smart })
+                return SmartGalleryUnavailable();
+            return await repository.SetItemPositionAsync(id, itemId, request.Position, ct)
+                ? Results.NoContent() : Missing();
         }).WithName("ReorderViewGalleryItem")
             .Produces<Microsoft.AspNetCore.Http.HttpResults.NoContent>(StatusCodes.Status204NoContent);
 
@@ -358,6 +366,8 @@ public static class ViewEndpoints
 
     private static IResult Missing() => ApiErrors.NotFound("The View resource was not found.");
     private static IResult Unauthenticated() => ApiErrors.Problem(401, "Authentication required.", "A trusted View profile is required.");
+    private static IResult SmartGalleryUnavailable() => ApiErrors.Unprocessable(
+        "Smart Gallery rule evaluation is not available until the shared View rule evaluator is configured.");
 
     private static IResult Thumbnail(LocalAssetContentLocation file)
     {

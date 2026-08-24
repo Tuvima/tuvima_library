@@ -37,6 +37,7 @@ public sealed class ViewEndpointRouteTests
         Assert.Contains("AuthorizeOwnedItemAsync", endpoint, StringComparison.Ordinal);
         Assert.Contains("if (bitmap is null) return Results.NoContent();", endpoint, StringComparison.Ordinal);
         Assert.Contains("catch { return Results.NoContent(); }", endpoint, StringComparison.Ordinal);
+        Assert.Contains("SmartGalleryUnavailable", endpoint, StringComparison.Ordinal);
     }
 
     private static string FindRepoRoot()
