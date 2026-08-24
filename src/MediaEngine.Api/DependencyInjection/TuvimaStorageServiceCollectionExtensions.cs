@@ -37,6 +37,7 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<ICollectionViewSourceRepository, CollectionViewSourceRepository>();
         services.AddSingleton<ViewLibraryService>();
         services.AddSingleton<ViewThumbnailService>();
+        services.AddSingleton<IViewPathIndexer>(sp => sp.GetRequiredService<ViewLibraryService>());
         services.AddHttpContextAccessor();
         services.AddScoped<IViewRequestProfileContext, HttpViewRequestProfileContext>();
         services.AddSingleton<IViewScopeStore, ViewScopePersistenceService>();
