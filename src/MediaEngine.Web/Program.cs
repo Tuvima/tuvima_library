@@ -200,6 +200,8 @@ builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient);
 // ── State + Orchestration (scoped = one per SignalR circuit) ──────────────────
 builder.Services.AddScoped<UniverseStateContainer>();
 builder.Services.AddScoped<ActiveProfileSessionService>();
+builder.Services.AddScoped<ViewWorkspaceService>();
+builder.Services.AddScoped<ViewAssetDragService>();
 builder.Services.AddScoped<UIOrchestratorService>();
 builder.Services.AddScoped<IngestionLiveDashboardState>();
 builder.Services.AddScoped<MediaEditorLauncherService>();

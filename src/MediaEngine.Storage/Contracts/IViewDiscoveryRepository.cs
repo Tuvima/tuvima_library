@@ -30,12 +30,14 @@ public sealed record ViewPlaceDiscoveryRow(
     double Latitude,
     double Longitude,
     int AssetCount,
+    Guid RepresentativeLibraryId,
     Guid RepresentativeAssetId);
 
 public sealed record ViewPersonDiscoveryRow(
     string Key,
     string DisplayName,
     int AssetCount,
+    Guid RepresentativeLibraryId,
     Guid RepresentativeAssetId,
     IReadOnlyList<string> AnnotationKinds,
     IReadOnlyList<string> ProvenanceSources,

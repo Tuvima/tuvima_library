@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.LocalAssets;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.View;
@@ -27,7 +28,8 @@ public sealed record ViewAssetQueryPlan(
     bool FavoritesOnly,
     bool IncludeHidden,
     Guid? GalleryId,
-    LocalAssetLifecycleFilter Lifecycle);
+    LocalAssetLifecycleFilter Lifecycle,
+    CollectionRuleDefinition? SmartRule);
 
 public sealed record ViewQueryResult(
     ViewAccessOutcome Outcome,
@@ -66,9 +68,12 @@ public sealed class ViewQueryOrchestrator(
             return new ViewQueryResult(decision.Outcome);
         }
 
-        if (request.GalleryId is { } galleryId && smartGalleries is not null)
+        CollectionRuleDefinition? smartRule = null;
+        if (request.GalleryId is { } galleryId)
         {
-            await smartGalleries.EnsureQuerySupportedAsync(galleryId, ct).ConfigureAwait(false);
+            if (smartGalleries is null)
+                throw new InvalidOperationException("Smart Gallery query services are unavailable.");
+            smartRule = await smartGalleries.ResolveRuleAsync(galleryId, ct).ConfigureAwait(false);
         }
 
         var plan = new ViewAssetQueryPlan(
@@ -79,8 +84,9 @@ public sealed class ViewQueryOrchestrator(
             request.MediaKinds,
             request.FavoritesOnly,
             request.IncludeHidden,
-            request.GalleryId,
-            request.Lifecycle);
+            smartRule is null ? request.GalleryId : null,
+            request.Lifecycle,
+            smartRule);
         var page = await backend.QueryAsync(plan, ct).ConfigureAwait(false);
         return new ViewQueryResult(ViewAccessOutcome.Allowed, page, decision.Scope);
     }

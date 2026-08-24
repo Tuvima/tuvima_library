@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.LocalAssets;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Storage.Contracts;
 
@@ -61,7 +62,8 @@ public sealed record LocalAssetTimelineQuery(
     bool FavoritesOnly = false,
     bool IncludeHidden = false,
     Guid? GalleryId = null,
-    LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active);
+    LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active,
+    CollectionRuleDefinition? SmartRule = null);
 
 public sealed record LocalAssetTimelineCursor(DateTimeOffset EffectiveAt, Guid ItemId);
 

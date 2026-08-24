@@ -1,5 +1,6 @@
 using MediaEngine.Api.Services.View;
 using MediaEngine.Contracts.LocalAssets;
+using MediaEngine.Domain.Models;
 using MediaEngine.Domain.PersonalMedia;
 using Microsoft.AspNetCore.Http;
 
@@ -92,7 +93,7 @@ public sealed class ViewQueryOrchestratorTests
             new HashSet<Guid> { caller.Policy.ProfileId });
         var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource));
         var backend = new CapturingBackend();
-        var orchestrator = new ViewQueryOrchestrator(context, authorization, backend);
+        var orchestrator = new ViewQueryOrchestrator(context, authorization, backend, new StubSmartGalleryService());
 
         var result = await orchestrator.QueryAsync(new ViewAssetQueryRequest(
             ViewScopeRequest.Mine, GalleryId: galleryId));
@@ -100,6 +101,57 @@ public sealed class ViewQueryOrchestratorTests
         Assert.Equal(ViewAccessOutcome.Allowed, result.Outcome);
         Assert.Equal(galleryId, backend.Plan!.GalleryId);
         Assert.Equal([owner.PersonalSpace.LibraryId], backend.Plan.Scope.LibraryIds);
+    }
+
+    [Fact]
+    public async Task AuthorizedSmartGalleryUsesDynamicRuleInsteadOfManualMembershipRows()
+    {
+        var caller = State(access: false, include: false);
+        var galleryId = Guid.NewGuid();
+        var http = new DefaultHttpContext();
+        HttpViewRequestProfileContext.SetTrustedProfile(http,
+            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
+        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
+        var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
+        var resource = new ViewResourceDescriptor(ViewResourceKind.Gallery, galleryId,
+            caller.Policy.ProfileId, caller.PersonalSpace!.LibraryId);
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource));
+        var backend = new CapturingBackend();
+        var rule = CollectionRuleDefinition.SingleGroup(
+            [new CollectionRulePredicate { Field = "favorite", Op = "eq", Value = "true" }]);
+        var smart = new StubSmartGalleryService(rule);
+        var orchestrator = new ViewQueryOrchestrator(context, authorization, backend, smart);
+
+        var result = await orchestrator.QueryAsync(new ViewAssetQueryRequest(
+            ViewScopeRequest.Mine, GalleryId: galleryId));
+
+        Assert.Equal(ViewAccessOutcome.Allowed, result.Outcome);
+        Assert.Null(backend.Plan!.GalleryId);
+        Assert.Same(rule, backend.Plan.SmartRule);
+        Assert.Equal(1, smart.CallCount);
+    }
+
+    [Fact]
+    public async Task UnauthorizedGalleryNeverResolvesOrEvaluatesItsRule()
+    {
+        var caller = State(access: false, include: false);
+        var http = new DefaultHttpContext();
+        HttpViewRequestProfileContext.SetTrustedProfile(http,
+            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
+        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
+        var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore());
+        var backend = new CapturingBackend();
+        var smart = new StubSmartGalleryService(CollectionRuleDefinition.SingleGroup(
+            [new CollectionRulePredicate { Field = "favorite", Value = "true" }]));
+        var orchestrator = new ViewQueryOrchestrator(context, authorization, backend, smart);
+
+        var result = await orchestrator.QueryAsync(new ViewAssetQueryRequest(
+            ViewScopeRequest.Mine, GalleryId: Guid.NewGuid()));
+
+        Assert.Equal(ViewAccessOutcome.NotFound, result.Outcome);
+        Assert.Equal(0, smart.CallCount);
+        Assert.Null(backend.Plan);
     }
 
     private static ViewScopeStoreEntry State(bool access, bool include)
@@ -133,6 +185,18 @@ public sealed class ViewQueryOrchestratorTests
         {
             Plan = plan;
             return Task.FromResult(new ViewAssetTimelinePageDto([], null, false));
+        }
+    }
+
+    private sealed class StubSmartGalleryService(CollectionRuleDefinition? rule = null)
+        : IViewSmartGalleryQueryService
+    {
+        public int CallCount { get; private set; }
+
+        public Task<CollectionRuleDefinition?> ResolveRuleAsync(Guid galleryId, CancellationToken ct = default)
+        {
+            CallCount++;
+            return Task.FromResult(rule);
         }
     }
 }

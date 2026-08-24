@@ -1,0 +1,24 @@
+@using MediaEngine.Contracts.LocalAssets
+@namespace MediaEngine.Web.Components.Pages
+<div class="view-viewer" role="dialog" aria-modal="true" aria-label="Photo viewer" tabindex="0" @onkeydown="HandleKey" @onclick="OnClose">
+<header class="view-viewer__bar" @onclick:stopPropagation="true"><div><strong>@Title</strong><small>@Item.MimeType</small></div><div class="view-viewer__actions"><AppNativeButton Type="button" AriaLabel="Previous item" Disabled="@(!HasPrevious)" OnClick="@(_ => OnPrevious.InvokeAsync())">‹</AppNativeButton><AppNativeButton Type="button" AriaLabel="Next item" Disabled="@(!HasNext)" OnClick="@(_ => OnNext.InvokeAsync())">›</AppNativeButton><AppNativeButton Type="button" AriaLabel="Toggle information panel" OnClick="@(_ => _showInfo = !_showInfo)"><MudIcon Icon="@Icons.Material.Outlined.Info" /></AppNativeButton><AppNativeButton Type="button" AriaLabel="Toggle favorite" OnClick="@(_ => OnFavorite.InvokeAsync())"><MudIcon Icon="@(Item.Favorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" /></AppNativeButton><AppNativeSelect Value="@string.Empty" OnChange="GalleryChanged" aria-label="Add item to Gallery"><option value="">Gallery…</option>@foreach (var gallery in ManualGalleries) { <option value="@gallery.Id">@gallery.Name</option> }</AppNativeSelect><AppNativeButton Type="button" AriaLabel="Archive item" OnClick="@(_ => OnArchive.InvokeAsync())">Archive</AppNativeButton><AppNativeButton Type="button" AriaLabel="Move item to Trash" OnClick="@(_ => OnTrash.InvokeAsync())">Trash</AppNativeButton><a class="view-viewer__action" href="@ContentUrl" download aria-label="Download original"><MudIcon Icon="@Icons.Material.Outlined.Download" /></a><AppNativeButton Type="button" AriaLabel="Close viewer" OnClick="@(_ => OnClose.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton></div></header>
+<div class="view-viewer__content" @onclick:stopPropagation="true">@if (Item.MimeType.StartsWith("video/")) { <video src="@ContentUrl" poster="@ThumbnailUrl" controls autoplay></video> } else if (Item.MimeType.StartsWith("audio/")) { <audio src="@ContentUrl" controls autoplay></audio> } else if (Item.MimeType.StartsWith("image/")) { <img src="@ContentUrl" alt="@Title" /> } else { <div class="view-viewer__document"><MudIcon Icon="@Icons.Material.Outlined.Description" /><p>Download the original document to view it.</p></div> } @if (_showInfo) { <aside aria-label="Item information"><h2>Information</h2><p>@Title</p><p>@Item.CreatedAt.ToLocalTime()</p><p>@Item.DeviceMake @Item.DeviceModel</p><p>@Item.LocationName</p></aside> }</div>
+</div>
+@code {
+    [Parameter, EditorRequired] public LocalAssetDto Item { get; set; } = default!;
+    [Parameter] public bool HasPrevious { get; set; }
+    [Parameter] public bool HasNext { get; set; }
+    [Parameter] public string ContentUrl { get; set; } = "";
+    [Parameter] public string ThumbnailUrl { get; set; } = "";
+    [Parameter] public IReadOnlyList<ViewGalleryDto> ManualGalleries { get; set; } = [];
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnPrevious { get; set; }
+    [Parameter] public EventCallback OnNext { get; set; }
+    [Parameter] public EventCallback OnFavorite { get; set; }
+    [Parameter] public EventCallback OnArchive { get; set; }
+    [Parameter] public EventCallback OnTrash { get; set; }
+    [Parameter] public EventCallback<Guid> OnAddToGallery { get; set; }
+    private bool _showInfo; private string Title => string.IsNullOrWhiteSpace(Item.Title) ? Item.FileName : Item.Title;
+    private Task GalleryChanged(ChangeEventArgs args) => Guid.TryParse(args.Value?.ToString(), out var id) ? OnAddToGallery.InvokeAsync(id) : Task.CompletedTask;
+    private async Task HandleKey(KeyboardEventArgs args) { if (args.Key == "Escape") await OnClose.InvokeAsync(); else if (args.Key == "ArrowLeft" && HasPrevious) await OnPrevious.InvokeAsync(); else if (args.Key == "ArrowRight" && HasNext) await OnNext.InvokeAsync(); }
+}

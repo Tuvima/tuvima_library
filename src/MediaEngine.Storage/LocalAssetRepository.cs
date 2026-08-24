@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dapper;
 using MediaEngine.Contracts.LocalAssets;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Data.Sqlite;
 
@@ -211,6 +212,9 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             .ToArray() ?? [];
         var searchExpression = BuildSearchExpression(query.Search);
         var libraryPredicate = string.Join(" OR ", libraryIds.Select((_, index) => $"li.library_id = @LibraryId{index}"));
+        var smartRule = query.SmartRule is null
+            ? new LocalAssetSmartRuleSql("1 = 1", new DynamicParameters())
+            : LocalAssetSmartRuleSqlCompiler.Compile(query.SmartRule);
         var parameters = new DynamicParameters(new
         {
             query.IncludeHidden,
@@ -224,6 +228,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             query.BeforeItemId,
             Take = query.Limit + 1,
         });
+        parameters.AddDynamicParams(smartRule.Parameters);
         for (var index = 0; index < libraryIds.Length; index++)
             parameters.Add($"LibraryId{index}", GuidSql.ToBlob(libraryIds[index]), System.Data.DbType.Binary);
         using var connection = database.CreateConnection();
@@ -259,6 +264,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                AND (@GalleryId IS NULL OR EXISTS (
                     SELECT 1 FROM view_gallery_items vgi
                      WHERE vgi.gallery_id = @GalleryId AND vgi.item_id = li.id))
+               AND ({{smartRule.Predicate}})
                AND (@SearchExpression IS NULL OR EXISTS (
                     SELECT 1 FROM local_item_search lis
                       JOIN local_item_search_keys lsk ON lsk.rowid = lis.rowid

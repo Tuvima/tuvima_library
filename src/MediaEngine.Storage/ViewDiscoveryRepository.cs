@@ -20,6 +20,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
         public double Latitude { get; init; }
         public double Longitude { get; init; }
         public long AssetCount { get; init; }
+        public Guid RepresentativeLibraryId { get; init; }
         public Guid RepresentativeAssetId { get; init; }
     }
 
@@ -28,6 +29,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
         public string Key { get; init; } = string.Empty;
         public string DisplayName { get; init; } = string.Empty;
         public long AssetCount { get; init; }
+        public Guid RepresentativeLibraryId { get; init; }
         public Guid RepresentativeAssetId { get; init; }
         public string? AnnotationKinds { get; init; }
         public string? ProvenanceSources { get; init; }
@@ -62,7 +64,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
 
         var rows = connection.Query<PlaceRow>(new CommandDefinition($$"""
             WITH eligible AS (
-                SELECT li.id AS ItemId,
+                SELECT li.id AS ItemId, li.library_id AS LibraryId,
                        COALESCE(li.captured_at, li.created_at) AS EffectiveAt,
                        LOWER(COALESCE(
                            NULLIF(TRIM(lm.location_name), ''),
@@ -96,11 +98,12 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
                        ROUND(AVG(Latitude), 3) AS Latitude,
                        ROUND(AVG(Longitude), 3) AS Longitude,
                        COUNT(DISTINCT ItemId) AS AssetCount,
+                       MAX(CASE WHEN RepresentativeRank = 1 THEN LibraryId END) AS RepresentativeLibraryId,
                        MAX(CASE WHEN RepresentativeRank = 1 THEN ItemId END) AS RepresentativeAssetId
                   FROM ranked
                  GROUP BY PlaceKey
             )
-            SELECT Key, Name, Latitude, Longitude, AssetCount, RepresentativeAssetId
+            SELECT Key, Name, Latitude, Longitude, AssetCount, RepresentativeLibraryId, RepresentativeAssetId
               FROM grouped
              WHERE (@CursorCount IS NULL
                     OR AssetCount < @CursorCount
@@ -117,6 +120,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
             row.Latitude,
             row.Longitude,
             checked((int)row.AssetCount),
+            row.RepresentativeLibraryId,
             row.RepresentativeAssetId)).ToList();
         var last = items.LastOrDefault();
         return new ViewPlaceDiscoveryPage(
@@ -159,7 +163,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
 
         var rows = connection.Query<PersonRow>(new CommandDefinition($$"""
             WITH eligible AS (
-                SELECT li.id AS ItemId,
+                SELECT li.id AS ItemId, li.library_id AS LibraryId,
                        COALESCE(li.captured_at, li.created_at) AS EffectiveAt,
                        LOWER(TRIM(lia.annotation_value)) AS PersonKey,
                        TRIM(lia.annotation_value) AS DisplayName,
@@ -185,6 +189,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
                 SELECT PersonKey AS Key,
                        MAX(DisplayName) AS DisplayName,
                        COUNT(DISTINCT ItemId) AS AssetCount,
+                       MAX(CASE WHEN RepresentativeRank = 1 THEN LibraryId END) AS RepresentativeLibraryId,
                        MAX(CASE WHEN RepresentativeRank = 1 THEN ItemId END) AS RepresentativeAssetId,
                        GROUP_CONCAT(DISTINCT AnnotationKind) AS AnnotationKinds,
                        GROUP_CONCAT(DISTINCT ProvenanceSource) AS ProvenanceSources,
@@ -192,7 +197,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
                   FROM ranked
                  GROUP BY PersonKey
             )
-            SELECT Key, DisplayName, AssetCount, RepresentativeAssetId,
+            SELECT Key, DisplayName, AssetCount, RepresentativeLibraryId, RepresentativeAssetId,
                    AnnotationKinds, ProvenanceSources, HasReviewedEvidence
               FROM grouped
              WHERE (@CursorCount IS NULL
@@ -208,6 +213,7 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
             row.Key,
             row.DisplayName,
             checked((int)row.AssetCount),
+            row.RepresentativeLibraryId,
             row.RepresentativeAssetId,
             SplitEvidence(row.AnnotationKinds),
             SplitEvidence(row.ProvenanceSources),
