@@ -26,7 +26,7 @@ public static class ViewProfileAssertion
         int maxClockSkewSeconds = DefaultMaxClockSkewSeconds)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (!IsViewRequest(request.Path)
+        if (!IsEligibleRequestPath(request.Path)
             || string.IsNullOrEmpty(rawApiKey)
             || !TryReadHeaders(request, out var profileId, out var timestamp, out var suppliedSignature))
         {
@@ -106,6 +106,12 @@ public static class ViewProfileAssertion
         }
     }
 
-    private static bool IsViewRequest(PathString path) =>
-        path.StartsWithSegments("/view", StringComparison.OrdinalIgnoreCase);
+    /// <summary>
+    /// Profile identity is intentionally scoped to surfaces that enforce
+    /// personal-media policy. Other API routes must not acquire it merely
+    /// because assertion-shaped headers were supplied.
+    /// </summary>
+    public static bool IsEligibleRequestPath(PathString path) =>
+        path.StartsWithSegments("/view", StringComparison.OrdinalIgnoreCase)
+        || path.StartsWithSegments("/collections", StringComparison.OrdinalIgnoreCase);
 }

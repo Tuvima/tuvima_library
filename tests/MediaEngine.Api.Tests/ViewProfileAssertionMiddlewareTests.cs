@@ -38,6 +38,26 @@ public sealed class ViewProfileAssertionMiddlewareTests
     }
 
     [Fact]
+    public async Task ValidAssertionAlsoPopulatesCollectionsPersonalMediaContext()
+    {
+        var profileId = Guid.NewGuid();
+        var context = Request("GET", "/collections", "?include=view");
+        context.Request.Headers["X-Api-Key"] = RawKey;
+        Sign(context.Request, profileId, DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        ViewRequestProfile? captured = null;
+        var middleware = new ApiKeyMiddleware(ctx =>
+        {
+            captured = new HttpViewRequestProfileContext(
+                new HttpContextAccessor { HttpContext = ctx }).Current;
+            return Task.CompletedTask;
+        });
+
+        await middleware.InvokeAsync(context, Cache(), Configuration());
+
+        Assert.Equal(profileId, captured!.ProfileId);
+    }
+
+    [Fact]
     public async Task UnsignedProfileHeaderWithValidApiKeyIsNotTrusted()
     {
         var context = Request("GET", "/view/assets");
@@ -60,6 +80,7 @@ public sealed class ViewProfileAssertionMiddlewareTests
     [Theory]
     [InlineData("stale")]
     [InlineData("query-tampered")]
+    [InlineData("path-tampered")]
     [InlineData("signature-tampered")]
     public void InvalidAssertionIsRejectedWithoutTrustingItsProfile(string failure)
     {
@@ -74,6 +95,10 @@ public sealed class ViewProfileAssertionMiddlewareTests
         {
             request.QueryString = new QueryString("?scope=shared");
         }
+        else if (failure == "path-tampered")
+        {
+            request.Path = "/view/other-assets";
+        }
         else if (failure == "signature-tampered")
         {
             request.Headers[ViewProfileAssertion.SignatureHeader] = "AAAA";
@@ -82,6 +107,25 @@ public sealed class ViewProfileAssertionMiddlewareTests
         var result = ViewProfileAssertion.Verify(request, RawKey, "Consumer", now);
 
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task AssertionHeadersNeverPopulateContextOnUnrelatedRoutes()
+    {
+        var context = Request("GET", "/libraries");
+        context.Request.Headers["X-Api-Key"] = RawKey;
+        Sign(context.Request, Guid.NewGuid(), DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        ViewRequestProfile? captured = new(Guid.NewGuid(), "sentinel");
+        var middleware = new ApiKeyMiddleware(ctx =>
+        {
+            captured = new HttpViewRequestProfileContext(
+                new HttpContextAccessor { HttpContext = ctx }).Current;
+            return Task.CompletedTask;
+        });
+
+        await middleware.InvokeAsync(context, Cache(), Configuration());
+
+        Assert.Null(captured);
     }
 
     [Fact]
