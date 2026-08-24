@@ -1,157 +1,140 @@
-using MediaEngine.Contracts.LocalAssets;
-using MediaEngine.Contracts.Ingestion;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
+using MediaEngine.Contracts.LocalAssets;
+using MediaEngine.Domain.PersonalMedia;
 
 namespace MediaEngine.Web.Services.Integration;
 
 public sealed partial class EngineApiClient
 {
-    public Task<IReadOnlyList<ViewLibrarySummaryDto>> GetViewLibrariesAsync(Guid profileId, CancellationToken ct = default) =>
-        GetAsync<IReadOnlyList<ViewLibrarySummaryDto>>(
-            "GET /view/libraries",
-            "/view/libraries",
-            static () => [],
-            new Dictionary<string, string?> { ["profileId"] = profileId.ToString("D") },
-            ct: ct);
-
-    public Task<LocalAssetPageDto?> GetViewItemsAsync(
-        Guid libraryId,
-        Guid profileId,
-        string? search = null,
-        string? kind = null,
-        bool favorites = false,
-        bool hidden = false,
-        int offset = 0,
-        int limit = 120,
-        CancellationToken ct = default)
-    {
-        var query = new Dictionary<string, string?>
+    public Task<ViewScopeResolutionDto?> GetViewScopesAsync(ViewScopeKind? scope = null, Guid? scopeProfileId = null, CancellationToken ct = default) =>
+        GetAsync<ViewScopeResolutionDto>("GET /view/scopes", "/view/scopes", new Dictionary<string, string?>
         {
-            ["profileId"] = profileId.ToString("D"),
-            ["q"] = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
-            ["kind"] = string.IsNullOrWhiteSpace(kind) ? null : kind.Trim(),
-            ["favorite"] = favorites ? "true" : null,
-            ["hidden"] = hidden ? "true" : null,
-            ["offset"] = Math.Max(0, offset).ToString(System.Globalization.CultureInfo.InvariantCulture),
-            ["limit"] = Math.Clamp(limit, 1, 500).ToString(System.Globalization.CultureInfo.InvariantCulture),
-        };
-        return GetAsync<LocalAssetPageDto>(
-            $"GET /view/{libraryId:D}",
-            $"/view/{libraryId:D}",
-            query,
-            ct: ct);
+            ["scope"] = scope.HasValue ? ScopeValue(scope.Value) : null,
+            ["scopeProfileId"] = scopeProfileId?.ToString("D"),
+        }, ct: ct);
+
+    public Task<ViewPreferencesDto?> GetViewPreferencesAsync(CancellationToken ct = default) =>
+        GetAsync<ViewPreferencesDto>("GET /view/preferences", "/view/preferences", ct: ct);
+
+    public async Task<ViewPreferencesDto?> UpdateViewPreferencesAsync(ViewScopeKind scope, Guid? scopeProfileId, ViewTimelineDensity timelineDensity, CancellationToken ct = default)
+    {
+        const string endpoint = "PUT /view/preferences";
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, "/view/preferences")
+            {
+                Content = JsonContent.Create(new ViewPreferencesRequest(ScopeValue(scope), scopeProfileId, timelineDensity)),
+            };
+            using var response = await _http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode) { await RecordHttpFailureAsync(endpoint, response, ct); return null; }
+            ClearFailure(endpoint);
+            return await response.Content.ReadFromJsonAsync<ViewPreferencesDto>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex) { RecordExceptionFailure(endpoint, ex, true); return null; }
     }
 
-    public Task<LocalAssetScanResultDto?> ScanViewLibraryAsync(Guid libraryId, Guid profileId, CancellationToken ct = default) =>
-        PostAsync<object, LocalAssetScanResultDto>(
-            $"POST /view/{libraryId:D}/scan",
-            $"/view/{libraryId:D}/scan?profileId={profileId:D}",
-            new { },
-            ct: ct);
+    public Task<ViewAssetTimelinePageDto?> GetViewAssetsAsync(ViewAssetQueryOptions options, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        AddQuery(query, "scope", ScopeValue(options.Scope));
+        AddQuery(query, "scopeProfileId", options.ScopeProfileId?.ToString("D"));
+        AddQuery(query, "cursor", options.Cursor);
+        AddQuery(query, "q", options.Search?.Trim());
+        foreach (var kind in options.Kinds ?? []) AddQuery(query, "kind", kind);
+        AddQuery(query, "favorite", options.FavoritesOnly ? "true" : null);
+        AddQuery(query, "hidden", options.HiddenOnly ? "true" : null);
+        AddQuery(query, "lifecycle", options.Lifecycle);
+        AddQuery(query, "galleryId", options.GalleryId?.ToString("D"));
+        AddQuery(query, "limit", Math.Clamp(options.Limit, 1, 500).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return GetAsync<ViewAssetTimelinePageDto>("GET /view/assets", $"/view/assets?{string.Join('&', query)}", ct: ct);
+    }
 
-    public Task<bool> SetViewItemFavoriteAsync(
-        Guid libraryId,
-        Guid itemId,
-        Guid profileId,
-        bool value,
-        CancellationToken ct = default) =>
-        SetViewItemFlagAsync(libraryId, itemId, profileId, "favorite", value, ct);
+    public Task<ViewPeoplePageDto?> GetViewPeopleAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default) =>
+        GetViewDiscoveryAsync<ViewPeoplePageDto>("people", options, ct);
 
-    public Task<bool> SetViewItemHiddenAsync(
-        Guid libraryId,
-        Guid itemId,
-        Guid profileId,
-        bool value,
-        CancellationToken ct = default) =>
-        SetViewItemFlagAsync(libraryId, itemId, profileId, "hidden", value, ct);
+    public Task<ViewPlacesPageDto?> GetViewPlacesAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default) =>
+        GetViewDiscoveryAsync<ViewPlacesPageDto>("places", options, ct);
 
-    public async Task<ViewMediaUploadResult> UploadViewMediaAsync(
-        Guid destinationLibraryId,
-        Stream fileStream,
-        string fileName,
-        string? contentType = null,
-        CancellationToken ct = default)
+    public async Task<ViewUploadResult> UploadViewMediaAsync(Stream fileStream, string fileName, string? contentType = null, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(fileStream);
         ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
-
         try
         {
             using var content = new MultipartFormDataContent();
             using var fileContent = new StreamContent(fileStream);
-            if (MediaTypeHeaderValue.TryParse(contentType, out var mediaType))
-                fileContent.Headers.ContentType = mediaType;
+            if (MediaTypeHeaderValue.TryParse(contentType, out var mediaType)) fileContent.Headers.ContentType = mediaType;
             content.Add(fileContent, "file", Path.GetFileName(fileName));
-            content.Add(new StringContent(destinationLibraryId.ToString("D")), "destinationLibraryId");
-
-            using var response = await _http.PostAsync("/ingestion/upload", content, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-            {
-                return new ViewMediaUploadResult(
-                    false,
-                    ErrorMessage: await ReadUploadErrorAsync(response, ct).ConfigureAwait(false));
-            }
-
-            var upload = await response.Content
-                .ReadFromJsonAsync<UploadMediaResponse>(cancellationToken: ct)
-                .ConfigureAwait(false);
-            return upload is null
-                ? new ViewMediaUploadResult(false, ErrorMessage: "The Engine accepted the upload but returned no result.")
-                : new ViewMediaUploadResult(true, upload);
+            using var response = await _http.PostAsync("/view/uploads", content, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode) return new(false, ErrorMessage: await ReadViewErrorAsync(response, ct));
+            var upload = await response.Content.ReadFromJsonAsync<ViewUploadResponseDto>(cancellationToken: ct);
+            return upload is null ? new(false, ErrorMessage: "The Engine returned no upload result.") : new(true, upload);
         }
-        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-        {
-            return new ViewMediaUploadResult(false, ErrorMessage: "The upload timed out before it completed.");
-        }
-        catch (OperationCanceledException)
-        {
-            return new ViewMediaUploadResult(false, ErrorMessage: "The upload was canceled.");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /ingestion/upload failed for View library {LibraryId}", destinationLibraryId);
-            return new ViewMediaUploadResult(false, ErrorMessage: "The Dashboard could not reach the Engine to upload this file.");
-        }
+        catch (OperationCanceledException) { return new(false, ErrorMessage: "The upload was canceled."); }
+        catch (Exception ex) { _logger.LogWarning(ex, "POST /view/uploads failed"); return new(false, ErrorMessage: "The Dashboard could not upload this file."); }
     }
 
-    private Task<bool> SetViewItemFlagAsync(
-        Guid libraryId,
-        Guid itemId,
-        Guid profileId,
-        string flag,
-        bool value,
-        CancellationToken ct) =>
-        PutAsync(
-            $"PUT /view/{libraryId:D}/items/{itemId:D}/{flag}",
-            $"/view/{libraryId:D}/items/{itemId:D}/{flag}?profileId={profileId:D}",
-            new SetLocalAssetFlagRequest(value),
-            ct: ct);
+    public Task<bool> SetViewItemFavoriteAsync(Guid itemId, bool value, CancellationToken ct = default) =>
+        PutAsync("PUT /view/items/{id}/favorite", $"/view/items/{itemId:D}/favorite", new SetLocalAssetFlagRequest(value), ct: ct);
+    public Task<bool> SetViewItemHiddenAsync(Guid itemId, bool value, CancellationToken ct = default) =>
+        PutAsync("PUT /view/items/{id}/hidden", $"/view/items/{itemId:D}/hidden", new SetLocalAssetFlagRequest(value), ct: ct);
+    public Task<bool> ArchiveViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "archive", ct);
+    public Task<bool> TrashViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "trash", ct);
+    public Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "restore", ct);
 
-    private static async Task<string> ReadUploadErrorAsync(
-        HttpResponseMessage response,
-        CancellationToken ct)
+    public Task<ViewGalleryListResponse?> GetViewGalleriesAsync(CancellationToken ct = default) =>
+        GetAsync<ViewGalleryListResponse>("GET /view/galleries", "/view/galleries", ct: ct);
+    public Task<ViewGalleryDto?> GetViewGalleryAsync(Guid galleryId, CancellationToken ct = default) =>
+        GetAsync<ViewGalleryDto>("GET /view/galleries/{id}", $"/view/galleries/{galleryId:D}", ct: ct);
+    public Task<ViewGalleryDto?> CreateViewGalleryAsync(ViewGalleryRequest request, CancellationToken ct = default) =>
+        PostAsync<ViewGalleryRequest, ViewGalleryDto>("POST /view/galleries", "/view/galleries", request, ct: ct);
+
+    public async Task<ViewGalleryDto?> UpdateViewGalleryAsync(Guid galleryId, ViewGalleryRequest request, CancellationToken ct = default)
+    {
+        using var message = new HttpRequestMessage(HttpMethod.Put, $"/view/galleries/{galleryId:D}") { Content = JsonContent.Create(request) };
+        using var response = await _http.SendAsync(message, ct);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<ViewGalleryDto>(cancellationToken: ct) : null;
+    }
+
+    public Task<bool> DeleteViewGalleryAsync(Guid galleryId, CancellationToken ct = default) =>
+        DeleteAsync("DELETE /view/galleries/{id}", $"/view/galleries/{galleryId:D}", ct: ct);
+    public Task<AddViewGalleryItemsResponseDto?> AddViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default) =>
+        PostAsync<ViewGalleryItemsRequest, AddViewGalleryItemsResponseDto>("POST /view/galleries/{id}/items", $"/view/galleries/{galleryId:D}/items", new ViewGalleryItemsRequest(itemIds), ct: ct);
+
+    public async Task<ViewItemsRemovedResponse?> RemoveViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"/view/galleries/{galleryId:D}/items") { Content = JsonContent.Create(new ViewGalleryItemsRequest(itemIds)) };
+        using var response = await _http.SendAsync(request, ct);
+        return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<ViewItemsRemovedResponse>(cancellationToken: ct) : null;
+    }
+
+    private Task<bool> LifecycleAsync(Guid itemId, string action, CancellationToken ct) =>
+        PostAsync("POST /view/items/{id}/lifecycle", $"/view/items/{itemId:D}/{action}", new { }, ct: ct);
+
+    private Task<T?> GetViewDiscoveryAsync<T>(string resource, ViewDiscoveryQueryOptions options, CancellationToken ct)
+    {
+        var query = new List<string>();
+        AddQuery(query, "scope", ScopeValue(options.Scope));
+        AddQuery(query, "scopeProfileId", options.ScopeProfileId?.ToString("D"));
+        AddQuery(query, "q", options.Search?.Trim());
+        AddQuery(query, "cursor", options.Cursor);
+        AddQuery(query, "limit", Math.Clamp(options.Limit, 1, 100).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return GetAsync<T>($"GET /view/{resource}", $"/view/{resource}?{string.Join('&', query)}", ct: ct);
+    }
+    private static string ScopeValue(ViewScopeKind scope) => scope.ToString().ToLowerInvariant();
+
+    private static async Task<string> ReadViewErrorAsync(HttpResponseMessage response, CancellationToken ct)
     {
         try
         {
-            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
-            if (document.RootElement.TryGetProperty("detail", out var detail)
-                && !string.IsNullOrWhiteSpace(detail.GetString()))
-            {
-                return detail.GetString()!;
-            }
-            if (document.RootElement.TryGetProperty("title", out var title)
-                && !string.IsNullOrWhiteSpace(title.GetString()))
-            {
-                return title.GetString()!;
-            }
+            using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            if (document.RootElement.TryGetProperty("detail", out var detail) && !string.IsNullOrWhiteSpace(detail.GetString())) return detail.GetString()!;
+            if (document.RootElement.TryGetProperty("title", out var title) && !string.IsNullOrWhiteSpace(title.GetString())) return title.GetString()!;
         }
-        catch (JsonException)
-        {
-            // Fall back to a truthful status-based message for non-problem responses.
-        }
-
-        return $"The Engine rejected the upload ({(int)response.StatusCode} {response.ReasonPhrase}).";
+        catch (JsonException) { }
+        return $"The Engine rejected the request ({(int)response.StatusCode}).";
     }
 }

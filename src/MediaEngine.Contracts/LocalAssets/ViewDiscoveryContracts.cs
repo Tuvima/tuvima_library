@@ -20,6 +20,7 @@ public sealed record ViewPlaceDto(
     [property: JsonPropertyName("latitude")] double Latitude,
     [property: JsonPropertyName("longitude")] double Longitude,
     [property: JsonPropertyName("asset_count")] int AssetCount,
+    [property: JsonPropertyName("representative_library_id")] Guid RepresentativeLibraryId,
     [property: JsonPropertyName("representative_asset_id")] Guid RepresentativeAssetId);
 
 public sealed record ViewPlacesPageDto(
@@ -32,6 +33,7 @@ public sealed record ViewPersonDto(
     [property: JsonPropertyName("key")] string Key,
     [property: JsonPropertyName("display_name")] string DisplayName,
     [property: JsonPropertyName("asset_count")] int AssetCount,
+    [property: JsonPropertyName("representative_library_id")] Guid RepresentativeLibraryId,
     [property: JsonPropertyName("representative_asset_id")] Guid RepresentativeAssetId,
     [property: JsonPropertyName("annotation_kinds")] IReadOnlyList<string> AnnotationKinds,
     [property: JsonPropertyName("provenance_sources")] IReadOnlyList<string> ProvenanceSources,

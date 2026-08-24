@@ -1,20 +1,24 @@
 @page "/view/places"
+@using MediaEngine.Contracts.LocalAssets
+@inject IEngineApiClient ApiClient
+@inject ViewWorkspaceService Workspace
+@inject UIOrchestratorService Orchestrator
+@inject ViewMediaGrantService MediaGrants
 @namespace MediaEngine.Web.Components.Pages
-
 <PageTitle>Places - Tuvima</PageTitle>
-
-<ViewSectionShell>
-    <div class="view-feature-page">
-        <header class="view-feature-page__header">
-            <div>
-                <span>View</span>
-                <h1>Places</h1>
-                <p>Explore personal photos by the location metadata already stored in their files.</p>
-            </div>
-        </header>
-
-        <AppPageState Kind="AppPageStateKind.Empty"
-                      Title="No places to show yet"
-                      Message="Location groups will appear here after the Places query and privacy-safe map capability are connected." />
-    </div>
-</ViewSectionShell>
+<ViewSectionShell><div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>Places</h1><p>Explore personal photos using location metadata already stored in their files.</p></div></header>
+<label class="view-search"><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Type="search" Value="@_search" ValueChanged="SearchChanged" Placeholder="Search places" AriaLabel="Search places" /></label>
+@if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Places" Message="Looking at indexed location metadata." /> }
+else if (_page is null) { <AppErrorState Title="Places could not be loaded" Message="The discovery service did not return a result." Retry="LoadAsync" /> }
+else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@(_page.Capability.State == ViewDiscoveryCapabilityStates.NoMatches ? "No matching places" : "No places to show yet")" Message="@_page.Capability.Message" /> }
+else { <section class="view-place-clusters" aria-label="Location clusters from stored coordinates"><h2>Location clusters</h2><p>This coordinate overview uses only metadata from your files; no third-party map tiles are loaded.</p><div>@foreach (var place in _page.Items.Take(8)) { <span><strong>@place.Name</strong> @place.Latitude.ToString("0.##"), @place.Longitude.ToString("0.##") · @place.AssetCount</span> }</div></section><h2>Top Places</h2><section class="view-discovery-grid" aria-label="Places">@foreach (var place in _page.Items) { <article class="view-discovery-card"><img src="@Thumbnail(place.RepresentativeLibraryId, place.RepresentativeAssetId)" alt="" loading="lazy" /><strong>@place.Name</strong><span>@place.AssetCount photos</span><small>@place.Latitude.ToString("0.###"), @place.Longitude.ToString("0.###")</small></article> }</section>@if (_page.HasMore) { <AppButton Variant="Variant.Outlined" OnClick="LoadMoreAsync">Load more</AppButton> } }
+</div></ViewSectionShell>
+@code {
+    private ViewPlacesPageDto? _page; private string _search = ""; private bool _loading = true; private Guid? _profileId;
+    protected override async Task OnInitializedAsync() { await Workspace.InitializeAsync(); _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await LoadAsync(); }
+    private ViewDiscoveryQueryOptions Query(string? cursor = null) => new(Workspace.ScopeKind, Workspace.ScopeProfileId, _search, cursor, 50);
+    private async Task LoadAsync() { _loading = true; _page = await ApiClient.GetViewPlacesAsync(Query()); _loading = false; }
+    private async Task SearchChanged(object? value) { _search = value?.ToString() ?? ""; await LoadAsync(); }
+    private async Task LoadMoreAsync() { if (_page?.NextCursor is null) return; var next = await ApiClient.GetViewPlacesAsync(Query(_page.NextCursor)); if (next is not null) _page = next with { Items = [.. _page.Items, .. next.Items] }; }
+    private string Thumbnail(Guid libraryId, Guid assetId) => _profileId.HasValue ? $"/view-media/{MediaGrants.Create(_profileId.Value, libraryId, assetId, ViewMediaResourceKind.Thumbnail).Value}" : "";
+}

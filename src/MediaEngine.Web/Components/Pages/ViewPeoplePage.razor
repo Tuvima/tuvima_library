@@ -1,20 +1,24 @@
 @page "/view/people"
+@using MediaEngine.Contracts.LocalAssets
+@inject IEngineApiClient ApiClient
+@inject ViewWorkspaceService Workspace
+@inject UIOrchestratorService Orchestrator
+@inject ViewMediaGrantService MediaGrants
 @namespace MediaEngine.Web.Components.Pages
-
 <PageTitle>People - Tuvima</PageTitle>
-
-<ViewSectionShell>
-    <div class="view-feature-page">
-        <header class="view-feature-page__header">
-            <div>
-                <span>View</span>
-                <h1>People</h1>
-                <p>Browse people recognized in your personal photos when local analysis is available.</p>
-            </div>
-        </header>
-
-        <AppPageState Kind="AppPageStateKind.Unavailable"
-                      Title="People discovery is not available yet"
-                      Message="No face-analysis capability is connected, so Tuvima will not invent people or matches." />
-    </div>
-</ViewSectionShell>
+<ViewSectionShell><div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>People</h1><p>Browse named and reviewed people evidence stored with your personal photos.</p></div></header>
+<label class="view-search"><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Type="search" Value="@_search" ValueChanged="SearchChanged" Placeholder="Search people" AriaLabel="Search people" /></label>
+@if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading People" Message="Looking at indexed local metadata." /> }
+else if (_page is null) { <AppErrorState Title="People could not be loaded" Message="The discovery service did not return a result." Retry="LoadAsync" /> }
+else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@(_page.Capability.State == ViewDiscoveryCapabilityStates.NoMatches ? "No matching people" : "No people to show yet")" Message="@_page.Capability.Message" /> }
+else { <section class="view-discovery-grid" aria-label="People">@foreach (var person in _page.Items) { <article class="view-discovery-card"><img src="@Thumbnail(person.RepresentativeLibraryId, person.RepresentativeAssetId)" alt="" loading="lazy" /><strong>@person.DisplayName</strong><span>@person.AssetCount photos</span>@if (person.HasReviewedEvidence) { <small>Reviewed identity</small> }</article> }</section>@if (_page.HasMore) { <AppButton Variant="Variant.Outlined" OnClick="LoadMoreAsync">Load more</AppButton> } }
+</div></ViewSectionShell>
+@code {
+    private ViewPeoplePageDto? _page; private string _search = ""; private bool _loading = true; private Guid? _profileId;
+    protected override async Task OnInitializedAsync() { await Workspace.InitializeAsync(); _profileId = (await Orchestrator.GetActiveProfileAsync())?.Id; await LoadAsync(); }
+    private ViewDiscoveryQueryOptions Query(string? cursor = null) => new(Workspace.ScopeKind, Workspace.ScopeProfileId, _search, cursor);
+    private async Task LoadAsync() { _loading = true; _page = await ApiClient.GetViewPeopleAsync(Query()); _loading = false; }
+    private async Task SearchChanged(object? value) { _search = value?.ToString() ?? ""; await LoadAsync(); }
+    private async Task LoadMoreAsync() { if (_page?.NextCursor is null) return; var next = await ApiClient.GetViewPeopleAsync(Query(_page.NextCursor)); if (next is not null) _page = next with { Items = [.. _page.Items, .. next.Items] }; }
+    private string Thumbnail(Guid libraryId, Guid assetId) => _profileId.HasValue ? $"/view-media/{MediaGrants.Create(_profileId.Value, libraryId, assetId, ViewMediaResourceKind.Thumbnail).Value}" : "";
+}

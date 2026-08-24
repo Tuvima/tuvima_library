@@ -11,26 +11,24 @@ public sealed class ViewLibrarySurfaceTests
         Assert.DoesNotContain("@page \"/view/{LibraryId:guid}\"", source, StringComparison.Ordinal);
         Assert.Contains("<ViewSectionShell>", source, StringComparison.Ordinal);
         Assert.Contains("<PageTitle>Photos - Tuvima</PageTitle>", source, StringComparison.Ordinal);
-        Assert.Contains("Search names, dates, devices, locations, and tags", source, StringComparison.Ordinal);
+        Assert.Contains("Search photos, dates, devices, locations, and tags", source, StringComparison.Ordinal);
         Assert.Contains("role=\"tablist\"", source, StringComparison.Ordinal);
-        Assert.Contains("aria-modal=\"true\"", source, StringComparison.Ordinal);
+        Assert.Contains("<ViewImmersiveViewer", source, StringComparison.Ordinal);
         Assert.Contains("ToggleFavoriteAsync", source, StringComparison.Ordinal);
-        Assert.Contains("ToggleHiddenAsync", source, StringComparison.Ordinal);
+        Assert.Contains("ArchiveViewItemAsync", source, StringComparison.Ordinal);
+        Assert.Contains("TrashViewItemAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("view-tile__actions", source, StringComparison.Ordinal);
-        Assert.Contains("IsVideo", source, StringComparison.Ordinal);
-        Assert.Contains("IsDocument", source, StringComparison.Ordinal);
-        Assert.Contains("IsAudio", source, StringComparison.Ordinal);
+        Assert.Contains("GetViewAssetsAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("profileId=", source, StringComparison.Ordinal);
         Assert.Contains("ViewMediaGrantService", source, StringComparison.Ordinal);
         Assert.Contains("/view-media/{grant.Value}", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ToAbsoluteEngineUrl", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SupplyParameterFromQuery", source, StringComparison.Ordinal);
         Assert.Contains("Photos quick filters", source, StringComparison.Ordinal);
-        Assert.Contains(">All</AppNativeButton>", source, StringComparison.Ordinal);
-        Assert.Contains(">Favorites</AppNativeButton>", source, StringComparison.Ordinal);
-        Assert.Contains(">Videos</AppNativeButton>", source, StringComparison.Ordinal);
-        Assert.Contains(">Archive</AppNativeButton>", source, StringComparison.Ordinal);
-        Assert.Contains("Disabled=\"true\">Archive", source, StringComparison.Ordinal);
+        Assert.Contains("[\"all\"] = \"All\"", source, StringComparison.Ordinal);
+        Assert.Contains("[\"favorites\"] = \"Favorites\"", source, StringComparison.Ordinal);
+        Assert.Contains("[\"videos\"] = \"Videos\"", source, StringComparison.Ordinal);
+        Assert.Contains("[\"archive\"] = \"Archive\"", source, StringComparison.Ordinal);
         Assert.Contains("Add media", source, StringComparison.Ordinal);
         Assert.Contains("<InputFile", source, StringComparison.Ordinal);
         Assert.Contains("UploadViewMediaAsync", source, StringComparison.Ordinal);
@@ -55,7 +53,7 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("new(\"Galleries\", \"/view/galleries\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"People\", \"/view/people\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"Places\", \"/view/places\"", shell, StringComparison.Ordinal);
-        Assert.Equal(4, shell.Split("Exact: true", StringSplitOptions.None).Length - 1);
+        Assert.Equal(1, shell.Split("new(\"Photos\", \"/view\"", StringSplitOptions.None).Length - 1);
         Assert.DoesNotContain("Libraries", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Favorites", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Videos", shell, StringComparison.Ordinal);
@@ -74,13 +72,34 @@ public sealed class ViewLibrarySurfaceTests
         var people = Read("src/MediaEngine.Web/Components/Pages/ViewPeoplePage.razor");
         var places = Read("src/MediaEngine.Web/Components/Pages/ViewPlacesPage.razor");
 
-        Assert.Contains("AppPageStateKind.Empty", galleries, StringComparison.Ordinal);
-        Assert.Contains("AppPageStateKind.Unavailable", people, StringComparison.Ordinal);
-        Assert.Contains("will not invent people or matches", people, StringComparison.Ordinal);
+        Assert.Contains("CreateViewGalleryAsync", galleries, StringComparison.Ordinal);
+        Assert.Contains("ViewRuleBuilder", galleries, StringComparison.Ordinal);
+        Assert.Contains("ViewDiscoveryCapabilityStates", people, StringComparison.Ordinal);
+        Assert.Contains("GetViewPeopleAsync", people, StringComparison.Ordinal);
         Assert.Contains("AppPageStateKind.Empty", places, StringComparison.Ordinal);
-        Assert.DoesNotContain("foreach", galleries, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("foreach", people, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("foreach", places, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("GetViewPlacesAsync", places, StringComparison.Ordinal);
+        Assert.DoesNotContain("fake", galleries, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ViewPhotosAndGalleries_ExposeTypedSelectionAndManualOnlyDrops()
+    {
+        var photos = Read("src/MediaEngine.Web/Components/Pages/ViewPage.razor");
+        var timeline = Read("src/MediaEngine.Web/Components/Pages/ViewPhotoTimeline.razor");
+        var galleries = Read("src/MediaEngine.Web/Components/Pages/ViewGalleriesPage.razor");
+        var shell = Read("src/MediaEngine.Web/Components/Pages/ViewSectionShell.razor");
+
+        Assert.Contains("ViewSelectionToolbar", photos, StringComparison.Ordinal);
+        Assert.Contains("OnSelectDateGroup", timeline, StringComparison.Ordinal);
+        Assert.Contains("DurationSeconds", timeline, StringComparison.Ordinal);
+        Assert.Contains("ViewGalleryKind.Manual", galleries, StringComparison.Ordinal);
+        Assert.Contains("ViewGalleryKind.Smart", galleries, StringComparison.Ordinal);
+        Assert.Contains("<ViewRuleBuilder", galleries, StringComparison.Ordinal);
+        Assert.Contains(".Take(6)", shell, StringComparison.Ordinal);
+        Assert.Contains("new ManualGalleryNavigationDropTarget", shell, StringComparison.Ordinal);
+        Assert.Contains("new NewGalleryNavigationDropTarget", shell, StringComparison.Ordinal);
+        Assert.Contains("finally", shell, StringComparison.Ordinal);
+        Assert.Contains("AssetDrag.Clear()", shell, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -28,7 +28,7 @@ public sealed class ViewMediaEngineClient(HttpClient http) : IViewMediaEngineCli
             ViewMediaResourceKind.Content => "content",
             _ => throw new ArgumentOutOfRangeException(nameof(grant), "Unsupported View media resource kind."),
         };
-        var path = $"/view/{grant.LibraryId:D}/items/{grant.AssetId:D}/{resource}?profileId={grant.ProfileId:D}";
+        var path = $"/view/items/{grant.AssetId:D}/{resource}";
         var request = new HttpRequestMessage(method, path);
         AddHeader(request, "Range", range);
         AddHeader(request, "If-Range", ifRange);

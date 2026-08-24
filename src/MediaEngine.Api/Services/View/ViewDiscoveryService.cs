@@ -51,6 +51,7 @@ public sealed class ViewDiscoveryService(
             item.Latitude,
             item.Longitude,
             item.AssetCount,
+            item.RepresentativeLibraryId,
             item.RepresentativeAssetId)).ToList();
         var capability = Capability(
             page.HasEligibleData,
@@ -87,6 +88,7 @@ public sealed class ViewDiscoveryService(
             item.Key,
             item.DisplayName,
             item.AssetCount,
+            item.RepresentativeLibraryId,
             item.RepresentativeAssetId,
             item.AnnotationKinds,
             item.ProvenanceSources,
