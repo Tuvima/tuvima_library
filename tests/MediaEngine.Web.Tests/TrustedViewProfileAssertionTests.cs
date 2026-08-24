@@ -34,6 +34,25 @@ public sealed class TrustedViewProfileAssertionTests
             Header(capture.Request, ViewProfileAssertionHandler.SignatureHeader));
     }
 
+    [Fact]
+    public async Task Handler_AddsProfileOnly_WhenLocalEngineHasNoApiKey()
+    {
+        var accessor = new ActiveProfileAccessor();
+        accessor.SetProfile(ProfileId);
+        var capture = new CapturingHandler();
+        var handler = new ViewProfileAssertionHandler(accessor, string.Empty)
+        {
+            InnerHandler = capture,
+        };
+        using var client = new HttpClient(handler) { BaseAddress = new Uri("http://localhost:61495") };
+
+        await client.GetAsync("/view/scopes");
+
+        Assert.Equal(ProfileId.ToString("D"), Header(capture.Request!, ViewProfileAssertionHandler.ProfileHeader));
+        Assert.Null(Header(capture.Request!, ViewProfileAssertionHandler.TimestampHeader));
+        Assert.Null(Header(capture.Request!, ViewProfileAssertionHandler.SignatureHeader));
+    }
+
     [Theory]
     [InlineData("/profiles", true, true)]
     [InlineData("/viewfinder", true, true)]

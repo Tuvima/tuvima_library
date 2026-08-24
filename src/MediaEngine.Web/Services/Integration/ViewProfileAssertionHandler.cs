@@ -35,9 +35,14 @@ public sealed class ViewProfileAssertionHandler : DelegatingHandler
         RemoveAssertionHeaders(request);
 
         if (_activeProfile.ProfileId is { } profileId
-            && _keyBytes.Length > 0
             && IsEligibleRequest(request.RequestUri))
         {
+            request.Headers.TryAddWithoutValidation(ProfileHeader, profileId.ToString("D"));
+            if (_keyBytes.Length == 0)
+            {
+                return base.SendAsync(request, cancellationToken);
+            }
+
             var timestamp = _timeProvider.GetUtcNow().ToUnixTimeSeconds()
                 .ToString(CultureInfo.InvariantCulture);
             var canonicalTarget = CanonicalTarget(request.RequestUri!);
@@ -49,7 +54,6 @@ public sealed class ViewProfileAssertionHandler : DelegatingHandler
                 canonicalTarget);
             var signature = Sign(canonical);
 
-            request.Headers.TryAddWithoutValidation(ProfileHeader, profileId.ToString("D"));
             request.Headers.TryAddWithoutValidation(TimestampHeader, timestamp);
             request.Headers.TryAddWithoutValidation(SignatureHeader, signature);
         }
