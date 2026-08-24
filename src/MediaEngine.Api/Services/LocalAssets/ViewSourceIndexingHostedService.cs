@@ -16,7 +16,7 @@ public sealed class FileSystemViewSourceWatcherFactory : IViewSourceWatcherFacto
 /// canonical, provider, or Review Queue workflows.
 /// </summary>
 public sealed class ViewSourceIndexingHostedService(
-    IConfigurationLoader configuration,
+    ViewStorageService storage,
     IViewPathIndexer indexer,
     IViewSourceWatcherFactory watcherFactory,
     ViewSourceIndexingOptions options,
@@ -32,26 +32,23 @@ public sealed class ViewSourceIndexingHostedService(
     private IReadOnlyList<ViewSourceWatch> _sources = [];
     private bool _resourcesDisposed;
 
-    public static IReadOnlyList<ViewSourceWatch> SelectConfiguredSources(LibrariesConfiguration settings)
+    public static IReadOnlyList<ViewSourceWatch> SelectConfiguredSources(
+        IReadOnlyList<(MediaEngine.Domain.PersonalMedia.ViewPersonalSpace Space,
+            MediaEngine.Domain.PersonalMedia.ViewSource Source, string Path)> sources)
     {
-        ArgumentNullException.ThrowIfNull(settings);
+        ArgumentNullException.ThrowIfNull(sources);
         var result = new List<ViewSourceWatch>();
-        foreach (var library in settings.Libraries.Where(IsPersonalViewLibrary))
+        foreach (var entry in sources)
         {
-            if (!Guid.TryParse(library.Id, out var libraryId) || libraryId == Guid.Empty) continue;
-            foreach (var source in library.ScannableSources.Where(source =>
-                         LibrarySourceTypes.IsValid(source.SourceType)))
+            try
             {
-                try
-                {
-                    var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(source.Path));
-                    if (!string.IsNullOrWhiteSpace(root))
-                        result.Add(new ViewSourceWatch(libraryId, root, source.IncludeSubdirectories));
-                }
-                catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
-                {
-                    // Configuration validation reports malformed paths. The watcher fails closed.
-                }
+                var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(entry.Path));
+                if (!string.IsNullOrWhiteSpace(root))
+                    result.Add(new ViewSourceWatch(entry.Space.LibraryId, root, entry.Source.IncludeSubdirectories));
+            }
+            catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                // Persisted source validation reports malformed paths. The watcher fails closed.
             }
         }
 
@@ -90,11 +87,34 @@ public sealed class ViewSourceIndexingHostedService(
         return true;
     }
 
+    public async Task RefreshSourcesAsync(CancellationToken ct = default)
+    {
+        var next = SelectConfiguredSources(await storage.GetEnabledSourcesAsync(ct));
+        List<IViewSourceWatcher> previous;
+        lock (_lifecycleLock)
+        {
+            if (_resourcesDisposed) return;
+            previous = [.. _watchers];
+            _watchers.Clear();
+            _sources = next;
+        }
+        foreach (var watcher in previous)
+        {
+            watcher.FileChanged -= OnFileChanged;
+            watcher.WatcherError -= OnWatcherError;
+            try { watcher.Stop(); }
+            catch (Exception exception) { logger.LogDebug(exception, "View source watcher stop failed during refresh."); }
+            try { watcher.Dispose(); }
+            catch (Exception exception) { logger.LogDebug(exception, "View source watcher disposal failed during refresh."); }
+        }
+        StartWatchers();
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
-            _sources = SelectConfiguredSources(configuration.LoadLibraries());
+            _sources = SelectConfiguredSources(await storage.GetEnabledSourcesAsync(stoppingToken));
         }
         catch (Exception exception)
         {
@@ -299,11 +319,6 @@ public sealed class ViewSourceIndexingHostedService(
         DisposeResources();
         base.Dispose();
     }
-
-    private static bool IsPersonalViewLibrary(LibraryFolderConfig library) =>
-        string.Equals(library.Kind, LibraryKinds.Personal, StringComparison.Ordinal)
-        && string.Equals(library.Area, LibraryAreas.View, StringComparison.Ordinal)
-        && LibraryMetadataPolicies.BypassesExternalIdentity(library.MetadataPolicy);
 
     private static bool IsWithinSource(string fullPath, ViewSourceWatch source)
     {

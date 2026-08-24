@@ -39,13 +39,13 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
-    public void SaveLibraries_RoundTripsSchemaFourLibrarySourcesIncomingSourcesAndStorageLocations()
+    public void SaveLibraries_RoundTripsSchemaFiveCataloguedLibrariesIncomingSourcesAndViewStorage()
     {
         using var temp = TempConfig.Create();
         var loader = new ConfigurationDirectoryLoader(temp.Path);
         var config = new LibrariesConfiguration
         {
-            SchemaVersion = "4.0",
+            SchemaVersion = "5.0",
             StorageLocations =
             [
                 new ServerStorageLocationConfig
@@ -77,11 +77,12 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
                 new LibraryFolderConfig
                 {
                     Id = "44444444-4444-4444-8444-444444444444",
-                    Name = "Home Movies",
-                    Kind = LibraryKinds.Personal,
-                    Area = LibraryAreas.View,
-                    Presentation = LibraryPresentations.Video,
-                    MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
+                    Name = "Movies",
+                    Category = "Movies",
+                    Kind = LibraryKinds.Catalogued,
+                    Area = LibraryAreas.Watch,
+                    Presentation = LibraryPresentations.Catalogue,
+                    MetadataPolicy = LibraryMetadataPolicies.Enriched,
                     MediaTypes = ["Movies"],
                     Sources =
                     [
@@ -106,8 +107,7 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
                         },
                     ],
                     PrimaryDestinationSourceId = "44444444-aaaa-4444-8444-444444444444",
-                    OwnerProfileId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-                    Visibility = LibraryVisibility.Private,
+                    Visibility = LibraryVisibility.Household,
                     AcceptedIntakeModes = [LibraryIntakeModes.DragAndDrop, LibraryIntakeModes.BrowserUpload],
                     DuplicatePolicy = LibraryDuplicatePolicies.SkipExact,
                     OrganizationPolicy = new()
@@ -122,12 +122,12 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         loader.SaveLibraries(config);
         var roundTrip = loader.LoadLibraries().Libraries.Single();
 
-        Assert.Equal("Home Movies", roundTrip.Name);
+        Assert.Equal("Movies", roundTrip.Name);
         Assert.Equal("44444444-4444-4444-8444-444444444444", roundTrip.Id);
-        Assert.Equal(LibraryKinds.Personal, roundTrip.Kind);
-        Assert.Equal(LibraryAreas.View, roundTrip.Area);
-        Assert.Equal(LibraryPresentations.Video, roundTrip.Presentation);
-        Assert.Equal(LibraryMetadataPolicies.LocalOnly, roundTrip.MetadataPolicy);
+        Assert.Equal(LibraryKinds.Catalogued, roundTrip.Kind);
+        Assert.Equal(LibraryAreas.Watch, roundTrip.Area);
+        Assert.Equal(LibraryPresentations.Catalogue, roundTrip.Presentation);
+        Assert.Equal(LibraryMetadataPolicies.Enriched, roundTrip.MetadataPolicy);
         Assert.Equal(["Movies"], roundTrip.MediaTypes);
         Assert.Equal(2, roundTrip.Sources.Count);
         Assert.Equal(@"C:\media\home-movies", roundTrip.PrimaryDestination?.Path);
@@ -153,7 +153,35 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
-    public void SaveLibraries_RejectsMultiplePersonalLibrariesForOneProfile()
+    public void SaveLibraries_RequiresViewRootToReferenceWritableStorage()
+    {
+        using var temp = TempConfig.Create();
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var config = CreateValidCataloguedLibrary();
+        config.StorageLocations =
+        [
+            new ServerStorageLocationConfig
+            {
+                Id = "media",
+                Label = "Media",
+                Path = @"C:\",
+                AllowWrite = false,
+            },
+        ];
+        config.ViewStorage = new ViewStorageConfig
+        {
+            StorageLocationId = "media",
+            RelativeRoot = @"..\outside",
+        };
+
+        var ex = Assert.Throws<ConfigValidationException>(() => loader.SaveLibraries(config));
+
+        Assert.Contains("must reference a writable storage location", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("must be a contained relative path", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SaveLibraries_RejectsObsoletePersonalLibraryConfiguration()
     {
         using var temp = TempConfig.Create();
         var loader = new ConfigurationDirectoryLoader(temp.Path);
@@ -174,7 +202,7 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
 
         var ex = Assert.Throws<ConfigValidationException>(() => loader.SaveLibraries(config));
 
-        Assert.Contains("one Personal Space", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("personal libraries are obsolete", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -239,7 +267,7 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         var loader = new ConfigurationDirectoryLoader(temp.Path);
         var ex = Assert.Throws<ConfigValidationException>(() => loader.LoadLibraries());
 
-        Assert.Contains("schema_version must be 4.0", ex.Message);
+        Assert.Contains("schema_version must be 5.0", ex.Message);
         Assert.Contains("kind must be catalogued or personal", ex.Message);
         Assert.Contains("source_paths is not supported", ex.Message);
         Assert.Contains("library_root is not supported", ex.Message);

@@ -180,6 +180,7 @@ public sealed record ViewPersonalSpaceAdminReviewDto(
 
 public sealed record ViewPersonalSpaceAdminDto(
     [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("root_path")] string RootPath,
     [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
     [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt);
 
@@ -187,9 +188,23 @@ public sealed record ViewSourceAdminDto(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("source_type")] string SourceType,
     [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("storage_mode")] string StorageMode,
+    [property: JsonPropertyName("location")] string Location,
+    [property: JsonPropertyName("include_subdirectories")] bool IncludeSubdirectories,
+    [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("last_activity_at")] DateTimeOffset? LastActivityAt,
     [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
     [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt);
+
+public sealed record CreateViewSourceRequest(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("storage_mode")] string StorageMode,
+    [property: JsonPropertyName("path")] string? Path = null,
+    [property: JsonPropertyName("include_subdirectories")] bool IncludeSubdirectories = true);
+
+public sealed record UpdateViewSourceRequest(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("enabled")] bool Enabled);
 
 public sealed record ViewDeviceAdminDto(
     [property: JsonPropertyName("id")] Guid Id,

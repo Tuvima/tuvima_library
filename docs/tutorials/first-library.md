@@ -20,7 +20,7 @@ applicable, and understand where the result appears.
 
 ## Step 1 - Open Library Settings
 
-In the Dashboard, open **Settings > Media Management**.
+In the Dashboard, open **Settings > Libraries**.
 
 Create or select a library, then confirm:
 
@@ -28,8 +28,8 @@ Create or select a library, then confirm:
 - **Primary destination** - the managed source where organized files can live after intake.
 - **Organization template** - the folder/file naming pattern used during organization.
 - **Path checks** - whether the Engine can read and write the configured paths.
-- **Library kind** - catalogued or personal.
-- **Metadata policy** - enriched for known works, or local-only/manual when online identity matching must be bypassed.
+- **Library kind** - catalogued for administrator-created Read, Watch, and Listen libraries.
+- **Metadata policy** - enriched for known catalogue works.
 
 Save the settings when they look correct.
 
@@ -43,20 +43,24 @@ Copy a small set of supported files into the Watch Folder. Start with a few know
 - one comic archive if you use comics
 - a few mixed local files if you configured a source for your View Personal Space
 
-For photos, home videos, documents, lectures, audio notes, or private unmatched content, attach a **Local only** source to the owning profile's View Personal Space. Tuvima will not send those items through retail providers, Wikidata, or identity review. Files in an Existing library source remain in place; Managed by Tuvima sources may be organized only according to their explicit policy.
+For photos, home videos, documents, lectures, audio notes, or private unmatched
+content, enable View for the owning profile. Under **Settings > Users**, choose
+**Import folder** to copy files into that profile's managed source directory, or
+**Link existing folder** to index an external folder read-only. Tuvima will not
+send those items through retail providers, Wikidata, or identity review.
 
 Supported formats are listed in [Media Types](../reference/media-types.md).
 
 ## Step 3 - Begin The Correct Intake Path
 
 For a catalogued Read, Watch, or Listen library, start the administrator scan
-from **Settings > Media Management** when importing an existing folder. Then
+from **Settings > Libraries** when importing an existing folder. Then
 open **Settings > Ingestion**.
 
 For View, select the owning profile and open `/view`. The profile's Personal
 Space is the user-facing destination; sources and devices are provenance, not
-library choices. Browser upload resolves that space automatically. A View
-library scan exists only for administrator recovery/diagnostics and is not the
+library choices. Browser upload resolves that space automatically. View
+reconciliation exists only for administrator recovery/diagnostics and is not the
 normal Photos workflow.
 
 ## Step 4 - Watch The Pipeline

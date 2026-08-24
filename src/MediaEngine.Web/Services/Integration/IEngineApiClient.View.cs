@@ -28,6 +28,10 @@ public partial interface IEngineApiClient
     Task<AddViewGalleryItemsResponseDto?> AddViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
     Task<ViewItemsRemovedResponse?> RemoveViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
     Task<ViewPersonalSpaceAdminReviewDto?> GetViewProfileSourcesAsync(Guid profileId, CancellationToken ct = default);
+    Task<ViewSourceAdminDto?> CreateViewProfileSourceAsync(Guid profileId, CreateViewSourceRequest request, CancellationToken ct = default);
+    Task<ViewSourceAdminDto?> UpdateViewProfileSourceAsync(Guid profileId, Guid sourceId, UpdateViewSourceRequest request, CancellationToken ct = default);
+    Task<bool> DeleteViewProfileSourceAsync(Guid profileId, Guid sourceId, CancellationToken ct = default);
+    Task<LocalAssetScanResultDto?> ReconcileViewPersonalSpaceAsync(Guid profileId, CancellationToken ct = default);
 }
 
 public sealed record ViewAssetQueryOptions(

@@ -23,6 +23,7 @@ public sealed partial class SuccessResponseGuardrailTests
         "DeleteHighlight",
         "DeleteMediaType",
         "DeleteProfile",
+        "DeleteViewProfileSource",
         "DeleteProvider",
         "DeleteProviderConfig",
         "DownloadOfflineVariant",
@@ -168,7 +169,7 @@ public sealed partial class SuccessResponseGuardrailTests
             }
         }
 
-        Assert.Equal(411, routeCount);
+        Assert.Equal(414, routeCount);
         Assert.True(
             missingSuccessMetadata.Count == 0,
             "Routes missing explicit 2xx Produces metadata: " + string.Join(", ", missingSuccessMetadata));

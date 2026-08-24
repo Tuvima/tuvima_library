@@ -153,7 +153,9 @@ public sealed class ServerFolderBrowserServiceTests
         {
             Root = Path.Combine(Path.GetTempPath(), "tuvima-server-folder-tests", Guid.NewGuid().ToString("N"));
             AllowedRoot = Path.Combine(Root, "allowed");
+            ViewRoot = Path.Combine(Root, "view");
             Directory.CreateDirectory(AllowedRoot);
+            Directory.CreateDirectory(ViewRoot);
             Configuration = new ConfigurationDirectoryLoader(Path.Combine(Root, "config"));
             SaveConfiguration([], allowWrite);
             Service = new ServerFolderBrowserService(Configuration, NullLogger<ServerFolderBrowserService>.Instance);
@@ -161,6 +163,7 @@ public sealed class ServerFolderBrowserServiceTests
 
         public string Root { get; }
         public string AllowedRoot { get; }
+        public string ViewRoot { get; }
         public ConfigurationDirectoryLoader Configuration { get; }
         public ServerFolderBrowserService Service { get; }
 
@@ -198,7 +201,7 @@ public sealed class ServerFolderBrowserServiceTests
         {
             Configuration.SaveLibraries(new LibrariesConfiguration
             {
-                SchemaVersion = "4.0",
+                SchemaVersion = "5.0",
                 StorageLocations =
                 [
                     new ServerStorageLocationConfig
@@ -208,7 +211,19 @@ public sealed class ServerFolderBrowserServiceTests
                         Path = AllowedRoot,
                         AllowWrite = allowWrite,
                     },
+                    new ServerStorageLocationConfig
+                    {
+                        Id = "view",
+                        Label = "View",
+                        Path = ViewRoot,
+                        AllowWrite = true,
+                    },
                 ],
+                ViewStorage = new ViewStorageConfig
+                {
+                    StorageLocationId = "view",
+                    RelativeRoot = ".",
+                },
                 Libraries = libraries,
             });
         }

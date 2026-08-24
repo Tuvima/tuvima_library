@@ -91,9 +91,9 @@ public static class JsonConfigValidator
 
     private static void ValidateLibraries(LibrariesConfiguration config, List<string> errors)
     {
-        if (!string.Equals(config.SchemaVersion, "4.0", StringComparison.Ordinal))
+        if (!string.Equals(config.SchemaVersion, "5.0", StringComparison.Ordinal))
         {
-            errors.Add("schema_version must be 4.0; pre-beta library configuration is not migrated in place.");
+            errors.Add("schema_version must be 5.0; pre-beta library configuration is not migrated in place.");
         }
 
         AddNoUnmappedProperties(config.UnmappedProperties, "$", errors);
@@ -129,6 +129,28 @@ public static class JsonConfigValidator
             errors.Add("storage_locations must contain at least one explicitly allowed server folder root.");
         }
 
+        if (config.ViewStorage is null)
+        {
+            errors.Add("view_storage is required.");
+        }
+        else
+        {
+            AddRequired(errors, config.ViewStorage.StorageLocationId, "view_storage.storage_location_id");
+            AddRequired(errors, config.ViewStorage.RelativeRoot, "view_storage.relative_root");
+            AddNoUnmappedProperties(config.ViewStorage.UnmappedProperties, "view_storage", errors);
+            var viewLocation = config.StorageLocations.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, config.ViewStorage.StorageLocationId, StringComparison.OrdinalIgnoreCase));
+            if (viewLocation is null)
+                errors.Add("view_storage.storage_location_id must reference a configured storage location.");
+            else if (!viewLocation.AllowWrite)
+                errors.Add("view_storage.storage_location_id must reference a writable storage location.");
+            if (!string.IsNullOrWhiteSpace(config.ViewStorage.RelativeRoot)
+                && (Path.IsPathRooted(config.ViewStorage.RelativeRoot)
+                    || config.ViewStorage.RelativeRoot.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                        .Any(segment => segment == "..")))
+                errors.Add("view_storage.relative_root must be a contained relative path.");
+        }
+
         for (var left = 0; left < storageLocationPaths.Count; left++)
         {
             for (var right = left + 1; right < storageLocationPaths.Count; right++)
@@ -155,7 +177,6 @@ public static class JsonConfigValidator
 
         var ids = new HashSet<Guid>();
         var sourceIds = new HashSet<Guid>();
-        var personalOwners = new HashSet<Guid>();
         var normalizedPaths = new List<(string Path, string Field)>();
         for (var index = 0; index < config.Libraries.Count; index++)
         {
@@ -174,6 +195,10 @@ public static class JsonConfigValidator
             if (!LibraryKinds.IsValid(library.Kind))
             {
                 errors.Add($"{prefix}.kind must be catalogued or personal.");
+            }
+            else if (library.Kind == LibraryKinds.Personal)
+            {
+                errors.Add($"{prefix}.personal libraries are obsolete; View Personal Spaces and their sources are profile-owned records.");
             }
 
             if (!LibraryAreas.IsValid(library.Area))
@@ -212,14 +237,6 @@ public static class JsonConfigValidator
 
             ValidateLibrarySemantics(library, prefix, errors);
             ValidateProfileIds(library, prefix, errors);
-            if (library.Kind == LibraryKinds.Personal
-                && Guid.TryParse(library.OwnerProfileId, out var personalOwnerId)
-                && personalOwnerId != Guid.Empty
-                && !personalOwners.Add(personalOwnerId))
-            {
-                errors.Add($"{prefix}.owner_profile_id already owns a personal library; add folders and devices as sources of that profile's one Personal Space.");
-            }
-
             var intakeModes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var intakeMode in library.AcceptedIntakeModes)
             {
@@ -585,7 +602,7 @@ public static class JsonConfigValidator
     {
         foreach (var property in properties?.Keys ?? Enumerable.Empty<string>())
         {
-            errors.Add($"{prefix}.{property} is not supported by libraries schema 4.0.");
+            errors.Add($"{prefix}.{property} is not supported by libraries schema 5.0.");
         }
     }
 

@@ -537,9 +537,18 @@ CREATE TABLE IF NOT EXISTS view_sources (
                                                    'mobile_backup', 'network', 'other')),
     name                TEXT NOT NULL,
     source_key          TEXT,
+    storage_mode       TEXT NOT NULL DEFAULT 'managed'
+                            CHECK (storage_mode IN ('managed', 'linked')),
+    relative_path      TEXT,
+    external_path      TEXT,
+    include_subdirectories INTEGER NOT NULL DEFAULT 1
+                            CHECK (include_subdirectories IN (0, 1)),
+    enabled             INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
     last_activity_at    TEXT,
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL,
+    CHECK ((storage_mode = 'managed' AND relative_path IS NOT NULL AND external_path IS NULL)
+        OR (storage_mode = 'linked' AND external_path IS NOT NULL AND relative_path IS NULL)),
     UNIQUE (personal_space_id, source_key)
 );
 

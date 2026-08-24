@@ -19,6 +19,7 @@ public sealed class ViewLibraryService(
     IConfigurationLoader configuration,
     ILibraryAccessEvaluator accessEvaluator,
     IViewPersonalSpaceRepository spaces,
+    ViewStorageService storage,
     ILogger<ViewLibraryService> logger) : IViewPathIndexer
 {
     private const int MaxDocumentCharacters = 256 * 1024;
@@ -86,31 +87,24 @@ public sealed class ViewLibraryService(
         [".jpg", ".jpeg"],
         StringComparer.OrdinalIgnoreCase);
 
-    public bool IsPersonalViewLibrary(Guid libraryId) => FindLibrary(libraryId) is not null;
-
     public bool CanAccess(
         Guid libraryId,
         Guid? profileId,
         string? role,
         LibraryAccessAction action)
     {
-        var library = FindLibrary(libraryId);
-        if (library is null || !Guid.TryParse(library.OwnerProfileId, out var ownerProfileId))
+        var space = spaces.GetByLibraryAsync(libraryId).GetAwaiter().GetResult();
+        if (space is null)
         {
             return false;
         }
-
-        var authorizedProfileIds = library.AuthorizedProfileIds
-            .Select(value => Guid.TryParse(value, out var id) ? id : Guid.Empty)
-            .Where(id => id != Guid.Empty)
-            .ToHashSet();
         return accessEvaluator.IsAllowed(
             new LibraryAccessSubject(profileId ?? Guid.Empty, role ?? string.Empty),
             new LibraryAccessPolicy
             {
-                OwnerProfileId = ownerProfileId,
-                Visibility = library.Visibility,
-                AuthorizedProfileIds = authorizedProfileIds,
+                OwnerProfileId = space.OwnerProfileId,
+                Visibility = LibraryVisibility.Private,
+                AuthorizedProfileIds = new HashSet<Guid>(),
             },
             action);
     }
@@ -121,22 +115,20 @@ public sealed class ViewLibraryService(
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return GetPersonalViewLibraries()
-            .Where(library => Guid.TryParse(library.Id, out var id)
-                && CanAccess(id, profileId, role, LibraryAccessAction.Read))
-            .Select(library =>
+        return spaces.GetAllAsync(ct).GetAwaiter().GetResult()
+            .Where(space => CanAccess(space.LibraryId, profileId, role, LibraryAccessAction.Read))
+            .Select(space =>
             {
-                var id = Guid.Parse(library.Id);
                 return new ViewLibrarySummaryDto(
-                    id,
-                    library.Name,
-                    library.Presentation,
-                    library.Visibility,
-                    Count(id, null, ct),
-                    Count(id, LocalAssetMediaKinds.Image, ct),
-                    Count(id, LocalAssetMediaKinds.Video, ct),
-                    Count(id, LocalAssetMediaKinds.Document, ct),
-                    Count(id, LocalAssetMediaKinds.Audio, ct));
+                    space.LibraryId,
+                    "Personal Space",
+                    LibraryPresentations.MixedGallery,
+                    LibraryVisibility.Private,
+                    Count(space.LibraryId, null, ct),
+                    Count(space.LibraryId, LocalAssetMediaKinds.Image, ct),
+                    Count(space.LibraryId, LocalAssetMediaKinds.Video, ct),
+                    Count(space.LibraryId, LocalAssetMediaKinds.Document, ct),
+                    Count(space.LibraryId, LocalAssetMediaKinds.Audio, ct));
             })
             .ToList();
     }
@@ -145,8 +137,8 @@ public sealed class ViewLibraryService(
         Guid libraryId,
         CancellationToken ct = default)
     {
-        var library = FindLibrary(libraryId);
-        if (library is null) return null;
+        var space = await spaces.GetByLibraryAsync(libraryId, ct);
+        if (space is null) return null;
 
         var filesSeen = 0;
         var itemsAdded = 0;
@@ -155,13 +147,15 @@ public sealed class ViewLibraryService(
         var duplicates = 0;
         var errors = 0;
 
-        foreach (var source in library.ScannableSources.Where(source => Directory.Exists(source.Path)))
+        foreach (var source in (await spaces.GetSourcesAsync(space.Id, ct)).Where(source => source.Enabled))
         {
+            var sourcePath = storage.GetSourcePath(space, source);
+            if (!Directory.Exists(sourcePath)) continue;
             IReadOnlyList<string> paths;
             try
             {
                 paths = Directory.GetFiles(
-                    source.Path,
+                    sourcePath,
                     "*",
                     source.IncludeSubdirectories
                         ? SearchOption.AllDirectories
@@ -169,7 +163,7 @@ public sealed class ViewLibraryService(
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
-                logger.LogWarning(exception, "Could not enumerate View library source {Root}", source.Path);
+                logger.LogWarning(exception, "Could not enumerate View source {Root}", sourcePath);
                 errors++;
                 continue;
             }
@@ -186,7 +180,7 @@ public sealed class ViewLibraryService(
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    var result = await IndexGroupAsync(library, source, group, ct);
+                    var result = await IndexGroupAsync(space, source, group, ct);
                     if (result.ItemAdded) itemsAdded++;
                     filesAdded += result.FilesAdded;
                     sourcesAdded += result.SourcesAdded;
@@ -224,12 +218,19 @@ public sealed class ViewLibraryService(
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         ct.ThrowIfCancellationRequested();
 
-        var library = FindLibrary(libraryId);
-        if (library is null) return null;
+        var space = await spaces.GetByLibraryAsync(libraryId, ct);
+        if (space is null) return null;
 
         var fullPath = Path.GetFullPath(path);
-        var source = library.ScannableSources.FirstOrDefault(candidate =>
-            IsWithinSource(fullPath, candidate));
+        var sourceCandidates = new List<(ViewSource Source, string Path)>();
+        foreach (var candidate in (await spaces.GetSourcesAsync(space.Id, ct)).Where(candidate => candidate.Enabled))
+        {
+            var root = storage.GetSourcePath(space, candidate);
+            if (ViewStorageService.Contains(root, fullPath, candidate.IncludeSubdirectories))
+                sourceCandidates.Add((candidate, root));
+        }
+        var source = sourceCandidates.OrderByDescending(candidate => candidate.Path.Length)
+            .Select(candidate => candidate.Source).FirstOrDefault();
         if (source is null)
             throw new InvalidOperationException("The local asset path is outside the View library's configured sources.");
         if (!File.Exists(fullPath))
@@ -253,7 +254,7 @@ public sealed class ViewLibraryService(
         if (group is null)
             throw new InvalidDataException("The uploaded local asset could not be grouped for indexing.");
 
-        return await IndexGroupAsync(library, source, group, ct);
+        return await IndexGroupAsync(space, source, group, ct);
     }
 
     public async Task<LocalAssetUpsertResult> UploadAsync(
@@ -267,23 +268,19 @@ public sealed class ViewLibraryService(
         var settings = configuration.LoadLibraries();
         if (!settings.PersonalLibraryPolicy.AllowBrowserUpload)
             throw new InvalidOperationException("Browser upload is disabled by administrator policy.");
-        var library = GetPersonalViewLibraries().SingleOrDefault(candidate =>
-            Guid.TryParse(candidate.OwnerProfileId, out var owner) && owner == ownerProfileId)
-            ?? throw new InvalidOperationException("The profile does not have a configured Personal Space.");
-        if (!library.AcceptedIntakeModes.Contains(LibraryIntakeModes.BrowserUpload, StringComparer.Ordinal))
-            throw new InvalidOperationException("The Personal Space does not accept browser uploads.");
-        var destination = library.PrimaryDestination
-            ?? library.Sources.FirstOrDefault(source => source.IsWritable && source.IsManaged)
-            ?? throw new InvalidOperationException("The Personal Space has no managed upload destination.");
-        Directory.CreateDirectory(destination.Path);
+        var space = await storage.EnsurePersonalSpaceAsync(ownerProfileId, ct);
+        var destination = await storage.EnsureManagedSourceAsync(
+            space, "Browser uploads", ViewSourceType.BrowserUpload, "builtin:browser-uploads", ct);
+        var destinationPath = storage.GetSourcePath(space, destination);
+        Directory.CreateDirectory(destinationPath);
         var safeName = Path.GetFileName(fileName);
         if (string.IsNullOrWhiteSpace(safeName) || TryCreateCandidate(safeName) is null)
             throw new InvalidDataException("The uploaded file type is not supported by View.");
         var stem = Path.GetFileNameWithoutExtension(safeName);
         var extension = Path.GetExtension(safeName);
-        var finalPath = Path.Combine(destination.Path, safeName);
+        var finalPath = Path.Combine(destinationPath, safeName);
         if (File.Exists(finalPath))
-            finalPath = Path.Combine(destination.Path, $"{stem}-{Guid.NewGuid():N}{extension}");
+            finalPath = Path.Combine(destinationPath, $"{stem}-{Guid.NewGuid():N}{extension}");
         var temporaryPath = finalPath + $".{Guid.NewGuid():N}.uploading";
         try
         {
@@ -293,7 +290,7 @@ public sealed class ViewLibraryService(
                 await content.CopyToAsync(output, ct);
             }
             File.Move(temporaryPath, finalPath);
-            return await IndexPathAsync(Guid.Parse(library.Id), finalPath, ct)
+            return await IndexPathAsync(space.LibraryId, finalPath, ct)
                 ?? throw new InvalidOperationException("The uploaded file could not be indexed.");
         }
         catch
@@ -310,46 +307,14 @@ public sealed class ViewLibraryService(
             MediaKinds: mediaKind is null ? null : [mediaKind],
             IncludeHidden: true), ct).Total;
 
-    private LibraryFolderConfig? FindLibrary(Guid libraryId) =>
-        GetPersonalViewLibraries().FirstOrDefault(library => Guid.Parse(library.Id) == libraryId);
-
-    private IEnumerable<LibraryFolderConfig> GetPersonalViewLibraries() =>
-        configuration.LoadLibraries().Libraries.Where(library =>
-            Guid.TryParse(library.Id, out var id)
-            && id != Guid.Empty
-            && string.Equals(library.Kind, LibraryKinds.Personal, StringComparison.Ordinal)
-            && string.Equals(library.Area, LibraryAreas.View, StringComparison.Ordinal)
-            && LibraryMetadataPolicies.BypassesExternalIdentity(library.MetadataPolicy));
-
-    private static bool IsWithinSource(string fullPath, LibrarySourceConfig source)
-    {
-        var root = Path.GetFullPath(source.Path);
-        var relative = Path.GetRelativePath(root, fullPath);
-        if (relative == ".."
-            || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
-            || Path.IsPathRooted(relative))
-        {
-            return false;
-        }
-
-        return source.IncludeSubdirectories
-            || string.Equals(Path.GetDirectoryName(fullPath), root, StringComparison.OrdinalIgnoreCase);
-    }
-
     private async Task<LocalAssetUpsertResult> IndexGroupAsync(
-        LibraryFolderConfig library,
-        LibrarySourceConfig configuredSource,
+        ViewPersonalSpace space,
+        ViewSource source,
         AssetGroup group,
         CancellationToken ct)
     {
-        var libraryId = Guid.Parse(library.Id);
-        if (!Guid.TryParse(library.OwnerProfileId, out var ownerProfileId) || ownerProfileId == Guid.Empty)
-            throw new InvalidDataException("A View library must have a configured owner profile.");
-        var space = await spaces.GetByOwnerAsync(ownerProfileId, ct)
-            ?? await spaces.CreateAsync(ownerProfileId, libraryId, ct);
         var metadata = ReadMetadata(group.Primary);
-        var source = await ResolveSourceAsync(space, configuredSource, ct);
-        var device = await ResolveDeviceAsync(space, source, configuredSource, metadata, ct);
+        var device = await ResolveDeviceAsync(space, source, metadata, ct);
         var registrations = new List<LocalAssetFileRegistration>(group.Files.Count);
         foreach (var member in group.Files)
         {
@@ -373,9 +338,9 @@ public sealed class ViewLibraryService(
         }
 
         return await repository.UpsertAsync(new LocalAssetRegistration(
-            LibraryId: libraryId,
+            LibraryId: space.LibraryId,
             PersonalSpaceId: space.Id,
-            OwnerProfileId: ownerProfileId,
+            OwnerProfileId: space.OwnerProfileId,
             MediaKind: group.Primary.Type.MediaKind,
             Title: metadata.Title ?? Path.GetFileNameWithoutExtension(group.Primary.Path),
             CapturedAt: metadata.CapturedAt,
@@ -392,42 +357,16 @@ public sealed class ViewLibraryService(
             DocumentText: metadata.DocumentText), ct);
     }
 
-    private async Task<ViewSource> ResolveSourceAsync(
-        ViewPersonalSpace space,
-        LibrarySourceConfig configured,
-        CancellationToken ct)
-    {
-        var key = string.IsNullOrWhiteSpace(configured.Id) ? Path.GetFullPath(configured.Path) : configured.Id;
-        var existing = (await spaces.GetSourcesAsync(space.Id, ct))
-            .FirstOrDefault(candidate => string.Equals(candidate.SourceKey, key, StringComparison.OrdinalIgnoreCase));
-        if (existing is not null) return existing;
-        var now = DateTimeOffset.UtcNow;
-        return await spaces.UpsertSourceAsync(new ViewSource(
-            Guid.Empty,
-            space.Id,
-            ViewSourceType.Folder,
-            Path.GetFileName(Path.TrimEndingDirectorySeparator(configured.Path)),
-            key,
-            now,
-            now,
-            now), ct);
-    }
-
     private async Task<ViewDevice?> ResolveDeviceAsync(
         ViewPersonalSpace space,
         ViewSource source,
-        LibrarySourceConfig configured,
         LocalMetadata metadata,
         CancellationToken ct)
     {
-        var clientId = configured.DeviceId;
-        if (string.IsNullOrWhiteSpace(clientId)
-            && string.IsNullOrWhiteSpace(metadata.DeviceMake)
+        if (string.IsNullOrWhiteSpace(metadata.DeviceMake)
             && string.IsNullOrWhiteSpace(metadata.DeviceModel))
             return null;
-        clientId = string.IsNullOrWhiteSpace(clientId)
-            ? $"metadata:{metadata.DeviceMake}:{metadata.DeviceModel}"
-            : clientId;
+        var clientId = $"metadata:{metadata.DeviceMake}:{metadata.DeviceModel}";
         var existing = (await spaces.GetDevicesAsync(space.Id, ct))
             .FirstOrDefault(candidate => string.Equals(candidate.ClientDeviceId, clientId, StringComparison.Ordinal));
         if (existing is not null) return existing;

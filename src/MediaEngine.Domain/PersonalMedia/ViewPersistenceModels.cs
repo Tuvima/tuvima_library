@@ -54,6 +54,12 @@ public enum ViewSourceType
     Other,
 }
 
+public enum ViewSourceStorageMode
+{
+    Managed,
+    Linked,
+}
+
 public sealed record ViewSource(
     Guid Id,
     Guid PersonalSpaceId,
@@ -62,7 +68,12 @@ public sealed record ViewSource(
     string? SourceKey,
     DateTimeOffset? LastActivityAt,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    ViewSourceStorageMode StorageMode = ViewSourceStorageMode.Managed,
+    string? RelativePath = null,
+    string? ExternalPath = null,
+    bool IncludeSubdirectories = true,
+    bool Enabled = true);
 
 public enum ViewDeviceBackupState
 {

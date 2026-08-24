@@ -23,17 +23,18 @@ View Personal Space per enabled profile and follows a separate local-only path.
 **Batch import workflow** is best for an existing collection. Point Tuvima at a folder, scan it, and work through any review items before adding more.
 
 These scan/review instructions apply to catalogued Read, Watch, and Listen
-media. For View, attach one or more personal sources to the owning profile's
-Personal Space or use browser upload. View has no user-facing library picker,
-and its scan endpoint is an administrator recovery/diagnostic action.
+media. For View, configure one managed root, enable the owning profile, and use
+browser upload, managed folder import, or an advanced read-only folder link.
+View has no user-facing library picker, and reconciliation is an administrator
+recovery/diagnostic action.
 
 For large existing libraries, start with one media lane at a time. It is easier to tune providers and review rules with a smaller batch.
 
 ## Configure Folders
 
 1. Open the Dashboard at `http://localhost:5016`.
-2. Go to **Settings > Media Management**.
-3. Choose a library kind, area, presentation, and metadata policy, then add its stable sources and explicit primary destination.
+2. Go to **Settings > Libraries**.
+3. For catalogued media, choose an area, presentation, and metadata policy, then add stable sources and an explicit primary destination.
 4. Mark each source **Managed by Tuvima** or **Existing library**, then confirm path checks. Existing sources require only read access and can never be modified.
 5. Save the settings.
 6. For a catalogued source only, start the administrator import scan.
@@ -53,11 +54,12 @@ Open **Settings > Ingestion** to monitor progress.
 | View | Images | JPG/JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC/HEIF, AVIF, and supported RAW companions |
 | View | Mixed local media | Short video, PDF/Office/text documents, and common audio formats |
 
-Use the profile's View Personal Space with an internal `personal` source and
-**Local only** or **Manual** metadata for images, home videos, documents, audio
-notes, lectures, and content that should never be sent through external
-matching. Multiple sources do not become multiple browsing destinations. These items
-bypass catalogue identity and Review Queue.
+For images, home videos, documents, audio notes, lectures, and content that
+should never be sent through external matching, enable the profile's View
+Personal Space. **Import folder** copies originals into managed storage;
+**Link existing folder** indexes an external folder read-only. Multiple sources
+do not become multiple browsing destinations. These items bypass catalogue
+identity and Review Queue.
 
 MP3, M4A, MP4, MKV, AVI, and WEBM can be ambiguous in catalogued intake. Tuvima
 uses folder context, embedded metadata, filename patterns, and classification

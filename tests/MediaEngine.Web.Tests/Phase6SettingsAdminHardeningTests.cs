@@ -43,7 +43,7 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void LibrariesTab_RendersSchemaFourLibraryAndImportFolderAdministration()
+    public void LibrariesTab_RendersSchemaFiveCataloguedLibrariesAndViewRootAdministration()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LibrariesTab.razor");
         var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
@@ -63,7 +63,8 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("new(\"read\", \"Read\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"watch\", \"Watch\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"listen\", \"Listen\"", source, StringComparison.Ordinal);
-        Assert.Contains("new(\"view\", \"View\"", source, StringComparison.Ordinal);
+        Assert.Contains("<h3>View storage</h3>", source, StringComparison.Ordinal);
+        Assert.Contains("profiles\\&lt;profile-id&gt;\\sources\\&lt;source-id&gt;", source, StringComparison.Ordinal);
         Assert.Contains("Not checked", source, StringComparison.Ordinal);
         Assert.Contains("Folders in this library", source, StringComparison.Ordinal);
         Assert.Contains("Existing folders stay unchanged", source, StringComparison.Ordinal);

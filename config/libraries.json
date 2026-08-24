@@ -1,5 +1,5 @@
 {
-  "schema_version": "4.0",
+  "schema_version": "5.0",
   "storage_locations": [
     {
       "id": "media",
@@ -14,8 +14,11 @@
       "allow_write": true
     }
   ],
+  "view_storage": {
+    "storage_location_id": "media",
+    "relative_root": "View"
+  },
   "personal_library_policy": {
-    "allow_user_creation": true,
     "allow_mobile_backup": true,
     "allow_browser_upload": true,
     "allow_drag_and_drop": true,
@@ -215,50 +218,6 @@
       "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
       "duplicate_policy": "skip_exact",
       "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
-    },
-    {
-      "id": "77777777-7777-4777-8777-777777777777",
-      "name": "Shy's Personal Space",
-      "kind": "personal",
-      "area": "view",
-      "presentation": "mixed_gallery",
-      "metadata_policy": "local_only",
-      "media_types": [],
-      "sources": [
-        {
-          "id": "77777777-aaaa-4777-8777-777777777777",
-          "path": "C:\\temp\\tuvima-library\\View\\ShysPhonePhotos",
-          "role": "primary_destination",
-          "management_mode": "managed_by_tuvima",
-          "source_type": "local_folder",
-          "include_subdirectories": true,
-          "access_mode": "writable",
-          "writeback_override": false,
-          "participates_in_organization": true,
-          "intake_role": "mobile_backup",
-          "profile_id": "00000000-0000-0000-0000-000000000001"
-        },
-        {
-          "id": "88888888-aaaa-4888-8888-888888888888",
-          "path": "C:\\temp\\tuvima-library\\View\\FamilyArchive",
-          "role": "secondary",
-          "management_mode": "managed_by_tuvima",
-          "source_type": "local_folder",
-          "include_subdirectories": true,
-          "access_mode": "writable",
-          "writeback_override": false,
-          "participates_in_organization": true,
-          "intake_role": "direct"
-        }
-      ],
-      "primary_destination_source_id": "77777777-aaaa-4777-8777-777777777777",
-      "owner_profile_id": "00000000-0000-0000-0000-000000000001",
-      "visibility": "private",
-      "authorized_profile_ids": [],
-      "accepted_intake_modes": ["drag_and_drop", "browser_upload", "mobile_backup", "connected_device_import"],
-      "duplicate_policy": "skip_exact",
-      "organization_policy": { "mode": "capture_year_month", "preserve_originals": true },
-      "notes": "One personal mixed-media space fed by phone backup and family-archive folder sources."
     }
   ]
 }

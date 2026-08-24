@@ -114,11 +114,11 @@ public sealed class CoreSettingsWireContractTests
     }
 
     [Fact]
-    public void LibrarySettingsMapper_PreservesSchemaFourLibrariesIncomingSourcesAndStorageLocations()
+    public void LibrarySettingsMapper_PreservesSchemaFiveLibrariesIncomingSourcesAndViewStorage()
     {
         var request = new UpdateLibrariesRequest
         {
-            SchemaVersion = "4.0",
+            SchemaVersion = "5.0",
             StorageLocations =
             [
                 new ServerStorageLocationDto
@@ -129,9 +129,13 @@ public sealed class CoreSettingsWireContractTests
                     AllowWrite = true,
                 },
             ],
+            ViewStorage = new ViewStorageDto
+            {
+                StorageLocationId = "media",
+                RelativeRoot = "View",
+            },
             PersonalLibraryPolicy = new PersonalLibraryPolicyDto
             {
-                AllowUserCreation = true,
                 AllowMobileBackup = false,
                 AllowConnectedDeviceImport = false,
                 DefaultVisibility = "private",
@@ -179,8 +183,9 @@ public sealed class CoreSettingsWireContractTests
         var storage = SettingsContractMapper.ToStorage(request);
         var contract = SettingsContractMapper.ToContract(storage);
 
-        Assert.Equal("4.0", storage.SchemaVersion);
+        Assert.Equal("5.0", storage.SchemaVersion);
         Assert.Equal(@"D:\Media", storage.StorageLocations.Single().Path);
+        Assert.Equal("View", contract.ViewStorage.RelativeRoot);
         Assert.Equal(@"D:\Media\Movies", storage.Libraries.Single().PrimaryDestination?.Path);
         Assert.True(storage.Libraries.Single().PrimaryDestination?.AllowsFileMutation);
         Assert.Equal(@"D:\Incoming", contract.IncomingSources.Single().Path);

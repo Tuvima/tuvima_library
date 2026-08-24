@@ -151,6 +151,7 @@ public static class ProfileEndpoints
             UpdateViewProfilePolicyRequest request,
             IProfileService profileService,
             IViewProfileRepository viewProfiles,
+            MediaEngine.Api.Services.LocalAssets.ViewStorageService viewStorage,
             CancellationToken ct) =>
         {
             if (await profileService.GetProfileAsync(id, ct) is null)
@@ -162,6 +163,11 @@ public static class ProfileEndpoints
             if (!await viewProfiles.SavePolicyAsync(policy, ct))
             {
                 return ApiErrors.NotFound($"Profile '{id}' not found.");
+            }
+
+            if (policy.ViewEnabled)
+            {
+                await viewStorage.EnsurePersonalSpaceAsync(id, ct);
             }
 
             return Results.Ok(ProfileContractMapper.ToResponse(

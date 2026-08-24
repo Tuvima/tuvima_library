@@ -20,13 +20,15 @@ public static class ViewEndpoints
 
         group.MapGet("/scopes", async (string? scope, Guid? scopeProfileId,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
-            IViewScopeResolver resolver, CancellationToken ct) =>
+            IViewScopeResolver resolver, ViewStorageService storage, CancellationToken ct) =>
         {
             if (identity.Current is not { } caller)
             {
                 return Unauthenticated();
             }
 
+            var policy = await preferences.GetPolicyAsync(caller.ProfileId, ct);
+            if (policy.ViewEnabled) await storage.EnsurePersonalSpaceAsync(caller.ProfileId, ct);
             var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
             var result = await resolver.ResolveAsync(caller, requested, ct);
             return result is null ? Missing() : Results.Ok(ToContract(result));
@@ -92,13 +94,14 @@ public static class ViewEndpoints
 
         group.MapPost("/uploads", async (IFormFile file,
             IViewRequestProfileContext identity, IViewScopeResolver resolver,
-            ViewLibraryService service, CancellationToken ct) =>
+            ViewLibraryService service, ViewStorageService storage, CancellationToken ct) =>
         {
             if (identity.Current is not { } caller)
             {
                 return Unauthenticated();
             }
 
+            await storage.EnsurePersonalSpaceAsync(caller.ProfileId, ct);
             if (await resolver.ResolveAsync(caller, ViewScopeRequest.Mine, ct) is null)
             {
                 return Missing();
@@ -194,6 +197,7 @@ public static class ViewEndpoints
 
         group.MapGet("/admin/profiles/{profileId:guid}/sources", async (
             Guid profileId, IProfileService profiles, IViewPersonalSpaceRepository spaces,
+            ViewStorageService storage,
             CancellationToken ct) =>
         {
             if (await profiles.GetProfileAsync(profileId, ct) is null)
@@ -209,7 +213,7 @@ public static class ViewEndpoints
 
             var sources = await spaces.GetSourcesAsync(space.Id, ct);
             var devices = await spaces.GetDevicesAsync(space.Id, ct);
-            return Results.Ok(ToAdminReview(profileId, space, sources, devices));
+            return Results.Ok(ToAdminReview(profileId, space, sources, devices, storage));
         })
         .WithName("GetViewProfileSources")
         .WithSummary("Review the persisted Personal Space sources and devices for one profile.")
@@ -217,10 +221,78 @@ public static class ViewEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
-        group.MapPost("/admin/libraries/{libraryId:guid}/scan", async (
-            Guid libraryId, ViewLibraryService service, CancellationToken ct) =>
-            await service.ScanAsync(libraryId, ct) is { } result ? Results.Ok(result) : Missing())
-            .WithName("ScanViewLibrary").Produces<LocalAssetScanResultDto>().RequireAdmin();
+        group.MapPost("/admin/profiles/{profileId:guid}/sources", async (
+            Guid profileId, CreateViewSourceRequest request, IProfileService profiles,
+            ViewStorageService storage, ViewSourceIndexingHostedService indexing,
+            ViewLibraryService viewLibrary, CancellationToken ct) =>
+        {
+            if (await profiles.GetProfileAsync(profileId, ct) is null)
+                return ApiErrors.NotFound($"Profile '{profileId}' not found.");
+            if (string.IsNullOrWhiteSpace(request.Name))
+                return ApiErrors.BadRequest("A source name is required.");
+            try
+            {
+                var space = await storage.EnsurePersonalSpaceAsync(profileId, ct);
+                var source = string.Equals(request.StorageMode, "linked", StringComparison.OrdinalIgnoreCase)
+                    ? await storage.AddLinkedSourceAsync(space, request.Name, request.Path ?? string.Empty,
+                        request.IncludeSubdirectories, ct)
+                    : string.IsNullOrWhiteSpace(request.Path)
+                        ? await storage.EnsureManagedSourceAsync(space, request.Name, ViewSourceType.Folder,
+                            $"managed:{Guid.NewGuid():N}", ct)
+                        : await storage.ImportFolderAsync(space, request.Name, request.Path, ct);
+                await indexing.RefreshSourcesAsync(ct);
+                if (!string.IsNullOrWhiteSpace(request.Path))
+                    await viewLibrary.ScanAsync(space.LibraryId, ct);
+                return Results.Ok(ToAdminSource(space, source, storage));
+            }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException
+                                               or DirectoryNotFoundException or NotSupportedException)
+            {
+                return ApiErrors.Unprocessable(exception.Message);
+            }
+        }).WithName("CreateViewProfileSource").Produces<ViewSourceAdminDto>().RequireAdmin();
+
+        group.MapPut("/admin/profiles/{profileId:guid}/sources/{sourceId:guid}", async (
+            Guid profileId, Guid sourceId, UpdateViewSourceRequest request,
+            IViewPersonalSpaceRepository spaces, ViewStorageService storage,
+            ViewSourceIndexingHostedService indexing, CancellationToken ct) =>
+        {
+            var space = await spaces.GetByOwnerAsync(profileId, ct);
+            var source = space is null ? null : (await spaces.GetSourcesAsync(space.Id, ct))
+                .FirstOrDefault(candidate => candidate.Id == sourceId);
+            if (space is null || source is null) return Missing();
+            if (string.IsNullOrWhiteSpace(request.Name)) return ApiErrors.BadRequest("A source name is required.");
+            source = await spaces.UpsertSourceAsync(source with
+                { Name = request.Name.Trim(), Enabled = request.Enabled }, ct);
+            await indexing.RefreshSourcesAsync(ct);
+            return Results.Ok(ToAdminSource(space, source, storage));
+        }).WithName("UpdateViewProfileSource").Produces<ViewSourceAdminDto>().RequireAdmin();
+
+        group.MapDelete("/admin/profiles/{profileId:guid}/sources/{sourceId:guid}", async (
+            Guid profileId, Guid sourceId, IViewPersonalSpaceRepository spaces,
+            ViewSourceIndexingHostedService indexing, CancellationToken ct) =>
+        {
+            var space = await spaces.GetByOwnerAsync(profileId, ct);
+            if (space is null) return Missing();
+            var source = (await spaces.GetSourcesAsync(space.Id, ct))
+                .FirstOrDefault(candidate => candidate.Id == sourceId);
+            if (source is null) return Missing();
+            if (string.Equals(source.SourceKey, "builtin:browser-uploads", StringComparison.OrdinalIgnoreCase))
+                return ApiErrors.Conflict("The built-in browser upload source cannot be detached.");
+            if (!await spaces.DeleteSourceAsync(space.Id, sourceId, ct)) return Missing();
+            await indexing.RefreshSourcesAsync(ct);
+            return Results.NoContent();
+        }).WithName("DeleteViewProfileSource").Produces(StatusCodes.Status204NoContent).RequireAdmin();
+
+        group.MapPost("/admin/profiles/{profileId:guid}/reconcile", async (
+            Guid profileId, IViewPersonalSpaceRepository spaces,
+            ViewLibraryService service, CancellationToken ct) =>
+        {
+            var space = await spaces.GetByOwnerAsync(profileId, ct);
+            return space is null || await service.ScanAsync(space.LibraryId, ct) is not { } result
+                ? Missing()
+                : Results.Ok(result);
+        }).WithName("ReconcileViewPersonalSpace").Produces<LocalAssetScanResultDto>().RequireAdmin();
 
         return app;
     }
@@ -561,17 +633,13 @@ public static class ViewEndpoints
         Guid profileId,
         ViewPersonalSpace space,
         IReadOnlyList<ViewSource> sources,
-        IReadOnlyList<ViewDevice> devices) =>
+        IReadOnlyList<ViewDevice> devices,
+        ViewStorageService storage) =>
         new(
             profileId,
-            new ViewPersonalSpaceAdminDto(space.Id, space.CreatedAt, space.UpdatedAt),
-            sources.Select(source => new ViewSourceAdminDto(
-                source.Id,
-                SourceTypeValue(source.SourceType),
-                source.Name,
-                source.LastActivityAt,
-                source.CreatedAt,
-                source.UpdatedAt)).ToList(),
+            new ViewPersonalSpaceAdminDto(
+                space.Id, storage.GetProfileRoot(space), space.CreatedAt, space.UpdatedAt),
+            sources.Select(source => ToAdminSource(space, source, storage)).ToList(),
             devices.Select(device => new ViewDeviceAdminDto(
                 device.Id,
                 device.SourceId,
@@ -582,6 +650,21 @@ public static class ViewEndpoints
                 BackupStateValue(device.BackupState),
                 device.CreatedAt,
                 device.UpdatedAt)).ToList());
+
+    private static ViewSourceAdminDto ToAdminSource(
+        ViewPersonalSpace space,
+        ViewSource source,
+        ViewStorageService storage) => new(
+        source.Id,
+        SourceTypeValue(source.SourceType),
+        source.Name,
+        source.StorageMode == ViewSourceStorageMode.Linked ? "linked" : "managed",
+        storage.GetSourcePath(space, source),
+        source.IncludeSubdirectories,
+        source.Enabled,
+        source.LastActivityAt,
+        source.CreatedAt,
+        source.UpdatedAt);
 
     private static string SourceTypeValue(ViewSourceType value) => value switch
     {

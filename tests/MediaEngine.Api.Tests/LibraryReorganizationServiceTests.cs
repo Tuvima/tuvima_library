@@ -96,7 +96,7 @@ public sealed class LibraryReorganizationServiceTests
             Configuration = new ConfigurationDirectoryLoader(Path.Combine(_root, "config"));
             Configuration.SaveLibraries(new LibrariesConfiguration
             {
-                SchemaVersion = "4.0",
+                SchemaVersion = "5.0",
                 StorageLocations =
                 [
                     new ServerStorageLocationConfig
@@ -107,17 +107,22 @@ public sealed class LibraryReorganizationServiceTests
                         AllowWrite = true,
                     },
                 ],
+                ViewStorage = new ViewStorageConfig
+                {
+                    StorageLocationId = "library",
+                    RelativeRoot = "View",
+                },
                 Libraries =
                 [
                     new LibraryFolderConfig
                     {
                         Id = LibraryId.ToString("D"),
-                        Name = "Managed View library",
-                        Kind = LibraryKinds.Personal,
-                        Area = LibraryAreas.View,
-                        Presentation = LibraryPresentations.MixedGallery,
-                        MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
-                        OwnerProfileId = Guid.NewGuid().ToString("D"),
+                        Name = "Managed Movies library",
+                        Category = "Movies",
+                        Kind = LibraryKinds.Catalogued,
+                        Area = LibraryAreas.Watch,
+                        Presentation = LibraryPresentations.Catalogue,
+                        MetadataPolicy = LibraryMetadataPolicies.Enriched,
                         PrimaryDestinationSourceId = SourceId.ToString("D"),
                         Sources =
                         [

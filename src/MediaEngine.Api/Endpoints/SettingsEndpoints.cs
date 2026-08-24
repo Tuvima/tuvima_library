@@ -164,13 +164,18 @@ public static class SettingsEndpoints
             return Results.Ok(SettingsContractMapper.ToContract(configLoader.LoadLibraries()));
         })
         .WithName("GetLibraries")
-        .WithSummary("Returns the complete schema 4 library, approved server-root, and shared incoming-source configuration.")
+        .WithSummary("Returns schema 5 catalogued libraries, the single View root, approved storage, and incoming sources.")
         .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         grp.MapPut("/libraries", (UpdateLibrariesRequest request, IConfigurationLoader configLoader) =>
         {
             var config = SettingsContractMapper.ToStorage(request);
+            var viewError = ValidateViewStorage(config);
+            if (viewError is not null)
+            {
+                return ApiErrors.BadRequest(viewError);
+            }
             var pathError = ValidateConfiguredPaths(config);
             if (pathError is not null)
             {
@@ -187,7 +192,7 @@ public static class SettingsEndpoints
             return Results.Ok(SettingsContractMapper.ToContract(config));
         })
         .WithName("UpdateLibraries")
-        .WithSummary("Replaces the complete schema 4 library, approved server-root, and shared incoming-source configuration.")
+        .WithSummary("Replaces schema 5 catalogued libraries, the single View root, approved storage, and incoming sources.")
         .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
@@ -1397,6 +1402,28 @@ public static class SettingsEndpoints
             }
         }
 
+        return null;
+    }
+
+    private static string? ValidateViewStorage(LibrariesConfiguration config)
+    {
+        if (!string.Equals(config.SchemaVersion, "5.0", StringComparison.Ordinal))
+            return "libraries.json must use schema_version 5.0.";
+        if (config.Libraries.Any(library =>
+                string.Equals(library.Kind, LibraryKinds.Personal, StringComparison.OrdinalIgnoreCase)))
+            return "Personal Spaces are profile-owned and must not be configured as libraries.";
+        var storage = config.StorageLocations.FirstOrDefault(candidate =>
+            string.Equals(candidate.Id, config.ViewStorage.StorageLocationId, StringComparison.OrdinalIgnoreCase));
+        if (storage is null) return "View storage must reference a configured storage location.";
+        if (!storage.AllowWrite) return "View storage must reference a writable storage location.";
+        var relative = config.ViewStorage.RelativeRoot?.Trim();
+        if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative))
+            return "View storage relative_root must be a non-empty relative path.";
+        var resolved = Path.GetFullPath(Path.Combine(Path.GetFullPath(storage.Path), relative));
+        var parent = Path.GetRelativePath(Path.GetFullPath(storage.Path), resolved);
+        if (parent == ".." || parent.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                           || Path.IsPathRooted(parent))
+            return "View storage relative_root must remain within its storage location.";
         return null;
     }
 

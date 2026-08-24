@@ -14,8 +14,9 @@ tags:
 
 **Libraries**, **Import Folders**, Ingestion, Metadata Providers, Activity & Audit,
 and Developer Tools are first-class Settings pages for the part of Tuvima Library
-that turns folders into registered media. Structured destinations and profile
-Personal Space status live at `/settings/libraries`; watched intake locations live
+that turns folders into registered media. Structured destinations and the single
+View storage root live at `/settings/libraries`; profile Personal Space sources
+and devices live with Users; watched intake locations live
 at `/settings/import-folders`; ingestion operations live at `/settings/ingestion`.
 The feature-gated development harness is available at `/settings/developer/options`.
 
@@ -24,7 +25,7 @@ Together, these pages answer six operational questions:
 - what is happening right now
 - what has been processed recently
 - what needs review
-- which Read, Watch, Listen, personal View, and universal incoming sources are configured
+- which Read, Watch, Listen, View-root, profile-source, and universal incoming paths are configured
 - which provider or pipeline stage is failing, waiting, or unknown
 - how close the library is to being registered and healthy
 
@@ -41,7 +42,8 @@ That snapshot is built by `IIngestionOperationsStatusService` from real applicat
 - pipeline stage counts come from `identity_jobs` and `ingestion_log`
 - numbered stage rows and artifact counts come from persisted batch, job, metadata, artwork, people, relationship, and review state
 - review reason counts come from pending `review_queue` rows
-- source folders come from `config/libraries.json`
+- catalogued source folders and the View root come from `config/libraries.json`
+- profile-owned View sources and devices come from persisted Personal Space records
 - folder reachability is checked from the filesystem at snapshot time
 - provider health comes from configured providers plus `provider_health`
 - organization rules come from runtime ingestion options and `config/core.json`
@@ -95,14 +97,27 @@ Developer Tools is an internal-tools, Administrator-only shortcut for repeatable
 
 ## Source Folders
 
-Configured folders are grouped by user intent:
+Configured catalogue folders are grouped by user intent:
 
 - **Watch**: Movies and TV Shows
 - **Listen**: Music and audiobooks
 - **Read**: Books and Comics
-- **View**: sources feeding the owning profile's single Personal Space, such as photos, short videos, documents, and audio notes
+- **View**: one managed server root containing stable profile and source directories
 
-Each logical library contains stable `sources` in `config/libraries.json`. The UI renders every source with its role, management mode, access mode, intake role, reachability, and permission status. Existing library sources are read-only and indexed in place; only managed writable sources can participate in organization or writeback.
+Each catalogued library contains stable `sources` in `config/libraries.json`.
+The UI renders every catalogue source with its role, management mode, access
+mode, intake role, reachability, and permission status. Existing catalogue
+sources are read-only and indexed in place; only managed writable sources can
+participate in organization or writeback.
+
+View is intentionally different. `view_storage` selects one writable storage
+location and a contained relative root. Enabling View provisions
+`profiles/<profile-id>`, and browser uploads or folder imports live beneath
+`sources/<source-id>`. Settings > Users shows those profile sources and devices.
+**Import folder** copies data into managed storage without changing the original;
+**Link existing folder** indexes an external folder read-only. Detaching a source
+never deletes files. **Reconcile** is an administrator recovery action, not a
+normal Photos navigation control.
 
 Music is intentionally conservative. The page calls out that music should preserve album folders and prefer tags or fingerprints before organization. It does not present aggressive rename or move actions for music.
 
@@ -123,7 +138,7 @@ Users do not configure or browse internal staging paths.
 
 ## Managed and Existing Sources
 
-An **Existing library** source may be scanned and indexed, but Tuvima does not
+An **Existing library** catalogue source or linked View source may be scanned and indexed, but Tuvima does not
 move, rename, tag, overwrite, or delete its files. A **Managed by Tuvima** source
 may participate in organization only when it is writable and its source and
 library policies allow the requested operation. Primary destinations are

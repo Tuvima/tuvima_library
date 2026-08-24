@@ -7,10 +7,13 @@ namespace MediaEngine.Domain.Configuration;
 public sealed class LibrariesConfiguration
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; set; } = "4.0";
+    public string SchemaVersion { get; set; } = "5.0";
 
     [JsonPropertyName("storage_locations")]
     public List<ServerStorageLocationConfig> StorageLocations { get; set; } = [];
+
+    [JsonPropertyName("view_storage")]
+    public ViewStorageConfig ViewStorage { get; set; } = new();
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderConfig> Libraries { get; set; } = [];
@@ -20,6 +23,22 @@ public sealed class LibrariesConfiguration
 
     [JsonPropertyName("personal_library_policy")]
     public PersonalLibraryPolicyConfig PersonalLibraryPolicy { get; set; } = new();
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
+}
+
+/// <summary>
+/// The one managed filesystem root for every profile-owned View Personal Space.
+/// Profile and source directories are derived from stable IDs beneath this root.
+/// </summary>
+public sealed class ViewStorageConfig
+{
+    [JsonPropertyName("storage_location_id")]
+    public string StorageLocationId { get; set; } = "media";
+
+    [JsonPropertyName("relative_root")]
+    public string RelativeRoot { get; set; } = "View";
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
@@ -50,9 +69,6 @@ public sealed class ServerStorageLocationConfig
 /// <summary>Administrator-controlled capabilities for personal libraries in View.</summary>
 public sealed class PersonalLibraryPolicyConfig
 {
-    [JsonPropertyName("allow_user_creation")]
-    public bool AllowUserCreation { get; set; } = true;
-
     [JsonPropertyName("allow_mobile_backup")]
     public bool AllowMobileBackup { get; set; } = true;
 
@@ -106,7 +122,7 @@ public sealed class IncomingSourceConfig
     public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
 }
 
-/// <summary>A logical catalogued or personal library and its independently governed sources.</summary>
+/// <summary>A logical catalogued library and its independently governed sources.</summary>
 public sealed class LibraryFolderConfig
 {
     [JsonPropertyName("id")]

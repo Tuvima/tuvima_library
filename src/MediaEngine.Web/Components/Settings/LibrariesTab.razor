@@ -123,30 +123,9 @@
     private bool _loading = true;
     private bool _saving;
     private bool _engineUnavailable;
-    // Kept temporarily while the retired personal-library wizard helpers are removed below.
-    private int _wizardStep = 1;
-    private LibraryFolderDto _draft = NewPersonalLibrary(null);
     private string _libraryFilter = "all";
     private readonly Dictionary<string, PathTestResultDto> _pathResults = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _selectedLibraryIds = new(StringComparer.OrdinalIgnoreCase);
-
-    private static readonly IReadOnlyList<AppSelectOption> PresentationOptions =
-    [
-        new("mixed_gallery", "Mixed gallery", Icons.Material.Outlined.GridView),
-        new("timeline", "Timeline", Icons.Material.Outlined.CalendarMonth),
-        new("video", "Video", Icons.Material.Outlined.SmartDisplay),
-        new("gallery", "Gallery", Icons.Material.Outlined.PhotoLibrary),
-        new("documents", "Documents", Icons.Material.Outlined.Description),
-        new("audio", "Audio", Icons.Material.Outlined.GraphicEq),
-        new("mixed", "Mixed", Icons.Material.Outlined.DashboardCustomize),
-    ];
-
-    private static readonly IReadOnlyList<AppSelectOption> VisibilityOptions =
-    [
-        new("private", "Private", Icons.Material.Outlined.Lock),
-        new("shared", "Selected users", Icons.Material.Outlined.Group),
-        new("household", "Household", Icons.Material.Outlined.Home),
-    ];
 
     private static readonly IReadOnlyList<AppSelectOption> DuplicateOptions =
     [
@@ -207,7 +186,6 @@
         new("read", "Read", Icons.Material.Outlined.MenuBook),
         new("watch", "Watch", Icons.Material.Outlined.LiveTv),
         new("listen", "Listen", Icons.Material.Outlined.Headphones),
-        new("view", "View", Icons.Material.Outlined.FolderOpen),
     ];
 
     private static readonly LibraryDetailTabOption[] LibraryDetailTabs =
@@ -242,7 +220,7 @@
         <div class="media-management-metrics" aria-label="Library summary">
             <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-metric">
                 <span class="media-management-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.VideoLibrary" /></span>
-                <span><small>Total libraries</small><strong>@(_configuration?.Libraries.Count ?? 0)</strong><em>Across Read, Watch, Listen, and View</em></span>
+                <span><small>Total libraries</small><strong>@(_configuration?.Libraries.Count ?? 0)</strong><em>Across Read, Watch, and Listen</em></span>
             </AppPanel>
             <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-metric">
                 <span class="media-management-metric__icon media-management-metric__icon--blue"><MudIcon Icon="@Icons.Material.Outlined.Folder" /></span>
@@ -284,6 +262,34 @@
                 }
             </div>
             }
+        </AppCard>
+
+        <AppCard Class="media-management-card">
+            <div class="media-management-card__heading">
+                <div>
+                    <h3>View storage</h3>
+                    <p>Every profile receives one Personal Space beneath this root. Uploads, phones, and managed imports become source folders inside that profile folder.</p>
+                </div>
+                <AppButton Label="Choose root" StartIcon="@Icons.Material.Outlined.FolderOpen"
+                           ButtonStyle="AppButtonStyle.Outlined" Disabled="@(readOnly || _engineUnavailable)"
+                           OnClick="BrowseViewRootAsync" />
+            </div>
+            <div class="media-management-form-grid">
+                <AppSelect Label="Storage location" Value="@_configuration!.ViewStorage.StorageLocationId"
+                           Options="@ViewStorageLocationOptions"
+                           ValueChanged="@((string? value) => _configuration.ViewStorage.StorageLocationId = value ?? string.Empty)"
+                           Disabled="@(readOnly || _engineUnavailable)" />
+                <AppTextField Label="Relative View root" Value="@_configuration.ViewStorage.RelativeRoot"
+                              ValueChanged="@((string? value) => _configuration.ViewStorage.RelativeRoot = value ?? string.Empty)"
+                              ReadOnly="@(readOnly || _engineUnavailable)" />
+            </div>
+            <div class="media-management-example">
+                <span>Managed hierarchy</span>
+                <code>@ViewRootPreview\profiles\&lt;profile-id&gt;\sources\&lt;source-id&gt;</code>
+            </div>
+            <AppAlert Tone="AppUiTone.Info">
+                Personal Spaces are not libraries and do not have primary or secondary folders. Existing external archives can still be linked read-only from the owning profile's View settings.
+            </AppAlert>
         </AppCard>
 
         <div class="media-management__aside-grid">
@@ -360,102 +366,6 @@
         </div>
     </div>;
 
-    private RenderFragment LibrariesSurface(LibraryFolderDto? activeLibrary, bool readOnly) => @<div class="media-management__area">
-        <AppCard Class="media-management-card media-management-card--selector">
-            <div class="media-management-card__heading">
-                <div>
-                    <h3>Libraries</h3>
-                    <p>Structured libraries cover Read, Watch, and Listen. Personal libraries (View) keep local media separate from catalogue identity.</p>
-                </div>
-                <AppButton Label="Add Personal Library" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Outlined"
-                           Disabled="@(readOnly || _engineUnavailable || !_configuration!.PersonalLibraryPolicy.AllowUserCreation)" OnClick="BeginPersonalLibrary" />
-            </div>
-            <AppSegmentedControl Value="@_libraryFilter"
-                                 ValueChanged="@SetLibraryFilter"
-                                 Options="@LibraryFilterOptions"
-                                 AriaLabel="Filter libraries" />
-            @if (FilteredLibraries.Count == 0)
-            {
-                <AppPageState Kind="AppPageStateKind.Empty" Icon="@AreaIcon(_libraryFilter)"
-                              Title="No libraries in this area" Message="Choose another filter or add a personal View library." />
-            }
-            else
-            {
-                <div class="media-management-table media-management-table--libraries" role="table" aria-label="Configured libraries">
-                    <div class="media-management-table__head" role="row"><span>Library</span><span>Type</span><span>Folders</span><span>Status</span></div>
-                    @foreach (var library in FilteredLibraries)
-                    {
-                        <AppNativeButton Type="button"
-                                         Class="@($"media-management-table__row {(activeLibrary?.Id == library.Id ? "is-active" : string.Empty)}")"
-                                         OnClick="@(() => SelectLibrary(library.Area, library.Id))">
-                            <span class="media-management-table__identity"><MudIcon Icon="@AreaIcon(library.Area)" Size="Size.Small" /><strong>@library.Name</strong></span>
-                            <span>@(library.Kind == "personal" ? "Personal" : "Catalogued") · @TitleCase(library.Area)</span>
-                            <span>@library.Sources.Count</span>
-                            <AppStatusBadge Text="@LibraryStatus(library)" Tone="@LibraryStatusTone(library)" />
-                        </AppNativeButton>
-                    }
-                </div>
-            }
-        </AppCard>
-
-        <AppCard Class="media-management-card">
-            <div class="media-management-card__heading">
-                <div><h3>Recent scans</h3><p>Latest processing outcomes reported by the Engine.</p></div>
-                <AppButton Href="/settings/ingestion" Label="View ingestion" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
-            </div>
-            @if (RecentScans.Count == 0)
-            {
-                <AppPageState Kind="AppPageStateKind.Empty" Icon="@Icons.Material.Outlined.History"
-                              Title="No recent scans" Message="Scan history will appear after media processing runs." />
-            }
-            else
-            {
-                <div class="media-management-recent-scans" role="list">
-                    @foreach (var scan in RecentScans)
-                    {
-                        <div class="media-management-recent-scan" role="listitem">
-                            <span><strong>@(string.IsNullOrWhiteSpace(scan.Source) ? "Library scan" : scan.Source)</strong><small>@FormatRelative(scan.StartedAt)</small></span>
-                            <span>@DisplayFormat.FormatCount(scan.ProcessedFiles) processed</span>
-                            @if (scan.RegisteredCount > 0) { <AppStatusBadge Text="@($"{scan.RegisteredCount} added")" Tone="AppUiTone.Success" /> }
-                            @if (scan.ReviewCount > 0) { <AppStatusBadge Text="@($"{scan.ReviewCount} need review")" Tone="AppUiTone.Warning" /> }
-                            @if (scan.FailedCount > 0) { <AppStatusBadge Text="@($"{scan.FailedCount} failed")" Tone="AppUiTone.Error" /> }
-                        </div>
-                    }
-                </div>
-            }
-        </AppCard>
-
-        @if (activeLibrary is not null)
-        {
-            @LibraryEditor(activeLibrary, readOnly)
-        }
-
-        <details class="media-management-disclosure">
-            <summary>Personal library permissions</summary>
-            <div class="media-management__policy-grid">
-                <AppSwitchRow Label="Users can create libraries" Description="Allow personal library creation in View."
-                              Value="@_configuration!.PersonalLibraryPolicy.AllowUserCreation"
-                              ValueChanged="@((bool value) => _configuration.PersonalLibraryPolicy.AllowUserCreation = value)" Disabled="@(readOnly || _engineUnavailable)" />
-                <AppSwitchRow Label="Managed storage" Description="Allow Tuvima-managed writable destinations."
-                              Value="@_configuration.PersonalLibraryPolicy.AllowManagedStorage"
-                              ValueChanged="@((bool value) => _configuration.PersonalLibraryPolicy.AllowManagedStorage = value)" Disabled="@(readOnly || _engineUnavailable)" />
-                <AppSwitchRow Label="Existing folder attachment" Description="Allow read-only local and network folders."
-                              Value="@_configuration.PersonalLibraryPolicy.AllowExistingFolderAttachment"
-                              ValueChanged="@((bool value) => _configuration.PersonalLibraryPolicy.AllowExistingFolderAttachment = value)" Disabled="@(readOnly || _engineUnavailable)" />
-                <AppSwitchRow Label="Mobile backup" Value="@_configuration.PersonalLibraryPolicy.AllowMobileBackup"
-                              ValueChanged="@((bool value) => _configuration.PersonalLibraryPolicy.AllowMobileBackup = value)" Disabled="@(readOnly || _engineUnavailable)" />
-                <AppSwitchRow Label="Browser upload" Value="@_configuration.PersonalLibraryPolicy.AllowBrowserUpload"
-                              ValueChanged="@((bool value) => _configuration.PersonalLibraryPolicy.AllowBrowserUpload = value)" Disabled="@(readOnly || _engineUnavailable)" />
-                <AppSwitchRow Label="Drag-and-drop" Value="@_configuration.PersonalLibraryPolicy.AllowDragAndDrop"
-                              ValueChanged="@((bool value) => _configuration.PersonalLibraryPolicy.AllowDragAndDrop = value)" Disabled="@(readOnly || _engineUnavailable)" />
-                <AppSwitchRow Label="Connected device import" Value="@_configuration.PersonalLibraryPolicy.AllowConnectedDeviceImport"
-                              ValueChanged="@((bool value) => _configuration.PersonalLibraryPolicy.AllowConnectedDeviceImport = value)" Disabled="@(readOnly || _engineUnavailable)" />
-                <AppSelect Label="Default visibility" Value="@_configuration.PersonalLibraryPolicy.DefaultVisibility" Options="@VisibilityOptions"
-                           ValueChanged="@((string? value) => _configuration.PersonalLibraryPolicy.DefaultVisibility = value ?? "private")" Disabled="@(readOnly || _engineUnavailable)" />
-            </div>
-        </details>
-    </div>;
-
     private RenderFragment LibraryDetailSurface(LibraryFolderDto library, bool readOnly) => @<div class="library-detail">
         <header class="library-detail__header">
             <div class="library-detail__identity">
@@ -482,7 +392,7 @@
         @if (CurrentDetailTab == "overview")
         {
             <MetadataPipelineStrip MediaType="@library.MediaTypes.FirstOrDefault()"
-                                   LocalOnly="@(library.Kind == "personal" || library.MetadataPolicy is "local_only" or "manual")" />
+                                   LocalOnly="@(library.MetadataPolicy is "local_only" or "manual")" />
             <div class="library-detail__metrics" aria-label="Library health summary">
                 @DetailMetric(Icons.Material.Outlined.CollectionsBookmark, "Items", DisplayFormat.FormatCount(LibraryItemCount(library)), "Owned media")
                 @DetailMetric(Icons.Material.Outlined.Folder, "Folders", library.Sources.Count.ToString(), "Server locations")
@@ -564,11 +474,11 @@
             <AppCard Class="media-management-card">
                 <div class="media-management-card__heading"><div><h3>Advanced library settings</h3><p>Identity and source policies that rarely need adjustment.</p></div></div>
                 <div class="media-management-form-grid">
-                    <AppTextField Label="Library name" Value="@library.Name" ValueChanged="@((string? value) => library.Name = value ?? string.Empty)" ReadOnly="@(readOnly || _engineUnavailable || library.Kind == "personal")" />
+                    <AppTextField Label="Library name" Value="@library.Name" ValueChanged="@((string? value) => library.Name = value ?? string.Empty)" ReadOnly="@(readOnly || _engineUnavailable)" />
                     <AppSelect Label="Duplicate handling" Value="@library.DuplicatePolicy" Options="@DuplicateOptions" ValueChanged="@((string? value) => library.DuplicatePolicy = value ?? "skip_exact")" Disabled="@(readOnly || _engineUnavailable)" />
                 </div>
                 <dl class="library-detail__summary-list">
-                    <div><dt>Library kind</dt><dd>@(library.Kind == "personal" ? "Personal Space bridge" : "Catalogued")</dd></div>
+                    <div><dt>Library kind</dt><dd>Catalogued</dd></div>
                     <div><dt>Metadata policy</dt><dd>@PolicyLabel(library.MetadataPolicy)</dd></div>
                     <div><dt>Primary destination</dt><dd>@(library.GetPrimaryDestination()?.Path ?? "Not configured")</dd></div>
                     <div><dt>Visibility</dt><dd>@TitleCase(library.Visibility)</dd></div>
@@ -586,32 +496,14 @@
             <div class="media-management-card__heading">
                 <div class="media-management-card__title-with-icon">
                     <MudIcon Icon="@AreaIcon(library.Area)" />
-                    <div><h3>@library.Name</h3><p>@(library.Kind == "personal" ? "Personal View library" : "Structured provider-backed library")</p></div>
+                    <div><h3>@library.Name</h3><p>Structured provider-backed library</p></div>
                 </div>
                 <AppActionBar>
                     <AppButton Label="Check all" StartIcon="@Icons.Material.Outlined.Refresh" ButtonStyle="AppButtonStyle.Text"
                                Disabled="@_engineUnavailable" OnClick="@(() => CheckLibraryPathsAsync(library))" />
-                    @if (library.Kind == "personal")
-                    {
-                        <AppIconButton Icon="@Icons.Material.Outlined.Delete" Tooltip="Delete library" AriaLabel="Delete personal library"
-                                       Tone="AppUiTone.Error" Disabled="@(readOnly || _engineUnavailable)" OnClick="@(() => RemovePersonalLibrary(library))" />
-                    }
                 </AppActionBar>
             </div>
 
-            @if (library.Kind == "personal")
-            {
-                <div class="media-management-form-grid">
-                    <AppTextField Label="Library name" Value="@library.Name" ValueChanged="@((string? value) => library.Name = value ?? string.Empty)"
-                                  ReadOnly="@(readOnly || _engineUnavailable)" />
-                    <AppSelect Label="Presentation" Value="@library.Presentation" Options="@PresentationOptions"
-                               ValueChanged="@((string? value) => library.Presentation = value ?? string.Empty)" Disabled="@(readOnly || _engineUnavailable)" />
-                    <AppTextField Label="Owner profile ID" Value="@library.OwnerProfileId" ValueChanged="@((string? value) => library.OwnerProfileId = value)"
-                                  ReadOnly="@(readOnly || _engineUnavailable)" />
-                    <AppSelect Label="Visibility" Value="@library.Visibility" Options="@VisibilityOptions"
-                               ValueChanged="@((string? value) => SetVisibility(library, value))" Disabled="@(readOnly || _engineUnavailable)" />
-                </div>
-            }
 
             <div class="media-management-section-heading">
                 <div><h4>Folders &amp; sources</h4><p>Every source has its own safety and organization rules.</p></div>
@@ -692,113 +584,34 @@
                     <div><span>Duplicate handling</span><strong>@DuplicateLabel(library.DuplicatePolicy)</strong></div>
                     <div><span>Primary destination</span><strong>@(library.GetPrimaryDestination()?.Path ?? "Not configured")</strong></div>
                 </div>
-                @if (library.Kind == "personal")
-                {
-                    <AppSelect Label="Duplicate handling" Value="@library.DuplicatePolicy" Options="@DuplicateOptions"
-                               ValueChanged="@((string? value) => library.DuplicatePolicy = value ?? string.Empty)" Disabled="@(readOnly || _engineUnavailable)" />
-                    <div class="media-management-intake-grid">
-                        @IntakeToggle(library, "drag_and_drop", "Drag-and-drop", Icons.Material.Outlined.CloudUpload, readOnly)
-                        @IntakeToggle(library, "browser_upload", "Browser upload", Icons.Material.Outlined.UploadFile, readOnly)
-                        @IntakeToggle(library, "mobile_backup", "Mobile backup", Icons.Material.Outlined.PhoneIphone, readOnly)
-                        @IntakeToggle(library, "connected_device_import", "Connected device", Icons.Material.Outlined.Usb, readOnly)
-                    </div>
-                }
             </AppCard>
         </div>
     </div>;
 
-    private RenderFragment IntakeToggle(LibraryFolderDto library, string value, string label, string icon, bool readOnly) => @<AppSwitchRow
-        Label="@label"
-        Icon="@icon"
-        Value="@library.AcceptedIntakeModes.Contains(value, StringComparer.OrdinalIgnoreCase)"
-        ValueChanged="@((bool enabled) => SetIntakeMode(library, value, enabled))"
-        Disabled="@(readOnly || _engineUnavailable)" />;
-
-    private RenderFragment PersonalLibraryWizard(bool readOnly) => @<AppCard Class="media-management-card media-management-wizard">
-        <div class="media-management-card__heading">
-            <div><h3>Create Personal Library</h3><p>Build a View library for local mixed media. View is fixed and external identity providers are never used.</p></div>
-            <AppButton Label="Cancel" ButtonStyle="AppButtonStyle.Text" OnClick="CancelPersonalLibrary" />
-        </div>
-        <div class="media-management-wizard__steps" aria-label="Creation steps">
-            @for (var step = 1; step <= 4; step++)
-            {
-                <span class="@(_wizardStep == step ? "is-active" : _wizardStep > step ? "is-complete" : null)"><b>@step</b>@WizardStepLabel(step)</span>
-            }
-        </div>
-
-        @if (_wizardStep == 1)
-        {
-            <div class="media-management-form-grid">
-                <AppTextField Label="Library name" Value="@_draft.Name" ValueChanged="@((string? value) => _draft.Name = value ?? string.Empty)"
-                              Placeholder="Shy's Phone Photos" ReadOnly="@readOnly" />
-                <AppTextField Label="Description (optional)" Value="@_draft.Notes" ValueChanged="@((string? value) => _draft.Notes = value)"
-                              Placeholder="Photos, short videos, and documents" ReadOnly="@readOnly" />
-                <AppTextField Label="Owner profile ID" Value="@_draft.OwnerProfileId" ValueChanged="@((string? value) => _draft.OwnerProfileId = value)"
-                              ReadOnly="@readOnly" />
-                <div class="media-management-fixed-field"><span>Area</span><strong><MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Size="Size.Small" /> View</strong><small>Personal libraries always belong in View.</small></div>
-            </div>
-        }
-        else if (_wizardStep == 2)
-        {
-            <div class="media-management-choice-grid">
-                @foreach (var option in PresentationOptions)
-                {
-                    <AppNativeButton Type="button" Class="@($"media-management-choice {(_draft.Presentation == option.Value ? "is-active" : string.Empty)}")"
-                                     OnClick="@(() => _draft.Presentation = option.Value)">
-                        <MudIcon Icon="@option.Icon" /><strong>@option.Label</strong><span>@PresentationDescription(option.Value)</span>
-                    </AppNativeButton>
-                }
-            </div>
-        }
-        else if (_wizardStep == 3)
-        {
-            <div class="media-management-form-grid">
-                <AppTextField Label="Primary destination" Value="@_draft.Sources[0].Path"
-                              ValueChanged="@((string? value) => _draft.Sources[0].Path = value ?? string.Empty)"
-                              Placeholder="D:\\Media\\Personal" ReadOnly="@readOnly" />
-                <AppSelect Label="Storage management" Value="@_draft.Sources[0].ManagementMode" Options="@ManagementOptions"
-                           ValueChanged="@((string? value) => SetManagementMode(_draft, _draft.Sources[0], value))" Disabled="@readOnly" />
-            </div>
-            <div class="media-management-intake-grid">
-                @IntakeToggle(_draft, "drag_and_drop", "Drag-and-drop", Icons.Material.Outlined.CloudUpload, readOnly)
-                @IntakeToggle(_draft, "browser_upload", "Browser upload", Icons.Material.Outlined.UploadFile, readOnly)
-                @IntakeToggle(_draft, "mobile_backup", "Mobile backup", Icons.Material.Outlined.PhoneIphone, readOnly)
-                @IntakeToggle(_draft, "connected_device_import", "Connected device", Icons.Material.Outlined.Usb, readOnly)
-            </div>
-        }
-        else
-        {
-            <div class="media-management-form-grid">
-                <AppSelect Label="Visibility" Value="@_draft.Visibility" Options="@VisibilityOptions"
-                           ValueChanged="@((string? value) => SetVisibility(_draft, value))" Disabled="@readOnly" />
-                <AppSelect Label="Duplicate handling" Value="@_draft.DuplicatePolicy" Options="@DuplicateOptions"
-                           ValueChanged="@((string? value) => _draft.DuplicatePolicy = value ?? string.Empty)" Disabled="@readOnly" />
-                <AppSelect Label="Organization" Value="@_draft.OrganizationPolicy.Mode" Options="@OrganizationOptions"
-                           ValueChanged="@((string? value) => _draft.OrganizationPolicy.Mode = value ?? string.Empty)" Disabled="@readOnly" />
-                <div class="media-management-fixed-field"><span>Originals</span><strong><MudIcon Icon="@Icons.Material.Outlined.VerifiedUser" Size="Size.Small" /> Preserved</strong><small>Preview files are stored separately; original bytes are not rewritten.</small></div>
-            </div>
-        }
-
-        <AppActionBar Align="AppHorizontalAlignment.End" Class="media-management-wizard__footer">
-            <AppButton Label="Back" ButtonStyle="AppButtonStyle.Outlined" Disabled="@(_wizardStep == 1)" OnClick="WizardBack" />
-            @if (_wizardStep < 4)
-            {
-                <AppButton Label="Continue" EndIcon="@Icons.Material.Outlined.ArrowForward" ButtonStyle="AppButtonStyle.Filled"
-                           Tone="AppUiTone.Primary" Disabled="@(!CanContinueWizard)" OnClick="WizardNext" />
-            }
-            else
-            {
-                <AppButton Label="Create Library" StartIcon="@Icons.Material.Outlined.CreateNewFolder" ButtonStyle="AppButtonStyle.Filled"
-                           Tone="AppUiTone.Primary" Disabled="@(!CanFinishWizard || _saving)" Loading="@_saving" OnClick="CreatePersonalLibraryAsync" />
-            }
-        </AppActionBar>
-    </AppCard>;
-
     private IReadOnlyList<LibraryFolderDto> FilteredLibraries => _configuration?.Libraries
+        .Where(library => !string.Equals(library.Kind, "personal", StringComparison.OrdinalIgnoreCase))
         .Where(library => _libraryFilter == "all" || string.Equals(library.Area, _libraryFilter, StringComparison.OrdinalIgnoreCase))
         .OrderBy(library => library.Area)
         .ThenBy(library => library.Name)
         .ToList() ?? [];
+
+    private IReadOnlyList<AppSelectOption> ViewStorageLocationOptions => _configuration?.StorageLocations
+        .Where(location => location.AllowWrite)
+        .Select(location => new AppSelectOption(location.Id, location.Label))
+        .ToList() ?? [];
+
+    private string ViewRootPreview
+    {
+        get
+        {
+            if (_configuration is null) return "View";
+            var location = _configuration.StorageLocations.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, _configuration.ViewStorage.StorageLocationId, StringComparison.OrdinalIgnoreCase));
+            return location is null
+                ? _configuration.ViewStorage.RelativeRoot
+                : Path.Combine(location.Path, _configuration.ViewStorage.RelativeRoot);
+        }
+    }
 
     private LibraryFolderDto? ActiveFilteredLibrary
     {
@@ -818,19 +631,8 @@
         var count => $"{count} shared incoming folders are configured. Processing history is available in Activity.",
     };
 
-    private IReadOnlyList<IngestionOperationsBatchDto> RecentScans => _ingestionSnapshot?.RecentBatches
-        .OrderByDescending(batch => batch.StartedAt)
-        .Take(4)
-        .ToList() ?? [];
-
     private bool HasUnsavedChanges => _configuration is not null
         && !string.Equals(_baseline, JsonSerializer.Serialize(_configuration), StringComparison.Ordinal);
-
-    private bool CanContinueWizard => _wizardStep != 1
-        || (!string.IsNullOrWhiteSpace(_draft.Name) && Guid.TryParse(_draft.OwnerProfileId, out _));
-
-    private bool CanFinishWizard => !string.IsNullOrWhiteSpace(_draft.Sources[0].Path)
-        && _draft.AcceptedIntakeModes.Count > 0;
 
     private async Task LoadAsync()
     {
@@ -887,6 +689,7 @@
             {
                 SchemaVersion = _configuration.SchemaVersion,
                 StorageLocations = _configuration.StorageLocations,
+                ViewStorage = _configuration.ViewStorage,
                 Libraries = _configuration.Libraries,
                 IncomingSources = _configuration.IncomingSources,
                 PersonalLibraryPolicy = _configuration.PersonalLibraryPolicy,
@@ -935,81 +738,9 @@
             if (library.Sources.Any(source => string.IsNullOrWhiteSpace(source.Path))) return $"{library.Name} has an empty source path.";
             if (library.Sources.Any(source => source.Role == "primary_destination")
                 && library.GetPrimaryDestination() is null) return $"{library.Name} needs an explicit primary destination.";
-            if (library.Kind == "personal" && !Guid.TryParse(library.OwnerProfileId, out _)) return $"{library.Name} needs a valid owner profile.";
         }
         if (_configuration.IncomingSources.Any(source => string.IsNullOrWhiteSpace(source.Path))) return "Incoming folder paths cannot be empty.";
         return null;
-    }
-
-    private void BeginPersonalLibrary()
-    {
-        _draft = NewPersonalLibrary(null, _configuration?.PersonalLibraryPolicy);
-        _wizardStep = 1;
-        _ = InitializeDraftOwnerAsync();
-    }
-
-    private async Task InitializeDraftOwnerAsync()
-    {
-        var profile = await Orchestrator.GetActiveProfileAsync();
-        if (profile is not null) _draft.OwnerProfileId = profile.Id.ToString("D");
-        await InvokeAsync(StateHasChanged);
-    }
-
-    private void CancelPersonalLibrary() => Nav.NavigateTo("/settings/libraries");
-    private void WizardBack() => _wizardStep = Math.Max(1, _wizardStep - 1);
-    private void WizardNext() => _wizardStep = Math.Min(4, _wizardStep + 1);
-
-    private async Task CreatePersonalLibraryAsync()
-    {
-        _configuration!.Libraries.Add(_draft);
-        _selectedLibraryIds["view"] = _draft.Id;
-        await SaveAsync();
-    }
-
-    private static LibraryFolderDto NewPersonalLibrary(string? ownerId, PersonalLibraryPolicyDto? policy = null)
-    {
-        var sourceId = Guid.NewGuid().ToString("D");
-        return new LibraryFolderDto
-        {
-            Id = Guid.NewGuid().ToString("D"),
-            Name = string.Empty,
-            Kind = "personal",
-            Area = "view",
-            Presentation = "mixed_gallery",
-            MetadataPolicy = "local_only",
-            OwnerProfileId = ownerId,
-            Visibility = policy?.DefaultVisibility ?? "private",
-            DuplicatePolicy = "skip_exact",
-            AcceptedIntakeModes = PersonalIntakeModes(policy),
-            OrganizationPolicy = new LibraryOrganizationPolicyDto { Mode = "capture_year_month", PreserveOriginals = true },
-            Sources =
-            [
-                new LibrarySourceDto
-                {
-                    Id = sourceId,
-                    Role = "primary_destination",
-                    ManagementMode = "managed_by_tuvima",
-                    SourceType = "local_folder",
-                    AccessMode = "writable",
-                    IncludeSubdirectories = true,
-                    ParticipatesInOrganization = true,
-                    IntakeRole = "direct",
-                    WritebackOverride = false,
-                },
-            ],
-            PrimaryDestinationSourceId = sourceId,
-        };
-    }
-
-    private static List<string> PersonalIntakeModes(PersonalLibraryPolicyDto? policy)
-    {
-        if (policy is null) return ["drag_and_drop", "browser_upload", "mobile_backup"];
-        var modes = new List<string>();
-        if (policy.AllowDragAndDrop) modes.Add("drag_and_drop");
-        if (policy.AllowBrowserUpload) modes.Add("browser_upload");
-        if (policy.AllowMobileBackup) modes.Add("mobile_backup");
-        if (policy.AllowConnectedDeviceImport) modes.Add("connected_device_import");
-        return modes;
     }
 
     private async Task AddIncomingSourceAsync()
@@ -1065,14 +796,6 @@
         if (library.PrimaryDestinationSourceId == source.Id) library.PrimaryDestinationSourceId = null;
     }
 
-    private void RemovePersonalLibrary(LibraryFolderDto library)
-    {
-        if (library.Kind != "personal") return;
-        _configuration!.Libraries.Remove(library);
-        _selectedLibraryIds.Remove("view");
-        EnsureSelection("view");
-    }
-
     private void SetSourceRole(LibraryFolderDto library, LibrarySourceDto source, string? role)
     {
         source.Role = role ?? "secondary";
@@ -1110,18 +833,6 @@
         }
     }
 
-    private static void SetIntakeMode(LibraryFolderDto library, string mode, bool enabled)
-    {
-        library.AcceptedIntakeModes.RemoveAll(value => string.Equals(value, mode, StringComparison.OrdinalIgnoreCase));
-        if (enabled) library.AcceptedIntakeModes.Add(mode);
-    }
-
-    private static void SetVisibility(LibraryFolderDto library, string? visibility)
-    {
-        library.Visibility = visibility ?? "private";
-        if (library.Visibility != "shared") library.AuthorizedProfileIds.Clear();
-    }
-
     private async Task CheckLibraryPathsAsync(LibraryFolderDto library)
     {
         foreach (var source in library.Sources) await CheckPathAsync(source.Path);
@@ -1146,15 +857,35 @@
         await CheckPathAsync(selected);
     }
 
+    private async Task BrowseViewRootAsync()
+    {
+        if (_configuration is null) return;
+        var parameters = new DialogParameters<ServerFolderPicker>
+        {
+            { component => component.InitialPath, ViewRootPreview },
+            { component => component.SelectionMode, ServerFolderSelectionModes.PersonalSpaceManaged },
+            { component => component.HelpText, "Choose the single managed root that will contain every profile's Personal Space." },
+        };
+        var dialog = await DialogService.ShowAsync<ServerFolderPicker>(string.Empty, parameters, new DialogOptions
+        {
+            MaxWidth = MaxWidth.ExtraExtraLarge,
+            FullWidth = false,
+            CloseButton = false,
+            CloseOnEscapeKey = true,
+        });
+        var result = await dialog.Result;
+        if (result is not { Canceled: false, Data: ServerFolderValidationResultDto selected }) return;
+        _configuration.ViewStorage.StorageLocationId = selected.StorageLocationId;
+        _configuration.ViewStorage.RelativeRoot = string.IsNullOrWhiteSpace(selected.RelativePath)
+            ? "."
+            : selected.RelativePath;
+    }
+
     private async Task BrowseLibrarySourceAsync(LibraryFolderDto library, LibrarySourceDto source)
     {
-        var selectionMode = (library.Kind, source.ManagementMode) switch
-        {
-            ("personal", "managed_by_tuvima") => ServerFolderSelectionModes.PersonalSpaceManaged,
-            ("personal", _) => ServerFolderSelectionModes.PersonalSpaceExisting,
-            (_, "managed_by_tuvima") => ServerFolderSelectionModes.ManagedLibrary,
-            _ => ServerFolderSelectionModes.ExistingLibrary,
-        };
+        var selectionMode = source.ManagementMode == "managed_by_tuvima"
+            ? ServerFolderSelectionModes.ManagedLibrary
+            : ServerFolderSelectionModes.ExistingLibrary;
         var selected = await BrowseForPathAsync(
             source.Path,
             selectionMode,
@@ -1204,7 +935,7 @@
 
     private void SetLibraryFilter(string? value)
     {
-        _libraryFilter = value is "read" or "watch" or "listen" or "view" ? value : "all";
+        _libraryFilter = value is "read" or "watch" or "listen" ? value : "all";
         var libraries = FilteredLibraries;
         if (libraries.Count > 0
             && (!_selectedLibraryIds.TryGetValue(_libraryFilter, out var id) || libraries.All(library => library.Id != id)))
@@ -1377,10 +1108,9 @@
         };
     }
 
-    private static string LibraryDisplayName(LibraryFolderDto library) => library.Kind == "personal" ? "Personal Space" : library.Name;
-    private static string LibraryDescription(LibraryFolderDto library) => library.Kind == "personal"
-        ? "Profile-owned photos, videos, documents, and recordings"
-        : library.MediaTypes.FirstOrDefault()?.ToLowerInvariant() switch
+    private static string LibraryDisplayName(LibraryFolderDto library) => library.Name;
+    private static string LibraryDescription(LibraryFolderDto library) =>
+        library.MediaTypes.FirstOrDefault()?.ToLowerInvariant() switch
         {
             "movies" => "Films and full-length features",
             "tvshows" or "tv_shows" => "Series and owned episodes",
@@ -1448,5 +1178,4 @@
         },
     };
 
-    private static string WizardStepLabel(int step) => step switch { 1 => "Basics", 2 => "Experience", 3 => "Storage", _ => "Privacy" };
 }

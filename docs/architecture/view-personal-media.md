@@ -21,7 +21,17 @@ Queue workflows.
 The product presents one **Personal Space** per enabled profile. A Personal
 Space may use several sources or devices, but those sources describe where
 files came from rather than creating separate user-facing destinations.
-Existing library and source identifiers remain useful implementation details.
+The system has one managed View root. Each profile owns one stable-ID directory
+beneath that root, and each managed source/device owns a stable-ID child
+directory. Existing Personal Space and source identifiers remain useful
+implementation details; profile or source display names never form paths.
+
+Managed folder import copies files beneath the profile's source directory and
+preserves the original folder. Browser uploads use a built-in managed source.
+Administrators may link an external folder as an advanced read-only source;
+the link is indexed in place and detaching it deletes only the source record,
+not its files. Sources are persisted Personal Space provenance, not entries in
+`libraries.json` and not separate libraries in View.
 
 ## Identity and ownership
 

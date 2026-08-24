@@ -50,7 +50,7 @@ This repository uses normal .NET restore. It does not use npm or yarn for applic
 Configuration lives under `config/`. The most important first-run files are:
 
 - `config/core.json` - data root, database path, server name, language, and library root defaults
-- `config/libraries.json` - catalogued and personal libraries, their governed sources, and shared incoming locations
+- `config/libraries.json` - catalogued libraries, their governed sources, the single View storage root, and shared incoming locations
 - `config/providers/*.json` - provider configuration
 - `config/secrets/` - provider credentials; this folder is ignored by git
 - `config/ai.json` - Local AI models, feature flags, vocabulary, and schedules
@@ -97,24 +97,25 @@ If your Engine runs on a different URL, set `TUVIMA_ENGINE_URL` before starting 
 
 ## Step 5 - Configure Sources And Begin Intake
 
-Open **Settings > Media Management**.
+Open **Settings > Libraries**.
 
 Confirm or create the catalogued libraries you need. Use `catalogued /
 enriched` for known books, movies, TV, music, audiobooks, and comics. These
 lanes may use the administrator scan action for an existing batch.
 
 For photos, short videos, documents, audio notes, home movies, and other
-private files, enable View for the profile and attach a `personal / local-only`
-source to that profile's Personal Space. There is one Personal Space per
-enabled profile; multiple sources or future devices feed it without becoming
-separate browsing destinations. For each source, explicitly choose **Managed by
-Tuvima** or **Existing library**. Existing sources are indexed in place and
-never modified. Confirm path checks, then save.
+private files, configure the one View storage root under **Settings > Libraries**,
+then enable View for the profile. Tuvima provisions that profile's Personal
+Space automatically. Under **Settings > Users**, use **Import folder** to copy
+an existing export into managed profile storage, or use **Link existing folder**
+for an advanced read-only index of files that must remain where they are.
+Multiple sources and future devices feed the same Personal Space and never
+become separate browsing destinations.
 
 For catalogued media, start an administrator scan when importing an existing
 folder, then use **Settings > Ingestion** to watch progress. View resolves the
 active profile and its Personal Space; normal Photos browsing does not expose a
-source picker or routine scan action. The View scan endpoint is an
+source picker or routine scan action. View reconciliation is an
 administrator recovery/diagnostic tool, not routine personal-media navigation.
 
 Open **Settings > Providers** if catalogue-provider credentials need attention.

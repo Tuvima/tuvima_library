@@ -10,23 +10,21 @@ public sealed class UploadSafetyTests
     private static readonly IReadOnlyList<MediaTypeDefinition> MediaTypes = MediaTypeConfiguration.DefaultTypes();
 
     [Fact]
-    public void UploadEndpoint_RoutesPersonalToViewAndCatalogueToCanonicalIntake()
+    public void UploadEndpoints_KeepViewAndCatalogueIntakeSeparated()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\IngestionEndpoints.cs"));
+        var view = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ViewEndpoints.cs"));
 
         Assert.Contains("form[\"destinationLibraryId\"]", source, StringComparison.Ordinal);
         Assert.Contains("library.PrimaryDestination", source, StringComparison.Ordinal);
-        Assert.Contains("libraryAccess", source, StringComparison.Ordinal);
-        Assert.Contains("viewLibraries.IndexPathAsync", source, StringComparison.Ordinal);
+        Assert.Contains("library.Kind != LibraryKinds.Catalogued", source, StringComparison.Ordinal);
+        Assert.Contains("profile-owned View upload endpoint", source, StringComparison.Ordinal);
         Assert.Contains("engine.EnqueueIntakeAsync(new IntakeFileRequest", source, StringComparison.Ordinal);
         Assert.Contains("DestinationLibraryId = library.Id", source, StringComparison.Ordinal);
         Assert.Contains("SourceId = destination.Id", source, StringComparison.Ordinal);
-        Assert.Contains("libraries.PersonalLibraryPolicy.AllowBrowserUpload", source, StringComparison.Ordinal);
-        Assert.Contains("Browser upload is disabled for personal libraries by administrator policy.", source, StringComparison.Ordinal);
-        Assert.True(
-            source.IndexOf("viewLibraries.IndexPathAsync", StringComparison.Ordinal)
-            < source.IndexOf("engine.EnqueueIntakeAsync(new IntakeFileRequest", StringComparison.Ordinal));
-        Assert.Contains("if (personalViewLibraryId.HasValue)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewLibraryService", source, StringComparison.Ordinal);
+        Assert.Contains("service.UploadAsync", view, StringComparison.Ordinal);
+        Assert.Contains("EnsurePersonalSpaceAsync", view, StringComparison.Ordinal);
         Assert.Contains("UploadSafety.FinalizeUploadAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("FirstOrDefault(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path))", source, StringComparison.Ordinal);
     }

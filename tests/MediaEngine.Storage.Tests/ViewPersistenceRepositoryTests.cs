@@ -72,17 +72,25 @@ public sealed class ViewPersistenceRepositoryTests : IDisposable
 
         var source = await _spaces.UpsertSourceAsync(new ViewSource(
             Guid.Empty, space.Id, ViewSourceType.MobileBackup, "Shy's phone", "mobile:shy",
-            DateTimeOffset.UtcNow, default, default));
+            DateTimeOffset.UtcNow, default, default, ViewSourceStorageMode.Managed,
+            RelativePath: "profiles/owner/sources/phone", IncludeSubdirectories: true, Enabled: true));
         var folder = await _spaces.UpsertSourceAsync(new ViewSource(
             Guid.Empty, space.Id, ViewSourceType.Folder, "Camera imports", "folder:camera",
-            null, default, default));
+            null, default, default, ViewSourceStorageMode.Linked,
+            ExternalPath: @"C:\camera-imports", IncludeSubdirectories: false, Enabled: false));
         var device = await _spaces.UpsertDeviceAsync(new ViewDevice(
             Guid.Empty, space.Id, source.Id, "ios-installation-123", "Shy's iPhone",
             "Apple", "iPhone", DateTimeOffset.UtcNow, ViewDeviceBackupState.Complete,
             default, default));
 
         Assert.Equal(2, (await _spaces.GetSourcesAsync(space.Id)).Count);
-        Assert.Equal(folder.Id, (await _spaces.GetSourcesAsync(space.Id))[0].Id);
+        var persistedFolder = (await _spaces.GetSourcesAsync(space.Id))[0];
+        Assert.Equal(folder.Id, persistedFolder.Id);
+        Assert.Equal(ViewSourceStorageMode.Linked, persistedFolder.StorageMode);
+        Assert.Equal(@"C:\camera-imports", persistedFolder.ExternalPath);
+        Assert.False(persistedFolder.IncludeSubdirectories);
+        Assert.False(persistedFolder.Enabled);
+        Assert.Equal(space.Id, Assert.Single(await _spaces.GetAllAsync()).Id);
         Assert.Equal(device.Id, Assert.Single(await _spaces.GetDevicesAsync(space.Id)).Id);
 
         var asset = await _assets.UpsertAsync(new LocalAssetRegistration(
@@ -98,6 +106,8 @@ public sealed class ViewPersistenceRepositoryTests : IDisposable
         var otherOwner = InsertProfile("Other");
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _spaces.CreateAsync(otherOwner, libraryId));
+        Assert.True(await _spaces.DeleteSourceAsync(space.Id, folder.Id));
+        Assert.False(await _spaces.DeleteSourceAsync(space.Id, folder.Id));
     }
 
     [Fact]

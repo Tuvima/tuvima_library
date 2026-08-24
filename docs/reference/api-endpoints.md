@@ -123,7 +123,7 @@ unauthorized identifiers return the same not-found shape as missing resources.
 | GET | `/view/people` | Cursor-page named/reviewed, provenance-aware people annotations within an authorized scope; no face-recognition claim | Required + scope read |
 | GET | `/view/places` | Cursor-page real GPS/place aggregates within an authorized scope; no map/tile request | Required + scope read |
 | GET | `/view/admin/profiles/{profileId}/sources` | Return an administrator-safe source/device summary without paths, secrets, client identifiers, or invented capacity | Administrator |
-| POST | `/view/admin/libraries/{libraryId}/scan` | Recovery/admin scan for a configured personal library | Administrator |
+| POST | `/view/admin/profiles/{profileId}/reconcile` | Recovery/admin reconciliation for a profile's Personal Space | Administrator |
 
 ## Works
 

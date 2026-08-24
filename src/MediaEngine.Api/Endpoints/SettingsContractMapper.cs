@@ -76,6 +76,7 @@ internal static class SettingsContractMapper
         var result = Convert<LibrariesConfiguration>(value);
         result.Libraries ??= [];
         result.IncomingSources ??= [];
+        result.ViewStorage ??= new ViewStorageConfig();
         result.PersonalLibraryPolicy ??= new PersonalLibraryPolicyConfig();
         foreach (var library in result.Libraries)
         {

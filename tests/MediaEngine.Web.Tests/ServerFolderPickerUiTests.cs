@@ -35,7 +35,7 @@ public sealed class ServerFolderPickerUiTests
         Assert.Contains("ServerFolderSelectionModes.ManagedLibrary", wizard, StringComparison.Ordinal);
         Assert.Contains("ServerFolderSelectionModes.ExistingLibrary", wizard, StringComparison.Ordinal);
         Assert.Contains("DialogParameters<ServerFolderPicker>", users, StringComparison.Ordinal);
-        Assert.Contains("ServerFolderSelectionModes.PersonalSpaceManaged", users, StringComparison.Ordinal);
+        Assert.Contains("ServerFolderSelectionModes.PersonalSpaceManaged", libraries, StringComparison.Ordinal);
         Assert.Contains("ServerFolderSelectionModes.PersonalSpaceExisting", users, StringComparison.Ordinal);
     }
 

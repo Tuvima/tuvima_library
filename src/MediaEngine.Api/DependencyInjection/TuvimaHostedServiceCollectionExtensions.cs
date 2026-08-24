@@ -30,7 +30,8 @@ public static class TuvimaHostedServiceCollectionExtensions
         services.AddHostedService<RejectedFileCleanupService>();
         services.AddSingleton<ViewSourceIndexingOptions>();
         services.AddSingleton<IViewSourceWatcherFactory, FileSystemViewSourceWatcherFactory>();
-        services.AddHostedService<ViewSourceIndexingHostedService>();
+        services.AddSingleton<ViewSourceIndexingHostedService>();
+        services.AddHostedService(sp => sp.GetRequiredService<ViewSourceIndexingHostedService>());
         services.AddHostedService<RetagSweepWorker>();
         services.AddHostedService<MissingUniverseSweepService>();
 

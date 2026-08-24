@@ -151,10 +151,13 @@ public sealed class LibraryOrganizationPolicyDto
 public sealed class UpdateLibrariesRequest
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; init; } = "4.0";
+    public string SchemaVersion { get; init; } = "5.0";
 
     [JsonPropertyName("storage_locations")]
     public List<ServerStorageLocationDto> StorageLocations { get; init; } = [];
+
+    [JsonPropertyName("view_storage")]
+    public ViewStorageDto ViewStorage { get; init; } = new();
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderDto> Libraries { get; init; } = [];
@@ -169,10 +172,13 @@ public sealed class UpdateLibrariesRequest
 public sealed class LibrariesConfigurationDto
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; init; } = "4.0";
+    public string SchemaVersion { get; init; } = "5.0";
 
     [JsonPropertyName("storage_locations")]
     public List<ServerStorageLocationDto> StorageLocations { get; init; } = [];
+
+    [JsonPropertyName("view_storage")]
+    public ViewStorageDto ViewStorage { get; init; } = new();
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderDto> Libraries { get; init; } = [];
@@ -184,11 +190,17 @@ public sealed class LibrariesConfigurationDto
     public PersonalLibraryPolicyDto PersonalLibraryPolicy { get; init; } = new();
 }
 
+public sealed class ViewStorageDto
+{
+    [JsonPropertyName("storage_location_id")]
+    public string StorageLocationId { get; set; } = "media";
+
+    [JsonPropertyName("relative_root")]
+    public string RelativeRoot { get; set; } = "View";
+}
+
 public sealed class PersonalLibraryPolicyDto
 {
-    [JsonPropertyName("allow_user_creation")]
-    public bool AllowUserCreation { get; set; } = true;
-
     [JsonPropertyName("allow_mobile_backup")]
     public bool AllowMobileBackup { get; set; } = true;
 

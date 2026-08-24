@@ -2,7 +2,6 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
-using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Contracts.Paging;
@@ -344,8 +343,6 @@ public static class IngestionEndpoints
             HttpRequest request,
             IConfigurationLoader configLoader,
             IIngestionEngine engine,
-            ViewLibraryService viewLibraries,
-            ILibraryAccessEvaluator libraryAccess,
             IOptions<IngestionOptions> opts,
             CancellationToken ct) =>
         {
@@ -374,36 +371,12 @@ public static class IngestionEndpoints
                 return ApiErrors.BadRequest($"Destination library '{destinationLibraryId}' is not configured.");
             }
 
-            Guid? personalViewLibraryId = null;
-            if (library.Kind == LibraryKinds.Personal)
-            {
-                if (!Guid.TryParse(library.Id, out var parsedLibraryId)
-                    || !viewLibraries.IsPersonalViewLibrary(parsedLibraryId))
-                {
-                    return ApiErrors.BadRequest($"Personal library '{library.Name}' is not a valid View library.");
-                }
-
-                personalViewLibraryId = parsedLibraryId;
-            }
+            if (library.Kind != LibraryKinds.Catalogued)
+                return ApiErrors.BadRequest("Personal media uploads use the profile-owned View upload endpoint.");
 
             if (!library.AcceptedIntakeModes.Contains(LibraryIntakeModes.BrowserUpload, StringComparer.OrdinalIgnoreCase))
             {
                 return ApiErrors.BadRequest($"Library '{library.Name}' does not accept browser uploads.");
-            }
-
-            if (library.Kind == LibraryKinds.Personal
-                && !libraries.PersonalLibraryPolicy.AllowBrowserUpload)
-            {
-                return ApiErrors.BadRequest("Browser upload is disabled for personal libraries by administrator policy.");
-            }
-
-            if (library.Kind == LibraryKinds.Personal
-                && !CanContributeToPersonalLibrary(request.HttpContext, library, libraryAccess))
-            {
-                return Results.Problem(
-                    title: "Library access denied",
-                    detail: "The authenticated caller cannot upload to this personal library.",
-                    statusCode: StatusCodes.Status403Forbidden);
             }
 
             var destination = library.PrimaryDestination;
@@ -412,9 +385,8 @@ public static class IngestionEndpoints
                 return ApiErrors.BadRequest($"Library '{library.Name}' has no managed, writable primary destination.");
             }
 
-            if (library.Kind == LibraryKinds.Catalogued
-                && (string.IsNullOrWhiteSpace(mediaType)
-                    || !LibraryAcceptsMediaType(library, mediaType, mediaTypes.Types)))
+            if (string.IsNullOrWhiteSpace(mediaType)
+                || !LibraryAcceptsMediaType(library, mediaType, mediaTypes.Types))
             {
                 return ApiErrors.BadRequest(
                     $"A configured mediaType is required for catalogued library '{library.Name}'.");
@@ -427,7 +399,7 @@ public static class IngestionEndpoints
                 file.Length,
                 mediaTypes.Types,
                 opts.Value,
-                allowPersonalFiles: library.Kind == LibraryKinds.Personal);
+                allowPersonalFiles: false);
 
             if (plan.Error is not null)
             {
@@ -466,20 +438,6 @@ public static class IngestionEndpoints
                     plan.TargetPath,
                     async (uploadedPath, indexCt) =>
                     {
-                        if (personalViewLibraryId.HasValue)
-                        {
-                            var indexed = await viewLibraries.IndexPathAsync(
-                                personalViewLibraryId.Value,
-                                uploadedPath,
-                                indexCt);
-                            if (indexed is null)
-                            {
-                                throw new InvalidOperationException("The uploaded file's View library is no longer configured.");
-                            }
-
-                            return;
-                        }
-
                         await engine.EnqueueIntakeAsync(new IntakeFileRequest
                         {
                             Path = uploadedPath,
@@ -522,43 +480,6 @@ public static class IngestionEndpoints
         return definition is not null && library.MediaTypes.Any(configured =>
             string.Equals(configured, definition.Key, StringComparison.OrdinalIgnoreCase)
             || string.Equals(configured, definition.DisplayName, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static bool CanContributeToPersonalLibrary(
-        HttpContext context,
-        LibraryFolderConfig library,
-        ILibraryAccessEvaluator evaluator)
-    {
-        if (!Guid.TryParse(library.OwnerProfileId, out var ownerProfileId) || ownerProfileId == Guid.Empty)
-        {
-            return false;
-        }
-
-        var role = context.Items.TryGetValue("ApiKeyRole", out var roleValue)
-            ? roleValue as string
-            : null;
-        if (string.IsNullOrWhiteSpace(role))
-        {
-            return false;
-        }
-
-        // API keys currently carry a role but no trusted profile identity. An
-        // administrator is therefore the only API-key caller who can contribute
-        // to personal libraries; a future authenticated profile context can
-        // replace Guid.Empty without changing the policy decision.
-        var policy = new LibraryAccessPolicy
-        {
-            OwnerProfileId = ownerProfileId,
-            Visibility = library.Visibility,
-            AuthorizedProfileIds = library.AuthorizedProfileIds
-                .Select(value => Guid.TryParse(value, out var id) ? id : Guid.Empty)
-                .Where(id => id != Guid.Empty)
-                .ToHashSet(),
-        };
-        return evaluator.IsAllowed(
-            new LibraryAccessSubject(Guid.Empty, role),
-            policy,
-            LibraryAccessAction.Contribute);
     }
 
     private static List<WatchFolderFileDto> GetNewestWatchFiles(

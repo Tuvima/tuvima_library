@@ -264,6 +264,22 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         CancellationToken ct = default) =>
         _api.GetViewProfileSourcesAsync(id, ct);
 
+    public Task<ViewSourceAdminDto?> CreateViewProfileSourceAsync(
+        Guid id, CreateViewSourceRequest request, CancellationToken ct = default) =>
+        _api.CreateViewProfileSourceAsync(id, request, ct);
+
+    public Task<ViewSourceAdminDto?> UpdateViewProfileSourceAsync(
+        Guid id, Guid sourceId, UpdateViewSourceRequest request, CancellationToken ct = default) =>
+        _api.UpdateViewProfileSourceAsync(id, sourceId, request, ct);
+
+    public Task<bool> DeleteViewProfileSourceAsync(
+        Guid id, Guid sourceId, CancellationToken ct = default) =>
+        _api.DeleteViewProfileSourceAsync(id, sourceId, ct);
+
+    public Task<LocalAssetScanResultDto?> ReconcileViewPersonalSpaceAsync(
+        Guid id, CancellationToken ct = default) =>
+        _api.ReconcileViewPersonalSpaceAsync(id, ct);
+
     public async Task<ProfileViewModel?> UploadProfileAvatarAsync(
         Guid id,
         Stream fileStream,

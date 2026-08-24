@@ -84,7 +84,8 @@ public sealed class ViewSmartGalleryQueryTests : IDisposable
     {
         var source = await _spaces.UpsertSourceAsync(new ViewSource(
             Guid.Empty, _space.Id, ViewSourceType.Folder, "Camera imports", "folder:camera",
-            DateTimeOffset.UtcNow, default, default));
+            DateTimeOffset.UtcNow, default, default, ViewSourceStorageMode.Linked,
+            ExternalPath: @"C:\camera-imports"));
         var device = await _spaces.UpsertDeviceAsync(new ViewDevice(
             Guid.Empty, _space.Id, source.Id, "phone-1", "Shy's phone", "Example", "Camera 1",
             DateTimeOffset.UtcNow, ViewDeviceBackupState.Complete, default, default));

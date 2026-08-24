@@ -150,7 +150,7 @@ One stable Personal Space per enabled profile.
 | --- | --- | --- |
 | `id` | BLOB | Internal UUID, primary key. |
 | `owner_profile_id` | BLOB | Unique FK to `profiles.id`. |
-| `library_id` | BLOB | Unique bridge to the configured `personal` library. |
+| `library_id` | BLOB | Unique internal bridge used by View queries; it is not a configured library folder. |
 | `created_at`, `updated_at` | TEXT | Lifecycle timestamps. |
 
 ### `view_sources` and `view_devices`
@@ -159,7 +159,10 @@ Provenance records for folders, browser uploads, future device producers, and
 other intake origins. They do not create separate Personal Spaces.
 
 `view_sources` stores `personal_space_id`, `source_type`, display `name`, an
-optional stable `source_key`, activity time, and timestamps.
+optional stable `source_key`, managed/linked storage mode, a managed relative
+path or external path, recursion and enabled flags, activity time, and timestamps.
+Managed paths resolve beneath the single View root; linked paths remain external
+and read-only.
 `view_devices` stores the Personal Space, optional source, stable client-device
 ID, display/device facts, last-backup time, and a modeled backup state. The
 mobile/device producer itself is not implemented merely because these rows

@@ -4,6 +4,7 @@ using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
+using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -178,7 +179,6 @@ public sealed class ViewLibraryServiceTests
 
         Assert.Null(await fixture.Service.ScanAsync(Guid.NewGuid()));
         Assert.Null(await fixture.Service.ScanAsync(fixture.CatalogueLibraryId));
-        Assert.False(fixture.Service.IsPersonalViewLibrary(fixture.CatalogueLibraryId));
     }
 
     [Fact]
@@ -249,7 +249,7 @@ public sealed class ViewLibraryServiceTests
             }).GetAwaiter().GetResult();
             _configuration.SaveLibraries(new LibrariesConfiguration
             {
-                SchemaVersion = "4.0",
+                SchemaVersion = "5.0",
                 StorageLocations =
                 [
                     new ServerStorageLocationConfig
@@ -267,17 +267,30 @@ public sealed class ViewLibraryServiceTests
                         AllowWrite = true,
                     },
                 ],
+                ViewStorage = new ViewStorageConfig
+                {
+                    StorageLocationId = "personal",
+                    RelativeRoot = "managed-view",
+                },
                 Libraries =
                 [
-                    PersonalLibrary(PersonalLibraryId, OwnerProfileId, PersonalRoot),
                     CatalogueLibrary(CatalogueLibraryId, CatalogueRoot),
                 ],
             });
+            var spaces = new ViewPersonalSpaceRepository(_database);
+            var space = spaces.CreateAsync(OwnerProfileId, PersonalLibraryId).GetAwaiter().GetResult();
+            var now = DateTimeOffset.UtcNow;
+            spaces.UpsertSourceAsync(new ViewSource(
+                Guid.NewGuid(), space.Id, ViewSourceType.Folder, "Existing personal files", "test:personal",
+                null, now, now, ViewSourceStorageMode.Linked, ExternalPath: PersonalRoot,
+                IncludeSubdirectories: true, Enabled: true)).GetAwaiter().GetResult();
+            var storage = new ViewStorageService(_configuration, spaces);
             Service = new ViewLibraryService(
                 Repository,
                 _configuration,
                 new LibraryAccessEvaluator(),
-                new ViewPersonalSpaceRepository(_database),
+                spaces,
+                storage,
                 NullLogger<ViewLibraryService>.Instance);
         }
 

@@ -2,6 +2,9 @@ using System.Collections.Concurrent;
 using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -12,11 +15,24 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"tuvima-view-watch-{Guid.NewGuid():N}");
     private readonly ConfigurationDirectoryLoader _configuration;
+    private readonly DatabaseConnection _database;
+    private readonly ViewPersonalSpaceRepository _spaces;
+    private readonly ViewStorageService _storage;
 
     public ViewSourceIndexingHostedServiceTests()
     {
         Directory.CreateDirectory(_root);
         _configuration = new ConfigurationDirectoryLoader(Path.Combine(_root, "config"));
+        _database = new DatabaseConnection(Path.Combine(_root, "view.db"));
+        _database.InitializeSchema();
+        _spaces = new ViewPersonalSpaceRepository(_database);
+        _configuration.SaveLibraries(new LibrariesConfiguration
+        {
+            SchemaVersion = "5.0",
+            StorageLocations = [StorageRoot()],
+            ViewStorage = new ViewStorageConfig { StorageLocationId = "view-tests", RelativeRoot = "managed" },
+        });
+        _storage = new ViewStorageService(_configuration, _spaces);
     }
 
     [Fact]
@@ -27,30 +43,20 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
         var catalogueRoot = Directory.CreateDirectory(Path.Combine(_root, "catalogue")).FullName;
         var personalId = Guid.NewGuid();
         var nestedId = Guid.NewGuid();
-        var settings = new LibrariesConfiguration
-        {
-            Libraries =
-            [
-                Library(personalId, LibraryKinds.Personal, LibraryAreas.View,
-                    LibraryMetadataPolicies.LocalOnly, personalRoot, includeSubdirectories: true),
-                Library(nestedId, LibraryKinds.Personal, LibraryAreas.View,
-                    LibraryMetadataPolicies.Manual, nestedRoot, includeSubdirectories: false),
-                Library(Guid.NewGuid(), LibraryKinds.Catalogued, LibraryAreas.Read,
-                    LibraryMetadataPolicies.Enriched, catalogueRoot, includeSubdirectories: true),
-                Library(Guid.NewGuid(), LibraryKinds.Personal, LibraryAreas.Watch,
-                    LibraryMetadataPolicies.LocalOnly, Path.Combine(_root, "wrong-area"), true),
-                Library(Guid.NewGuid(), LibraryKinds.Personal, LibraryAreas.View,
-                    LibraryMetadataPolicies.Enriched, Path.Combine(_root, "provider-backed"), true),
-                Library(Guid.NewGuid(), LibraryKinds.Personal, LibraryAreas.View,
-                    LibraryMetadataPolicies.LocalOnly, Path.Combine(_root, "network"), true,
-                    LibrarySourceTypes.NetworkShare),
-                Library(Guid.NewGuid(), LibraryKinds.Personal, LibraryAreas.View,
-                    LibraryMetadataPolicies.LocalOnly, Path.Combine(_root, "unsupported-source"), true,
-                    "cloud_api"),
-            ],
-        };
-
-        var sources = ViewSourceIndexingHostedService.SelectConfiguredSources(settings);
+        var now = DateTimeOffset.UtcNow;
+        var rootSpace = new ViewPersonalSpace(Guid.NewGuid(), Guid.NewGuid(), personalId, now, now);
+        var nestedSpace = new ViewPersonalSpace(Guid.NewGuid(), Guid.NewGuid(), nestedId, now, now);
+        var networkId = Guid.NewGuid();
+        var networkSpace = new ViewPersonalSpace(Guid.NewGuid(), Guid.NewGuid(), networkId, now, now);
+        var sources = ViewSourceIndexingHostedService.SelectConfiguredSources(
+        [
+            (rootSpace, new ViewSource(Guid.NewGuid(), rootSpace.Id, ViewSourceType.Folder, "Root", null, null, now, now,
+                ViewSourceStorageMode.Linked, ExternalPath: personalRoot, IncludeSubdirectories: true), personalRoot),
+            (nestedSpace, new ViewSource(Guid.NewGuid(), nestedSpace.Id, ViewSourceType.Folder, "Nested", null, null, now, now,
+                ViewSourceStorageMode.Linked, ExternalPath: nestedRoot, IncludeSubdirectories: false), nestedRoot),
+            (networkSpace, new ViewSource(Guid.NewGuid(), networkSpace.Id, ViewSourceType.Network, "Network", null, null, now, now,
+                ViewSourceStorageMode.Linked, ExternalPath: Path.Combine(_root, "network"), IncludeSubdirectories: true), Path.Combine(_root, "network")),
+        ]);
 
         Assert.Equal(3, sources.Count);
         Assert.Contains(sources, source => source.RootPath.EndsWith("network", StringComparison.OrdinalIgnoreCase));
@@ -79,12 +85,7 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
     {
         var personalRoot = Directory.CreateDirectory(Path.Combine(_root, "events")).FullName;
         var libraryId = Guid.NewGuid();
-        _configuration.SaveLibraries(new LibrariesConfiguration
-        {
-            StorageLocations = [StorageRoot()],
-            Libraries = [Library(libraryId, LibraryKinds.Personal, LibraryAreas.View,
-                LibraryMetadataPolicies.LocalOnly, personalRoot, includeSubdirectories: true)],
-        });
+        AddSource(libraryId, personalRoot, true);
         var watcherFactory = new FakeWatcherFactory();
         var indexer = new RecordingIndexer(blockScan: true, failFirstDispatch: true);
         using var service = Service(indexer, watcherFactory);
@@ -131,17 +132,8 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
     {
         var first = Directory.CreateDirectory(Path.Combine(_root, "one")).FullName;
         var second = Directory.CreateDirectory(Path.Combine(_root, "two")).FullName;
-        _configuration.SaveLibraries(new LibrariesConfiguration
-        {
-            StorageLocations = [StorageRoot()],
-            Libraries =
-            [
-                Library(Guid.NewGuid(), LibraryKinds.Personal, LibraryAreas.View,
-                    LibraryMetadataPolicies.LocalOnly, first, true),
-                Library(Guid.NewGuid(), LibraryKinds.Personal, LibraryAreas.View,
-                    LibraryMetadataPolicies.LocalOnly, second, true),
-            ],
-        });
+        AddSource(Guid.NewGuid(), first, true);
+        AddSource(Guid.NewGuid(), second, true);
         var factory = new FakeWatcherFactory();
         var indexer = new RecordingIndexer();
         var service = Service(indexer, factory);
@@ -170,7 +162,7 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
     private ViewSourceIndexingHostedService Service(
         IViewPathIndexer indexer,
         IViewSourceWatcherFactory watcherFactory) => new(
-            _configuration,
+            _storage,
             indexer,
             watcherFactory,
             new ViewSourceIndexingOptions
@@ -185,35 +177,22 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
             },
             NullLogger<ViewSourceIndexingHostedService>.Instance);
 
-    private static LibraryFolderConfig Library(
-        Guid id,
-        string kind,
-        string area,
-        string metadataPolicy,
-        string root,
-        bool includeSubdirectories,
-        string sourceType = LibrarySourceTypes.LocalFolder) => new()
+    private void AddSource(Guid libraryId, string path, bool includeSubdirectories)
     {
-        Id = id.ToString("D"),
-        Name = id.ToString("N"),
-        Kind = kind,
-        Area = area,
-        Presentation = kind == LibraryKinds.Personal
-            ? LibraryPresentations.MixedGallery
-            : LibraryPresentations.Catalogue,
-        MetadataPolicy = metadataPolicy,
-        OwnerProfileId = kind == LibraryKinds.Personal ? Guid.NewGuid().ToString("D") : null,
-        Sources =
-        [
-            new LibrarySourceConfig
-            {
-                Id = Guid.NewGuid().ToString("D"),
-                Path = root,
-                SourceType = sourceType,
-                IncludeSubdirectories = includeSubdirectories,
-            },
-        ],
-    };
+        var profileId = Guid.NewGuid();
+        new ProfileRepository(_database).InsertAsync(new Profile
+        {
+            Id = profileId,
+            DisplayName = profileId.ToString("N"),
+            Role = ProfileRole.Consumer,
+        }).GetAwaiter().GetResult();
+        var space = _spaces.CreateAsync(profileId, libraryId).GetAwaiter().GetResult();
+        var now = DateTimeOffset.UtcNow;
+        _spaces.UpsertSourceAsync(new ViewSource(
+            Guid.NewGuid(), space.Id, ViewSourceType.Folder, "Test source", $"test:{libraryId:N}",
+            null, now, now, ViewSourceStorageMode.Linked, ExternalPath: path,
+            IncludeSubdirectories: includeSubdirectories, Enabled: true)).GetAwaiter().GetResult();
+    }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {
@@ -228,6 +207,8 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
     public void Dispose()
     {
         _configuration.Dispose();
+        _database.Dispose();
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
     }
 

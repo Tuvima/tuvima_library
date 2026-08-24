@@ -1,6 +1,6 @@
 ---
 title: "Libraries, Sources, and Intake"
-summary: "Target architecture for structured and personal libraries, universal intake, folder safety, and View."
+summary: "Target architecture for catalogued libraries, View Personal Spaces, universal intake, and folder safety."
 audience: "developer"
 category: "architecture"
 product_area: "ingestion"
@@ -8,20 +8,21 @@ product_area: "ingestion"
 
 # Libraries, Sources, and Intake
 
-Tuvima has two library kinds and four presentation areas. These concepts are
-orthogonal: a library kind controls processing policy, while an area controls
-where the library appears in the product.
+Tuvima has two runtime library kinds, but only catalogued libraries are
+administrator-authored in `libraries.json`. The `personal` kind is an internal
+bridge provisioned automatically for each View-enabled profile.
 
 | Kind | Areas | Processing |
 | --- | --- | --- |
 | `catalogued` | Read, Watch, Listen | Local extraction followed by configured identity and metadata providers. |
 | `personal` | View | Local extraction and indexing only. External identity and metadata providers are not called. |
 
-`Photos` and `General` are not library kinds. Phone photos, short videos,
+`Photos` and `General` are not configured library kinds. Phone photos, short videos,
 documents, artwork, home movies, audio notes, and other personal files belong
 to the owning profile's Personal Space in View. A Personal Space has one
 internal `personal` library bridge and may receive files from several sources
-or devices. The library, source, and device records are intake/provenance
+or devices. The Personal Space, source, and device records are persisted in the
+database; they are not library folders in `libraries.json`. These are intake/provenance
 details rather than separate user-facing destinations. Galleries organize
 assets without changing library kind or moving source files.
 
@@ -64,7 +65,7 @@ The destination library determines the processing branch:
 Staging and temporary upload paths are implementation details. Normal users do
 not configure or browse them.
 
-## Libraries and sources
+## Catalogued libraries and sources
 
 A library owns policy and presentation. A source represents one concrete
 folder or intake endpoint. Every source has a stable ID and declares its path,
@@ -72,8 +73,27 @@ role, management mode, recursion behavior, filesystem access, writeback
 override, organization participation, intake role, health, and optional device
 or profile association.
 
-One managed source may be the explicit primary destination. Array order never
+One catalogued managed source may be the explicit primary destination. Array order never
 selects a destination.
+
+## View root and profile sources
+
+View has one administrator-configured managed root:
+
+```text
+<view root>/profiles/<stable profile id>/sources/<stable source id>/
+```
+
+Display names never determine these paths. Enabling View provisions the
+profile's one Personal Space and profile directory. Browser uploads and managed
+imports are stored under source-ID directories. Importing an existing folder
+copies its files and leaves the originals untouched.
+
+An administrator may instead link an existing folder as an advanced read-only
+source. Linked folders stay at their external path and are indexed in place;
+Tuvima does not move, rename, write back, overwrite, or delete their files.
+View source/device records live in the database so adding a phone, browser
+upload stream, or family archive never creates another user-facing library.
 
 ### Existing library source
 

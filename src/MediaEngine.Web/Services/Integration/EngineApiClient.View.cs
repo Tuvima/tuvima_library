@@ -146,6 +146,41 @@ public sealed partial class EngineApiClient
             $"/view/admin/profiles/{profileId:D}/sources",
             ct: ct);
 
+    public Task<ViewSourceAdminDto?> CreateViewProfileSourceAsync(
+        Guid profileId, CreateViewSourceRequest request, CancellationToken ct = default) =>
+        PostAsync<CreateViewSourceRequest, ViewSourceAdminDto>(
+            "POST /view/admin/profiles/{profileId}/sources",
+            $"/view/admin/profiles/{profileId:D}/sources", request, ct: ct);
+
+    public async Task<ViewSourceAdminDto?> UpdateViewProfileSourceAsync(
+        Guid profileId, Guid sourceId, UpdateViewSourceRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PutAsJsonAsync(
+                $"/view/admin/profiles/{profileId:D}/sources/{sourceId:D}", request, ct);
+            if (!response.IsSuccessStatusCode) return null;
+            return await response.Content.ReadFromJsonAsync<ViewSourceAdminDto>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "PUT View profile source failed");
+            return null;
+        }
+    }
+
+    public Task<bool> DeleteViewProfileSourceAsync(
+        Guid profileId, Guid sourceId, CancellationToken ct = default) =>
+        DeleteAsync("DELETE /view/admin/profiles/{profileId}/sources/{sourceId}",
+            $"/view/admin/profiles/{profileId:D}/sources/{sourceId:D}", ct: ct);
+
+    public Task<LocalAssetScanResultDto?> ReconcileViewPersonalSpaceAsync(
+        Guid profileId, CancellationToken ct = default) =>
+        PostAsync<object, LocalAssetScanResultDto>(
+            "POST /view/admin/profiles/{profileId}/reconcile",
+            $"/view/admin/profiles/{profileId:D}/reconcile", new { }, ct: ct);
+
     private Task<bool> LifecycleAsync(Guid itemId, string action, CancellationToken ct) =>
         PostAsync("POST /view/items/{id}/lifecycle", $"/view/items/{itemId:D}/{action}", new { }, ct: ct);
 

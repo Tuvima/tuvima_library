@@ -210,13 +210,20 @@
                     <p>Read-only status from this profile's persisted Personal Space.</p>
                 </div>
                 <AppActionBar>
-                    <AppButton Label="Add managed folder"
+                    <AppButton Label="@(_viewReconciling ? "Reconciling…" : "Reconcile")"
+                               StartIcon="@Icons.Material.Outlined.Refresh"
+                               ButtonStyle="AppButtonStyle.Text"
+                               Size="AppControlSize.Compact"
+                               Loading="@_viewReconciling"
+                               Disabled="@(_selectedViewUser is null || _viewSourcesLoading || _viewSources?.PersonalSpace is null)"
+                               OnClick="ReconcileViewAsync" />
+                    <AppButton Label="Import folder"
                                StartIcon="@Icons.Material.Outlined.CreateNewFolder"
                                ButtonStyle="AppButtonStyle.Outlined"
                                Size="AppControlSize.Compact"
                                Disabled="@(_selectedViewUser is null || _viewSourcesLoading)"
                                OnClick="@(() => AddPersonalSpaceFolderAsync(true))" />
-                    <AppButton Label="Attach existing folder"
+                    <AppButton Label="Link existing folder"
                                StartIcon="@Icons.Material.Outlined.FolderOpen"
                                ButtonStyle="AppButtonStyle.Text"
                                Size="AppControlSize.Compact"
@@ -244,7 +251,7 @@
             else
             {
                 <div class="users-view-sources__space-status">
-                    <span>Personal Space</span>
+                    <span>Personal Space · @_viewSources.PersonalSpace.RootPath</span>
                     <span>Updated @FormatWhen(_viewSources.PersonalSpace.UpdatedAt)</span>
                 </div>
 
@@ -262,11 +269,21 @@
                                 <AppCard Density="AppSurfaceDensity.Compact" Class="users-view-source-card">
                                     <div class="users-view-source-card__identity">
                                         <strong>@source.Name</strong>
-                                        <span>@SourceTypeLabel(source.SourceType)</span>
+                                        <span>@SourceTypeLabel(source.SourceType) · @source.StorageMode</span>
+                                        <small>@source.Location</small>
                                     </div>
                                     <div class="users-view-source-card__status">
+                                        <AppStatusBadge Text="@(source.Enabled ? "Active" : "Disabled")"
+                                                        Tone="@(source.Enabled ? AppUiTone.Success : AppUiTone.Neutral)" />
                                         <span>Last activity</span>
                                         <strong>@FormatWhen(source.LastActivityAt)</strong>
+                                        @if (!string.Equals(source.SourceType, "browser_upload", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
+                                                           Tooltip="Detach source" AriaLabel="@($"Detach {source.Name}")"
+                                                           Tone="AppUiTone.Error"
+                                                           OnClick="@(() => DetachViewSourceAsync(source))" />
+                                        }
                                     </div>
                                 </AppCard>
                             }
@@ -418,6 +435,7 @@
     private bool _viewPolicyUnavailable;
     private bool _viewSourcesLoading;
     private bool _viewSourcesUnavailable;
+    private bool _viewReconciling;
     private ViewPersonalSpaceAdminReviewDto? _viewSources;
     private UserRow? _selectedViewUser;
     private bool _viewEnabled;
@@ -604,11 +622,12 @@
     private async Task AddPersonalSpaceFolderAsync(bool managed)
     {
         if (_selectedViewUser is null) return;
-        var mode = managed ? ServerFolderSelectionModes.PersonalSpaceManaged : ServerFolderSelectionModes.PersonalSpaceExisting;
         var parameters = new DialogParameters<ServerFolderPicker>
         {
-            { component => component.SelectionMode, mode },
-            { component => component.HelpText, $"Choose a server folder to attach to {_selectedViewUser.DisplayName}'s Personal Space." },
+            { component => component.SelectionMode, ServerFolderSelectionModes.PersonalSpaceExisting },
+            { component => component.HelpText, managed
+                ? $"Choose a folder to copy into {_selectedViewUser.DisplayName}'s Personal Space. Originals remain unchanged."
+                : $"Choose an existing folder to link read-only to {_selectedViewUser.DisplayName}'s Personal Space." },
         };
         var dialog = await DialogService.ShowAsync<ServerFolderPicker>(string.Empty, parameters, new DialogOptions
         {
@@ -619,70 +638,58 @@
         });
         var result = await dialog.Result;
         if (result is not { Canceled: false, Data: ServerFolderValidationResultDto selected }) return;
-
-        var configuration = await Orchestrator.GetLibrariesAsync();
-        if (configuration is null)
+        var source = await Orchestrator.CreateViewProfileSourceAsync(
+            _selectedViewUser.Id,
+            new CreateViewSourceRequest(
+                Path.GetFileName(selected.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+                managed ? "managed" : "linked",
+                selected.Path,
+                true));
+        if (source is null)
         {
-            Snackbar.Add(ApiClient.LastError ?? "Personal Space configuration could not be loaded.", Severity.Error);
+            Snackbar.Add(ApiClient.LastError ?? (managed
+                ? "The folder could not be imported."
+                : "The existing folder could not be linked."), Severity.Error);
             return;
         }
 
-        var ownerId = _selectedViewUser.Id.ToString("D");
-        var library = configuration.Libraries.FirstOrDefault(candidate =>
-            candidate.Kind == "personal" && string.Equals(candidate.OwnerProfileId, ownerId, StringComparison.OrdinalIgnoreCase));
-        if (library is null)
-        {
-            library = new LibraryFolderDto
-            {
-                Id = Guid.NewGuid().ToString("D"),
-                Name = $"{_selectedViewUser.DisplayName} Personal Space",
-                Kind = "personal",
-                Area = "view",
-                Presentation = "mixed_gallery",
-                MetadataPolicy = "local_only",
-                OwnerProfileId = ownerId,
-                Visibility = configuration.PersonalLibraryPolicy.DefaultVisibility,
-                DuplicatePolicy = "skip_exact",
-                AcceptedIntakeModes = ["browser_upload", "drag_and_drop"],
-                OrganizationPolicy = new LibraryOrganizationPolicyDto { Mode = "capture_year_month", PreserveOriginals = true },
-            };
-            configuration.Libraries.Add(library);
-        }
+        Snackbar.Add(managed
+            ? $"{source.Name} copied into {_selectedViewUser.DisplayName}'s Personal Space. Originals were unchanged."
+            : $"{source.Name} linked read-only to {_selectedViewUser.DisplayName}'s Personal Space.", Severity.Success);
+        await ReloadViewSourcesAsync();
+    }
 
-        var sourceId = Guid.NewGuid().ToString("D");
-        var primary = managed && library.GetPrimaryDestination() is null;
-        library.Sources.Add(new LibrarySourceDto
+    private async Task DetachViewSourceAsync(ViewSourceAdminDto source)
+    {
+        if (_selectedViewUser is null) return;
+        if (!await Orchestrator.DeleteViewProfileSourceAsync(_selectedViewUser.Id, source.Id))
         {
-            Id = sourceId,
-            Path = selected.Path,
-            Notes = Path.GetFileName(selected.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
-            Role = primary ? "primary_destination" : "secondary",
-            ManagementMode = managed ? "managed_by_tuvima" : "existing_library",
-            SourceType = "local_folder",
-            IncludeSubdirectories = true,
-            AccessMode = managed ? "writable" : "read_only",
-            ParticipatesInOrganization = managed,
-            IntakeRole = primary ? "direct" : "none",
-            WritebackOverride = false,
-            ProfileId = ownerId,
-        });
-        if (primary) library.PrimaryDestinationSourceId = sourceId;
-
-        var saved = await Orchestrator.UpdateLibrariesAsync(new UpdateLibrariesRequest
-        {
-            SchemaVersion = configuration.SchemaVersion,
-            StorageLocations = configuration.StorageLocations,
-            Libraries = configuration.Libraries,
-            IncomingSources = configuration.IncomingSources,
-            PersonalLibraryPolicy = configuration.PersonalLibraryPolicy,
-        });
-        if (saved is null)
-        {
-            Snackbar.Add(ApiClient.LastError ?? "The Personal Space folder could not be attached.", Severity.Error);
+            Snackbar.Add(ApiClient.LastError ?? "The source could not be detached.", Severity.Error);
             return;
         }
+        Snackbar.Add($"{source.Name} detached. No files were deleted.", Severity.Success);
+        await ReloadViewSourcesAsync();
+    }
 
-        Snackbar.Add($"Folder attached to {_selectedViewUser.DisplayName}'s Personal Space.", Severity.Success);
+    private async Task ReconcileViewAsync()
+    {
+        if (_selectedViewUser is null || _viewReconciling) return;
+        _viewReconciling = true;
+        var result = await Orchestrator.ReconcileViewPersonalSpaceAsync(_selectedViewUser.Id);
+        _viewReconciling = false;
+        if (result is null)
+        {
+            Snackbar.Add(ApiClient.LastError ?? "The Personal Space could not be reconciled.", Severity.Error);
+            return;
+        }
+        Snackbar.Add($"Reconciliation complete: {result.ItemsAdded} items added, {result.DuplicatesFound} duplicates, {result.Errors} errors.",
+            result.Errors > 0 ? Severity.Warning : Severity.Success);
+        await ReloadViewSourcesAsync();
+    }
+
+    private async Task ReloadViewSourcesAsync()
+    {
+        if (_selectedViewUser is null) return;
         _viewSourcesLoading = true;
         _viewSources = await Orchestrator.GetViewProfileSourcesAsync(_selectedViewUser.Id);
         _viewSourcesLoading = false;
