@@ -20,10 +20,14 @@
                         <div @key="item.Route" class="media-section-shell__rail-branch @(active ? "is-active" : null) @(expanded ? "is-expanded" : null)">
                             <a id="@ItemId(item)"
                                href="@item.Route"
-                               class="media-section-shell__rail-item media-section-shell__rail-item--parent @(active ? "is-active" : null)"
+                               class="media-section-shell__rail-item media-section-shell__rail-item--parent @(active ? "is-active" : null) @(DropClass(item))"
                                aria-expanded="@(expanded ? "true" : "false")"
                                aria-controls="@ChildrenId(item)"
                                aria-current="@(IsOwnRouteActive(item, forceExact: true) ? "page" : null)"
+                               @ondragenter="@(() => ExpandDropBranch(item))"
+                               @ondragover:preventDefault="@(item.DropTarget is not null)"
+                               @ondrop:preventDefault="@(item.DropTarget is not null)"
+                               @ondrop="@(() => DropOnNavigationItemAsync(item))"
                                @onclick="@(() => ToggleBranch(item))"
                                @onclick:preventDefault="true">
                                 <MudIcon Icon="@item.Icon" />
@@ -46,7 +50,10 @@
                                         <a @key="child.Route"
                                            id="@ItemId(child)"
                                            href="@child.Route"
-                                           class="media-section-shell__rail-item media-section-shell__rail-item--child @(childActive ? "is-active" : null)"
+                                           class="media-section-shell__rail-item media-section-shell__rail-item--child @(childActive ? "is-active" : null) @(DropClass(child))"
+                                           @ondragover:preventDefault="@(child.DropTarget is not null)"
+                                           @ondrop:preventDefault="@(child.DropTarget is not null)"
+                                           @ondrop="@(() => DropOnNavigationItemAsync(child))"
                                            aria-current="@(childActive ? "page" : null)">
                                             <span class="media-section-shell__rail-child-marker" aria-hidden="true"></span>
                                             <span>@child.Label</span>
@@ -66,9 +73,9 @@
                         <a @key="item.Route"
                            id="@ItemId(item)"
                            href="@item.Route"
-                           class="media-section-shell__rail-item @(active ? "is-active" : null) @(item.DropCollectionId.HasValue ? "is-drop-target" : null)"
-                           @ondragover:preventDefault="@item.DropCollectionId.HasValue"
-                           @ondrop:preventDefault="@item.DropCollectionId.HasValue"
+                           class="media-section-shell__rail-item @(active ? "is-active" : null) @(DropClass(item))"
+                           @ondragover:preventDefault="@(item.DropTarget is not null)"
+                           @ondrop:preventDefault="@(item.DropTarget is not null)"
                            @ondrop="@(() => DropOnNavigationItemAsync(item))"
                            aria-current="@(active ? "page" : null)">
                             <MudIcon Icon="@item.Icon" />
@@ -93,7 +100,7 @@
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter, EditorRequired] public IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups { get; set; } = [];
     [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
-    [Parameter] public EventCallback<Guid> OnNavigationItemDrop { get; set; }
+    [Parameter] public EventCallback<MediaSectionNavigationDropEvent> OnNavigationItemDrop { get; set; }
     [Parameter] public bool AccordionNavigation { get; set; }
 
     private readonly HashSet<string> _expandedRoutes = new(StringComparer.OrdinalIgnoreCase);
@@ -191,6 +198,21 @@
         }
     }
 
+    private void ExpandDropBranch(MediaSectionNavigationItem item)
+    {
+        if (!HasChildren(item) || IsExpanded(item))
+        {
+            return;
+        }
+
+        if (AccordionNavigation)
+        {
+            _expandedRoutes.Clear();
+        }
+
+        _expandedRoutes.Add(item.Route);
+    }
+
     private void ExpandActiveBranch()
     {
         var activeBranch = NavigationGroups
@@ -256,9 +278,12 @@
         }
     }
 
+    private static string? DropClass(MediaSectionNavigationItem item) =>
+        item.DropTarget is null ? null : "is-drop-target";
+
     private Task DropOnNavigationItemAsync(MediaSectionNavigationItem item) =>
-        item.DropCollectionId is Guid collectionId && OnNavigationItemDrop.HasDelegate
-            ? OnNavigationItemDrop.InvokeAsync(collectionId)
+        item.DropTarget is { } target && OnNavigationItemDrop.HasDelegate
+            ? OnNavigationItemDrop.InvokeAsync(new MediaSectionNavigationDropEvent(item, target))
             : Task.CompletedTask;
 
     private static string GroupId(MediaSectionNavigationGroup group) =>

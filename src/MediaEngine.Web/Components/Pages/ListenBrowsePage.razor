@@ -80,7 +80,7 @@
                     $"/listen/music/playlists/{playlist.Id:D}",
                     Icons.Material.Outlined.PlaylistPlay,
                     playlist.ItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    DropCollectionId: playlist.Id)));
+                    DropTarget: new PlaylistNavigationDropTarget(playlist.Id))));
 
             return
             [
@@ -200,8 +200,14 @@
         }
     }
 
-    private async Task AddDraggedSongsToPlaylistAsync(Guid playlistId)
+    private async Task AddDraggedSongsToPlaylistAsync(MediaSectionNavigationDropEvent dropEvent)
     {
+        if (dropEvent.Target is not PlaylistNavigationDropTarget playlistTarget)
+        {
+            return;
+        }
+
+        var playlistId = playlistTarget.PlaylistId;
         if (!AudioDrag.HasItems)
         {
             return;

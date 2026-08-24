@@ -10,9 +10,9 @@
 
 @namespace MediaEngine.Web.Components.Pages
 
-<PageTitle>@(SelectedLibrary?.Name ?? "View") - Tuvima</PageTitle>
+<PageTitle>Photos - Tuvima</PageTitle>
 
-<MediaSectionShell Title="View" NavigationGroups="@NavigationGroups">
+<ViewSectionShell>
     <div class="view-page">
         @if (_loadingLibraries)
         {
@@ -34,9 +34,9 @@
         {
             <header class="view-header">
                 <div class="view-header__identity">
-                    <span class="view-header__eyebrow">View library</span>
-                    <h1>@SelectedLibrary.Name</h1>
-                    <p>@PresentationLabel(SelectedLibrary.Presentation) · @VisibilityLabel(SelectedLibrary.Visibility)</p>
+                    <span class="view-header__eyebrow">View</span>
+                    <h1>Photos</h1>
+                    <p>@SelectedLibrary.Name · @PresentationLabel(SelectedLibrary.Presentation) · @VisibilityLabel(SelectedLibrary.Visibility)</p>
                 </div>
                 <div class="view-header__actions">
                     @if (_libraries.Count > 1)
@@ -213,7 +213,7 @@
             </div>
         }
     </div>
-</MediaSectionShell>
+</ViewSectionShell>
 
 @if (_activeItem is not null)
 {
@@ -286,33 +286,6 @@
         LibraryId.HasValue
             ? _libraries.FirstOrDefault(library => library.Id == LibraryId.Value)
             : _libraries.FirstOrDefault();
-
-    private IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups =>
-        _libraries.Count == 0
-            ? []
-            :
-            [
-                new MediaSectionNavigationGroup(
-                    "Browse",
-                    SelectedLibrary is null
-                        ? []
-                        :
-                        [
-                            new MediaSectionNavigationItem("All", ScopeRoute("all"), Icons.Material.Outlined.GridView, Exact: true),
-                            new MediaSectionNavigationItem("Recent", ScopeRoute("recent"), Icons.Material.Outlined.History, Exact: true),
-                            new MediaSectionNavigationItem("Favorites", ScopeRoute("favorites"), Icons.Material.Outlined.FavoriteBorder, Exact: true),
-                            new MediaSectionNavigationItem("Videos", ScopeRoute("videos"), Icons.Material.Outlined.VideoLibrary, Exact: true),
-                            new MediaSectionNavigationItem("Documents", ScopeRoute("documents"), Icons.Material.Outlined.Description, Exact: true),
-                        ]),
-                new MediaSectionNavigationGroup(
-                    "Libraries",
-                    _libraries.Select(library => new MediaSectionNavigationItem(
-                        library.Name,
-                        $"/view/{library.Id:D}",
-                        Icons.Material.Outlined.Folder,
-                        library.ItemCount.ToString("N0", CultureInfo.CurrentCulture),
-                        Exact: true)).ToList()),
-            ];
 
     private IEnumerable<IGrouping<DateTimeOffset, LocalAssetDto>> DateGroups =>
         (_page?.Items ?? [])
