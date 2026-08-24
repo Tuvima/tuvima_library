@@ -15,7 +15,7 @@ public sealed class ViewMediaProxyTests
     private static readonly Guid AssetId = Guid.Parse("40000000-0000-0000-0000-000000000004");
 
     [Fact]
-    public void Dashboard_MapsGrantOnlyProxyAndKeepsLegacyEnginePathServerSide()
+    public void Dashboard_MapsGrantOnlyProxyAndKeepsCleanEnginePathServerSide()
     {
         var root = FindRepoRoot();
         var program = File.ReadAllText(Path.Combine(root, "src", "MediaEngine.Web", "Program.cs"));
@@ -26,11 +26,12 @@ public sealed class ViewMediaProxyTests
         Assert.Contains("/view-media/{grant.Value}", page, StringComparison.Ordinal);
         Assert.DoesNotContain("profileId=", page, StringComparison.Ordinal);
         Assert.DoesNotContain("items/{item", page, StringComparison.Ordinal);
-        Assert.Contains("/view/{grant.LibraryId:D}/items/{grant.AssetId:D}/{resource}?profileId={grant.ProfileId:D}", engineClient, StringComparison.Ordinal);
+        Assert.Contains("/view/items/{grant.AssetId:D}/{resource}", engineClient, StringComparison.Ordinal);
+        Assert.DoesNotContain("profileId=", engineClient, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task EngineProxyClient_SendsLegacyPathThroughProfileAssertionHandler()
+    public async Task EngineProxyClient_SendsCleanPathThroughProfileAssertionHandler()
     {
         var activeProfile = new ActiveProfileAccessor();
         activeProfile.SetProfile(ProfileId);
@@ -58,7 +59,7 @@ public sealed class ViewMediaProxyTests
             CancellationToken.None);
 
         Assert.Equal(
-            $"http://engine.test/view/{LibraryId:D}/items/{AssetId:D}/content?profileId={ProfileId:D}",
+            $"http://engine.test/view/items/{AssetId:D}/content",
             capture.Request?.RequestUri?.AbsoluteUri);
         Assert.Equal("bytes=0-99", capture.Request?.Headers.Range?.ToString());
         Assert.True(capture.Request?.Headers.Contains(ViewProfileAssertionHandler.SignatureHeader));

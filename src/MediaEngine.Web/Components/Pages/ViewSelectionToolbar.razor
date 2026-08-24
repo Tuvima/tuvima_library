@@ -1,0 +1,12 @@
+@using MediaEngine.Contracts.LocalAssets
+@namespace MediaEngine.Web.Components.Pages
+<section class="view-selection-toolbar" role="toolbar" aria-label="Selected photo actions"><strong>@Count selected</strong><AppNativeSelect Value="@string.Empty" OnChange="GalleryChanged" aria-label="Add selected items to Gallery"><option value="">Add to Gallery…</option>@foreach (var gallery in ManualGalleries) { <option value="@gallery.Id">@gallery.Name</option> }</AppNativeSelect><AppButton Variant="Variant.Text" OnClick="OnArchive">Archive</AppButton><AppButton Variant="Variant.Text" OnClick="OnTrash">Trash</AppButton><AppButton Variant="Variant.Text" OnClick="OnClear">Clear</AppButton></section>
+@code {
+    [Parameter] public int Count { get; set; }
+    [Parameter] public IReadOnlyList<ViewGalleryDto> ManualGalleries { get; set; } = [];
+    [Parameter] public EventCallback OnClear { get; set; }
+    [Parameter] public EventCallback OnArchive { get; set; }
+    [Parameter] public EventCallback OnTrash { get; set; }
+    [Parameter] public EventCallback<Guid> OnAddToGallery { get; set; }
+    private Task GalleryChanged(ChangeEventArgs args) => Guid.TryParse(args.Value?.ToString(), out var id) ? OnAddToGallery.InvokeAsync(id) : Task.CompletedTask;
+}

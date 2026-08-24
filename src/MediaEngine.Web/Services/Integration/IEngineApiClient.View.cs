@@ -1,38 +1,48 @@
 using MediaEngine.Contracts.LocalAssets;
-using MediaEngine.Contracts.Ingestion;
+using MediaEngine.Domain.PersonalMedia;
 
 namespace MediaEngine.Web.Services.Integration;
 
 public partial interface IEngineApiClient
 {
-    Task<IReadOnlyList<ViewLibrarySummaryDto>> GetViewLibrariesAsync(Guid profileId, CancellationToken ct = default);
-
-    Task<LocalAssetPageDto?> GetViewItemsAsync(
-        Guid libraryId,
-        Guid profileId,
-        string? search = null,
-        string? kind = null,
-        bool favorites = false,
-        bool hidden = false,
-        int offset = 0,
-        int limit = 120,
-        CancellationToken ct = default);
-
-    Task<LocalAssetScanResultDto?> ScanViewLibraryAsync(Guid libraryId, Guid profileId, CancellationToken ct = default);
-
-    Task<bool> SetViewItemFavoriteAsync(Guid libraryId, Guid itemId, Guid profileId, bool value, CancellationToken ct = default);
-
-    Task<bool> SetViewItemHiddenAsync(Guid libraryId, Guid itemId, Guid profileId, bool value, CancellationToken ct = default);
-
-    Task<ViewMediaUploadResult> UploadViewMediaAsync(
-        Guid destinationLibraryId,
-        Stream fileStream,
-        string fileName,
-        string? contentType = null,
-        CancellationToken ct = default);
+    Task<ViewScopeResolutionDto?> GetViewScopesAsync(ViewScopeKind? scope = null, Guid? scopeProfileId = null, CancellationToken ct = default);
+    Task<ViewPreferencesDto?> GetViewPreferencesAsync(CancellationToken ct = default);
+    Task<ViewPreferencesDto?> UpdateViewPreferencesAsync(ViewScopeKind scope, Guid? scopeProfileId, ViewTimelineDensity timelineDensity, CancellationToken ct = default);
+    Task<ViewAssetTimelinePageDto?> GetViewAssetsAsync(ViewAssetQueryOptions options, CancellationToken ct = default);
+    Task<ViewPeoplePageDto?> GetViewPeopleAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default);
+    Task<ViewPlacesPageDto?> GetViewPlacesAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default);
+    Task<ViewUploadResult> UploadViewMediaAsync(Stream fileStream, string fileName, string? contentType = null, CancellationToken ct = default);
+    Task<bool> SetViewItemFavoriteAsync(Guid itemId, bool value, CancellationToken ct = default);
+    Task<bool> SetViewItemHiddenAsync(Guid itemId, bool value, CancellationToken ct = default);
+    Task<bool> ArchiveViewItemAsync(Guid itemId, CancellationToken ct = default);
+    Task<bool> TrashViewItemAsync(Guid itemId, CancellationToken ct = default);
+    Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default);
+    Task<ViewGalleryListResponse?> GetViewGalleriesAsync(CancellationToken ct = default);
+    Task<ViewGalleryDto?> GetViewGalleryAsync(Guid galleryId, CancellationToken ct = default);
+    Task<ViewGalleryDto?> CreateViewGalleryAsync(ViewGalleryRequest request, CancellationToken ct = default);
+    Task<ViewGalleryDto?> UpdateViewGalleryAsync(Guid galleryId, ViewGalleryRequest request, CancellationToken ct = default);
+    Task<bool> DeleteViewGalleryAsync(Guid galleryId, CancellationToken ct = default);
+    Task<AddViewGalleryItemsResponseDto?> AddViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
+    Task<ViewItemsRemovedResponse?> RemoveViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
 }
 
-public sealed record ViewMediaUploadResult(
-    bool Success,
-    UploadMediaResponse? Upload = null,
-    string? ErrorMessage = null);
+public sealed record ViewAssetQueryOptions(
+    ViewScopeKind Scope = ViewScopeKind.Shared,
+    Guid? ScopeProfileId = null,
+    string? Cursor = null,
+    string? Search = null,
+    IReadOnlyList<string>? Kinds = null,
+    bool FavoritesOnly = false,
+    bool HiddenOnly = false,
+    string Lifecycle = "active",
+    Guid? GalleryId = null,
+    int Limit = 120);
+
+public sealed record ViewUploadResult(bool Success, ViewUploadResponseDto? Upload = null, string? ErrorMessage = null);
+
+public sealed record ViewDiscoveryQueryOptions(
+    ViewScopeKind Scope = ViewScopeKind.Shared,
+    Guid? ScopeProfileId = null,
+    string? Search = null,
+    string? Cursor = null,
+    int Limit = 100);

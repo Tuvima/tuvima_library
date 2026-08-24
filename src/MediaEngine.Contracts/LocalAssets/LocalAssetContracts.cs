@@ -58,6 +58,35 @@ public sealed record ViewAssetTimelinePageDto(
     [property: JsonPropertyName("next_cursor")] string? NextCursor,
     [property: JsonPropertyName("has_more")] bool HasMore);
 
+public sealed record ViewResolvedScopeDto(
+    [property: JsonPropertyName("kind")] ViewScopeKind Kind,
+    [property: JsonPropertyName("profile_id")] Guid? ProfileId,
+    [property: JsonPropertyName("was_fallback")] bool WasFallback);
+
+public sealed record ViewScopeOptionDto(
+    [property: JsonPropertyName("kind")] ViewScopeKind Kind,
+    [property: JsonPropertyName("profile_id")] Guid? ProfileId,
+    [property: JsonPropertyName("label")] string Label,
+    [property: JsonPropertyName("avatar_color")] string? AvatarColor,
+    [property: JsonPropertyName("avatar_url")] string? AvatarUrl);
+
+public sealed record ViewScopeResolutionDto(
+    [property: JsonPropertyName("scope")] ViewResolvedScopeDto Scope,
+    [property: JsonPropertyName("available_scopes")] IReadOnlyList<ViewScopeOptionDto> AvailableScopes);
+
+public sealed record ViewPreferencesDto(
+    [property: JsonPropertyName("profile_id")] Guid ProfileId,
+    [property: JsonPropertyName("scope")] ViewScopeKind? Scope,
+    [property: JsonPropertyName("scope_profile_id")] Guid? ScopeProfileId,
+    [property: JsonPropertyName("timeline_density")] ViewTimelineDensity TimelineDensity,
+    [property: JsonPropertyName("updated_at")] DateTimeOffset? UpdatedAt);
+
+public sealed record ViewUploadResponseDto(
+    [property: JsonPropertyName("item_id")] Guid ItemId,
+    [property: JsonPropertyName("item_added")] bool ItemAdded,
+    [property: JsonPropertyName("files_added")] int FilesAdded,
+    [property: JsonPropertyName("sources_added")] int SourcesAdded);
+
 public sealed record ViewPreferencesRequest(
     [property: JsonPropertyName("scope")] string? Scope,
     [property: JsonPropertyName("scope_profile_id")] Guid? ScopeProfileId,
@@ -72,8 +101,44 @@ public sealed record ViewGalleryRequest(
     [property: JsonPropertyName("sort_order")] int SortOrder = 0);
 
 public sealed record ViewGalleryListResponse(
-    [property: JsonPropertyName("owned")] IReadOnlyList<ViewGallery> Owned,
-    [property: JsonPropertyName("shared_with_you")] IReadOnlyList<ViewGallery> SharedWithYou);
+    [property: JsonPropertyName("owned")] IReadOnlyList<ViewGalleryDto> Owned,
+    [property: JsonPropertyName("shared_with_you")] IReadOnlyList<ViewGalleryDto> SharedWithYou);
+
+public sealed record ViewGalleryDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("owner_profile_id")] Guid OwnerProfileId,
+    [property: JsonPropertyName("personal_space_id")] Guid PersonalSpaceId,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("description")] string? Description,
+    [property: JsonPropertyName("kind")] ViewGalleryKind Kind,
+    [property: JsonPropertyName("smart_rule_json")] string? SmartRuleJson,
+    [property: JsonPropertyName("cover_item_id")] Guid? CoverItemId,
+    [property: JsonPropertyName("sort_order")] int SortOrder,
+    [property: JsonPropertyName("item_count")] int ItemCount,
+    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt);
+
+public sealed record ViewGalleryItemDto(
+    [property: JsonPropertyName("gallery_id")] Guid GalleryId,
+    [property: JsonPropertyName("item_id")] Guid ItemId,
+    [property: JsonPropertyName("position")] int Position,
+    [property: JsonPropertyName("added_at")] DateTimeOffset AddedAt);
+
+public sealed record ViewGalleryItemPageDto(
+    [property: JsonPropertyName("items")] IReadOnlyList<ViewGalleryItemDto> Items,
+    [property: JsonPropertyName("next_position")] int? NextPosition,
+    [property: JsonPropertyName("next_item_id")] Guid? NextItemId,
+    [property: JsonPropertyName("has_more")] bool HasMore);
+
+public sealed record AddViewGalleryItemsResponseDto(
+    [property: JsonPropertyName("added")] int Added,
+    [property: JsonPropertyName("already_present")] int AlreadyPresent);
+
+public sealed record ViewGalleryShareDto(
+    [property: JsonPropertyName("gallery_id")] Guid GalleryId,
+    [property: JsonPropertyName("profile_id")] Guid ProfileId,
+    [property: JsonPropertyName("permission")] ViewGallerySharePermission Permission,
+    [property: JsonPropertyName("shared_at")] DateTimeOffset SharedAt);
 
 public sealed record ViewGalleryItemsRequest(
     [property: JsonPropertyName("item_ids")] IReadOnlyCollection<Guid> ItemIds);

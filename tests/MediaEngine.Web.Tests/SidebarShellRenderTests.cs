@@ -2,9 +2,13 @@ using Bunit;
 using MediaEngine.Web.Components.MediaHub;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Integration;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using System.Net;
+using System.Text;
 using MudBlazor;
 using MudBlazor.Services;
 
@@ -16,6 +20,10 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
     {
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddMudServices();
+        var http = new HttpClient(new GalleryHandler()) { BaseAddress = new Uri("http://localhost/") };
+        Services.AddSingleton<IEngineApiClient>(new EngineApiClient(http, NullLogger<EngineApiClient>.Instance));
+        Services.AddSingleton<ViewWorkspaceService>();
+        Services.AddSingleton<ViewAssetDragService>();
     }
 
     [Fact]
@@ -52,7 +60,7 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
         var cut = Render<ViewSectionShell>(parameters => parameters
             .AddChildContent("<section id=\"view-slot\">View content</section>"));
 
-        Assert.Equal(4, cut.FindAll(".media-section-shell__rail-group > .media-section-shell__rail-item").Count);
+        Assert.Equal(4, cut.FindAll("#media-section-nav-view, #media-section-nav-view-galleries, #media-section-nav-view-people, #media-section-nav-view-places").Count);
         Assert.Equal("Photos", cut.Find("#media-section-nav-view").TextContent.Trim());
         Assert.Equal("Galleries", cut.Find("#media-section-nav-view-galleries").TextContent.Trim());
         Assert.Equal("People", cut.Find("#media-section-nav-view-people").TextContent.Trim());
@@ -190,4 +198,13 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
                 ]),
         ]),
     ];
+
+    private sealed class GalleryHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"owned\":[],\"shared_with_you\":[]}", Encoding.UTF8, "application/json"),
+            });
+    }
 }
