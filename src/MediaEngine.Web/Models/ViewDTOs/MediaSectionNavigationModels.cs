@@ -24,6 +24,8 @@ public sealed record PlaylistNavigationDropTarget(Guid PlaylistId) : MediaSectio
 
 public sealed record ManualGalleryNavigationDropTarget(Guid GalleryId) : MediaSectionNavigationDropTarget;
 
+public sealed record SmartGalleryNavigationDropTarget(Guid GalleryId) : MediaSectionNavigationDropTarget;
+
 public sealed record NewGalleryNavigationDropTarget : MediaSectionNavigationDropTarget;
 
 public sealed record ContainerNavigationDropTarget(string ContainerKind, Guid? ContainerId = null)

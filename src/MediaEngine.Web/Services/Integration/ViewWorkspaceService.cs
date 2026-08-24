@@ -17,6 +17,17 @@ public sealed class ViewWorkspaceService(IEngineApiClient api)
     public IReadOnlyList<ViewGalleryDto> SharedGalleries { get; private set; } = [];
     public IReadOnlyList<Guid> PendingNewGalleryItems { get; private set; } = [];
 
+    public void Reset()
+    {
+        _initialized = false;
+        _galleriesLoaded = false;
+        Scopes = null;
+        Preferences = null;
+        OwnedGalleries = [];
+        SharedGalleries = [];
+        PendingNewGalleryItems = [];
+    }
+
     public async Task InitializeAsync(CancellationToken ct = default)
     {
         if (_initialized) return;
