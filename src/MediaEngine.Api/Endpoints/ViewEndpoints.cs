@@ -7,7 +7,6 @@ using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Storage.Contracts;
-using SkiaSharp;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -125,13 +124,16 @@ public static class ViewEndpoints
         group.MapGet("/items/{id:guid}/thumbnail", async (Guid id, string? scope, Guid? scopeProfileId,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
             IViewResourceAuthorizationService authorization, ILocalAssetRepository assets,
+            ViewThumbnailService thumbnails,
             CancellationToken ct) =>
         {
             var decision = await AuthorizeItemAsync(id, ViewResourceKind.Thumbnail, ViewResourceAction.Read,
                 scope, scopeProfileId, identity, preferences, authorization, ct);
             if (!decision.IsAllowed) return Access(decision.Outcome);
             var file = assets.ResolveContent(id, LocalAssetFileRoles.Primary, ct);
-            return file is null || !File.Exists(file.FilePath) ? Missing() : Thumbnail(file);
+            if (file is null || !File.Exists(file.FilePath)) return Missing();
+            var thumbnail = await thumbnails.GetOrCreateAsync(id, file, ct);
+            return thumbnail is null ? Results.NoContent() : Results.File(thumbnail, "image/jpeg");
         }).WithName("GetViewItemThumbnail").Produces(StatusCodes.Status200OK).RequireRateLimiting("streaming");
 
         MapFlag(group, "favorite", (repo, id, value, ct) => repo.SetFlagsAsync(id, value, null, ct));
@@ -399,26 +401,5 @@ public static class ViewEndpoints
 
     private static ViewGalleryShareDto ToContract(ViewGalleryShare value) =>
         new(value.GalleryId, value.ProfileId, value.Permission, value.SharedAt);
-
-    private static IResult Thumbnail(LocalAssetContentLocation file)
-    {
-        if (!file.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)) return Results.NoContent();
-        try
-        {
-            using var input = File.OpenRead(file.FilePath);
-            using var bitmap = SKBitmap.Decode(input);
-            if (bitmap is null) return Results.NoContent();
-            const int maxEdge = 640;
-            var scale = Math.Min(1d, maxEdge / (double)Math.Max(bitmap.Width, bitmap.Height));
-            using var resized = bitmap.Resize(new SKImageInfo(
-                Math.Max(1, (int)Math.Round(bitmap.Width * scale)),
-                Math.Max(1, (int)Math.Round(bitmap.Height * scale))),
-                new SKSamplingOptions(SKFilterMode.Linear));
-            using var image = SKImage.FromBitmap(resized ?? bitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 82);
-            return Results.Bytes(data.ToArray(), "image/jpeg");
-        }
-        catch { return Results.NoContent(); }
-    }
 
 }
