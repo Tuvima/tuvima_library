@@ -120,7 +120,8 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, galleryId));
 
         Assert.True(decision.IsAllowed);
-        Assert.Equal(ViewScopeKind.Mine, decision.Scope!.Kind);
+        Assert.Equal(ViewScopeKind.Profile, decision.Scope!.Kind);
+        Assert.Equal([owner.PersonalSpace!.LibraryId], decision.Scope.LibraryIds);
     }
 
     [Theory]
@@ -146,7 +147,7 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceRequest(ViewScopeRequest.Mine, kind, assetId));
 
         Assert.True(decision.IsAllowed);
-        Assert.DoesNotContain(owner.PersonalSpace!.LibraryId, decision.Scope!.LibraryIds);
+        Assert.Equal([owner.PersonalSpace!.LibraryId], decision.Scope!.LibraryIds);
     }
 
     [Fact]

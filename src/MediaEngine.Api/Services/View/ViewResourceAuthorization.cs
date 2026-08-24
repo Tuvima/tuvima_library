@@ -30,7 +30,8 @@ public sealed record ViewResourceDescriptor(
     Guid ResourceId,
     Guid OwnerProfileId,
     Guid? LibraryId,
-    IReadOnlySet<Guid>? SharedWithProfileIds = null);
+    IReadOnlySet<Guid>? SharedWithProfileIds = null,
+    IReadOnlySet<Guid>? ContributingProfileIds = null);
 
 public sealed record ViewResourceRequest(
     ViewScopeRequest Scope,
@@ -107,12 +108,23 @@ public sealed class ViewResourceAuthorizationService(
         // only after proving that asset belongs to a Gallery shared with the
         // caller. This grants the specific resource, never the owner's Space.
         var explicitlyShared = resource.SharedWithProfileIds?.Contains(caller.ProfileId) == true;
-        if (request.Action == ViewResourceAction.Read
-            && (explicitlyShared
+        var mayContribute = resource.ContributingProfileIds?.Contains(caller.ProfileId) == true;
+        if ((request.Action == ViewResourceAction.Read
+                && (explicitlyShared
                 || (request.Kind == ViewResourceKind.Gallery
                     && resource.OwnerProfileId == caller.ProfileId)))
+            || (request.Kind == ViewResourceKind.Gallery
+                && request.Action == ViewResourceAction.Contribute
+                && mayContribute))
         {
-            return ViewAccessDecision.Allowed(resolution.Scope);
+            var exactScope = resource.LibraryId is { } grantedLibrary
+                && !resolution.Scope.ContainsLibrary(grantedLibrary)
+                    ? new ResolvedViewScope(
+                        ViewScopeKind.Profile,
+                        resource.OwnerProfileId,
+                        new HashSet<Guid> { grantedLibrary })
+                    : resolution.Scope;
+            return ViewAccessDecision.Allowed(exactScope);
         }
 
         if (resource.LibraryId is not { } libraryId

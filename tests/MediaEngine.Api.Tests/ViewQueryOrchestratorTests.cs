@@ -76,6 +76,32 @@ public sealed class ViewQueryOrchestratorTests
         Assert.Null(backend.Plan);
     }
 
+    [Fact]
+    public async Task ExplicitSharedGalleryQueryNarrowsPlanToGalleryOwnersLibrary()
+    {
+        var caller = State(access: false, include: false);
+        var owner = State(access: false, include: false);
+        var galleryId = Guid.NewGuid();
+        var http = new DefaultHttpContext();
+        HttpViewRequestProfileContext.SetTrustedProfile(http,
+            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
+        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
+        var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller, owner));
+        var resource = new ViewResourceDescriptor(ViewResourceKind.Gallery, galleryId,
+            owner.Policy.ProfileId, owner.PersonalSpace!.LibraryId,
+            new HashSet<Guid> { caller.Policy.ProfileId });
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource));
+        var backend = new CapturingBackend();
+        var orchestrator = new ViewQueryOrchestrator(context, authorization, backend);
+
+        var result = await orchestrator.QueryAsync(new ViewAssetQueryRequest(
+            ViewScopeRequest.Mine, GalleryId: galleryId));
+
+        Assert.Equal(ViewAccessOutcome.Allowed, result.Outcome);
+        Assert.Equal(galleryId, backend.Plan!.GalleryId);
+        Assert.Equal([owner.PersonalSpace.LibraryId], backend.Plan.Scope.LibraryIds);
+    }
+
     private static ViewScopeStoreEntry State(bool access, bool include)
     {
         var profileId = Guid.NewGuid();
@@ -85,13 +111,16 @@ public sealed class ViewQueryOrchestratorTests
             new ViewPersonalSpace(Guid.NewGuid(), profileId, Guid.NewGuid(), now, now));
     }
 
-    private sealed class EmptyResourceStore : IViewResourceStore
+    private sealed class EmptyResourceStore(ViewResourceDescriptor? resource = null) : IViewResourceStore
     {
         public Task<ViewResourceDescriptor?> FindAsync(
             ViewResourceKind kind,
             Guid resourceId,
             Guid requestingProfileId,
-            CancellationToken ct = default) => Task.FromResult<ViewResourceDescriptor?>(null);
+            CancellationToken ct = default) => Task.FromResult(
+                resource is not null && resource.Kind == kind && resource.ResourceId == resourceId
+                    ? resource
+                    : null);
     }
 
     private sealed class CapturingBackend : IViewAssetQueryBackend

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Domain.PersonalMedia;
 
 namespace MediaEngine.Contracts.LocalAssets;
 
@@ -56,6 +57,39 @@ public sealed record ViewAssetTimelinePageDto(
     [property: JsonPropertyName("items")] IReadOnlyList<LocalAssetDto> Items,
     [property: JsonPropertyName("next_cursor")] string? NextCursor,
     [property: JsonPropertyName("has_more")] bool HasMore);
+
+public sealed record ViewPreferencesRequest(
+    [property: JsonPropertyName("scope")] string? Scope,
+    [property: JsonPropertyName("scope_profile_id")] Guid? ScopeProfileId,
+    [property: JsonPropertyName("timeline_density")] ViewTimelineDensity TimelineDensity);
+
+public sealed record ViewGalleryRequest(
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("kind")] ViewGalleryKind Kind,
+    [property: JsonPropertyName("description")] string? Description = null,
+    [property: JsonPropertyName("smart_rule_json")] string? SmartRuleJson = null,
+    [property: JsonPropertyName("cover_item_id")] Guid? CoverItemId = null,
+    [property: JsonPropertyName("sort_order")] int SortOrder = 0);
+
+public sealed record ViewGalleryListResponse(
+    [property: JsonPropertyName("owned")] IReadOnlyList<ViewGallery> Owned,
+    [property: JsonPropertyName("shared_with_you")] IReadOnlyList<ViewGallery> SharedWithYou);
+
+public sealed record ViewGalleryItemsRequest(
+    [property: JsonPropertyName("item_ids")] IReadOnlyCollection<Guid> ItemIds);
+
+public sealed record ViewGalleryPositionRequest(
+    [property: JsonPropertyName("position")] int Position);
+
+public sealed record ViewGalleryShareRequest(
+    [property: JsonPropertyName("profile_id")] Guid ProfileId,
+    [property: JsonPropertyName("permission")] ViewGallerySharePermission Permission);
+
+public sealed record ViewGallerySharesRequest(
+    [property: JsonPropertyName("shares")] IReadOnlyCollection<ViewGalleryShareRequest> Shares);
+
+public sealed record ViewItemsRemovedResponse(
+    [property: JsonPropertyName("removed")] int Removed);
 
 public sealed record ViewLibrarySummaryDto(
     [property: JsonPropertyName("id")] Guid Id,

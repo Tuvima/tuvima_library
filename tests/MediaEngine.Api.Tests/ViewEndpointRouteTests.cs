@@ -20,16 +20,19 @@ public sealed class ViewEndpointRouteTests
         Assert.False(File.Exists(Path.Combine(
             root, "src", "MediaEngine.Api", "Endpoints", "PhotoEndpoints.cs")));
         Assert.Contains("MapGroup(\"/view\")", endpoint, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/libraries\"", endpoint, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/{libraryId:guid}\"", endpoint, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/{libraryId:guid}/scan\"", endpoint, StringComparison.Ordinal);
-        Assert.Contains("/{libraryId:guid}/items/{id:guid}/content", endpoint, StringComparison.Ordinal);
-        Assert.Contains("/{libraryId:guid}/items/{id:guid}/thumbnail", endpoint, StringComparison.Ordinal);
-        Assert.Contains("Guid? profileId", endpoint, StringComparison.Ordinal);
-        Assert.Contains("GetRole(httpContext)", endpoint, StringComparison.Ordinal);
-        Assert.Contains("LibraryAccessAction.Read", endpoint, StringComparison.Ordinal);
-        Assert.Contains("LibraryAccessAction.Contribute", endpoint, StringComparison.Ordinal);
-        Assert.Contains("LibraryAccessAction.Manage", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/scopes\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/assets\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/uploads\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("/items/{id:guid}/content", endpoint, StringComparison.Ordinal);
+        Assert.Contains("/items/{id:guid}/thumbnail", endpoint, StringComparison.Ordinal);
+        Assert.Contains("/galleries", endpoint, StringComparison.Ordinal);
+        Assert.Contains("/admin/libraries/{libraryId:guid}/scan", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("Guid? profileId, HttpContext", endpoint, StringComparison.Ordinal);
+        Assert.Contains("Guid? scopeProfileId", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapGet(\"/libraries\"", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("MapGet(\"/{libraryId:guid}\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("IViewRequestProfileContext", endpoint, StringComparison.Ordinal);
+        Assert.Contains("IViewResourceAuthorizationService", endpoint, StringComparison.Ordinal);
     }
 
     private static string FindRepoRoot()

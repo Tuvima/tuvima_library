@@ -256,6 +256,53 @@ public sealed class ViewLibraryService(
         return await IndexGroupAsync(library, source, group, ct);
     }
 
+    public async Task<LocalAssetUpsertResult> UploadAsync(
+        Guid ownerProfileId,
+        string fileName,
+        Stream content,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(fileName);
+        ArgumentNullException.ThrowIfNull(content);
+        var settings = configuration.LoadLibraries();
+        if (!settings.PersonalLibraryPolicy.AllowBrowserUpload)
+            throw new InvalidOperationException("Browser upload is disabled by administrator policy.");
+        var library = GetPersonalViewLibraries().SingleOrDefault(candidate =>
+            Guid.TryParse(candidate.OwnerProfileId, out var owner) && owner == ownerProfileId)
+            ?? throw new InvalidOperationException("The profile does not have a configured Personal Space.");
+        if (!library.AcceptedIntakeModes.Contains(LibraryIntakeModes.BrowserUpload, StringComparer.Ordinal))
+            throw new InvalidOperationException("The Personal Space does not accept browser uploads.");
+        var destination = library.PrimaryDestination
+            ?? library.Sources.FirstOrDefault(source => source.IsWritable && source.IsManaged)
+            ?? throw new InvalidOperationException("The Personal Space has no managed upload destination.");
+        Directory.CreateDirectory(destination.Path);
+        var safeName = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(safeName) || TryCreateCandidate(safeName) is null)
+            throw new InvalidDataException("The uploaded file type is not supported by View.");
+        var stem = Path.GetFileNameWithoutExtension(safeName);
+        var extension = Path.GetExtension(safeName);
+        var finalPath = Path.Combine(destination.Path, safeName);
+        if (File.Exists(finalPath))
+            finalPath = Path.Combine(destination.Path, $"{stem}-{Guid.NewGuid():N}{extension}");
+        var temporaryPath = finalPath + $".{Guid.NewGuid():N}.uploading";
+        try
+        {
+            await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write,
+                FileShare.None, 81920, FileOptions.Asynchronous | FileOptions.WriteThrough))
+            {
+                await content.CopyToAsync(output, ct);
+            }
+            File.Move(temporaryPath, finalPath);
+            return await IndexPathAsync(Guid.Parse(library.Id), finalPath, ct)
+                ?? throw new InvalidOperationException("The uploaded file could not be indexed.");
+        }
+        catch
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            throw;
+        }
+    }
+
     private int Count(Guid libraryId, string? mediaKind, CancellationToken ct) =>
         repository.Query(new LocalAssetQuery(
             libraryId,

@@ -13,6 +13,24 @@ namespace MediaEngine.Api.Tests;
 public sealed class ViewLibraryServiceTests
 {
     [Fact]
+    public async Task Upload_ResolvesOwnersPersonalSpaceWithoutAcceptingLibraryIdentity()
+    {
+        using var fixture = new ViewFixture();
+        await using var content = new MemoryStream([1, 2, 3, 4]);
+
+        var result = await fixture.Service.UploadAsync(
+            fixture.OwnerProfileId,
+            "phone-photo.jpg",
+            content);
+
+        var item = Assert.IsType<MediaEngine.Contracts.LocalAssets.LocalAssetDto>(
+            fixture.Repository.Find(result.ItemId));
+        Assert.Equal(fixture.OwnerProfileId, item.OwnerProfileId);
+        Assert.Equal(fixture.PersonalLibraryId, item.LibraryId);
+        Assert.NotEqual(Guid.Empty, item.PersonalSpaceId);
+    }
+
+    [Fact]
     public async Task Scan_IndexesMixedPersonalMediaInPlaceAndSkipsCatalogueLibraries()
     {
         using var fixture = new ViewFixture();
@@ -270,8 +288,11 @@ public sealed class ViewLibraryServiceTests
             return path;
         }
 
-        private static LibraryFolderConfig PersonalLibrary(Guid id, Guid ownerProfileId, string path) => new()
+        private static LibraryFolderConfig PersonalLibrary(Guid id, Guid ownerProfileId, string path)
         {
+            var sourceId = Guid.NewGuid().ToString("D");
+            return new LibraryFolderConfig
+            {
             Id = id.ToString("D"),
             Name = "Shy's Phone Photos",
             Kind = LibraryKinds.Personal,
@@ -282,6 +303,7 @@ public sealed class ViewLibraryServiceTests
             OwnerProfileId = ownerProfileId.ToString("D"),
             Visibility = LibraryVisibility.Private,
             DuplicatePolicy = LibraryDuplicatePolicies.SkipExact,
+            AcceptedIntakeModes = [LibraryIntakeModes.BrowserUpload],
             OrganizationPolicy = new LibraryOrganizationPolicyConfig
             {
                 Mode = LibraryOrganizationModes.KeepOriginalFolders,
@@ -291,17 +313,19 @@ public sealed class ViewLibraryServiceTests
             [
                 new LibrarySourceConfig
                 {
-                    Id = Guid.NewGuid().ToString("D"),
+                    Id = sourceId,
                     Path = path,
-                    Role = LibrarySourceRoles.Secondary,
-                    ManagementMode = LibrarySourceManagementModes.ExistingLibrary,
+                    Role = LibrarySourceRoles.PrimaryDestination,
+                    ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
                     SourceType = LibrarySourceTypes.LocalFolder,
                     IncludeSubdirectories = true,
-                    AccessMode = LibrarySourceAccessModes.ReadOnly,
+                    AccessMode = LibrarySourceAccessModes.Writable,
                     ParticipatesInOrganization = false,
                 },
             ],
-        };
+            PrimaryDestinationSourceId = sourceId,
+            };
+        }
 
         private static LibraryFolderConfig CatalogueLibrary(Guid id, string path) => new()
         {
