@@ -27,4 +27,9 @@ public interface IViewGalleryRepository
         IReadOnlyCollection<(Guid ProfileId, ViewGallerySharePermission Permission)> shares,
         CancellationToken ct = default);
     Task<IReadOnlyList<ViewGalleryShare>> GetSharesAsync(Guid galleryId, CancellationToken ct = default);
+    /// <summary>
+    /// Returns whether an item is exposed to a profile by an exact Gallery
+    /// share, including dynamic membership in a shared Smart Gallery.
+    /// </summary>
+    Task<bool> IsItemSharedWithProfileAsync(Guid itemId, Guid profileId, CancellationToken ct = default);
 }
