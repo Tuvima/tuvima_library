@@ -66,7 +66,7 @@ public static class ViewEndpoints
                 var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
                 var result = await queries.QueryAsync(new ViewAssetQueryRequest(
                     requested, PagedRequest.From(0, limit, 120, 500).Limit, cursor, q, kind,
-                    favorite == true, hidden == true, galleryId,
+                    favorite == true, hidden == true, hidden == true, galleryId,
                     ParseLifecycle(lifecycle)), ct);
                 return Access(result.Outcome, result.Page);
             }
