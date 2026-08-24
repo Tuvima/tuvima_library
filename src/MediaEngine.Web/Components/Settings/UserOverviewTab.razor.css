@@ -27,7 +27,7 @@
     flex: 0 0 auto;
 }
 
-.user-overview-avatar-button {
+.user-overview-page ::deep .user-overview-avatar-button {
     position: relative;
     width: 104px;
     min-width: 104px;
@@ -36,7 +36,7 @@
     border-radius: 50%;
 }
 
-.user-overview-avatar-button ::deep .app-button__control {
+.user-overview-page ::deep .user-overview-avatar-button .app-button__control {
     width: 104px;
     min-width: 104px;
     height: 104px;
@@ -44,7 +44,7 @@
     border-radius: 50%;
 }
 
-.user-overview-avatar-button ::deep .user-overview-avatar {
+.user-overview-page ::deep .user-overview-avatar-button .user-overview-avatar {
     width: 96px;
     height: 96px;
     font-size: 2.25rem;
@@ -74,7 +74,7 @@
     min-width: 0;
 }
 
-.user-overview-profile-name {
+.user-overview-page ::deep .user-overview-profile-name {
     overflow: hidden;
     font-size: clamp(1.75rem, 3vw, 2.25rem);
     font-weight: 700;
@@ -83,7 +83,7 @@
     white-space: nowrap;
 }
 
-.user-overview-role {
+.user-overview-page ::deep .user-overview-role {
     color: var(--tl-text-secondary);
 }
 
@@ -225,14 +225,14 @@
         flex-direction: column;
     }
 
-    .user-overview-avatar-button,
-    .user-overview-avatar-button ::deep .app-button__control {
+    .user-overview-page ::deep .user-overview-avatar-button,
+    .user-overview-page ::deep .user-overview-avatar-button .app-button__control {
         width: 88px;
         min-width: 88px;
         height: 88px;
     }
 
-    .user-overview-avatar-button ::deep .user-overview-avatar {
+    .user-overview-page ::deep .user-overview-avatar-button .user-overview-avatar {
         width: 82px;
         height: 82px;
         font-size: 1.9rem;

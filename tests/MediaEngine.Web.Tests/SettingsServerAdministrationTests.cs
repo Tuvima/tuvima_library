@@ -9,7 +9,8 @@ public sealed class SettingsServerAdministrationTests
         var jobs = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\OfflineDownloadsTab.razor");
 
         Assert.Contains("data-delivery-section", source, StringComparison.Ordinal);
-        Assert.Contains("LandingPage", source, StringComparison.Ordinal);
+        Assert.Contains("Playback and Delivery overview", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("private RenderFragment LandingPage", source, StringComparison.Ordinal);
         Assert.Contains("case \"scheduling\"", source, StringComparison.Ordinal);
         Assert.Contains("case \"active-jobs\"", source, StringComparison.Ordinal);
         Assert.Contains("Section=\"diagnostics\"", source, StringComparison.Ordinal);
