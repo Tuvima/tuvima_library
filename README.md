@@ -34,7 +34,7 @@ Tuvima Library starts with the story.
 
 Choose the folders Tuvima Library should watch and it builds a rich, browsable library around them. It identifies each item, adds useful metadata and artwork, connects related works where it has trustworthy evidence, and remembers your progress. Instead of searching through folders and filenames, you can explore the ideas, people, series, and creative worlds represented by the media you own.
 
-Not every file needs an online identity. View gives each enabled profile one Personal Space for photos, short videos, documents, audio notes, home videos, lectures, and other local media. Multiple folders and devices can feed that space without becoming separate photo libraries. Personal media bypasses retail providers and Wikidata; its local index supports date browsing, search, favorites, archive and trash state, Galleries, compound files, duplicate sources, and available file metadata while source policy continues to protect originals.
+Not every file needs an online identity. View gives each enabled profile one Personal Space for photos, short videos, documents, audio notes, home videos, lectures, and other local media. Multiple folders and devices can feed that same space without becoming separate browsing destinations. Personal media bypasses retail providers and Wikidata; its local index supports date browsing, search, favorites, archive and trash state, Galleries, compound files, duplicate sources, and available file metadata while source policy continues to protect originals.
 
 See the [Beta Roadmap](https://tuvima.github.io/tuvima_library/product/beta-roadmap/) for the architectural priority order and the post-beta photo-intelligence boundary.
 
@@ -247,6 +247,9 @@ Current builds include:
 - Home, Read, Watch, Listen, Collections, library-wide Search, and rich detail pages.
 - EPUB reading plus audio and video playback with saved progress and personal preferences.
 - Series, people, playlists, and collection views backed by library data.
+- A profile-owned View Personal Space foundation for mixed local media, with
+  trusted Shared/Mine scopes, cursor-paged Photos, local search, reversible
+  lifecycle state, Manual/Smart Galleries, and Collection Gallery/rule sources.
 - Inline corrections and a Review Queue for items that need help.
 - Settings for libraries, providers, profiles, local AI, plugins, ingestion, and system health.
 
@@ -260,6 +263,10 @@ Features still in development include:
 - Plugin marketplace installation and updates.
 - Broader remote-access hardening and interoperability.
 - Deeper integration of local AI across library workflows.
+- Completing the View Galleries, People, Places, selection, and viewer
+  Dashboard workflows. Face recognition, object/scene detection, OCR, semantic
+  search, map rendering, mobile backup/sync, and public links are not current
+  features.
 
 The [Product Status](https://tuvima.github.io/tuvima_library/product/status/) page explains what is live, partial, or planned. For a detailed implementation view, see the [Feature Truth Inventory](https://tuvima.github.io/tuvima_library/product/feature-truth-inventory/).
 
@@ -292,9 +299,13 @@ dotnet run --project src/MediaEngine.Api
 dotnet run --project src/MediaEngine.Web
 ```
 
-Then open `http://localhost:5016`, add your libraries and governed sources in **Settings > Media Management**, and start your first scan.
+Then open `http://localhost:5016` and add governed sources in **Settings > Media
+Management**. Catalogued Read/Watch/Listen sources can be scanned from the
+administration workflow. Personal sources feed the active profile's single
+View Personal Space; the user-facing View experience does not ask you to choose
+among source folders or expose an ordinary scan action in Photos.
 
-The [Getting Started guide](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) covers configuration, provider credentials, Docker, and troubleshooting. Continue with [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) for the full first-scan walkthrough.
+The [Getting Started guide](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) covers configuration, provider credentials, Docker, and troubleshooting. Continue with [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) for catalogued intake and View Personal Space guidance.
 
 ## Learn More
 

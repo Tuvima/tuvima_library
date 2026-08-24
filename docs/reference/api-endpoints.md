@@ -18,7 +18,10 @@ Interactive documentation: `http://localhost:61495/swagger`
 
 All endpoints require authentication unless noted. Three roles: **Administrator** (full access), **Curator** (browse + metadata), **Consumer** (browse only). API keys are passed as `X-Api-Key` header.
 
-Paginated GET endpoints accept `offset`/`limit` query parameters. `limit` is clamped server-side (default varies by endpoint; capped at 250 unless the endpoint's documented default already exceeds that) so a caller cannot force an unbounded read.
+Most paginated GET endpoints accept `offset`/`limit` query parameters. View
+timeline and discovery endpoints use opaque/keyset `cursor` plus `limit`, and
+Manual Gallery membership uses position/item keysets. Limits are clamped
+server-side so a caller cannot force an unbounded read.
 
 JSON errors use RFC 7807 Problem Details through the shared `ApiErrors`
 factories. JSON success bodies use named `MediaEngine.Contracts` types, and
@@ -85,7 +88,18 @@ from mutation.
 
 ## View
 
-Personal View routes require the trusted profile assertion established by the Dashboard. Browser-supplied profile or library IDs are never treated as authority. Friendly Shared, Mine, and permitted profile scopes are resolved by the Engine before any asset, Gallery, People, Places, thumbnail, or original-file query runs.
+Personal View routes require the trusted profile assertion established by the
+Dashboard. The server-to-server `X-Tuvima-View-Profile`,
+`X-Tuvima-View-Timestamp`, and `X-Tuvima-View-Signature` headers bind the active
+profile to the exact method/path/query through HMAC-SHA256 using the already
+validated API key. They are accepted only for `/view` and `/collections`, must
+be within the configured short skew window, and are not browser credentials.
+
+Browser-supplied profile, library, Gallery, scope-profile, or asset IDs are
+never treated as authority. Friendly Shared, Mine, and permitted Profile scopes
+are resolved by the Engine before any asset, Gallery, People, Places,
+thumbnail, original-file, or personal-media Collection query runs. Direct
+unauthorized identifiers return the same not-found shape as missing resources.
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
@@ -105,8 +119,8 @@ Personal View routes require the trusted profile assertion established by the Da
 | GET, PUT, DELETE | `/view/galleries/{id}` | Read or manage an authorized Gallery | Required + Gallery permission |
 | GET, POST, DELETE | `/view/galleries/{id}/items` | Page or mutate Manual Gallery membership | Required + Gallery permission |
 | GET, PUT | `/view/galleries/{id}/shares` | Read or replace selected-profile Gallery shares | Owner + Gallery sharing enabled |
-| GET | `/view/people` | Page confirmed, provenance-aware people annotations within an authorized scope | Required + scope read |
-| GET | `/view/places` | Page real GPS/place aggregates within an authorized scope | Required + scope read |
+| GET | `/view/people` | Cursor-page named/reviewed, provenance-aware people annotations within an authorized scope; no face-recognition claim | Required + scope read |
+| GET | `/view/places` | Cursor-page real GPS/place aggregates within an authorized scope; no map/tile request | Required + scope read |
 | POST | `/view/admin/libraries/{libraryId}/scan` | Recovery/admin scan for a configured personal library | Administrator |
 
 ## Works

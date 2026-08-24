@@ -213,21 +213,21 @@ Defines the clean schema 3 library model used by **Settings > Media Management**
 | Field | Type | Description |
 |---|---|---|
 | `schema_version` | string | Must be `3.0`. Older schemas are rejected and development state is reset/reingested rather than migrated. |
-| `personal_library_policy` | object | Administrator defaults and capability switches for personal-library creation, managed/existing storage, browser and drag/drop upload, mobile/device intake, and default visibility. |
+| `personal_library_policy` | object | Administrator defaults and capability switches for the internal personal-library bridge, managed/existing storage, browser upload, reserved future intake producers, and default visibility. |
 | `id` | GUID string | Stable library identity used by intake, indexing, access, and Dashboard editing. Required. |
-| `name` | string | User-facing library name. |
+| `name` | string | Configuration/admin name. For View, the profile-facing identity is the Personal Space, not this library record. |
 | `category` | string? | Structured subtype such as Books, Movies, TV, Music, Audiobooks, or Comics. Personal libraries may omit it. |
 | `kind` | string | Exactly `catalogued` or `personal`. |
 | `area` | string | `read`, `watch`, `listen`, or `view`. |
 | `presentation` | string | Catalogue, gallery, mixed gallery, timeline, video, documents, audio, or mixed presentation. |
 | `metadata_policy` | string | `enriched`, `local_preferred`, `local_only`, or `manual`. The last two bypass external identity/provider work. |
-| `media_types` | string[] | Structured media types expected by catalogued libraries. Personal View libraries may be mixed. |
+| `media_types` | string[] | Structured media types expected by catalogued libraries. A View Personal Space may index mixed local media through its backing personal library. |
 | `sources` | object[] | Stable source objects; see below. Array order has no meaning. |
 | `primary_destination_source_id` | GUID string? | Explicit managed destination source ID. It is never inferred from array position. |
 | `owner_profile_id` | GUID string? | Owning profile for personal access decisions. |
-| `visibility` | string | `private`, `shared`, or `household`. |
+| `visibility` | string | `private` or `shared` for current product presentation. Shared View contribution is separately controlled by profile View policy. |
 | `authorized_profile_ids` | GUID string[] | Explicit members of a shared library. |
-| `accepted_intake_modes` | string[] | Incoming folder, drag-and-drop, browser upload, mobile backup, connected-device import, or API. |
+| `accepted_intake_modes` | string[] | Accepted producer vocabulary. Incoming folder and browser upload have current paths; drag-and-drop, mobile backup, connected-device import, and direct API producers are reserved until a real client is implemented. |
 | `duplicate_policy` | string | `skip_exact`, `keep_both`, or `replace_existing`. |
 | `organization_policy` | object | Organization mode, optional custom template, and original-preservation policy. |
 
@@ -235,7 +235,36 @@ Each source owns `id`, `path`, `role`, `management_mode`, `source_type`, `includ
 
 Each top-level incoming source owns `id`, `path`, `purpose`, `default_handling`, `include_subdirectories`, and `source_type`. Incoming files carry this source identity through the ingestion queue. Direct intake also carries an explicit destination library ID; shared incoming receives one only after unambiguous policy routing.
 
-Personal View libraries index mixed local assets and local metadata without entering catalogue matching, canonical claims, providers, Wikidata, or the Review Queue.
+Each enabled profile resolves one View Personal Space, backed by one internal
+`personal` library bridge and any number of sources/devices. It indexes mixed
+local assets and local metadata without entering catalogue matching, canonical
+claims, providers, Wikidata, or Review Queue. Sources and devices do not appear
+as separate browsing destinations. The four View routes remain Photos, Galleries,
+People, and Places; source/device administration belongs in Settings.
+
+View access is not inferred from library visibility. Administrator-managed
+profile policy separately stores View enabled, access Shared View, include in
+Shared View, and share Galleries. The active profile's last authorized scope
+and timeline density are database preferences, not `libraries.json` fields.
+
+---
+
+## Dashboard/Engine View security settings
+
+The Dashboard signs eligible Engine `/view` and `/collections` requests with
+the active profile by using the same server-held API key as HMAC input. These
+headers are server-to-server only and must not be generated from browser state.
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `MediaEngine:Security:ViewProfileAssertionMaxSkewSeconds` | `120` | Engine acceptance window for trusted profile assertions; clamped to 1–300 seconds. |
+| `View:MediaGrantKey` | Derived from the Engine API key | Optional Dashboard-only secret for same-origin View media grants. When neither key exists, a random process key is used and grants expire on restart. |
+| `View:MediaGrantLifetimeSeconds` | `600` | View thumbnail/original grant lifetime; clamped to 30–900 seconds. |
+
+The signed assertion binds profile ID, Unix timestamp, method, and exact
+path/query. Same-origin media grants additionally bind profile, library, asset,
+resource kind, and expiry. Neither mechanism makes a browser-supplied library,
+Gallery, scope-profile, or asset ID authoritative.
 
 ---
 
