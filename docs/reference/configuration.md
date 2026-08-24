@@ -18,7 +18,7 @@ All configuration lives in the `config/` directory as individual JSON files grou
 
 ## config/core.json
 
-Core Engine settings. Most changes are read at startup. Normal ingestion sources and destinations come from `config/libraries.json`; Settings > Media Management saves the schema 3 model and asks the running Engine to hot-swap watchers.
+Core Engine settings. Most changes are read at startup. Normal ingestion sources and destinations come from `config/libraries.json`; Settings > Libraries and Import Folders save the schema 4 model and ask the running Engine to hot-swap watchers.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
@@ -208,11 +208,12 @@ Common fields configured here: `cover`, `description`, `rating`, `narrator`, `du
 
 ## config/libraries.json
 
-Defines the clean schema 3 library model used by **Settings > Media Management**. The root contains `personal_library_policy`, `libraries`, and shared, unassigned `incoming_sources`.
+Defines the clean schema 4 library model used by **Settings > Libraries** and **Settings > Import Folders**. The root contains explicitly approved `storage_locations`, `personal_library_policy`, `libraries`, and shared, unassigned `incoming_sources`.
 
 | Field | Type | Description |
 |---|---|---|
-| `schema_version` | string | Must be `3.0`. Older schemas are rejected and development state is reset/reingested rather than migrated. |
+| `schema_version` | string | Must be `4.0`. Older schemas are rejected and development state is reset/reingested rather than migrated. |
+| `storage_locations` | array | Explicit server/container roots administrators may browse. Each entry has a stable `id`, friendly `label`, absolute `path`, and `allow_write` policy. |
 | `personal_library_policy` | object | Administrator defaults and capability switches for the internal personal-library bridge, managed/existing storage, browser upload, reserved future intake producers, and default visibility. |
 | `id` | GUID string | Stable library identity used by intake, indexing, access, and Dashboard editing. Required. |
 | `name` | string | Configuration/admin name. For View, the profile-facing identity is the Personal Space, not this library record. |

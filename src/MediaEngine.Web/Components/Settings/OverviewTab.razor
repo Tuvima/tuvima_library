@@ -52,7 +52,7 @@
                 <MudText Typo="Typo.h6">Library summary</MudText>
                 <MudText Typo="Typo.body2" Class="admin-overview-muted">@DisplayFormat.FormatCount(_libraryTotal) items across your catalogued media.</MudText>
             </div>
-            <AppButton Href="/settings/media-management" Label="Manage media" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+            <AppButton Href="/settings/libraries" Label="Manage libraries" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
         </div>
 
             <div class="admin-library-breakdown" aria-label="Library media type breakdown">
@@ -121,7 +121,7 @@
             </div>
 
             <div class="admin-system-status" role="list" aria-label="System status">
-                <a class="admin-system-status__row" role="listitem" href="/settings/media-management/activity">
+                <a class="admin-system-status__row" role="listitem" href="/settings/ingestion">
                     <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Sync" /></span>
                     <span><strong>Media processing</strong><small>@IngestionStatusDetail</small></span>
                     <AppStatusBadge Text="@(_currentRun.IsActive ? "Processing" : _currentRun.Failed > 0 ? "Needs attention" : "Idle")"
@@ -132,7 +132,7 @@
                     <span><strong>Playback &amp; delivery</strong><small>@(_activeTranscodes > 0 ? $"{DisplayFormat.FormatCount(_activeTranscodes)} active transcode job{(_activeTranscodes == 1 ? "" : "s")}" : "No active transcodes")</small></span>
                     <AppStatusBadge Text="@(_activeTranscodes > 0 ? "Active" : "Idle")" Tone="@(_activeTranscodes > 0 ? AppUiTone.Primary : AppUiTone.Neutral)" />
                 </a>
-                <a class="admin-system-status__row" role="listitem" href="/settings/providers">
+                <a class="admin-system-status__row" role="listitem" href="/settings/metadata/providers">
                     <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Hub" /></span>
                     <span><strong>Metadata providers</strong><small>Provider status and issues</small></span>
                     <span class="admin-system-status__open">View</span>

@@ -142,17 +142,27 @@ public partial interface IEngineApiClient
     /// <summary>PUT /settings/server-general — save server name and regional settings.</summary>
     Task<bool> UpdateServerGeneralAsync(ServerGeneralSettingsDto settings, CancellationToken ct = default);
 
-    /// <summary>GET /settings/libraries — complete schema 3 library and incoming-source configuration.</summary>
+    /// <summary>GET /settings/libraries — complete schema 4 library, storage-root, and incoming-source configuration.</summary>
     Task<LibrariesConfigurationDto?> GetLibrariesAsync(CancellationToken ct = default);
 
-    /// <summary>PUT /settings/libraries — replace schema 3 library and incoming-source configuration.</summary>
+    /// <summary>PUT /settings/libraries — replace schema 4 library, storage-root, and incoming-source configuration.</summary>
     Task<LibrariesConfigurationDto?> UpdateLibrariesAsync(UpdateLibrariesRequest request, CancellationToken ct = default);
 
     /// <summary>POST /settings/test-path — probe a directory for existence, read, and write access.</summary>
     Task<PathTestResultDto?> TestPathAsync(string path, CancellationToken ct = default);
 
-    /// <summary>POST /settings/browse-directory — list subdirectories or drive roots.</summary>
-    Task<BrowseDirectoryResultDto?> BrowseDirectoryAsync(string? path, CancellationToken ct = default);
+    /// <summary>GET /settings/server-folders/roots — approved server/container roots.</summary>
+    Task<IReadOnlyList<ServerStorageLocationDto>> GetServerFolderRootsAsync(CancellationToken ct = default);
+
+    /// <summary>POST /settings/server-folders/browse — list folders beneath an approved root.</summary>
+    Task<BrowseServerFoldersResultDto?> BrowseServerFoldersAsync(
+        BrowseServerFoldersRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>POST /settings/server-folders/validate — validate a server folder for a source mode.</summary>
+    Task<ServerFolderValidationResultDto?> ValidateServerFolderAsync(
+        ValidateServerFolderRequest request,
+        CancellationToken ct = default);
 
     /// <summary>GET /providers/catalogue — consolidated UI metadata for all configured providers.</summary>
     Task<IReadOnlyList<ProviderCatalogueDto>> GetProviderCatalogueAsync(CancellationToken ct = default);

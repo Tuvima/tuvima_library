@@ -195,17 +195,15 @@ public sealed class UiArchitectureGuardrailTests
     }
 
     [Fact]
-    public void ProviderPriorityTab_UsesCodeBehindAndSidebarControlledStages()
+    public void MetadataSettingsPage_UsesRouteControlledSurfaces()
     {
-        var markup = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor");
-        var codeBehind = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor.cs");
+        var markup = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
         var settings = Read("src/MediaEngine.Web/Components/Pages/Settings.razor");
 
-        Assert.DoesNotContain("@code", markup);
-        Assert.Contains("public partial class ProviderPriorityTab", codeBehind);
         Assert.DoesNotContain("<ProviderStageSelector", markup);
-        Assert.Contains("[Parameter] public string Subsection", codeBehind);
-        Assert.Contains("<ProviderPriorityTab Subsection=\"@_activeSubsection\" />", settings);
+        Assert.Contains("[Parameter] public string? Subsection", markup);
+        Assert.Contains("[Parameter] public string? Detail", markup);
+        Assert.Contains("<MetadataSettingsPage Subsection=\"@_activeSubsection\" Detail=\"@Detail\" />", settings);
     }
 
     [Fact]
@@ -213,20 +211,16 @@ public sealed class UiArchitectureGuardrailTests
     {
         var shell = Read("src/MediaEngine.Web/Components/Settings/MetadataAdminShell.razor");
         var settings = Read("src/MediaEngine.Web/Components/Pages/Settings.razor");
-        var providers = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor");
-        var enrichment = Read("src/MediaEngine.Web/Components/Settings/ProviderEnrichmentSurface.razor");
-        var priority = Read("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor");
+        var metadata = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
 
         Assert.DoesNotContain("<SidebarPageHeader", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("<nav", shell, StringComparison.Ordinal);
         Assert.Contains("<SidebarPageHeader", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
-        Assert.Contains("<MetadataAdminShell ActiveSubsection=\"@Subsection\">", providers, StringComparison.Ordinal);
-        Assert.DoesNotContain("<h2>Enrichment</h2>", enrichment, StringComparison.Ordinal);
-        Assert.DoesNotContain("<h2>Source Priority</h2>", priority, StringComparison.Ordinal);
-        Assert.Contains("Icons.Material.Outlined.DragIndicator", priority, StringComparison.Ordinal);
-        Assert.DoesNotContain("Icons.Material.Outlined.KeyboardArrowUp", priority, StringComparison.Ordinal);
-        Assert.DoesNotContain("Icons.Material.Outlined.KeyboardArrowDown", priority, StringComparison.Ordinal);
+        Assert.Contains("<MetadataAdminShell ActiveSubsection=\"@ActiveSurface\">", metadata, StringComparison.Ordinal);
+        Assert.Contains("<SettingsSubsectionNav", metadata, StringComparison.Ordinal);
+        Assert.DoesNotContain("Source Priority", metadata, StringComparison.Ordinal);
+        Assert.DoesNotContain("DragIndicator", metadata, StringComparison.Ordinal);
     }
 
     private static string Read(string relativePath) =>

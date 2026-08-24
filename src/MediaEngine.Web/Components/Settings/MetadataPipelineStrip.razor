@@ -1,0 +1,100 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject MetadataSettingsStateService StateService
+
+@if (_loading)
+{
+    <AppPanel Density="AppSurfaceDensity.Compact" Class="metadata-library-loading">
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" /><span>Loading metadata pipeline…</span>
+    </AppPanel>
+}
+else if (LocalOnly)
+{
+    <AppPanel Density="AppSurfaceDensity.Compact" Class="metadata-library-local">
+        <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" />
+        <div><strong>Local metadata only</strong><p>This Personal Space does not send files to catalogue, canonical identity, or enrichment providers.</p></div>
+    </AppPanel>
+}
+else if (_pipeline is not null)
+{
+    <section class="metadata-library" aria-label="Metadata pipeline summary">
+        <div class="metadata-library__pipeline">
+            <div class="metadata-library__stage">
+                <span class="metadata-library__stage-number">1</span>
+                <MudIcon Icon="@_pipeline.Icon" />
+                <span><strong>@PrimaryProviderSummary</strong><small>Metadata Provider</small></span>
+            </div>
+            <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" Class="metadata-library__arrow" />
+            <div class="metadata-library__stage">
+                <span class="metadata-library__stage-number">2</span>
+                <span class="metadata-library__wikidata">W</span>
+                <span><strong>Wikidata</strong><small>Canonical Identity</small></span>
+            </div>
+            <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" Class="metadata-library__arrow" />
+            <div class="metadata-library__stage">
+                <span class="metadata-library__stage-number">3</span>
+                <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
+                <span><strong>Enrichment</strong><small>@EnrichmentSummary</small></span>
+            </div>
+        </div>
+        <AppCard Class="metadata-library__summary">
+            <SettingsSectionHeader Title="Metadata Summary" Icon="@Icons.Material.Outlined.Storage" />
+            <ol>
+                <li><span>1</span><div><small>Stage 1 — Metadata Provider</small><strong>@PrimaryProviderSummary</strong></div></li>
+                <li><span>2</span><div><small>Stage 2 — Canonical Identity</small><strong>Wikidata</strong></div></li>
+                <li><span>3</span><div><small>Stage 3 — Enrichment</small><strong>@EnrichmentSummary</strong></div></li>
+            </ol>
+            <AppButton Label="Manage Metadata Settings" Href="@ManageHref" ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Primary" />
+        </AppCard>
+        <AppPanel Density="AppSurfaceDensity.Compact" Class="metadata-library__inheritance">
+            <MudIcon Icon="@Icons.Material.Outlined.Info" /><span>This library uses the global @MetadataSettingsStateService.MediaTypeLabel(_pipeline.MediaType).ToLowerInvariant() metadata settings.</span>
+        </AppPanel>
+    </section>
+}
+
+@code {
+    [Parameter] public string? MediaType { get; set; }
+    [Parameter] public bool LocalOnly { get; set; }
+
+    private MetadataMediaPipeline? _pipeline;
+    private MetadataSettingsSnapshot? _snapshot;
+    private string? _loadedKey;
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var key = $"{MediaType}|{LocalOnly}";
+        if (string.Equals(key, _loadedKey, StringComparison.OrdinalIgnoreCase)) return;
+        _loadedKey = key;
+        if (LocalOnly) { _loading = false; return; }
+        _loading = true;
+        try
+        {
+            _snapshot = await StateService.LoadAsync();
+            _pipeline = _snapshot.PipelineFor(MediaType);
+        }
+        catch
+        {
+            _pipeline = null;
+        }
+        finally { _loading = false; }
+    }
+
+    private string PrimaryProviderSummary => _pipeline is null || _pipeline.Providers.Count == 0
+        ? "Not configured"
+        : string.Join(" + ", _pipeline.Providers.Select(provider => provider.DisplayName));
+
+    private string EnrichmentSummary
+    {
+        get
+        {
+            if (_snapshot is null || _pipeline is null) return "Not configured";
+            var relevant = _snapshot.Enrichment.Where(item => item.AppliesTo.Contains(_pipeline.MediaType, StringComparer.OrdinalIgnoreCase)
+                || item.AppliesTo.Contains(_pipeline.Lane, StringComparer.OrdinalIgnoreCase)).ToList();
+            return relevant.Count == 0 ? "No optional services" : string.Join(" · ", relevant.Select(item => $"{item.Title} {(item.Enabled ? "enabled" : "available")}"));
+        }
+    }
+
+    private string ManageHref => _pipeline is null
+        ? "/settings/metadata/providers"
+        : $"/settings/metadata/providers/{MetadataSettingsStateService.MediaTypeSlug(_pipeline.MediaType)}";
+}

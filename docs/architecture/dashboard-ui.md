@@ -242,7 +242,7 @@ Settings/Admin should not host normal media browse/edit pages.
 
 The Settings shell uses a flat, role-aware rail grouped as **Personal**,
 **Administration**, and **Advanced**. Canonical page routes use
-`/settings/profile`, `/settings/system`, `/settings/media-management`, and the
+`/settings/profile`, `/settings/system`, `/settings/libraries`, `/settings/import-folders`, `/settings/ingestion`, and the
 corresponding page slug. Media Management owns Overview, Incoming, Read, Watch,
 Listen, and View subsection routes. Page-local tabs and segmented controls
 provide subsection navigation; the rail does not expand into a second settings

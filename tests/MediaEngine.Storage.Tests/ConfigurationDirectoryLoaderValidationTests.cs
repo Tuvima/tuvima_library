@@ -39,13 +39,23 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
-    public void SaveLibraries_RoundTripsSchemaThreeLibrarySourcesAndIncomingSources()
+    public void SaveLibraries_RoundTripsSchemaFourLibrarySourcesIncomingSourcesAndStorageLocations()
     {
         using var temp = TempConfig.Create();
         var loader = new ConfigurationDirectoryLoader(temp.Path);
         var config = new LibrariesConfiguration
         {
-            SchemaVersion = "3.0",
+            SchemaVersion = "4.0",
+            StorageLocations =
+            [
+                new ServerStorageLocationConfig
+                {
+                    Id = "media",
+                    Label = "Media",
+                    Path = @"C:\",
+                    AllowWrite = true,
+                },
+            ],
             PersonalLibraryPolicy = new PersonalLibraryPolicyConfig
             {
                 AllowMobileBackup = false,
@@ -229,7 +239,7 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         var loader = new ConfigurationDirectoryLoader(temp.Path);
         var ex = Assert.Throws<ConfigValidationException>(() => loader.LoadLibraries());
 
-        Assert.Contains("schema_version must be 3.0", ex.Message);
+        Assert.Contains("schema_version must be 4.0", ex.Message);
         Assert.Contains("kind must be catalogued or personal", ex.Message);
         Assert.Contains("source_paths is not supported", ex.Message);
         Assert.Contains("library_root is not supported", ex.Message);

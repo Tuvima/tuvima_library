@@ -91,12 +91,54 @@ public static class JsonConfigValidator
 
     private static void ValidateLibraries(LibrariesConfiguration config, List<string> errors)
     {
-        if (!string.Equals(config.SchemaVersion, "3.0", StringComparison.Ordinal))
+        if (!string.Equals(config.SchemaVersion, "4.0", StringComparison.Ordinal))
         {
-            errors.Add("schema_version must be 3.0; pre-beta library configuration is not migrated in place.");
+            errors.Add("schema_version must be 4.0; pre-beta library configuration is not migrated in place.");
         }
 
         AddNoUnmappedProperties(config.UnmappedProperties, "$", errors);
+
+        var storageLocationIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var storageLocationPaths = new List<(string Path, string Field)>();
+        for (var index = 0; index < config.StorageLocations.Count; index++)
+        {
+            var location = config.StorageLocations[index];
+            var prefix = $"storage_locations[{index}]";
+            AddRequired(errors, location.Id, $"{prefix}.id");
+            AddRequired(errors, location.Label, $"{prefix}.label");
+            AddRequired(errors, location.Path, $"{prefix}.path");
+            if (!string.IsNullOrWhiteSpace(location.Id) && !storageLocationIds.Add(location.Id))
+            {
+                errors.Add($"{prefix}.id must be unique.");
+            }
+
+            if (TryNormalizePath(location.Path, out var normalizedPath))
+            {
+                storageLocationPaths.Add((normalizedPath, $"{prefix}.path"));
+            }
+            else if (!string.IsNullOrWhiteSpace(location.Path))
+            {
+                errors.Add($"{prefix}.path must be an absolute path.");
+            }
+
+            AddNoUnmappedProperties(location.UnmappedProperties, prefix, errors);
+        }
+
+        if (config.StorageLocations.Count == 0)
+        {
+            errors.Add("storage_locations must contain at least one explicitly allowed server folder root.");
+        }
+
+        for (var left = 0; left < storageLocationPaths.Count; left++)
+        {
+            for (var right = left + 1; right < storageLocationPaths.Count; right++)
+            {
+                if (PathsOverlap(storageLocationPaths[left].Path, storageLocationPaths[right].Path))
+                {
+                    errors.Add($"{storageLocationPaths[left].Field} and {storageLocationPaths[right].Field} must not overlap.");
+                }
+            }
+        }
 
         if (config.PersonalLibraryPolicy is null)
         {
@@ -543,7 +585,7 @@ public static class JsonConfigValidator
     {
         foreach (var property in properties?.Keys ?? Enumerable.Empty<string>())
         {
-            errors.Add($"{prefix}.{property} is not supported by libraries schema 3.0.");
+            errors.Add($"{prefix}.{property} is not supported by libraries schema 4.0.");
         }
     }
 

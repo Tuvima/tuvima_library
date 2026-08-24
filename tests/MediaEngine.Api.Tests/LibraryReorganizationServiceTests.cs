@@ -96,7 +96,17 @@ public sealed class LibraryReorganizationServiceTests
             Configuration = new ConfigurationDirectoryLoader(Path.Combine(_root, "config"));
             Configuration.SaveLibraries(new LibrariesConfiguration
             {
-                SchemaVersion = "3.0",
+                SchemaVersion = "4.0",
+                StorageLocations =
+                [
+                    new ServerStorageLocationConfig
+                    {
+                        Id = "library",
+                        Label = "Library",
+                        Path = LibraryRoot,
+                        AllowWrite = true,
+                    },
+                ],
                 Libraries =
                 [
                     new LibraryFolderConfig

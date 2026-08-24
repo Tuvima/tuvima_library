@@ -431,15 +431,14 @@ public sealed class UiShellRenderTests : AsyncBunitContext
     }
 
     [Fact]
-    public void ProviderPriority_DoesNotFallBackToHardcodedDefaultsAsConfiguredState()
+    public void MetadataSettings_DoesNotFallBackToHardcodedDefaultsAsConfiguredState()
     {
-        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ProviderPriorityTab.razor"))
-                     + File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ProviderPriorityTab.razor.cs"))
-                     + File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "ProviderPrioritySurface.razor.cs"));
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "MetadataSettingsPage.razor"))
+                     + File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Services", "Integration", "MetadataSettingsStateService.cs"));
 
-        Assert.Contains("No sample providers are shown as live configuration", source);
+        Assert.Contains("No sample provider state is being shown", source);
         Assert.Contains("_loadError", source);
-        Assert.Contains("GetDefaultPipelinesAsync", source);
+        Assert.Contains("GetPipelinesAsync", source);
         Assert.DoesNotContain("Load sample chain", source);
         Assert.DoesNotContain("using dashboard defaults", source);
         Assert.DoesNotContain("DefaultAssignments", source);

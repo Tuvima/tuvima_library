@@ -96,7 +96,7 @@ File watching is source-folder aware. A flush that contains files from one sourc
 
 ```json
 {
-  "schema_version": "3.0",
+  "schema_version": "4.0",
   "incoming_sources": [{
     "id": "99999999-aaaa-4999-8999-999999999999",
     "path": "/media/incoming",

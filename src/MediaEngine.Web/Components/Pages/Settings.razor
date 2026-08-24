@@ -1,6 +1,7 @@
 ﻿@page "/settings"
 @page "/settings/{Section}"
 @page "/settings/{Section}/{Subsection}"
+@page "/settings/{Section}/{Subsection}/{Detail}"
 @rendermode InteractiveServer
 @namespace MediaEngine.Web.Components.Pages
 @using MediaEngine.Web.Components.Settings
@@ -62,13 +63,26 @@
                             <PrivacyHistoryTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Libraries:
-                            <LibrariesTab Subsection="@_activeSubsection" />
+                            @if (string.Equals(_activeSubsection, "new", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <AddLibraryWizard />
+                            }
+                            else
+                            {
+                                <LibrariesTab Subsection="@_activeSubsection" DetailTab="@DetailTab" />
+                            }
+                            break;
+                        case SettingsSection.ImportFolders:
+                            <LibrariesTab Subsection="incoming" />
+                            break;
+                        case SettingsSection.Ingestion:
+                            <IngestionTasksTab />
                             break;
                         case SettingsSection.DevHarness:
                             <DevHarnessTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Providers:
-                            <ProviderPriorityTab Subsection="@_activeSubsection" />
+                            <MetadataSettingsPage Subsection="@_activeSubsection" Detail="@Detail" />
                             break;
                         case SettingsSection.LocalAi:
                             <LocalAiSettingsTab Subsection="@_activeSubsection" />
@@ -112,6 +126,8 @@
 @code {
     [Parameter] public string? Section { get; set; }
     [Parameter] public string? Subsection { get; set; }
+    [Parameter] public string? Detail { get; set; }
+    [SupplyParameterFromQuery(Name = "tab")] public string? DetailTab { get; set; }
 
     private SettingsSection _activeSection = SettingsSection.Overview;
     private string _activeSubsection = string.Empty;
@@ -261,7 +277,15 @@
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(Subsection))
+        if (_activeSection == SettingsSection.Libraries && IsLibraryRouteSegment(Subsection))
+        {
+            _activeSubsection = Subsection!.Trim();
+        }
+        else if (_activeSection == SettingsSection.Providers && string.IsNullOrWhiteSpace(Subsection))
+        {
+            _activeSubsection = "providers";
+        }
+        else if (string.IsNullOrWhiteSpace(Subsection))
         {
             _activeSubsection = string.Empty;
         }
@@ -277,8 +301,18 @@
             _activeSubsection = subsection.Slug;
         }
 
+        if (!IsValidDetailRoute(_activeSection, _activeSubsection, Detail))
+        {
+            Nav.NavigateTo("/not-found", replace: true);
+            return;
+        }
+
         var currentPath = NormalizePath(Nav.ToBaseRelativePath(Nav.Uri));
-        var targetRoute = string.IsNullOrWhiteSpace(Subsection)
+        var targetRoute = _activeSection == SettingsSection.Libraries && IsLibraryRouteSegment(Subsection)
+            ? $"/settings/libraries/{_activeSubsection}"
+            : _activeSection == SettingsSection.Providers && !string.IsNullOrWhiteSpace(Detail)
+            ? $"{SettingsNav.RouteFor(_activeSection, _activeSubsection)}/{Detail!.Trim().ToLowerInvariant()}"
+            : string.IsNullOrWhiteSpace(Subsection)
             ? resolution.CanonicalRoute
             : SettingsNav.RouteFor(_activeSection, _activeSubsection);
         var targetPath = NormalizePath(targetRoute);
@@ -298,6 +332,23 @@
         }
 
         return "/" + relative.Trim('/').TrimEnd('/');
+    }
+
+    private static bool IsLibraryRouteSegment(string? value) =>
+        string.Equals(value, "new", StringComparison.OrdinalIgnoreCase)
+        || Guid.TryParse(value, out _);
+
+    private static bool IsValidDetailRoute(SettingsSection section, string subsection, string? detail)
+    {
+        if (string.IsNullOrWhiteSpace(detail)) return true;
+        if (section != SettingsSection.Providers) return false;
+        var normalized = detail.Trim().ToLowerInvariant();
+        return subsection switch
+        {
+            "providers" => normalized is "books" or "audiobooks" or "comics" or "movies" or "tv" or "music",
+            "enrichment" => normalized is "artwork" or "lyrics" or "subtitles" or "people",
+            _ => false,
+        };
     }
 
     private void OnReviewCountChanged()
@@ -365,7 +416,27 @@
 
     private string GetHeroEyebrow() => CurrentGroup.Label;
 
-    private string GetHeroTitle() => SettingsNav.GetItem(_activeSection).Label;
+    private string GetHeroTitle()
+    {
+        if (_activeSection != SettingsSection.Providers || string.IsNullOrWhiteSpace(Detail))
+            return SettingsNav.GetItem(_activeSection).Label;
+
+        if (_activeSubsection == "enrichment")
+            return $"{TitleCaseRouteValue(Detail)} Enrichment";
+
+        var mediaType = MetadataSettingsStateService.NormalizeMediaType(Detail);
+        var label = mediaType switch
+        {
+            "Movies" => "Movie",
+            "TV" => "TV",
+            "Music" => "Music",
+            "Books" => "Book",
+            "Audiobooks" => "Audiobook",
+            "Comics" => "Comic",
+            _ => TitleCaseRouteValue(Detail),
+        };
+        return $"{label} Metadata Provider";
+    }
 
     private string GetSubsectionLabel() => string.IsNullOrWhiteSpace(_activeSubsection)
         ? GetHeroTitle()
@@ -384,15 +455,17 @@
         return _systemStatus?.IsHealthy == true ? "Engine online" : "Engine unavailable";
     }
 
-    private static string GetSectionDescription(SettingsSection section) => section switch
+    private string GetSectionDescription(SettingsSection section) => section switch
     {
         SettingsSection.Overview => "Manage your profile and see your personal library activity.",
         SettingsSection.Playback => "Set the defaults that shape how you watch, listen, and read.",
         SettingsSection.Privacy => "Personal history and export controls are not yet available.",
         SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",
-        SettingsSection.Libraries => "Manage where your media lives and how each area is organized.",
+        SettingsSection.Libraries => "Manage structured libraries and review each profile's Personal Space bridge.",
+        SettingsSection.ImportFolders => "Manage watched intake locations before media is routed into a destination library.",
+        SettingsSection.Ingestion => "Monitor scans, routing, enrichment, and operational ingestion health.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
-        SettingsSection.Providers => "Control which providers identify and enrich each type of media.",
+        SettingsSection.Providers => GetMetadataDescription(),
         SettingsSection.ActivityLogs => "See meaningful system activity and important administrative changes.",
         SettingsSection.LocalAi => "Manage local intelligence features while keeping technical details out of the way.",
         SettingsSection.Plugins => "Manage installed extensions and keep plugin health under control.",
@@ -404,5 +477,26 @@
         SettingsSection.EnrichmentTester => "Internal enrichment debugging tool.",
         _ => "Settings",
     };
+
+    private string GetMetadataDescription()
+    {
+        if (!string.IsNullOrWhiteSpace(Detail))
+        {
+            return _activeSubsection == "enrichment"
+                ? "Configure a later-stage service that enhances media after identification."
+                : "Review the configured Stage 1 provider, connection, and the core data it supplies during ingest.";
+        }
+
+        return _activeSubsection switch
+        {
+            "enrichment" => "Add richer details after media has been identified and made ready.",
+            "canonical" => "Wikidata connects identified media to stable identities, relationships, and universes.",
+            _ => "Identify media and gather the first metadata and artwork used during ingest.",
+        };
+    }
+
+    private static string TitleCaseRouteValue(string? value) => string.IsNullOrWhiteSpace(value)
+        ? string.Empty
+        : string.Concat(char.ToUpperInvariant(value.Trim()[0]), value.Trim()[1..].ToLowerInvariant());
 
 }

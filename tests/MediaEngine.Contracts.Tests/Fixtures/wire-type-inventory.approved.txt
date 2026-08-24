@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=620; api=0; web-client=87
+# scopes: contracts=625; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5873,17 +5873,21 @@
   OidcScopes: System.Collections.Generic.List<System.String> | json=oidc_scopes | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"mode":"sample","localhost_bypass":true,"require_https_remote":true,"oidc_enabled":true,"oidc_display_name":"sample","oidc_authority":"sample","oidc_client_id":"sample","oidc_scopes":[]}
 
-[contracts] MediaEngine.Contracts.Settings.BrowseDirectoryRequest
+[contracts] MediaEngine.Contracts.Settings.BrowseServerFoldersRequest
   kind=class | converter=default | number-handling=default | unmapped=default
-  Path: System.String | json=path | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"path":"sample"}
+  StorageLocationId: System.String | json=storage_location_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RelativePath: System.String | json=relative_path | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Search: System.String | json=search | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"storage_location_id":"sample","relative_path":"sample","search":"sample"}
 
-[contracts] MediaEngine.Contracts.Settings.BrowseDirectoryResultDto
+[contracts] MediaEngine.Contracts.Settings.BrowseServerFoldersResultDto
   kind=class | converter=default | number-handling=default | unmapped=default
-  CurrentPath: System.String | json=current_path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ParentPath: System.String | json=parent_path | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Directories: System.Collections.Generic.List<System.String> | json=directories | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"current_path":"sample","parent_path":"sample","directories":[]}
+  StorageLocation: MediaEngine.Contracts.Settings.ServerStorageLocationDto | json=storage_location | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RelativePath: System.String | json=relative_path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ParentRelativePath: System.String | json=parent_relative_path | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  DisplayPath: System.String | json=display_path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Directories: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ServerFolderEntryDto> | json=directories | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"storage_location":null,"relative_path":"sample","parent_relative_path":"sample","display_path":"sample","directories":[]}
 
 [contracts] MediaEngine.Contracts.Settings.FieldMappingDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5961,10 +5965,11 @@
 [contracts] MediaEngine.Contracts.Settings.LibrariesConfigurationDto
   kind=class | converter=default | number-handling=default | unmapped=default
   SchemaVersion: System.String | json=schema_version | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  StorageLocations: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ServerStorageLocationDto> | json=storage_locations | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Libraries: System.Collections.Generic.List<MediaEngine.Contracts.Settings.LibraryFolderDto> | json=libraries | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IncomingSources: System.Collections.Generic.List<MediaEngine.Contracts.Settings.IncomingSourceDto> | json=incoming_sources | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PersonalLibraryPolicy: MediaEngine.Contracts.Settings.PersonalLibraryPolicyDto | json=personal_library_policy | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"schema_version":"sample","libraries":[],"incoming_sources":[],"personal_library_policy":null}
+  sample={"schema_version":"sample","storage_locations":[],"libraries":[],"incoming_sources":[],"personal_library_policy":null}
 
 [contracts] MediaEngine.Contracts.Settings.LibraryFolderDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6285,6 +6290,34 @@
   UpdatedAt: System.DateTimeOffset? | json=updated_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"profile_id":"11111111-2222-3333-4444-555555555555","media_type":"sample","container_key":"sample","show_missing":true,"updated_at":"2025-01-02T03:04:05+00:00"}
 
+[contracts] MediaEngine.Contracts.Settings.ServerFolderEntryDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RelativePath: System.String | json=relative_path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ModifiedAt: System.DateTimeOffset? | json=modified_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"name":"sample","relative_path":"sample","modified_at":"2025-01-02T03:04:05+00:00"}
+
+[contracts] MediaEngine.Contracts.Settings.ServerFolderValidationIssueDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Code: System.String | json=code | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Message: System.String | json=message | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Severity: System.String | json=severity | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"code":"sample","message":"sample","severity":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.ServerFolderValidationResultDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  StorageLocationId: System.String | json=storage_location_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RelativePath: System.String | json=relative_path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Path: System.String | json=path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Exists: System.Boolean | json=exists | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HasRead: System.Boolean | json=has_read | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HasWrite: System.Boolean | json=has_write | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AvailableBytes: System.Int64? | json=available_bytes | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FileSystem: System.String | json=file_system | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CanSelect: System.Boolean | json=can_select | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Issues: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ServerFolderValidationIssueDto> | json=issues | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"storage_location_id":"sample","relative_path":"sample","path":"sample","exists":true,"has_read":true,"has_write":true,"available_bytes":7,"file_system":"sample","can_select":true,"issues":[]}
+
 [contracts] MediaEngine.Contracts.Settings.ServerGeneralSettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default
   ServerName: System.String | json=server_name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -6296,6 +6329,16 @@
   Country: System.String | json=country | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DateFormat: System.String | json=date_format | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   TimeFormat: System.String | json=time_format | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Settings.ServerStorageLocationDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Id: System.String | json=id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Label: System.String | json=label | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Path: System.String | json=path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AllowWrite: System.Boolean | json=allow_write | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AvailableBytes: System.Int64? | json=available_bytes | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FileSystem: System.String | json=file_system | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"id":"sample","label":"sample","path":"sample","allow_write":true,"available_bytes":7,"file_system":"sample"}
 
 [contracts] MediaEngine.Contracts.Settings.SettingsCatalogEntryResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6450,10 +6493,11 @@
 [contracts] MediaEngine.Contracts.Settings.UpdateLibrariesRequest
   kind=class | converter=default | number-handling=default | unmapped=default
   SchemaVersion: System.String | json=schema_version | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  StorageLocations: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ServerStorageLocationDto> | json=storage_locations | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Libraries: System.Collections.Generic.List<MediaEngine.Contracts.Settings.LibraryFolderDto> | json=libraries | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IncomingSources: System.Collections.Generic.List<MediaEngine.Contracts.Settings.IncomingSourceDto> | json=incoming_sources | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PersonalLibraryPolicy: MediaEngine.Contracts.Settings.PersonalLibraryPolicyDto | json=personal_library_policy | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"schema_version":"sample","libraries":[],"incoming_sources":[],"personal_library_policy":null}
+  sample={"schema_version":"sample","storage_locations":[],"libraries":[],"incoming_sources":[],"personal_library_policy":null}
 
 [contracts] MediaEngine.Contracts.Settings.UpdateOrganizationTemplateRequest
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6465,6 +6509,15 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   Enabled: System.Boolean | json=enabled | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"enabled":true}
+
+[contracts] MediaEngine.Contracts.Settings.ValidateServerFolderRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  StorageLocationId: System.String | json=storage_location_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RelativePath: System.String | json=relative_path | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ManualPath: System.String | json=manual_path | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SelectionMode: System.String | json=selection_mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CurrentSourceId: System.String | json=current_source_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"storage_location_id":"sample","relative_path":"sample","manual_path":"sample","selection_mode":"sample","current_source_id":"sample"}
 
 [contracts] MediaEngine.Contracts.System.BackupArchiveDto
   kind=class | converter=default | number-handling=default | unmapped=default

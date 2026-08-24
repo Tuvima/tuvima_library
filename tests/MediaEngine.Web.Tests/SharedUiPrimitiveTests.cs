@@ -199,15 +199,15 @@ public sealed class SharedUiPrimitiveTests : AsyncBunitContext
     [Fact]
     public void SettingsSubsectionNav_RendersCanonicalLinksAndActiveState()
     {
-        Services.GetRequiredService<NavigationManager>().NavigateTo("/settings/providers/health");
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/settings/metadata/canonical");
 
         var cut = Render<SettingsSubsectionNav>(parameters => parameters
             .Add(component => component.Section, SettingsSection.Providers)
-            .Add(component => component.ActiveSubsection, "health")
+            .Add(component => component.ActiveSubsection, "canonical")
             .Add(component => component.AriaLabel, "Metadata sections"));
 
         Assert.Equal(3, cut.FindAll("a.settings-subsection-nav__item").Count);
-        var active = cut.Find("a[href='/settings/providers/health']");
+        var active = cut.Find("a[href='/settings/metadata/canonical']");
         Assert.Equal("page", active.GetAttribute("aria-current"));
         Assert.Null(active.GetAttribute("aria-selected"));
         Assert.Null(active.GetAttribute("role"));

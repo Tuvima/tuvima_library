@@ -68,7 +68,7 @@ compatibility versions.
 
 ## Media Management
 
-Library configuration uses schema `3.0`. Older flat-folder and Photos/General
+Library configuration uses schema `4.0`, including explicit server-visible folder-picker roots. Older flat-folder and Photos/General
 schemas are rejected during the pre-beta cutover rather than migrated or served
 through compatibility routes.
 

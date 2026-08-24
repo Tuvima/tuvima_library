@@ -249,7 +249,24 @@ public sealed class ViewLibraryServiceTests
             }).GetAwaiter().GetResult();
             _configuration.SaveLibraries(new LibrariesConfiguration
             {
-                SchemaVersion = "3.0",
+                SchemaVersion = "4.0",
+                StorageLocations =
+                [
+                    new ServerStorageLocationConfig
+                    {
+                        Id = "personal",
+                        Label = "Personal",
+                        Path = PersonalRoot,
+                        AllowWrite = true,
+                    },
+                    new ServerStorageLocationConfig
+                    {
+                        Id = "catalogue",
+                        Label = "Catalogue",
+                        Path = CatalogueRoot,
+                        AllowWrite = true,
+                    },
+                ],
                 Libraries =
                 [
                     PersonalLibrary(PersonalLibraryId, OwnerProfileId, PersonalRoot),

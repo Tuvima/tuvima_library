@@ -9,7 +9,7 @@ public sealed class AppComponentSystemGuardrailTests
 
     private static readonly string[] AppComponentMigratedFiles =
     [
-        "src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor",
+        "src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor",
         "src/MediaEngine.Web/Components/Pages/DesignSystemPreview.razor",
     ];
 
@@ -52,22 +52,18 @@ public sealed class AppComponentSystemGuardrailTests
     }
 
     [Fact]
-    public void ProviderPriorityTab_UsesApprovedProviderComponentLayer()
+    public void MetadataSettingsPage_UsesApprovedProviderComponentLayer()
     {
-        var contents = ReadRepoFile("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor")
-                       + ReadRepoFile("src/MediaEngine.Web/Components/Settings/ProviderEditDrawer.razor")
-                       + ReadRepoFile("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor");
+        var contents = ReadRepoFile("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
 
         Assert.Contains("<AppTextField", contents, StringComparison.Ordinal);
         Assert.Contains("<AppSelect", contents, StringComparison.Ordinal);
         Assert.Contains("<AppNumericField", contents, StringComparison.Ordinal);
         Assert.Contains("<AppSwitchRow", contents, StringComparison.Ordinal);
         Assert.Contains("<AppButton", contents, StringComparison.Ordinal);
-        Assert.Contains("<AppIconButton", contents, StringComparison.Ordinal);
         Assert.Contains("<AppChip", contents, StringComparison.Ordinal);
         Assert.Contains("<AppAlert", contents, StringComparison.Ordinal);
         Assert.Contains("<AppProviderLogo", contents, StringComparison.Ordinal);
-        Assert.Contains("<AppDialog", contents, StringComparison.Ordinal);
     }
 
     [Fact]

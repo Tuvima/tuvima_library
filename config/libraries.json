@@ -1,5 +1,19 @@
 {
-  "schema_version": "3.0",
+  "schema_version": "4.0",
+  "storage_locations": [
+    {
+      "id": "media",
+      "label": "Media storage",
+      "path": "C:\\temp\\tuvima-library",
+      "allow_write": true
+    },
+    {
+      "id": "incoming",
+      "label": "Incoming storage",
+      "path": "C:\\temp\\tuvima-import",
+      "allow_write": true
+    }
+  ],
   "personal_library_policy": {
     "allow_user_creation": true,
     "allow_mobile_backup": true,

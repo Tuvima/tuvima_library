@@ -3,7 +3,7 @@ namespace MediaEngine.Web.Tests;
 public sealed class Phase6SettingsAdminHardeningTests
 {
     [Fact]
-    public void SystemOverview_RemainsConciseAndRoutesProcessingToMediaManagement()
+    public void SystemOverview_RemainsConciseAndRoutesProcessingToIngestion()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\OverviewTab.razor");
 
@@ -12,7 +12,7 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("/settings/activity", source, StringComparison.Ordinal);
         Assert.DoesNotContain("/settings/activity/events", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<BackupRecoveryPanel", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("/settings/ingestion", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/ingestion", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Operational Snapshot", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Recent Ingestion Runs", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Run ID", source, StringComparison.Ordinal);
@@ -43,42 +43,34 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void LibrariesTab_RendersSchemaThreeMediaManagement()
+    public void LibrariesTab_RendersSchemaFourLibraryAndImportFolderAdministration()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LibrariesTab.razor");
         var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
         var settings = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
 
         Assert.DoesNotContain("aria-label=\"Media Management sections\"", source, StringComparison.Ordinal);
-        Assert.Contains("new(\"incoming\", \"Incoming\"", nav, StringComparison.Ordinal);
-        Assert.Contains("new(\"libraries\", \"Libraries\"", nav, StringComparison.Ordinal);
-        Assert.Contains("new(\"activity\", \"Activity\"", nav, StringComparison.Ordinal);
+        Assert.Contains("new(SettingsSection.Libraries", nav, StringComparison.Ordinal);
+        Assert.Contains("new(SettingsSection.ImportFolders", nav, StringComparison.Ordinal);
+        Assert.Contains("new(SettingsSection.Ingestion", nav, StringComparison.Ordinal);
         Assert.DoesNotContain("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
 
-        Assert.Contains("Structured libraries", source, StringComparison.Ordinal);
-        Assert.Contains("Personal libraries (View)", source, StringComparison.Ordinal);
+        Assert.Contains("All libraries", source, StringComparison.Ordinal);
+        Assert.Contains("Personal Space", source, StringComparison.Ordinal);
         Assert.Contains("Incoming folders", source, StringComparison.Ordinal);
-        Assert.Contains("Filter libraries", source, StringComparison.Ordinal);
+        Assert.Contains("Choose a media area", source, StringComparison.Ordinal);
         Assert.Contains("new(\"all\", \"All\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"read\", \"Read\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"watch\", \"Watch\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"listen\", \"Listen\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"view\", \"View\"", source, StringComparison.Ordinal);
-        Assert.Contains("<IngestionTasksTab />", source, StringComparison.Ordinal);
         Assert.Contains("Not checked", source, StringComparison.Ordinal);
-        Assert.Contains("Folders &amp; sources", source, StringComparison.Ordinal);
+        Assert.Contains("Folders in this library", source, StringComparison.Ordinal);
         Assert.Contains("Existing folders stay unchanged", source, StringComparison.Ordinal);
         Assert.Contains("Primary destination", source, StringComparison.Ordinal);
-        Assert.Contains("Participates in organization", source, StringComparison.Ordinal);
         Assert.Contains("Duplicate handling", source, StringComparison.Ordinal);
-        Assert.Contains("Owner profile ID", source, StringComparison.Ordinal);
         Assert.Contains("Visibility", source, StringComparison.Ordinal);
-        Assert.Contains("Personal library permissions", source, StringComparison.Ordinal);
-        Assert.Contains("AllowUserCreation", source, StringComparison.Ordinal);
-        Assert.Contains("AllowManagedStorage", source, StringComparison.Ordinal);
-        Assert.Contains("AllowExistingFolderAttachment", source, StringComparison.Ordinal);
-        Assert.Contains("AllowConnectedDeviceImport", source, StringComparison.Ordinal);
-        Assert.Contains("DefaultVisibility", source, StringComparison.Ordinal);
+        Assert.Contains("DialogParameters<ServerFolderPicker>", source, StringComparison.Ordinal);
         Assert.Contains("GetLibrariesAsync", source, StringComparison.Ordinal);
         Assert.Contains("TestPathAsync", source, StringComparison.Ordinal);
         Assert.Contains("UpdateLibrariesAsync", source, StringComparison.Ordinal);
@@ -115,54 +107,40 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void ProvidersTab_DoesNotUseHardcodedFallbackAsLiveConfig()
+    public void MetadataSettings_DoesNotUseHardcodedFallbackAsLiveConfig()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor.cs")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor.cs")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderEnrichmentSurface.razor")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderEnrichmentSurface.razor.cs");
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\MetadataSettingsPage.razor")
+                     + ReadRepoFile(@"src\MediaEngine.Web\Services\Integration\MetadataSettingsStateService.cs");
 
-        Assert.Contains("No sample providers are shown as live configuration", source, StringComparison.Ordinal);
+        Assert.Contains("No sample provider state is being shown", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Load sample chain", source, StringComparison.Ordinal);
-        Assert.Contains("Provider health uses recorded Engine checks", source, StringComparison.Ordinal);
-        Assert.Contains("Last tested", source, StringComparison.Ordinal);
-        Assert.Contains("SavePipelinesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetProviderStatusAsync", source, StringComparison.Ordinal);
+        Assert.Contains("TestProviderAsync", source, StringComparison.Ordinal);
         Assert.Contains("SaveProviderConfigAsync", source, StringComparison.Ordinal);
         Assert.Contains("UpdateHydrationSettingsAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Provider Setup", source, StringComparison.Ordinal);
-        Assert.Contains("Source Priority", source, StringComparison.Ordinal);
-        Assert.Contains("[\"Movies\", \"TV\", \"Music\", \"Books\", \"Audiobooks\", \"Comics\"]", source, StringComparison.Ordinal);
-        Assert.Contains("ResolveLogo", source, StringComparison.Ordinal);
-        Assert.Contains("FilteredProviders", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Source Priority", source, StringComparison.Ordinal);
+        Assert.Contains("[\"Books\", \"Audiobooks\", \"Comics\", \"Movies\", \"TV\", \"Music\"]", source, StringComparison.Ordinal);
+        Assert.Contains("ContextualProviderName", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ProvidersTab_PreservesRetailPipelineAndLocksCanonicalResponsibilities()
+    public void MetadataSettings_ReadsConfiguredPipelinesAndSeparatesCanonicalResponsibilities()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor.cs");
+        var page = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\MetadataSettingsPage.razor");
+        var state = ReadRepoFile(@"src\MediaEngine.Web\Services\Integration\MetadataSettingsStateService.cs");
 
-        Assert.Contains("provider.HydrationStages.Contains(1)", source, StringComparison.Ordinal);
-        Assert.Contains("canonical_source", source, StringComparison.Ordinal);
-        Assert.Contains("System or stage-defined support", source, StringComparison.Ordinal);
-        Assert.Contains("item.RequiredSystemProvider", source, StringComparison.Ordinal);
-        Assert.Contains("DragIndicator", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("KeyboardArrowUp", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("KeyboardArrowDown", source, StringComparison.Ordinal);
-        Assert.Contains("CopyProviderEntry", source, StringComparison.Ordinal);
-        Assert.Contains("AcceptedTransition = source?.AcceptedTransition", source, StringComparison.Ordinal);
-        Assert.Contains("GetDefaultPipelinesAsync", source, StringComparison.Ordinal);
-        Assert.Contains("SavePipelinesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetPipelinesAsync", state, StringComparison.Ordinal);
+        Assert.Contains("BuildPipeline(mediaType, pipelines", state, StringComparison.Ordinal);
+        Assert.Contains("Provider identifiers are sent to Wikidata", page, StringComparison.Ordinal);
+        Assert.Contains("This layer does not identify media", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("DragIndicator", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("SavePipelinesAsync", page, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ProvidersTab_HasDownloadedIconsForVisibleProviders()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor.cs");
-
         var expectedIcons = new[]
         {
             "apple_books.svg",
@@ -178,7 +156,6 @@ public sealed class Phase6SettingsAdminHardeningTests
 
         foreach (var icon in expectedIcons)
         {
-            Assert.Contains($"images/providers/{icon}", source, StringComparison.Ordinal);
             Assert.True(
                 File.Exists(GetRepoPath($@"src\MediaEngine.Web\wwwroot\images\providers\{icon}")),
                 $"Expected provider icon asset {icon} to exist.");
@@ -206,7 +183,7 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void MetadataSettings_AreHiddenFromSettingsUi()
+    public void MetadataSettings_UseTheDedicatedThreeSurfaceExperience()
     {
         var settings = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
         var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
@@ -222,7 +199,10 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.False(File.Exists(metadataTabPath));
         Assert.DoesNotContain("MetadataMatchingTab", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("Metadata & Matching", nav, StringComparison.Ordinal);
-        Assert.DoesNotContain("/settings/metadata", nav, StringComparison.Ordinal);
+        Assert.Contains("\"metadata\"", nav, StringComparison.Ordinal);
+        Assert.Contains("\"providers\", \"Providers\"", nav, StringComparison.Ordinal);
+        Assert.Contains("\"enrichment\", \"Enrichment\"", nav, StringComparison.Ordinal);
+        Assert.Contains("\"canonical\", \"Canonical & Universes\"", nav, StringComparison.Ordinal);
     }
 
     [Fact]

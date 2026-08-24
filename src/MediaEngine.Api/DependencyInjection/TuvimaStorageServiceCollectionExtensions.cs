@@ -2,6 +2,7 @@ using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Libraries;
 using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Api.Services.Playback;
+using MediaEngine.Api.Services.Settings;
 using MediaEngine.Api.Services.View;
 using MediaEngine.Application.Services;
 using MediaEngine.Domain.Capabilities;
@@ -49,6 +50,7 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddScoped<IViewQueryOrchestrator, ViewQueryOrchestrator>();
         services.AddScoped<ViewDiscoveryService>();
         services.AddSingleton<LibraryReorganizationService>();
+        services.AddSingleton<ServerFolderBrowserService>();
         services.AddSingleton<IFileHashCacheRepository, FileHashCacheRepository>();
         services.AddSingleton(_ => new TuvimaDataPaths(configuredPath: null));
         services.AddSingleton(sp =>
