@@ -65,7 +65,7 @@ public static class ViewEndpoints
                     FavoritesOnly: favorite == true,
                     IncludeHidden: hidden == true,
                     HiddenOnly: hidden == true,
-                    CollectionId: collection), ct));
+                    GalleryId: collection), ct));
             }
             catch (ArgumentException exception)
             {

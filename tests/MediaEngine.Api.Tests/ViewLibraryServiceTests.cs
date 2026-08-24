@@ -1,6 +1,8 @@
 using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
@@ -221,6 +223,12 @@ public sealed class ViewLibraryServiceTests
             PersonalLibraryId = Guid.NewGuid();
             CatalogueLibraryId = Guid.NewGuid();
             OwnerProfileId = Guid.NewGuid();
+            new ProfileRepository(_database).InsertAsync(new Profile
+            {
+                Id = OwnerProfileId,
+                DisplayName = "View owner",
+                Role = ProfileRole.Consumer,
+            }).GetAwaiter().GetResult();
             _configuration.SaveLibraries(new LibrariesConfiguration
             {
                 SchemaVersion = "3.0",
@@ -234,6 +242,7 @@ public sealed class ViewLibraryServiceTests
                 Repository,
                 _configuration,
                 new LibraryAccessEvaluator(),
+                new ViewPersonalSpaceRepository(_database),
                 NullLogger<ViewLibraryService>.Instance);
         }
 

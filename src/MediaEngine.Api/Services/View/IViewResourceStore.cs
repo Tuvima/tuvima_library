@@ -11,6 +11,6 @@ public interface IViewResourceStore
     Task<ViewResourceDescriptor?> FindAsync(
         ViewResourceKind kind,
         Guid resourceId,
+        Guid requestingProfileId,
         CancellationToken ct = default);
 }
-

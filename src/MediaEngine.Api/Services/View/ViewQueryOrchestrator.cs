@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.LocalAssets;
+using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.View;
 
@@ -10,8 +11,8 @@ public sealed record ViewAssetQueryRequest(
     IReadOnlyList<string>? MediaKinds = null,
     bool FavoritesOnly = false,
     bool IncludeHidden = false,
-    bool HiddenOnly = false,
-    Guid? GalleryId = null);
+    Guid? GalleryId = null,
+    LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active);
 
 /// <summary>
 /// Authorized persistence plan. Backends receive only library IDs approved by
@@ -25,12 +26,12 @@ public sealed record ViewAssetQueryPlan(
     IReadOnlyList<string>? MediaKinds,
     bool FavoritesOnly,
     bool IncludeHidden,
-    bool HiddenOnly,
-    Guid? GalleryId);
+    Guid? GalleryId,
+    LocalAssetLifecycleFilter Lifecycle);
 
 public sealed record ViewQueryResult(
     ViewAccessOutcome Outcome,
-    LocalAssetPageDto? Page = null,
+    ViewAssetTimelinePageDto? Page = null,
     ResolvedViewScope? Scope = null);
 
 /// <summary>
@@ -72,8 +73,8 @@ public sealed class ViewQueryOrchestrator(
             request.MediaKinds,
             request.FavoritesOnly,
             request.IncludeHidden,
-            request.HiddenOnly,
-            request.GalleryId);
+            request.GalleryId,
+            request.Lifecycle);
         var page = await backend.QueryAsync(plan, ct).ConfigureAwait(false);
         return new ViewQueryResult(ViewAccessOutcome.Allowed, page, decision.Scope);
     }

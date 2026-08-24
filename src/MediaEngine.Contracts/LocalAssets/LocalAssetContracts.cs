@@ -52,6 +52,11 @@ public sealed record LocalAssetPageDto(
     [property: JsonPropertyName("total")] int Total,
     [property: JsonPropertyName("has_more")] bool HasMore);
 
+public sealed record ViewAssetTimelinePageDto(
+    [property: JsonPropertyName("items")] IReadOnlyList<LocalAssetDto> Items,
+    [property: JsonPropertyName("next_cursor")] string? NextCursor,
+    [property: JsonPropertyName("has_more")] bool HasMore);
+
 public sealed record ViewLibrarySummaryDto(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("name")] string Name,

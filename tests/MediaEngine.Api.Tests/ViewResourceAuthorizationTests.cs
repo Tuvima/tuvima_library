@@ -1,4 +1,5 @@
 using MediaEngine.Api.Services.View;
+using MediaEngine.Domain.PersonalMedia;
 
 namespace MediaEngine.Api.Tests;
 
@@ -18,8 +19,8 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceDescriptor(
                 kind,
                 resourceId,
-                sharedOwner.ProfileId,
-                sharedOwner.PersonalLibraryId));
+                sharedOwner.Policy.ProfileId,
+                sharedOwner.PersonalSpace!.LibraryId));
 
         var allowed = await service.AuthorizeAsync(
             Identity(caller),
@@ -45,7 +46,7 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceRequest(ViewScopeRequest.Shared, ViewResourceKind.Search, null));
 
         Assert.True(decision.IsAllowed);
-        Assert.Equal([included.PersonalLibraryId!.Value], decision.Scope!.LibraryIds);
+        Assert.Equal([included.PersonalSpace!.LibraryId], decision.Scope!.LibraryIds);
     }
 
     [Fact]
@@ -57,9 +58,9 @@ public sealed class ViewResourceAuthorizationTests
         var shared = new ViewResourceDescriptor(
             ViewResourceKind.Gallery,
             galleryId,
-            owner.ProfileId,
-            owner.PersonalLibraryId,
-            new HashSet<Guid> { caller.ProfileId });
+            owner.Policy.ProfileId,
+            owner.PersonalSpace!.LibraryId,
+            new HashSet<Guid> { caller.Policy.ProfileId });
         var service = Create([caller, owner], shared);
 
         var read = await service.AuthorizeAsync(
@@ -88,9 +89,9 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceDescriptor(
                 ViewResourceKind.Gallery,
                 galleryId,
-                owner.ProfileId,
-                owner.PersonalLibraryId,
-                new HashSet<Guid> { caller.ProfileId }));
+                owner.Policy.ProfileId,
+                owner.PersonalSpace!.LibraryId,
+                new HashSet<Guid> { caller.Policy.ProfileId }));
 
         var decision = await service.AuthorizeAsync(
             Identity(caller),
@@ -110,9 +111,9 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceDescriptor(
                 ViewResourceKind.Gallery,
                 galleryId,
-                owner.ProfileId,
-                owner.PersonalLibraryId,
-                new HashSet<Guid> { caller.ProfileId }));
+                owner.Policy.ProfileId,
+                owner.PersonalSpace!.LibraryId,
+                new HashSet<Guid> { caller.Policy.ProfileId }));
 
         var decision = await service.AuthorizeAsync(
             Identity(caller),
@@ -136,16 +137,16 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceDescriptor(
                 kind,
                 assetId,
-                owner.ProfileId,
-                owner.PersonalLibraryId,
-                new HashSet<Guid> { caller.ProfileId }));
+                owner.Policy.ProfileId,
+                owner.PersonalSpace!.LibraryId,
+                new HashSet<Guid> { caller.Policy.ProfileId }));
 
         var decision = await service.AuthorizeAsync(
             Identity(caller),
             new ViewResourceRequest(ViewScopeRequest.Mine, kind, assetId));
 
         Assert.True(decision.IsAllowed);
-        Assert.DoesNotContain(owner.PersonalLibraryId!.Value, decision.Scope!.LibraryIds);
+        Assert.DoesNotContain(owner.PersonalSpace!.LibraryId, decision.Scope!.LibraryIds);
     }
 
     [Fact]
@@ -162,23 +163,30 @@ public sealed class ViewResourceAuthorizationTests
     }
 
     private static ViewResourceAuthorizationService Create(
-        ViewProfileScopeState[] profiles,
+        ViewScopeStoreEntry[] profiles,
         params ViewResourceDescriptor[] resources) =>
         new(
             new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(profiles)),
             new ResourceStore(resources));
 
-    private static ViewRequestProfile Identity(ViewProfileScopeState state) =>
-        new(state.ProfileId, "Consumer");
+    private static ViewRequestProfile Identity(ViewScopeStoreEntry state) =>
+        new(state.Policy.ProfileId, "Consumer");
 
-    private static ViewProfileScopeState State(bool access, bool include) =>
-        new(Guid.NewGuid(), true, access, include, Guid.NewGuid());
+    private static ViewScopeStoreEntry State(bool access, bool include)
+    {
+        var profileId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        return new ViewScopeStoreEntry(
+            new ViewProfilePolicy(profileId, true, access, include, true, now),
+            new ViewPersonalSpace(Guid.NewGuid(), profileId, Guid.NewGuid(), now, now));
+    }
 
     private sealed class ResourceStore(params ViewResourceDescriptor[] resources) : IViewResourceStore
     {
         public Task<ViewResourceDescriptor?> FindAsync(
             ViewResourceKind kind,
             Guid resourceId,
+            Guid requestingProfileId,
             CancellationToken ct = default) =>
             Task.FromResult(resources.FirstOrDefault(resource =>
                 resource.Kind == kind && resource.ResourceId == resourceId));
