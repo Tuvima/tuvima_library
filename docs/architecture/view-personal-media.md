@@ -148,13 +148,14 @@ detection, captions, and embeddings are future integrations. If implemented,
 they must run asynchronously through the existing Local AI architecture and
 must never block ingestion or asset availability.
 
-Current implementation truth: the Engine exposes authorized Places and People
-queries, but the Dashboard routes still present truthful capability states.
-Places aggregates only real GPS/place metadata. People returns only named or
-reviewed provenance-aware annotations and reports when no capable producer has
-created them. Face recognition, object/scene detection, OCR, captions,
-embeddings, semantic search, mobile backup/sync, public-link sharing, and map
-rendering are not implemented features.
+Current implementation truth: the Engine and Dashboard expose authorized Places
+and People queries. Places aggregates only real GPS/place metadata and renders a
+local, privacy-safe coordinate cluster plus an accessible list; no third-party
+map tiles are loaded. People returns only named or reviewed provenance-aware
+annotations and presents a truthful capability state when no capable producer
+has created them. Face recognition, object/scene detection, OCR, captions,
+embeddings, semantic search, mobile backup/sync, public-link sharing, and
+third-party map rendering are not implemented features.
 
 ## Scale and safety
 
