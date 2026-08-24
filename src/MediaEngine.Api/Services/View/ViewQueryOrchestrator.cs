@@ -41,7 +41,8 @@ public sealed record ViewQueryResult(
 public sealed class ViewQueryOrchestrator(
     IViewRequestProfileContext profileContext,
     IViewResourceAuthorizationService authorization,
-    IViewAssetQueryBackend backend) : IViewQueryOrchestrator
+    IViewAssetQueryBackend backend,
+    IViewSmartGalleryQueryService? smartGalleries = null) : IViewQueryOrchestrator
 {
     public async Task<ViewQueryResult> QueryAsync(
         ViewAssetQueryRequest request,
@@ -63,6 +64,11 @@ public sealed class ViewQueryOrchestrator(
         if (!decision.IsAllowed || decision.Scope is null)
         {
             return new ViewQueryResult(decision.Outcome);
+        }
+
+        if (request.GalleryId is { } galleryId && smartGalleries is not null)
+        {
+            await smartGalleries.EnsureQuerySupportedAsync(galleryId, ct).ConfigureAwait(false);
         }
 
         var plan = new ViewAssetQueryPlan(
