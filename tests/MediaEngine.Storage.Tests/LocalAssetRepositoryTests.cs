@@ -1,4 +1,5 @@
 using Dapper;
+using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
@@ -11,21 +12,28 @@ public sealed class LocalAssetRepositoryTests : IDisposable
         $"tuvima-local-assets-{Guid.NewGuid():N}.db");
     private readonly DatabaseConnection _database;
     private readonly LocalAssetRepository _repository;
+    private readonly ViewPersonalSpaceRepository _spaces;
+    private readonly ViewGalleryRepository _galleries;
 
     public LocalAssetRepositoryTests()
     {
         _database = new DatabaseConnection(_path);
         _database.InitializeSchema();
         _repository = new LocalAssetRepository(_database);
+        _spaces = new ViewPersonalSpaceRepository(_database);
+        _galleries = new ViewGalleryRepository(_database);
     }
 
     [Fact]
     public async Task Upsert_SeparatesLogicalItemFilesAndExactDuplicateSources()
     {
         var libraryId = Guid.NewGuid();
+        var owner = await CreateOwnership(libraryId);
         var capturedAt = new DateTimeOffset(2026, 8, 19, 19, 32, 0, TimeSpan.Zero);
         var first = await _repository.UpsertAsync(new LocalAssetRegistration(
             libraryId,
+            owner.SpaceId,
+            owner.ProfileId,
             LocalAssetMediaKinds.Image,
             "Lake at sunset",
             capturedAt,
@@ -50,13 +58,18 @@ public sealed class LocalAssetRepositoryTests : IDisposable
 
         var duplicate = await _repository.UpsertAsync(new LocalAssetRegistration(
             libraryId,
+            owner.SpaceId,
+            owner.ProfileId,
             LocalAssetMediaKinds.Image,
             null,
             capturedAt,
             [File(@"D:\backup\IMG_1000 copy.HEIC", Hash('a'), "IMG_1000 copy.HEIC", "image/heic")]));
         var otherLibraryId = Guid.NewGuid();
+        var otherOwner = await CreateOwnership(otherLibraryId);
         var otherLibrary = await _repository.UpsertAsync(new LocalAssetRegistration(
             otherLibraryId,
+            otherOwner.SpaceId,
+            otherOwner.ProfileId,
             LocalAssetMediaKinds.Image,
             "Shared bytes, separate library identity",
             capturedAt,
@@ -108,8 +121,12 @@ public sealed class LocalAssetRepositoryTests : IDisposable
     {
         var libraryId = Guid.NewGuid();
         var otherLibraryId = Guid.NewGuid();
+        var owner = await CreateOwnership(libraryId);
+        var otherOwner = await CreateOwnership(otherLibraryId);
         var document = await _repository.UpsertAsync(new LocalAssetRegistration(
             libraryId,
+            owner.SpaceId,
+            owner.ProfileId,
             LocalAssetMediaKinds.Document,
             "Road Trip Plan",
             new DateTimeOffset(2026, 8, 24, 0, 0, 0, TimeSpan.Zero),
@@ -122,6 +139,8 @@ public sealed class LocalAssetRepositoryTests : IDisposable
             Tags: ["Summer Vacation", "Itinerary"]));
         await _repository.UpsertAsync(new LocalAssetRegistration(
             otherLibraryId,
+            otherOwner.SpaceId,
+            otherOwner.ProfileId,
             LocalAssetMediaKinds.Document,
             "Road Trip Plan Secret Copy",
             null,
@@ -147,8 +166,10 @@ public sealed class LocalAssetRepositoryTests : IDisposable
     {
         var libraryId = Guid.NewGuid();
         var otherLibraryId = Guid.NewGuid();
-        var first = await AddImage(libraryId, 'e', "family.jpg");
-        var other = await AddImage(otherLibraryId, 'f', "private.jpg");
+        var owner = await CreateOwnership(libraryId);
+        var otherOwner = await CreateOwnership(otherLibraryId);
+        var first = await AddImage(owner, libraryId, 'e', "family.jpg");
+        var other = await AddImage(otherOwner, otherLibraryId, 'f', "private.jpg");
 
         Assert.True(await _repository.SetFlagsAsync(first.ItemId, favorite: true, hidden: true));
         Assert.Empty(_repository.Query(new LocalAssetQuery(libraryId)).Items);
@@ -158,17 +179,20 @@ public sealed class LocalAssetRepositoryTests : IDisposable
             IncludeHidden: true,
             HiddenOnly: true)).Items);
 
-        var collection = await _repository.CreateCollectionAsync(
-            libraryId, "Family", "Our favorite media", "album");
-        Assert.Equal(1, await _repository.AddToCollectionAsync(
-            collection.Id, [first.ItemId, other.ItemId]));
-        var refreshed = Assert.Single(_repository.GetCollections(libraryId));
+        var gallery = await _galleries.CreateAsync(new CreateViewGalleryCommand(
+            owner.ProfileId, owner.SpaceId, "Family", ViewGalleryKind.Manual,
+            "Our favorite media", CoverItemId: first.ItemId));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _galleries.AddItemsAsync(gallery.Id, [first.ItemId, other.ItemId]));
+        var addResult = await _galleries.AddItemsAsync(gallery.Id, [first.ItemId]);
+        Assert.Equal(1, addResult.Added);
+        var refreshed = Assert.Single(await _galleries.GetOwnedAsync(owner.ProfileId));
         Assert.Equal(1, refreshed.ItemCount);
         Assert.Equal(first.ItemId, refreshed.CoverItemId);
         Assert.Single(_repository.Query(new LocalAssetQuery(
             libraryId,
             IncludeHidden: true,
-            CollectionId: collection.Id)).Items);
+            GalleryId: gallery.Id)).Items);
 
         var annotationId = await _repository.AddAnnotationAsync(first.ItemId, new LocalAssetAnnotation(
             "object_label",
@@ -196,9 +220,12 @@ public sealed class LocalAssetRepositoryTests : IDisposable
     public async Task InvalidHashesRolesCoordinatesAndDerivativeMetadata_FailBeforeWriting()
     {
         var libraryId = Guid.NewGuid();
+        var owner = await CreateOwnership(libraryId);
         await Assert.ThrowsAsync<ArgumentException>(() => _repository.UpsertAsync(
             new LocalAssetRegistration(
                 libraryId,
+                owner.SpaceId,
+                owner.ProfileId,
                 LocalAssetMediaKinds.Image,
                 null,
                 null,
@@ -206,6 +233,8 @@ public sealed class LocalAssetRepositoryTests : IDisposable
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _repository.UpsertAsync(
             new LocalAssetRegistration(
                 libraryId,
+                owner.SpaceId,
+                owner.ProfileId,
                 "spreadsheet",
                 null,
                 null,
@@ -213,6 +242,8 @@ public sealed class LocalAssetRepositoryTests : IDisposable
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _repository.UpsertAsync(
             new LocalAssetRegistration(
                 libraryId,
+                owner.SpaceId,
+                owner.ProfileId,
                 LocalAssetMediaKinds.Image,
                 null,
                 null,
@@ -221,6 +252,8 @@ public sealed class LocalAssetRepositoryTests : IDisposable
         await Assert.ThrowsAsync<ArgumentException>(() => _repository.UpsertAsync(
             new LocalAssetRegistration(
                 libraryId,
+                owner.SpaceId,
+                owner.ProfileId,
                 LocalAssetMediaKinds.Image,
                 null,
                 null,
@@ -235,13 +268,33 @@ public sealed class LocalAssetRepositoryTests : IDisposable
         Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM local_items;"));
     }
 
-    private Task<LocalAssetUpsertResult> AddImage(Guid libraryId, char hashCharacter, string fileName) =>
+    private Task<LocalAssetUpsertResult> AddImage(
+        (Guid ProfileId, Guid SpaceId) owner,
+        Guid libraryId,
+        char hashCharacter,
+        string fileName) =>
         _repository.UpsertAsync(new LocalAssetRegistration(
             libraryId,
+            owner.SpaceId,
+            owner.ProfileId,
             LocalAssetMediaKinds.Image,
             Path.GetFileNameWithoutExtension(fileName),
             DateTimeOffset.UtcNow,
             [File(Path.Combine(@"C:\personal", fileName), Hash(hashCharacter), fileName, "image/jpeg")]));
+
+    private async Task<(Guid ProfileId, Guid SpaceId)> CreateOwnership(Guid libraryId)
+    {
+        var profileId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        {
+            connection.Execute("""
+                INSERT INTO profiles (id, display_name, avatar_color, role, created_at)
+                VALUES (@profileId, @name, '#7C4DFF', 'Consumer', @now);
+                """, new { profileId, name = $"Profile {profileId:N}", now = DateTimeOffset.UtcNow });
+        }
+        var space = await _spaces.CreateAsync(profileId, libraryId);
+        return (profileId, space.Id);
+    }
 
     private static LocalAssetFileRegistration File(
         string path,

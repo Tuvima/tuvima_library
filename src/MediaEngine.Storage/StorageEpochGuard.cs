@@ -4,7 +4,7 @@ namespace MediaEngine.Storage;
 
 internal static class StorageEpochGuard
 {
-    public const string CurrentEpoch = "guid-blob-v1";
+    public const string CurrentEpoch = "guid-blob-v2";
     public const string ResetEnvironmentVariable = "TUVIMA_STORAGE_RESET";
 
     public static void EnsureCurrentOrReset(string databasePath)
