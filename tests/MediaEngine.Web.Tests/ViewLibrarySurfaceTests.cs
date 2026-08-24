@@ -103,6 +103,24 @@ public sealed class ViewLibrarySurfaceTests
     }
 
     [Fact]
+    public void GalleryDetail_ProvidesOwnerManagementAndKeepsSmartMembershipRuleOnly()
+    {
+        var detail = Read("src/MediaEngine.Web/Components/Pages/ViewGalleryDetailPage.razor");
+
+        Assert.Contains("private bool IsOwner", detail, StringComparison.Ordinal);
+        Assert.Contains("GetViewGalleryShareTargetsAsync", detail, StringComparison.Ordinal);
+        Assert.Contains("GetViewGallerySharesAsync", detail, StringComparison.Ordinal);
+        Assert.Contains("ReplaceViewGallerySharesAsync", detail, StringComparison.Ordinal);
+        Assert.Contains("UpdateViewGalleryAsync", detail, StringComparison.Ordinal);
+        Assert.Contains("DeleteViewGalleryAsync", detail, StringComparison.Ordinal);
+        Assert.Contains("<AppDialog", detail, StringComparison.Ordinal);
+        Assert.Contains("<ViewRuleBuilder", detail, StringComparison.Ordinal);
+        Assert.Contains("_gallery.Kind == ViewGalleryKind.Manual", detail, StringComparison.Ordinal);
+        Assert.Contains("Items cannot be added or removed manually", detail, StringComparison.Ordinal);
+        Assert.Contains("source files will remain untouched", detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ListenPlaylistRail_UsesTypedPlaylistDropWithoutChangingPlaylistBehavior()
     {
         var listen = Read("src/MediaEngine.Web/Components/Pages/ListenBrowsePage.razor");

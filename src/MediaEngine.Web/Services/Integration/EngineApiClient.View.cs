@@ -101,6 +101,21 @@ public sealed partial class EngineApiClient
 
     public Task<bool> DeleteViewGalleryAsync(Guid galleryId, CancellationToken ct = default) =>
         DeleteAsync("DELETE /view/galleries/{id}", $"/view/galleries/{galleryId:D}", ct: ct);
+    public Task<IReadOnlyList<ViewGalleryShareTargetDto>?> GetViewGalleryShareTargetsAsync(CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ViewGalleryShareTargetDto>>(
+            "GET /view/share-targets", "/view/share-targets", ct: ct);
+    public Task<IReadOnlyList<ViewGalleryShareDto>?> GetViewGallerySharesAsync(Guid galleryId, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<ViewGalleryShareDto>>(
+            "GET /view/galleries/{id}/shares", $"/view/galleries/{galleryId:D}/shares", ct: ct);
+    public Task<bool> ReplaceViewGallerySharesAsync(
+        Guid galleryId,
+        IReadOnlyCollection<ViewGalleryShareRequest> shares,
+        CancellationToken ct = default) =>
+        PutAsync(
+            "PUT /view/galleries/{id}/shares",
+            $"/view/galleries/{galleryId:D}/shares",
+            new ViewGallerySharesRequest(shares),
+            ct: ct);
     public Task<AddViewGalleryItemsResponseDto?> AddViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default) =>
         PostAsync<ViewGalleryItemsRequest, AddViewGalleryItemsResponseDto>("POST /view/galleries/{id}/items", $"/view/galleries/{galleryId:D}/items", new ViewGalleryItemsRequest(itemIds), ct: ct);
 

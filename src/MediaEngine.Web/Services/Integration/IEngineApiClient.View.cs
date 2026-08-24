@@ -22,6 +22,9 @@ public partial interface IEngineApiClient
     Task<ViewGalleryDto?> CreateViewGalleryAsync(ViewGalleryRequest request, CancellationToken ct = default);
     Task<ViewGalleryDto?> UpdateViewGalleryAsync(Guid galleryId, ViewGalleryRequest request, CancellationToken ct = default);
     Task<bool> DeleteViewGalleryAsync(Guid galleryId, CancellationToken ct = default);
+    Task<IReadOnlyList<ViewGalleryShareTargetDto>?> GetViewGalleryShareTargetsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<ViewGalleryShareDto>?> GetViewGallerySharesAsync(Guid galleryId, CancellationToken ct = default);
+    Task<bool> ReplaceViewGallerySharesAsync(Guid galleryId, IReadOnlyCollection<ViewGalleryShareRequest> shares, CancellationToken ct = default);
     Task<AddViewGalleryItemsResponseDto?> AddViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
     Task<ViewItemsRemovedResponse?> RemoveViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
 }

@@ -26,6 +26,9 @@ public sealed class ViewEndpointRouteTests
         Assert.Contains("/items/{id:guid}/content", endpoint, StringComparison.Ordinal);
         Assert.Contains("/items/{id:guid}/thumbnail", endpoint, StringComparison.Ordinal);
         Assert.Contains("/galleries", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/share-targets\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("GetGalleryShareTargetsAsync", endpoint, StringComparison.Ordinal);
+        Assert.Contains("TryValidateGalleryShares", endpoint, StringComparison.Ordinal);
         Assert.Contains("/admin/libraries/{libraryId:guid}/scan", endpoint, StringComparison.Ordinal);
         Assert.DoesNotContain("Guid? profileId, HttpContext", endpoint, StringComparison.Ordinal);
         Assert.Contains("Guid? scopeProfileId", endpoint, StringComparison.Ordinal);

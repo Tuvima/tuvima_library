@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=615; api=0; web-client=87
+# scopes: contracts=616; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -3272,6 +3272,13 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   ProfileId: System.Guid | json=profile_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Permission: MediaEngine.Domain.PersonalMedia.ViewGallerySharePermission | json=permission | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.LocalAssets.ViewGalleryShareTargetDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  ProfileId: System.Guid | json=profile_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  DisplayName: System.String | json=display_name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AvatarColor: System.String | json=avatar_color | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AvatarUrl: System.String | json=avatar_url | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.LocalAssets.ViewGallerySharesRequest
   kind=class | converter=default | number-handling=default | unmapped=default

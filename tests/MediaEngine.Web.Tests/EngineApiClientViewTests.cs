@@ -57,6 +57,46 @@ public sealed class EngineApiClientViewTests
         Assert.DoesNotContain(requests, r => r.Path.Contains("profileId=", StringComparison.OrdinalIgnoreCase) || r.Path.Contains("/view/libraries", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task GallerySharingClient_UsesCountFreeDiscoveryAndExactReplacementRoutes()
+    {
+        var galleryId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        var requests = new List<(HttpMethod Method, string Path, string? Body)>();
+        using var http = Http(request =>
+        {
+            requests.Add((
+                request.Method,
+                request.RequestUri!.PathAndQuery,
+                request.Content?.ReadAsStringAsync().GetAwaiter().GetResult()));
+            if (request.Method == HttpMethod.Put)
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+
+            var json = request.RequestUri.AbsolutePath == "/view/share-targets"
+                ? $$"""[{"profile_id":"{{targetId}}","display_name":"Sarah","avatar_color":"#7457D9","avatar_url":null}]"""
+                : $$"""[{"gallery_id":"{{galleryId}}","profile_id":"{{targetId}}","permission":0,"shared_at":"2026-08-23T12:00:00Z"}]""";
+            return Json(HttpStatusCode.OK, json);
+        });
+        var client = Client(http);
+
+        var targets = await client.GetViewGalleryShareTargetsAsync();
+        var shares = await client.GetViewGallerySharesAsync(galleryId);
+        var replaced = await client.ReplaceViewGallerySharesAsync(
+            galleryId, [new(targetId, ViewGallerySharePermission.Contribute)]);
+
+        Assert.Equal(targetId, Assert.Single(targets!).ProfileId);
+        Assert.Equal(targetId, Assert.Single(shares!).ProfileId);
+        Assert.True(replaced);
+        Assert.Contains(requests, request => request == (HttpMethod.Get, "/view/share-targets", null));
+        Assert.Contains(requests, request => request.Method == HttpMethod.Get
+            && request.Path == $"/view/galleries/{galleryId:D}/shares");
+        var put = Assert.Single(requests, request => request.Method == HttpMethod.Put);
+        Assert.Equal($"/view/galleries/{galleryId:D}/shares", put.Path);
+        Assert.Contains($"\"profile_id\":\"{targetId:D}\"", put.Body, StringComparison.Ordinal);
+        Assert.Contains("\"permission\":1", put.Body, StringComparison.Ordinal);
+        Assert.All(requests, request => Assert.DoesNotContain("profileId=", request.Path, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static EngineApiClient Client(HttpClient http) => new(http, NullLogger<EngineApiClient>.Instance);
     private static HttpClient Http(Func<HttpRequestMessage, HttpResponseMessage> respond) => new(new Stub(respond)) { BaseAddress = new Uri("http://localhost:61495/") };
     private static HttpResponseMessage Json(HttpStatusCode status, string json, string media = "application/json") => new(status) { Content = new StringContent(json, Encoding.UTF8, media) };
