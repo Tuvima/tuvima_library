@@ -43,7 +43,11 @@ public sealed partial class EngineApiClient
         AddQuery(query, "scopeProfileId", options.ScopeProfileId?.ToString("D"));
         AddQuery(query, "cursor", options.Cursor);
         AddQuery(query, "q", options.Search?.Trim());
-        foreach (var kind in options.Kinds ?? []) AddQuery(query, "kind", kind);
+        foreach (var kind in options.Kinds ?? [])
+        {
+            AddQuery(query, "kind", kind);
+        }
+
         AddQuery(query, "favorite", options.FavoritesOnly ? "true" : null);
         AddQuery(query, "hidden", options.HiddenOnly ? "true" : null);
         AddQuery(query, "lifecycle", options.Lifecycle);
@@ -66,10 +70,18 @@ public sealed partial class EngineApiClient
         {
             using var content = new MultipartFormDataContent();
             using var fileContent = new StreamContent(fileStream);
-            if (MediaTypeHeaderValue.TryParse(contentType, out var mediaType)) fileContent.Headers.ContentType = mediaType;
+            if (MediaTypeHeaderValue.TryParse(contentType, out var mediaType))
+            {
+                fileContent.Headers.ContentType = mediaType;
+            }
+
             content.Add(fileContent, "file", Path.GetFileName(fileName));
             using var response = await _http.PostAsync("/view/uploads", content, ct).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode) return new(false, ErrorMessage: await ReadViewErrorAsync(response, ct));
+            if (!response.IsSuccessStatusCode)
+            {
+                return new(false, ErrorMessage: await ReadViewErrorAsync(response, ct));
+            }
+
             var upload = await response.Content.ReadFromJsonAsync<ViewUploadResponseDto>(cancellationToken: ct);
             return upload is null ? new(false, ErrorMessage: "The Engine returned no upload result.") : new(true, upload);
         }
@@ -154,8 +166,15 @@ public sealed partial class EngineApiClient
         try
         {
             using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-            if (document.RootElement.TryGetProperty("detail", out var detail) && !string.IsNullOrWhiteSpace(detail.GetString())) return detail.GetString()!;
-            if (document.RootElement.TryGetProperty("title", out var title) && !string.IsNullOrWhiteSpace(title.GetString())) return title.GetString()!;
+            if (document.RootElement.TryGetProperty("detail", out var detail) && !string.IsNullOrWhiteSpace(detail.GetString()))
+            {
+                return detail.GetString()!;
+            }
+
+            if (document.RootElement.TryGetProperty("title", out var title) && !string.IsNullOrWhiteSpace(title.GetString()))
+            {
+                return title.GetString()!;
+            }
         }
         catch (JsonException) { }
         return $"The Engine rejected the request ({(int)response.StatusCode}).";

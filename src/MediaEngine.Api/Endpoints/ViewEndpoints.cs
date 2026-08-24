@@ -6,7 +6,7 @@ using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
-using MediaEngine.Domain.Services;
+using MediaEngine.Identity.Contracts;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -21,7 +21,11 @@ public static class ViewEndpoints
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
             IViewScopeResolver resolver, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            if (identity.Current is not { } caller)
+            {
+                return Unauthenticated();
+            }
+
             var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
             var result = await resolver.ResolveAsync(caller, requested, ct);
             return result is null ? Missing() : Results.Ok(ToContract(result));
@@ -38,12 +42,20 @@ public static class ViewEndpoints
             IViewRequestProfileContext identity, IViewProfileRepository repository,
             IViewScopeResolver resolver, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            if (identity.Current is not { } caller)
+            {
+                return Unauthenticated();
+            }
+
             try
             {
                 var resolution = await resolver.ResolveAsync(caller,
                     ParseScope(request.Scope, request.ScopeProfileId), ct);
-                if (resolution is null) return Missing();
+                if (resolution is null)
+                {
+                    return Missing();
+                }
+
                 var value = new ViewProfilePreferences(caller.ProfileId,
                     resolution.Scope.Kind, resolution.Scope.ProfileId,
                     request.TimelineDensity, DateTimeOffset.UtcNow);
@@ -59,7 +71,11 @@ public static class ViewEndpoints
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
             IViewQueryOrchestrator queries, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            if (identity.Current is not { } caller)
+            {
+                return Unauthenticated();
+            }
+
             try
             {
                 var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
@@ -77,9 +93,21 @@ public static class ViewEndpoints
             IViewRequestProfileContext identity, IViewScopeResolver resolver,
             ViewLibraryService service, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
-            if (await resolver.ResolveAsync(caller, ViewScopeRequest.Mine, ct) is null) return Missing();
-            if (file.Length <= 0) return ApiErrors.BadRequest("No file was uploaded.");
+            if (identity.Current is not { } caller)
+            {
+                return Unauthenticated();
+            }
+
+            if (await resolver.ResolveAsync(caller, ViewScopeRequest.Mine, ct) is null)
+            {
+                return Missing();
+            }
+
+            if (file.Length <= 0)
+            {
+                return ApiErrors.BadRequest("No file was uploaded.");
+            }
+
             try
             {
                 await using var input = file.OpenReadStream();
@@ -111,7 +139,11 @@ public static class ViewEndpoints
         {
             var decision = await AuthorizeItemAsync(id, ViewResourceKind.Original, ViewResourceAction.Read,
                 scope, scopeProfileId, identity, preferences, authorization, ct);
-            if (!decision.IsAllowed) return Access(decision.Outcome);
+            if (!decision.IsAllowed)
+            {
+                return Access(decision.Outcome);
+            }
+
             try
             {
                 var file = assets.ResolveContent(id,
@@ -130,7 +162,11 @@ public static class ViewEndpoints
         {
             var decision = await AuthorizeItemAsync(id, ViewResourceKind.Thumbnail, ViewResourceAction.Read,
                 scope, scopeProfileId, identity, preferences, authorization, ct);
-            if (!decision.IsAllowed) return Access(decision.Outcome);
+            if (!decision.IsAllowed)
+            {
+                return Access(decision.Outcome);
+            }
+
             var file = assets.ResolveContent(id, LocalAssetFileRoles.Primary, ct);
             if (file is null || !File.Exists(file.FilePath)) return Missing();
             var thumbnail = await thumbnails.GetOrCreateAsync(id, file, ct);
@@ -193,7 +229,11 @@ public static class ViewEndpoints
         group.MapGet("/galleries", async (IViewRequestProfileContext identity,
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            if (identity.Current is not { } caller)
+            {
+                return Unauthenticated();
+            }
+
             return Results.Ok(new ViewGalleryListResponse(
                 (await repository.GetOwnedAsync(caller.ProfileId, ct)).Select(ToContract).ToList(),
                 (await repository.GetSharedWithAsync(caller.ProfileId, ct)).Select(ToContract).ToList()));
@@ -203,9 +243,17 @@ public static class ViewEndpoints
             IViewRequestProfileContext identity, IViewPersonalSpaceRepository spaces,
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            if (identity.Current is not { } caller)
+            {
+                return Unauthenticated();
+            }
+
             var space = await spaces.GetByOwnerAsync(caller.ProfileId, ct);
-            if (space is null) return Missing();
+            if (space is null)
+            {
+                return Missing();
+            }
+
             try
             {
                 var gallery = await repository.CreateAsync(new CreateViewGalleryCommand(
@@ -230,7 +278,11 @@ public static class ViewEndpoints
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Manage, identity, authorization, ct);
-            if (!decision.IsAllowed) return Access(decision.Outcome);
+            if (!decision.IsAllowed)
+            {
+                return Access(decision.Outcome);
+            }
+
             try
             {
                 var gallery = await repository.UpdateAsync(new UpdateViewGalleryCommand(
@@ -307,7 +359,11 @@ public static class ViewEndpoints
             IViewProfileRepository profiles, IViewScopeStore scopes,
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            if (identity.Current is not { } caller)
+            {
+                return Unauthenticated();
+            }
+
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Manage, identity, authorization, ct);
             if (!decision.IsAllowed) return Access(decision.Outcome);
             var targets = await GetGalleryShareTargetsAsync(
@@ -398,7 +454,11 @@ public static class ViewEndpoints
         IViewRequestProfileContext identity, IViewProfileRepository preferences,
         IViewResourceAuthorizationService authorization, CancellationToken ct)
     {
-        if (identity.Current is not { } caller) return ViewAccessDecision.Unauthenticated();
+        if (identity.Current is not { } caller)
+        {
+            return ViewAccessDecision.Unauthenticated();
+        }
+
         var selected = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
         return await authorization.AuthorizeAsync(caller, new ViewResourceRequest(selected, kind, id, action), ct);
     }
@@ -417,7 +477,11 @@ public static class ViewEndpoints
     private static async Task<ViewScopeRequest> GetScopeAsync(Guid profileId, string? scope,
         Guid? scopeProfileId, IViewProfileRepository repository, CancellationToken ct)
     {
-        if (!string.IsNullOrWhiteSpace(scope)) return ParseScope(scope, scopeProfileId);
+        if (!string.IsNullOrWhiteSpace(scope))
+        {
+            return ParseScope(scope, scopeProfileId);
+        }
+
         var saved = await repository.GetPreferencesAsync(profileId, ct);
         return saved.LastScopeKind.HasValue
             ? new ViewScopeRequest(saved.LastScopeKind.Value, saved.LastScopeProfileId)
