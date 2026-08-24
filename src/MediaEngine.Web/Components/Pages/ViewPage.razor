@@ -1,56 +1,37 @@
 @page "/view"
-@page "/view/{LibraryId:guid}"
 @using System.Globalization
 @using MediaEngine.Contracts.LocalAssets
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
-@inject NavigationManager Nav
+@inject ViewMediaGrantService MediaGrants
 @implements IDisposable
 
 @namespace MediaEngine.Web.Components.Pages
 
-<PageTitle>@(SelectedLibrary?.Name ?? "View") - Tuvima</PageTitle>
+<PageTitle>Photos - Tuvima</PageTitle>
 
-<MediaSectionShell Title="View" NavigationGroups="@NavigationGroups">
+<ViewSectionShell>
     <div class="view-page">
         @if (_loadingLibraries)
         {
-            <AppPageState Kind="AppPageStateKind.Loading" Title="Loading View" Message="Finding your personal libraries." />
+            <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Photos" Message="Opening your personal space." />
         }
         else if (_libraries.Count == 0)
         {
             <AppPageState Kind="AppPageStateKind.Empty"
-                          Title="No View libraries yet"
-                          Message="Create a personal library in Media Management to browse local photos, videos, documents, and audio together." />
-        }
-        else if (SelectedLibrary is null)
-        {
-            <AppPageState Kind="AppPageStateKind.Unavailable"
-                          Title="Library not found"
-                          Message="Choose one of your View libraries from the library rail." />
+                          Title="No personal media yet"
+                          Message="Add a personal source in Settings to begin building your private Photos timeline." />
         }
         else
         {
             <header class="view-header">
                 <div class="view-header__identity">
-                    <span class="view-header__eyebrow">View library</span>
-                    <h1>@SelectedLibrary.Name</h1>
-                    <p>@PresentationLabel(SelectedLibrary.Presentation) · @VisibilityLabel(SelectedLibrary.Visibility)</p>
+                    <span class="view-header__eyebrow">View</span>
+                    <h1>Photos</h1>
+                    <p>Your private photo and video timeline.</p>
                 </div>
                 <div class="view-header__actions">
-                    @if (_libraries.Count > 1)
-                    {
-                        <label class="view-library-picker">
-                            <span>Library</span>
-                            <AppNativeSelect Value="@SelectedLibrary.Id.ToString("D")" ValueChanged="LibraryChanged" AriaLabel="Choose a View library">
-                                @foreach (var library in _libraries)
-                                {
-                                    <option value="@library.Id.ToString("D")">@library.Name</option>
-                                }
-                            </AppNativeSelect>
-                        </label>
-                    }
                     <label class="view-add-media@(_uploading ? " is-busy" : string.Empty)" aria-disabled="@_uploading">
                         <InputFile class="view-add-media__input"
                                    OnChange="UploadMediaAsync"
@@ -61,20 +42,13 @@
                             @(_uploading ? "Uploading…" : "Add media")
                         </span>
                     </label>
-                    <AppButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Outlined.Sync"
-                               Disabled="@_scanning"
-                               OnClick="ScanAsync">
-                        @(_scanning ? "Scanning…" : "Scan library")
-                    </AppButton>
                 </div>
             </header>
 
             @if (_uploading)
             {
                 <section class="view-upload-status" role="status" aria-live="polite" aria-busy="true">
-                    <span>Uploading @_uploadFileName to @SelectedLibrary.Name…</span>
+                    <span>Uploading @_uploadFileName to Photos…</span>
                     <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
                 </section>
             }
@@ -93,22 +67,16 @@
                                     Value="@_search"
                                     ValueChanged="SearchChanged"
                                     Placeholder="Search names, dates, devices, locations, and tags"
-                                    AriaLabel="Search this View library" />
+                                    AriaLabel="Search Photos" />
                 </label>
-                <div class="view-kind-tabs" role="tablist" aria-label="Content type">
-                    <AppNativeButton Type="button" Class="@KindClass("all")" AriaLabel="Show all items" OnClick="@(_ => SetKindAsync("all"))">All</AppNativeButton>
-                    <AppNativeButton Type="button" Class="@KindClass("media")" AriaLabel="Show media" OnClick="@(_ => SetKindAsync("media"))">Media</AppNativeButton>
-                    <AppNativeButton Type="button" Class="@KindClass("document")" AriaLabel="Show documents" OnClick="@(_ => SetKindAsync("document"))">Documents</AppNativeButton>
-                </div>
-                <div class="view-quick-filters">
-                    <AppNativeButton Type="button" Class="@FlagClass(_favoritesOnly)" AriaLabel="Show favorites" OnClick="@(_ => ToggleFavoritesAsync())">
-                        <MudIcon Icon="@(_favoritesOnly ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
-                        <span>Favorites</span>
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="@FlagClass(_hiddenOnly)" AriaLabel="Show hidden items" OnClick="@(_ => ToggleHiddenFilterAsync())">
-                        <MudIcon Icon="@Icons.Material.Outlined.VisibilityOff" />
-                        <span>Hidden</span>
-                    </AppNativeButton>
+                <div class="view-kind-tabs" role="tablist" aria-label="Photos quick filters">
+                    <AppNativeButton Type="button" Class="@QuickFilterClass("all")" AriaLabel="Show all items" OnClick="@(_ => SetQuickFilterAsync("all"))">All</AppNativeButton>
+                    <AppNativeButton Type="button" Class="@QuickFilterClass("favorites")" AriaLabel="Show favorites" OnClick="@(_ => SetQuickFilterAsync("favorites"))">Favorites</AppNativeButton>
+                    <AppNativeButton Type="button" Class="@QuickFilterClass("videos")" AriaLabel="Show videos" OnClick="@(_ => SetQuickFilterAsync("videos"))">Videos</AppNativeButton>
+                    <AppNativeButton Type="button"
+                                     Class="view-kind-tab"
+                                     AriaLabel="Archive is not available until personal media state is connected"
+                                     Disabled="true">Archive</AppNativeButton>
                 </div>
             </section>
 
@@ -116,12 +84,12 @@
                 <div class="view-results">
                     @if (_loadingItems)
                     {
-                        <AppPageState Kind="AppPageStateKind.Loading" Title="Loading library" Message="Building your local timeline." />
+                        <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Photos" Message="Building your personal timeline." />
                     }
                     else if (_page is null)
                     {
                         <AppErrorState Title="View could not be loaded"
-                                       Message="The Dashboard could not load this personal library from the Engine."
+                                       Message="The Dashboard could not load Photos from the Engine."
                                        Retry="LoadItemsAsync" />
                     }
                     else if (_page.Items.Count == 0)
@@ -130,7 +98,6 @@
                             <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" />
                             <h2>@EmptyTitle</h2>
                             <p>@EmptyMessage</p>
-                            <AppButton Variant="Variant.Outlined" Color="Color.Default" StartIcon="@Icons.Material.Outlined.Sync" OnClick="ScanAsync">Scan library</AppButton>
                         </section>
                     }
                     else
@@ -153,7 +120,7 @@
                                                                  OnClick="@(_ => OpenItem(item))">
                                                     @if (IsVisual(item) && !string.IsNullOrWhiteSpace(item.ThumbnailUrl))
                                                     {
-                                                        <img src="@AssetUrl(item.ThumbnailUrl)" alt="@DisplayTitle(item)" loading="lazy" />
+                                                        <img src="@AssetUrl(item, ViewMediaResourceKind.Thumbnail)" alt="@DisplayTitle(item)" loading="lazy" />
                                                         @if (IsVideo(item))
                                                         {
                                                             <span class="view-tile__play"><MudIcon Icon="@Icons.Material.Filled.PlayArrow" /></span>
@@ -191,29 +158,10 @@
                     }
                 </div>
 
-                <aside class="view-summary" aria-label="Library details">
-                    <section class="view-summary__card">
-                        <h2>At a glance</h2>
-                        <div class="view-stat-grid">
-                            <div><strong>@SelectedLibrary.ImageCount.ToString("N0")</strong><span>Images</span></div>
-                            <div><strong>@SelectedLibrary.VideoCount.ToString("N0")</strong><span>Videos</span></div>
-                            <div><strong>@SelectedLibrary.DocumentCount.ToString("N0")</strong><span>Documents</span></div>
-                            <div><strong>@SelectedLibrary.AudioCount.ToString("N0")</strong><span>Audio</span></div>
-                        </div>
-                    </section>
-                    <section class="view-summary__card">
-                        <h2>Library details</h2>
-                        <dl>
-                            <div><dt>Presentation</dt><dd>@PresentationLabel(SelectedLibrary.Presentation)</dd></div>
-                            <div><dt>Visibility</dt><dd>@VisibilityLabel(SelectedLibrary.Visibility)</dd></div>
-                            <div><dt>Total items</dt><dd>@SelectedLibrary.ItemCount.ToString("N0")</dd></div>
-                        </dl>
-                    </section>
-                </aside>
             </div>
         }
     </div>
-</MediaSectionShell>
+</ViewSectionShell>
 
 @if (_activeItem is not null)
 {
@@ -227,7 +175,7 @@
                 <AppNativeButton Type="button" Class="view-viewer__action" AriaLabel="Toggle favorite" OnClick="@(_ => ToggleFavoriteAsync(_activeItem))">
                     <MudIcon Icon="@(_activeItem.Favorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" />
                 </AppNativeButton>
-                <a class="view-viewer__action" href="@AssetUrl(_activeItem.ContentUrl)" target="_blank" rel="noopener" aria-label="Open original">
+                <a class="view-viewer__action" href="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" target="_blank" rel="noopener" aria-label="Open original">
                     <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" />
                 </a>
                 <AppNativeButton Type="button" Class="view-viewer__action" AriaLabel="@(_activeItem.Hidden ? "Restore item" : "Hide item")" OnClick="@(_ => ToggleHiddenAsync(_activeItem))">
@@ -241,11 +189,11 @@
         <div class="view-viewer__content" @onclick:stopPropagation="true">
             @if (IsVideo(_activeItem))
             {
-                <video src="@AssetUrl(_activeItem.ContentUrl)" poster="@AssetUrl(_activeItem.ThumbnailUrl)" controls autoplay></video>
+                <video src="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" poster="@AssetUrl(_activeItem, ViewMediaResourceKind.Thumbnail)" controls autoplay></video>
             }
             else if (IsAudio(_activeItem))
             {
-                <div class="view-viewer__audio"><MudIcon Icon="@Icons.Material.Outlined.Audiotrack" /><audio src="@AssetUrl(_activeItem.ContentUrl)" controls autoplay></audio></div>
+                <div class="view-viewer__audio"><MudIcon Icon="@Icons.Material.Outlined.Audiotrack" /><audio src="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" controls autoplay></audio></div>
             }
             else if (IsDocument(_activeItem))
             {
@@ -253,22 +201,19 @@
             }
             else
             {
-                <img src="@AssetUrl(_activeItem.ContentUrl)" alt="@DisplayTitle(_activeItem)" />
+                <img src="@AssetUrl(_activeItem, ViewMediaResourceKind.Content)" alt="@DisplayTitle(_activeItem)" />
             }
         </div>
     </div>
 }
 
 @code {
-    [Parameter] public Guid? LibraryId { get; set; }
-    [SupplyParameterFromQuery(Name = "scope")] public string? Scope { get; set; }
-
     private IReadOnlyList<ViewLibrarySummaryDto> _libraries = [];
     private LocalAssetPageDto? _page;
     private LocalAssetDto? _activeItem;
     private CancellationTokenSource? _searchCts;
+    private readonly Dictionary<(Guid LibraryId, Guid AssetId, ViewMediaResourceKind Kind), CachedMediaGrant> _mediaGrants = [];
     private Guid? _loadedLibraryId;
-    private string? _loadedScope;
     private Guid? _activeProfileId;
     private string _search = string.Empty;
     private string _kind = "all";
@@ -277,42 +222,11 @@
     private bool _loadingLibraries = true;
     private bool _loadingItems;
     private bool _loadingMore;
-    private bool _scanning;
     private bool _uploading;
     private string? _uploadFileName;
     private string? _uploadError;
 
-    private ViewLibrarySummaryDto? SelectedLibrary =>
-        LibraryId.HasValue
-            ? _libraries.FirstOrDefault(library => library.Id == LibraryId.Value)
-            : _libraries.FirstOrDefault();
-
-    private IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups =>
-        _libraries.Count == 0
-            ? []
-            :
-            [
-                new MediaSectionNavigationGroup(
-                    "Browse",
-                    SelectedLibrary is null
-                        ? []
-                        :
-                        [
-                            new MediaSectionNavigationItem("All", ScopeRoute("all"), Icons.Material.Outlined.GridView, Exact: true),
-                            new MediaSectionNavigationItem("Recent", ScopeRoute("recent"), Icons.Material.Outlined.History, Exact: true),
-                            new MediaSectionNavigationItem("Favorites", ScopeRoute("favorites"), Icons.Material.Outlined.FavoriteBorder, Exact: true),
-                            new MediaSectionNavigationItem("Videos", ScopeRoute("videos"), Icons.Material.Outlined.VideoLibrary, Exact: true),
-                            new MediaSectionNavigationItem("Documents", ScopeRoute("documents"), Icons.Material.Outlined.Description, Exact: true),
-                        ]),
-                new MediaSectionNavigationGroup(
-                    "Libraries",
-                    _libraries.Select(library => new MediaSectionNavigationItem(
-                        library.Name,
-                        $"/view/{library.Id:D}",
-                        Icons.Material.Outlined.Folder,
-                        library.ItemCount.ToString("N0", CultureInfo.CurrentCulture),
-                        Exact: true)).ToList()),
-            ];
+    private ViewLibrarySummaryDto? SelectedLibrary => _libraries.FirstOrDefault();
 
     private IEnumerable<IGrouping<DateTimeOffset, LocalAssetDto>> DateGroups =>
         (_page?.Items ?? [])
@@ -346,16 +260,11 @@
         }
 
         var selectedId = SelectedLibrary?.Id;
-        var normalizedScope = NormalizeScope(Scope);
-        if (selectedId.HasValue
-            && (selectedId != _loadedLibraryId || normalizedScope != _loadedScope))
+        if (selectedId.HasValue && selectedId != _loadedLibraryId)
         {
-            var libraryChanged = selectedId != _loadedLibraryId;
             _loadedLibraryId = selectedId;
-            _loadedScope = normalizedScope;
-            if (libraryChanged)
-                _search = string.Empty;
-            ApplyScope(normalizedScope);
+            _search = string.Empty;
+            await SetQuickFilterStateAsync("all", loadItems: false);
             await LoadItemsAsync();
         }
     }
@@ -388,27 +297,17 @@
         catch (OperationCanceledException) { }
     }
 
-    private async Task SetKindAsync(string kind) { _kind = kind; await LoadItemsAsync(); }
-    private async Task ToggleFavoritesAsync() { _favoritesOnly = !_favoritesOnly; await LoadItemsAsync(); }
-    private async Task ToggleHiddenFilterAsync() { _hiddenOnly = !_hiddenOnly; await LoadItemsAsync(); }
+    private Task SetQuickFilterAsync(string filter) => SetQuickFilterStateAsync(filter, loadItems: true);
 
-    private async Task ScanAsync()
+    private async Task SetQuickFilterStateAsync(string filter, bool loadItems)
     {
-        if (SelectedLibrary is null || !_activeProfileId.HasValue) return;
-        _scanning = true;
-        var result = await ApiClient.ScanViewLibraryAsync(SelectedLibrary.Id, _activeProfileId.Value);
-        _scanning = false;
-        if (result is null)
+        _kind = filter == "videos" ? "video" : "all";
+        _favoritesOnly = filter == "favorites";
+        _hiddenOnly = false;
+        if (loadItems)
         {
-            Snackbar.Add("The library scan could not be started.", Severity.Error);
-            return;
+            await LoadItemsAsync();
         }
-
-        Snackbar.Add(
-            $"Added {CountLabel(result.ItemsAdded, "item")}; found {CountLabel(result.DuplicatesFound, "duplicate")}.",
-            result.Errors == 0 ? Severity.Success : Severity.Warning);
-        _libraries = await ApiClient.GetViewLibrariesAsync(_activeProfileId.Value);
-        await LoadItemsAsync();
     }
 
     private async Task UploadMediaAsync(InputFileChangeEventArgs args)
@@ -440,7 +339,7 @@
                 return;
             }
 
-            Snackbar.Add($"Added {file.Name} to {SelectedLibrary.Name}.", Severity.Success);
+            Snackbar.Add($"Added {file.Name} to Photos.", Severity.Success);
             if (_activeProfileId.HasValue)
                 _libraries = await ApiClient.GetViewLibrariesAsync(_activeProfileId.Value);
             await LoadItemsAsync();
@@ -478,41 +377,6 @@
     private void OpenItem(LocalAssetDto item) => _activeItem = item;
     private void CloseItem() => _activeItem = null;
 
-    private Task LibraryChanged(object? value)
-    {
-        if (Guid.TryParse(value?.ToString(), out var libraryId))
-            Nav.NavigateTo($"/view/{libraryId:D}");
-        return Task.CompletedTask;
-    }
-
-    private string ScopeRoute(string scope)
-    {
-        if (SelectedLibrary is null) return "/view";
-        var route = $"/view/{SelectedLibrary.Id:D}";
-        return scope == "all" ? route : $"{route}?scope={scope}";
-    }
-
-    private static string NormalizeScope(string? scope) => scope?.ToLowerInvariant() switch
-    {
-        "recent" => "recent",
-        "favorites" => "favorites",
-        "videos" => "videos",
-        "documents" => "documents",
-        _ => "all",
-    };
-
-    private void ApplyScope(string scope)
-    {
-        _kind = scope switch
-        {
-            "videos" => "video",
-            "documents" => "document",
-            _ => "all",
-        };
-        _favoritesOnly = scope == "favorites";
-        _hiddenOnly = false;
-    }
-
     private async Task ToggleFavoriteAsync(LocalAssetDto item)
     {
         if (SelectedLibrary is null || !_activeProfileId.HasValue) return;
@@ -545,15 +409,34 @@
         _activeItem = remove ? null : updated;
     }
 
-    private string AssetUrl(string path)
+    private string AssetUrl(LocalAssetDto item, ViewMediaResourceKind kind)
     {
-        var absolute = ApiClient.ToAbsoluteEngineUrl(path);
-        if (!_activeProfileId.HasValue) return absolute;
-        var separator = absolute.Contains('?', StringComparison.Ordinal) ? '&' : '?';
-        return $"{absolute}{separator}profileId={_activeProfileId.Value:D}";
+        if (!_activeProfileId.HasValue)
+        {
+            return string.Empty;
+        }
+
+        var key = (item.LibraryId, item.Id, kind);
+        var refreshAfter = DateTimeOffset.UtcNow.AddSeconds(30);
+        if (!_mediaGrants.TryGetValue(key, out var cached) || cached.ExpiresAt <= refreshAfter)
+        {
+            var grant = MediaGrants.Create(_activeProfileId.Value, item.LibraryId, item.Id, kind);
+            cached = new CachedMediaGrant($"/view-media/{grant.Value}", grant.ExpiresAt);
+            _mediaGrants[key] = cached;
+        }
+
+        return cached.Url;
     }
-    private string KindClass(string kind) => $"view-kind-tab{(_kind == kind ? " is-active" : string.Empty)}";
-    private static string FlagClass(bool active) => $"view-quick-filter{(active ? " is-active" : string.Empty)}";
+    private string QuickFilterClass(string filter)
+    {
+        var active = filter switch
+        {
+            "favorites" => _favoritesOnly,
+            "videos" => _kind == "video" && !_favoritesOnly,
+            _ => _kind == "all" && !_favoritesOnly,
+        };
+        return $"view-kind-tab{(active ? " is-active" : string.Empty)}";
+    }
     private static string DisplayTitle(LocalAssetDto item) => string.IsNullOrWhiteSpace(item.Title) ? item.FileName : item.Title;
     private static DateTimeOffset ItemDate(LocalAssetDto item) => item.CapturedAt ?? item.CreatedAt;
     private static bool IsVideo(LocalAssetDto item) => item.MediaKind.Equals("video", StringComparison.OrdinalIgnoreCase) || item.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase);
@@ -575,13 +458,11 @@
         ? TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
         : TimeSpan.FromSeconds(seconds).ToString(@"m\:ss", CultureInfo.InvariantCulture);
     private static string CountLabel(int count, string singular) => $"{count.ToString("N0", CultureInfo.CurrentCulture)} {(count == 1 ? singular : singular + "s")}";
-    private static string PresentationLabel(string value) => string.IsNullOrWhiteSpace(value) ? "Mixed gallery" : value.Replace('_', ' ').Replace('-', ' ');
-    private static string VisibilityLabel(string value) => string.IsNullOrWhiteSpace(value) ? "Private" : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('_', ' '));
     private static string DateHeading(DateTimeOffset date) => date.ToString("MMMM yyyy", CultureInfo.CurrentCulture);
     private static string DateGroupId(DateTimeOffset date) => $"view-{date:yyyy-MM}";
 
-    private string EmptyTitle => !string.IsNullOrWhiteSpace(_search) ? "No matching items" : _favoritesOnly ? "No favorites yet" : _hiddenOnly ? "No hidden items" : "This library is ready";
-    private string EmptyMessage => !string.IsNullOrWhiteSpace(_search) ? "Try a different name, date, device, location, or tag." : _favoritesOnly ? "Favorite items from the grid and they will collect here." : _hiddenOnly ? "Items hidden from the main library appear here." : "Scan the library to index its local media and documents.";
+    private string EmptyTitle => !string.IsNullOrWhiteSpace(_search) ? "No matching items" : _favoritesOnly ? "No favorites yet" : _kind == "video" ? "No videos yet" : "No personal media yet";
+    private string EmptyMessage => !string.IsNullOrWhiteSpace(_search) ? "Try a different name, date, device, location, or tag." : _favoritesOnly ? "Favorite items from the timeline and they will collect here." : _kind == "video" ? "Videos in your personal space will appear here." : "Add media here or configure personal sources in Settings.";
 
     private void OnProfileChanged() => _ = InvokeAsync(async () =>
     {
@@ -589,7 +470,7 @@
         _libraries = [];
         _page = null;
         _loadedLibraryId = null;
-        _loadedScope = null;
+        _mediaGrants.Clear();
         await OnParametersSetAsync();
         StateHasChanged();
     });
@@ -600,4 +481,6 @@
         _searchCts?.Cancel();
         _searchCts?.Dispose();
     }
+
+    private sealed record CachedMediaGrant(string Url, DateTimeOffset ExpiresAt);
 }

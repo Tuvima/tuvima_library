@@ -19,10 +19,10 @@ namespace MediaEngine.Web.Services.Integration;
 
 /// <summary>
 /// Strongly-typed HTTP client for the Engine API.
-/// Registered via <c>AddHttpClient&lt;EngineApiClient&gt;</c> in Program.cs so the
-/// base address and X-Api-Key header are injected once at startup.
+/// Registered as a circuit-scoped client in Program.cs so profile-bound View
+/// assertions remain isolated to the active Dashboard session.
 /// </summary>
-public sealed partial class EngineApiClient : IEngineApiClient
+public sealed partial class EngineApiClient : IEngineApiClient, IDisposable
 {
     private readonly HttpClient _http;
     private readonly ILogger<EngineApiClient> _logger;
@@ -48,6 +48,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
     }
 
     public string ToAbsoluteEngineUrl(string value) => AbsoluteUrl(value);
+
+    public void Dispose() => _http.Dispose();
 
     public async Task<IReadOnlyList<PluginSummaryResponse>> GetPluginsAsync(CancellationToken ct = default)
     {

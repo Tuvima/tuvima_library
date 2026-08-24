@@ -31,9 +31,11 @@ public sealed class ProfileAndFavoriteServiceTests : AsyncBunitContext
                 requestStarted.TrySetResult();
                 return response.Task;
             }));
+        var activeProfile = new ActiveProfileAccessor();
         var session = new ActiveProfileSessionService(
             Services.GetRequiredService<IJSRuntime>(),
-            api);
+            api,
+            activeProfile);
 
         var pendingProfiles = Enumerable.Range(0, 32)
             .Select(_ => session.GetActiveProfileAsync())
@@ -47,6 +49,7 @@ public sealed class ProfileAndFavoriteServiceTests : AsyncBunitContext
 
         Assert.Equal(1, profileRequests);
         Assert.All(profiles, profile => Assert.Equal(ProfileId, profile?.Id));
+        Assert.Equal(ProfileId, activeProfile.ProfileId);
     }
 
     [Fact]
