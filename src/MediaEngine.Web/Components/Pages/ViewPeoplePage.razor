@@ -6,12 +6,12 @@
 @inject ViewMediaGrantService MediaGrants
 @namespace MediaEngine.Web.Components.Pages
 <PageTitle>People - Tuvima</PageTitle>
-<ViewSectionShell><div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>People</h1><p>Browse named and reviewed people evidence stored with your personal photos.</p></div></header>
+<ViewSectionShell><div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>People</h1><p>Browse named and reviewed people evidence stored with your personal media.</p></div></header>
 <label class="view-search"><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Type="search" Value="@_search" ValueChanged="SearchChanged" Placeholder="Search people" AriaLabel="Search people" /></label>
 @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading People" Message="Looking at indexed local metadata." /> }
 else if (_page is null) { <AppErrorState Title="People could not be loaded" Message="The discovery service did not return a result." Retry="LoadAsync" /> }
 else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@(_page.Capability.State == ViewDiscoveryCapabilityStates.NoMatches ? "No matching people" : "No people to show yet")" Message="@_page.Capability.Message" /> }
-else { <section class="view-discovery-grid" aria-label="People">@foreach (var person in _page.Items) { <article class="view-discovery-card"><img src="@Thumbnail(person.RepresentativeLibraryId, person.RepresentativeAssetId)" alt="" loading="lazy" /><strong>@person.DisplayName</strong><span>@person.AssetCount photos</span>@if (person.HasReviewedEvidence) { <small>Reviewed identity</small> }</article> }</section>@if (_page.HasMore) { <AppButton Variant="Variant.Outlined" OnClick="LoadMoreAsync">Load more</AppButton> } }
+else { <section class="view-discovery-grid" aria-label="People">@foreach (var person in _page.Items) { <article class="view-discovery-card"><img src="@Thumbnail(person.RepresentativeLibraryId, person.RepresentativeAssetId)" alt="" loading="lazy" /><strong>@person.DisplayName</strong><span>@person.AssetCount media items</span>@if (person.HasReviewedEvidence) { <small>Reviewed identity</small> }</article> }</section>@if (_page.HasMore) { <AppButton Variant="Variant.Outlined" OnClick="LoadMoreAsync">Load more</AppButton> } }
 </div></ViewSectionShell>
 @code {
     private ViewPeoplePageDto? _page; private string _search = ""; private bool _loading = true; private Guid? _profileId;

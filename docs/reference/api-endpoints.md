@@ -119,8 +119,10 @@ unauthorized identifiers return the same not-found shape as missing resources.
 | GET, PUT, DELETE | `/view/galleries/{id}` | Read or manage an authorized Gallery | Required + Gallery permission |
 | GET, POST, DELETE | `/view/galleries/{id}/items` | Page or mutate Manual Gallery membership | Required + Gallery permission |
 | GET, PUT | `/view/galleries/{id}/shares` | Read or replace selected-profile Gallery shares | Owner + Gallery sharing enabled |
+| GET | `/view/share-targets` | Return only enabled profiles the caller may select as Gallery share recipients | Required + trusted profile |
 | GET | `/view/people` | Cursor-page named/reviewed, provenance-aware people annotations within an authorized scope; no face-recognition claim | Required + scope read |
 | GET | `/view/places` | Cursor-page real GPS/place aggregates within an authorized scope; no map/tile request | Required + scope read |
+| GET | `/view/admin/profiles/{profileId}/sources` | Return an administrator-safe source/device summary without paths, secrets, client identifiers, or invented capacity | Administrator |
 | POST | `/view/admin/libraries/{libraryId}/scan` | Recovery/admin scan for a configured personal library | Administrator |
 
 ## Works

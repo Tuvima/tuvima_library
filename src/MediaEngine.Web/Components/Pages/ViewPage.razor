@@ -17,7 +17,7 @@
 else if (Workspace.Scopes is null) { <AppErrorState Title="Photos could not be loaded" Message="The Dashboard could not resolve an authorized View scope." Retry="InitializeAsync" /> }
 else
 {
-    <header class="view-header"><div class="view-header__identity"><span class="view-header__eyebrow">View</span><h1>Photos</h1><p>Your private photo and video timeline.</p></div><div class="view-header__actions">
+    <header class="view-header"><div class="view-header__identity"><span class="view-header__eyebrow">View</span><h1>Photos</h1><p>@ScopeDescription</p></div><div class="view-header__actions">
         <label>Scope <AppNativeSelect Value="@SelectedScopeValue" OnChange="ScopeChangedAsync" aria-label="Authorized photo scope">@foreach (var scope in Workspace.Scopes.AvailableScopes) { <option value="@ScopeValue(scope.Kind, scope.ProfileId)">@scope.Label</option> }</AppNativeSelect></label>
         <label>Density <AppNativeSelect Value="@Workspace.Density.ToString()" OnChange="DensityChangedAsync" aria-label="Timeline density">@foreach (var density in Enum.GetValues<ViewTimelineDensity>()) { <option value="@density">@density</option> }</AppNativeSelect></label>
         <label class="view-add-media@(_uploading ? " is-busy" : string.Empty)" aria-disabled="@_uploading"><InputFile class="view-add-media__input" OnChange="UploadMediaAsync" disabled="@_uploading" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" /><span class="view-add-media__label"><MudIcon Icon="@Icons.Material.Outlined.Add" />@(_uploading ? "Uploading…" : "Add media")</span></label>
@@ -75,6 +75,14 @@ else
         }
     }
     private async Task SetFilterAsync(string filter) { _filter = filter; await LoadAsync(); } private string FilterClass(string filter) => $"view-kind-tab{(_filter == filter ? " is-active" : "")}"; private string SelectedScopeValue => ScopeValue(Workspace.ScopeKind, Workspace.ScopeProfileId); private static string ScopeValue(ViewScopeKind kind, Guid? profile) => $"{kind}:{profile?.ToString("D")}";
+    private string ScopeDescription => Workspace.ScopeKind switch
+    {
+        ViewScopeKind.Mine => "Your private photo and video timeline.",
+        ViewScopeKind.Profile => $"Photos and videos shared by {SelectedScopeLabel}.",
+        _ => "Photos and videos available in your Shared View."
+    };
+    private string SelectedScopeLabel => Workspace.Scopes?.AvailableScopes.FirstOrDefault(scope =>
+        scope.Kind == Workspace.ScopeKind && scope.ProfileId == Workspace.ScopeProfileId)?.Label ?? "this profile";
     private async Task UploadMediaAsync(InputFileChangeEventArgs args) { if (_uploading) return; var file = args.File; _uploadFileName = file.Name; _uploadError = null; _uploading = true; try { await using var stream = file.OpenReadStream(file.Size); var result = await ApiClient.UploadViewMediaAsync(stream, file.Name, file.ContentType); if (!result.Success) { _uploadError = result.ErrorMessage ?? "The Engine rejected this upload."; return; } Snackbar.Add($"Added {file.Name} to Photos.", Severity.Success); await LoadAsync(); } catch (Exception ex) { _uploadError = $"The file could not be uploaded: {ex.Message}"; } finally { _uploading = false; _uploadFileName = null; } }
     private void OpenItem(LocalAssetDto item) => _activeItem = item; private void CloseItem() => _activeItem = null; private IReadOnlyList<LocalAssetDto> VisibleItems => _page?.Items ?? []; private int ActiveIndex => _activeItem is null ? -1 : VisibleItems.ToList().FindIndex(i => i.Id == _activeItem.Id); private bool HasPrevious => ActiveIndex > 0; private bool HasNext => ActiveIndex >= 0 && ActiveIndex < VisibleItems.Count - 1; private void PreviousItem() { if (HasPrevious) _activeItem = VisibleItems[ActiveIndex - 1]; } private void NextItem() { if (HasNext) _activeItem = VisibleItems[ActiveIndex + 1]; }
     private void ToggleSelection(Guid id) { if (!_selected.Add(id)) _selected.Remove(id); } private void SelectDateGroup(IReadOnlyCollection<Guid> ids) { var select = ids.Any(id => !_selected.Contains(id)); foreach (var id in ids) { if (select) _selected.Add(id); else _selected.Remove(id); } } private void ClearSelection() => _selected.Clear(); private void BeginDrag(Guid id) => AssetDrag.Begin(_selected.Contains(id) ? _selected : [id]); private void EndDrag() => AssetDrag.Clear();
