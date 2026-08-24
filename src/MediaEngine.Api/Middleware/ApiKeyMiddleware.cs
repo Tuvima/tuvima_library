@@ -1,5 +1,7 @@
 using System.Net;
+using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.View;
 using MediaEngine.Domain;
 
 namespace MediaEngine.Api.Middleware;
@@ -86,6 +88,19 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
             ctx.Items["ApiKeyLabel"] = match.Label;
             ctx.Items["ApiKeyRole"]  = match.Role;
 
+            var assertion = ViewProfileAssertion.Verify(
+                ctx.Request,
+                rawKey,
+                match.Role,
+                DateTimeOffset.UtcNow,
+                config.GetValue(
+                    "MediaEngine:Security:ViewProfileAssertionMaxSkewSeconds",
+                    ViewProfileAssertion.DefaultMaxClockSkewSeconds));
+            if (assertion is not null)
+            {
+                HttpViewRequestProfileContext.SetTrustedProfile(ctx, assertion);
+            }
+
             await next(ctx).ConfigureAwait(false);
             return;
         }
@@ -96,6 +111,17 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
         {
             // Localhost callers get full Administrator access when bypass is enabled.
             ctx.Items["ApiKeyRole"] = AppRoles.Administrator;
+            // The unsigned header is accepted only inside the explicitly enabled
+            // loopback bypass. It is never honored for authenticated remote calls.
+            if (ctx.Request.Path.StartsWithSegments("/view", StringComparison.OrdinalIgnoreCase)
+                && Guid.TryParse(
+                    ctx.Request.Headers[ViewProfileAssertion.ProfileHeader].ToString(),
+                    out var bypassProfileId))
+            {
+                HttpViewRequestProfileContext.SetTrustedProfile(
+                    ctx,
+                    new ViewRequestProfile(bypassProfileId, AppRoles.Administrator));
+            }
             await next(ctx).ConfigureAwait(false);
             return;
         }
