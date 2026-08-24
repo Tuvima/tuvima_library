@@ -3,12 +3,12 @@ namespace MediaEngine.Web.Tests;
 public sealed class ViewLibrarySurfaceTests
 {
     [Fact]
-    public void ViewSurface_ExposesMixedLocalLibraryWithoutCatalogueActions()
+    public void ViewPhotos_UsesPersonalTimelineWithoutPhysicalLibraryControls()
     {
         var source = Read("src/MediaEngine.Web/Components/Pages/ViewPage.razor");
 
         Assert.Contains("@page \"/view\"", source, StringComparison.Ordinal);
-        Assert.Contains("@page \"/view/{LibraryId:guid}\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("@page \"/view/{LibraryId:guid}\"", source, StringComparison.Ordinal);
         Assert.Contains("<ViewSectionShell>", source, StringComparison.Ordinal);
         Assert.Contains("<PageTitle>Photos - Tuvima</PageTitle>", source, StringComparison.Ordinal);
         Assert.Contains("Search names, dates, devices, locations, and tags", source, StringComparison.Ordinal);
@@ -21,12 +21,22 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("IsDocument", source, StringComparison.Ordinal);
         Assert.Contains("IsAudio", source, StringComparison.Ordinal);
         Assert.Contains("profileId=", source, StringComparison.Ordinal);
-        Assert.Contains("SupplyParameterFromQuery", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SupplyParameterFromQuery", source, StringComparison.Ordinal);
+        Assert.Contains("Photos quick filters", source, StringComparison.Ordinal);
+        Assert.Contains(">All</AppNativeButton>", source, StringComparison.Ordinal);
+        Assert.Contains(">Favorites</AppNativeButton>", source, StringComparison.Ordinal);
+        Assert.Contains(">Videos</AppNativeButton>", source, StringComparison.Ordinal);
+        Assert.Contains(">Archive</AppNativeButton>", source, StringComparison.Ordinal);
+        Assert.Contains("Disabled=\"true\">Archive", source, StringComparison.Ordinal);
         Assert.Contains("Add media", source, StringComparison.Ordinal);
         Assert.Contains("<InputFile", source, StringComparison.Ordinal);
         Assert.Contains("UploadViewMediaAsync", source, StringComparison.Ordinal);
         Assert.Contains("role=\"status\"", source, StringComparison.Ordinal);
         Assert.Contains("role=\"alert\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("view-library-picker", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("view-summary", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Scan library", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedLibrary.Name", source, StringComparison.Ordinal);
         Assert.DoesNotContain("@page \"/photos\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Wikidata", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Provider", source, StringComparison.OrdinalIgnoreCase);
