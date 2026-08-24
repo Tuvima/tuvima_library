@@ -1,9 +1,28 @@
 @using MediaEngine.Contracts.LocalAssets
 @namespace MediaEngine.Web.Components.Pages
+<MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
 <div class="view-viewer" role="dialog" aria-modal="true" aria-label="Photo viewer" tabindex="0" @onkeydown="HandleKey" @onclick="OnClose">
 <header class="view-viewer__bar" @onclick:stopPropagation="true"><div><strong>@Title</strong><small>@Item.MimeType</small></div><div class="view-viewer__actions"><AppNativeButton Type="button" AriaLabel="Previous item" Disabled="@(!HasPrevious)" OnClick="@(_ => OnPrevious.InvokeAsync())">‹</AppNativeButton><AppNativeButton Type="button" AriaLabel="Next item" Disabled="@(!HasNext)" OnClick="@(_ => OnNext.InvokeAsync())">›</AppNativeButton><AppNativeButton Type="button" AriaLabel="Toggle information panel" OnClick="@(_ => _showInfo = !_showInfo)"><MudIcon Icon="@Icons.Material.Outlined.Info" /></AppNativeButton><AppNativeButton Type="button" AriaLabel="Toggle favorite" OnClick="@(_ => OnFavorite.InvokeAsync())"><MudIcon Icon="@(Item.Favorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)" /></AppNativeButton><AppNativeSelect Value="@string.Empty" OnChange="GalleryChanged" aria-label="Add item to Gallery"><option value="">Gallery…</option>@foreach (var gallery in ManualGalleries) { <option value="@gallery.Id">@gallery.Name</option> }</AppNativeSelect><AppNativeButton Type="button" AriaLabel="Archive item" OnClick="@(_ => OnArchive.InvokeAsync())">Archive</AppNativeButton><AppNativeButton Type="button" AriaLabel="Move item to Trash" OnClick="@(_ => OnTrash.InvokeAsync())">Trash</AppNativeButton><a class="view-viewer__action" href="@ContentUrl" download aria-label="Download original"><MudIcon Icon="@Icons.Material.Outlined.Download" /></a><AppNativeButton Type="button" AriaLabel="Close viewer" OnClick="@(_ => OnClose.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton></div></header>
-<div class="view-viewer__content" @onclick:stopPropagation="true">@if (Item.MimeType.StartsWith("video/")) { <video src="@ContentUrl" poster="@ThumbnailUrl" controls autoplay></video> } else if (Item.MimeType.StartsWith("audio/")) { <audio src="@ContentUrl" controls autoplay></audio> } else if (Item.MimeType.StartsWith("image/")) { <img src="@ContentUrl" alt="@Title" /> } else { <div class="view-viewer__document"><MudIcon Icon="@Icons.Material.Outlined.Description" /><p>Download the original document to view it.</p></div> } @if (_showInfo) { <aside aria-label="Item information"><h2>Information</h2><p>@Title</p><p>@Item.CreatedAt.ToLocalTime()</p><p>@Item.DeviceMake @Item.DeviceModel</p><p>@Item.LocationName</p></aside> }</div>
+<div class="view-viewer__content" @onclick:stopPropagation="true">@if (Item.MimeType.StartsWith("video/")) { <video src="@ContentUrl" poster="@ThumbnailUrl" controls autoplay></video> } else if (Item.MimeType.StartsWith("audio/")) { <audio src="@ContentUrl" controls autoplay></audio> } else if (Item.MimeType.StartsWith("image/")) { <img src="@ContentUrl" alt="@Title" /> } else { <div class="view-viewer__document"><MudIcon Icon="@Icons.Material.Outlined.Description" /><p>Download the original document to view it.</p></div> }
+    @if (_showInfo)
+    {
+        <aside aria-label="Item information"><h2>Information</h2><dl>
+            <div><dt>File name</dt><dd>@Item.FileName</dd></div>
+            <div><dt>Captured</dt><dd><time datetime="@Captured.ToString("O")">@Captured.ToLocalTime().ToString("f")</time></dd></div>
+            @if (Item.Width is > 0 && Item.Height is > 0) { <div><dt>Dimensions</dt><dd>@Item.Width × @Item.Height</dd></div> }
+            @if (Item.DurationSeconds is > 0) { <div><dt>Duration</dt><dd>@FormatDuration(Item.DurationSeconds.Value)</dd></div> }
+            @if (TotalBytes > 0) { <div><dt>Size</dt><dd>@FormatBytes(TotalBytes)</dd></div> }
+            <div><dt>Format</dt><dd>@Item.MimeType</dd></div>
+            @if (!string.IsNullOrWhiteSpace(Device)) { <div><dt>Device</dt><dd>@Device</dd></div> }
+            @if (!string.IsNullOrWhiteSpace(Item.LocationName)) { <div><dt>Place</dt><dd>@Item.LocationName</dd></div> }
+            @if (Item.Latitude.HasValue && Item.Longitude.HasValue) { <div><dt>Coordinates</dt><dd>@Item.Latitude.Value.ToString("0.#####"), @Item.Longitude.Value.ToString("0.#####")</dd></div> }
+            @if (Item.Tags.Count > 0) { <div><dt>Tags</dt><dd>@string.Join(", ", Item.Tags)</dd></div> }
+            <div><dt>Sources</dt><dd>@Item.SourceCount source@(Item.SourceCount == 1 ? "" : "s") · @Item.Files.Count file@(Item.Files.Count == 1 ? "" : "s")</dd></div>
+        </dl></aside>
+    }
 </div>
+</div>
+</MudFocusTrap>
 @code {
     [Parameter, EditorRequired] public LocalAssetDto Item { get; set; } = default!;
     [Parameter] public bool HasPrevious { get; set; }
@@ -19,6 +38,20 @@
     [Parameter] public EventCallback OnTrash { get; set; }
     [Parameter] public EventCallback<Guid> OnAddToGallery { get; set; }
     private bool _showInfo; private string Title => string.IsNullOrWhiteSpace(Item.Title) ? Item.FileName : Item.Title;
+    private DateTimeOffset Captured => Item.CapturedAt ?? Item.CreatedAt;
+    private long TotalBytes => Item.Files.Sum(file => file.ByteSize);
+    private string Device => string.Join(' ', new[] { Item.DeviceMake, Item.DeviceModel }.Where(value => !string.IsNullOrWhiteSpace(value)));
     private Task GalleryChanged(ChangeEventArgs args) => Guid.TryParse(args.Value?.ToString(), out var id) ? OnAddToGallery.InvokeAsync(id) : Task.CompletedTask;
     private async Task HandleKey(KeyboardEventArgs args) { if (args.Key == "Escape") await OnClose.InvokeAsync(); else if (args.Key == "ArrowLeft" && HasPrevious) await OnPrevious.InvokeAsync(); else if (args.Key == "ArrowRight" && HasNext) await OnNext.InvokeAsync(); }
+    private static string FormatDuration(double seconds) => TimeSpan.FromSeconds(seconds).TotalHours >= 1
+        ? TimeSpan.FromSeconds(seconds).ToString(@"h\:mm\:ss")
+        : TimeSpan.FromSeconds(seconds).ToString(@"m\:ss");
+    private static string FormatBytes(long bytes)
+    {
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var value = (double)bytes;
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
+        return $"{value:0.#} {units[unit]}";
+    }
 }

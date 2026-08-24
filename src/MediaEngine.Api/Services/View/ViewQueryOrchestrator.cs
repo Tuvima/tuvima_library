@@ -12,6 +12,7 @@ public sealed record ViewAssetQueryRequest(
     IReadOnlyList<string>? MediaKinds = null,
     bool FavoritesOnly = false,
     bool IncludeHidden = false,
+    bool HiddenOnly = false,
     Guid? GalleryId = null,
     LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active);
 
@@ -27,6 +28,7 @@ public sealed record ViewAssetQueryPlan(
     IReadOnlyList<string>? MediaKinds,
     bool FavoritesOnly,
     bool IncludeHidden,
+    bool HiddenOnly,
     Guid? GalleryId,
     LocalAssetLifecycleFilter Lifecycle,
     CollectionRuleDefinition? SmartRule);
@@ -84,6 +86,7 @@ public sealed class ViewQueryOrchestrator(
             request.MediaKinds,
             request.FavoritesOnly,
             request.IncludeHidden,
+            request.HiddenOnly,
             smartRule is null ? request.GalleryId : null,
             request.Lifecycle,
             smartRule);
