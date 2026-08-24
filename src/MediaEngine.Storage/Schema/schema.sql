@@ -758,6 +758,12 @@ CREATE INDEX IF NOT EXISTS ix_local_items_space_timeline
                    COALESCE(captured_at, created_at) DESC, id DESC);
 CREATE INDEX IF NOT EXISTS ix_local_items_library_kind
     ON local_items(library_id, media_kind, hidden, archived_at, trashed_at);
+CREATE INDEX IF NOT EXISTS ix_local_items_library_favorite_timeline
+    ON local_items(library_id, favorite, archived_at, trashed_at,
+                   COALESCE(captured_at, created_at) DESC, id DESC);
+CREATE INDEX IF NOT EXISTS ix_local_item_metadata_location
+    ON local_item_metadata(location_name, latitude, longitude, item_id)
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_local_files_hash
     ON local_files(content_hash COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS ix_local_file_sources_file
@@ -785,6 +791,8 @@ CREATE INDEX IF NOT EXISTS ix_view_gallery_items_item
     ON view_gallery_items(item_id, gallery_id);
 CREATE INDEX IF NOT EXISTS ix_view_gallery_shares_profile
     ON view_gallery_shares(profile_id, shared_at DESC, gallery_id);
+CREATE INDEX IF NOT EXISTS ix_local_item_tags_tag
+    ON local_item_tags(tag, item_id);
 CREATE INDEX IF NOT EXISTS ix_collection_view_sources_collection
     ON collection_view_sources(collection_id, position, id);
 CREATE INDEX IF NOT EXISTS ix_collection_view_sources_owner
@@ -794,6 +802,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_collection_view_sources_gallery
     WHERE source_kind = 'gallery';
 CREATE INDEX IF NOT EXISTS ix_local_item_annotations_item
     ON local_item_annotations(item_id, annotation_kind, created_at);
+CREATE INDEX IF NOT EXISTS ix_local_item_annotations_lookup
+    ON local_item_annotations(annotation_kind, annotation_value, item_id);
 
 CREATE TABLE IF NOT EXISTS media_operation_events (
   id             BLOB PRIMARY KEY,
