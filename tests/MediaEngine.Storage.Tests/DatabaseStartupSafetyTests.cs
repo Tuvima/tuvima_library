@@ -40,6 +40,7 @@ public sealed class DatabaseStartupSafetyTests
             "view_galleries",
             "view_gallery_items",
             "view_gallery_shares",
+            "collection_view_sources",
             "profile_view_policies",
             "profile_view_preferences",
         ];
@@ -61,6 +62,9 @@ public sealed class DatabaseStartupSafetyTests
             "ix_local_items_space_timeline",
             "ix_view_galleries_owner_order",
             "ix_view_gallery_shares_profile",
+            "ix_collection_view_sources_collection",
+            "ix_collection_view_sources_owner",
+            "ux_collection_view_sources_gallery",
         ];
 
         foreach (var index in requiredIndexes)
@@ -238,6 +242,10 @@ public sealed class DatabaseStartupSafetyTests
             ("view_gallery_items", "item_id"),
             ("view_gallery_shares", "gallery_id"),
             ("view_gallery_shares", "profile_id"),
+            ("collection_view_sources", "id"),
+            ("collection_view_sources", "collection_id"),
+            ("collection_view_sources", "owner_profile_id"),
+            ("collection_view_sources", "gallery_id"),
             ("profile_view_policies", "profile_id"),
             ("profile_view_preferences", "profile_id"),
             ("profile_view_preferences", "last_scope_profile_id"),
@@ -353,6 +361,9 @@ public sealed class DatabaseStartupSafetyTests
             ("view_gallery_items", "item_id", "local_items", "id"),
             ("view_gallery_shares", "gallery_id", "view_galleries", "id"),
             ("view_gallery_shares", "profile_id", "profiles", "id"),
+            ("collection_view_sources", "collection_id", "collections", "id"),
+            ("collection_view_sources", "owner_profile_id", "profiles", "id"),
+            ("collection_view_sources", "gallery_id", "view_galleries", "id"),
             ("profile_view_policies", "profile_id", "profiles", "id"),
             ("profile_view_preferences", "profile_id", "profiles", "id"),
             ("profile_view_preferences", "last_scope_profile_id", "profiles", "id"),
