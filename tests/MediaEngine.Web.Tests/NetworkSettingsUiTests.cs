@@ -41,6 +41,27 @@ public sealed class NetworkSettingsUiTests
     }
 
     [Fact]
+    public void ConnectionTestDialogOwnsItsPortalRenderedLayoutAndCannotOverflowHorizontally()
+    {
+        var dialog = Read(@"src\MediaEngine.Web\Components\Settings\NetworkTestDialog.razor");
+        var dialogStyles = Read(@"src\MediaEngine.Web\Components\Settings\NetworkTestDialog.razor.css");
+        var dialogHost = Read(@"src\MediaEngine.Web\Components\Shared\AppDialog.razor");
+        var shellStyles = Read(@"src\MediaEngine.Web\Components\Shared\AppDialogShell.razor.css");
+        var appStyles = Read(@"src\MediaEngine.Web\wwwroot\app.css");
+        var settingsStyles = Read(@"src\MediaEngine.Web\Components\Settings\NetworkRemoteAccessSettings.razor.css");
+
+        Assert.Contains("network-test-dialog__content", dialog, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: auto minmax(0, 1fr)", dialogStyles, StringComparison.Ordinal);
+        Assert.Contains("overflow-wrap: anywhere", dialogStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("network-test-dialog__check", settingsStyles, StringComparison.Ordinal);
+        Assert.Contains("width: min(100%, 760px)", shellStyles, StringComparison.Ordinal);
+        Assert.Contains("overflow-x: hidden", shellStyles, StringComparison.Ordinal);
+        Assert.Contains("app-dialog-host", dialogHost, StringComparison.Ordinal);
+        Assert.Contains(".mud-dialog.app-dialog-host > .mud-dialog-content", appStyles, StringComparison.Ordinal);
+        Assert.Contains("background: transparent !important", appStyles, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DashboardHonorsForwardedHeadersOnlyFromConfiguredProxyAddresses()
     {
         var source = Read(@"src\MediaEngine.Web\Program.cs");

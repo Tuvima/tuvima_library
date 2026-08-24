@@ -8,28 +8,35 @@
            Icon="@DialogIcon"
            Size="Medium">
     <ChildContent>
-        @if (Busy)
-        {
-            <div class="network-test-dialog__busy">
-                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
-                <span>Running connection checks…</span>
-            </div>
-        }
-        else if (Result is not null)
-        {
-            <div class="network-test-dialog__checks">
-                @foreach (var check in Result.Checks)
-                {
-                    <div class="network-test-dialog__check is-@check.Status">
-                        <MudIcon Icon="@CheckIcon(check.Status)" aria-hidden="true" />
-                        <div><strong>@check.Label</strong><span>@check.Detail</span></div>
-                    </div>
-                }
-            </div>
-        }
+        <div class="network-test-dialog__content">
+            @if (Busy)
+            {
+                <div class="network-test-dialog__busy">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                    <span>Running connection checks…</span>
+                </div>
+            }
+            else if (Result is not null)
+            {
+                <div class="network-test-dialog__checks">
+                    @foreach (var check in Result.Checks)
+                    {
+                        <div class="network-test-dialog__check is-@check.Status">
+                            <MudIcon Icon="@CheckIcon(check.Status)" aria-hidden="true" />
+                            <div>
+                                <strong>@check.Label</strong>
+                                <span>@check.Detail</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
     </ChildContent>
     <FooterContent>
-        <AppButton Label="Close" OnClick="CloseAsync" />
+        <div class="network-test-dialog__actions">
+            <AppButton Label="Close" OnClick="CloseAsync" />
+        </div>
     </FooterContent>
 </AppDialog>
 

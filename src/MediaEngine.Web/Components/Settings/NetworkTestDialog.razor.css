@@ -1,0 +1,81 @@
+.network-test-dialog__content {
+    min-width: 0;
+    padding: 16px 22px;
+}
+
+.network-test-dialog__busy {
+    display: flex;
+    min-height: 120px;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    color: var(--tl-text-secondary);
+}
+
+.network-test-dialog__checks {
+    display: grid;
+    min-width: 0;
+    gap: 8px;
+}
+
+.network-test-dialog__check {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+    padding: 11px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.network-test-dialog__check > div {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.network-test-dialog__check strong,
+.network-test-dialog__check span {
+    display: block;
+    overflow-wrap: anywhere;
+}
+
+.network-test-dialog__check strong {
+    color: var(--tl-text-primary);
+    font-size: 0.82rem;
+}
+
+.network-test-dialog__check span {
+    color: var(--tl-text-muted);
+    font-size: 0.74rem;
+}
+
+.network-test-dialog__check.is-passed ::deep > .mud-icon-root {
+    color: var(--mud-palette-success);
+}
+
+.network-test-dialog__check.is-failed ::deep > .mud-icon-root {
+    color: var(--mud-palette-error);
+}
+
+.network-test-dialog__check.is-skipped ::deep > .mud-icon-root {
+    color: var(--tl-text-muted);
+}
+
+.network-test-dialog__actions {
+    display: flex;
+    min-width: 0;
+    justify-content: flex-end;
+    padding: 12px 22px;
+}
+
+@media (max-width: 640px) {
+    .network-test-dialog__content {
+        padding: 14px 16px;
+    }
+
+    .network-test-dialog__actions {
+        padding: 12px 16px;
+    }
+}

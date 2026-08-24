@@ -1,7 +1,8 @@
 .app-dialog-shell {
     display: flex;
     flex-direction: column;
-    width: min(100vw - 32px, 980px);
+    box-sizing: border-box;
+    width: min(100%, 980px);
     max-height: min(86vh, 900px);
     overflow: hidden;
     border-radius: var(--app-radius-md, 8px);
@@ -11,15 +12,15 @@
 }
 
 .app-dialog-shell--small {
-    width: min(100vw - 32px, 420px);
+    width: min(100%, 420px);
 }
 
 .app-dialog-shell--medium {
-    width: min(100vw - 32px, 760px);
+    width: min(100%, 760px);
 }
 
 .app-dialog-shell--fullscreen-editor {
-    width: min(100vw - 32px, 1180px);
+    width: min(100%, 1180px);
     max-height: min(92vh, 980px);
 }
 
@@ -113,7 +114,8 @@
 .app-dialog-shell__body {
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    overflow-x: hidden;
+    overflow-y: auto;
 }
 
 .app-dialog-shell__footer {

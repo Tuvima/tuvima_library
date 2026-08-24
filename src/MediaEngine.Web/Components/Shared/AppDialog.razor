@@ -3,7 +3,7 @@
 <MudDialog Visible="@Visible"
            VisibleChanged="OnVisibleChanged"
            Options="@ResolvedOptions"
-           Class="@Class"
+           Class="@ResolvedClass"
            @attributes="AdditionalAttributes">
     <TitleContent>
         @if (TitleContent is not null)
@@ -61,6 +61,9 @@
 
     private DialogOptions ResolvedOptions => Options
         ?? new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+    private string ResolvedClass => string.Join(" ", new[] { "app-dialog-host", Class }
+        .Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private async Task OnVisibleChanged(bool visible)
     {

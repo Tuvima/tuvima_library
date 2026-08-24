@@ -140,14 +140,6 @@
 .network-settings ::deep .network-advanced-warning { margin-top: 8px; }
 .network-settings ::deep .network-danger-row { margin-top: 10px; padding: 16px; border: 1px solid color-mix(in srgb, var(--mud-palette-error) 35%, transparent); border-radius: 10px; }
 
-.network-settings ::deep .network-test-dialog__busy { display: flex; align-items: center; justify-content: center; gap: 14px; min-height: 140px; color: var(--tl-text-secondary); }
-.network-settings ::deep .network-test-dialog__checks { display: grid; gap: 8px; }
-.network-settings ::deep .network-test-dialog__check { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 11px; border-radius: 8px; background: rgba(255,255,255,.035); }
-.network-settings ::deep .network-test-dialog__check > div { display: grid; gap: 2px; }
-.network-settings ::deep .network-test-dialog__check strong { color: var(--tl-text-primary); font-size: 0.82rem; }
-.network-settings ::deep .network-test-dialog__check span { color: var(--tl-text-muted); font-size: 0.74rem; }
-.network-settings ::deep .network-test-dialog__check.is-passed > .mud-icon-root { color: var(--mud-palette-success); }
-.network-settings ::deep .network-test-dialog__check.is-failed > .mud-icon-root { color: var(--mud-palette-error); }
 .network-settings ::deep .network-port-dialog__fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
 
 @media (max-width: 960px) {

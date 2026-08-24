@@ -1692,6 +1692,23 @@ body {
     box-shadow: var(--app-shadow-lg) !important;
 }
 
+/* AppDialogShell supplies the visible modal surface. Keep the MudBlazor host
+   geometry-only so it cannot add a second border or scrolling container. */
+.mud-dialog.app-dialog-host {
+    width: fit-content !important;
+    max-width: calc(100vw - 32px) !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.mud-dialog.app-dialog-host > .mud-dialog-content {
+    padding: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+}
+
 .mud-dialog-title,
 .mud-dialog-content,
 .mud-dialog-actions {
