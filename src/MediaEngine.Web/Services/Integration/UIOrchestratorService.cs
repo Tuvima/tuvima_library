@@ -258,6 +258,11 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         CancellationToken ct = default) =>
         _api.UpdateViewProfilePolicyAsync(id, request, ct);
 
+    public Task<ViewPersonalSpaceAdminReviewDto?> GetViewProfileSourcesAsync(
+        Guid id,
+        CancellationToken ct = default) =>
+        _api.GetViewProfileSourcesAsync(id, ct);
+
     public async Task<ProfileViewModel?> UploadProfileAvatarAsync(
         Guid id,
         Stream fileStream,

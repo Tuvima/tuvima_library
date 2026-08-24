@@ -1,4 +1,6 @@
 @namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Domain.PersonalMedia
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
@@ -162,7 +164,7 @@
 <AppDialog @bind-Visible="_viewPolicyOpen"
            Title="View access"
            Icon="@Icons.Material.Outlined.PhotoLibrary"
-           Size="Small"
+           Size="Medium"
            Options="@_dialogOptions"
            OnClose="@CloseViewPolicyDialog">
     <ChildContent>
@@ -198,6 +200,97 @@
                               Description="Allow this profile to share individual Galleries with other profiles." />
             </div>
         }
+
+        <div class="users-dialog-divider"></div>
+        <section class="users-view-sources" aria-labelledby="view-sources-heading">
+            <div class="users-view-sources__heading">
+                <div>
+                    <div class="users-dialog-title" id="view-sources-heading">Sources &amp; Devices</div>
+                    <p>Read-only status from this profile's persisted Personal Space.</p>
+                </div>
+                <AppButton Label="Manage folders"
+                           Href="/settings/media-management/libraries"
+                           ButtonStyle="AppButtonStyle.Outlined"
+                           Size="AppControlSize.Compact" />
+            </div>
+
+            @if (_viewSourcesLoading)
+            {
+                <AppProgressBar Indeterminate="true" Class="users-page__progress" />
+            }
+            else if (_viewSourcesUnavailable)
+            {
+                <AppAlert Tone="AppUiTone.Error">
+                    Sources and devices could not be loaded from the Engine. No placeholder status is shown.
+                </AppAlert>
+            }
+            else if (_viewSources?.PersonalSpace is null)
+            {
+                <AppAlert Tone="AppUiTone.Info">
+                    This profile does not have a persisted Personal Space yet. It will be created when a personal source is attached.
+                </AppAlert>
+            }
+            else
+            {
+                <div class="users-view-sources__space-status">
+                    <span>Personal Space</span>
+                    <span>Updated @FormatWhen(_viewSources.PersonalSpace.UpdatedAt)</span>
+                </div>
+
+                <div class="users-view-sources__group">
+                    <h4>Sources</h4>
+                    @if (_viewSources.Sources.Count == 0)
+                    {
+                        <p class="users-view-sources__empty">No persisted sources are attached.</p>
+                    }
+                    else
+                    {
+                        <div class="users-view-sources__list">
+                            @foreach (var source in _viewSources.Sources)
+                            {
+                                <AppCard Density="AppSurfaceDensity.Compact" Class="users-view-source-card">
+                                    <div class="users-view-source-card__identity">
+                                        <strong>@source.Name</strong>
+                                        <span>@SourceTypeLabel(source.SourceType)</span>
+                                    </div>
+                                    <div class="users-view-source-card__status">
+                                        <span>Last activity</span>
+                                        <strong>@FormatWhen(source.LastActivityAt)</strong>
+                                    </div>
+                                </AppCard>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="users-view-sources__group">
+                    <h4>Devices</h4>
+                    @if (_viewSources.Devices.Count == 0)
+                    {
+                        <p class="users-view-sources__empty">No persisted devices are connected.</p>
+                    }
+                    else
+                    {
+                        <div class="users-view-sources__list">
+                            @foreach (var device in _viewSources.Devices)
+                            {
+                                <AppCard Density="AppSurfaceDensity.Compact" Class="users-view-source-card">
+                                    <div class="users-view-source-card__identity">
+                                        <strong>@device.Name</strong>
+                                        <span>@DeviceDetails(device)</span>
+                                    </div>
+                                    <div class="users-view-source-card__status">
+                                        <AppChip Text="@BackupStateLabel(device.BackupState)"
+                                                 Tone="@BackupStateTone(device.BackupState)" />
+                                        <span>@FormatWhen(device.LastBackupAt)</span>
+                                    </div>
+                                </AppCard>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </section>
     </ChildContent>
     <FooterContent>
         <AppActionBar>
@@ -312,6 +405,9 @@
     private bool _viewPolicyLoading;
     private bool _viewPolicySaving;
     private bool _viewPolicyUnavailable;
+    private bool _viewSourcesLoading;
+    private bool _viewSourcesUnavailable;
+    private ViewPersonalSpaceAdminReviewDto? _viewSources;
     private UserRow? _selectedViewUser;
     private bool _viewEnabled;
     private bool _accessSharedView;
@@ -434,9 +530,18 @@
         _viewPolicyOpen = true;
         _viewPolicyLoading = true;
         _viewPolicyUnavailable = false;
+        _viewSourcesLoading = true;
+        _viewSourcesUnavailable = false;
+        _viewSources = null;
 
-        var policy = await Orchestrator.GetViewProfilePolicyAsync(row.Id);
+        var policyTask = Orchestrator.GetViewProfilePolicyAsync(row.Id);
+        var sourcesTask = Orchestrator.GetViewProfileSourcesAsync(row.Id);
+        await Task.WhenAll(policyTask, sourcesTask);
+        var policy = await policyTask;
+        _viewSources = await sourcesTask;
         _viewPolicyLoading = false;
+        _viewSourcesLoading = false;
+        _viewSourcesUnavailable = _viewSources is null;
         if (policy is null)
         {
             _viewPolicyUnavailable = true;
@@ -454,6 +559,8 @@
         _viewPolicyOpen = false;
         _selectedViewUser = null;
         _viewPolicyUnavailable = false;
+        _viewSourcesUnavailable = false;
+        _viewSources = null;
     }
 
     private async Task SaveViewPolicyAsync()
@@ -541,4 +648,42 @@
         _newLoginEmail = null;
         _newLoginDisplayName = null;
     }
+
+    private static string SourceTypeLabel(string sourceType) => sourceType switch
+    {
+        "folder" => "Folder",
+        "browser_upload" => "Browser upload",
+        "device_import" => "Device import",
+        "mobile_backup" => "Mobile backup",
+        "network" => "Network source",
+        _ => "Other source",
+    };
+
+    private static string BackupStateLabel(string state) => state switch
+    {
+        "idle" => "Idle",
+        "backing_up" => "Backing up",
+        "complete" => "Complete",
+        "error" => "Needs attention",
+        _ => "Status unknown",
+    };
+
+    private static AppUiTone BackupStateTone(string state) => state switch
+    {
+        "complete" => AppUiTone.Success,
+        "error" => AppUiTone.Error,
+        "backing_up" => AppUiTone.Info,
+        _ => AppUiTone.Neutral,
+    };
+
+    private static string DeviceDetails(ViewDeviceAdminDto device)
+    {
+        var parts = new[] { device.Make, device.Model }
+            .Where(value => !string.IsNullOrWhiteSpace(value));
+        var label = string.Join(' ', parts);
+        return string.IsNullOrWhiteSpace(label) ? "Connected device" : label;
+    }
+
+    private static string FormatWhen(DateTimeOffset? value) =>
+        value.HasValue ? value.Value.LocalDateTime.ToString("MMM d, yyyy · h:mm tt") : "Not recorded";
 }

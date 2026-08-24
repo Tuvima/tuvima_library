@@ -27,6 +27,7 @@ public partial interface IEngineApiClient
     Task<bool> ReplaceViewGallerySharesAsync(Guid galleryId, IReadOnlyCollection<ViewGalleryShareRequest> shares, CancellationToken ct = default);
     Task<AddViewGalleryItemsResponseDto?> AddViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
     Task<ViewItemsRemovedResponse?> RemoveViewGalleryItemsAsync(Guid galleryId, IReadOnlyCollection<Guid> itemIds, CancellationToken ct = default);
+    Task<ViewPersonalSpaceAdminReviewDto?> GetViewProfileSourcesAsync(Guid profileId, CancellationToken ct = default);
 }
 
 public sealed record ViewAssetQueryOptions(

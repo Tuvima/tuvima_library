@@ -167,6 +167,41 @@ public sealed record ViewGallerySharesRequest(
 public sealed record ViewItemsRemovedResponse(
     [property: JsonPropertyName("removed")] int Removed);
 
+/// <summary>
+/// Administrator-safe review of one profile's View Personal Space. Storage
+/// bridge identifiers, source keys, client device identifiers, and file paths
+/// are intentionally excluded from this contract.
+/// </summary>
+public sealed record ViewPersonalSpaceAdminReviewDto(
+    [property: JsonPropertyName("profile_id")] Guid ProfileId,
+    [property: JsonPropertyName("personal_space")] ViewPersonalSpaceAdminDto? PersonalSpace,
+    [property: JsonPropertyName("sources")] IReadOnlyList<ViewSourceAdminDto> Sources,
+    [property: JsonPropertyName("devices")] IReadOnlyList<ViewDeviceAdminDto> Devices);
+
+public sealed record ViewPersonalSpaceAdminDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt);
+
+public sealed record ViewSourceAdminDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("source_type")] string SourceType,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("last_activity_at")] DateTimeOffset? LastActivityAt,
+    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt);
+
+public sealed record ViewDeviceAdminDto(
+    [property: JsonPropertyName("id")] Guid Id,
+    [property: JsonPropertyName("source_id")] Guid? SourceId,
+    [property: JsonPropertyName("name")] string Name,
+    [property: JsonPropertyName("make")] string? Make,
+    [property: JsonPropertyName("model")] string? Model,
+    [property: JsonPropertyName("last_backup_at")] DateTimeOffset? LastBackupAt,
+    [property: JsonPropertyName("backup_state")] string BackupState,
+    [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt);
+
 public sealed record ViewLibrarySummaryDto(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("name")] string Name,
