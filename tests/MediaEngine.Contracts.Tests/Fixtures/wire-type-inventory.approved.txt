@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=626; api=0; web-client=87
+# scopes: contracts=638; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4501,6 +4501,15 @@
   EndSeconds: System.Double? | json=endSeconds | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"index":7,"title":"sample","originalTitle":"sample","kind":"sample","titleSource":"sample","startSeconds":7,"endSeconds":7}
 
+[contracts] MediaEngine.Contracts.Playback.PlaybackConnectionContextDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  ConnectionPath: System.String | json=connectionPath | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RemoteConnectivityProvider: System.String | json=remoteConnectivityProvider | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EstimatedBandwidthMbps: System.Double? | json=estimatedBandwidthMbps | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LatencyMs: System.Int32? | json=latencyMs | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RoomId: System.Guid? | json=roomId | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"connectionPath":"sample","remoteConnectivityProvider":"sample","estimatedBandwidthMbps":7,"latencyMs":7,"roomId":"11111111-2222-3333-4444-555555555555"}
+
 [contracts] MediaEngine.Contracts.Playback.PlaybackDiagnosticsDto
   kind=class | converter=default | number-handling=default | unmapped=default
   FFmpegAvailable: System.Boolean | json=fFmpegAvailable | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -4545,7 +4554,9 @@
   Technical: MediaEngine.Contracts.Playback.PlaybackTechnicalInfoDto | json=technical | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Warnings: System.Collections.Generic.IReadOnlyList<System.String> | json=warnings | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ConversionReason: System.String | json=conversionReason | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"assetId":"11111111-2222-3333-4444-555555555555","client":"sample","mediaType":"sample","sourceExtension":"sample","recommendedDelivery":"sample","directPlaySupported":true,"directStreamUrl":"sample","hlsUrl":"sample","profile":null,"audioTracks":[],"subtitleTracks":[],"chapters":[],"offlineVariants":[],"resume":null,"segments":[],"technical":null,"warnings":[],"conversionReason":"sample"}
+  SourceBitrateKbps: System.Int32? | json=sourceBitrateKbps | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Connection: MediaEngine.Contracts.Playback.PlaybackConnectionContextDto | json=connection | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"assetId":"11111111-2222-3333-4444-555555555555","client":"sample","mediaType":"sample","sourceExtension":"sample","recommendedDelivery":"sample","directPlaySupported":true,"directStreamUrl":"sample","hlsUrl":"sample","profile":null,"audioTracks":[],"subtitleTracks":[],"chapters":[],"offlineVariants":[],"resume":null,"segments":[],"technical":null,"warnings":[],"conversionReason":"sample","sourceBitrateKbps":7,"connection":null}
 
 [contracts] MediaEngine.Contracts.Playback.PlaybackProfileDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4686,7 +4697,8 @@
   ChapterIndex: System.Int32? | json=chapterIndex | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ChapterTitle: System.String | json=chapterTitle | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AudiobookStartKind: System.String | json=audiobookStartKind | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"profileId":"11111111-2222-3333-4444-555555555555","sessionId":"11111111-2222-3333-4444-555555555555","deviceId":"sample","client":"sample","queueItemId":"11111111-2222-3333-4444-555555555555","assetId":"11111111-2222-3333-4444-555555555555","isPlaying":true,"positionSeconds":7,"durationSeconds":7,"progressPct":7,"volume":7,"isMuted":true,"playbackRate":7,"stateVersion":7,"chapterIndex":7,"chapterTitle":"sample","audiobookStartKind":"sample"}
+  Connection: MediaEngine.Contracts.Playback.PlaybackConnectionContextDto | json=connection | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"profileId":"11111111-2222-3333-4444-555555555555","sessionId":"11111111-2222-3333-4444-555555555555","deviceId":"sample","client":"sample","queueItemId":"11111111-2222-3333-4444-555555555555","assetId":"11111111-2222-3333-4444-555555555555","isPlaying":true,"positionSeconds":7,"durationSeconds":7,"progressPct":7,"volume":7,"isMuted":true,"playbackRate":7,"stateVersion":7,"chapterIndex":7,"chapterTitle":"sample","audiobookStartKind":"sample","connection":null}
 
 [contracts] MediaEngine.Contracts.Playback.PlayerQueueItemDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4800,7 +4812,8 @@
   Capabilities: MediaEngine.Contracts.Playback.PlayerCapabilitiesDto | json=capabilities | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AudiobookHistory: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.AudiobookListenHistoryItemDto> | json=audiobookHistory | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Warnings: System.Collections.Generic.IReadOnlyList<System.String> | json=warnings | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"profileId":"11111111-2222-3333-4444-555555555555","sessionId":"11111111-2222-3333-4444-555555555555","deviceId":"sample","client":"sample","playbackState":"sample","experience":"sample","stateVersion":7,"currentQueueItemId":"11111111-2222-3333-4444-555555555555","currentItem":null,"queue":[],"positionSeconds":7,"durationSeconds":7,"progressPct":7,"volume":7,"isMuted":true,"playbackRate":7,"shuffleEnabled":true,"repeatMode":"sample","sourceLabel":"sample","createdAt":"2025-01-02T03:04:05+00:00","updatedAt":"2025-01-02T03:04:05+00:00","lastHeartbeatAt":"2025-01-02T03:04:05+00:00","isStale":true,"capabilities":null,"audiobookHistory":[],"warnings":[]}
+  Connection: MediaEngine.Contracts.Playback.PlaybackConnectionContextDto | json=connection | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"profileId":"11111111-2222-3333-4444-555555555555","sessionId":"11111111-2222-3333-4444-555555555555","deviceId":"sample","client":"sample","playbackState":"sample","experience":"sample","stateVersion":7,"currentQueueItemId":"11111111-2222-3333-4444-555555555555","currentItem":null,"queue":[],"positionSeconds":7,"durationSeconds":7,"progressPct":7,"volume":7,"isMuted":true,"playbackRate":7,"shuffleEnabled":true,"repeatMode":"sample","sourceLabel":"sample","createdAt":"2025-01-02T03:04:05+00:00","updatedAt":"2025-01-02T03:04:05+00:00","lastHeartbeatAt":"2025-01-02T03:04:05+00:00","isStale":true,"capabilities":null,"audiobookHistory":[],"warnings":[],"connection":null}
 
 [contracts] MediaEngine.Contracts.Playback.QueueEncodeRequestDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6058,6 +6071,16 @@
   ProfileId: System.String | json=profile_id | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"id":"sample","path":"sample","role":"sample","management_mode":"sample","source_type":"sample","include_subdirectories":true,"access_mode":"sample","writeback_override":true,"participates_in_organization":true,"intake_role":"sample","notes":"sample","device_id":"sample","profile_id":"sample"}
 
+[contracts] MediaEngine.Contracts.Settings.LocalNetworkSettingsDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Port: System.Int32 | json=port | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BindMode: System.String | json=bind_mode | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  InterfaceId: System.String | json=interface_id | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  DiscoveryEnabled: System.Boolean | json=discovery_enabled | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PreferredServerName: System.String | json=preferred_server_name | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Ipv6Enabled: System.Boolean | json=ipv6_enabled | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"port":7,"bind_mode":"sample","interface_id":"sample","discovery_enabled":true,"preferred_server_name":"sample","ipv6_enabled":true}
+
 [contracts] MediaEngine.Contracts.Settings.MediaTypeConfigurationDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Version: System.String | json=version | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -6091,6 +6114,84 @@
   PageSize: System.Int32 | json=page_size | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DetailHydration: System.String | json=detail_hydration | nullability=not-null | accessors=get,set | required=yes | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"enabled":true,"default_visibility":"sample","presentation":"sample","page_size":7,"detail_hydration":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.NetworkAddressDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  InterfaceId: System.String | json=interface_id | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  InterfaceName: System.String | json=interface_name | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Address: System.String | json=address | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AddressFamily: System.String | json=address_family | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"interface_id":"sample","interface_name":"sample","address":"sample","address_family":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.NetworkBandwidthStatusDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  UploadCapacityMbps: System.Double? | json=upload_capacity_mbps | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ReservedMbps: System.Double | json=reserved_mbps | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AvailableMbps: System.Double? | json=available_mbps | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MeasuredAt: System.DateTimeOffset? | json=measured_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Status: System.String | json=status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"upload_capacity_mbps":7,"reserved_mbps":7,"available_mbps":7,"measured_at":"2025-01-02T03:04:05+00:00","status":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.NetworkRuntimeStatusDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  LocalAccess: System.String | json=local_access | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RemoteAccess: System.String | json=remote_access | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ConnectionType: System.String | json=connection_type | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SecureConnection: System.String | json=secure_connection | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LocalAddresses: System.Collections.Generic.List<MediaEngine.Contracts.Settings.NetworkAddressDto> | json=local_addresses | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PreferredLocalAddress: System.String | json=preferred_local_address | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ExternalAddress: System.String | json=external_address | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PublicIp: System.String | json=public_ip | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RouterConfiguration: System.String | json=router_configuration | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RouterMethod: System.String | json=router_method | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MappingStatus: System.String | json=mapping_status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MappingCheckedAt: System.DateTimeOffset? | json=mapping_checked_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MappingExpiresAt: System.DateTimeOffset? | json=mapping_expires_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LastTestedAt: System.DateTimeOffset? | json=last_tested_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LastTestSucceeded: System.Boolean? | json=last_test_succeeded | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  UptimeSeconds: System.Int64 | json=uptime_seconds | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Ipv6Available: System.Boolean | json=ipv6_available | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CgnatSuspected: System.Boolean | json=cgnat_suspected | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Headline: System.String | json=headline | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Guidance: System.String | json=guidance | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Bandwidth: MediaEngine.Contracts.Settings.NetworkBandwidthStatusDto | json=bandwidth | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HardwareAcceleration: System.String | json=hardware_acceleration | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"local_access":"sample","remote_access":"sample","connection_type":"sample","secure_connection":"sample","local_addresses":[],"preferred_local_address":"sample","external_address":"sample","public_ip":"sample","router_configuration":"sample","router_method":"sample","mapping_status":"sample","mapping_checked_at":"2025-01-02T03:04:05+00:00","mapping_expires_at":"2025-01-02T03:04:05+00:00","last_tested_at":"2025-01-02T03:04:05+00:00","last_test_succeeded":true,"uptime_seconds":7,"ipv6_available":true,"cgnat_suspected":true,"headline":"sample","guidance":"sample","bandwidth":null,"hardware_acceleration":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.NetworkSettingsDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  SchemaVersion: System.String | json=schema_version | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SetupCompleted: System.Boolean | json=setup_completed | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Local: MediaEngine.Contracts.Settings.LocalNetworkSettingsDto | json=local | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Remote: MediaEngine.Contracts.Settings.RemoteNetworkSettingsDto | json=remote | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Streaming: MediaEngine.Contracts.Settings.NetworkStreamingSettingsDto | json=streaming | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"schema_version":"sample","setup_completed":true,"local":null,"remote":null,"streaming":null}
+
+[contracts] MediaEngine.Contracts.Settings.NetworkStreamingSettingsDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  RemoteQuality: System.String | json=remote_quality | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  UploadProtectionEnabled: System.Boolean | json=upload_protection_enabled | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ReservedUploadMbps: System.Int32 | json=reserved_upload_mbps | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ConcurrentRemoteStreams: System.String | json=concurrent_remote_streams | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"remote_quality":"sample","upload_protection_enabled":true,"reserved_upload_mbps":7,"concurrent_remote_streams":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.NetworkTestCheckDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Key: System.String | json=key | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Label: System.String | json=label | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Status: System.String | json=status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Detail: System.String | json=detail | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"key":"sample","label":"sample","status":"sample","detail":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.NetworkTestResultDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Kind: System.String | json=kind | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Status: System.String | json=status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Headline: System.String | json=headline | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Detail: System.String | json=detail | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TestedAt: System.DateTimeOffset | json=tested_at | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Checks: System.Collections.Generic.List<MediaEngine.Contracts.Settings.NetworkTestCheckDto> | json=checks | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"kind":"sample","status":"sample","headline":"sample","detail":"sample","tested_at":"2025-01-02T03:04:05+00:00","checks":[]}
 
 [contracts] MediaEngine.Contracts.Settings.OrganizationTemplateDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6133,6 +6234,19 @@
   AcceptedTransition: MediaEngine.Contracts.Settings.AcceptedProviderTransitionConfiguration | json=accepted_transition | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=WhenWritingNull | converter=default | number-handling=default | extension-data=no
   AcceptedActions: System.Collections.Generic.List<System.String> | json=accepted_actions | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"rank":7,"name":"sample","purpose":"sample","requires_identity":true,"use_as_identity_fallback":true,"accepted_actions":[]}
+
+[contracts] MediaEngine.Contracts.Settings.PortAvailabilityRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Port: System.Int32 | json=port | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"port":7}
+
+[contracts] MediaEngine.Contracts.Settings.PortAvailabilityResultDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Port: System.Int32 | json=port | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Available: System.Boolean | json=available | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RestartRequired: System.Boolean | json=restart_required | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Message: System.String | json=message | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"port":7,"available":true,"restart_required":true,"message":"sample"}
 
 [contracts] MediaEngine.Contracts.Settings.ProviderCatalogueDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6260,6 +6374,17 @@
   SampleFields: System.Collections.Generic.List<System.String> | json=sample_fields | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Message: System.String | json=message | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"success":true,"response_time_ms":7,"sample_fields":[],"message":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.RemoteNetworkSettingsDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Enabled: System.Boolean | json=enabled | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ConnectionMode: System.String | json=connection_mode | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AutomaticRouterConfiguration: System.Boolean | json=automatic_router_configuration | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ExternalPort: System.Int32? | json=external_port | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ProviderKey: System.String | json=provider_key | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PublicHostname: System.String | json=public_hostname | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TrustedProxies: System.Collections.Generic.List<System.String> | json=trusted_proxies | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"enabled":true,"connection_mode":"sample","automatic_router_configuration":true,"external_port":7,"provider_key":"sample","public_hostname":"sample","trusted_proxies":[]}
 
 [contracts] MediaEngine.Contracts.Settings.ResolvedUISettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default

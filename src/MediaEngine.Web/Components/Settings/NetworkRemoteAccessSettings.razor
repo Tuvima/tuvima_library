@@ -1,0 +1,102 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<section class="network-settings" data-network-section="@ActiveSection">
+    <SettingsSubsectionNav Section="SettingsSection.Network"
+                           ActiveSubsection="@ActiveSection"
+                           AriaLabel="Network and remote access sections" />
+
+    @if (_loading)
+    {
+        <AppSkeleton Size="AppControlSize.Large" />
+    }
+    else if (_settings is null)
+    {
+        <AppErrorState Title="Network settings are unavailable"
+                       Message="Start the Engine or retry before changing connectivity settings." />
+    }
+    else
+    {
+        @switch (ActiveSection)
+        {
+            case "local":
+                <LocalNetworkSettingsPanel Settings="@_settings" Status="@_status"
+                                           SaveRequested="SaveAsync" StatusRefreshRequested="RefreshStatusAsync" />
+                break;
+            case "remote":
+                <RemoteAccessSettingsPanel Settings="@_settings" Status="@_status"
+                                           SaveRequested="SaveAsync" StatusRefreshRequested="RefreshStatusAsync" />
+                break;
+            case "streaming":
+                <NetworkStreamingSettingsPanel Settings="@_settings" Status="@_status"
+                                               SaveRequested="SaveAsync" StatusRefreshRequested="RefreshStatusAsync" />
+                break;
+            case "advanced":
+                <AdvancedNetworkSettingsPanel Settings="@_settings" Status="@_status"
+                                              SaveRequested="SaveAsync" SettingsReplaced="ReplaceSettingsAsync" />
+                break;
+            default:
+                <NetworkOverviewPanel Settings="@_settings" Status="@_status"
+                                      StatusRefreshRequested="RefreshStatusAsync" />
+                break;
+        }
+    }
+</section>
+
+@code {
+    [Parameter] public string Subsection { get; set; } = "overview";
+
+    private NetworkSettingsDto? _settings;
+    private NetworkRuntimeStatusDto? _status;
+    private bool _loading = true;
+
+    private string ActiveSection => Subsection.ToLowerInvariant() switch
+    {
+        "local" => "local",
+        "remote" => "remote",
+        "streaming" => "streaming",
+        "advanced" => "advanced",
+        _ => "overview",
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settingsTask = ApiClient.GetNetworkSettingsAsync();
+        var statusTask = ApiClient.GetNetworkRuntimeStatusAsync();
+        await Task.WhenAll(settingsTask, statusTask);
+        _settings = await settingsTask;
+        _status = await statusTask;
+        _loading = false;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_settings is null)
+            return;
+        var saved = await ApiClient.UpdateNetworkSettingsAsync(_settings);
+        if (saved is null)
+        {
+            Snackbar.Add("Network settings could not be saved.", Severity.Error);
+            return;
+        }
+        _settings = saved;
+        Snackbar.Add("Network settings saved.", Severity.Success);
+        await RefreshStatusAsync();
+    }
+
+    private async Task ReplaceSettingsAsync(NetworkSettingsDto replacement)
+    {
+        _settings = replacement;
+        await RefreshStatusAsync();
+    }
+
+    private async Task RefreshStatusAsync()
+    {
+        _status = await ApiClient.GetNetworkRuntimeStatusAsync();
+        StateHasChanged();
+    }
+}

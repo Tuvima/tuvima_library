@@ -30,6 +30,7 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 | Capability readiness | Partial | Media assets can expose explicit readiness rows for identity, enrichment, text tracks, commercial skip, writeback, AI, and plugin work. More workers will be wired over time. |
 | Ingestion dashboard | Partial | Active operations, recent batches, folder health, provider health, progress, and review reasons are visible from durable Engine data where available. |
 | Settings > Libraries | Live | Catalogued libraries, stable catalogue sources, incoming locations, the single View storage root, source safety, organization, metadata, intake, and duplicate policies are backed by Engine/config APIs. |
+| Network & Remote Access | Live | First-run setup and five Settings panels share durable configuration. LAN discovery, safe port changes, PCP/NAT-PMP/UPnP mapping lifecycle, manual forwarding guidance, custom HTTPS access, diagnostics, and connection-aware playback are connected. External reachability and bandwidth remain explicitly unknown until a trusted external measurement target is configured. |
 | View Personal Spaces | Live | Each enabled profile resolves one automatically provisioned Personal Space beneath the managed View root. Any number of persisted sources or devices may feed it; eligible folders are watched and reconciled in the background. Managed imports copy originals beneath stable profile/source paths, while optional external links remain read-only. Local-only/manual personal media bypasses retail providers, Wikidata, canonical claims, and Review Queue. |
 | View: Photos | Live | `/view` uses the four-item View shell and same-origin media grants. Trusted Shared, Mine, and permitted profile scopes drive a cursor-paged mixed-media timeline with search, filters, uploads, selection, favorites, hidden state, archive, trash, restore, Gallery placement, managed thumbnails, and an accessible immersive viewer. Original files are never modified by browsing or thumbnail generation. |
 | View: Galleries | Live | Manual and rule-driven Smart Galleries support creation, editing, deletion, item paging, duplicate-safe membership, drag/drop placement, ordering, and owner-selected profile sharing. Policy-gated recipients receive view or contribute access; deleting a Gallery never deletes media. Public-link sharing is not implemented. |
@@ -40,19 +41,18 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 | Settings > Local AI | Live | Model inventory, download/cancel/load/unload, hardware profile, benchmark, resources, feature flags, vocabulary, and schedules are connected where endpoints exist. |
 | Playback and reader preferences | Live | Personal playback, reading, subtitle, resume, audiobook chapter cleanup, audiobook history/bookmarks, chapter display-title overrides, and progress preferences persist through the playback settings and player APIs. |
 | Plugins | Partial | Plugin list, enable/disable, settings JSON, dynamic manifests, health, jobs, and approved-catalog lookup are available. |
-| Users and access | Partial | Profiles and API keys are Engine-backed. Remote access and some network controls are still read-only or not connected. |
+| Users and access | Partial | Profiles and API keys are Engine-backed. Network exposure is managed separately under Network & Remote Access. Broader account/session policy remains in progress. |
 
 ## Still Outstanding
 
 These items are not presented as complete user workflows yet:
 
-- A guided multi-step first-run wizard. Current onboarding starts on Home and continues through Libraries and Ingestion.
 - Advanced direct-play, delivery, subtitle/audio policy, and automated offline-download controls.
 - Plugin marketplace install/update flows.
 - Some Local AI job controls, deletion actions, and per-feature runtime integrations.
 - Full worker coverage for every capability row. The durable model exists; individual enrichment, AI, text track, and writeback workers will continue moving from artifact-only writes to operation/capability updates.
 - Richer playlist editing, recommendation automation, smart collections, and broader discovery intelligence.
-- Full remote-access hardening and account/session policy beyond the local-first role/API-key model.
+- Installable secure-connectivity provider adapters and broader account/session policy beyond the local-first role/API-key model.
 - Interoperability targets such as OPDS, Audiobookshelf-compatible APIs, import wizards, webhooks, and PWA behavior.
 - Post-beta photo intelligence: face recognition, object/scene detection, OCR,
   captions, embeddings, semantic search, memories, and AI-assisted organization.

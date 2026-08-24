@@ -20,6 +20,7 @@ public enum SettingsSection
     LocalAi,
     Plugins,
     Delivery,
+    Network,
     Access,
     Server,
 
@@ -107,6 +108,7 @@ public static class SettingsNav
         new(SettingsSection.Providers, "administration", "metadata", Icons.Material.Outlined.Storage, "Metadata", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed"),
         new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, [], "sqlite"),
+        new(SettingsSection.Network, "administration", "network", Icons.Material.Outlined.WifiTethering, "Network & Remote Access", true, null, [], "json+runtime", Status: SettingsStatusKind.Live),
         new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Partial),
         new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, [], Status: SettingsStatusKind.Partial),
         new(SettingsSection.Server, "administration", "backup-recovery", Icons.Material.Outlined.Backup, "Backup & Recovery", true, null, [], Status: SettingsStatusKind.Live),
@@ -131,6 +133,7 @@ public static class SettingsNav
                 SettingsSection.Providers,
                 SettingsSection.Review,
                 SettingsSection.ActivityLogs,
+                SettingsSection.Network,
                 SettingsSection.Delivery,
                 SettingsSection.Access,
                 SettingsSection.Server,
@@ -191,6 +194,14 @@ public static class SettingsNav
                 new("storage", "Variant Storage", Icons.Material.Outlined.Storage),
                 new("active-jobs", "Active Jobs", Icons.Material.Outlined.PendingActions),
                 new("diagnostics", "Diagnostics", Icons.Material.Outlined.MonitorHeart),
+            ],
+            [SettingsSection.Network] =
+            [
+                new("overview", "Overview", Icons.Material.Outlined.Dashboard),
+                new("local", "Local Network", Icons.Material.Outlined.Lan),
+                new("remote", "Remote Access", Icons.Material.Outlined.Public),
+                new("streaming", "Streaming", Icons.Material.Outlined.Stream),
+                new("advanced", "Advanced", Icons.Material.Outlined.Tune),
             ],
             [SettingsSection.Access] =
             [

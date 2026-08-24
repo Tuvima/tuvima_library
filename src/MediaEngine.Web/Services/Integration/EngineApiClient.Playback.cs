@@ -22,7 +22,12 @@ namespace MediaEngine.Web.Services.Integration;
 
 public sealed partial class EngineApiClient
 {
-    public async Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", Guid? profileId = null, CancellationToken ct = default)
+    public async Task<PlaybackManifestDto?> GetPlaybackManifestAsync(
+        Guid assetId,
+        string client = "web",
+        Guid? profileId = null,
+        CancellationToken ct = default,
+        PlaybackConnectionContextDto? connection = null)
     {
         var endpoint = $"GET /playback/{assetId}/manifest";
         try
@@ -34,6 +39,27 @@ public sealed partial class EngineApiClient
             if (profileId.HasValue)
             {
                 query.Add($"profileId={profileId.Value:D}");
+            }
+
+            if (connection is not null)
+            {
+                query.Add($"connectionPath={Uri.EscapeDataString(connection.ConnectionPath)}");
+                if (!string.IsNullOrWhiteSpace(connection.RemoteConnectivityProvider))
+                {
+                    query.Add($"provider={Uri.EscapeDataString(connection.RemoteConnectivityProvider)}");
+                }
+                if (connection.EstimatedBandwidthMbps.HasValue)
+                {
+                    query.Add($"bandwidthMbps={connection.EstimatedBandwidthMbps.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+                }
+                if (connection.LatencyMs.HasValue)
+                {
+                    query.Add($"latencyMs={connection.LatencyMs.Value}");
+                }
+                if (connection.RoomId.HasValue)
+                {
+                    query.Add($"roomId={connection.RoomId.Value:D}");
+                }
             }
 
             var response = await _http.GetAsync($"/playback/{assetId}/manifest?{string.Join("&", query)}", ct);

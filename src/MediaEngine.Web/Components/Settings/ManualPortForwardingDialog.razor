@@ -1,0 +1,59 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Settings
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<AppDialog Visible="@Visible" VisibleChanged="@VisibleChanged"
+           Title="Your router needs one setting changed"
+           Subtitle="Create this port-forwarding rule in your router, then ask Tuvima to test it again."
+           Icon="@Icons.Material.Outlined.Router" Size="Medium">
+    <ChildContent>
+        <dl class="network-manual-rule">
+            @Fact("Name", "Tuvima")
+            @Fact("External Port", ExternalPort.ToString())
+            @Fact("Internal IP", InternalAddress)
+            @Fact("Internal Port", InternalPort.ToString())
+            @Fact("Protocol", "TCP")
+        </dl>
+        <div class="network-manual-rule__summary">
+            <code>@RuleSummary</code>
+            <AppButton Label="Copy Rule" StartIcon="@Icons.Material.Outlined.ContentCopy" OnClick="CopyAsync" />
+        </div>
+        <AppAlert Tone="AppUiTone.Info" Icon="@Icons.Material.Outlined.HomeWork">
+            <strong>Keep this server at the same network address.</strong>
+            <span>Your router may assign a different address later. A DHCP reservation for @InternalAddress prevents that.</span>
+        </AppAlert>
+        @if (CgnatSuspected)
+        {
+            <AppAlert Tone="AppUiTone.Warning">Your internet provider may not support normal port forwarding. Consider a secure connectivity provider instead of repeatedly changing router rules.</AppAlert>
+        }
+    </ChildContent>
+    <FooterContent>
+        <AppButton Label="Close" OnClick="CloseAsync" />
+        <AppButton Label="I've configured this — Test Again" ButtonStyle="AppButtonStyle.Filled" OnClick="TestAgainAsync" />
+    </FooterContent>
+</AppDialog>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public int InternalPort { get; set; }
+    [Parameter] public int ExternalPort { get; set; }
+    [Parameter] public string InternalAddress { get; set; } = "Unavailable";
+    [Parameter] public bool CgnatSuspected { get; set; }
+    [Parameter] public EventCallback TestAgain { get; set; }
+
+    private string RuleSummary => $"TCP {ExternalPort} → {InternalAddress}:{InternalPort}";
+    private Task CloseAsync() => VisibleChanged.InvokeAsync(false);
+    private async Task TestAgainAsync()
+    {
+        await VisibleChanged.InvokeAsync(false);
+        await TestAgain.InvokeAsync();
+    }
+    private async Task CopyAsync()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", RuleSummary);
+        Snackbar.Add("Port-forwarding rule copied.", Severity.Success);
+    }
+    private static RenderFragment Fact(string label, string value) => @<div><dt>@label</dt><dd>@value</dd></div>;
+}

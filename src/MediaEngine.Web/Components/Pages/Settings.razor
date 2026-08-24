@@ -93,6 +93,9 @@
                         case SettingsSection.Delivery:
                             <PlaybackDeliverySettingsTab Subsection="@_activeSubsection" />
                             break;
+                        case SettingsSection.Network:
+                            <NetworkRemoteAccessSettings Subsection="@_activeSubsection" />
+                            break;
                         case SettingsSection.Access:
                             <UsersAccessSettingsTab Subsection="@_activeSubsection" />
                             break;
@@ -446,6 +449,7 @@
         SettingsSection.Libraries => "Manage structured libraries and review each profile's Personal Space bridge.",
         SettingsSection.ImportFolders => "Manage watched intake locations before media is routed into a destination library.",
         SettingsSection.Ingestion => "Monitor scans, routing, enrichment, and operational ingestion health.",
+        SettingsSection.Network => "Manage how devices reach Tuvima at home and away without exposing unnecessary technical detail.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
         SettingsSection.Providers => GetMetadataDescription(),
         SettingsSection.ActivityLogs => "See meaningful system activity and important administrative changes.",

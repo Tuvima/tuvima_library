@@ -92,6 +92,15 @@ public interface IConfigurationLoader
     /// <summary>Persist transcoding settings to <c>config/transcoding.json</c>.</summary>
     void SaveTranscoding(TranscodingSettings settings);
 
+    // ── Network & Remote Access ─────────────────────────────────────────────
+
+    /// <summary>Load desired network settings from <c>config/network.json</c>.</summary>
+    NetworkSettings LoadNetwork() => new();
+
+    /// <summary>Persist desired network settings to <c>config/network.json</c>.</summary>
+    void SaveNetwork(NetworkSettings settings) =>
+        throw new NotSupportedException("This configuration loader does not support saving network settings.");
+
     // ── Media Types ──────────────────────────────────────────────────────────
 
     /// <summary>Load media type definitions from <c>config/media_types.json</c>.</summary>

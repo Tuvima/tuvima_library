@@ -29,6 +29,10 @@ window.tuvimaEditorScrollTop = function () {
     });
 };
 
+window.scrollElementToTop = function (element) {
+    if (element) element.scrollTop = 0;
+};
+
 // All custom menus use the same click-away contract. MudMenu already handles
 // its own dismissal; this covers richer application-owned popout surfaces.
 (function installDismissibleSurfaceHandler() {

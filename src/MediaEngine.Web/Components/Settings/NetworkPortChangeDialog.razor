@@ -1,0 +1,61 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Settings
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+
+<AppDialog Visible="@Visible"
+           VisibleChanged="@VisibleChanged"
+           Title="Change server port"
+           Subtitle="Tuvima will check the new port before saving it. The current address remains active until restart."
+           Icon="@Icons.Material.Outlined.SettingsEthernet"
+           Size="Medium">
+    <ChildContent>
+        <div class="network-port-dialog__fields">
+            <AppNumericField Value="@CurrentPort" Label="Current port" ReadOnly="true" />
+            <AppNumericField @bind-Value="_newPort" Label="New port" Min="1" Max="65535" />
+        </div>
+        @if (_result is not null)
+        {
+            <AppAlert Tone="@(_result.Available ? AppUiTone.Success : AppUiTone.Error)">@_result.Message</AppAlert>
+        }
+    </ChildContent>
+    <FooterContent>
+        <AppButton Label="Cancel" OnClick="CancelAsync" Disabled="@_busy" />
+        <AppButton Label="@(_busy ? "Checking…" : "Apply & Test")"
+                   StartIcon="@Icons.Material.Outlined.Science"
+                   Tone="AppUiTone.Primary"
+                   ButtonStyle="AppButtonStyle.Filled"
+                   Disabled="@_busy"
+                   OnClick="ApplyAsync" />
+    </FooterContent>
+</AppDialog>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public int CurrentPort { get; set; }
+    [Parameter] public EventCallback<PortAvailabilityResultDto> Applied { get; set; }
+
+    private int _newPort;
+    private bool _busy;
+    private PortAvailabilityResultDto? _result;
+
+    protected override void OnParametersSet()
+    {
+        if (_newPort == 0)
+            _newPort = CurrentPort;
+    }
+
+    private async Task ApplyAsync()
+    {
+        _busy = true;
+        _result = await ApiClient.CheckNetworkPortAsync(_newPort);
+        if (_result?.Available == true)
+            _result = await ApiClient.ApplyNetworkPortAsync(_newPort);
+        _busy = false;
+        if (_result?.Available == true)
+            await Applied.InvokeAsync(_result);
+    }
+
+    private Task CancelAsync() => VisibleChanged.InvokeAsync(false);
+}

@@ -7,6 +7,7 @@
 @inject ShellActivityState Activity
 @inject DashboardAuthUiOptions AuthUi
 @inject NavigationManager Nav
+@inject IEngineApiClient ApiClient
 @inject IStringLocalizer<SharedStrings> L
 @inject ILogger<MainLayout> Logger
 @implements IAsyncDisposable
@@ -182,6 +183,17 @@
         if (!firstRender)
         {
             return;
+        }
+
+        var currentRoute = Nav.ToBaseRelativePath(Nav.Uri).Split('?', '#')[0];
+        if (!currentRoute.Equals("setup/network", StringComparison.OrdinalIgnoreCase))
+        {
+            var networkSettings = await ApiClient.GetNetworkSettingsAsync();
+            if (networkSettings is { SetupCompleted: false })
+            {
+                Nav.NavigateTo("/setup/network", replace: true);
+                return;
+            }
         }
 
         var detectedDevice = await JS.InvokeAsync<string>("detectDeviceClass");

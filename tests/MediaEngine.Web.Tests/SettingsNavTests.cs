@@ -266,6 +266,7 @@ public sealed class SettingsNavTests
             "Metadata",
             "Needs Review",
             "Activity & Audit",
+            "Network & Remote Access",
             "Playback & Delivery",
             "Users & Access",
             "Backup & Recovery",

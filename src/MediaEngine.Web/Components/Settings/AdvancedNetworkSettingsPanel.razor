@@ -1,0 +1,135 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Settings
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<div class="network-panel network-advanced">
+    <details class="network-advanced-card">
+        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.SettingsEthernet" /></span><span><strong>Ports &amp; Binding</strong><small>Configure ports, binding address, and protocol settings.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
+        <div class="network-advanced-card__body">
+            <dl class="network-facts">
+                @Fact("Internal port", Settings.Local.Port.ToString())
+                @Fact("External port", (Settings.Remote.ExternalPort ?? Settings.Local.Port).ToString())
+                @Fact("Binding", Settings.Local.BindMode == "automatic" ? "Automatic — All Interfaces" : Settings.Local.InterfaceId ?? "Selected interface unavailable")
+                @Fact("IPv4", "Automatic")
+                @Fact("IPv6", Settings.Local.Ipv6Enabled ? "Enabled when available" : "Disabled")
+            </dl>
+        </div>
+    </details>
+
+    <details class="network-advanced-card">
+        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Router" /></span><span><strong>Router Configuration</strong><small>View and manage automatic port mappings.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
+        <div class="network-advanced-card__body">
+            <dl class="network-facts">
+                @Fact("Automatic setup", Settings.Remote.AutomaticRouterConfiguration ? "Enabled" : "Disabled")
+                @Fact("Current mapping", Display(Status?.MappingStatus))
+                @Fact("Selected method", Status?.RouterMethod ?? "None")
+                @Fact("Public address", Status?.PublicIp ?? "Not observed")
+            </dl>
+            <AppSwitchRow Label="Automatic Router Configuration" Value="@Settings.Remote.AutomaticRouterConfiguration" ValueChanged="ChangeRouterAutomationAsync" />
+        </div>
+    </details>
+
+    <details class="network-advanced-card">
+        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Security" /></span><span><strong>Secure Connectivity</strong><small>Manage secure tunnel or relay providers.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
+        <div class="network-advanced-card__body">
+            <AppAlert Tone="AppUiTone.Info">No secure connectivity provider is installed. Provider credentials will use Tuvima's protected secret store when an adapter is added.</AppAlert>
+        </div>
+    </details>
+
+    <details class="network-advanced-card">
+        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Language" /></span><span><strong>Custom Domain &amp; Reverse Proxy</strong><small>Use your own domain and reverse proxy.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
+        <div class="network-advanced-card__body network-advanced-fields">
+            <AppTextField T="string" @bind-Value="Settings.Remote.PublicHostname" Label="Public HTTPS address" Placeholder="https://tuvima.example.com" />
+            <AppTextField T="string" @bind-Value="_trustedProxyText" Label="Trusted proxy addresses" HelpText="Comma-separated IP addresses. Forwarded headers are ignored from every other source." />
+            <AppButton Label="Save proxy settings" OnClick="SaveProxySettingsAsync" />
+        </div>
+    </details>
+
+    <details class="network-advanced-card">
+        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Science" /></span><span><strong>Diagnostics</strong><small>Advanced network diagnostics and troubleshooting tools.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
+        <div class="network-advanced-card__body">
+            <dl class="network-facts">
+                @Fact("IPv6 available", Status?.Ipv6Available == true ? "Yes" : "No")
+                @Fact("CGNAT suspected", Status?.CgnatSuspected == true ? "Yes — port forwarding may not work" : "No evidence observed")
+                @Fact("Last connection test", Status?.LastTestedAt?.ToLocalTime().ToString("g") ?? "Not tested")
+                @Fact("External verification", Status?.LastTestSucceeded == true ? "Passed" : Status?.LastTestSucceeded == false ? "Failed" : "Unknown")
+            </dl>
+        </div>
+    </details>
+
+    <AppAlert Tone="AppUiTone.Warning" Icon="@Icons.Material.Outlined.WarningAmber" Class="network-advanced-warning">
+        <strong>Advanced settings are intended for experienced users.</strong>
+        <span>Changing these settings may affect your server's availability.</span>
+    </AppAlert>
+
+    <div class="network-danger-row">
+        <div><strong>Reset Network Settings</strong><span>Restore local-first defaults and turn off remote access.</span></div>
+        <AppButton Label="Reset Network Settings" Tone="AppUiTone.Error" OnClick="OpenReset" />
+    </div>
+</div>
+
+<AppDialog @bind-Visible="_resetDialogOpen"
+           Title="Reset network settings?"
+           Subtitle="This turns off remote access and removes custom network configuration. Other Tuvima settings are not affected."
+           Icon="@Icons.Material.Outlined.Restore"
+           Size="Medium">
+    <ChildContent><AppAlert Tone="AppUiTone.Warning">Tuvima will attempt to remove any automatic mapping it owns during reconciliation or shutdown.</AppAlert></ChildContent>
+    <FooterContent>
+        <AppButton Label="Cancel" OnClick="CloseReset" />
+        <AppButton Label="Reset Network Settings" Tone="AppUiTone.Error" ButtonStyle="AppButtonStyle.Filled" OnClick="ResetAsync" />
+    </FooterContent>
+</AppDialog>
+
+@code {
+    [Parameter, EditorRequired] public NetworkSettingsDto Settings { get; set; } = new();
+    [Parameter] public NetworkRuntimeStatusDto? Status { get; set; }
+    [Parameter] public EventCallback SaveRequested { get; set; }
+    [Parameter] public EventCallback<NetworkSettingsDto> SettingsReplaced { get; set; }
+
+    private bool _resetDialogOpen;
+    private string? _trustedProxyText;
+
+    protected override void OnParametersSet()
+    {
+        _trustedProxyText ??= string.Join(", ", Settings.Remote.TrustedProxies);
+    }
+
+    private async Task ChangeRouterAutomationAsync(bool value)
+    {
+        Settings.Remote.AutomaticRouterConfiguration = value;
+        await SaveRequested.InvokeAsync();
+    }
+
+    private async Task SaveProxySettingsAsync()
+    {
+        Settings.Remote.TrustedProxies = (_trustedProxyText ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        await SaveRequested.InvokeAsync();
+    }
+
+    private void OpenReset() => _resetDialogOpen = true;
+    private void CloseReset() => _resetDialogOpen = false;
+
+    private async Task ResetAsync()
+    {
+        var replacement = await ApiClient.ResetNetworkSettingsAsync();
+        if (replacement is null)
+        {
+            Snackbar.Add("Network settings could not be reset.", Severity.Error);
+            return;
+        }
+        _resetDialogOpen = false;
+        Snackbar.Add("Network settings reset. Remote access is off.", Severity.Success);
+        await SettingsReplaced.InvokeAsync(replacement);
+    }
+
+    private static string Display(string? value) => string.IsNullOrWhiteSpace(value)
+        ? "Unavailable"
+        : string.Join(' ', value.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
+
+    private static RenderFragment Fact(string label, string value) => @<div><dt>@label</dt><dd>@value</dd></div>;
+}

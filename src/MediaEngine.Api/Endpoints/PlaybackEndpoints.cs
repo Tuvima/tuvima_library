@@ -1,6 +1,7 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
+using MediaEngine.Api.Services.Networking;
 using MediaEngine.Contracts.Playback;
 
 namespace MediaEngine.Api.Endpoints;
@@ -31,10 +32,24 @@ public static class PlaybackEndpoints
             Guid assetId,
             string? client,
             Guid? profileId,
+            string? connectionPath,
+            string? provider,
+            double? bandwidthMbps,
+            int? latencyMs,
+            Guid? roomId,
+            HttpContext httpContext,
+            NetworkConnectionClassifier classifier,
             PlaybackCapabilitiesService playback,
             CancellationToken ct) =>
         {
-            var manifest = await playback.BuildManifestAsync(assetId, client, profileId, ct);
+            var connection = classifier.Classify(
+                httpContext,
+                connectionPath,
+                provider,
+                bandwidthMbps,
+                latencyMs,
+                roomId);
+            var manifest = await playback.BuildManifestAsync(assetId, client, profileId, ct, connection);
             return manifest is null
                 ? ApiErrors.NotFound($"Asset '{assetId}' not found.")
                 : Results.Ok(manifest);

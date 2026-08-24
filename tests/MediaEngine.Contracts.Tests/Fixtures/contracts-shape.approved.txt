@@ -3747,6 +3747,15 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackChapterKin
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackChapterTitleSources
 
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackConnectionContextDto
+  ConnectionPath: System.String | nullability=not-null | accessors=get,init
+  RemoteConnectivityProvider: System.String | nullability=nullable | accessors=get,init
+  EstimatedBandwidthMbps: System.Double? | nullability=nullable | accessors=get,init
+  LatencyMs: System.Int32? | nullability=nullable | accessors=get,init
+  RoomId: System.Guid? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackConnectionPaths
+
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackDeliveryModes
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackDiagnosticsDto
@@ -3788,6 +3797,8 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackManifestDt
   Technical: MediaEngine.Contracts.Playback.PlaybackTechnicalInfoDto | nullability=not-null | accessors=get,init
   Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
   ConversionReason: System.String | nullability=nullable | accessors=get,init
+  SourceBitrateKbps: System.Int32? | nullability=nullable | accessors=get,init
+  Connection: MediaEngine.Contracts.Playback.PlaybackConnectionContextDto | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackPreferenceValues
 
@@ -3918,6 +3929,7 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerHeartbeatDto
   ChapterIndex: System.Int32? | nullability=nullable | accessors=get,init
   ChapterTitle: System.String | nullability=nullable | accessors=get,init
   AudiobookStartKind: System.String | nullability=nullable | accessors=get,init
+  Connection: MediaEngine.Contracts.Playback.PlaybackConnectionContextDto | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerPlaybackStates
 
@@ -4028,6 +4040,7 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerStateDto
   Capabilities: MediaEngine.Contracts.Playback.PlayerCapabilitiesDto | nullability=not-null | accessors=get,init
   AudiobookHistory: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.AudiobookListenHistoryItemDto> | nullability=not-null | accessors=get,init
   Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  Connection: MediaEngine.Contracts.Playback.PlaybackConnectionContextDto | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.QueueEncodeRequestDto
   ProfileKey: System.String | nullability=not-null | accessors=get,init
@@ -5078,6 +5091,14 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibrarySourceDto
   DeviceId: System.String | nullability=nullable | accessors=get,set
   ProfileId: System.String | nullability=nullable | accessors=get,set
 
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LocalNetworkSettingsDto
+  Port: System.Int32 | nullability=not-null | accessors=get,set
+  BindMode: System.String | nullability=not-null | accessors=get,set
+  InterfaceId: System.String | nullability=nullable | accessors=get,set
+  DiscoveryEnabled: System.Boolean | nullability=not-null | accessors=get,set
+  PreferredServerName: System.String | nullability=not-null | accessors=get,set
+  Ipv6Enabled: System.Boolean | nullability=not-null | accessors=get,set
+
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.MediaTypeConfigurationDto
   Version: System.String | nullability=not-null | accessors=get,set
   Types: System.Collections.Generic.List<MediaEngine.Contracts.Settings.MediaTypeDefinitionDto> | nullability=not-null | accessors=get,set
@@ -5103,6 +5124,70 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.MissingItemDisplay
   Presentation: System.String | nullability=not-null | accessors=get,set
   PageSize: System.Int32 | nullability=not-null | accessors=get,set
   DetailHydration: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkAddressDto
+  InterfaceId: System.String | nullability=not-null | accessors=get,set
+  InterfaceName: System.String | nullability=not-null | accessors=get,set
+  Address: System.String | nullability=not-null | accessors=get,set
+  AddressFamily: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkBandwidthStatusDto
+  UploadCapacityMbps: System.Double? | nullability=nullable | accessors=get,set
+  ReservedMbps: System.Double | nullability=not-null | accessors=get,set
+  AvailableMbps: System.Double? | nullability=nullable | accessors=get,set
+  MeasuredAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+  Status: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkRuntimeStatusDto
+  LocalAccess: System.String | nullability=not-null | accessors=get,set
+  RemoteAccess: System.String | nullability=not-null | accessors=get,set
+  ConnectionType: System.String | nullability=not-null | accessors=get,set
+  SecureConnection: System.String | nullability=not-null | accessors=get,set
+  LocalAddresses: System.Collections.Generic.List<MediaEngine.Contracts.Settings.NetworkAddressDto> | nullability=not-null | accessors=get,set
+  PreferredLocalAddress: System.String | nullability=nullable | accessors=get,set
+  ExternalAddress: System.String | nullability=nullable | accessors=get,set
+  PublicIp: System.String | nullability=nullable | accessors=get,set
+  RouterConfiguration: System.String | nullability=not-null | accessors=get,set
+  RouterMethod: System.String | nullability=nullable | accessors=get,set
+  MappingStatus: System.String | nullability=not-null | accessors=get,set
+  MappingCheckedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+  MappingExpiresAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+  LastTestedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+  LastTestSucceeded: System.Boolean? | nullability=nullable | accessors=get,set
+  UptimeSeconds: System.Int64 | nullability=not-null | accessors=get,set
+  Ipv6Available: System.Boolean | nullability=not-null | accessors=get,set
+  CgnatSuspected: System.Boolean | nullability=not-null | accessors=get,set
+  Headline: System.String | nullability=not-null | accessors=get,set
+  Guidance: System.String | nullability=not-null | accessors=get,set
+  Bandwidth: MediaEngine.Contracts.Settings.NetworkBandwidthStatusDto | nullability=not-null | accessors=get,set
+  HardwareAcceleration: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkSettingsDto
+  SchemaVersion: System.String | nullability=not-null | accessors=get,set
+  SetupCompleted: System.Boolean | nullability=not-null | accessors=get,set
+  Local: MediaEngine.Contracts.Settings.LocalNetworkSettingsDto | nullability=not-null | accessors=get,set
+  Remote: MediaEngine.Contracts.Settings.RemoteNetworkSettingsDto | nullability=not-null | accessors=get,set
+  Streaming: MediaEngine.Contracts.Settings.NetworkStreamingSettingsDto | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkStreamingSettingsDto
+  RemoteQuality: System.String | nullability=not-null | accessors=get,set
+  UploadProtectionEnabled: System.Boolean | nullability=not-null | accessors=get,set
+  ReservedUploadMbps: System.Int32 | nullability=not-null | accessors=get,set
+  ConcurrentRemoteStreams: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkTestCheckDto
+  Key: System.String | nullability=not-null | accessors=get,set
+  Label: System.String | nullability=not-null | accessors=get,set
+  Status: System.String | nullability=not-null | accessors=get,set
+  Detail: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkTestResultDto
+  Kind: System.String | nullability=not-null | accessors=get,set
+  Status: System.String | nullability=not-null | accessors=get,set
+  Headline: System.String | nullability=not-null | accessors=get,set
+  Detail: System.String | nullability=not-null | accessors=get,set
+  TestedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
+  Checks: System.Collections.Generic.List<MediaEngine.Contracts.Settings.NetworkTestCheckDto> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.OrganizationTemplateDto
   Template: System.String | nullability=not-null | accessors=get,init
@@ -5135,6 +5220,15 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.PipelineProviderEn
   UseAsIdentityFallback: System.Boolean | nullability=not-null | accessors=get,set
   AcceptedTransition: MediaEngine.Contracts.Settings.AcceptedProviderTransitionConfiguration | nullability=nullable | accessors=get,set
   AcceptedActions: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.PortAvailabilityRequest
+  Port: System.Int32 | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.PortAvailabilityResultDto
+  Port: System.Int32 | nullability=not-null | accessors=get,set
+  Available: System.Boolean | nullability=not-null | accessors=get,set
+  RestartRequired: System.Boolean | nullability=not-null | accessors=get,set
+  Message: System.String | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderCatalogueDto
   ProviderId: System.String | nullability=not-null | accessors=get,set
@@ -5245,6 +5339,15 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderTestResult
   ResponseTimeMs: System.Int32 | nullability=not-null | accessors=get,init
   SampleFields: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,init
   Message: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.RemoteNetworkSettingsDto
+  Enabled: System.Boolean | nullability=not-null | accessors=get,set
+  ConnectionMode: System.String | nullability=not-null | accessors=get,set
+  AutomaticRouterConfiguration: System.Boolean | nullability=not-null | accessors=get,set
+  ExternalPort: System.Int32? | nullability=nullable | accessors=get,set
+  ProviderKey: System.String | nullability=nullable | accessors=get,set
+  PublicHostname: System.String | nullability=nullable | accessors=get,set
+  TrustedProxies: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ResolvedUISettingsDto
   DeviceClass: System.String | nullability=not-null | accessors=get,set

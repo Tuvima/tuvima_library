@@ -1,0 +1,96 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Settings
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+
+<div class="network-panel network-overview">
+    <div class="network-panel__actions">
+        <AppButton Label="Test Connection" StartIcon="@Icons.Material.Outlined.NetworkCheck"
+                   Tone="AppUiTone.Primary" OnClick="TestAsync" />
+    </div>
+
+    <SettingsSectionPanel Title="Connection Status"
+                          Description="A live summary of how devices can reach Tuvima."
+                          Icon="@Icons.Material.Outlined.WifiTethering">
+        <div class="network-status-grid">
+            @StatusCard("Local Access", Status?.LocalAccess ?? "Unavailable", "Devices on your network can reach Tuvima.", Icons.Material.Outlined.Home)
+            @StatusCard("Remote Access", Status?.RemoteAccess ?? "Unavailable", Settings.Remote.Enabled ? "Access away from home." : "Remote access is turned off.", Icons.Material.Outlined.Public)
+            @StatusCard("Connection", Display(Status?.ConnectionType), "The active route to your server.", Icons.Material.Outlined.Cable)
+            @StatusCard("Secure Connection", Display(Status?.SecureConnection), "Remote connections must use a trusted secure path.", Icons.Material.Outlined.VerifiedUser)
+        </div>
+    </SettingsSectionPanel>
+
+    <SettingsSectionPanel Title="Server information" Icon="@Icons.Material.Outlined.Dns">
+        <dl class="network-facts">
+            @Fact("Server Address (Local)", Status?.PreferredLocalAddress ?? "Unavailable")
+            @Fact("Server Address (External)", Status?.ExternalAddress ?? "Not configured")
+            @Fact("Router Configuration", RouterSummary)
+            @Fact("External IP Address", Status?.PublicIp ?? "Not observed")
+            @Fact("Last Connection Test", LastTestSummary)
+            @Fact("Uptime", FormatUptime(Status?.UptimeSeconds ?? 0))
+        </dl>
+    </SettingsSectionPanel>
+
+    <AppAlert Tone="@SummaryTone" Class="network-summary-alert">
+        <strong>@(Status?.Headline ?? "Network status is unavailable")</strong>
+        <span>@(Status?.Guidance ?? "Start the Engine to inspect network access.")</span>
+    </AppAlert>
+</div>
+
+<NetworkTestDialog @bind-Visible="_testDialogOpen" Busy="@_testing" Result="@_testResult" />
+
+@code {
+    [Parameter, EditorRequired] public NetworkSettingsDto Settings { get; set; } = new();
+    [Parameter] public NetworkRuntimeStatusDto? Status { get; set; }
+    [Parameter] public EventCallback StatusRefreshRequested { get; set; }
+
+    private bool _testDialogOpen;
+    private bool _testing;
+    private NetworkTestResultDto? _testResult;
+
+    private AppUiTone SummaryTone => Status?.LocalAccess == "healthy"
+        && (!Settings.Remote.Enabled || Status.RemoteAccess == "available")
+            ? AppUiTone.Success
+            : AppUiTone.Warning;
+
+    private string RouterSummary => Status?.MappingStatus == "active"
+        ? $"{Status.RouterMethod ?? "Automatic"} · Active"
+        : Display(Status?.MappingStatus);
+
+    private string LastTestSummary => Status?.LastTestedAt is null
+        ? "Not tested"
+        : $"{Status.LastTestedAt.Value.ToLocalTime():g} · {(Status.LastTestSucceeded == true ? "Successful" : Status.LastTestSucceeded == false ? "Failed" : "Incomplete")}";
+
+    private async Task TestAsync()
+    {
+        _testDialogOpen = true;
+        _testing = true;
+        _testResult = null;
+        _testResult = Settings.Remote.Enabled
+            ? await ApiClient.TestRemoteNetworkAsync()
+            : await ApiClient.TestLocalNetworkAsync();
+        _testing = false;
+        await StatusRefreshRequested.InvokeAsync();
+    }
+
+    private static string Display(string? value) => string.IsNullOrWhiteSpace(value)
+        ? "Unavailable"
+        : string.Join(' ', value.Split('-', StringSplitOptions.RemoveEmptyEntries)
+            .Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
+
+    private static string FormatUptime(long seconds)
+    {
+        var duration = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return duration.TotalDays >= 1
+            ? $"{(int)duration.TotalDays} days, {duration.Hours} hours"
+            : $"{duration.Hours} hours, {duration.Minutes} minutes";
+    }
+
+    private RenderFragment StatusCard(string label, string value, string description, string icon) => @<article class="network-status-card">
+        <div class="network-status-card__label"><MudIcon Icon="@icon" /><span>@label</span></div>
+        <strong class="network-status-card__value is-@value.ToLowerInvariant()">@Display(value)</strong>
+        <p>@description</p>
+    </article>;
+
+    private static RenderFragment Fact(string label, string value) => @<div><dt>@label</dt><dd>@value</dd></div>;
+}

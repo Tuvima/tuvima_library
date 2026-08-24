@@ -1,0 +1,12 @@
+@namespace MediaEngine.Web.Shared
+@inherits LayoutComponentBase
+@inject ThemeService ThemeService
+
+<MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="true" />
+<MudPopoverProvider />
+<MudDialogProvider CloseOnEscapeKey="true" />
+<MudSnackbarProvider />
+
+<main class="setup-wizard-layout">
+    @Body
+</main>

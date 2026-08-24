@@ -1,0 +1,58 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Settings
+
+<AppDialog Visible="@Visible"
+           VisibleChanged="@VisibleChanged"
+           Title="@(Result?.Headline ?? "Testing connection")"
+           Subtitle="@(Result?.Detail ?? "Tuvima is checking each part of the connection.")"
+           Icon="@DialogIcon"
+           Size="Medium">
+    <ChildContent>
+        @if (Busy)
+        {
+            <div class="network-test-dialog__busy">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                <span>Running connection checks…</span>
+            </div>
+        }
+        else if (Result is not null)
+        {
+            <div class="network-test-dialog__checks">
+                @foreach (var check in Result.Checks)
+                {
+                    <div class="network-test-dialog__check is-@check.Status">
+                        <MudIcon Icon="@CheckIcon(check.Status)" aria-hidden="true" />
+                        <div><strong>@check.Label</strong><span>@check.Detail</span></div>
+                    </div>
+                }
+            </div>
+        }
+    </ChildContent>
+    <FooterContent>
+        <AppButton Label="Close" OnClick="CloseAsync" />
+    </FooterContent>
+</AppDialog>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public NetworkTestResultDto? Result { get; set; }
+
+    private string DialogIcon => Result?.Status switch
+    {
+        "passed" => Icons.Material.Outlined.CheckCircle,
+        "failed" => Icons.Material.Outlined.ErrorOutline,
+        _ => Icons.Material.Outlined.WifiFind,
+    };
+
+    private static string CheckIcon(string status) => status switch
+    {
+        "passed" => Icons.Material.Outlined.CheckCircle,
+        "failed" => Icons.Material.Outlined.ErrorOutline,
+        "skipped" => Icons.Material.Outlined.RemoveCircleOutline,
+        _ => Icons.Material.Outlined.HelpOutline,
+    };
+
+    private Task CloseAsync() => VisibleChanged.InvokeAsync(false);
+}

@@ -113,6 +113,12 @@ public sealed record PlaybackClientContext(
     string AppVersion,
     string DeviceClass)
 {
+    public string ConnectionPath { get; init; } = PlaybackConnectionPaths.Local;
+    public string? RemoteConnectivityProvider { get; init; }
+    public double? EstimatedBandwidthMbps { get; init; }
+    public int? LatencyMs { get; init; }
+    public Guid? RoomId { get; init; }
+
     public static PlaybackClientContext WebDefault { get; } = new(
         DeviceId: "web",
         DeviceName: "Dashboard",
@@ -127,6 +133,10 @@ public sealed record PlaybackClientContext(
         Client = string.IsNullOrWhiteSpace(Client) ? WebDefault.Client : Client.Trim().ToLowerInvariant(),
         AppVersion = string.IsNullOrWhiteSpace(AppVersion) ? WebDefault.AppVersion : AppVersion.Trim(),
         DeviceClass = string.IsNullOrWhiteSpace(DeviceClass) ? WebDefault.DeviceClass : DeviceClass.Trim().ToLowerInvariant(),
+        ConnectionPath = PlaybackConnectionPaths.IsKnown(ConnectionPath) ? ConnectionPath : PlaybackConnectionPaths.Local,
+        RemoteConnectivityProvider = string.IsNullOrWhiteSpace(RemoteConnectivityProvider) ? null : RemoteConnectivityProvider.Trim(),
+        EstimatedBandwidthMbps = EstimatedBandwidthMbps is > 0 ? Math.Min(EstimatedBandwidthMbps.Value, 100_000) : null,
+        LatencyMs = LatencyMs is >= 0 ? Math.Min(LatencyMs.Value, 120_000) : null,
     };
 }
 

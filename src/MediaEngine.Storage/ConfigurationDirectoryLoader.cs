@@ -62,6 +62,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     private const string MediaTypesFileName       = "media_types.json";
     private const string DisambiguationFileName   = "disambiguation.json";
     private const string TranscodingFileName      = "transcoding.json";
+    private const string NetworkFileName          = "network.json";
     private const string FieldPrioritiesFileName  = "field_priorities.json";
     private const string PipelinesFileName        = "pipelines.json";
 
@@ -155,6 +156,14 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     /// <inheritdoc/>
     public void SaveTranscoding(TranscodingSettings settings) =>
         SaveFile(TranscodingFileName, settings);
+
+    /// <inheritdoc/>
+    public NetworkSettings LoadNetwork() =>
+        LoadFile<NetworkSettings>(NetworkFileName) ?? new();
+
+    /// <inheritdoc/>
+    public void SaveNetwork(NetworkSettings settings) =>
+        SaveFile(NetworkFileName, settings);
 
     /// <inheritdoc/>
     public FieldPriorityConfiguration LoadFieldPriorities() =>
@@ -530,6 +539,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
                 HydrationFileName => ReloadFile<HydrationSettings>(relativePath),
                 MediaTypesFileName => ReloadFile<MediaTypeConfiguration>(relativePath),
                 PipelinesFileName => ReloadFile<Dictionary<string, MediaTypePipeline>>(relativePath),
+                NetworkFileName => ReloadFile<NetworkSettings>(relativePath),
                 "ui/palette.json" => ReloadFile<PaletteConfiguration>(relativePath),
                 var path when path.StartsWith("providers/", StringComparison.OrdinalIgnoreCase) => ReloadFile<ProviderConfiguration>(relativePath),
                 _ => LoadConfig<object>(Path.GetDirectoryName(relativePath) ?? string.Empty, Path.GetFileNameWithoutExtension(relativePath)),
@@ -572,6 +582,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             "maintenance.json" => "maintenance.schema.json",
             "media_types.json" => "media_types.schema.json",
             "pipelines.json" => "pipelines.schema.json",
+            "network.json" => "network.schema.json",
             "ui/palette.json" => "ui/palette.schema.json",
             "ui/library-preferences.json" => "ui/library-preferences.schema.json",
             _ => $"{Path.GetFileNameWithoutExtension(normalized)}.schema.json",
@@ -612,6 +623,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         SaveScoring(new ScoringSettings());
         SaveMaintenance(new MaintenanceSettings());
         SaveDisambiguation(new DisambiguationSettings());
+        SaveNetwork(new NetworkSettings());
         SaveFieldPriorities(new FieldPriorityConfiguration
         {
             FieldOverrides = new(StringComparer.OrdinalIgnoreCase)

@@ -1249,6 +1249,7 @@ public sealed class PlaybackSessionController
                 AudiobookStartKind = IsAudiobookMode
                     ? NormalizeAudiobookStartKind(_currentAudiobookStartKind ?? current?.AudiobookStartKind)
                     : null,
+                Connection = ToConnectionContext(),
             }, ct);
             ApplyPlayerState(state);
         }
@@ -1501,7 +1502,12 @@ public sealed class PlaybackSessionController
 
         var settings = _preferences is null ? null : await _preferences.GetAsync(ct);
         var profileId = settings?.ProfileId == Guid.Empty ? null : settings?.ProfileId;
-        var manifest = await _apiClient.GetPlaybackManifestAsync(assetId.Value, _clientContext.Client, profileId, ct);
+        var manifest = await _apiClient.GetPlaybackManifestAsync(
+            assetId.Value,
+            _clientContext.Client,
+            profileId,
+            ct,
+            ToConnectionContext());
         var streamUrl = manifest?.DirectStreamUrl ?? item.StreamUrl;
         if (string.IsNullOrWhiteSpace(streamUrl))
         {
@@ -1529,6 +1535,15 @@ public sealed class PlaybackSessionController
         }
         CurrentError = null;
     }
+
+    private PlaybackConnectionContextDto ToConnectionContext() => new()
+    {
+        ConnectionPath = _clientContext.ConnectionPath,
+        RemoteConnectivityProvider = _clientContext.RemoteConnectivityProvider,
+        EstimatedBandwidthMbps = _clientContext.EstimatedBandwidthMbps,
+        LatencyMs = _clientContext.LatencyMs,
+        RoomId = _clientContext.RoomId,
+    };
 
     private static ListenQueueItem BootstrapDirectStream(ListenQueueItem item)
     {

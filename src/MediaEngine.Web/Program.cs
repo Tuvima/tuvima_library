@@ -15,6 +15,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -65,6 +67,33 @@ string configDir = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
                 ?? "config";
 var dashboardConfig = new DashboardConfigurationReader(configDir);
 builder.Services.AddSingleton(dashboardConfig);
+var networkSettings = dashboardConfig.LoadNetwork();
+
+// Installed/service deployments use the user-facing network port from the shared
+// configuration. Explicit host configuration (launchSettings, ASPNETCORE_URLS,
+// container settings) remains authoritative for development and orchestration.
+if (string.IsNullOrWhiteSpace(builder.Configuration["urls"])
+    && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{networkSettings.Local.Port}");
+}
+
+if (networkSettings.Remote.TrustedProxies.Count > 0)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
+            | ForwardedHeaders.XForwardedProto
+            | ForwardedHeaders.XForwardedHost;
+        options.ForwardLimit = 1;
+        options.KnownProxies.Clear();
+        foreach (var address in networkSettings.Remote.TrustedProxies)
+        {
+            if (IPAddress.TryParse(address, out var proxy))
+                options.KnownProxies.Add(proxy);
+        }
+    });
+}
 
 var authSettings = dashboardConfig.LoadCore().Auth;
 var ssoEnabled =
@@ -237,6 +266,8 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+if (networkSettings.Remote.TrustedProxies.Count > 0)
+    app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseRequestLocalization();
 if (ssoEnabled)

@@ -158,6 +158,7 @@ The user-facing Dashboard is organized around current workflows:
 - [Wikidata Property Map](reference/wikidata-property-map.md)
 - [How the Pipeline Works](explanation/how-the-pipeline-works.md)
 - [Ingestion Pipeline](architecture/ingestion-pipeline.md)
+- [Network and Remote Access](architecture/network-and-remote-access.md)
 - [Libraries, Sources, and Intake](architecture/library-model-and-intake.md)
 - [View Personal Media Architecture and Static Review](architecture/view-personal-media.md)
 - [Hydration Pipeline and Providers](architecture/hydration-and-providers.md)

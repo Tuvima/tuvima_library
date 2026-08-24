@@ -20,6 +20,8 @@ public sealed record PlaybackManifestDto
     public PlaybackTechnicalInfoDto Technical { get; init; } = new();
     public IReadOnlyList<string> Warnings { get; init; } = [];
     public string? ConversionReason { get; init; }
+    public int? SourceBitrateKbps { get; init; }
+    public PlaybackConnectionContextDto Connection { get; init; } = new();
 }
 
 public sealed record PlaybackTechnicalInfoDto
@@ -166,6 +168,7 @@ public sealed record PlayerStateDto
     public PlayerCapabilitiesDto Capabilities { get; init; } = new();
     public IReadOnlyList<AudiobookListenHistoryItemDto> AudiobookHistory { get; init; } = [];
     public IReadOnlyList<string> Warnings { get; init; } = [];
+    public PlaybackConnectionContextDto Connection { get; init; } = new();
 }
 
 public sealed record AudiobookListenHistoryItemDto
@@ -344,6 +347,32 @@ public sealed record PlayerHeartbeatDto
     public int? ChapterIndex { get; init; }
     public string? ChapterTitle { get; init; }
     public string? AudiobookStartKind { get; init; }
+    public PlaybackConnectionContextDto? Connection { get; init; }
+}
+
+/// <summary>
+/// Observed playback connection facts. These values guide delivery selection and
+/// diagnostics; they are never trusted as an authorization signal.
+/// </summary>
+public sealed record PlaybackConnectionContextDto
+{
+    public string ConnectionPath { get; init; } = PlaybackConnectionPaths.Local;
+    public string? RemoteConnectivityProvider { get; init; }
+    public double? EstimatedBandwidthMbps { get; init; }
+    public int? LatencyMs { get; init; }
+    public Guid? RoomId { get; init; }
+}
+
+public static class PlaybackConnectionPaths
+{
+    public const string Local = "local";
+    public const string RemoteDirect = "remote-direct";
+    public const string RemoteSecureProvider = "remote-secure-provider";
+    public const string RemoteCustom = "remote-custom";
+    public const string RemoteRelay = "remote-relay";
+
+    public static bool IsKnown(string? value) => value is Local or RemoteDirect
+        or RemoteSecureProvider or RemoteCustom or RemoteRelay;
 }
 
 public sealed record PlayerCapabilitiesDto

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using Dapper;
 using MediaEngine.Contracts.Playback;
@@ -23,6 +24,7 @@ public sealed class PlayerService
     private readonly AudiobookListenHistoryRepository _history;
     private readonly AudiobookBookmarkRepository _bookmarks;
     private readonly MusicPlayStatsRepository _musicStats;
+    private readonly ConcurrentDictionary<Guid, PlaybackConnectionContextDto> _connectionContexts = new();
 
     public PlayerService(
         PlayerSessionRepository sessions,
@@ -224,6 +226,10 @@ public sealed class PlayerService
         var profileId = ResolveProfileId(heartbeat.ProfileId);
         var deviceId = NormalizeDeviceId(heartbeat.DeviceId);
         var client = NormalizeClient(heartbeat.Client);
+        if (heartbeat.Connection is not null)
+        {
+            _connectionContexts[profileId] = NormalizeConnection(heartbeat.Connection);
+        }
         await _sessions.EnsureSessionAsync(profileId, heartbeat.SessionId ?? Guid.NewGuid(), deviceId, client, ct);
         var priorState = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
 
@@ -555,6 +561,7 @@ public sealed class PlayerService
 
     private async Task<PlayerStateDto> EnrichStateAsync(PlayerStateDto state, CancellationToken ct)
     {
+        var connection = _connectionContexts.GetValueOrDefault(state.ProfileId) ?? new PlaybackConnectionContextDto();
         var current = state.CurrentItem;
         if (current?.AssetId is null)
         {
@@ -562,13 +569,14 @@ public sealed class PlayerService
             {
                 Capabilities = GetCapabilities(),
                 Experience = ExperienceFor(state.Queue),
+                Connection = connection,
             };
         }
 
-        var manifest = await _playback.BuildManifestAsync(current.AssetId.Value, state.Client, state.ProfileId, ct);
+        var manifest = await _playback.BuildManifestAsync(current.AssetId.Value, state.Client, state.ProfileId, ct, connection);
         if (manifest is null)
         {
-            return state with { Capabilities = GetCapabilities() };
+            return state with { Capabilities = GetCapabilities(), Connection = connection };
         }
 
         var enrichedCurrent = current with
@@ -599,8 +607,25 @@ public sealed class PlayerService
                     ct)
                 : [],
             Warnings = manifest.Warnings,
+            Connection = connection,
         };
     }
+
+    private static PlaybackConnectionContextDto NormalizeConnection(PlaybackConnectionContextDto connection) => connection with
+    {
+        ConnectionPath = PlaybackConnectionPaths.IsKnown(connection.ConnectionPath)
+            ? connection.ConnectionPath
+            : PlaybackConnectionPaths.Local,
+        RemoteConnectivityProvider = string.IsNullOrWhiteSpace(connection.RemoteConnectivityProvider)
+            ? null
+            : connection.RemoteConnectivityProvider.Trim(),
+        EstimatedBandwidthMbps = connection.EstimatedBandwidthMbps is > 0
+            ? Math.Min(connection.EstimatedBandwidthMbps.Value, 100_000)
+            : null,
+        LatencyMs = connection.LatencyMs is >= 0
+            ? Math.Min(connection.LatencyMs.Value, 120_000)
+            : null,
+    };
 
     private async Task SaveResumeAsync(
         Guid profileId,

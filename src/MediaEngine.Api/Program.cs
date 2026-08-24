@@ -256,6 +256,7 @@ builder.Services.AddSingleton<IApiKeyLookupCache, ApiKeyLookupCache>();
 builder.Services.AddSingleton<ILibraryAccessEvaluator, LibraryAccessEvaluator>();
 builder.Services.AddTuvimaStorage();
 builder.Services.AddTuvimaPlayback();
+builder.Services.AddTuvimaNetworking();
 builder.Services.AddMediaEngineIngestion(config, configLoader);
 builder.Services.AddSingleton<DevHarnessResetService>();
 builder.Services.AddSingleton<AssetStoreCleanupService>();

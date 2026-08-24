@@ -91,7 +91,7 @@
         }
     </aside>
 
-    <main class="media-section-shell__content" data-detail-origin-scroll="@Title">
+    <main @ref="_content" class="media-section-shell__content" data-detail-origin-scroll="@Title">
         @ChildContent
     </main>
 </div>
@@ -104,7 +104,9 @@
     [Parameter] public bool AccordionNavigation { get; set; }
 
     private readonly HashSet<string> _expandedRoutes = new(StringComparer.OrdinalIgnoreCase);
+    private ElementReference _content;
     private bool _scrollActiveItem;
+    private bool _scrollContentTop;
 
     private string ShellCssClass => HasNestedNavigation
         ? "media-section-shell media-section-shell--nested"
@@ -126,6 +128,7 @@
         {
             ExpandActiveBranch();
             _scrollActiveItem = true;
+            _scrollContentTop = true;
             StateHasChanged();
         });
 
@@ -263,18 +266,27 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_scrollActiveItem)
+        if (!_scrollActiveItem && !_scrollContentTop)
         {
             return;
         }
 
-        _scrollActiveItem = false;
-        var activeItem = NavigationGroups
-            .SelectMany(group => Flatten(group.Items))
-            .LastOrDefault(IsActive);
-        if (activeItem is not null)
+        if (_scrollContentTop)
         {
-            await JS.InvokeVoidAsync("scrollToLetter", ItemId(activeItem));
+            _scrollContentTop = false;
+            await JS.InvokeVoidAsync("scrollElementToTop", _content);
+        }
+
+        if (_scrollActiveItem)
+        {
+            _scrollActiveItem = false;
+            var activeItem = NavigationGroups
+                .SelectMany(group => Flatten(group.Items))
+                .LastOrDefault(IsActive);
+            if (activeItem is not null)
+            {
+                await JS.InvokeVoidAsync("scrollToLetter", ItemId(activeItem));
+            }
         }
     }
 

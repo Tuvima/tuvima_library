@@ -3,6 +3,7 @@ using System.Text.Json;
 using Dapper;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -33,6 +34,7 @@ public sealed class PlaybackCapabilitiesService
     private readonly ITextTrackRepository _textTracks;
     private readonly AudiobookChapterTitleOverrideRepository _chapterTitleOverrides;
     private readonly IMediaTypeExtensionCatalog _extensionCatalog;
+    private readonly IConfigurationLoader _configuration;
     private readonly ILogger<PlaybackCapabilitiesService> _logger;
 
     public PlaybackCapabilitiesService(
@@ -44,6 +46,7 @@ public sealed class PlaybackCapabilitiesService
         ITextTrackRepository textTracks,
         AudiobookChapterTitleOverrideRepository chapterTitleOverrides,
         IMediaTypeExtensionCatalog extensionCatalog,
+        IConfigurationLoader configuration,
         ILogger<PlaybackCapabilitiesService> logger)
     {
         _assets = assets;
@@ -54,10 +57,16 @@ public sealed class PlaybackCapabilitiesService
         _textTracks = textTracks;
         _chapterTitleOverrides = chapterTitleOverrides;
         _extensionCatalog = extensionCatalog;
+        _configuration = configuration;
         _logger = logger;
     }
 
-    public async Task<PlaybackManifestDto?> BuildManifestAsync(Guid assetId, string? client, Guid? profileId = null, CancellationToken ct = default)
+    public async Task<PlaybackManifestDto?> BuildManifestAsync(
+        Guid assetId,
+        string? client,
+        Guid? profileId = null,
+        CancellationToken ct = default,
+        PlaybackConnectionContextDto? connection = null)
     {
         var asset = await _assets.FindByIdAsync(assetId, ct);
         if (asset is null)
@@ -70,6 +79,7 @@ public sealed class PlaybackCapabilitiesService
         var extension = Path.GetExtension(asset.FilePathRoot);
         var mediaType = await ResolveMediaTypeAsync(asset, extension, ct);
         var warnings = new List<string>();
+        connection = NormalizeConnection(connection);
 
         if (!File.Exists(asset.FilePathRoot))
         {
@@ -127,17 +137,33 @@ public sealed class PlaybackCapabilitiesService
 
         var directPlay = IsDirectPlaySupported(extension, profile, mediaInfo, probe);
         var recommendedDelivery = GetRecommendedDelivery(mediaType, normalizedClient, directPlay);
-        var conversionReason = directPlay
+        string? conversionReason = directPlay
             ? null
             : GetConversionReason(extension, profile, mediaInfo, probe);
+
+        var variants = await _playbackState.ListOfflineVariantsAsync(assetId, sourceHash, ct);
+        var chapters = await BuildChaptersAsync(assetId, mediaInfo, probe, profileId, ct);
+        var durationSeconds = ResolveManifestDurationSeconds(chapters, mediaInfo, probe);
+        var sourceBitrateKbps = CalculateSourceBitrateKbps(asset.FilePathRoot, durationSeconds);
+        var technical = BuildTechnicalInfo(extension, mediaInfo, probe);
+        if (ShouldUseAdaptiveRemoteDelivery(
+            mediaType,
+            connection,
+            technical.Height,
+            sourceBitrateKbps,
+            _configuration.LoadNetwork().Streaming,
+            out var networkReason))
+        {
+            recommendedDelivery = PlaybackDeliveryModes.Hls;
+            conversionReason = networkReason;
+            warnings.Add(networkReason);
+        }
+
         if (recommendedDelivery == PlaybackDeliveryModes.Hls)
         {
             warnings.Add("HLS generation is planned for this profile but no generated HLS variant is available yet.");
         }
 
-        var variants = await _playbackState.ListOfflineVariantsAsync(assetId, sourceHash, ct);
-        var chapters = await BuildChaptersAsync(assetId, mediaInfo, probe, profileId, ct);
-        var durationSeconds = ResolveManifestDurationSeconds(chapters, mediaInfo, probe);
         var resume = NormalizeResumePosition(await LoadResumeAsync(assetId, ct), durationSeconds);
 
         return new PlaybackManifestDto
@@ -157,10 +183,96 @@ public sealed class PlaybackCapabilitiesService
             OfflineVariants = variants,
             Resume = resume,
             Segments = (await _segments.ListByAssetAsync(assetId, ct)).Select(ToSegmentDto).ToList(),
-            Technical = BuildTechnicalInfo(extension, mediaInfo, probe),
+            Technical = technical,
             Warnings = warnings,
             ConversionReason = conversionReason,
+            SourceBitrateKbps = sourceBitrateKbps,
+            Connection = connection,
         };
+    }
+
+    private static PlaybackConnectionContextDto NormalizeConnection(PlaybackConnectionContextDto? connection)
+    {
+        if (connection is null || !PlaybackConnectionPaths.IsKnown(connection.ConnectionPath))
+        {
+            return new PlaybackConnectionContextDto();
+        }
+
+        return connection with
+        {
+            RemoteConnectivityProvider = string.IsNullOrWhiteSpace(connection.RemoteConnectivityProvider)
+                ? null
+                : connection.RemoteConnectivityProvider.Trim(),
+            EstimatedBandwidthMbps = connection.EstimatedBandwidthMbps is > 0
+                ? Math.Min(connection.EstimatedBandwidthMbps.Value, 100_000)
+                : null,
+            LatencyMs = connection.LatencyMs is >= 0
+                ? Math.Min(connection.LatencyMs.Value, 120_000)
+                : null,
+        };
+    }
+
+    private static int? CalculateSourceBitrateKbps(string path, double? durationSeconds)
+    {
+        if (!File.Exists(path) || durationSeconds is not > 0)
+        {
+            return null;
+        }
+
+        var bitsPerSecond = new FileInfo(path).Length * 8d / durationSeconds.Value;
+        return bitsPerSecond > 0 ? (int)Math.Min(int.MaxValue, Math.Round(bitsPerSecond / 1000d)) : null;
+    }
+
+    private static bool ShouldUseAdaptiveRemoteDelivery(
+        string mediaType,
+        PlaybackConnectionContextDto connection,
+        int? sourceHeight,
+        int? sourceBitrateKbps,
+        NetworkStreamingSettings settings,
+        out string reason)
+    {
+        reason = string.Empty;
+        if (connection.ConnectionPath == PlaybackConnectionPaths.Local
+            || mediaType.Equals("Books", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Equals("Comics", StringComparison.OrdinalIgnoreCase)
+            || settings.RemoteQuality == RemoteStreamingQualities.Original)
+        {
+            return false;
+        }
+
+        var maxHeight = settings.RemoteQuality switch
+        {
+            RemoteStreamingQualities.Hd1080 => 1080,
+            RemoteStreamingQualities.Hd720 => 720,
+            RemoteStreamingQualities.DataSaver => 480,
+            _ => (int?)null,
+        };
+        if (maxHeight.HasValue && sourceHeight > maxHeight.Value)
+        {
+            reason = $"Remote streaming quality is capped at {maxHeight.Value}p for this connection.";
+            return true;
+        }
+
+        var estimatedMbps = connection.EstimatedBandwidthMbps;
+        if (settings.UploadProtectionEnabled && estimatedMbps.HasValue)
+        {
+            estimatedMbps = Math.Max(0.5d, estimatedMbps.Value - settings.ReservedUploadMbps);
+        }
+
+        if (sourceBitrateKbps.HasValue && estimatedMbps.HasValue
+            && sourceBitrateKbps.Value > estimatedMbps.Value * 800d)
+        {
+            reason = $"The source bitrate exceeds the protected remote bandwidth budget ({estimatedMbps.Value:0.#} Mbps).";
+            return true;
+        }
+
+        if (settings.RemoteQuality == RemoteStreamingQualities.DataSaver && sourceBitrateKbps is > 2_000)
+        {
+            reason = "Data Saver is enabled for remote streaming.";
+            return true;
+        }
+
+        return false;
     }
 
     public async Task<EncodeJobDto?> QueueEncodeAsync(Guid assetId, QueueEncodeRequestDto request, CancellationToken ct = default)

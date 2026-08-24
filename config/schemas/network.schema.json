@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Tuvima Network Settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "setup_completed", "local", "remote", "streaming"],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "setup_completed": { "type": "boolean" },
+    "local": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["port", "bind_mode", "discovery_enabled", "preferred_server_name", "ipv6_enabled"],
+      "properties": {
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "bind_mode": { "enum": ["automatic", "specific-interface"] },
+        "interface_id": { "type": ["string", "null"] },
+        "discovery_enabled": { "type": "boolean" },
+        "preferred_server_name": { "type": "string", "pattern": "^(?!-)[A-Za-z0-9-]{1,63}(?<!-)$" },
+        "ipv6_enabled": { "type": "boolean" }
+      }
+    },
+    "remote": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "connection_mode", "automatic_router_configuration", "trusted_proxies"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "connection_mode": { "enum": ["automatic", "direct-only", "secure-provider", "custom"] },
+        "automatic_router_configuration": { "type": "boolean" },
+        "external_port": { "type": ["integer", "null"], "minimum": 1, "maximum": 65535 },
+        "provider_key": { "type": ["string", "null"] },
+        "public_hostname": { "type": ["string", "null"] },
+        "trusted_proxies": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      }
+    },
+    "streaming": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["remote_quality", "upload_protection_enabled", "reserved_upload_mbps", "concurrent_remote_streams"],
+      "properties": {
+        "remote_quality": { "enum": ["automatic", "original", "1080p", "720p", "data-saver"] },
+        "upload_protection_enabled": { "type": "boolean" },
+        "reserved_upload_mbps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "concurrent_remote_streams": { "const": "automatic" }
+      }
+    }
+  }
+}

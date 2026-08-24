@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0",
+  "setup_completed": false,
+  "local": {
+    "port": 5016,
+    "bind_mode": "automatic",
+    "interface_id": null,
+    "discovery_enabled": true,
+    "preferred_server_name": "tuvima",
+    "ipv6_enabled": true
+  },
+  "remote": {
+    "enabled": false,
+    "connection_mode": "automatic",
+    "automatic_router_configuration": true,
+    "external_port": null,
+    "provider_key": null,
+    "public_hostname": null,
+    "trusted_proxies": []
+  },
+  "streaming": {
+    "remote_quality": "automatic",
+    "upload_protection_enabled": true,
+    "reserved_upload_mbps": 5,
+    "concurrent_remote_streams": "automatic"
+  }
+}

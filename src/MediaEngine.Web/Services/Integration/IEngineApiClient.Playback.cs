@@ -13,7 +13,12 @@ namespace MediaEngine.Web.Services.Integration;
 
 public partial interface IEngineApiClient
 {
-    Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", Guid? profileId = null, CancellationToken ct = default);
+    Task<PlaybackManifestDto?> GetPlaybackManifestAsync(
+        Guid assetId,
+        string client = "web",
+        Guid? profileId = null,
+        CancellationToken ct = default,
+        PlaybackConnectionContextDto? connection = null);
 
     Task<PlayerStateDto?> GetPlayerStateAsync(Guid? profileId = null, string? deviceId = null, string client = "web", CancellationToken ct = default);
 
