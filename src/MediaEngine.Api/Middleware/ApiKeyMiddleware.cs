@@ -113,7 +113,7 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
             ctx.Items["ApiKeyRole"] = AppRoles.Administrator;
             // The unsigned header is accepted only inside the explicitly enabled
             // loopback bypass. It is never honored for authenticated remote calls.
-            if (ctx.Request.Path.StartsWithSegments("/view", StringComparison.OrdinalIgnoreCase)
+            if (ViewProfileAssertion.IsEligibleRequestPath(ctx.Request.Path)
                 && Guid.TryParse(
                     ctx.Request.Headers[ViewProfileAssertion.ProfileHeader].ToString(),
                     out var bypassProfileId))
