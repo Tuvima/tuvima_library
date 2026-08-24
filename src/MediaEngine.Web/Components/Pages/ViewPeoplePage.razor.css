@@ -1,0 +1,31 @@
+.view-feature-page {
+    display: grid;
+    gap: 24px;
+    min-height: 100%;
+    padding: 30px 34px 48px;
+}
+
+.view-feature-page__header span {
+    color: var(--tl-accent-primary);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+}
+
+.view-feature-page__header h1 {
+    margin: 5px 0 7px;
+    font-size: clamp(1.8rem, 3vw, 2.45rem);
+}
+
+.view-feature-page__header p {
+    max-width: 680px;
+    margin: 0;
+    color: rgba(203, 213, 225, 0.68);
+}
+
+@media (max-width: 640px) {
+    .view-feature-page {
+        padding: 20px 15px 36px;
+    }
+}

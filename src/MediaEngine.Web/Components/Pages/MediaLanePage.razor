@@ -87,5 +87,5 @@
     [Parameter] public string UnsupportedTitle { get; set; } = "Page not found";
     [Parameter] public string UnsupportedMessage { get; set; } = "Choose another library section.";
     [Parameter] public EventCallback Retry { get; set; }
-    [Parameter] public EventCallback<Guid> OnNavigationItemDrop { get; set; }
+    [Parameter] public EventCallback<MediaSectionNavigationDropEvent> OnNavigationItemDrop { get; set; }
 }

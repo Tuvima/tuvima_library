@@ -3,13 +3,14 @@ namespace MediaEngine.Web.Tests;
 public sealed class ViewLibrarySurfaceTests
 {
     [Fact]
-    public void ViewSurface_ExposesMixedLocalLibraryWithoutCatalogueActions()
+    public void ViewPhotos_UsesPersonalTimelineWithoutPhysicalLibraryControls()
     {
         var source = Read("src/MediaEngine.Web/Components/Pages/ViewPage.razor");
 
         Assert.Contains("@page \"/view\"", source, StringComparison.Ordinal);
-        Assert.Contains("@page \"/view/{LibraryId:guid}\"", source, StringComparison.Ordinal);
-        Assert.Contains("<MediaSectionShell", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("@page \"/view/{LibraryId:guid}\"", source, StringComparison.Ordinal);
+        Assert.Contains("<ViewSectionShell>", source, StringComparison.Ordinal);
+        Assert.Contains("<PageTitle>Photos - Tuvima</PageTitle>", source, StringComparison.Ordinal);
         Assert.Contains("Search names, dates, devices, locations, and tags", source, StringComparison.Ordinal);
         Assert.Contains("role=\"tablist\"", source, StringComparison.Ordinal);
         Assert.Contains("aria-modal=\"true\"", source, StringComparison.Ordinal);
@@ -19,22 +20,81 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("IsVideo", source, StringComparison.Ordinal);
         Assert.Contains("IsDocument", source, StringComparison.Ordinal);
         Assert.Contains("IsAudio", source, StringComparison.Ordinal);
-        Assert.Contains("profileId=", source, StringComparison.Ordinal);
-        Assert.Contains("SupplyParameterFromQuery", source, StringComparison.Ordinal);
-        Assert.Contains("\"All\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"Recent\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"Favorites\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"Videos\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"Documents\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("profileId=", source, StringComparison.Ordinal);
+        Assert.Contains("ViewMediaGrantService", source, StringComparison.Ordinal);
+        Assert.Contains("/view-media/{grant.Value}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToAbsoluteEngineUrl", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SupplyParameterFromQuery", source, StringComparison.Ordinal);
+        Assert.Contains("Photos quick filters", source, StringComparison.Ordinal);
+        Assert.Contains(">All</AppNativeButton>", source, StringComparison.Ordinal);
+        Assert.Contains(">Favorites</AppNativeButton>", source, StringComparison.Ordinal);
+        Assert.Contains(">Videos</AppNativeButton>", source, StringComparison.Ordinal);
+        Assert.Contains(">Archive</AppNativeButton>", source, StringComparison.Ordinal);
+        Assert.Contains("Disabled=\"true\">Archive", source, StringComparison.Ordinal);
         Assert.Contains("Add media", source, StringComparison.Ordinal);
         Assert.Contains("<InputFile", source, StringComparison.Ordinal);
         Assert.Contains("UploadViewMediaAsync", source, StringComparison.Ordinal);
         Assert.Contains("role=\"status\"", source, StringComparison.Ordinal);
         Assert.Contains("role=\"alert\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("view-library-picker", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("view-summary", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Scan library", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectedLibrary.Name", source, StringComparison.Ordinal);
         Assert.DoesNotContain("@page \"/photos\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Wikidata", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Provider", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("MediaEditorLauncherService", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ViewWorkspace_UsesOnlyFourPrimaryDestinationsAcrossRealRoutes()
+    {
+        var shell = Read("src/MediaEngine.Web/Components/Pages/ViewSectionShell.razor");
+
+        Assert.Contains("new(\"Photos\", \"/view\"", shell, StringComparison.Ordinal);
+        Assert.Contains("new(\"Galleries\", \"/view/galleries\"", shell, StringComparison.Ordinal);
+        Assert.Contains("new(\"People\", \"/view/people\"", shell, StringComparison.Ordinal);
+        Assert.Contains("new(\"Places\", \"/view/places\"", shell, StringComparison.Ordinal);
+        Assert.Equal(4, shell.Split("Exact: true", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain("Libraries", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Favorites", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Videos", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Archive", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Trash", shell, StringComparison.Ordinal);
+
+        AssertViewRoute("ViewGalleriesPage.razor", "/view/galleries");
+        AssertViewRoute("ViewPeoplePage.razor", "/view/people");
+        AssertViewRoute("ViewPlacesPage.razor", "/view/places");
+    }
+
+    [Fact]
+    public void ViewCapabilityPages_DoNotPresentSyntheticMedia()
+    {
+        var galleries = Read("src/MediaEngine.Web/Components/Pages/ViewGalleriesPage.razor");
+        var people = Read("src/MediaEngine.Web/Components/Pages/ViewPeoplePage.razor");
+        var places = Read("src/MediaEngine.Web/Components/Pages/ViewPlacesPage.razor");
+
+        Assert.Contains("AppPageStateKind.Empty", galleries, StringComparison.Ordinal);
+        Assert.Contains("AppPageStateKind.Unavailable", people, StringComparison.Ordinal);
+        Assert.Contains("will not invent people or matches", people, StringComparison.Ordinal);
+        Assert.Contains("AppPageStateKind.Empty", places, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach", galleries, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("foreach", people, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("foreach", places, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ListenPlaylistRail_UsesTypedPlaylistDropWithoutChangingPlaylistBehavior()
+    {
+        var listen = Read("src/MediaEngine.Web/Components/Pages/ListenBrowsePage.razor");
+
+        Assert.Contains("DropTarget: new PlaylistNavigationDropTarget(playlist.Id)", listen, StringComparison.Ordinal);
+        Assert.Contains("MediaSectionNavigationDropEvent dropEvent", listen, StringComparison.Ordinal);
+        Assert.Contains("dropEvent.Target is not PlaylistNavigationDropTarget playlistTarget", listen, StringComparison.Ordinal);
+        Assert.Contains("AudioDrag.WorkIds", listen, StringComparison.Ordinal);
+        Assert.Contains("ApiClient.AddCollectionItemAsync", listen, StringComparison.Ordinal);
+        Assert.Contains("AudioDrag.Clear()", listen, StringComparison.Ordinal);
+        Assert.DoesNotContain("DropCollectionId", listen, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -59,5 +119,12 @@ public sealed class ViewLibrarySurfaceTests
 
         Assert.NotNull(root);
         return File.ReadAllText(Path.Combine(root.FullName, relativePath.Replace('/', Path.DirectorySeparatorChar)));
+    }
+
+    private static void AssertViewRoute(string fileName, string route)
+    {
+        var source = Read($"src/MediaEngine.Web/Components/Pages/{fileName}");
+        Assert.Contains($"@page \"{route}\"", source, StringComparison.Ordinal);
+        Assert.Contains("<ViewSectionShell>", source, StringComparison.Ordinal);
     }
 }

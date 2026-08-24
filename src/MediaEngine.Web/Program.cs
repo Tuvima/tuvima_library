@@ -16,6 +16,8 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Localization;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -126,6 +128,16 @@ var apiBase = Environment.GetEnvironmentVariable("TUVIMA_ENGINE_URL")
            ?? builder.Configuration["Engine:BaseUrl"]
            ?? "http://localhost:61495";
 var apiKey  = builder.Configuration["Engine:ApiKey"]  ?? string.Empty;
+var configuredMediaGrantKey = builder.Configuration["View:MediaGrantKey"];
+var mediaGrantKey = !string.IsNullOrWhiteSpace(configuredMediaGrantKey)
+    ? SHA256.HashData(Encoding.UTF8.GetBytes(configuredMediaGrantKey))
+    : !string.IsNullOrWhiteSpace(apiKey)
+        ? SHA256.HashData(Encoding.UTF8.GetBytes($"tuvima:view-media-grant:v1\n{apiKey}"))
+        : RandomNumberGenerator.GetBytes(32);
+var mediaGrantLifetime = TimeSpan.FromSeconds(Math.Clamp(
+    builder.Configuration.GetValue<int?>("View:MediaGrantLifetimeSeconds") ?? 600,
+    30,
+    900));
 
 // Shared setup for every HttpClient that talks to the Engine — BaseAddress plus the
 // X-Api-Key header — so this configuration exists exactly once instead of once per client.
@@ -136,14 +148,39 @@ void ConfigureEngineClient(HttpClient client)
         client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
 }
 
-// AddHttpClient<IClient, TClient> wires the interface directly to the typed-client
-// factory so the HttpClient it receives has the correct BaseAddress and default headers.
-// A separate AddScoped<IClient, TClient> would resolve HttpClient via the default
-// (unconfigured, no BaseAddress) registration, causing every Engine call to fail silently.
-builder.Services.AddHttpClient<IEngineApiClient, EngineApiClient>(ConfigureEngineClient);
+// The circuit-scoped client owns a circuit-scoped active-profile accessor. Its
+// server-only handler signs eligible View/Collections requests after the final URI
+// is known; the Engine API key is never serialized into browser state.
+builder.Services.AddScoped<ActiveProfileAccessor>();
+builder.Services.AddScoped<IActiveProfileAccessor>(services => services.GetRequiredService<ActiveProfileAccessor>());
+builder.Services.AddSingleton(new ViewMediaGrantService(mediaGrantKey, mediaGrantLifetime));
+builder.Services.AddScoped<IEngineApiClient>(services =>
+{
+    var assertionHandler = new ViewProfileAssertionHandler(
+        services.GetRequiredService<IActiveProfileAccessor>(),
+        apiKey)
+    {
+        InnerHandler = new HttpClientHandler(),
+    };
+    var client = new HttpClient(assertionHandler);
+    ConfigureEngineClient(client);
+    return ActivatorUtilities.CreateInstance<EngineApiClient>(services, client);
+});
 builder.Services.AddScoped<EngineApiFailureState>();
+builder.Services.AddScoped<IViewMediaEngineClient>(services =>
+{
+    var assertionHandler = new ViewProfileAssertionHandler(
+        services.GetRequiredService<IActiveProfileAccessor>(),
+        apiKey)
+    {
+        InnerHandler = new HttpClientHandler(),
+    };
+    var client = new HttpClient(assertionHandler);
+    ConfigureEngineClient(client);
+    return new ViewMediaEngineClient(client);
+});
 
-// Named "EngineApi" client — same base address and API key as the typed client above.
+// Named "EngineApi" client — same base address and API key as the scoped client above.
 // Used by ad-hoc pages (e.g. the Enrichment Tester) that need direct HttpClient access
 // without routing through IEngineApiClient.
 builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient);
@@ -212,6 +249,8 @@ app.MapGet("/culture/set", (string culture, string redirectUri, HttpContext ctx)
 app.MapMethods("/engine-stream/{assetId:guid}", [HttpMethods.Get, HttpMethods.Head], ProxyEngineStreamAsync)
     .WithName("ProxyEngineMediaStream")
     .WithSummary("Proxies Engine media bytes through the Dashboard origin for browser media playback.");
+
+app.MapViewMediaProxy();
 
 if (ssoEnabled)
 {
