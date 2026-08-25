@@ -122,6 +122,11 @@ public partial class ListenPage
     private bool _playlistCreateMenuOpen;
     private bool _playlistActionsMenuOpen;
     private Guid? _playlistActionsCollectionId;
+    private bool _creatingPlaylistInline;
+    private string _newPlaylistName = string.Empty;
+    private Guid? _renamingPlaylistId;
+    private string _renamePlaylistName = string.Empty;
+    private Guid? _deletingPlaylistId;
     private readonly HashSet<string> _playlistHiddenColumns = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> _playlistColumnWidths = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -760,6 +765,115 @@ public partial class ListenPage
         _playlistCreateMenuOpen = !_playlistCreateMenuOpen;
     }
 
+    private void BeginPlaylistInlineCreate()
+    {
+        _playlistCreateMenuOpen = false;
+        _creatingPlaylistInline = true;
+        _newPlaylistName = string.Empty;
+    }
+
+    private async Task CreatePlaylistOnKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+        {
+            _creatingPlaylistInline = false;
+            _newPlaylistName = string.Empty;
+            return;
+        }
+        if (!string.Equals(args.Key, "Enter", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(_newPlaylistName))
+            return;
+        if (_activeProfileId is null)
+        {
+            Snackbar.Add("An active profile is required to create playlists.", Severity.Warning);
+            return;
+        }
+        var name = _newPlaylistName.Trim();
+        var createdId = await ApiClient.CreateCollectionWithItemsAsync(
+            name,
+            null,
+            Icons.Material.Outlined.QueueMusic,
+            "Playlist",
+            new CollectionRuleDefinitionViewModel(),
+            "title",
+            "asc",
+            "private",
+            [],
+            _activeProfileId);
+        if (createdId is null)
+        {
+            Snackbar.Add("The Playlist could not be created.", Severity.Error);
+            return;
+        }
+        _creatingPlaylistInline = false;
+        _newPlaylistName = string.Empty;
+        Snackbar.Add($"Created {name}.", Severity.Success);
+        await LoadAsync();
+        Nav.NavigateTo($"/listen/music/playlists/{createdId:D}");
+    }
+
+    private void BeginPlaylistRename(ManagedCollectionViewModel playlist)
+    {
+        _playlistActionsMenuOpen = false;
+        _playlistActionsCollectionId = null;
+        _deletingPlaylistId = null;
+        _renamingPlaylistId = playlist.Id;
+        _renamePlaylistName = playlist.Name;
+    }
+
+    private async Task RenamePlaylistOnKeyDownAsync(ManagedCollectionViewModel playlist, KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+        {
+            _renamingPlaylistId = null;
+            return;
+        }
+        if (!string.Equals(args.Key, "Enter", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(_renamePlaylistName))
+            return;
+        if (!await ApiClient.UpdateCollectionAsync(
+                playlist.Id,
+                _renamePlaylistName.Trim(),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                _activeProfileId))
+        {
+            Snackbar.Add("The Playlist could not be renamed.", Severity.Error);
+            return;
+        }
+        _renamingPlaylistId = null;
+        await LoadAsync();
+    }
+
+    private void BeginPlaylistDelete(ManagedCollectionViewModel playlist)
+    {
+        _playlistActionsMenuOpen = false;
+        _playlistActionsCollectionId = null;
+        _renamingPlaylistId = null;
+        _deletingPlaylistId = playlist.Id;
+    }
+
+    private async Task DeletePlaylistAsync(ManagedCollectionViewModel playlist)
+    {
+        if (!await ApiClient.DeleteCollectionAsync(playlist.Id, _activeProfileId))
+        {
+            Snackbar.Add("The Playlist could not be deleted.", Severity.Error);
+            return;
+        }
+        _deletingPlaylistId = null;
+        Snackbar.Add($"Deleted {playlist.Name}.", Severity.Success);
+        if (CollectionId == playlist.Id)
+        {
+            Nav.NavigateTo("/listen/playlists");
+            return;
+        }
+        await LoadAsync();
+    }
+
     private async Task OpenPlaylistCreateDialog(string kind)
     {
         _playlistCreateMenuOpen = false;
@@ -807,24 +921,6 @@ public partial class ListenPage
         }
     }
 
-    private async Task OpenPlaylistEditorDialog()
-    {
-        if (ActivePlaylistCollection is null)
-            return;
-
-        var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
-        {
-            ActiveProfileId = _activeProfileId,
-            EditingCollection = ToCollectionEditorItem(ActivePlaylistCollection),
-            Mode = string.Equals(ActivePlaylistCollection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
-                ? CollectionEditorMode.SmartPlaylist
-                : CollectionEditorMode.ManualPlaylist,
-        });
-
-        if (changed)
-            await LoadAsync();
-    }
-
     private void TogglePlaylistActionsMenu(Guid? collectionId = null)
     {
         if (_playlistActionsMenuOpen && _playlistActionsCollectionId == collectionId)
@@ -843,31 +939,6 @@ public partial class ListenPage
         _playlistCreateMenuOpen = false;
         _playlistActionsMenuOpen = false;
         _playlistActionsCollectionId = null;
-    }
-
-    private async Task OpenPlaylistEditorFromMenuAsync(ManagedCollectionViewModel? collection = null)
-    {
-        _playlistActionsMenuOpen = false;
-        _playlistActionsCollectionId = null;
-
-        if (collection is not null)
-        {
-            var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
-            {
-                ActiveProfileId = _activeProfileId,
-                EditingCollection = ToCollectionEditorItem(collection),
-                Mode = string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
-                    ? CollectionEditorMode.SmartPlaylist
-                    : CollectionEditorMode.ManualPlaylist,
-            });
-
-            if (changed)
-                await LoadAsync();
-
-            return;
-        }
-
-        await OpenPlaylistEditorDialog();
     }
 
     private void TogglePlaylistColumn(string key)
@@ -2922,35 +2993,6 @@ public partial class ListenPage
 
     private static bool CanAcceptPlaylistItems(ManagedCollectionViewModel collection)
         => string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
-
-    private static CollectionListItemViewModel ToCollectionEditorItem(ManagedCollectionViewModel collection)
-        => new()
-        {
-            Id = collection.Id,
-            Name = collection.Name,
-            Description = collection.Description,
-            IconName = collection.IconName,
-            CollectionType = collection.CollectionType,
-            Resolution = collection.Resolution,
-            Scope = collection.Scope,
-            ProfileId = collection.ProfileId,
-            Visibility = collection.Visibility,
-            IsEnabled = collection.IsEnabled,
-            IsFeatured = collection.IsFeatured,
-            ItemCount = collection.ItemCount,
-            RuleJson = collection.RuleJson,
-            MatchMode = collection.MatchMode,
-            SortField = collection.SortField,
-            SortDirection = collection.SortDirection,
-            SecondarySortField = collection.SecondarySortField,
-            SecondarySortDirection = collection.SecondarySortDirection,
-            CoverUrl = collection.CoverArtworkUrl,
-            BackgroundUrl = collection.BackgroundArtworkUrl,
-            BannerUrl = collection.BannerArtworkUrl,
-            LogoUrl = collection.LogoArtworkUrl,
-            CreatedAt = collection.CreatedAt,
-            CanEdit = collection.CanEdit,
-        };
 
     private static string Pluralize(int count, string singular)
         => count == 1 ? $"1 {singular}" : $"{count} {singular}s";

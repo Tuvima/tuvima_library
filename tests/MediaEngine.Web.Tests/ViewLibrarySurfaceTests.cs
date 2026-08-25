@@ -9,7 +9,7 @@ public sealed class ViewLibrarySurfaceTests
 
         Assert.Contains("@page \"/view\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("@page \"/view/{LibraryId:guid}\"", source, StringComparison.Ordinal);
-        Assert.Contains("<ViewSectionShell>", source, StringComparison.Ordinal);
+        Assert.Contains("<ViewSectionShell", source, StringComparison.Ordinal);
         Assert.Contains("<PageTitle>Photos - Tuvima</PageTitle>", source, StringComparison.Ordinal);
         Assert.Contains("Search photos, dates, devices, locations, and tags", source, StringComparison.Ordinal);
         Assert.Contains("role=\"tablist\"", source, StringComparison.Ordinal);
@@ -53,8 +53,9 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("new(\"Galleries\", \"/view/galleries\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"People\", \"/view/people\"", shell, StringComparison.Ordinal);
         Assert.Contains("new(\"Places\", \"/view/places\"", shell, StringComparison.Ordinal);
-        Assert.Contains("new SmartGalleryNavigationDropTarget", shell, StringComparison.Ordinal);
-        Assert.Contains("This Gallery updates automatically from its rules.", shell, StringComparison.Ordinal);
+        Assert.Contains("IsSmart: gallery.Kind == ViewGalleryKind.Smart", shell, StringComparison.Ordinal);
+        Assert.Contains("DropTarget: gallery.Kind == ViewGalleryKind.Manual", shell, StringComparison.Ordinal);
+        Assert.Contains("new SmartGalleryCreateTarget", shell, StringComparison.Ordinal);
         Assert.Equal(1, shell.Split("new(\"Photos\", \"/view\"", StringSplitOptions.None).Length - 1);
         Assert.DoesNotContain("Libraries", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Favorites", shell, StringComparison.Ordinal);
@@ -98,10 +99,10 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("view-density--@Density", timeline, StringComparison.Ordinal);
         Assert.Contains("view-tile__select-control", timeline, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppCheckbox", timeline, StringComparison.Ordinal);
-        Assert.Contains("ViewGalleryKind.Manual", galleries, StringComparison.Ordinal);
+        Assert.Contains("ViewGalleryKind.Manual", shell, StringComparison.Ordinal);
         Assert.Contains("ViewGalleryKind.Smart", galleries, StringComparison.Ordinal);
         Assert.Contains("<ViewRuleBuilder", galleries, StringComparison.Ordinal);
-        Assert.Contains(".Take(6)", shell, StringComparison.Ordinal);
+        Assert.Contains(".Take(12)", shell, StringComparison.Ordinal);
         Assert.Contains("new ManualGalleryNavigationDropTarget", shell, StringComparison.Ordinal);
         Assert.Contains("new NewGalleryNavigationDropTarget", shell, StringComparison.Ordinal);
         Assert.Contains("finally", shell, StringComparison.Ordinal);
@@ -129,12 +130,15 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("GetViewGallerySharesAsync", detail, StringComparison.Ordinal);
         Assert.Contains("ReplaceViewGallerySharesAsync", detail, StringComparison.Ordinal);
         Assert.Contains("UpdateViewGalleryAsync", detail, StringComparison.Ordinal);
-        Assert.Contains("DeleteViewGalleryAsync", detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("DeleteViewGalleryAsync", detail, StringComparison.Ordinal);
+        Assert.Contains("DeleteViewGalleryAsync", Read("src/MediaEngine.Web/Components/Pages/ViewSectionShell.razor"), StringComparison.Ordinal);
         Assert.Contains("<AppDialog", detail, StringComparison.Ordinal);
         Assert.Contains("<ViewRuleBuilder", detail, StringComparison.Ordinal);
         Assert.Contains("_gallery.Kind == ViewGalleryKind.Manual", detail, StringComparison.Ordinal);
         Assert.Contains("Items cannot be added or removed manually", detail, StringComparison.Ordinal);
-        Assert.Contains("source files will remain untouched", detail, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Rules\"", detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Edit\"", detail, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Delete\"", detail, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -142,7 +146,7 @@ public sealed class ViewLibrarySurfaceTests
     {
         var listen = Read("src/MediaEngine.Web/Components/Pages/ListenBrowsePage.razor");
 
-        Assert.Contains("DropTarget: new PlaylistNavigationDropTarget(playlist.Id)", listen, StringComparison.Ordinal);
+        Assert.Contains("DropTarget: IsManualPlaylist(playlist) ? new PlaylistNavigationDropTarget(playlist.Id) : null", listen, StringComparison.Ordinal);
         Assert.Contains("MediaSectionNavigationDropEvent dropEvent", listen, StringComparison.Ordinal);
         Assert.Contains("dropEvent.Target is not PlaylistNavigationDropTarget playlistTarget", listen, StringComparison.Ordinal);
         Assert.Contains("AudioDrag.WorkIds", listen, StringComparison.Ordinal);
@@ -179,6 +183,6 @@ public sealed class ViewLibrarySurfaceTests
     {
         var source = Read($"src/MediaEngine.Web/Components/Pages/{fileName}");
         Assert.Contains($"@page \"{route}\"", source, StringComparison.Ordinal);
-        Assert.Contains("<ViewSectionShell>", source, StringComparison.Ordinal);
+        Assert.Contains("<ViewSectionShell", source, StringComparison.Ordinal);
     }
 }

@@ -22,6 +22,8 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
         Services.AddMudServices();
         var http = new HttpClient(new GalleryHandler()) { BaseAddress = new Uri("http://localhost/") };
         Services.AddSingleton<IEngineApiClient>(new EngineApiClient(http, NullLogger<EngineApiClient>.Instance));
+        Services.AddScoped<ActiveProfileAccessor>();
+        Services.AddScoped<ActiveProfileSessionService>();
         Services.AddSingleton<ViewWorkspaceService>();
         Services.AddSingleton<ViewAssetDragService>();
     }
@@ -180,6 +182,77 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
         Assert.Equal(2, cut.FindAll(".media-section-shell__rail-item--child.is-drop-target").Count);
     }
 
+    [Fact]
+    public void MediaSectionShell_CreatesManualContainerInlineOnEnter()
+    {
+        MediaSectionNavigationCreateEvent? received = null;
+        var navigation = new[]
+        {
+            new MediaSectionNavigationGroup("Playlists", [],
+                new MediaSectionNavigationCreateOptions(
+                    "New Playlist",
+                    "New Smart Playlist",
+                    "Playlist name",
+                    new ManualPlaylistCreateTarget(),
+                    new SmartPlaylistCreateTarget(),
+                    new NewPlaylistNavigationDropTarget())),
+        };
+
+        var cut = Render<MediaSectionShell>(parameters => parameters
+            .Add(component => component.Title, "Listen")
+            .Add(component => component.NavigationGroups, navigation)
+            .Add(component => component.OnNavigationCreate, createEvent =>
+            {
+                received = createEvent;
+                return Task.FromResult(true);
+            })
+            .AddChildContent("<section>Listen content</section>"));
+
+        cut.Find(".media-section-shell__create-menu .app-overflow-menu__trigger").Click();
+        cut.FindAll("button.app-menu-item").Single(button => button.TextContent.Contains("New Playlist", StringComparison.Ordinal)).Click();
+        var input = cut.Find(".media-section-shell__inline-create input");
+        input.Input("Road Trip");
+        input.KeyDown(new KeyboardEventArgs { Key = "Enter" });
+
+        Assert.IsType<ManualPlaylistCreateTarget>(received?.Target);
+        Assert.Equal("Road Trip", received?.Name);
+        Assert.Empty(cut.FindAll(".media-section-shell__inline-create"));
+    }
+
+    [Fact]
+    public void MediaSectionShell_UsesInlineDeleteConfirmationForManagedContainers()
+    {
+        var playlistId = Guid.NewGuid();
+        MediaSectionNavigationManageEvent? received = null;
+        var navigation = new[]
+        {
+            new MediaSectionNavigationGroup("Playlists",
+            [
+                new("Road Trip", $"/listen/music/playlists/{playlistId:D}", Icons.Material.Outlined.PlaylistPlay,
+                    Management: new MediaSectionNavigationItemManagement(playlistId, "playlist")),
+            ]),
+        };
+
+        var cut = Render<MediaSectionShell>(parameters => parameters
+            .Add(component => component.Title, "Listen")
+            .Add(component => component.NavigationGroups, navigation)
+            .Add(component => component.OnNavigationItemDelete, manageEvent =>
+            {
+                received = manageEvent;
+                return Task.FromResult(true);
+            })
+            .AddChildContent("<section>Listen content</section>"));
+
+        cut.Find(".media-section-shell__manage-menu .app-overflow-menu__trigger").Click();
+        cut.FindAll("button.app-menu-item").Single(button => button.TextContent.Contains("Delete", StringComparison.Ordinal)).Click();
+
+        var confirmation = cut.Find(".media-section-shell__delete-confirm");
+        Assert.Contains("Delete “Road Trip”?", confirmation.TextContent, StringComparison.Ordinal);
+        confirmation.QuerySelector("button.is-confirm")!.Click();
+        Assert.Equal(playlistId, received?.Management.ContainerId);
+        Assert.Empty(cut.FindAll(".media-section-shell__delete-confirm"));
+    }
+
     private static IReadOnlyList<MediaSectionNavigationGroup> BuildNestedNavigation() =>
     [
         new("Admin Settings",
@@ -201,10 +274,15 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
 
     private sealed class GalleryHandler : HttpMessageHandler
     {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var json = request.RequestUri?.AbsolutePath.Equals("/profiles", StringComparison.OrdinalIgnoreCase) == true
+                ? "[]"
+                : "{\"owned\":[],\"shared_with_you\":[]}";
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Content = new StringContent("{\"owned\":[],\"shared_with_you\":[]}", Encoding.UTF8, "application/json"),
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
             });
+        }
     }
 }

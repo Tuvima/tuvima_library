@@ -61,7 +61,7 @@ else
                         @if (_playlistCreateMenuOpen)
                         {
                             <div class="listen-rail__create-menu">
-                                <AppNativeButton Type="button" OnClick='@(() => OpenPlaylistCreateDialog("Playlist"))'>New Playlist</AppNativeButton>
+                                <AppNativeButton Type="button" OnClick="BeginPlaylistInlineCreate">New Playlist</AppNativeButton>
                                 <AppNativeButton Type="button" OnClick='@(() => OpenPlaylistCreateDialog("Smart"))'>New Smart Playlist</AppNativeButton>
                             </div>
                         }
@@ -69,6 +69,17 @@ else
 
                     @if (_playlistsExpanded)
                     {
+                        @if (_creatingPlaylistInline)
+                        {
+                            <div class="listen-rail__inline-create" @onclick:stopPropagation="true">
+                                <MudIcon Icon="@Icons.Material.Outlined.Add" Class="tl-u-font-size-18px" />
+                                <AppNativeInput Value="@_newPlaylistName"
+                                                ValueChanged="@(value => _newPlaylistName = value?.ToString() ?? string.Empty)"
+                                                OnKeyDown="CreatePlaylistOnKeyDownAsync"
+                                                Placeholder="Playlist name"
+                                                AriaLabel="Playlist name" />
+                            </div>
+                        }
                         @foreach (var item in ListenPinnedPlaylistItems)
                         {
                             <a @key="item.Route" href="@item.Route" target="_top" data-enhance-nav="false" class='@($"listen-rail__item {(IsRouteActive(item.Route) ? " is-active" : null)}")' aria-current="@(IsRouteActive(item.Route) ? "page" : null)" @onclick="@(() => NavigateRailLink(item.Route))" @onclick:preventDefault="true">
@@ -86,24 +97,48 @@ else
                                 <AppNativeButton Type="button" Class="listen-rail__drag" draggable="true" AriaLabel="@($"Drag to reorder {playlist.Name}")" @ondragstart="@(() => BeginPlaylistReorder(playlist.Id))" @ondragend="EndPlaylistReorder">
                                     <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Class="tl-u-font-size-18px" />
                                 </AppNativeButton>
-                                <a href="@playlistRoute" target="_top" data-enhance-nav="false" class='@($"listen-rail__item is-child {(IsRouteActive(playlistRoute) ? "is-active" : null)}")' aria-current="@(IsRouteActive(playlistRoute) ? "page" : null)" @onclick="@(() => NavigateRailLink(playlistRoute))" @onclick:preventDefault="true" @ondragover:preventDefault="true" @ondrop="@(() => CanAcceptPlaylistItems(playlist) ? HandlePlaylistDropAsync(playlist.Id) : Task.CompletedTask)">
-                                    @if (!string.IsNullOrWhiteSpace(playlist.CoverArtworkUrl))
-                                    {
-                                        <span class="listen-rail__thumb"><img src="@playlist.CoverArtworkUrl" alt="" /></span>
-                                    }
-                                    else
-                                    {
-                                        <MudIcon Icon="@PlaylistIconFor(playlist)" Class="tl-u-font-size-18px" />
-                                    }
-                                    <span>@playlist.Name</span>
-                                </a>
+                                @if (_deletingPlaylistId == playlist.Id)
+                                {
+                                    <div class="listen-rail__delete-confirm" role="group" aria-label="@($"Confirm deletion of {playlist.Name}")">
+                                        <span>Delete “@playlist.Name”?</span>
+                                        <AppNativeButton Type="button" Class="is-confirm" AriaLabel="@($"Confirm deletion of {playlist.Name}")" OnClick="@(_ => DeletePlaylistAsync(playlist))"><MudIcon Icon="@Icons.Material.Outlined.Check" /></AppNativeButton>
+                                        <AppNativeButton Type="button" Class="is-cancel" AriaLabel="@($"Cancel deletion of {playlist.Name}")" OnClick="@(_ => _deletingPlaylistId = null)"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton>
+                                    </div>
+                                }
+                                else if (_renamingPlaylistId == playlist.Id)
+                                {
+                                    <AppNativeInput Class="listen-rail__rename-input"
+                                                    Value="@_renamePlaylistName"
+                                                    ValueChanged="@(value => _renamePlaylistName = value?.ToString() ?? string.Empty)"
+                                                    OnKeyDown="@(args => RenamePlaylistOnKeyDownAsync(playlist, args))"
+                                                    AriaLabel="@($"Rename {playlist.Name}")" />
+                                }
+                                else
+                                {
+                                    <a href="@playlistRoute" target="_top" data-enhance-nav="false" class='@($"listen-rail__item is-child {(IsRouteActive(playlistRoute) ? "is-active" : null)}")' aria-current="@(IsRouteActive(playlistRoute) ? "page" : null)" @onclick="@(() => NavigateRailLink(playlistRoute))" @onclick:preventDefault="true" @ondragover:preventDefault="@CanAcceptPlaylistItems(playlist)" @ondrop="@(() => CanAcceptPlaylistItems(playlist) ? HandlePlaylistDropAsync(playlist.Id) : Task.CompletedTask)">
+                                        @if (!string.IsNullOrWhiteSpace(playlist.CoverArtworkUrl))
+                                        {
+                                            <span class="listen-rail__thumb"><img src="@playlist.CoverArtworkUrl" alt="" /></span>
+                                        }
+                                        else
+                                        {
+                                            <MudIcon Icon="@PlaylistIconFor(playlist)" Class="tl-u-font-size-18px" />
+                                        }
+                                        <span>@playlist.Name</span>
+                                        @if (!CanAcceptPlaylistItems(playlist))
+                                        {
+                                            <small class="listen-rail__smart-badge">Smart</small>
+                                        }
+                                    </a>
+                                }
                                 <AppNativeButton Type="button" Class="listen-rail__more" Title="Playlist options" AriaLabel="@($"{playlist.Name} options")" StopPropagation="true" OnClick="@(() => TogglePlaylistActionsMenu(playlist.Id))">
-                                    <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Class="tl-u-font-size-18px" />
+                                    <MudIcon Icon="@Icons.Material.Outlined.MoreVert" Class="tl-u-font-size-18px" />
                                 </AppNativeButton>
                                 @if (_playlistActionsMenuOpen && _playlistActionsCollectionId == playlist.Id)
                                 {
                                     <div class="listen-actions-menu listen-actions-menu--rail">
-                                        <AppNativeButton Type="button" OnClick="@(() => OpenPlaylistEditorFromMenuAsync(playlist))">Edit Playlist</AppNativeButton>
+                                        <AppNativeButton Type="button" OnClick="@(_ => BeginPlaylistRename(playlist))">Rename</AppNativeButton>
+                                        <AppNativeButton Type="button" Class="is-delete" OnClick="@(_ => BeginPlaylistDelete(playlist))">Delete</AppNativeButton>
                                     </div>
                                 }
                             </div>
@@ -642,12 +677,11 @@ else
                     {
                         <span @onclick:stopPropagation="true">
                         <AppNativeButton Type="button" Class="listen-detail__edit" Title="Playlist options" AriaLabel="Playlist options" OnClick="@(() => TogglePlaylistActionsMenu(ActivePlaylistCollection.Id))">
-                            <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
+                            <MudIcon Icon="@Icons.Material.Outlined.MoreVert" Size="Size.Small" />
                         </AppNativeButton>
                         @if (_playlistActionsMenuOpen && _playlistActionsCollectionId == ActivePlaylistCollection.Id)
                         {
                             <div class="listen-actions-menu listen-actions-menu--detail">
-                                <AppNativeButton Type="button" OnClick="@(() => OpenPlaylistEditorFromMenuAsync())">Edit Playlist</AppNativeButton>
                                 <details class="listen-actions-menu__details">
                                     <summary>Columns</summary>
                                     @foreach (var column in PlaylistColumns)

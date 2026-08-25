@@ -162,6 +162,74 @@
     opacity: 0.55;
 }
 
+.listen-rail__inline-create {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    align-items: center;
+    gap: 7px;
+    padding: 5px 6px 5px 24px;
+    color: var(--tl-accent-primary);
+}
+
+.listen-rail__inline-create ::deep input,
+::deep .listen-rail__rename-input {
+    width: 100%;
+    min-width: 0;
+    padding: 5px 7px;
+    color: var(--tl-text-primary);
+    border: 1px solid var(--tl-accent-primary);
+    border-radius: 5px;
+    outline: 0;
+    background: rgba(15, 23, 42, 0.94);
+    font: inherit;
+}
+
+.listen-rail__delete-confirm {
+    grid-column: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 25px 25px;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    padding: 4px 2px;
+    font-size: 0.72rem;
+}
+
+.listen-rail__delete-confirm > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.listen-rail__delete-confirm ::deep button {
+    display: grid;
+    width: 25px;
+    height: 25px;
+    place-items: center;
+    padding: 0;
+    color: white;
+    border: 0;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.listen-rail__delete-confirm ::deep .is-confirm { background: #15803d; }
+.listen-rail__delete-confirm ::deep .is-cancel { background: #b91c1c; }
+.listen-rail__delete-confirm ::deep .mud-icon-root { font-size: 15px; }
+
+.listen-rail__smart-badge {
+    margin-left: auto;
+    padding: 1px 5px;
+    color: #c4b5fd;
+    border: 1px solid rgba(167, 139, 250, 0.35);
+    border-radius: 999px;
+    font-size: 0.58rem;
+    font-weight: 800;
+    line-height: 1.45;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
 .listen-rail__drag,
 .listen-rail__more,
 .listen-rail__add {

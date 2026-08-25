@@ -47,12 +47,14 @@
                 @if (IsOwner)
                 {
                     <div class="view-feature-page__actions" role="group" aria-label="Gallery management">
-                        <AppButton Label="Edit" Variant="Variant.Outlined" OnClick="OpenEdit" />
+                        @if (_gallery.Kind == ViewGalleryKind.Smart)
+                        {
+                            <AppButton Label="Rules" Variant="Variant.Outlined" OnClick="OpenEdit" />
+                        }
                         @if (_shareTargets is not null)
                         {
                             <AppButton Label="Share" Variant="Variant.Outlined" OnClick="OpenShareAsync" />
                         }
-                        <AppButton Label="Delete" Variant="Variant.Text" Tone="AppUiTone.Error" OnClick="@(() => _deleteOpen = true)" />
                     </div>
                 }
             </header>
@@ -100,21 +102,16 @@
 }
 
 <AppDialog @bind-Visible="_editOpen"
-           Title="Edit Gallery"
-           Subtitle="Update this Gallery without changing or moving source files."
-           Icon="@Icons.Material.Outlined.Edit"
+           Title="Smart Gallery Rules"
+           Subtitle="Update the rules that keep this Gallery current."
+           Icon="@Icons.Material.Outlined.AutoAwesome"
            Size="Large">
     <ChildContent>
         <AppForm>
-            <AppTextField @bind-Value="_editName" Label="Name" MaxLength="120" />
-            <AppTextarea @bind-Value="_editDescription" Label="Description (optional)" />
-            @if (_gallery?.Kind == ViewGalleryKind.Smart)
-            {
-                <AppAlert Tone="AppUiTone.Info">
-                    Smart Gallery membership remains rule-driven. Items cannot be added or removed manually.
-                </AppAlert>
-                <ViewRuleBuilder Definition="@_editRules" DefinitionChanged="EditRulesChanged" />
-            }
+            <AppAlert Tone="AppUiTone.Info">
+                Smart Gallery membership remains rule-driven. Items cannot be added or removed manually.
+            </AppAlert>
+            <ViewRuleBuilder Definition="@_editRules" DefinitionChanged="EditRulesChanged" />
             @if (!string.IsNullOrWhiteSpace(_editError))
             {
                 <AppAlert Tone="AppUiTone.Error">@_editError</AppAlert>
@@ -189,29 +186,6 @@
     </FooterContent>
 </AppDialog>
 
-<AppDialog @bind-Visible="_deleteOpen"
-           Title="Delete Gallery?"
-           Subtitle="The Gallery will be removed. Its photos and source files will remain untouched."
-           Icon="@Icons.Material.Outlined.Delete"
-           Size="Small">
-    <ChildContent>
-        @if (!string.IsNullOrWhiteSpace(_deleteError))
-        {
-            <AppAlert Tone="AppUiTone.Error">@_deleteError</AppAlert>
-        }
-    </ChildContent>
-    <FooterContent>
-        <AppActionBar>
-            <AppButton Label="Cancel" OnClick="@(() => _deleteOpen = false)" />
-            <AppButton Label="@(_deleting ? "Deleting…" : "Delete Gallery")"
-                       ButtonStyle="AppButtonStyle.Filled"
-                       Tone="AppUiTone.Error"
-                       Disabled="@_deleting"
-                       OnClick="DeleteAsync" />
-        </AppActionBar>
-    </FooterContent>
-</AppDialog>
-
 @code {
     [Parameter] public Guid GalleryId { get; set; }
 
@@ -224,8 +198,6 @@
 
     private bool _editOpen;
     private bool _savingEdit;
-    private string _editName = string.Empty;
-    private string? _editDescription;
     private string? _editError;
     private CollectionRuleDefinitionViewModel _editRules = EmptyRules();
 
@@ -235,10 +207,6 @@
     private string? _shareError;
     private IReadOnlyList<ViewGalleryShareTargetDto>? _shareTargets;
     private readonly Dictionary<Guid, ViewGallerySharePermission> _shareDraft = [];
-
-    private bool _deleteOpen;
-    private bool _deleting;
-    private string? _deleteError;
 
     private bool IsOwner => _gallery is not null && _profileId == _gallery.OwnerProfileId;
 
@@ -325,8 +293,6 @@
     private void OpenEdit()
     {
         if (!IsOwner || _gallery is null) return;
-        _editName = _gallery.Name;
-        _editDescription = _gallery.Description;
         _editRules = _gallery.Kind == ViewGalleryKind.Smart
             ? ParseRules(_gallery.SmartRuleJson)
             : EmptyRules();
@@ -343,12 +309,6 @@
     private async Task SaveEditAsync()
     {
         if (!IsOwner || _gallery is null || _savingEdit) return;
-        if (string.IsNullOrWhiteSpace(_editName))
-        {
-            _editError = "Enter a Gallery name.";
-            return;
-        }
-
         var ruleJson = _gallery.Kind == ViewGalleryKind.Smart
             ? SerializeRules(_editRules)
             : null;
@@ -365,9 +325,9 @@
             var updated = await ApiClient.UpdateViewGalleryAsync(
                 GalleryId,
                 new ViewGalleryRequest(
-                    _editName.Trim(),
+                    _gallery.Name,
                     _gallery.Kind,
-                    string.IsNullOrWhiteSpace(_editDescription) ? null : _editDescription.Trim(),
+                    _gallery.Description,
                     ruleJson,
                     _gallery.CoverItemId,
                     _gallery.SortOrder));
@@ -461,29 +421,6 @@
         finally
         {
             _savingShares = false;
-        }
-    }
-
-    private async Task DeleteAsync()
-    {
-        if (!IsOwner || _deleting) return;
-        _deleting = true;
-        _deleteError = null;
-        try
-        {
-            if (!await ApiClient.DeleteViewGalleryAsync(GalleryId))
-            {
-                _deleteError = "The Gallery could not be deleted.";
-                return;
-            }
-
-            await Workspace.LoadGalleriesAsync(force: true);
-            Snackbar.Add("Gallery deleted. Its media was not changed.", Severity.Success);
-            Nav.NavigateTo("/view/galleries");
-        }
-        finally
-        {
-            _deleting = false;
         }
     }
 

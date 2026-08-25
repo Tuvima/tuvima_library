@@ -10,7 +10,43 @@
         @foreach (var group in NavigationGroups)
         {
             <section class="media-section-shell__rail-group" aria-labelledby="@GroupId(group)">
-                <div id="@GroupId(group)" class="media-section-shell__rail-label">@group.Label</div>
+                <div class="media-section-shell__rail-heading"
+                     @ondragover:preventDefault="@(group.CreateOptions?.ManualDropTarget is not null)"
+                     @ondrop:preventDefault="@(group.CreateOptions?.ManualDropTarget is not null)"
+                     @ondrop="@(() => DropOnCreateGroupAsync(group))">
+                    <div id="@GroupId(group)" class="media-section-shell__rail-label">@group.Label</div>
+                    @if (group.CreateOptions is { } createOptions)
+                    {
+                        <AppOverflowMenu Icon="@Icons.Material.Outlined.Add"
+                                         AriaLabel="@($"Create in {group.Label}")"
+                                         Size="AppControlSize.Compact"
+                                         Class="media-section-shell__create-menu">
+                            <AppMenuItem Label="@createOptions.ManualLabel"
+                                         Icon="@Icons.Material.Outlined.Add"
+                                         OnClick="@(() => BeginManualCreateAsync(group))" />
+                            <AppMenuItem Label="@createOptions.SmartLabel"
+                                         Icon="@Icons.Material.Outlined.AutoAwesome"
+                                         OnClick="@(() => BeginSmartCreateAsync(group))" />
+                        </AppOverflowMenu>
+                    }
+                </div>
+                @if (IsCreating(group))
+                {
+                    <div class="media-section-shell__inline-create">
+                        <MudIcon Icon="@Icons.Material.Outlined.Add" />
+                        <AppNativeInput @ref="_createInput"
+                                        Value="@_createName"
+                                        ValueChanged="OnCreateNameChanged"
+                                        OnKeyDown="HandleCreateKeyDownAsync"
+                                        Placeholder="@group.CreateOptions!.InputPlaceholder"
+                                        AriaLabel="@group.CreateOptions.InputPlaceholder"
+                                        Disabled="@_creating" />
+                        @if (_creating)
+                        {
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                        }
+                    </div>
+                }
                 @foreach (var item in group.Items)
                 {
                     if (HasChildren(item))
@@ -47,24 +83,204 @@
                                     @foreach (var child in item.Children!)
                                     {
                                         var childActive = IsActive(child);
-                                        <a @key="child.Route"
-                                           id="@ItemId(child)"
-                                           href="@child.Route"
-                                           class="media-section-shell__rail-item media-section-shell__rail-item--child @(childActive ? "is-active" : null) @(DropClass(child))"
-                                           @ondragover:preventDefault="@(child.DropTarget is not null)"
-                                           @ondrop:preventDefault="@(child.DropTarget is not null)"
-                                           @ondrop="@(() => DropOnNavigationItemAsync(child))"
-                                           aria-current="@(childActive ? "page" : null)">
-                                            <span class="media-section-shell__rail-child-marker" aria-hidden="true"></span>
-                                            <span>@child.Label</span>
-                                            @if (!string.IsNullOrWhiteSpace(child.Meta))
-                                            {
-                                                <span class="media-section-shell__rail-meta">@child.Meta</span>
-                                            }
-                                        </a>
+                                        @if (child.Management is { } management)
+                                        {
+                                            <div @key="child.Route"
+                                                 class="@ManagedRowClass(child)"
+                                                 @onpointerdown="@(args => BeginSwipe(child, args))"
+                                                 @onpointermove="@(args => TrackSwipe(child, args))"
+                                                 @onpointerup="@(args => EndSwipe(child, args))"
+                                                 @onpointercancel="@(args => EndSwipe(child, args))"
+                                                 @ondragover:preventDefault="@(child.DropTarget is not null || _reorderingItem is not null)"
+                                                 @ondrop:preventDefault="@(child.DropTarget is not null || _reorderingItem is not null)"
+                                                 @ondrop="@(() => DropOnManagedItemAsync(child))">
+                                                <div class="media-section-shell__swipe-actions" aria-hidden="@(_swipedRoute == child.Route ? "false" : "true")">
+                                                    @if (management.CanRename)
+                                                    {
+                                                        <AppNativeButton Type="button" Class="is-rename" AriaLabel="@($"Rename {child.Label}")" OnClick="@(_ => BeginRename(child))">Rename</AppNativeButton>
+                                                    }
+                                                    @if (management.CanDelete)
+                                                    {
+                                                        <AppNativeButton Type="button" Class="is-delete" AriaLabel="@($"Delete {child.Label}")" OnClick="@(_ => BeginDelete(child))">Delete</AppNativeButton>
+                                                    }
+                                                </div>
+                                                <div class="media-section-shell__managed-main">
+                                                    @if (_deleteRoute == child.Route)
+                                                    {
+                                                        <div class="media-section-shell__delete-confirm" role="group" aria-label="@($"Confirm deletion of {child.Label}")">
+                                                            <span>Delete “@child.Label”?</span>
+                                                            <AppNativeButton Type="button" Class="is-confirm" Disabled="@_managing" AriaLabel="@($"Confirm deletion of {child.Label}")" OnClick="@(_ => ConfirmDeleteAsync(child))"><MudIcon Icon="@Icons.Material.Outlined.Check" /></AppNativeButton>
+                                                            <AppNativeButton Type="button" Class="is-cancel" Disabled="@_managing" AriaLabel="@($"Cancel deletion of {child.Label}")" OnClick="@(_ => CancelDelete())"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton>
+                                                        </div>
+                                                    }
+                                                    else if (_renameRoute == child.Route)
+                                                    {
+                                                        <div class="media-section-shell__rename-row">
+                                                            <AppNativeInput @ref="_renameInput"
+                                                                            Value="@_renameName"
+                                                                            ValueChanged="OnRenameNameChanged"
+                                                                            OnKeyDown="@(args => HandleRenameKeyDownAsync(child, args))"
+                                                                            AriaLabel="@($"Rename {child.Label}")"
+                                                                            Disabled="@_managing" />
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        @if (management.CanReorder)
+                                                        {
+                                                            <AppNativeButton Type="button"
+                                                                             Class="media-section-shell__drag-handle"
+                                                                             draggable="true"
+                                                                             AriaLabel="@($"Drag to reorder {child.Label}")"
+                                                                             @ondragstart="@(() => BeginReorder(child))"
+                                                                             @ondragend="EndReorder"><MudIcon Icon="@Icons.Material.Outlined.DragIndicator" /></AppNativeButton>
+                                                        }
+                                                        <a id="@ItemId(child)"
+                                                           href="@child.Route"
+                                                           class="media-section-shell__rail-item media-section-shell__rail-item--managed @(childActive ? "is-active" : null) @(DropClass(child))"
+                                                           @onclick="@(() => NavigateManagedItem(child))"
+                                                           @onclick:preventDefault="true"
+                                                           aria-current="@(childActive ? "page" : null)">
+                                                            <MudIcon Icon="@child.Icon" />
+                                                            <span>@child.Label</span>
+                                                            @if (management.IsSmart)
+                                                            {
+                                                                <span class="media-section-shell__smart-badge" title="Smart — membership is controlled by rules">Smart</span>
+                                                            }
+                                                            else if (!string.IsNullOrWhiteSpace(child.Meta))
+                                                            {
+                                                                <span class="media-section-shell__rail-meta">@child.Meta</span>
+                                                            }
+                                                        </a>
+                                                        <AppOverflowMenu Icon="@Icons.Material.Outlined.MoreVert" AriaLabel="@($"Manage {child.Label}")" Size="AppControlSize.Compact" Class="media-section-shell__manage-menu">
+                                                            @if (management.CanRename)
+                                                            {
+                                                                <AppMenuItem Label="Rename" Icon="@Icons.Material.Outlined.DriveFileRenameOutline" OnClick="@(() => BeginRename(child))" />
+                                                            }
+                                                            @if (management.CanReorder)
+                                                            {
+                                                                <AppMenuItem Label="Move up" Icon="@Icons.Material.Outlined.KeyboardArrowUp" OnClick="@(() => MoveManagedItemAsync(child, -1))" />
+                                                                <AppMenuItem Label="Move down" Icon="@Icons.Material.Outlined.KeyboardArrowDown" OnClick="@(() => MoveManagedItemAsync(child, 1))" />
+                                                            }
+                                                            @if (management.CanDelete)
+                                                            {
+                                                                <AppMenuItem Label="Delete" Icon="@Icons.Material.Outlined.DeleteOutline" Tone="AppUiTone.Error" DividerBefore="true" OnClick="@(() => BeginDelete(child))" />
+                                                            }
+                                                        </AppOverflowMenu>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <a @key="child.Route"
+                                               id="@ItemId(child)"
+                                               href="@child.Route"
+                                               class="media-section-shell__rail-item media-section-shell__rail-item--child @(childActive ? "is-active" : null) @(DropClass(child))"
+                                               @ondragover:preventDefault="@(child.DropTarget is not null)"
+                                               @ondrop:preventDefault="@(child.DropTarget is not null)"
+                                               @ondrop="@(() => DropOnNavigationItemAsync(child))"
+                                               aria-current="@(childActive ? "page" : null)">
+                                                <span class="media-section-shell__rail-child-marker" aria-hidden="true"></span>
+                                                <span>@child.Label</span>
+                                                @if (!string.IsNullOrWhiteSpace(child.Meta))
+                                                {
+                                                    <span class="media-section-shell__rail-meta">@child.Meta</span>
+                                                }
+                                            </a>
+                                        }
                                     }
                                 </div>
                             }
+                        </div>
+                    }
+                    else if (item.Management is { } management)
+                    {
+                        var active = IsActive(item);
+                        <div @key="item.Route"
+                             class="@ManagedRowClass(item)"
+                             @onpointerdown="@(args => BeginSwipe(item, args))"
+                             @onpointermove="@(args => TrackSwipe(item, args))"
+                             @onpointerup="@(args => EndSwipe(item, args))"
+                             @onpointercancel="@(args => EndSwipe(item, args))"
+                             @ondragover:preventDefault="@(item.DropTarget is not null || _reorderingItem is not null)"
+                             @ondrop:preventDefault="@(item.DropTarget is not null || _reorderingItem is not null)"
+                             @ondrop="@(() => DropOnManagedItemAsync(item))">
+                            <div class="media-section-shell__swipe-actions" aria-hidden="@(_swipedRoute == item.Route ? "false" : "true")">
+                                @if (management.CanRename)
+                                {
+                                    <AppNativeButton Type="button" Class="is-rename" AriaLabel="@($"Rename {item.Label}")" OnClick="@(_ => BeginRename(item))">Rename</AppNativeButton>
+                                }
+                                @if (management.CanDelete)
+                                {
+                                    <AppNativeButton Type="button" Class="is-delete" AriaLabel="@($"Delete {item.Label}")" OnClick="@(_ => BeginDelete(item))">Delete</AppNativeButton>
+                                }
+                            </div>
+                            <div class="media-section-shell__managed-main">
+                                @if (_deleteRoute == item.Route)
+                                {
+                                    <div class="media-section-shell__delete-confirm" role="group" aria-label="@($"Confirm deletion of {item.Label}")">
+                                        <span>Delete “@item.Label”?</span>
+                                        <AppNativeButton Type="button" Class="is-confirm" Disabled="@_managing" AriaLabel="@($"Confirm deletion of {item.Label}")" OnClick="@(_ => ConfirmDeleteAsync(item))"><MudIcon Icon="@Icons.Material.Outlined.Check" /></AppNativeButton>
+                                        <AppNativeButton Type="button" Class="is-cancel" Disabled="@_managing" AriaLabel="@($"Cancel deletion of {item.Label}")" OnClick="@(_ => CancelDelete())"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton>
+                                    </div>
+                                }
+                                else if (_renameRoute == item.Route)
+                                {
+                                    <div class="media-section-shell__rename-row">
+                                        <AppNativeInput @ref="_renameInput"
+                                                        Value="@_renameName"
+                                                        ValueChanged="OnRenameNameChanged"
+                                                        OnKeyDown="@(args => HandleRenameKeyDownAsync(item, args))"
+                                                        AriaLabel="@($"Rename {item.Label}")"
+                                                        Disabled="@_managing" />
+                                    </div>
+                                }
+                                else
+                                {
+                                    @if (management.CanReorder)
+                                    {
+                                        <AppNativeButton Type="button"
+                                                         Class="media-section-shell__drag-handle"
+                                                         draggable="true"
+                                                         AriaLabel="@($"Drag to reorder {item.Label}")"
+                                                         @ondragstart="@(() => BeginReorder(item))"
+                                                         @ondragend="EndReorder"><MudIcon Icon="@Icons.Material.Outlined.DragIndicator" /></AppNativeButton>
+                                    }
+                                    <a id="@ItemId(item)"
+                                       href="@item.Route"
+                                       class="media-section-shell__rail-item media-section-shell__rail-item--managed @(active ? "is-active" : null) @(DropClass(item))"
+                                       @onclick="@(() => NavigateManagedItem(item))"
+                                       @onclick:preventDefault="true"
+                                       aria-current="@(active ? "page" : null)">
+                                        <MudIcon Icon="@item.Icon" />
+                                        <span>@item.Label</span>
+                                        @if (management.IsSmart)
+                                        {
+                                            <span class="media-section-shell__smart-badge" title="Smart — membership is controlled by rules">Smart</span>
+                                        }
+                                        else if (!string.IsNullOrWhiteSpace(item.Meta))
+                                        {
+                                            <span class="media-section-shell__rail-meta">@item.Meta</span>
+                                        }
+                                    </a>
+                                    <AppOverflowMenu Icon="@Icons.Material.Outlined.MoreVert" AriaLabel="@($"Manage {item.Label}")" Size="AppControlSize.Compact" Class="media-section-shell__manage-menu">
+                                        @if (management.CanRename)
+                                        {
+                                            <AppMenuItem Label="Rename" Icon="@Icons.Material.Outlined.DriveFileRenameOutline" OnClick="@(() => BeginRename(item))" />
+                                        }
+                                        @if (management.CanReorder)
+                                        {
+                                            <AppMenuItem Label="Move up" Icon="@Icons.Material.Outlined.KeyboardArrowUp" OnClick="@(() => MoveManagedItemAsync(item, -1))" />
+                                            <AppMenuItem Label="Move down" Icon="@Icons.Material.Outlined.KeyboardArrowDown" OnClick="@(() => MoveManagedItemAsync(item, 1))" />
+                                        }
+                                        @if (management.CanDelete)
+                                        {
+                                            <AppMenuItem Label="Delete" Icon="@Icons.Material.Outlined.DeleteOutline" Tone="AppUiTone.Error" DividerBefore="true" OnClick="@(() => BeginDelete(item))" />
+                                        }
+                                    </AppOverflowMenu>
+                                }
+                            </div>
                         </div>
                     }
                     else
@@ -101,20 +317,44 @@
     [Parameter, EditorRequired] public IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups { get; set; } = [];
     [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
     [Parameter] public EventCallback<MediaSectionNavigationDropEvent> OnNavigationItemDrop { get; set; }
+    [Parameter] public EventCallback<MediaSectionNavigationCreateDropEvent> OnNavigationCreateDrop { get; set; }
+    [Parameter] public EventCallback<MediaSectionNavigationCreateTarget> OnNavigationCreateCanceled { get; set; }
+    [Parameter] public Func<MediaSectionNavigationCreateEvent, Task<bool>>? OnNavigationCreate { get; set; }
+    [Parameter] public Func<MediaSectionNavigationCreateTarget, Task>? OnNavigationSmartCreate { get; set; }
+    [Parameter] public Func<MediaSectionNavigationRenameEvent, Task<bool>>? OnNavigationItemRename { get; set; }
+    [Parameter] public Func<MediaSectionNavigationManageEvent, Task<bool>>? OnNavigationItemDelete { get; set; }
+    [Parameter] public Func<MediaSectionNavigationReorderEvent, Task<bool>>? OnNavigationItemReorder { get; set; }
     [Parameter] public bool AccordionNavigation { get; set; }
 
     private readonly HashSet<string> _expandedRoutes = new(StringComparer.OrdinalIgnoreCase);
     private ElementReference _content;
+    private AppNativeInput? _createInput;
+    private AppNativeInput? _renameInput;
     private bool _scrollActiveItem;
     private bool _scrollContentTop;
+    private bool _focusCreateInput;
+    private bool _focusRenameInput;
+    private bool _creating;
+    private bool _managing;
+    private string? _creatingGroupLabel;
+    private MediaSectionNavigationCreateOptions? _creatingOptions;
+    private string _createName = string.Empty;
+    private string? _renameRoute;
+    private string _renameName = string.Empty;
+    private string? _deleteRoute;
+    private string? _swipedRoute;
+    private MediaSectionNavigationItem? _reorderingItem;
+    private string? _pointerRoute;
+    private double _pointerStartX;
+    private double _pointerStartY;
 
     private string ShellCssClass => HasNestedNavigation
         ? "media-section-shell media-section-shell--nested"
         : "media-section-shell";
 
-    private bool HasNestedNavigation => NavigationGroups
-        .SelectMany(group => group.Items)
-        .Any(HasChildren);
+    private bool HasNestedNavigation => NavigationGroups.Any(group =>
+        group.CreateOptions is not null
+        || group.Items.Any(item => HasChildren(item) || item.Management is not null));
 
     protected override void OnInitialized()
     {
@@ -266,6 +506,18 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_focusCreateInput && _createInput is not null)
+        {
+            _focusCreateInput = false;
+            await _createInput.FocusAsync();
+        }
+
+        if (_focusRenameInput && _renameInput is not null)
+        {
+            _focusRenameInput = false;
+            await _renameInput.FocusAsync();
+        }
+
         if (!_scrollActiveItem && !_scrollContentTop)
         {
             return;
@@ -297,6 +549,218 @@
         item.DropTarget is { } target && OnNavigationItemDrop.HasDelegate
             ? OnNavigationItemDrop.InvokeAsync(new MediaSectionNavigationDropEvent(item, target))
             : Task.CompletedTask;
+
+    private bool IsCreating(MediaSectionNavigationGroup group) =>
+        string.Equals(_creatingGroupLabel, group.Label, StringComparison.Ordinal);
+
+    private async Task BeginManualCreateAsync(MediaSectionNavigationGroup group)
+    {
+        if (_creatingOptions is not null && OnNavigationCreateCanceled.HasDelegate)
+            await OnNavigationCreateCanceled.InvokeAsync(_creatingOptions.ManualTarget);
+
+        _creatingGroupLabel = group.Label;
+        _creatingOptions = group.CreateOptions;
+        _createName = string.Empty;
+        _deleteRoute = null;
+        _renameRoute = null;
+        _focusCreateInput = true;
+    }
+
+    public async Task BeginManualCreateAsync(string groupLabel)
+    {
+        var group = NavigationGroups.FirstOrDefault(candidate =>
+            string.Equals(candidate.Label, groupLabel, StringComparison.OrdinalIgnoreCase));
+        if (group?.CreateOptions is not null)
+            await BeginManualCreateAsync(group);
+    }
+
+    private Task BeginSmartCreateAsync(MediaSectionNavigationGroup group) =>
+        group.CreateOptions is { } options && OnNavigationSmartCreate is not null
+            ? OnNavigationSmartCreate(options.SmartTarget)
+            : Task.CompletedTask;
+
+    private async Task DropOnCreateGroupAsync(MediaSectionNavigationGroup group)
+    {
+        if (group.CreateOptions is not { ManualDropTarget: { } dropTarget } options)
+            return;
+
+        if (OnNavigationCreateDrop.HasDelegate)
+            await OnNavigationCreateDrop.InvokeAsync(new(group.Label, options.ManualTarget, dropTarget));
+
+        _creatingGroupLabel = group.Label;
+        _creatingOptions = options;
+        _createName = string.Empty;
+        _focusCreateInput = true;
+    }
+
+    private Task OnCreateNameChanged(object? value)
+    {
+        _createName = value?.ToString() ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleCreateKeyDownAsync(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+        {
+            await CancelCreateAsync();
+            return;
+        }
+
+        if (!string.Equals(args.Key, "Enter", StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(_createName)
+            || _creatingOptions is null
+            || OnNavigationCreate is null)
+            return;
+
+        _creating = true;
+        var succeeded = await OnNavigationCreate(new(
+            _creatingGroupLabel ?? string.Empty,
+            _creatingOptions.ManualTarget,
+            _createName.Trim()));
+        _creating = false;
+        if (succeeded)
+        {
+            _creatingGroupLabel = null;
+            _creatingOptions = null;
+            _createName = string.Empty;
+        }
+    }
+
+    private async Task CancelCreateAsync()
+    {
+        if (_creatingOptions is not null && OnNavigationCreateCanceled.HasDelegate)
+            await OnNavigationCreateCanceled.InvokeAsync(_creatingOptions.ManualTarget);
+        _creatingGroupLabel = null;
+        _creatingOptions = null;
+        _createName = string.Empty;
+    }
+
+    private string ManagedRowClass(MediaSectionNavigationItem item) => string.Join(" ", new[]
+    {
+        "media-section-shell__managed-row",
+        _swipedRoute == item.Route ? "is-swiped" : null,
+        _reorderingItem?.Route == item.Route ? "is-reordering" : null,
+        _deleteRoute == item.Route ? "is-confirming-delete" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private void NavigateManagedItem(MediaSectionNavigationItem item)
+    {
+        if (_swipedRoute == item.Route)
+        {
+            _swipedRoute = null;
+            return;
+        }
+
+        Nav.NavigateTo(item.Route);
+    }
+
+    private void BeginRename(MediaSectionNavigationItem item)
+    {
+        _swipedRoute = null;
+        _deleteRoute = null;
+        _renameRoute = item.Route;
+        _renameName = item.Label;
+        _focusRenameInput = true;
+    }
+
+    private Task OnRenameNameChanged(object? value)
+    {
+        _renameName = value?.ToString() ?? string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleRenameKeyDownAsync(MediaSectionNavigationItem item, KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+        {
+            _renameRoute = null;
+            return;
+        }
+
+        if (!string.Equals(args.Key, "Enter", StringComparison.Ordinal)
+            || string.IsNullOrWhiteSpace(_renameName)
+            || item.Management is null
+            || OnNavigationItemRename is null)
+            return;
+
+        _managing = true;
+        var succeeded = await OnNavigationItemRename(new(item, item.Management, _renameName.Trim()));
+        _managing = false;
+        if (succeeded)
+            _renameRoute = null;
+    }
+
+    private void BeginDelete(MediaSectionNavigationItem item)
+    {
+        _swipedRoute = null;
+        _renameRoute = null;
+        _deleteRoute = item.Route;
+    }
+
+    private void CancelDelete() => _deleteRoute = null;
+
+    private async Task ConfirmDeleteAsync(MediaSectionNavigationItem item)
+    {
+        if (item.Management is null || OnNavigationItemDelete is null)
+            return;
+
+        _managing = true;
+        var succeeded = await OnNavigationItemDelete(new(item, item.Management));
+        _managing = false;
+        if (succeeded)
+            _deleteRoute = null;
+    }
+
+    private void BeginReorder(MediaSectionNavigationItem item) => _reorderingItem = item;
+    private void EndReorder() => _reorderingItem = null;
+
+    private async Task DropOnManagedItemAsync(MediaSectionNavigationItem item)
+    {
+        if (_reorderingItem is { Management: { } sourceManagement } source
+            && item.Management is { } targetManagement
+            && source.Route != item.Route
+            && sourceManagement.ContainerKind == targetManagement.ContainerKind
+            && OnNavigationItemReorder is not null)
+        {
+            await OnNavigationItemReorder(new(source, sourceManagement, targetManagement.ContainerId));
+            _reorderingItem = null;
+            return;
+        }
+
+        await DropOnNavigationItemAsync(item);
+    }
+
+    private Task<bool> MoveManagedItemAsync(MediaSectionNavigationItem item, int direction) =>
+        item.Management is { } management && OnNavigationItemReorder is not null
+            ? OnNavigationItemReorder(new(item, management, Direction: direction))
+            : Task.FromResult(false);
+
+    private void BeginSwipe(MediaSectionNavigationItem item, PointerEventArgs args)
+    {
+        if (!string.Equals(args.PointerType, "touch", StringComparison.OrdinalIgnoreCase))
+            return;
+        _pointerRoute = item.Route;
+        _pointerStartX = args.ClientX;
+        _pointerStartY = args.ClientY;
+    }
+
+    private void TrackSwipe(MediaSectionNavigationItem item, PointerEventArgs args)
+    {
+        if (_pointerRoute != item.Route)
+            return;
+        var horizontal = args.ClientX - _pointerStartX;
+        var vertical = args.ClientY - _pointerStartY;
+        if (Math.Abs(horizontal) < 44 || Math.Abs(horizontal) <= Math.Abs(vertical))
+            return;
+        _swipedRoute = horizontal < 0 ? item.Route : null;
+    }
+
+    private void EndSwipe(MediaSectionNavigationItem item, PointerEventArgs args)
+    {
+        if (_pointerRoute == item.Route)
+            _pointerRoute = null;
+    }
 
     private static string GroupId(MediaSectionNavigationGroup group) =>
         $"media-section-{new string(group.Label.ToLowerInvariant().Select(character => char.IsLetterOrDigit(character) ? character : '-').ToArray()).Trim('-')}";

@@ -27,7 +27,7 @@ public sealed class CollectionEditorLauncherService
         var isManualPlaylist = request.Mode == CollectionEditorMode.ManualPlaylist;
         var isSmartPlaylist = request.Mode == CollectionEditorMode.SmartPlaylist;
 
-        if (request.EditingCollection is null)
+        if (request.EditingCollection is null && request.Mode == CollectionEditorMode.CuratedCollection)
             return await OpenGuidedSetupAsync(request);
 
         var isCollectionEditor = !isManualPlaylist && !isSmartPlaylist;
@@ -90,7 +90,7 @@ public sealed class CollectionEditorLauncherService
     private static string EditDialogTitleFor(CollectionEditorLaunchRequest request) =>
         request.Mode switch
         {
-            CollectionEditorMode.ManualPlaylist => "Edit Playlist",
+            CollectionEditorMode.ManualPlaylist => "Playlist",
             CollectionEditorMode.SmartPlaylist => "Edit Smart Playlist",
             _ => "Edit Collection",
         };

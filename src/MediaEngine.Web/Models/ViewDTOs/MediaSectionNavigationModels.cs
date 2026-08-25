@@ -7,11 +7,39 @@ public sealed record MediaSectionNavigationItem(
     string? Meta = null,
     bool Exact = false,
     MediaSectionNavigationDropTarget? DropTarget = null,
-    IReadOnlyList<MediaSectionNavigationItem>? Children = null);
+    IReadOnlyList<MediaSectionNavigationItem>? Children = null,
+    MediaSectionNavigationItemManagement? Management = null);
 
 public sealed record MediaSectionNavigationGroup(
     string Label,
-    IReadOnlyList<MediaSectionNavigationItem> Items);
+    IReadOnlyList<MediaSectionNavigationItem> Items,
+    MediaSectionNavigationCreateOptions? CreateOptions = null);
+
+public sealed record MediaSectionNavigationItemManagement(
+    Guid ContainerId,
+    string ContainerKind,
+    bool IsSmart = false,
+    bool CanRename = true,
+    bool CanDelete = true,
+    bool CanReorder = true);
+
+public sealed record MediaSectionNavigationCreateOptions(
+    string ManualLabel,
+    string SmartLabel,
+    string InputPlaceholder,
+    MediaSectionNavigationCreateTarget ManualTarget,
+    MediaSectionNavigationCreateTarget SmartTarget,
+    MediaSectionNavigationDropTarget? ManualDropTarget = null);
+
+public abstract record MediaSectionNavigationCreateTarget;
+
+public sealed record ManualPlaylistCreateTarget : MediaSectionNavigationCreateTarget;
+
+public sealed record SmartPlaylistCreateTarget : MediaSectionNavigationCreateTarget;
+
+public sealed record ManualGalleryCreateTarget : MediaSectionNavigationCreateTarget;
+
+public sealed record SmartGalleryCreateTarget : MediaSectionNavigationCreateTarget;
 
 /// <summary>
 /// Identifies the destination represented by a navigation rail drop target.
@@ -28,9 +56,36 @@ public sealed record SmartGalleryNavigationDropTarget(Guid GalleryId) : MediaSec
 
 public sealed record NewGalleryNavigationDropTarget : MediaSectionNavigationDropTarget;
 
+public sealed record NewPlaylistNavigationDropTarget : MediaSectionNavigationDropTarget;
+
 public sealed record ContainerNavigationDropTarget(string ContainerKind, Guid? ContainerId = null)
     : MediaSectionNavigationDropTarget;
 
 public sealed record MediaSectionNavigationDropEvent(
     MediaSectionNavigationItem Item,
     MediaSectionNavigationDropTarget Target);
+
+public sealed record MediaSectionNavigationCreateEvent(
+    string GroupLabel,
+    MediaSectionNavigationCreateTarget Target,
+    string Name);
+
+public sealed record MediaSectionNavigationCreateDropEvent(
+    string GroupLabel,
+    MediaSectionNavigationCreateTarget Target,
+    MediaSectionNavigationDropTarget DropTarget);
+
+public sealed record MediaSectionNavigationManageEvent(
+    MediaSectionNavigationItem Item,
+    MediaSectionNavigationItemManagement Management);
+
+public sealed record MediaSectionNavigationRenameEvent(
+    MediaSectionNavigationItem Item,
+    MediaSectionNavigationItemManagement Management,
+    string Name);
+
+public sealed record MediaSectionNavigationReorderEvent(
+    MediaSectionNavigationItem Item,
+    MediaSectionNavigationItemManagement Management,
+    Guid? BeforeContainerId = null,
+    int Direction = 0);

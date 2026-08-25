@@ -11,8 +11,8 @@
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>Galleries - Tuvima</PageTitle>
-<ViewSectionShell>
-<div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>Galleries</h1><p>Organize personal photos and videos without changing their source files.</p></div><AppButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@(() => OpenEditor())"><MudIcon Icon="@Icons.Material.Outlined.Add" /> New Gallery</AppButton></header>
+<ViewSectionShell @ref="_sectionShell">
+<div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>Galleries</h1><p>Organize personal photos and videos without changing their source files.</p></div><AppButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateManualGalleryAsync"><MudIcon Icon="@Icons.Material.Outlined.Add" /> New Gallery</AppButton></header>
 @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Galleries" Message="Opening your Galleries." /> }
 else if (Workspace.OwnedGalleries.Count == 0 && Workspace.SharedGalleries.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="No Galleries yet" Message="Create a Manual Gallery or a rule-driven Smart Gallery." /> }
 else
@@ -22,8 +22,7 @@ else
 }
 @if (_editing)
 {
-    <section class="view-gallery-editor" role="dialog" aria-modal="true" aria-labelledby="gallery-editor-title"><h2 id="gallery-editor-title">New Gallery</h2><label>Name <AppNativeInput Value="@_name" ValueChanged="@(v => _name = v?.ToString() ?? "")" AriaLabel="Gallery name" /></label><label>Description <AppNativeInput Value="@_description" ValueChanged="@(v => _description = v?.ToString() ?? "")" AriaLabel="Gallery description" /></label><fieldset><legend>Gallery type</legend><AppNativeButton Type="button" Class="@(_kind == ViewGalleryKind.Manual ? "is-active" : "")" OnClick="@(_ => _kind = ViewGalleryKind.Manual)">Manual</AppNativeButton><AppNativeButton Type="button" Class="@(_kind == ViewGalleryKind.Smart ? "is-active" : "")" OnClick="@(_ => _kind = ViewGalleryKind.Smart)">Smart</AppNativeButton></fieldset>
-        @if (_kind == ViewGalleryKind.Smart) { <ViewRuleBuilder Definition="@_rules" DefinitionChanged="RulesChanged" /> }
+    <section class="view-gallery-editor" role="dialog" aria-modal="true" aria-labelledby="gallery-editor-title"><h2 id="gallery-editor-title">New Smart Gallery</h2><p>Name the Gallery and choose the rules that keep it updated.</p><label>Name <AppNativeInput Value="@_name" ValueChanged="@(v => _name = v?.ToString() ?? "")" AriaLabel="Smart Gallery name" /></label><ViewRuleBuilder Definition="@_rules" DefinitionChanged="RulesChanged" />
         @if (!string.IsNullOrWhiteSpace(_error)) { <p role="alert">@_error</p> }
         <div><AppButton Variant="Variant.Text" OnClick="@(() => _editing = false)">Cancel</AppButton><AppButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_saving" OnClick="SaveAsync">Create Gallery</AppButton></div>
     </section>
@@ -33,19 +32,21 @@ else
 
 @code {
     [SupplyParameterFromQuery(Name="create")] public bool CreateRequested { get; set; }
-    private bool _loading = true, _editing, _saving; private string _name = "", _description = ""; private string? _error; private ViewGalleryKind _kind = ViewGalleryKind.Manual; private CollectionRuleDefinitionViewModel _rules = new();
-    protected override async Task OnInitializedAsync() { await Workspace.LoadGalleriesAsync(force: true); _loading = false; if (CreateRequested || Workspace.PendingNewGalleryItems.Count > 0) OpenEditor(); }
-    private void OpenEditor() { _editing = true; _error = null; }
+    [SupplyParameterFromQuery(Name="kind")] public string? RequestedKind { get; set; }
+    private ViewSectionShell? _sectionShell; private bool _loading = true, _editing, _saving; private string _name = ""; private string? _error; private CollectionRuleDefinitionViewModel _rules = new();
+    protected override async Task OnInitializedAsync() { await Workspace.LoadGalleriesAsync(force: true); _loading = false; }
+    protected override void OnParametersSet() { if (CreateRequested && string.Equals(RequestedKind, "smart", StringComparison.OrdinalIgnoreCase)) OpenSmartEditor(); }
+    private Task CreateManualGalleryAsync() => _sectionShell?.BeginManualGalleryCreateAsync() ?? Task.CompletedTask;
+    private void OpenSmartEditor() { _editing = true; _error = null; }
     private Task RulesChanged(CollectionRuleDefinitionViewModel value) { _rules = value; return Task.CompletedTask; }
     private async Task SaveAsync()
     {
         if (string.IsNullOrWhiteSpace(_name)) { _error = "Enter a Gallery name."; return; }
         var completeRules = _rules.Groups.Where(g => g.Conditions.Any(IsCompleteRule)).ToList();
-        if (_kind == ViewGalleryKind.Smart && completeRules.Count == 0) { _error = "A Smart Gallery needs at least one complete rule."; return; }
-        _saving = true; var json = _kind == ViewGalleryKind.Smart ? JsonSerializer.Serialize(ToContract(_rules)) : null;
-        var created = await ApiClient.CreateViewGalleryAsync(new(_name.Trim(), _kind, string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(), json));
+        if (completeRules.Count == 0) { _error = "A Smart Gallery needs at least one complete rule."; return; }
+        _saving = true; var json = JsonSerializer.Serialize(ToContract(_rules));
+        var created = await ApiClient.CreateViewGalleryAsync(new(_name.Trim(), ViewGalleryKind.Smart, SmartRuleJson: json));
         if (created is null) { _error = "The Gallery could not be created."; _saving = false; return; }
-        var pending = Workspace.TakePendingNewGalleryItems(); if (_kind == ViewGalleryKind.Manual && pending.Count > 0) await ApiClient.AddViewGalleryItemsAsync(created.Id, pending);
         await Workspace.LoadGalleriesAsync(force: true); Snackbar.Add($"Created {created.Name}.", Severity.Success); Nav.NavigateTo($"/view/galleries/{created.Id:D}");
     }
     private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) => !string.IsNullOrWhiteSpace(rule.Field) && (rule.Op is "known" or "unknown" or "has_any_value" or "has_no_known_value" || !string.IsNullOrWhiteSpace(rule.Value) || rule.Values is { Length: > 0 });

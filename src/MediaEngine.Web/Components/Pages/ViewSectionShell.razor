@@ -1,13 +1,24 @@
 @namespace MediaEngine.Web.Components.Pages
+@using MediaEngine.Contracts.LocalAssets
+@using MediaEngine.Domain.PersonalMedia
 @inject ViewWorkspaceService Workspace
 @inject ViewAssetDragService AssetDrag
 @inject IEngineApiClient ApiClient
+@inject ActiveProfileSessionService ActiveProfileSession
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 
-<MediaSectionShell Title="View"
+<MediaSectionShell @ref="_shell"
+                   Title="View"
                    NavigationGroups="@NavigationGroups"
-                   OnNavigationItemDrop="HandleNavigationDropAsync">
+                   OnNavigationItemDrop="HandleNavigationDropAsync"
+                   OnNavigationCreateDrop="HandleCreateDropAsync"
+                   OnNavigationCreateCanceled="CancelCreateAsync"
+                   OnNavigationCreate="CreateGalleryAsync"
+                   OnNavigationSmartCreate="OpenSmartGalleryAsync"
+                   OnNavigationItemRename="RenameGalleryAsync"
+                   OnNavigationItemDelete="DeleteGalleryAsync"
+                   OnNavigationItemReorder="ReorderGalleryAsync">
     @ChildContent
 </MediaSectionShell>
 
@@ -15,9 +26,20 @@
     [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
     [Parameter] public EventCallback<MediaSectionNavigationDropEvent> OnNavigationItemDrop { get; set; }
 
+    private MediaSectionShell? _shell;
+
     protected override async Task OnInitializedAsync()
     {
+        await ActiveProfileSession.GetActiveProfileAsync();
         await Workspace.LoadGalleriesAsync();
+    }
+
+    public async Task BeginManualGalleryCreateAsync(IEnumerable<Guid>? assetIds = null)
+    {
+        if (assetIds is not null)
+            Workspace.StageNewGalleryItems(assetIds.ToList());
+        if (_shell is not null)
+            await _shell.BeginManualCreateAsync("Galleries");
     }
 
     private IReadOnlyList<MediaSectionNavigationItem> GalleryShortcuts
@@ -25,19 +47,17 @@
         get
         {
             var items = Workspace.OwnedGalleries
-                .Take(6)
+                .OrderBy(gallery => gallery.SortOrder)
+                .ThenBy(gallery => gallery.Name, StringComparer.OrdinalIgnoreCase)
+                .Take(12)
                 .Select(gallery => new MediaSectionNavigationItem(
                     gallery.Name,
                     $"/view/galleries/{gallery.Id:D}",
-                    Icons.Material.Outlined.PhotoAlbum,
+                    gallery.Kind == ViewGalleryKind.Smart ? Icons.Material.Outlined.AutoAwesome : Icons.Material.Outlined.PhotoAlbum,
                     gallery.ItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    DropTarget: gallery.Kind == MediaEngine.Domain.PersonalMedia.ViewGalleryKind.Manual
-                        ? new ManualGalleryNavigationDropTarget(gallery.Id)
-                        : new SmartGalleryNavigationDropTarget(gallery.Id)))
+                    DropTarget: gallery.Kind == ViewGalleryKind.Manual ? new ManualGalleryNavigationDropTarget(gallery.Id) : null,
+                    Management: new MediaSectionNavigationItemManagement(gallery.Id, "gallery", IsSmart: gallery.Kind == ViewGalleryKind.Smart)))
                 .ToList();
-            items.Add(new("New Gallery", "/view/galleries?create=true", Icons.Material.Outlined.Add,
-                Exact: true, DropTarget: new NewGalleryNavigationDropTarget()));
-            items.Add(new("View all", "/view/galleries", Icons.Material.Outlined.ArrowForward, Exact: true));
             return items;
         }
     }
@@ -47,49 +67,152 @@
         new("View",
         [
             new("Photos", "/view", Icons.Material.Outlined.PhotoLibrary, Exact: true),
-            new("Galleries", "/view/galleries", Icons.Material.Outlined.Collections,
-                Exact: true,
-                Children: GalleryShortcuts),
+            new("Galleries", "/view/galleries", Icons.Material.Outlined.Collections, Exact: true),
             new("People", "/view/people", Icons.Material.Outlined.People, Exact: true),
             new("Places", "/view/places", Icons.Material.Outlined.Place, Exact: true),
         ]),
+        new("Galleries", GalleryShortcuts,
+            new MediaSectionNavigationCreateOptions(
+                "New Gallery",
+                "New Smart Gallery",
+                "Gallery name",
+                new ManualGalleryCreateTarget(),
+                new SmartGalleryCreateTarget(),
+                new NewGalleryNavigationDropTarget())),
     ];
 
     private async Task HandleNavigationDropAsync(MediaSectionNavigationDropEvent dropEvent)
     {
         try
         {
-            if (!AssetDrag.HasItems) return;
-            var assetIds = AssetDrag.AssetIds.ToList();
-            switch (dropEvent.Target)
+            if (!AssetDrag.HasItems || dropEvent.Target is not ManualGalleryNavigationDropTarget target)
+                return;
+            var gallery = Workspace.OwnedGalleries.FirstOrDefault(value => value.Id == target.GalleryId);
+            if (gallery?.Kind != ViewGalleryKind.Manual)
+                return;
+            var result = await ApiClient.AddViewGalleryItemsAsync(target.GalleryId, AssetDrag.AssetIds.ToList());
+            if (result is not null)
             {
-                case ManualGalleryNavigationDropTarget target:
-                    var gallery = Workspace.OwnedGalleries.FirstOrDefault(value => value.Id == target.GalleryId);
-                    if (gallery?.Kind != MediaEngine.Domain.PersonalMedia.ViewGalleryKind.Manual) return;
-                    var result = await ApiClient.AddViewGalleryItemsAsync(target.GalleryId, assetIds);
-                    if (result is not null)
-                    {
-                        var alreadyPresent = result.AlreadyPresent > 0
-                            ? $" · {result.AlreadyPresent} already in Gallery"
-                            : string.Empty;
-                        Snackbar.Add($"{result.Added} added{alreadyPresent}", Severity.Success);
-                        await Workspace.LoadGalleriesAsync(force: true);
-                    }
-                    break;
-                case NewGalleryNavigationDropTarget:
-                    Workspace.StageNewGalleryItems(assetIds);
-                    Nav.NavigateTo("/view/galleries?create=true");
-                    break;
-                case SmartGalleryNavigationDropTarget:
-                    Snackbar.Add("This Gallery updates automatically from its rules.", Severity.Info);
-                    break;
+                Snackbar.Add(GalleryResult(result), Severity.Success);
+                await Workspace.LoadGalleriesAsync(force: true);
             }
-
-            if (OnNavigationItemDrop.HasDelegate) await OnNavigationItemDrop.InvokeAsync(dropEvent);
+            if (OnNavigationItemDrop.HasDelegate)
+                await OnNavigationItemDrop.InvokeAsync(dropEvent);
         }
         finally
         {
             AssetDrag.Clear();
         }
     }
+
+    private Task HandleCreateDropAsync(MediaSectionNavigationCreateDropEvent createEvent)
+    {
+        if (createEvent.Target is ManualGalleryCreateTarget && AssetDrag.HasItems)
+        {
+            Workspace.StageNewGalleryItems(AssetDrag.AssetIds);
+            AssetDrag.Clear();
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task CancelCreateAsync(MediaSectionNavigationCreateTarget target)
+    {
+        if (target is ManualGalleryCreateTarget)
+            Workspace.TakePendingNewGalleryItems();
+        return Task.CompletedTask;
+    }
+
+    private async Task<bool> CreateGalleryAsync(MediaSectionNavigationCreateEvent createEvent)
+    {
+        if (createEvent.Target is not ManualGalleryCreateTarget)
+            return false;
+        var created = await ApiClient.CreateViewGalleryAsync(new(createEvent.Name, ViewGalleryKind.Manual, SortOrder: NextGallerySortOrder()));
+        if (created is null)
+        {
+            Snackbar.Add("The Gallery could not be created.", Severity.Error);
+            return false;
+        }
+        var pending = Workspace.TakePendingNewGalleryItems();
+        if (pending.Count > 0)
+            await ApiClient.AddViewGalleryItemsAsync(created.Id, pending);
+        await Workspace.LoadGalleriesAsync(force: true);
+        Snackbar.Add($"Created {created.Name}.", Severity.Success);
+        Nav.NavigateTo($"/view/galleries/{created.Id:D}");
+        return true;
+    }
+
+    private Task OpenSmartGalleryAsync(MediaSectionNavigationCreateTarget target)
+    {
+        if (target is SmartGalleryCreateTarget)
+            Nav.NavigateTo("/view/galleries?create=true&kind=smart");
+        return Task.CompletedTask;
+    }
+
+    private async Task<bool> RenameGalleryAsync(MediaSectionNavigationRenameEvent renameEvent)
+    {
+        var gallery = Workspace.OwnedGalleries.FirstOrDefault(value => value.Id == renameEvent.Management.ContainerId);
+        if (gallery is null)
+            return false;
+        var updated = await ApiClient.UpdateViewGalleryAsync(gallery.Id, GalleryRequest(gallery, renameEvent.Name, gallery.SortOrder));
+        if (updated is null)
+        {
+            Snackbar.Add("The Gallery could not be renamed.", Severity.Error);
+            return false;
+        }
+        await Workspace.LoadGalleriesAsync(force: true);
+        return true;
+    }
+
+    private async Task<bool> DeleteGalleryAsync(MediaSectionNavigationManageEvent manageEvent)
+    {
+        if (!await ApiClient.DeleteViewGalleryAsync(manageEvent.Management.ContainerId))
+        {
+            Snackbar.Add("The Gallery could not be deleted.", Severity.Error);
+            return false;
+        }
+        await Workspace.LoadGalleriesAsync(force: true);
+        if (Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath.Contains(manageEvent.Management.ContainerId.ToString("D"), StringComparison.OrdinalIgnoreCase))
+            Nav.NavigateTo("/view/galleries");
+        Snackbar.Add($"Deleted {manageEvent.Item.Label}.", Severity.Success);
+        return true;
+    }
+
+    private async Task<bool> ReorderGalleryAsync(MediaSectionNavigationReorderEvent reorderEvent)
+    {
+        var ordered = Workspace.OwnedGalleries.OrderBy(gallery => gallery.SortOrder).ThenBy(gallery => gallery.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        var sourceIndex = ordered.FindIndex(value => value.Id == reorderEvent.Management.ContainerId);
+        if (sourceIndex < 0)
+            return false;
+        var moveBefore = reorderEvent.BeforeContainerId is not null;
+        var targetIndex = reorderEvent.BeforeContainerId is { } targetId
+            ? ordered.FindIndex(value => value.Id == targetId)
+            : Math.Clamp(sourceIndex + reorderEvent.Direction, 0, ordered.Count - 1);
+        if (targetIndex < 0 || targetIndex == sourceIndex)
+            return false;
+        var source = ordered[sourceIndex];
+        ordered.RemoveAt(sourceIndex);
+        if (moveBefore && sourceIndex < targetIndex)
+            targetIndex--;
+        ordered.Insert(targetIndex, source);
+        for (var index = 0; index < ordered.Count; index++)
+        {
+            var gallery = ordered[index];
+            if (await ApiClient.UpdateViewGalleryAsync(gallery.Id, GalleryRequest(gallery, gallery.Name, index)) is null)
+            {
+                Snackbar.Add("The Gallery order could not be saved.", Severity.Error);
+                return false;
+            }
+        }
+        await Workspace.LoadGalleriesAsync(force: true);
+        return true;
+    }
+
+    private int NextGallerySortOrder() => Workspace.OwnedGalleries.Count == 0 ? 0 : Workspace.OwnedGalleries.Max(gallery => gallery.SortOrder) + 1;
+
+    private static ViewGalleryRequest GalleryRequest(ViewGalleryDto gallery, string name, int sortOrder) =>
+        new(name, gallery.Kind, gallery.Description, gallery.SmartRuleJson, gallery.CoverItemId, sortOrder);
+
+    private static string GalleryResult(AddViewGalleryItemsResponseDto result) => result.AlreadyPresent > 0
+        ? $"{result.Added} added · {result.AlreadyPresent} already in Gallery"
+        : $"{result.Added} added";
 }

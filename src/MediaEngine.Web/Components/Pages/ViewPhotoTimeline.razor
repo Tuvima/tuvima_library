@@ -13,7 +13,7 @@
         @foreach (var item in day)
         {
             <article class="view-tile view-tile--@Kind(item) view-tile--@Orientation(item)" draggable="true" @ondragstart="@(_ => OnDragStarted.InvokeAsync(item.Id))" @ondragend="@(_ => OnDragEnded.InvokeAsync())">
-                <span class="view-tile__select"><input class="view-tile__select-control" type="checkbox" checked="@Selected.Contains(item.Id)" aria-label="@($"Select {Title(item)}")" @onchange="@(_ => OnToggleSelection.InvokeAsync(item.Id))" @onclick:stopPropagation="true" /></span>
+                <span class="view-tile__select"><AppNativeInput Class="view-tile__select-control" Type="checkbox" Checked="@Selected.Contains(item.Id)" AriaLabel="@($"Select {Title(item)}")" OnChange="@(_ => OnToggleSelection.InvokeAsync(item.Id))" @onclick:stopPropagation="true" /></span>
                 <AppNativeButton Type="button" Class="view-tile__surface" AriaLabel="@($"Open {Title(item)}")" OnClick="@(_ => OnOpen.InvokeAsync(item))">
                     @if (Visual(item)) { <img src="@ThumbnailUrl(item)" alt="@Title(item)" loading="lazy" /> } else { <span class="view-tile__file-icon"><MudIcon Icon="@Icons.Material.Outlined.Description" /></span> }
                     <span class="view-tile__gradient"></span><span class="view-tile__copy"><strong>@Title(item)</strong><small>@(item.LocationName ?? item.MimeType)</small></span>

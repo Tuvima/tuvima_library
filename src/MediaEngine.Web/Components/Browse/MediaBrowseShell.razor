@@ -19,7 +19,6 @@
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject MediaEditorLauncherService MediaEditorLauncher
-@inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject FavoriteService Favorites
 @inject PlaybackSessionController Playback
 @inject ListenAudioDragService AudioDrag
@@ -252,23 +251,6 @@
                 <h2>@ActiveGroupingLabel</h2>
                 <span>@ResultCountLabel</span>
             </div>
-            @if (IsPlaylistGrouping)
-            {
-                <div class="browse-shell__playlist-actions">
-                    <AppButton Variant="Variant.Outlined"
-                               Color="Color.Default"
-                               StartIcon="@Icons.Material.Outlined.AutoAwesome"
-                               OnClick="@(() => OpenPlaylistBuilderAsync(smart: true))">
-                        New Smart Playlist
-                    </AppButton>
-                    <AppButton Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Add"
-                               OnClick="@(() => OpenPlaylistBuilderAsync(smart: false))">
-                        New Playlist
-                    </AppButton>
-                </div>
-            }
         </div>
 
         <CompactContinueStrip Title="@ContinueTitle" Items="@_continueCards" />
@@ -1561,30 +1543,6 @@
         return Task.CompletedTask;
     }
 
-
-    private async Task OpenPlaylistBuilderAsync(bool smart)
-    {
-        var activeProfile = await Orchestrator.GetActiveProfileAsync();
-        if (activeProfile is null)
-        {
-            Snackbar.Add("Choose an active profile before creating a playlist.", Severity.Warning);
-            return;
-        }
-
-        var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
-        {
-            ActiveProfileId = activeProfile.Id,
-            Mode = smart ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist,
-            InitialCollectionType = smart ? "Smart" : "Playlist",
-            InitialRulesEnabled = smart,
-            InitialTitle = string.Empty,
-        });
-
-        if (changed)
-        {
-            await LoadBrowseContentAsync();
-        }
-    }
 
     private async Task RemoveFilterAsync(string key)
     {

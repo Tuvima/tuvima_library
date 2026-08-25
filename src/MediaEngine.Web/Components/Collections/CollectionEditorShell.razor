@@ -262,9 +262,9 @@
 
     private string HeaderSubtitle =>
         IsSmartPlaylistLaunch
-            ? "Choose artwork, name it, then add the rule that keeps it updated."
+            ? "Name it, then add the rules that keep it updated."
             : IsPlaylistLaunch
-                ? "Choose artwork and name a playlist for this profile."
+                ? "Name a playlist for this profile."
                 : EditingCollection is null
                     ? "Create a saved collection using either live rules or manual membership."
                     : "Update the collection settings, rules, and saved items.";
@@ -1104,7 +1104,7 @@
         <div class="collection-editor-details-grid">
             <div class="collection-editor-panel-stack">
                 <MediaEditorPanel Title="Basic information" Description="The name and description shown throughout Tuvima Library.">
-                    @if (IsPlaylistDialog)
+                    @if (IsPlaylistDialog && EditingCollection is not null)
                     {
                         <label class="app-artwork-picker collection-editor-artwork-picker">
                             @if (_artworkPreviewUrls.TryGetValue("poster", out var playlistPreview))
@@ -1132,13 +1132,16 @@
                                   Immediate="true"
                                   Class="collection-editor-field" />
 
-                    <AppTextarea Value="@_description"
-                                 ValueChanged="OnDescriptionChanged"
-                                 Label="Description (optional)"
-                                 Placeholder="Describe what belongs here"
-                                 Lines="5"
-                                 Immediate="true"
-                                 Class="collection-editor-field collection-editor-field--multiline" />
+                    @if (!IsSmartPlaylistLaunch)
+                    {
+                        <AppTextarea Value="@_description"
+                                     ValueChanged="OnDescriptionChanged"
+                                     Label="Description (optional)"
+                                     Placeholder="Describe what belongs here"
+                                     Lines="5"
+                                     Immediate="true"
+                                     Class="collection-editor-field collection-editor-field--multiline" />
+                    }
                 </MediaEditorPanel>
 
                 @if (!IsPlaylistDialog)
@@ -1190,6 +1193,8 @@
                 }
             </div>
 
+            @if (!IsSmartPlaylistLaunch || EditingCollection is not null)
+            {
             <div class="collection-editor-panel-stack">
                 <MediaEditorPanel Title="Membership summary" Description="A live view of what belongs to this collection.">
                     <div class="collection-editor-membership-summary">
@@ -1217,6 +1222,7 @@
                     </MediaEditorPanel>
                 }
             </div>
+            }
         </div>
 
         @if (IsSmartPlaylistLaunch)

@@ -712,7 +712,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.Contains(">All Playlists<", markup);
             Assert.Contains(">Recently Played<", markup);
             Assert.Contains(">Recently Added<", markup);
-            Assert.DoesNotContain("Drag to reorder", markup);
+            Assert.Contains("Drag to reorder", markup);
             Assert.Empty(cut.FindAll(".listen-now-panel"));
         });
     }

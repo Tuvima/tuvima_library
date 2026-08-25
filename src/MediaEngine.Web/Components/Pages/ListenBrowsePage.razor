@@ -5,10 +5,13 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.MediaTiles
+@using MediaEngine.Web.Services.Editing
+@using MediaEngine.Web.Services.Navigation
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject MediaTileComposerService MediaTiles
 @inject ListenAudioDragService AudioDrag
+@inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 @inject ILogger<ListenBrowsePage> Logger
@@ -37,14 +40,25 @@
                UnsupportedTitle="Listen page not found"
                UnsupportedMessage="Choose Music, Audiobooks, or Playlists to browse your library."
                Retry="LoadLandingAsync"
-               OnNavigationItemDrop="AddDraggedSongsToPlaylistAsync" />
+               OnNavigationItemDrop="AddDraggedSongsToPlaylistAsync"
+               OnNavigationCreateDrop="StageDraggedSongsForPlaylistAsync"
+               OnNavigationCreateCanceled="CancelPlaylistCreateAsync"
+               OnNavigationCreate="CreatePlaylistAsync"
+               OnNavigationSmartCreate="OpenSmartPlaylistAsync"
+               OnNavigationItemRename="RenamePlaylistAsync"
+               OnNavigationItemDelete="DeletePlaylistAsync"
+               OnNavigationItemReorder="ReorderPlaylistAsync" />
 
 @code {
     [Parameter] public string? Tab { get; set; }
 
     private DiscoveryPageViewModel? _landingPage;
     private IReadOnlyList<ManagedCollectionViewModel> _playlists = [];
+    private ProfileViewModel? _activeProfile;
     private Guid? _activeProfileId;
+    private string? _playlistNavigationConfig;
+    private List<Guid> _playlistOrder = [];
+    private List<Guid> _pendingPlaylistWorkIds = [];
     private bool _loading = true;
     private bool _loadFailed;
     private bool _playlistsLoaded;
@@ -73,14 +87,17 @@
                 new("All Playlists", "/listen/playlists", Icons.Material.Outlined.QueueMusic, Exact: true),
             };
             playlistItems.AddRange(_playlists
-                .Where(playlist => string.Equals(playlist.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
-                .Take(8)
+                .Take(12)
                 .Select(playlist => new MediaSectionNavigationItem(
                     playlist.Name,
                     $"/listen/music/playlists/{playlist.Id:D}",
-                    Icons.Material.Outlined.PlaylistPlay,
+                    IsSmartPlaylist(playlist) ? Icons.Material.Outlined.AutoAwesome : Icons.Material.Outlined.PlaylistPlay,
                     playlist.ItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                    DropTarget: new PlaylistNavigationDropTarget(playlist.Id))));
+                    DropTarget: IsManualPlaylist(playlist) ? new PlaylistNavigationDropTarget(playlist.Id) : null,
+                    Management: new MediaSectionNavigationItemManagement(
+                        playlist.Id,
+                        "playlist",
+                        IsSmart: IsSmartPlaylist(playlist)))));
 
             return
             [
@@ -98,7 +115,14 @@
                     ListenBrowseConfiguration.Preset,
                     "Music",
                     new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "music" }),
-                new("Playlists", playlistItems),
+                new("Playlists", playlistItems,
+                    new MediaSectionNavigationCreateOptions(
+                        "New Playlist",
+                        "New Smart Playlist",
+                        "Playlist name",
+                        new ManualPlaylistCreateTarget(),
+                        new SmartPlaylistCreateTarget(),
+                        new NewPlaylistNavigationDropTarget())),
             ];
         }
     }
@@ -162,10 +186,14 @@
 
         try
         {
-            _activeProfileId = (await Orchestrator.GetActiveProfileAsync())?.Id;
+            _activeProfile = await Orchestrator.GetActiveProfileAsync();
+            _activeProfileId = _activeProfile?.Id;
+            _playlistNavigationConfig = _activeProfile?.NavigationConfig;
+            _playlistOrder = ListenPlaylistOrderState.Read(_playlistNavigationConfig);
             _playlists = (await ApiClient.GetManagedCollectionsAsync(_activeProfileId))
                 .Where(MediaTileComposerService.IsUserVisiblePlaylist)
-                .OrderByDescending(playlist => playlist.ModifiedAt ?? playlist.CreatedAt)
+                .OrderBy(GetPlaylistOrderIndex)
+                .ThenByDescending(playlist => playlist.ModifiedAt ?? playlist.CreatedAt)
                 .ThenBy(playlist => playlist.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
         }
@@ -214,8 +242,7 @@
         }
 
         var playlist = _playlists.FirstOrDefault(item => item.Id == playlistId);
-        if (playlist is null
-            || !string.Equals(playlist.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
+        if (playlist is null || !IsManualPlaylist(playlist))
         {
             return;
         }
@@ -242,5 +269,149 @@
             added == 1 ? $"Added a song to {playlist.Name}." : $"Added {added} songs to {playlist.Name}.",
             Severity.Success);
     }
+
+    private Task StageDraggedSongsForPlaylistAsync(MediaSectionNavigationCreateDropEvent createEvent)
+    {
+        if (createEvent.Target is ManualPlaylistCreateTarget && AudioDrag.HasItems)
+        {
+            _pendingPlaylistWorkIds = AudioDrag.WorkIds.Distinct().ToList();
+            AudioDrag.Clear();
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task CancelPlaylistCreateAsync(MediaSectionNavigationCreateTarget target)
+    {
+        if (target is ManualPlaylistCreateTarget)
+            _pendingPlaylistWorkIds.Clear();
+        return Task.CompletedTask;
+    }
+
+    private async Task<bool> CreatePlaylistAsync(MediaSectionNavigationCreateEvent createEvent)
+    {
+        if (createEvent.Target is not ManualPlaylistCreateTarget || _activeProfileId is null)
+            return false;
+        var playlistId = await ApiClient.CreateCollectionWithItemsAsync(
+            createEvent.Name,
+            null,
+            Icons.Material.Outlined.QueueMusic,
+            "Playlist",
+            new CollectionRuleDefinitionViewModel(),
+            "title",
+            "asc",
+            "private",
+            _pendingPlaylistWorkIds,
+            _activeProfileId);
+        if (playlistId is null)
+        {
+            Snackbar.Add("The Playlist could not be created.", Severity.Error);
+            return false;
+        }
+        var addedCount = _pendingPlaylistWorkIds.Count;
+        _pendingPlaylistWorkIds.Clear();
+        await ReloadPlaylistsAsync();
+        Snackbar.Add(addedCount > 0
+            ? $"Created {createEvent.Name} with {addedCount} song(s)."
+            : $"Created {createEvent.Name}.", Severity.Success);
+        Nav.NavigateTo($"/listen/music/playlists/{playlistId:D}");
+        return true;
+    }
+
+    private async Task OpenSmartPlaylistAsync(MediaSectionNavigationCreateTarget target)
+    {
+        if (target is not SmartPlaylistCreateTarget || _activeProfileId is null)
+            return;
+        var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
+        {
+            ActiveProfileId = _activeProfileId,
+            Mode = CollectionEditorMode.SmartPlaylist,
+            InitialCollectionType = "Smart",
+            InitialRulesEnabled = true,
+        });
+        if (changed)
+            await ReloadPlaylistsAsync();
+    }
+
+    private async Task<bool> RenamePlaylistAsync(MediaSectionNavigationRenameEvent renameEvent)
+    {
+        var succeeded = await ApiClient.UpdateCollectionAsync(
+            renameEvent.Management.ContainerId,
+            renameEvent.Name,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            _activeProfileId);
+        if (!succeeded)
+        {
+            Snackbar.Add("The Playlist could not be renamed.", Severity.Error);
+            return false;
+        }
+        await ReloadPlaylistsAsync();
+        return true;
+    }
+
+    private async Task<bool> DeletePlaylistAsync(MediaSectionNavigationManageEvent manageEvent)
+    {
+        if (!await ApiClient.DeleteCollectionAsync(manageEvent.Management.ContainerId, _activeProfileId))
+        {
+            Snackbar.Add("The Playlist could not be deleted.", Severity.Error);
+            return false;
+        }
+        await ReloadPlaylistsAsync();
+        if (Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath.Contains(manageEvent.Management.ContainerId.ToString("D"), StringComparison.OrdinalIgnoreCase))
+            Nav.NavigateTo("/listen/playlists");
+        Snackbar.Add($"Deleted {manageEvent.Item.Label}.", Severity.Success);
+        return true;
+    }
+
+    private async Task<bool> ReorderPlaylistAsync(MediaSectionNavigationReorderEvent reorderEvent)
+    {
+        var orderedIds = _playlists.Select(playlist => playlist.Id).ToList();
+        List<Guid> updatedOrder;
+        var moved = reorderEvent.BeforeContainerId is { } targetId
+            ? ListenPlaylistOrderState.TryMoveBefore(orderedIds, reorderEvent.Management.ContainerId, targetId, out updatedOrder!)
+            : ListenPlaylistOrderState.TryMoveByOffset(orderedIds, reorderEvent.Management.ContainerId, reorderEvent.Direction, out updatedOrder!);
+        if (!moved || _activeProfile is null)
+            return false;
+        var updatedConfig = ListenPlaylistOrderState.Write(_playlistNavigationConfig, updatedOrder);
+        if (!await Orchestrator.UpdateProfileAsync(
+                _activeProfile.Id,
+                _activeProfile.DisplayName,
+                _activeProfile.AvatarColor,
+                _activeProfile.Role,
+                updatedConfig))
+        {
+            Snackbar.Add("The Playlist order could not be saved.", Severity.Error);
+            return false;
+        }
+        _playlistOrder = updatedOrder;
+        _playlistNavigationConfig = updatedConfig;
+        _playlists = _playlists.OrderBy(GetPlaylistOrderIndex).ToList();
+        return true;
+    }
+
+    private async Task ReloadPlaylistsAsync()
+    {
+        _playlistsLoaded = false;
+        await EnsurePlaylistNavigationAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private int GetPlaylistOrderIndex(ManagedCollectionViewModel playlist)
+    {
+        var index = _playlistOrder.IndexOf(playlist.Id);
+        return index < 0 ? int.MaxValue : index;
+    }
+
+    private static bool IsManualPlaylist(ManagedCollectionViewModel playlist) =>
+        string.Equals(playlist.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsSmartPlaylist(ManagedCollectionViewModel playlist) =>
+        string.Equals(playlist.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase);
 
 }
