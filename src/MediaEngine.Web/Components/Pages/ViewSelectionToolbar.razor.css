@@ -1,1 +1,14 @@
-.view-selection-toolbar { position: sticky; z-index: 12; top: .5rem; display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; padding: .65rem .8rem; border: 1px solid rgba(167,139,250,.32); border-radius: .7rem; background: rgba(15,23,42,.96); box-shadow: 0 .5rem 2rem rgba(0,0,0,.3); }
+.view-selection-toolbar { position: sticky; z-index: 12; top: .5rem; display: grid; gap: .85rem; padding: 1rem 1.3rem .75rem; margin-bottom: 1.5rem; border: 1px solid rgba(148,163,184,.2); border-radius: .8rem; background: linear-gradient(135deg, rgba(15,25,44,.97), rgba(9,17,31,.97)); box-shadow: 0 .65rem 2rem rgba(0,0,0,.28); backdrop-filter: blur(20px); }
+.view-selection-toolbar header { display: flex; align-items: center; justify-content: space-between; }
+.view-selection-toolbar header strong { font-size: .9rem; }
+::deep .view-selection-toolbar__close { display: grid; width: 2rem; height: 2rem; place-items: center; padding: 0; color: rgba(226,232,240,.76); border: 0; border-radius: .35rem; background: transparent; cursor: pointer; }
+::deep .view-selection-toolbar__close:hover, ::deep .view-selection-toolbar__close:focus-visible { color: white; background: rgba(148,163,184,.12); outline: 0; }
+.view-selection-toolbar__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem; min-height: 3.4rem; padding: .35rem .55rem; border-radius: .65rem; background: rgba(30,41,59,.56); }
+.view-selection-toolbar__gallery { display: flex; align-items: center; gap: .45rem; min-width: 11.5rem; padding-left: .55rem; }
+.view-selection-toolbar__gallery ::deep select { border: 0; background: transparent; }
+.view-selection-toolbar__divider { width: 1px; height: 2rem; margin: 0 .55rem; background: rgba(148,163,184,.3); }
+::deep .view-selection-toolbar__action { display: inline-flex; align-items: center; gap: .45rem; min-height: 2.6rem; padding: .45rem .75rem; color: rgba(241,245,249,.88); border: 0; border-radius: .45rem; background: transparent; font: inherit; cursor: pointer; }
+::deep .view-selection-toolbar__action:hover, ::deep .view-selection-toolbar__action:focus-visible { color: white; background: rgba(124,58,237,.18); outline: 0; }
+::deep .view-selection-toolbar__action .mud-icon-root, .view-selection-toolbar__gallery ::deep .mud-icon-root { font-size: 1.15rem; }
+
+@media (max-width: 700px) { .view-selection-toolbar { padding-inline: .8rem; } .view-selection-toolbar__divider { display: none; } .view-selection-toolbar__gallery { width: 100%; } }

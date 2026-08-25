@@ -60,7 +60,8 @@ public static class ViewEndpoints
                 }
 
                 var value = new ViewProfilePreferences(caller.ProfileId,
-                    resolution.Scope.Kind, resolution.Scope.ProfileId,
+                    resolution.Scope.Kind,
+                    PreferenceScopeProfileId(resolution.Scope.Kind, resolution.Scope.ProfileId),
                     request.TimelineDensity, DateTimeOffset.UtcNow);
                 await repository.SavePreferencesAsync(value, ct);
                 return Results.Ok(ToContract(value));
@@ -450,6 +451,9 @@ public static class ViewEndpoints
         }).WithName("UpdateViewGalleryShares")
             .Produces<Microsoft.AspNetCore.Http.HttpResults.NoContent>(StatusCodes.Status204NoContent);
     }
+
+    internal static Guid? PreferenceScopeProfileId(ViewScopeKind kind, Guid? profileId) =>
+        kind == ViewScopeKind.Profile ? profileId : null;
 
     internal static async Task<IReadOnlyList<ViewGalleryShareTargetDto>?> GetGalleryShareTargetsAsync(
         Guid callerProfileId,

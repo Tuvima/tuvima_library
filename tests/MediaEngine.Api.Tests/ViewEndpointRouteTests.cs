@@ -1,7 +1,27 @@
+using MediaEngine.Api.Endpoints;
+using MediaEngine.Domain.PersonalMedia;
+
 namespace MediaEngine.Api.Tests;
 
 public sealed class ViewEndpointRouteTests
 {
+    [Theory]
+    [InlineData(ViewScopeKind.Mine)]
+    [InlineData(ViewScopeKind.Shared)]
+    public void PreferenceScopeProfileId_IsOnlyPersistedForExplicitProfileScope(ViewScopeKind scope)
+    {
+        Assert.Null(ViewEndpoints.PreferenceScopeProfileId(scope, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void PreferenceScopeProfileId_PreservesExplicitProfileTarget()
+    {
+        var profileId = Guid.NewGuid();
+
+        Assert.Equal(profileId,
+            ViewEndpoints.PreferenceScopeProfileId(ViewScopeKind.Profile, profileId));
+    }
+
     [Fact]
     public void EngineMapsOnlyTheViewLocalAssetSurface()
     {

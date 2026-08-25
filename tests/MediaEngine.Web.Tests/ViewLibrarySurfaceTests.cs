@@ -94,6 +94,10 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("ViewSelectionToolbar", photos, StringComparison.Ordinal);
         Assert.Contains("OnSelectDateGroup", timeline, StringComparison.Ordinal);
         Assert.Contains("DurationSeconds", timeline, StringComparison.Ordinal);
+        Assert.Contains("Density=\"@Workspace.Density\"", photos, StringComparison.Ordinal);
+        Assert.Contains("view-density--@Density", timeline, StringComparison.Ordinal);
+        Assert.Contains("view-tile__select-control", timeline, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppCheckbox", timeline, StringComparison.Ordinal);
         Assert.Contains("ViewGalleryKind.Manual", galleries, StringComparison.Ordinal);
         Assert.Contains("ViewGalleryKind.Smart", galleries, StringComparison.Ordinal);
         Assert.Contains("<ViewRuleBuilder", galleries, StringComparison.Ordinal);
@@ -102,6 +106,17 @@ public sealed class ViewLibrarySurfaceTests
         Assert.Contains("new NewGalleryNavigationDropTarget", shell, StringComparison.Ordinal);
         Assert.Contains("finally", shell, StringComparison.Ordinal);
         Assert.Contains("AssetDrag.Clear()", shell, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ViewScopeRequests_KeepResolvedMineOwnerOutOfProfileOnlyParameter()
+    {
+        var workspace = Read("src/MediaEngine.Web/Services/Integration/ViewWorkspaceService.cs");
+        var client = Read("src/MediaEngine.Web/Services/Integration/EngineApiClient.View.cs");
+
+        Assert.Contains("ScopeKind == ViewScopeKind.Profile", workspace, StringComparison.Ordinal);
+        Assert.Contains("options.Scope == ViewScopeKind.Profile", client, StringComparison.Ordinal);
+        Assert.Contains("scope == ViewScopeKind.Profile", client, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -58,6 +58,33 @@ public sealed class EngineApiClientViewTests
     }
 
     [Fact]
+    public async Task MineScope_NeverSerializesResolvedOwnerAsProfileScopeParameter()
+    {
+        var ownerId = Guid.NewGuid();
+        var requests = new List<(string Path, string? Body)>();
+        using var http = Http(request =>
+        {
+            requests.Add((request.RequestUri!.PathAndQuery,
+                request.Content?.ReadAsStringAsync().GetAwaiter().GetResult()));
+            var json = request.Method == HttpMethod.Put
+                ? $$"""{"profile_id":"{{ownerId}}","scope":1,"scope_profile_id":"{{ownerId}}","timeline_density":0,"updated_at":null}"""
+                : "{\"items\":[],\"next_cursor\":null,\"has_more\":false,\"capability\":{\"state\":\"empty\",\"has_indexed_data\":false,\"automatic_processing_available\":false,\"message\":\"None\",\"evidence_kinds\":[]}}";
+            return Json(HttpStatusCode.OK, json);
+        });
+        var client = Client(http);
+
+        await client.GetViewPlacesAsync(new(ViewScopeKind.Mine, ownerId));
+        await client.GetViewAssetsAsync(new(ViewScopeKind.Mine, ownerId));
+        await client.UpdateViewPreferencesAsync(
+            ViewScopeKind.Mine, ownerId, ViewTimelineDensity.Compact);
+
+        Assert.All(requests, request =>
+            Assert.DoesNotContain("scopeProfileId", request.Path, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(requests.Where(request => request.Body is not null), request =>
+            request.Body!.Contains("scope_profile_id\":\"", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task GallerySharingClient_UsesCountFreeDiscoveryAndExactReplacementRoutes()
     {
         var galleryId = Guid.NewGuid();

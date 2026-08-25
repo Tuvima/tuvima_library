@@ -11,7 +11,11 @@ public sealed class ViewWorkspaceService(IEngineApiClient api)
     public ViewScopeResolutionDto? Scopes { get; private set; }
     public ViewPreferencesDto? Preferences { get; private set; }
     public ViewScopeKind ScopeKind => Scopes?.Scope.Kind ?? Preferences?.Scope ?? ViewScopeKind.Shared;
-    public Guid? ScopeProfileId => Scopes?.Scope.ProfileId ?? Preferences?.ScopeProfileId;
+    // A resolved Mine scope carries the owner profile as response context, but
+    // scopeProfileId is a request discriminator only for explicit Profile scope.
+    public Guid? ScopeProfileId => ScopeKind == ViewScopeKind.Profile
+        ? Scopes?.Scope.ProfileId ?? Preferences?.ScopeProfileId
+        : null;
     public ViewTimelineDensity Density => Preferences?.TimelineDensity ?? ViewTimelineDensity.Comfortable;
     public IReadOnlyList<ViewGalleryDto> OwnedGalleries { get; private set; } = [];
     public IReadOnlyList<ViewGalleryDto> SharedGalleries { get; private set; } = [];
@@ -41,6 +45,7 @@ public sealed class ViewWorkspaceService(IEngineApiClient api)
 
     public async Task<bool> SelectScopeAsync(ViewScopeKind kind, Guid? profileId, CancellationToken ct = default)
     {
+        profileId = kind == ViewScopeKind.Profile ? profileId : null;
         var saved = await api.UpdateViewPreferencesAsync(kind, profileId, Density, ct);
         if (saved is null) return false;
         Preferences = saved;

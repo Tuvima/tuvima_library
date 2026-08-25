@@ -12,7 +12,7 @@ public sealed partial class EngineApiClient
         GetAsync<ViewScopeResolutionDto>("GET /view/scopes", "/view/scopes", new Dictionary<string, string?>
         {
             ["scope"] = scope.HasValue ? ScopeValue(scope.Value) : null,
-            ["scopeProfileId"] = scopeProfileId?.ToString("D"),
+            ["scopeProfileId"] = scope == ViewScopeKind.Profile ? scopeProfileId?.ToString("D") : null,
         }, ct: ct);
 
     public Task<ViewPreferencesDto?> GetViewPreferencesAsync(CancellationToken ct = default) =>
@@ -25,7 +25,10 @@ public sealed partial class EngineApiClient
         {
             using var request = new HttpRequestMessage(HttpMethod.Put, "/view/preferences")
             {
-                Content = JsonContent.Create(new ViewPreferencesRequest(ScopeValue(scope), scopeProfileId, timelineDensity)),
+                Content = JsonContent.Create(new ViewPreferencesRequest(
+                    ScopeValue(scope),
+                    scope == ViewScopeKind.Profile ? scopeProfileId : null,
+                    timelineDensity)),
             };
             using var response = await _http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode) { await RecordHttpFailureAsync(endpoint, response, ct); return null; }
@@ -40,7 +43,8 @@ public sealed partial class EngineApiClient
     {
         var query = new List<string>();
         AddQuery(query, "scope", ScopeValue(options.Scope));
-        AddQuery(query, "scopeProfileId", options.ScopeProfileId?.ToString("D"));
+        AddQuery(query, "scopeProfileId", options.Scope == ViewScopeKind.Profile
+            ? options.ScopeProfileId?.ToString("D") : null);
         AddQuery(query, "cursor", options.Cursor);
         AddQuery(query, "q", options.Search?.Trim());
         foreach (var kind in options.Kinds ?? [])
@@ -188,7 +192,8 @@ public sealed partial class EngineApiClient
     {
         var query = new List<string>();
         AddQuery(query, "scope", ScopeValue(options.Scope));
-        AddQuery(query, "scopeProfileId", options.ScopeProfileId?.ToString("D"));
+        AddQuery(query, "scopeProfileId", options.Scope == ViewScopeKind.Profile
+            ? options.ScopeProfileId?.ToString("D") : null);
         AddQuery(query, "q", options.Search?.Trim());
         AddQuery(query, "cursor", options.Cursor);
         AddQuery(query, "limit", Math.Clamp(options.Limit, 1, 100).ToString(System.Globalization.CultureInfo.InvariantCulture));
