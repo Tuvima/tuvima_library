@@ -4,7 +4,10 @@ namespace MediaEngine.Storage;
 
 internal static class StorageEpochGuard
 {
-    public const string CurrentEpoch = "guid-blob-v2";
+    // v3 introduces the authoritative View source-storage contract. A v2 database
+    // can contain an older view_sources table that CREATE TABLE IF NOT EXISTS
+    // cannot repair, so pre-beta databases must be rebuilt instead of accepted.
+    public const string CurrentEpoch = "guid-blob-v3-view-storage";
     public const string ResetEnvironmentVariable = "TUVIMA_STORAGE_RESET";
 
     public static void EnsureCurrentOrReset(string databasePath)

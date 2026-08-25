@@ -259,6 +259,7 @@ builder.Services.AddTuvimaPlayback();
 builder.Services.AddTuvimaNetworking();
 builder.Services.AddMediaEngineIngestion(config, configLoader);
 builder.Services.AddSingleton<DevHarnessResetService>();
+builder.Services.AddSingleton<ViewPhotoHarnessService>();
 builder.Services.AddSingleton<AssetStoreCleanupService>();
 builder.Services.AddSingleton(sp => new DatabaseBackupService(
     sp.GetRequiredService<IDatabaseConnection>(),

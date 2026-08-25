@@ -1026,6 +1026,14 @@ public static class DevSeedEndpoints
 
         group.MapGet("/pipeline-status", PipelineStatusAsync)
             .WithSummary("Show identity job counts by state + details of non-Completed jobs");
+
+        group.MapPost("/view-photo-harness", async (
+                ViewPhotoHarnessService harness, CancellationToken ct) =>
+            {
+                var report = await harness.RunAsync(ct);
+                return report.Passed ? Results.Ok(report) : Results.Json(report, statusCode: 422);
+            })
+            .WithSummary("Download attributed free-stock photos and verify View metadata, Places, People, upload, trash, and restore behavior");
     }
 
     // ── GET /dev/check-keys ─────────────────────────────────────────────────

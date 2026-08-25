@@ -73,6 +73,22 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void ViewPhotoHarness_IsDevelopmentOnlyAndKeepsLicenseAndPeopleProvenance()
+    {
+        var endpoints = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevSeedEndpoints.cs"));
+        var harness = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\ViewPhotoHarnessService.cs"));
+
+        Assert.Contains("group.MapPost(\"/view-photo-harness\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("Wikimedia Commons", harness, StringComparison.Ordinal);
+        Assert.Contains("SourcePage", harness, StringComparison.Ordinal);
+        Assert.Contains("License", harness, StringComparison.Ordinal);
+        Assert.Contains("Author", harness, StringComparison.Ordinal);
+        Assert.Contains("manual test fixture; not face recognition", harness, StringComparison.Ordinal);
+        Assert.Contains("LocalAssetLifecycleState.Trashed", harness, StringComparison.Ordinal);
+        Assert.Contains("LocalAssetLifecycleState.Active", harness, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DevHarnessReset_RecreatesConfiguredSourceFoldersAfterWipe()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevHarnessResetService.cs"));
