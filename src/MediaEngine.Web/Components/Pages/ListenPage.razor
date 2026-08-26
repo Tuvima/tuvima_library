@@ -31,7 +31,7 @@ else if (!string.IsNullOrWhiteSpace(_error))
 }
 else
 {
-    <div class="@ListenPageClass" @onclick="ClosePlaylistMenus">
+    <div class="@ListenPageClass">
         <aside class="listen-rail-shell">
             <div class="listen-rail">
                 <ListenNavigationSection Label="Library"
@@ -55,16 +55,19 @@ else
                             <span>Playlists</span>
                             <MudIcon Icon="@(_playlistsExpanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)" Class="tl-u-font-size-18px" />
                         </AppNativeButton>
-                        <AppNativeButton Type="button" Class="listen-rail__add" AriaLabel="Add playlist" OnClick="TogglePlaylistCreateMenu">
-                            <MudIcon Icon="@Icons.Material.Outlined.Add" Class="tl-u-font-size-18px" />
-                        </AppNativeButton>
-                        @if (_playlistCreateMenuOpen)
-                        {
-                            <div class="listen-rail__create-menu">
-                                <AppNativeButton Type="button" OnClick="BeginPlaylistInlineCreate">New Playlist</AppNativeButton>
-                                <AppNativeButton Type="button" OnClick='@(() => OpenPlaylistCreateDialog("Smart"))'>New Smart Playlist</AppNativeButton>
-                            </div>
-                        }
+                        <AppOverflowMenu Icon="@Icons.Material.Outlined.Add"
+                                         AriaLabel="Add playlist"
+                                         Size="AppControlSize.Compact"
+                                         Class="listen-rail__add-menu"
+                                         TriggerClass="listen-rail__add"
+                                         PopoverClass="listen-rail__context-popover">
+                            <AppMenuItem Label="New Playlist"
+                                         Icon="@Icons.Material.Outlined.PlaylistAdd"
+                                         OnClick="BeginPlaylistInlineCreate" />
+                            <AppMenuItem Label="New Smart Playlist"
+                                         Icon="@Icons.Material.Outlined.AutoAwesome"
+                                         OnClick='@(() => OpenPlaylistCreateDialog("Smart"))' />
+                        </AppOverflowMenu>
                     </div>
 
                     @if (_playlistsExpanded)
@@ -131,16 +134,21 @@ else
                                         }
                                     </a>
                                 }
-                                <AppNativeButton Type="button" Class="listen-rail__more" Title="Playlist options" AriaLabel="@($"{playlist.Name} options")" StopPropagation="true" OnClick="@(() => TogglePlaylistActionsMenu(playlist.Id))">
-                                    <MudIcon Icon="@Icons.Material.Outlined.MoreVert" Class="tl-u-font-size-18px" />
-                                </AppNativeButton>
-                                @if (_playlistActionsMenuOpen && _playlistActionsCollectionId == playlist.Id)
-                                {
-                                    <div class="listen-actions-menu listen-actions-menu--rail">
-                                        <AppNativeButton Type="button" OnClick="@(_ => BeginPlaylistRename(playlist))">Rename</AppNativeButton>
-                                        <AppNativeButton Type="button" Class="is-delete" OnClick="@(_ => BeginPlaylistDelete(playlist))">Delete</AppNativeButton>
-                                    </div>
-                                }
+                                <AppOverflowMenu Icon="@Icons.Material.Outlined.MoreVert"
+                                                 AriaLabel="@($"{playlist.Name} options")"
+                                                 Size="AppControlSize.Compact"
+                                                 Class="listen-rail__more-menu"
+                                                 TriggerClass="listen-rail__more"
+                                                 PopoverClass="listen-rail__context-popover">
+                                    <AppMenuItem Label="Rename"
+                                                 Icon="@Icons.Material.Outlined.DriveFileRenameOutline"
+                                                 OnClick="@(() => BeginPlaylistRename(playlist))" />
+                                    <AppMenuItem Label="Delete"
+                                                 Icon="@Icons.Material.Outlined.DeleteOutline"
+                                                 Tone="AppUiTone.Error"
+                                                 DividerBefore="true"
+                                                 OnClick="@(() => BeginPlaylistDelete(playlist))" />
+                                </AppOverflowMenu>
                             </div>
                         }
                     }
@@ -675,26 +683,20 @@ else
                     </div>
                     @if (ActivePlaylistCollection is not null)
                     {
-                        <span @onclick:stopPropagation="true">
-                        <AppNativeButton Type="button" Class="listen-detail__edit" Title="Playlist options" AriaLabel="Playlist options" OnClick="@(() => TogglePlaylistActionsMenu(ActivePlaylistCollection.Id))">
-                            <MudIcon Icon="@Icons.Material.Outlined.MoreVert" Size="Size.Small" />
-                        </AppNativeButton>
-                        @if (_playlistActionsMenuOpen && _playlistActionsCollectionId == ActivePlaylistCollection.Id)
-                        {
-                            <div class="listen-actions-menu listen-actions-menu--detail">
-                                <details class="listen-actions-menu__details">
-                                    <summary>Columns</summary>
-                                    @foreach (var column in PlaylistColumns)
-                                    {
-                                        <label>
-                                            <AppNativeInput Type="checkbox" Checked="@IsPlaylistColumnVisible(column.Key)" OnChange="@(() => TogglePlaylistColumn(column.Key))" />
-                                            <span>@column.Label</span>
-                                        </label>
-                                    }
-                                </details>
-                            </div>
-                        }
-                        </span>
+                        <AppOverflowMenu Icon="@Icons.Material.Outlined.MoreVert"
+                                         AriaLabel="Playlist display options"
+                                         Size="AppControlSize.Compact"
+                                         Class="listen-detail__more-menu"
+                                         TriggerClass="listen-detail__edit"
+                                         PopoverClass="listen-detail__context-popover">
+                            <div class="app-menu-section-label" role="presentation">Columns</div>
+                            @foreach (var column in PlaylistColumns)
+                            {
+                                <AppMenuItem Label="@column.Label"
+                                             Icon="@(IsPlaylistColumnVisible(column.Key) ? Icons.Material.Outlined.Check : Icons.Material.Outlined.VisibilityOff)"
+                                             OnClick="@(() => TogglePlaylistColumn(column.Key))" />
+                            }
+                        </AppOverflowMenu>
                     }
                 </section>
 

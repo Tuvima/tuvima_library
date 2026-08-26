@@ -313,7 +313,6 @@
         Snackbar.Add(addedCount > 0
             ? $"Created {createEvent.Name} with {addedCount} song(s)."
             : $"Created {createEvent.Name}.", Severity.Success);
-        Nav.NavigateTo($"/listen/music/playlists/{playlistId:D}");
         return true;
     }
 

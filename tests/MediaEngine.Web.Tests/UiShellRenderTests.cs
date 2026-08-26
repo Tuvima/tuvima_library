@@ -816,6 +816,26 @@ public sealed class UiShellRenderTests : AsyncBunitContext
     }
 
     [Fact]
+    public void PlaylistCreation_StaysInPlaceAndOverflowMenusOwnIndependentState()
+    {
+        var legacySource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor.cs"));
+        var legacyMarkup = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor"));
+        var browseSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenBrowsePage.razor"));
+        var menuSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Shared", "AppOverflowMenu.razor"));
+        var globalCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "wwwroot", "app.css"));
+
+        Assert.DoesNotContain("Nav.NavigateTo($\"/listen/music/playlists/{createdId:D}\")", legacySource, StringComparison.Ordinal);
+        Assert.DoesNotContain("Nav.NavigateTo($\"/listen/music/playlists/{playlistId:D}\")", browseSource, StringComparison.Ordinal);
+        Assert.True(legacyMarkup.Split("<AppOverflowMenu", StringSplitOptions.None).Length - 1 >= 3);
+        Assert.DoesNotContain("_playlistActionsMenuOpen", legacySource, StringComparison.Ordinal);
+        Assert.DoesNotContain("_playlistActionsCollectionId", legacySource, StringComparison.Ordinal);
+        Assert.Contains("@onclick:stopPropagation=\"true\"", menuSource, StringComparison.Ordinal);
+        Assert.Contains("AppControlSize.Compact", menuSource, StringComparison.Ordinal);
+        Assert.Contains("min-width: 8.75rem;", globalCss, StringComparison.Ordinal);
+        Assert.Contains("min-height: 2rem !important;", globalCss, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ListenPlayer_RemainsInPersistentBottomHostOnListenRoutes()
     {
         var listenPageSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor"));

@@ -4967,15 +4967,15 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     top: calc(100% + 0.42rem);
     right: 0;
     width: max-content;
-    min-width: var(--tl-menu-min-width);
-    max-width: min(20rem, calc(100vw - 1.5rem));
-    padding: 0.2rem;
+    min-width: 8.75rem;
+    max-width: min(16rem, calc(100vw - 1rem));
+    padding: 0.16rem;
     color: var(--tl-text-primary);
     background: var(--tl-menu-surface);
     border: 1px solid var(--tl-menu-border);
-    border-radius: var(--tl-radius-lg);
-    box-shadow: 0 1.35rem 3.5rem rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(255, 255, 255, 0.025);
-    backdrop-filter: blur(20px) saturate(120%);
+    border-radius: 0.62rem;
+    box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.018);
+    backdrop-filter: blur(16px) saturate(115%);
 }
 
 .app-overflow-menu__popover--left {
@@ -5095,8 +5095,34 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 }
 
 .app-menu-divider {
-    margin: 0.24rem 0.35rem !important;
+    margin: 0.16rem 0.28rem !important;
     border-color: var(--tl-menu-divider) !important;
+}
+
+.app-overflow-menu__popover .app-menu-item {
+    min-height: 2rem !important;
+    gap: 0.42rem !important;
+    padding: 0.3rem 0.44rem !important;
+    border-radius: 0.42rem !important;
+    font-size: 0.8rem !important;
+    font-weight: 600 !important;
+    line-height: 1.15 !important;
+}
+
+.app-overflow-menu__popover .app-menu-item .mud-icon-root {
+    flex-basis: 1rem !important;
+    font-size: 1rem !important;
+}
+
+.app-menu-section-label {
+    padding: 0.36rem 0.46rem 0.2rem;
+    color: var(--tl-text-muted);
+    font-family: var(--font-ui);
+    font-size: 0.64rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .app-overflow-menu__trigger {
@@ -5137,6 +5163,25 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     width: var(--tl-control-height-lg);
     height: var(--tl-control-height-lg);
     padding: 0;
+}
+
+.app-overflow-menu.app-control--compact .app-overflow-menu__trigger--icon {
+    width: 2rem;
+    min-width: 2rem;
+    height: 2rem;
+    min-height: 2rem;
+    border-radius: 0.48rem !important;
+}
+
+.app-overflow-menu.app-control--compact .app-overflow-menu__trigger--icon > .mud-icon-root {
+    font-size: 1.08rem;
+}
+
+.app-overflow-menu.app-control--compact .app-overflow-menu__trigger--labeled {
+    min-height: 2.25rem;
+    padding: 0.4rem 0.68rem !important;
+    border-radius: 0.5rem !important;
+    font-size: 0.84rem;
 }
 
 .app-overflow-menu__trigger--labeled {

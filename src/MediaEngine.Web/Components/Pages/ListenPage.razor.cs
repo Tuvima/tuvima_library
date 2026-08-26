@@ -119,9 +119,6 @@ public partial class ListenPage
     private Guid? _draggingPlaylistTrackItemId;
     private Guid? _playlistTrackDropTargetItemId;
     private bool _playlistTrackDropAfter;
-    private bool _playlistCreateMenuOpen;
-    private bool _playlistActionsMenuOpen;
-    private Guid? _playlistActionsCollectionId;
     private bool _creatingPlaylistInline;
     private string _newPlaylistName = string.Empty;
     private Guid? _renamingPlaylistId;
@@ -760,14 +757,8 @@ public partial class ListenPage
         await SavePlaylistOrderAsync();
     }
 
-    private void TogglePlaylistCreateMenu()
-    {
-        _playlistCreateMenuOpen = !_playlistCreateMenuOpen;
-    }
-
     private void BeginPlaylistInlineCreate()
     {
-        _playlistCreateMenuOpen = false;
         _creatingPlaylistInline = true;
         _newPlaylistName = string.Empty;
     }
@@ -808,13 +799,10 @@ public partial class ListenPage
         _newPlaylistName = string.Empty;
         Snackbar.Add($"Created {name}.", Severity.Success);
         await LoadAsync();
-        Nav.NavigateTo($"/listen/music/playlists/{createdId:D}");
     }
 
     private void BeginPlaylistRename(ManagedCollectionViewModel playlist)
     {
-        _playlistActionsMenuOpen = false;
-        _playlistActionsCollectionId = null;
         _deletingPlaylistId = null;
         _renamingPlaylistId = playlist.Id;
         _renamePlaylistName = playlist.Name;
@@ -851,8 +839,6 @@ public partial class ListenPage
 
     private void BeginPlaylistDelete(ManagedCollectionViewModel playlist)
     {
-        _playlistActionsMenuOpen = false;
-        _playlistActionsCollectionId = null;
         _renamingPlaylistId = null;
         _deletingPlaylistId = playlist.Id;
     }
@@ -876,8 +862,6 @@ public partial class ListenPage
 
     private async Task OpenPlaylistCreateDialog(string kind)
     {
-        _playlistCreateMenuOpen = false;
-
         if (_activeProfileId is null)
         {
             Snackbar.Add("An active profile is required to create playlists.", Severity.Warning);
@@ -919,26 +903,6 @@ public partial class ListenPage
         {
             Snackbar.Add("Playlist order could not be saved.", Severity.Warning);
         }
-    }
-
-    private void TogglePlaylistActionsMenu(Guid? collectionId = null)
-    {
-        if (_playlistActionsMenuOpen && _playlistActionsCollectionId == collectionId)
-        {
-            _playlistActionsMenuOpen = false;
-            _playlistActionsCollectionId = null;
-            return;
-        }
-
-        _playlistActionsMenuOpen = true;
-        _playlistActionsCollectionId = collectionId;
-    }
-
-    private void ClosePlaylistMenus()
-    {
-        _playlistCreateMenuOpen = false;
-        _playlistActionsMenuOpen = false;
-        _playlistActionsCollectionId = null;
     }
 
     private void TogglePlaylistColumn(string key)
@@ -1278,8 +1242,6 @@ public partial class ListenPage
 
     private void NavigateTo(string route, bool forceLoad = false)
     {
-        _playlistActionsMenuOpen = false;
-        _playlistActionsCollectionId = null;
         CloseTrackContextMenu();
         _draggingTrackIds.Clear();
         AudioDrag.Clear();

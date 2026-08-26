@@ -2,7 +2,9 @@
 
 <div class="@TriggerRootClass"
      data-app-dismissible="@(_open ? "open" : null)"
-     @onkeydown="HandleKeyDown">
+     @onkeydown="HandleKeyDown"
+     @onclick:stopPropagation="true"
+     @onpointerdown:stopPropagation="true">
     @if (_open)
     {
         <button type="button"
@@ -17,6 +19,7 @@
             aria-label="@EffectiveAriaLabel"
             aria-haspopup="menu"
             aria-expanded="@_open"
+            aria-controls="@(_open ? _popoverId : null)"
             @onclick="Toggle">
         <MudIcon Icon="@Icon" />
         @if (!string.IsNullOrWhiteSpace(Label))
@@ -27,7 +30,7 @@
 
     @if (_open)
     {
-        <div class="@EffectivePopoverClass" role="menu" @onclick="Close">
+        <div id="@_popoverId" class="@EffectivePopoverClass" role="menu" aria-label="@EffectiveAriaLabel" @onclick="Close">
             @ChildContent
         </div>
     }
@@ -35,12 +38,13 @@
 
 @code {
     private bool _open;
+    private readonly string _popoverId = $"app-context-menu-{Guid.NewGuid():N}";
 
     [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.MoreVert;
     [Parameter] public string? Label { get; set; }
     [Parameter] public string? AriaLabel { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
-    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Compact;
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? TriggerClass { get; set; }
     [Parameter] public string? PopoverClass { get; set; }
