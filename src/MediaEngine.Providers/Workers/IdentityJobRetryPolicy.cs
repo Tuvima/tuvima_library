@@ -2,6 +2,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Jobs;
 
 namespace MediaEngine.Providers.Workers;
 
@@ -14,10 +15,7 @@ internal static class IdentityJobRetryPolicy
     private const int DefaultJitterMaxMilliseconds = 1750;
 
     public static bool IsTransient(Exception ex) =>
-        ex is TimeoutException
-        || ex is HttpRequestException
-        || ex is TaskCanceledException
-        || (ex.GetType().Name == "SqliteException" && IsBusySqliteError(ex));
+        BackgroundJobOutcomeClassifier.Classify(ex) == BackgroundJobOutcomeCategory.TransientDependencyFailure;
 
     public static async Task ScheduleRetryOrDeadLetterAsync(
         IIdentityJobRepository repository,
@@ -28,14 +26,23 @@ internal static class IdentityJobRetryPolicy
         CancellationToken ct)
     {
         settings ??= new HydrationSettings();
-        var nextAttempt = job.AttemptCount + 1;
+        var category = BackgroundJobOutcomeClassifier.Classify(exception, ct);
+        var policy = BackgroundJobOutcomePolicy.For(category);
+        if (category == BackgroundJobOutcomeCategory.Cancellation)
+        {
+            await repository.ReleaseLeaseAsync(job.Id, CancellationToken.None).ConfigureAwait(false);
+            return;
+        }
+
+        var nextPoisonAttempt = job.PoisonAttemptCount + (policy.ConsumesPoisonBudget ? 1 : 0);
         var maxAttempts = settings.IdentityRetryMaxAttempts > 0
             ? settings.IdentityRetryMaxAttempts
             : MaxAttempts;
 
-        if (IsTerminalDataFailure(exception) || nextAttempt >= maxAttempts)
+        if (policy.IsTerminal || (policy.ConsumesPoisonBudget && nextPoisonAttempt >= maxAttempts))
         {
-            await repository.MarkDeadLetteredAsync(job.Id, exception.Message, ct).ConfigureAwait(false);
+            await repository.MarkDeadLetteredForOutcomeAsync(job.Id, exception.Message, category, ct)
+                .ConfigureAwait(false);
             return;
         }
 
@@ -54,13 +61,19 @@ internal static class IdentityJobRetryPolicy
         if (jitterMax <= jitterMin)
             jitterMax = jitterMin + 1;
 
-        var delay = TimeSpan.FromSeconds(Math.Min(maxDelaySeconds, Math.Pow(2, nextAttempt) * baseDelaySeconds))
-                    + TimeSpan.FromMilliseconds(Random.Shared.Next(jitterMin, jitterMax));
-        await repository.ScheduleRetryAsync(
+        var executionAttempt = Math.Max(1, job.AttemptCount + 1);
+        var delay = exception is RateLimitedDependencyException { RetryAfter: { } retryAfter }
+            ? retryAfter
+            : policy.IsCapabilityBlocked
+                ? TimeSpan.FromMinutes(30)
+                : TimeSpan.FromSeconds(Math.Min(maxDelaySeconds, Math.Pow(2, executionAttempt) * baseDelaySeconds))
+                  + TimeSpan.FromMilliseconds(Random.Shared.Next(jitterMin, jitterMax));
+        await repository.ScheduleRetryForOutcomeAsync(
                 job.Id,
                 retryState,
                 DateTimeOffset.UtcNow.Add(delay),
                 exception.Message,
+                category,
                 ct)
             .ConfigureAwait(false);
     }
@@ -73,14 +86,4 @@ internal static class IdentityJobRetryPolicy
         CancellationToken ct) =>
         ScheduleRetryOrDeadLetterAsync(repository, job, retryState, exception, null, ct);
 
-    private static bool IsBusySqliteError(Exception ex)
-    {
-        var code = ex.GetType().GetProperty("SqliteErrorCode")?.GetValue(ex) as int?;
-        return code is 5 or 6;
-    }
-
-    private static bool IsTerminalDataFailure(Exception ex) =>
-        ex is ArgumentException
-        || ex is InvalidDataException
-        || ex is FormatException;
 }

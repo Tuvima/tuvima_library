@@ -36,6 +36,12 @@ public sealed class IdentityJob
     /// <summary>Number of processing attempts (for retry tracking).</summary>
     public int AttemptCount { get; set; }
 
+    /// <summary>Entity/content failures that count toward the poison-work budget.</summary>
+    public int PoisonAttemptCount { get; set; }
+
+    /// <summary>The stable category assigned to the most recent unsuccessful outcome.</summary>
+    public string? LastOutcomeCategory { get; set; }
+
     /// <summary>Worker name that currently holds the lease. Null when unleased.</summary>
     public string? LeaseOwner { get; set; }
 

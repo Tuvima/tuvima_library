@@ -244,6 +244,8 @@ public static class IngestionEndpoints
                 TotalScanned = result.TotalScanned,
                 MissingCount = result.MissingCount,
                 ElapsedMs = result.ElapsedMs,
+                DuplicateReadWorksMerged = result.DuplicateReadWorksMerged,
+                AudiobookAuthorsAligned = result.AudiobookAuthorsAligned,
             });
         })
         .WithName("TriggerReconciliation")

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Contracts.Realtime;
 
 namespace MediaEngine.Storage;
@@ -85,17 +86,27 @@ public sealed class MediaOperationTracker : IMediaOperationTracker
     public async Task MarkFailedAsync(Guid operationId, Exception exception, bool terminal, CancellationToken ct = default)
     {
         var before = await _operations.GetByIdAsync(operationId, ct);
-        if (terminal)
-            await _operations.MarkFailedTerminalAsync(operationId, exception.Message, ct);
+        var category = BackgroundJobOutcomeClassifier.Classify(exception, ct);
+        var policy = BackgroundJobOutcomePolicy.For(category);
+        if (category == BackgroundJobOutcomeCategory.Cancellation)
+            await _operations.MarkCancelledAsync(operationId, exception.Message, ct);
+        else if (policy.IsTerminal || (terminal && policy.ConsumesPoisonBudget))
+            await _operations.MarkFailedTerminalForOutcomeAsync(operationId, exception.Message, category, ct);
         else
-            await _operations.MarkFailedRetryableAsync(operationId, exception.Message, DateTimeOffset.UtcNow.AddMinutes(5), ct);
+            await _operations.MarkFailedRetryableForOutcomeAsync(
+                operationId,
+                exception.Message,
+                DateTimeOffset.UtcNow.Add(policy.IsCapabilityBlocked ? TimeSpan.FromMinutes(30) : TimeSpan.FromMinutes(5)),
+                category,
+                ct);
 
         var after = await _operations.GetByIdAsync(operationId, ct);
         if (after is not null)
-            await AddTransitionAsync(terminal ? "failed_terminal" : "failed_retryable", before, after, exception.Message, new
+            await AddTransitionAsync(after.Status, before, after, exception.Message, new
             {
                 exception = exception.GetType().FullName,
-                exception.Message
+                exception.Message,
+                outcomeCategory = category.ToString(),
             }, ct);
     }
 

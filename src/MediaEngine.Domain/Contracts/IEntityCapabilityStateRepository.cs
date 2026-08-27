@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Jobs;
 
 namespace MediaEngine.Domain.Contracts;
 
@@ -14,6 +15,15 @@ public interface IEntityCapabilityStateRepository
     Task MarkNoResultAsync(Guid entityId, string capabilityId, string? subKey, string reason, CancellationToken ct = default);
     Task MarkBlockedAsync(Guid entityId, string capabilityId, string? subKey, string reason, CancellationToken ct = default);
     Task MarkFailedAsync(Guid entityId, string capabilityId, string? subKey, string error, bool terminal, CancellationToken ct = default);
+    Task MarkFailedForOutcomeAsync(
+        Guid entityId,
+        string capabilityId,
+        string? subKey,
+        string error,
+        bool terminal,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
+        => MarkFailedAsync(entityId, capabilityId, subKey, error, terminal, ct);
     Task MarkNotApplicableAsync(Guid entityId, string capabilityId, string? subKey, string reason, CancellationToken ct = default);
     Task InvalidateForCapabilityVersionAsync(string capabilityId, string newVersion, CancellationToken ct = default);
 }

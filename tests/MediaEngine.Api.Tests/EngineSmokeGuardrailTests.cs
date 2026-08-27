@@ -11,6 +11,10 @@ public sealed class EngineSmokeGuardrailTests
         Assert.Contains("AddHealthChecks", program);
         Assert.Contains("SqliteHealthCheck", program);
         Assert.Contains("MapHealthChecks(\"/health\")", program);
+        Assert.Contains("MapHealthChecks(\"/health/live\",", program);
+        Assert.Contains("MapHealthChecks(\"/health/ready\",", program);
+        Assert.Contains("StartupReadinessService", program);
+        Assert.Contains("WorkerReadinessHealthCheck", program);
         Assert.Contains("MapEngineEndpoints()", program);
         Assert.Contains("AddTuvimaStorage()", program);
         Assert.Contains("AddTuvimaProviders(configLoader)", program);

@@ -5,6 +5,7 @@ using MediaEngine.AI.Configuration;
 using MediaEngine.AI.Infrastructure;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Jobs;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Llama;
@@ -228,7 +229,8 @@ public sealed class LlamaInferenceService : ILlamaInferenceService, IAsyncDispos
         {
             InferenceOutcomeStatus.Cancelled => new OperationCanceledException(callerToken),
             InferenceOutcomeStatus.TimedOut => new TimeoutException(outcome.Error),
-            InferenceOutcomeStatus.ModelUnavailable => new InvalidOperationException(outcome.Error),
+            InferenceOutcomeStatus.ModelUnavailable => new UnavailableCapabilityException(
+                outcome.Error ?? "The requested AI model is unavailable."),
             InferenceOutcomeStatus.InvalidResponse => new JsonException(outcome.Error),
             _ => new InvalidOperationException(outcome.Error ?? "Inference failed."),
         };

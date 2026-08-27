@@ -2142,6 +2142,8 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.ReconciliationRe
   TotalScanned: System.Int32 | nullability=not-null | accessors=get,set
   MissingCount: System.Int32 | nullability=not-null | accessors=get,set
   ElapsedMs: System.Int64 | nullability=not-null | accessors=get,set
+  DuplicateReadWorksMerged: System.Int32 | nullability=not-null | accessors=get,set
+  AudiobookAuthorsAligned: System.Int32 | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.ReorganizationCandidateDto
   SourceId: System.Guid | nullability=not-null | accessors=get,init
@@ -5582,6 +5584,19 @@ MediaEngine.Contracts.System.MediaEngine.Contracts.System.ScheduleRestoreResultD
   Scheduled: System.Boolean | nullability=not-null | accessors=get,init
   RestartRequired: System.Boolean | nullability=not-null | accessors=get,init
   Message: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.System.MediaEngine.Contracts.System.StartupReadinessCheckResponse
+  Name: System.String | nullability=not-null | accessors=get,set
+  Category: System.String | nullability=not-null | accessors=get,set
+  Status: System.String | nullability=not-null | accessors=get,set
+  Required: System.Boolean | nullability=not-null | accessors=get,set
+  Description: System.String | nullability=nullable | accessors=get,set
+  Data: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.System.MediaEngine.Contracts.System.StartupReadinessResponse
+  Status: System.String | nullability=not-null | accessors=get,set
+  CheckedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
+  Checks: System.Collections.Generic.List<MediaEngine.Contracts.System.StartupReadinessCheckResponse> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.System.MediaEngine.Contracts.System.SystemActivityOperationDto
   Id: System.Guid | nullability=not-null | accessors=get,init

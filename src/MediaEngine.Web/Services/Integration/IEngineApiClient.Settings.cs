@@ -45,6 +45,10 @@ public partial interface IEngineApiClient
     /// <summary>GET /system/status — lightweight connectivity probe.</summary>
     Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default);
 
+    /// <summary>GET /system/readiness — structured launch-readiness report.</summary>
+    Task<StartupReadinessResponse?> GetStartupReadinessAsync(CancellationToken ct = default)
+        => Task.FromResult<StartupReadinessResponse?>(null);
+
     /// <summary>GET /system/activity-status — sanitized active Engine operations for the global shell.</summary>
     Task<IReadOnlyList<SystemActivityOperationViewModel>> GetSystemActivityOperationsAsync(CancellationToken ct = default);
 

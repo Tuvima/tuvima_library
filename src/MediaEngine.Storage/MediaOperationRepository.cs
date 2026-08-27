@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -49,17 +50,17 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
                 (id, operation_type, operation_kind, entity_id, entity_kind, batch_id,
                  source_path, content_hash, capability_id, capability_version, sub_key,
                  plugin_id, plugin_version, provider_id, model_id, status, stage, priority,
-                 queue_name, position_key, attempt_count, lease_owner, lease_expires_at,
+                 queue_name, position_key, attempt_count, poison_attempt_count, lease_owner, lease_expires_at,
                  heartbeat_at, next_retry_at, progress_percent, items_total, items_completed,
-                 items_failed, result_summary, last_error, missing_reason, created_at,
+                 items_failed, result_summary, last_error, last_outcome_category, missing_reason, created_at,
                  started_at, updated_at, completed_at, idempotency_key)
             VALUES
                 (@Id, @OperationType, @OperationKind, @EntityId, @EntityKind, @BatchId,
                  @SourcePath, @ContentHash, @CapabilityId, @CapabilityVersion, @SubKey,
                  @PluginId, @PluginVersion, @ProviderId, @ModelId, @Status, @Stage, @Priority,
-                 @QueueName, @PositionKey, @AttemptCount, @LeaseOwner, @LeaseExpiresAt,
+                 @QueueName, @PositionKey, @AttemptCount, @PoisonAttemptCount, @LeaseOwner, @LeaseExpiresAt,
                  @HeartbeatAt, @NextRetryAt, @ProgressPercent, @ItemsTotal, @ItemsCompleted,
-                 @ItemsFailed, @ResultSummary, @LastError, @MissingReason, @CreatedAt,
+                 @ItemsFailed, @ResultSummary, @LastError, @LastOutcomeCategory, @MissingReason, @CreatedAt,
                  @StartedAt, @UpdatedAt, @CompletedAt, @IdempotencyKey);
             """,
             ToParams(operation, id, createdAt, updatedAt, positionKey));
@@ -285,8 +286,22 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         => MarkTerminalAsync(id, MediaOperationStatus.Blocked, MediaOperationStage.Blocked, null, reason, reason, ct);
 
     public Task MarkFailedRetryableAsync(Guid id, string error, DateTimeOffset nextRetryAt, CancellationToken ct = default)
+        => MarkFailedRetryableForOutcomeAsync(
+            id,
+            error,
+            nextRetryAt,
+            BackgroundJobOutcomeCategory.ContentFailure,
+            ct);
+
+    public Task MarkFailedRetryableForOutcomeAsync(
+        Guid id,
+        string error,
+        DateTimeOffset nextRetryAt,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        var policy = BackgroundJobOutcomePolicy.For(category);
         using var conn = _db.CreateConnection();
         conn.Execute("""
             UPDATE media_operations
@@ -295,17 +310,60 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
                 last_error = @error,
                 next_retry_at = @nextRetryAt,
                 attempt_count = attempt_count + 1,
+                poison_attempt_count = poison_attempt_count + @poisonIncrement,
+                last_outcome_category = @category,
                 lease_owner = NULL,
                 lease_expires_at = NULL,
                 updated_at = @now
             WHERE id = @id;
             """,
-            new { id, error, nextRetryAt = nextRetryAt.ToString("O"), now = DateTimeOffset.UtcNow.ToString("O") });
+            new
+            {
+                id,
+                error,
+                nextRetryAt = nextRetryAt.ToString("O"),
+                poisonIncrement = policy.ConsumesPoisonBudget ? 1 : 0,
+                category = category.ToString(),
+                now = DateTimeOffset.UtcNow.ToString("O"),
+            });
         return Task.CompletedTask;
     }
 
     public Task MarkFailedTerminalAsync(Guid id, string error, CancellationToken ct = default)
         => MarkTerminalAsync(id, MediaOperationStatus.FailedTerminal, MediaOperationStage.Failed, null, error, null, ct);
+
+    public Task MarkFailedTerminalForOutcomeAsync(
+        Guid id,
+        string error,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var policy = BackgroundJobOutcomePolicy.For(category);
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE media_operations
+            SET status = 'failed_terminal',
+                stage = 'failed',
+                last_error = @error,
+                last_outcome_category = @category,
+                poison_attempt_count = poison_attempt_count + @poisonIncrement,
+                lease_owner = NULL,
+                lease_expires_at = NULL,
+                next_retry_at = NULL,
+                completed_at = @now,
+                updated_at = @now
+            WHERE id = @id;
+            """, new
+            {
+                id,
+                error,
+                category = category.ToString(),
+                poisonIncrement = policy.ConsumesPoisonBudget ? 1 : 0,
+                now = DateTimeOffset.UtcNow.ToString("O"),
+            });
+        return Task.CompletedTask;
+    }
 
     public Task MarkDeadLetteredAsync(Guid id, string error, CancellationToken ct = default)
         => MarkTerminalAsync(id, MediaOperationStatus.DeadLettered, MediaOperationStage.Failed, null, error, null, ct);
@@ -438,6 +496,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         operation.QueueName,
         PositionKey = positionKey,
         operation.AttemptCount,
+        operation.PoisonAttemptCount,
         operation.LeaseOwner,
         LeaseExpiresAt = operation.LeaseExpiresAt?.ToString("O"),
         HeartbeatAt = operation.HeartbeatAt?.ToString("O"),
@@ -448,6 +507,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         operation.ItemsFailed,
         operation.ResultSummary,
         operation.LastError,
+        operation.LastOutcomeCategory,
         operation.MissingReason,
         CreatedAt = createdAt.ToString("O"),
         StartedAt = operation.StartedAt?.ToString("O"),
@@ -481,6 +541,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         queue_name AS QueueName,
         position_key AS PositionKey,
         attempt_count AS AttemptCount,
+        poison_attempt_count AS PoisonAttemptCount,
         lease_owner AS LeaseOwner,
         lease_expires_at AS LeaseExpiresAt,
         heartbeat_at AS HeartbeatAt,
@@ -491,6 +552,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         items_failed AS ItemsFailed,
         result_summary AS ResultSummary,
         last_error AS LastError,
+        last_outcome_category AS LastOutcomeCategory,
         missing_reason AS MissingReason,
         created_at AS CreatedAt,
         started_at AS StartedAt,
@@ -524,6 +586,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         public string QueueName { get; set; } = "";
         public long PositionKey { get; set; }
         public int AttemptCount { get; set; }
+        public int PoisonAttemptCount { get; set; }
         public string? LeaseOwner { get; set; }
         public string? LeaseExpiresAt { get; set; }
         public string? HeartbeatAt { get; set; }
@@ -534,6 +597,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         public int ItemsFailed { get; set; }
         public string? ResultSummary { get; set; }
         public string? LastError { get; set; }
+        public string? LastOutcomeCategory { get; set; }
         public string? MissingReason { get; set; }
         public string CreatedAt { get; set; } = "";
         public string? StartedAt { get; set; }
@@ -565,6 +629,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         QueueName = row.QueueName,
         PositionKey = row.PositionKey,
         AttemptCount = row.AttemptCount,
+        PoisonAttemptCount = row.PoisonAttemptCount,
         LeaseOwner = row.LeaseOwner,
         LeaseExpiresAt = ParseDate(row.LeaseExpiresAt),
         HeartbeatAt = ParseDate(row.HeartbeatAt),
@@ -575,6 +640,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         ItemsFailed = row.ItemsFailed,
         ResultSummary = row.ResultSummary,
         LastError = row.LastError,
+        LastOutcomeCategory = row.LastOutcomeCategory,
         MissingReason = row.MissingReason,
         CreatedAt = DateTimeOffset.Parse(row.CreatedAt),
         StartedAt = ParseDate(row.StartedAt),

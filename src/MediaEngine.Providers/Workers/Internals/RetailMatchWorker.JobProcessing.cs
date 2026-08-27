@@ -7,6 +7,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Contracts;
@@ -209,11 +210,12 @@ public sealed partial class RetailMatchWorker
         if (enabledProviders.Count == 0)
         {
             var message = $"No enabled retail provider is configured for media type '{job.MediaType}'.";
-            await _jobRepo.ScheduleRetryAsync(
+            await _jobRepo.ScheduleRetryForOutcomeAsync(
                 job.Id,
                 IdentityJobState.Queued,
                 DateTimeOffset.UtcNow.AddMinutes(30),
                 message,
+                BackgroundJobOutcomeCategory.UnavailableCapability,
                 ct).ConfigureAwait(false);
 
             _logger.LogWarning(
@@ -622,11 +624,12 @@ public sealed partial class RetailMatchWorker
         else if (providerFailures > 0)
         {
             var message = $"Retail provider lookup failed for {providerFailures} provider(s); retrying before no-match classification.";
-            await _jobRepo.ScheduleRetryAsync(
+            await _jobRepo.ScheduleRetryForOutcomeAsync(
                 job.Id,
                 IdentityJobState.Queued,
                 DateTimeOffset.UtcNow.AddMinutes(10),
                 message,
+                BackgroundJobOutcomeCategory.TransientDependencyFailure,
                 ct).ConfigureAwait(false);
 
             _logger.LogWarning(

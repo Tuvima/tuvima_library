@@ -9,6 +9,7 @@ using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Contracts.System;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
@@ -217,6 +218,9 @@ public sealed partial class EngineApiClient : IEngineApiClient, IDisposable
 
     public async Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default)
         => await _systemClient.GetSystemStatusAsync(ct);
+
+    public async Task<StartupReadinessResponse?> GetStartupReadinessAsync(CancellationToken ct = default)
+        => await _systemClient.GetStartupReadinessAsync(ct);
 
     public async Task<IReadOnlyList<SystemActivityOperationViewModel>> GetSystemActivityOperationsAsync(CancellationToken ct = default)
     {

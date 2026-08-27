@@ -2,6 +2,7 @@ using Dapper;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 
@@ -311,6 +312,72 @@ public sealed class AiFeaturePersistenceTests : IDisposable
         Assert.Equal(AiFeatureStatus.Poisoned, third.Status);
         Assert.Equal(3, third.Attempts);
         Assert.False(third.CanAttempt(DateTimeOffset.UtcNow.AddDays(1)));
+    }
+
+    [Fact]
+    public async Task RecordAiFeatureFailure_UnavailableModelNeverConsumesPoisonBudget()
+    {
+        var request = new AiFeatureFailureRequest(
+            Guid.NewGuid(),
+            "vibe",
+            WellKnownProviders.AiProvider,
+            "text_quality",
+            "vibe-v1",
+            "input",
+            "The requested AI model is unavailable.",
+            MaxAttempts: 3,
+            InitialRetryDelay: TimeSpan.Zero,
+            Category: BackgroundJobOutcomeCategory.UnavailableCapability);
+
+        AiFeatureState? state = null;
+        for (var attempt = 0; attempt < 10; attempt++)
+            state = await _canonicals.RecordAiFeatureFailureAsync(request);
+
+        Assert.NotNull(state);
+        Assert.Equal(AiFeatureStatus.RetryPending, state.Status);
+        Assert.Equal(0, state.Attempts);
+        Assert.Equal(BackgroundJobOutcomeCategory.UnavailableCapability, state.LastOutcomeCategory);
+    }
+
+    [Fact]
+    public async Task RecoverUnavailableCapabilityFailures_ReleasesOnlyModelUnavailablePoisonRows()
+    {
+        var unavailableId = Guid.NewGuid();
+        var contentFailureId = Guid.NewGuid();
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO ai_feature_artifacts
+                    (entity_id, feature_key, source_provider_id, status, model_id,
+                     prompt_version, input_fingerprint, attempts, last_outcome_category,
+                     last_error, updated_at)
+                VALUES
+                    (@unavailableId, 'vibe', @providerId, 'Poisoned', 'text_quality',
+                     'vibe-v1', 'unavailable', 3, 'UnavailableCapability',
+                     'The requested AI model is unavailable.', @now),
+                    (@contentFailureId, 'vibe', @providerId, 'Poisoned', 'text_quality',
+                     'vibe-v1', 'content', 3, 'ContentFailure',
+                     'The model returned malformed JSON.', @now);
+                """,
+                new
+                {
+                    unavailableId,
+                    contentFailureId,
+                    providerId = WellKnownProviders.AiProvider,
+                    now = DateTimeOffset.UtcNow.ToString("O"),
+                });
+        }
+
+        Assert.Equal(1, await _canonicals.RecoverUnavailableCapabilityFailuresAsync());
+
+        var unavailable = await _canonicals.GetAiFeatureStateAsync(unavailableId, "vibe");
+        var contentFailure = await _canonicals.GetAiFeatureStateAsync(contentFailureId, "vibe");
+        Assert.Equal(AiFeatureStatus.RetryPending, unavailable?.Status);
+        Assert.Equal(0, unavailable?.Attempts);
+        Assert.Equal(AiFeatureStatus.Poisoned, contentFailure?.Status);
+        Assert.Equal(3, contentFailure?.Attempts);
+        Assert.Equal(0, await _canonicals.RecoverUnavailableCapabilityFailuresAsync());
     }
 
     [Fact]

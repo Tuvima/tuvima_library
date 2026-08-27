@@ -402,8 +402,15 @@ public sealed partial class WikidataBridgeWorker
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogError(ex, "WikidataBridgeWorker finalisation failed for job {JobId}", ctx.Job.Id);
-                await _jobRepo.UpdateStateAsync(ctx.Job.Id, IdentityJobState.Failed, ex.Message, ct);
-                await MarkBridgeFailedAsync(ctx.Operation, ctx.Job, ex.Message, terminal: true, ct).ConfigureAwait(false);
+                await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                        _jobRepo,
+                        ctx.Job,
+                        IdentityJobState.RetailMatched,
+                        ex,
+                        GetExecutionSnapshot().Hydration,
+                        ct)
+                    .ConfigureAwait(false);
+                await MarkBridgeFailedAsync(ctx.Operation, ctx.Job, ex, terminal: true, ct).ConfigureAwait(false);
             }
         }
 

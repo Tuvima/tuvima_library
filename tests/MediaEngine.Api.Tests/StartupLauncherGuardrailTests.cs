@@ -3,7 +3,7 @@ namespace MediaEngine.Api.Tests;
 public sealed class StartupLauncherGuardrailTests
 {
     [Fact]
-    public void CombinedLauncher_WaitsForReadinessRatherThanAggregateHealth()
+    public void CombinedLauncher_WaitsForStructuredReadiness()
     {
         var source = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
@@ -11,12 +11,12 @@ public sealed class StartupLauncherGuardrailTests
             "Start-TuvimaApp.ps1"));
 
         Assert.Contains(
-            "Invoke-RestMethod -Uri \"http://localhost:61495/system/status\"",
+            "Invoke-RestMethod -Uri \"http://localhost:61495/health/ready\"",
             source,
             StringComparison.Ordinal);
-        Assert.Contains("$status.status -eq \"ok\"", source, StringComparison.Ordinal);
+        Assert.Contains("$status.status -in @(\"healthy\", \"degraded\")", source, StringComparison.Ordinal);
         Assert.DoesNotContain(
-            "Invoke-RestMethod -Uri \"http://localhost:61495/health\"",
+            "Invoke-RestMethod -Uri \"http://localhost:61495/system/status\"",
             source,
             StringComparison.Ordinal);
     }

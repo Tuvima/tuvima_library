@@ -2,6 +2,7 @@ using MediaEngine.AI.Configuration;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
@@ -176,7 +177,8 @@ public sealed class VibeBatchService : BackgroundService
                         ModelId,
                         PromptVersion,
                         inputFingerprint,
-                        ex.Message),
+                        ex.Message,
+                        Category: BackgroundJobOutcomeClassifier.Classify(ex, ct)),
                     ct);
                 _logger.LogWarning(ex, "VibeBatchService: failed to tag entity {Id}", item.EntityId);
                 if (failure.Status == AiFeatureStatus.Poisoned)

@@ -5,6 +5,7 @@ using Dapper;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 
@@ -508,6 +509,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 attempts: 0,
                 nextRetryAt: null,
                 lastError: null,
+                lastOutcomeCategory: null,
                 outcomeReason: null,
                 published,
                 protectedFields,
@@ -546,14 +548,19 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
         return await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var previous = LoadAiFeatureState(conn, tx, request.EntityId, request.FeatureKey);
-            var attempts = checked((previous?.Attempts ?? 0) + 1);
-            var status = attempts >= request.MaxAttempts
+            var policy = BackgroundJobOutcomePolicy.For(request.Category);
+            var attempts = checked((previous?.Attempts ?? 0) + (policy.ConsumesPoisonBudget ? 1 : 0));
+            var status = policy.IsTerminal || (policy.ConsumesPoisonBudget && attempts >= request.MaxAttempts)
                 ? AiFeatureStatus.Poisoned
                 : AiFeatureStatus.RetryPending;
-            var retryDelay = request.InitialRetryDelay ?? TimeSpan.FromMinutes(5);
+            var retryDelay = request.InitialRetryDelay
+                ?? (request.Category == BackgroundJobOutcomeCategory.UnavailableCapability
+                    ? TimeSpan.FromMinutes(30)
+                    : TimeSpan.FromMinutes(5));
+            var retryAttempt = Math.Max(attempts, 1);
             var nextRetry = status == AiFeatureStatus.RetryPending
                 ? DateTimeOffset.UtcNow.Add(TimeSpan.FromTicks(Math.Min(
-                    retryDelay.Ticks * (long)Math.Pow(2, attempts - 1),
+                    retryDelay.Ticks * (long)Math.Pow(2, retryAttempt - 1),
                     TimeSpan.FromHours(6).Ticks)))
                 : (DateTimeOffset?)null;
             var now = DateTimeOffset.UtcNow;
@@ -573,6 +580,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 attempts,
                 nextRetry,
                 request.Error.Length > 2000 ? request.Error[..2000] : request.Error,
+                request.Category,
                 outcomeReason: null,
                 previous?.PublishedFields ?? [],
                 previous?.ProtectedFields ?? [],
@@ -593,11 +601,51 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 nextRetry,
                 request.Error,
                 OutcomeReason: null,
+                request.Category,
                 previous?.PublishedFields ?? [],
                 previous?.ProtectedFields ?? [],
                 previous?.PublishedValues ?? new Dictionary<string, IReadOnlyList<string>>(),
                 now);
         }, ct).ConfigureAwait(false);
+    }
+
+    public Task<int> RecoverUnavailableCapabilityFailuresAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            return conn.Execute(
+                """
+                UPDATE ai_feature_artifacts
+                SET status = 'RetryPending',
+                    attempts = 0,
+                    next_retry_at = @now,
+                    last_outcome_category = 'UnavailableCapability',
+                    outcome_reason = CASE
+                        WHEN outcome_reason IS NULL OR trim(outcome_reason) = ''
+                            THEN 'Released at launch: the configured AI model was unavailable.'
+                        ELSE outcome_reason || ' Released at launch: the configured AI model was unavailable.'
+                    END,
+                    updated_at = @now
+                WHERE status = 'Poisoned'
+                  AND (
+                      last_outcome_category = 'UnavailableCapability'
+                      OR (
+                          last_outcome_category IS NULL
+                          AND (
+                              lower(last_error) LIKE '%model%unavailable%'
+                              OR lower(last_error) LIKE '%model file%not found%'
+                              OR lower(last_error) LIKE '%model%not downloaded%'
+                              OR lower(last_error) LIKE '%requested ai model%unavailable%'
+                          )
+                      )
+                  );
+                """,
+                new { now },
+                tx);
+        }, ct);
     }
 
     private static void ValidateAiFeatureWrite(AiFeatureWriteRequest request)
@@ -658,6 +706,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                    attempts AS Attempts,
                    next_retry_at AS NextRetryAt,
                    last_error AS LastError,
+                   last_outcome_category AS LastOutcomeCategory,
                    outcome_reason AS OutcomeReason,
                    published_fields_json AS PublishedFieldsJson,
                    protected_fields_json AS ProtectedFieldsJson,
@@ -687,6 +736,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
         int attempts,
         DateTimeOffset? nextRetryAt,
         string? lastError,
+        BackgroundJobOutcomeCategory? lastOutcomeCategory,
         string? outcomeReason,
         IReadOnlyList<string> publishedFields,
         IReadOnlyList<string> protectedFields,
@@ -698,12 +748,12 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
             INSERT INTO ai_feature_artifacts
                 (entity_id, feature_key, source_provider_id, status, confidence,
                  model_id, prompt_version, input_fingerprint, output_fingerprint,
-                 attempts, next_retry_at, last_error, outcome_reason, published_fields_json,
+                 attempts, last_outcome_category, next_retry_at, last_error, outcome_reason, published_fields_json,
                  protected_fields_json, published_values_json, updated_at)
             VALUES
                 (@EntityId, @FeatureKey, @ProviderId, @Status, @Confidence,
                  @ModelId, @PromptVersion, @InputFingerprint, @OutputFingerprint,
-                 @Attempts, @NextRetryAt, @LastError, @OutcomeReason, @PublishedFieldsJson,
+                 @Attempts, @LastOutcomeCategory, @NextRetryAt, @LastError, @OutcomeReason, @PublishedFieldsJson,
                  @ProtectedFieldsJson, @PublishedValuesJson, @UpdatedAt)
             ON CONFLICT(entity_id, feature_key) DO UPDATE SET
                 source_provider_id = excluded.source_provider_id,
@@ -714,6 +764,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 input_fingerprint = excluded.input_fingerprint,
                 output_fingerprint = excluded.output_fingerprint,
                 attempts = excluded.attempts,
+                last_outcome_category = excluded.last_outcome_category,
                 next_retry_at = excluded.next_retry_at,
                 last_error = excluded.last_error,
                 outcome_reason = excluded.outcome_reason,
@@ -734,6 +785,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 InputFingerprint = inputFingerprint,
                 OutputFingerprint = outputFingerprint,
                 Attempts = attempts,
+                LastOutcomeCategory = lastOutcomeCategory?.ToString(),
                 NextRetryAt = nextRetryAt?.ToString("O"),
                 LastError = lastError,
                 OutcomeReason = outcomeReason,
@@ -761,6 +813,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
             DateTimeOffset.TryParse(row.NextRetryAt, out var nextRetry) ? nextRetry : null,
             row.LastError,
             row.OutcomeReason,
+            Enum.TryParse<BackgroundJobOutcomeCategory>(row.LastOutcomeCategory, out var category) ? category : null,
             DeserializeFieldList(row.PublishedFieldsJson),
             DeserializeFieldList(row.ProtectedFieldsJson),
             DeserializePublishedValues(row.PublishedValuesJson),
@@ -886,6 +939,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
         public int Attempts { get; init; }
         public string? NextRetryAt { get; init; }
         public string? LastError { get; init; }
+        public string? LastOutcomeCategory { get; init; }
         public string? OutcomeReason { get; init; }
         public string? PublishedFieldsJson { get; init; }
         public string? ProtectedFieldsJson { get; init; }

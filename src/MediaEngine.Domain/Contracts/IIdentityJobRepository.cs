@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Jobs;
 
 namespace MediaEngine.Domain.Contracts;
 
@@ -60,9 +61,29 @@ public interface IIdentityJobRepository
     Task ScheduleRetryAsync(Guid jobId, IdentityJobState retryState, DateTimeOffset nextRetryAt, string error, CancellationToken ct = default)
         => UpdateStateAsync(jobId, retryState, error, ct);
 
+    /// <summary>
+    /// Schedules an outcome-aware retry. Only content failures consume the
+    /// poison-work budget; dependency and capability failures remain retryable.
+    /// </summary>
+    Task ScheduleRetryForOutcomeAsync(
+        Guid jobId,
+        IdentityJobState retryState,
+        DateTimeOffset nextRetryAt,
+        string error,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
+        => ScheduleRetryAsync(jobId, retryState, nextRetryAt, error, ct);
+
     /// <summary>Marks a poison job as terminally failed using the existing failed state.</summary>
     Task MarkDeadLetteredAsync(Guid jobId, string error, CancellationToken ct = default)
         => UpdateStateAsync(jobId, IdentityJobState.Failed, error, ct);
+
+    Task MarkDeadLetteredForOutcomeAsync(
+        Guid jobId,
+        string error,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
+        => MarkDeadLetteredAsync(jobId, error, ct);
 
     /// <summary>Sets the accepted retail candidate on the job.</summary>
     Task SetSelectedCandidateAsync(Guid jobId, Guid candidateId, CancellationToken ct = default);

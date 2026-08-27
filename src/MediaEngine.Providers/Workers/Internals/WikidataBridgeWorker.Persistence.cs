@@ -3,6 +3,7 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Adapters;
@@ -254,13 +255,16 @@ public sealed partial class WikidataBridgeWorker
             await _capabilityStates.MarkBlockedAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, reason, ct).ConfigureAwait(false);
     }
 
-    private async Task MarkBridgeFailedAsync(MediaOperation? operation, IdentityJob job, string error, bool terminal, CancellationToken ct)
+    private async Task MarkBridgeFailedAsync(MediaOperation? operation, IdentityJob job, Exception exception, bool terminal, CancellationToken ct)
     {
+        var category = BackgroundJobOutcomeClassifier.Classify(exception, ct);
+        var policy = BackgroundJobOutcomePolicy.For(category);
+        var effectiveTerminal = policy.IsTerminal || (terminal && policy.ConsumesPoisonBudget);
         if (_operationTracker is not null && operation is not null)
         {
             try
             {
-                await _operationTracker.MarkFailedAsync(operation.Id, new InvalidOperationException(error), terminal, ct).ConfigureAwait(false);
+                await _operationTracker.MarkFailedAsync(operation.Id, exception, terminal, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -269,7 +273,15 @@ public sealed partial class WikidataBridgeWorker
         }
 
         if (_capabilityStates is not null)
-            await _capabilityStates.MarkFailedAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, error, terminal, ct).ConfigureAwait(false);
+            await _capabilityStates.MarkFailedForOutcomeAsync(
+                    job.EntityId,
+                    CapabilityId.IdentityWikidataBridge,
+                    null,
+                    exception.Message,
+                    effectiveTerminal,
+                    category,
+                    ct)
+                .ConfigureAwait(false);
     }
 
     private async Task MarkBridgeCapabilityQueuedAsync(IdentityJob job, MediaOperation? operation, CancellationToken ct)

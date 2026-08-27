@@ -2,6 +2,7 @@ using MediaEngine.AI.Configuration;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
@@ -185,7 +186,8 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                             ModelId,
                             PromptVersion,
                             inputFingerprint,
-                            ex.Message),
+                            ex.Message,
+                            Category: BackgroundJobOutcomeClassifier.Classify(ex, ct)),
                         ct);
                     _logger.LogWarning(ex,
                         "SeriesAlignmentService: failed to infer position for entity {Id}",

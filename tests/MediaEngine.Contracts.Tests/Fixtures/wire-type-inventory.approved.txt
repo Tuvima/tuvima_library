@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=638; api=0; web-client=87
+# scopes: contracts=640; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -2634,7 +2634,9 @@
   TotalScanned: System.Int32 | json=total_scanned | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MissingCount: System.Int32 | json=missing_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ElapsedMs: System.Int64 | json=elapsed_ms | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"total_scanned":7,"missing_count":7,"elapsed_ms":7}
+  DuplicateReadWorksMerged: System.Int32 | json=duplicate_read_works_merged | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AudiobookAuthorsAligned: System.Int32 | json=audiobook_authors_aligned | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"total_scanned":7,"missing_count":7,"elapsed_ms":7,"duplicate_read_works_merged":7,"audiobook_authors_aligned":7}
 
 [contracts] MediaEngine.Contracts.Ingestion.ReorganizationCandidateDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6679,6 +6681,23 @@
   Scheduled: System.Boolean | json=scheduled | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RestartRequired: System.Boolean | json=restart_required | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Message: System.String | json=message | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.System.StartupReadinessCheckResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Name: System.String | json=name | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Category: System.String | json=category | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Status: System.String | json=status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Required: System.Boolean | json=required | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Description: System.String | json=description | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Data: System.Collections.Generic.Dictionary<System.String, System.String> | json=data | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"name":"sample","category":"sample","status":"sample","required":true,"description":"sample","data":{}}
+
+[contracts] MediaEngine.Contracts.System.StartupReadinessResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Status: System.String | json=status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CheckedAt: System.DateTimeOffset | json=checked_at | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Checks: System.Collections.Generic.List<MediaEngine.Contracts.System.StartupReadinessCheckResponse> | json=checks | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"status":"sample","checked_at":"2025-01-02T03:04:05+00:00","checks":[]}
 
 [contracts] MediaEngine.Contracts.System.SystemActivityOperationDto
   kind=class | converter=default | number-handling=default | unmapped=default

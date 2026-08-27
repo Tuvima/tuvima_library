@@ -17,6 +17,7 @@ public static class TuvimaHostedServiceCollectionExtensions
         // accepts requests. Keep the two startup data repairs first.
         services.AddHostedService<UISettingsCacheWarmupHostedService>();
         services.AddHostedService<OrphanReviewQueuePurgeHostedService>();
+        services.AddHostedService<AiUnavailableQuarantineRecoveryHostedService>();
 
         services.AddHostedService<EncodeQueueService>();
         services.AddHostedService<FolderHealthService>();

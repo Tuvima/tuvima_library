@@ -46,4 +46,28 @@ public sealed class SystemClient
             return null;
         }
     }
+
+    public async Task<StartupReadinessResponse?> GetStartupReadinessAsync(CancellationToken ct = default)
+    {
+        const string endpoint = "GET /system/readiness";
+        try
+        {
+            var response = await _http.GetAsync("/system/readiness", ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await _failureState.RecordHttpFailureAsync(endpoint, response, _logger, ct, logAsWarning: false);
+                return null;
+            }
+
+            var readiness = await response.Content.ReadFromJsonAsync<StartupReadinessResponse>(cancellationToken: ct);
+            _failureState.Clear(endpoint);
+            return readiness;
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _failureState.RecordExceptionFailure(endpoint, ex, _logger, logAsWarning: false);
+            return null;
+        }
+    }
 }

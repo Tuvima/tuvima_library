@@ -60,3 +60,23 @@ public sealed class OrphanReviewQueuePurgeHostedService(
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
+
+public sealed class AiUnavailableQuarantineRecoveryHostedService(
+    IAiFeaturePersistenceRepository featurePersistence,
+    ILogger<AiUnavailableQuarantineRecoveryHostedService> logger) : IHostedService
+{
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        var recovered = await featurePersistence
+            .RecoverUnavailableCapabilityFailuresAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (recovered > 0)
+        {
+            logger.LogInformation(
+                "Released {Count} AI feature item(s) quarantined solely because a model was unavailable.",
+                recovered);
+        }
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}

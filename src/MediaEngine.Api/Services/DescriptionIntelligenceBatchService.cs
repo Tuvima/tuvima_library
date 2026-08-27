@@ -4,6 +4,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
@@ -463,7 +464,8 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                                 modelId,
                                 PromptVersion,
                                 inputFingerprint,
-                                ex.Message),
+                                ex.Message,
+                                Category: BackgroundJobOutcomeClassifier.Classify(ex, ct)),
                             ct).ConfigureAwait(false);
                         if (failure.Status == AiFeatureStatus.Poisoned)
                             _logger.LogError(

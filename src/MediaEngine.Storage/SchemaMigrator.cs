@@ -74,6 +74,19 @@ internal sealed class SchemaMigrator
         AddColumnIfMissing(conn, "metadata_claims", "superseded_at",
             "ALTER TABLE metadata_claims ADD COLUMN superseded_at TEXT;");
 
+        AddColumnIfMissing(conn, "identity_jobs", "poison_attempt_count",
+            "ALTER TABLE identity_jobs ADD COLUMN poison_attempt_count INTEGER NOT NULL DEFAULT 0;");
+        AddColumnIfMissing(conn, "identity_jobs", "last_outcome_category",
+            "ALTER TABLE identity_jobs ADD COLUMN last_outcome_category TEXT;");
+        AddColumnIfMissing(conn, "media_operations", "last_outcome_category",
+            "ALTER TABLE media_operations ADD COLUMN last_outcome_category TEXT;");
+        AddColumnIfMissing(conn, "media_operations", "poison_attempt_count",
+            "ALTER TABLE media_operations ADD COLUMN poison_attempt_count INTEGER NOT NULL DEFAULT 0;");
+        AddColumnIfMissing(conn, "entity_capability_states", "last_outcome_category",
+            "ALTER TABLE entity_capability_states ADD COLUMN last_outcome_category TEXT;");
+        AddColumnIfMissing(conn, "ai_feature_artifacts", "last_outcome_category",
+            "ALTER TABLE ai_feature_artifacts ADD COLUMN last_outcome_category TEXT;");
+
         AddColumnIfMissing(
             conn,
             "player_queue_items",

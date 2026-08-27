@@ -359,7 +359,12 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             assets.Count, missingCount, collectionBackfill.AssignedCount, hierarchyPruned, duplicateReadWorksMerged, audiobookAuthorsAligned, foldersCleanedCount,
             orphanPeopleCount, staleSidecarsCount, sw.ElapsedMilliseconds);
 
-        return new ReconciliationResult(assets.Count, missingCount, sw.ElapsedMilliseconds);
+        return new ReconciliationResult(
+            assets.Count,
+            missingCount,
+            sw.ElapsedMilliseconds,
+            duplicateReadWorksMerged,
+            audiobookAuthorsAligned);
     }
 
     // ── Pass 1: Empty Folder Pruning ────────────────────────────────────────
@@ -545,4 +550,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 /// <summary>
 /// Result of a library reconciliation scan.
 /// </summary>
-public sealed record ReconciliationResult(int TotalScanned, int MissingCount, long ElapsedMs);
+public sealed record ReconciliationResult(
+    int TotalScanned,
+    int MissingCount,
+    long ElapsedMs,
+    int DuplicateReadWorksMerged,
+    int AudiobookAuthorsAligned);

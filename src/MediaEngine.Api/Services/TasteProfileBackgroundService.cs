@@ -2,6 +2,7 @@ using MediaEngine.AI.Configuration;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
@@ -149,7 +150,8 @@ public sealed class TasteProfileBackgroundService : BackgroundService
                         ModelId,
                         PromptVersion,
                         fingerprint ?? AiFeatureFingerprint.Compute(profile.Id.ToString("N")),
-                        ex.Message),
+                        ex.Message,
+                        Category: BackgroundJobOutcomeClassifier.Classify(ex, ct)),
                     ct);
                 _logger.LogWarning(ex, "TasteProfileService: failed profile {ProfileId}", profile.Id);
                 if (failure.Status == AiFeatureStatus.Poisoned)

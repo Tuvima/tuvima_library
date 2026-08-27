@@ -26,6 +26,7 @@ public sealed class EntityCapabilityState
     public bool NeedsRerun { get; init; }
     public string? MissingReason { get; init; }
     public string? LastError { get; init; }
+    public string? LastOutcomeCategory { get; init; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
 }

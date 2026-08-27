@@ -50,7 +50,17 @@ public sealed record SettingsItemDef(
     IReadOnlyList<string> Aliases,
     string Source = "mixed",
     bool Placeholder = false,
-    SettingsStatusKind Status = SettingsStatusKind.Live);
+    SettingsStatusKind Status = SettingsStatusKind.Planned);
+
+public sealed record LaunchFeatureEvidence(
+    bool Implemented,
+    bool Invoked,
+    bool Persisted,
+    bool Presented,
+    bool Tested)
+{
+    public bool IsComplete => Implemented && Invoked && Persisted && Presented && Tested;
+}
 
 /// <summary>A URL-addressable destination nested beneath a settings section.</summary>
 public sealed record SettingsSubsectionDef(
@@ -88,6 +98,32 @@ public sealed record SettingsRouteResolution(
 /// </summary>
 public static class SettingsNav
 {
+    private static bool _productionMode;
+
+    private static readonly IReadOnlyDictionary<SettingsSection, LaunchFeatureEvidence> LaunchContracts =
+        new Dictionary<SettingsSection, LaunchFeatureEvidence>
+        {
+            [SettingsSection.Overview] = Complete(),
+            [SettingsSection.Playback] = Complete(),
+            [SettingsSection.AdminOverview] = Complete(),
+            [SettingsSection.Libraries] = Complete(),
+            [SettingsSection.ImportFolders] = Complete(),
+            [SettingsSection.Ingestion] = Complete(),
+            [SettingsSection.Providers] = Complete(),
+            [SettingsSection.Review] = Complete(),
+            [SettingsSection.ActivityLogs] = Complete(),
+            [SettingsSection.Network] = Complete(),
+            [SettingsSection.Server] = Complete(),
+            [SettingsSection.LocalAi] = Complete(),
+        };
+
+    private static LaunchFeatureEvidence Complete() => new(true, true, true, true, true);
+
+    public static void ConfigureEnvironment(bool productionMode) => _productionMode = productionMode;
+
+    public static bool MeetsLaunchContract(SettingsSection section) =>
+        LaunchContracts.TryGetValue(section, out var evidence) && evidence.IsComplete;
+
     public static readonly SettingsGroupDef[] AllGroups =
     [
         new("personal", "Personal", Icons.Material.Outlined.Person, false, SettingsSection.Overview),
@@ -97,8 +133,8 @@ public static class SettingsNav
 
     public static readonly SettingsItemDef[] AllItems =
     [
-        new(SettingsSection.Overview, "personal", "profile", Icons.Material.Outlined.Person, "Profile", false, null, [], "sqlite"),
-        new(SettingsSection.Playback, "personal", "playback", Icons.Material.Outlined.PlayCircleOutline, "Playback & Reading", false, null, [], "sqlite"),
+        new(SettingsSection.Overview, "personal", "profile", Icons.Material.Outlined.Person, "Profile", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
+        new(SettingsSection.Playback, "personal", "playback", Icons.Material.Outlined.PlayCircleOutline, "Playback & Reading", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Privacy, "personal", "privacy", Icons.Material.Outlined.Lock, "Privacy & Data", false, null, [], "unavailable", Placeholder: true),
 
         new(SettingsSection.AdminOverview, "administration", "system", Icons.Material.Outlined.Dashboard, "System Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live),
@@ -106,8 +142,8 @@ public static class SettingsNav
         new(SettingsSection.ImportFolders, "administration", "import-folders", Icons.Material.Outlined.MoveToInbox, "Import Folders", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.MonitorHeart, "Ingestion", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.Providers, "administration", "metadata", Icons.Material.Outlined.Storage, "Metadata", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed"),
-        new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, [], "sqlite"),
+        new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed", Status: SettingsStatusKind.Live),
+        new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, [], "sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Network, "administration", "network", Icons.Material.Outlined.WifiTethering, "Network & Remote Access", true, null, [], "json+runtime", Status: SettingsStatusKind.Live),
         new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Partial),
         new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, [], Status: SettingsStatusKind.Partial),
@@ -116,8 +152,8 @@ public static class SettingsNav
         new(SettingsSection.LocalAi, "advanced", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.Plugins, "advanced", "plugins", Icons.Material.Outlined.Extension, "Plugins", true, null, [], "sqlite", Status: SettingsStatusKind.Partial),
         new(SettingsSection.DevHarness, "advanced", "developer", Icons.Material.Outlined.Construction, "Developer Tools", true, null, ["dev-harness", "harness", "ingestion-harness", "test-harness"], "internal", Status: SettingsStatusKind.Partial),
-        new(SettingsSection.ProviderTester, "advanced", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal"),
-        new(SettingsSection.EnrichmentTester, "advanced", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal"),
+        new(SettingsSection.ProviderTester, "advanced", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal", Status: SettingsStatusKind.Experimental),
+        new(SettingsSection.EnrichmentTester, "advanced", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal", Status: SettingsStatusKind.Experimental),
     ];
 
     public static readonly SettingsTreeGroupDef[] TreeGroups =
@@ -302,6 +338,13 @@ public static class SettingsNav
 
     public static bool IsVisible(SettingsSection section, string role)
     {
+        var item = GetItem(section);
+        if (_productionMode
+            && (item.Status != SettingsStatusKind.Live || !MeetsLaunchContract(section)))
+        {
+            return false;
+        }
+
         if (section == SettingsSection.Privacy)
         {
             return false;

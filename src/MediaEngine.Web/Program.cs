@@ -11,6 +11,7 @@ using MediaEngine.Web.Services.Navigation;
 using MediaEngine.Web.Services.Configuration;
 using MediaEngine.Web.Services.Integration.Clients;
 using MediaEngine.Domain.Models;
+using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
@@ -22,6 +23,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+SettingsNav.ConfigureEnvironment(builder.Environment.IsProduction());
 
 // ── Windows Service hosting ────────────────────────────────────────────────────
 // Integrates with the Windows Service Control Manager when the Dashboard is

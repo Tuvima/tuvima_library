@@ -121,6 +121,17 @@
             </div>
 
             <div class="admin-system-status" role="list" aria-label="System status">
+                @if (_readiness is not null)
+                {
+                    @foreach (var check in _readiness.Checks)
+                    {
+                        <div class="admin-system-status__row" role="listitem">
+                            <span class="admin-system-status__icon"><MudIcon Icon="@ReadinessIcon(check.Category)" /></span>
+                            <span><strong>@ReadinessLabel(check.Name)</strong><small>@check.Description</small></span>
+                            <AppStatusBadge Text="@ReadinessStatus(check.Status)" Tone="@ReadinessTone(check.Status)" />
+                        </div>
+                    }
+                }
                 <a class="admin-system-status__row" role="listitem" href="/settings/ingestion">
                     <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Sync" /></span>
                     <span><strong>Media processing</strong><small>@IngestionStatusDetail</small></span>
@@ -191,6 +202,7 @@
     private List<ActivityEntryResponse> _recentActivity = [];
     private List<EncodeJobDto> _encodeJobs = [];
     private IReadOnlyList<BackupArchiveDto> _backups = [];
+    private StartupReadinessResponse? _readiness;
     private OverviewRun _currentRun = OverviewRun.Empty;
 
     private int _pendingReviewCount;
@@ -278,14 +290,16 @@
             var activityTask = Orchestrator.GetRecentActivityAsync(25);
             var encodeTask = ApiClient.GetEncodeJobsAsync();
             var backupsTask = ApiClient.GetBackupsAsync();
+            var readinessTask = ApiClient.GetStartupReadinessAsync();
 
-            await Task.WhenAll(overviewTask, runsTask, activityTask, encodeTask, backupsTask);
+            await Task.WhenAll(overviewTask, runsTask, activityTask, encodeTask, backupsTask, readinessTask);
 
             _overview = await overviewTask;
             _recentRuns = await runsTask;
             _recentActivity = await activityTask;
             _encodeJobs = await encodeTask;
             _backups = await backupsTask;
+            _readiness = await readinessTask;
 
             Recompute();
             _lastUpdated = DateTimeOffset.Now;
@@ -299,6 +313,33 @@
             _loading = false;
         }
     }
+
+    private static string ReadinessLabel(string name) => name.Replace('_', ' ');
+
+    private static string ReadinessStatus(string status) => status switch
+    {
+        "ready" => "Ready",
+        "degraded" => "Degraded",
+        _ => "Blocked",
+    };
+
+    private static AppUiTone ReadinessTone(string status) => status switch
+    {
+        "ready" => AppUiTone.Success,
+        "degraded" => AppUiTone.Warning,
+        _ => AppUiTone.Error,
+    };
+
+    private static string ReadinessIcon(string category) => category switch
+    {
+        "database" => Icons.Material.Outlined.Storage,
+        "configuration" => Icons.Material.Outlined.Settings,
+        "storage" => Icons.Material.Outlined.Folder,
+        "models" => Icons.Material.Outlined.Memory,
+        "providers" => Icons.Material.Outlined.Hub,
+        "workers" => Icons.Material.Outlined.Engineering,
+        _ => Icons.Material.Outlined.MonitorHeart,
+    };
 
     private async Task StartIngestionAsync()
     {

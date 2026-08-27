@@ -2,6 +2,7 @@ using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -23,12 +24,12 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         conn.Execute("""
             INSERT OR IGNORE INTO identity_jobs
                 (id, entity_id, entity_type, media_type, ingestion_run_id,
-                 state, pass, attempt_count, lease_owner, lease_expires_at,
+                 state, pass, attempt_count, poison_attempt_count, last_outcome_category, lease_owner, lease_expires_at,
                  selected_candidate_id, resolved_qid, last_error, next_retry_at,
                  created_at, updated_at)
             SELECT
                 @Id, @EntityId, @EntityType, @MediaType, @IngestionRunId,
-                @State, @Pass, @AttemptCount, @LeaseOwner, @LeaseExpiresAt,
+                @State, @Pass, @AttemptCount, @PoisonAttemptCount, @LastOutcomeCategory, @LeaseOwner, @LeaseExpiresAt,
                 @SelectedCandidateId, @ResolvedQid, @LastError, @NextRetryAt,
                 @CreatedAt, @UpdatedAt
             WHERE NOT EXISTS (
@@ -49,6 +50,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 job.State,
                 job.Pass,
                 job.AttemptCount,
+                job.PoisonAttemptCount,
+                job.LastOutcomeCategory,
                 job.LeaseOwner,
                 LeaseExpiresAt      = job.LeaseExpiresAt?.ToString("O"),
                 job.SelectedCandidateId,
@@ -109,12 +112,12 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             conn.Execute("""
                 INSERT INTO identity_jobs
                     (id, entity_id, entity_type, media_type, ingestion_run_id,
-                     state, pass, attempt_count, lease_owner, lease_expires_at,
+                     state, pass, attempt_count, poison_attempt_count, last_outcome_category, lease_owner, lease_expires_at,
                      selected_candidate_id, resolved_qid, last_error, next_retry_at,
                      created_at, updated_at)
                 VALUES
                     (@Id, @EntityId, @EntityType, @MediaType, NULL,
-                     @State, @Pass, @AttemptCount, NULL, NULL,
+                     @State, @Pass, @AttemptCount, @PoisonAttemptCount, @LastOutcomeCategory, NULL, NULL,
                      @SelectedCandidateId, @ResolvedQid, NULL, NULL,
                      @CreatedAt, @UpdatedAt);
                 """, new
@@ -126,6 +129,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                     job.State,
                     job.Pass,
                     job.AttemptCount,
+                    job.PoisonAttemptCount,
+                    job.LastOutcomeCategory,
                     job.SelectedCandidateId,
                     job.ResolvedQid,
                     CreatedAt = job.CreatedAt.ToString("O"),
@@ -214,6 +219,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                       state           AS State,
                       pass            AS Pass,
                       attempt_count   AS AttemptCount,
+                      poison_attempt_count AS PoisonAttemptCount,
+                      last_outcome_category AS LastOutcomeCategory,
                       lease_owner     AS LeaseOwner,
                       lease_expires_at AS LeaseExpiresAt,
                       selected_candidate_id AS SelectedCandidateId,
@@ -261,8 +268,24 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
     }
 
     public Task ScheduleRetryAsync(Guid jobId, IdentityJobState retryState, DateTimeOffset nextRetryAt, string error, CancellationToken ct = default)
+        => ScheduleRetryForOutcomeAsync(
+            jobId,
+            retryState,
+            nextRetryAt,
+            error,
+            BackgroundJobOutcomeCategory.ContentFailure,
+            ct);
+
+    public Task ScheduleRetryForOutcomeAsync(
+        Guid jobId,
+        IdentityJobState retryState,
+        DateTimeOffset nextRetryAt,
+        string error,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        var policy = BackgroundJobOutcomePolicy.For(category);
         using var conn = _db.CreateConnection();
         conn.Execute("""
             UPDATE identity_jobs
@@ -272,6 +295,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                    lease_owner      = NULL,
                    lease_expires_at = NULL,
                    attempt_count    = attempt_count + 1,
+                   poison_attempt_count = poison_attempt_count + @poisonIncrement,
+                   last_outcome_category = @category,
                    updated_at       = @now
             WHERE  id = @jobId;
             """,
@@ -280,6 +305,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 jobId,
                 state = retryState.ToString(),
                 error,
+                poisonIncrement = policy.ConsumesPoisonBudget ? 1 : 0,
+                category = category.ToString(),
                 nextRetryAt = nextRetryAt.ToString("O"),
                 now = DateTimeOffset.UtcNow.ToString("O"),
             });
@@ -287,7 +314,43 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
     }
 
     public Task MarkDeadLetteredAsync(Guid jobId, string error, CancellationToken ct = default)
-        => UpdateStateAsync(jobId, IdentityJobState.Failed, error, ct);
+        => MarkDeadLetteredForOutcomeAsync(
+            jobId,
+            error,
+            BackgroundJobOutcomeCategory.ContentFailure,
+            ct);
+
+    public Task MarkDeadLetteredForOutcomeAsync(
+        Guid jobId,
+        string error,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var policy = BackgroundJobOutcomePolicy.For(category);
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE identity_jobs
+            SET state = @state,
+                last_error = @error,
+                last_outcome_category = @category,
+                poison_attempt_count = poison_attempt_count + @poisonIncrement,
+                next_retry_at = NULL,
+                lease_owner = NULL,
+                lease_expires_at = NULL,
+                updated_at = @now
+            WHERE id = @jobId;
+            """, new
+            {
+                jobId,
+                state = IdentityJobState.Failed.ToString(),
+                error,
+                category = category.ToString(),
+                poisonIncrement = policy.ConsumesPoisonBudget ? 1 : 0,
+                now = DateTimeOffset.UtcNow.ToString("O"),
+            });
+        return Task.CompletedTask;
+    }
 
     public Task SetSelectedCandidateAsync(Guid jobId, Guid candidateId, CancellationToken ct = default)
     {
@@ -571,6 +634,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                state            AS State,
                pass             AS Pass,
                attempt_count    AS AttemptCount,
+               poison_attempt_count AS PoisonAttemptCount,
+               last_outcome_category AS LastOutcomeCategory,
                lease_owner      AS LeaseOwner,
                lease_expires_at AS LeaseExpiresAt,
                selected_candidate_id AS SelectedCandidateId,
@@ -594,6 +659,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         public string  State               { get; set; } = "";
         public string  Pass                { get; set; } = "";
         public int     AttemptCount        { get; set; }
+        public int     PoisonAttemptCount  { get; set; }
+        public string? LastOutcomeCategory { get; set; }
         public string? LeaseOwner          { get; set; }
         public string? LeaseExpiresAt      { get; set; }
         public Guid?   SelectedCandidateId { get; set; }
@@ -614,6 +681,8 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         State               = r.State,
         Pass                = r.Pass,
         AttemptCount        = r.AttemptCount,
+        PoisonAttemptCount  = r.PoisonAttemptCount,
+        LastOutcomeCategory = r.LastOutcomeCategory,
         LeaseOwner          = r.LeaseOwner,
         LeaseExpiresAt      = r.LeaseExpiresAt is not null ? DateTimeOffset.Parse(r.LeaseExpiresAt) : null,
         SelectedCandidateId = r.SelectedCandidateId,

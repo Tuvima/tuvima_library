@@ -315,6 +315,15 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
     private Task<int> MergeWorkIntoAsync(Guid sourceWorkId, Guid targetWorkId, string qid, CancellationToken ct) =>
         _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
+            innerCt.ThrowIfCancellationRequested();
+
+            var sourceExists = conn.ExecuteScalar<int>(
+                "SELECT COUNT(1) FROM works WHERE id = @source;",
+                new { source = sourceWorkId },
+                tx) > 0;
+            if (!sourceExists)
+                return 0;
+
             var now = DateTimeOffset.UtcNow.ToString("O");
             var args = new
             {
@@ -323,6 +332,8 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
                 qid,
                 now,
             };
+
+            MergeDuplicateEntityAssets(conn, tx, sourceWorkId, targetWorkId, now, innerCt);
 
             conn.Execute("""
                 UPDATE works
@@ -403,6 +414,176 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
             return 1;
         }, ct);
 
+    private static void MergeDuplicateEntityAssets(
+        System.Data.IDbConnection conn,
+        System.Data.IDbTransaction tx,
+        Guid sourceWorkId,
+        Guid targetWorkId,
+        string now,
+        CancellationToken ct)
+    {
+        var collisions = conn.Query<EntityAssetMergePair>(
+            """
+            SELECT
+                s.id AS SourceId,
+                t.id AS TargetId,
+                s.local_image_path AS SourceLocalImagePath,
+                t.local_image_path AS TargetLocalImagePath,
+                s.local_image_path_s AS SourceLocalImagePathSmall,
+                t.local_image_path_s AS TargetLocalImagePathSmall,
+                s.local_image_path_m AS SourceLocalImagePathMedium,
+                t.local_image_path_m AS TargetLocalImagePathMedium,
+                s.local_image_path_l AS SourceLocalImagePathLarge,
+                t.local_image_path_l AS TargetLocalImagePathLarge,
+                s.source_provider AS SourceProvider,
+                t.source_provider AS TargetProvider,
+                s.width_px AS SourceWidthPx,
+                t.width_px AS TargetWidthPx,
+                s.height_px AS SourceHeightPx,
+                t.height_px AS TargetHeightPx,
+                s.aspect_class AS SourceAspectClass,
+                t.aspect_class AS TargetAspectClass,
+                s.primary_hex AS SourcePrimaryHex,
+                t.primary_hex AS TargetPrimaryHex,
+                s.secondary_hex AS SourceSecondaryHex,
+                t.secondary_hex AS TargetSecondaryHex,
+                s.accent_hex AS SourceAccentHex,
+                t.accent_hex AS TargetAccentHex,
+                s.asset_class AS SourceAssetClass,
+                t.asset_class AS TargetAssetClass,
+                s.storage_location AS SourceStorageLocation,
+                t.storage_location AS TargetStorageLocation,
+                s.owner_scope AS SourceOwnerScope,
+                t.owner_scope AS TargetOwnerScope,
+                s.is_preferred AS SourceIsPreferred,
+                t.is_preferred AS TargetIsPreferred,
+                s.is_user_override AS SourceIsUserOverride,
+                t.is_user_override AS TargetIsUserOverride,
+                s.is_locally_exported AS SourceIsLocallyExported,
+                t.is_locally_exported AS TargetIsLocallyExported,
+                s.is_preferred_exported AS SourceIsPreferredExported,
+                t.is_preferred_exported AS TargetIsPreferredExported,
+                s.created_at AS SourceCreatedAt,
+                t.created_at AS TargetCreatedAt
+            FROM entity_assets s
+            INNER JOIN entity_assets t
+                ON t.entity_type = 'Work'
+               AND t.entity_id = @target
+               AND t.asset_type = s.asset_type
+               AND t.image_url = s.image_url COLLATE NOCASE
+            WHERE s.entity_type = 'Work'
+              AND s.entity_id = @source
+              AND s.image_url IS NOT NULL
+              AND length(trim(s.image_url)) > 0;
+            """,
+            new { source = sourceWorkId, target = targetWorkId },
+            tx).AsList();
+
+        foreach (var pair in collisions)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            var sourceWins = AssetPriority(pair.SourceIsUserOverride, pair.SourceIsPreferred,
+                    pair.SourceLocalImagePath, pair.SourceLocalImagePathSmall, pair.SourceLocalImagePathMedium,
+                    pair.SourceLocalImagePathLarge, pair.SourceWidthPx, pair.SourceHeightPx, pair.SourceCreatedAt)
+                > AssetPriority(pair.TargetIsUserOverride, pair.TargetIsPreferred,
+                    pair.TargetLocalImagePath, pair.TargetLocalImagePathSmall, pair.TargetLocalImagePathMedium,
+                    pair.TargetLocalImagePathLarge, pair.TargetWidthPx, pair.TargetHeightPx, pair.TargetCreatedAt);
+
+            var survivorId = sourceWins ? pair.SourceId : pair.TargetId;
+            var duplicateId = sourceWins ? pair.TargetId : pair.SourceId;
+            var primary = sourceWins ? pair.Source() : pair.Target();
+            var secondary = sourceWins ? pair.Target() : pair.Source();
+
+            conn.Execute(
+                """
+                DELETE FROM entity_assets WHERE id = @duplicateId;
+
+                UPDATE entity_assets
+                SET entity_id = @target,
+                    local_image_path = @LocalImagePath,
+                    local_image_path_s = @LocalImagePathSmall,
+                    local_image_path_m = @LocalImagePathMedium,
+                    local_image_path_l = @LocalImagePathLarge,
+                    source_provider = @SourceProvider,
+                    width_px = @WidthPx,
+                    height_px = @HeightPx,
+                    aspect_class = @AspectClass,
+                    primary_hex = @PrimaryHex,
+                    secondary_hex = @SecondaryHex,
+                    accent_hex = @AccentHex,
+                    asset_class = @AssetClass,
+                    storage_location = @StorageLocation,
+                    owner_scope = @OwnerScope,
+                    is_preferred = @IsPreferred,
+                    is_user_override = @IsUserOverride,
+                    is_locally_exported = @IsLocallyExported,
+                    is_preferred_exported = @IsPreferredExported,
+                    updated_at = @now
+                WHERE id = @survivorId;
+                """,
+                new
+                {
+                    duplicateId,
+                    survivorId,
+                    target = targetWorkId,
+                    LocalImagePath = primary.LocalImagePath ?? secondary.LocalImagePath,
+                    LocalImagePathSmall = primary.LocalImagePathSmall ?? secondary.LocalImagePathSmall,
+                    LocalImagePathMedium = primary.LocalImagePathMedium ?? secondary.LocalImagePathMedium,
+                    LocalImagePathLarge = primary.LocalImagePathLarge ?? secondary.LocalImagePathLarge,
+                    SourceProvider = primary.SourceProvider ?? secondary.SourceProvider,
+                    WidthPx = MaxNullable(primary.WidthPx, secondary.WidthPx),
+                    HeightPx = MaxNullable(primary.HeightPx, secondary.HeightPx),
+                    AspectClass = PreferMeaningful(primary.AspectClass, secondary.AspectClass, "UnsupportedRect"),
+                    PrimaryHex = primary.PrimaryHex ?? secondary.PrimaryHex,
+                    SecondaryHex = primary.SecondaryHex ?? secondary.SecondaryHex,
+                    AccentHex = primary.AccentHex ?? secondary.AccentHex,
+                    AssetClass = PreferMeaningful(primary.AssetClass, secondary.AssetClass, "Artwork"),
+                    StorageLocation = PreferMeaningful(primary.StorageLocation, secondary.StorageLocation, "Central"),
+                    OwnerScope = PreferMeaningful(primary.OwnerScope, secondary.OwnerScope, "Unknown"),
+                    IsPreferred = primary.IsPreferred || secondary.IsPreferred,
+                    IsUserOverride = primary.IsUserOverride || secondary.IsUserOverride,
+                    IsLocallyExported = primary.IsLocallyExported || secondary.IsLocallyExported,
+                    IsPreferredExported = primary.IsPreferredExported || secondary.IsPreferredExported,
+                    now,
+                },
+                tx);
+        }
+    }
+
+    private static long AssetPriority(
+        bool userOverride,
+        bool preferred,
+        string? localPath,
+        string? smallPath,
+        string? mediumPath,
+        string? largePath,
+        int? width,
+        int? height,
+        string? createdAt)
+    {
+        var renditionCount = new[] { localPath, smallPath, mediumPath, largePath }.Count(path => !string.IsNullOrWhiteSpace(path));
+        var pixels = Math.Min((long)(width ?? 0) * (height ?? 0), 999_999_999L);
+        var stableAgeTieBreaker = DateTimeOffset.TryParse(createdAt, out var created)
+            ? Math.Max(0, DateTimeOffset.MaxValue.UtcTicks - created.UtcTicks) % 1_000
+            : 0;
+        return (userOverride ? 1_000_000_000_000L : 0)
+               + (preferred ? 100_000_000_000L : 0)
+               + renditionCount * 10_000_000_000L
+               + pixels * 10
+               + stableAgeTieBreaker;
+    }
+
+    private static int? MaxNullable(int? left, int? right) =>
+        left.HasValue || right.HasValue ? Math.Max(left ?? 0, right ?? 0) : null;
+
+    private static string PreferMeaningful(string? primary, string? secondary, string defaultValue) =>
+        !string.IsNullOrWhiteSpace(primary) && !string.Equals(primary, defaultValue, StringComparison.OrdinalIgnoreCase)
+            ? primary
+            : !string.IsNullOrWhiteSpace(secondary)
+                ? secondary
+                : defaultValue;
+
     private sealed class ReadWorkIdentityRow
     {
         public Guid WorkId { get; set; }
@@ -432,4 +613,80 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
         public string Value { get; set; } = string.Empty;
         public string? ValueQid { get; set; }
     }
+
+    private sealed class EntityAssetMergePair
+    {
+        public Guid SourceId { get; set; }
+        public Guid TargetId { get; set; }
+        public string? SourceLocalImagePath { get; set; }
+        public string? TargetLocalImagePath { get; set; }
+        public string? SourceLocalImagePathSmall { get; set; }
+        public string? TargetLocalImagePathSmall { get; set; }
+        public string? SourceLocalImagePathMedium { get; set; }
+        public string? TargetLocalImagePathMedium { get; set; }
+        public string? SourceLocalImagePathLarge { get; set; }
+        public string? TargetLocalImagePathLarge { get; set; }
+        public string? SourceProvider { get; set; }
+        public string? TargetProvider { get; set; }
+        public int? SourceWidthPx { get; set; }
+        public int? TargetWidthPx { get; set; }
+        public int? SourceHeightPx { get; set; }
+        public int? TargetHeightPx { get; set; }
+        public string? SourceAspectClass { get; set; }
+        public string? TargetAspectClass { get; set; }
+        public string? SourcePrimaryHex { get; set; }
+        public string? TargetPrimaryHex { get; set; }
+        public string? SourceSecondaryHex { get; set; }
+        public string? TargetSecondaryHex { get; set; }
+        public string? SourceAccentHex { get; set; }
+        public string? TargetAccentHex { get; set; }
+        public string? SourceAssetClass { get; set; }
+        public string? TargetAssetClass { get; set; }
+        public string? SourceStorageLocation { get; set; }
+        public string? TargetStorageLocation { get; set; }
+        public string? SourceOwnerScope { get; set; }
+        public string? TargetOwnerScope { get; set; }
+        public bool SourceIsPreferred { get; set; }
+        public bool TargetIsPreferred { get; set; }
+        public bool SourceIsUserOverride { get; set; }
+        public bool TargetIsUserOverride { get; set; }
+        public bool SourceIsLocallyExported { get; set; }
+        public bool TargetIsLocallyExported { get; set; }
+        public bool SourceIsPreferredExported { get; set; }
+        public bool TargetIsPreferredExported { get; set; }
+        public string? SourceCreatedAt { get; set; }
+        public string? TargetCreatedAt { get; set; }
+
+        public EntityAssetMergeValues Source() => new(
+            SourceLocalImagePath, SourceLocalImagePathSmall, SourceLocalImagePathMedium, SourceLocalImagePathLarge,
+            SourceProvider, SourceWidthPx, SourceHeightPx, SourceAspectClass, SourcePrimaryHex, SourceSecondaryHex,
+            SourceAccentHex, SourceAssetClass, SourceStorageLocation, SourceOwnerScope, SourceIsPreferred,
+            SourceIsUserOverride, SourceIsLocallyExported, SourceIsPreferredExported);
+
+        public EntityAssetMergeValues Target() => new(
+            TargetLocalImagePath, TargetLocalImagePathSmall, TargetLocalImagePathMedium, TargetLocalImagePathLarge,
+            TargetProvider, TargetWidthPx, TargetHeightPx, TargetAspectClass, TargetPrimaryHex, TargetSecondaryHex,
+            TargetAccentHex, TargetAssetClass, TargetStorageLocation, TargetOwnerScope, TargetIsPreferred,
+            TargetIsUserOverride, TargetIsLocallyExported, TargetIsPreferredExported);
+    }
+
+    private sealed record EntityAssetMergeValues(
+        string? LocalImagePath,
+        string? LocalImagePathSmall,
+        string? LocalImagePathMedium,
+        string? LocalImagePathLarge,
+        string? SourceProvider,
+        int? WidthPx,
+        int? HeightPx,
+        string? AspectClass,
+        string? PrimaryHex,
+        string? SecondaryHex,
+        string? AccentHex,
+        string? AssetClass,
+        string? StorageLocation,
+        string? OwnerScope,
+        bool IsPreferred,
+        bool IsUserOverride,
+        bool IsLocallyExported,
+        bool IsPreferredExported);
 }

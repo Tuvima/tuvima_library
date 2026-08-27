@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -24,13 +25,13 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                  capability_version, sub_key, status, requiredness, source, confidence,
                  artifact_count, artifact_summary, result_summary, last_operation_id,
                  first_attempted_at, last_attempted_at, succeeded_at, next_retry_at,
-                 stale, needs_rerun, missing_reason, last_error, created_at, updated_at)
+                 stale, needs_rerun, missing_reason, last_error, last_outcome_category, created_at, updated_at)
             VALUES
                 (@Id, @EntityId, @EntityKind, @MediaType, @CapabilityId, @CapabilityKind,
                  @CapabilityVersion, @SubKey, @Status, @Requiredness, @Source, @Confidence,
                  @ArtifactCount, @ArtifactSummary, @ResultSummary, @LastOperationId,
                  @FirstAttemptedAt, @LastAttemptedAt, @SucceededAt, @NextRetryAt,
-                 @Stale, @NeedsRerun, @MissingReason, @LastError, @CreatedAt, @UpdatedAt);
+                 @Stale, @NeedsRerun, @MissingReason, @LastError, @LastOutcomeCategory, @CreatedAt, @UpdatedAt);
             """,
             new
             {
@@ -58,6 +59,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                 NeedsRerun = state.NeedsRerun ? 1 : 0,
                 state.MissingReason,
                 state.LastError,
+                state.LastOutcomeCategory,
                 CreatedAt = createdAt.ToString("O"),
                 UpdatedAt = updatedAt.ToString("O")
             });
@@ -195,6 +197,43 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
     public Task MarkFailedAsync(Guid entityId, string capabilityId, string? subKey, string error, bool terminal, CancellationToken ct = default)
         => MarkStateAsync(entityId, capabilityId, subKey, terminal ? EntityCapabilityStatus.FailedTerminal : EntityCapabilityStatus.FailedRetryable, null, error, ct);
 
+    public Task MarkFailedForOutcomeAsync(
+        Guid entityId,
+        string capabilityId,
+        string? subKey,
+        string error,
+        bool terminal,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            UPDATE entity_capability_states
+            SET status = @status,
+                last_error = @error,
+                last_outcome_category = @category,
+                stale = 0,
+                needs_rerun = 0,
+                first_attempted_at = COALESCE(first_attempted_at, @now),
+                last_attempted_at = @now,
+                updated_at = @now
+            WHERE entity_id = @entityId
+              AND capability_id = @capabilityId
+              AND COALESCE(sub_key, '') = COALESCE(@subKey, '');
+            """, new
+            {
+                entityId,
+                capabilityId,
+                subKey,
+                error,
+                category = category.ToString(),
+                status = terminal ? EntityCapabilityStatus.FailedTerminal : EntityCapabilityStatus.FailedRetryable,
+                now = DateTimeOffset.UtcNow.ToString("O"),
+            });
+        return Task.CompletedTask;
+    }
+
     public Task MarkNotApplicableAsync(Guid entityId, string capabilityId, string? subKey, string reason, CancellationToken ct = default)
         => MarkStateAsync(entityId, capabilityId, subKey, EntityCapabilityStatus.NotApplicable, reason, null, ct);
 
@@ -291,6 +330,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                needs_rerun AS NeedsRerun,
                missing_reason AS MissingReason,
                last_error AS LastError,
+               last_outcome_category AS LastOutcomeCategory,
                created_at AS CreatedAt,
                updated_at AS UpdatedAt
         FROM entity_capability_states
@@ -322,6 +362,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
         public int NeedsRerun { get; set; }
         public string? MissingReason { get; set; }
         public string? LastError { get; set; }
+        public string? LastOutcomeCategory { get; set; }
         public string CreatedAt { get; set; } = "";
         public string UpdatedAt { get; set; } = "";
     }
@@ -352,6 +393,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
         NeedsRerun = row.NeedsRerun != 0,
         MissingReason = row.MissingReason,
         LastError = row.LastError,
+        LastOutcomeCategory = row.LastOutcomeCategory,
         CreatedAt = DateTimeOffset.Parse(row.CreatedAt),
         UpdatedAt = DateTimeOffset.Parse(row.UpdatedAt)
     };

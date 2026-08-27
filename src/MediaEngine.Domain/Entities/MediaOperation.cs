@@ -23,6 +23,7 @@ public sealed class MediaOperation
     public string QueueName { get; init; } = "default";
     public long PositionKey { get; init; }
     public int AttemptCount { get; init; }
+    public int PoisonAttemptCount { get; init; }
     public string? LeaseOwner { get; init; }
     public DateTimeOffset? LeaseExpiresAt { get; init; }
     public DateTimeOffset? HeartbeatAt { get; init; }
@@ -33,6 +34,7 @@ public sealed class MediaOperation
     public int ItemsFailed { get; init; }
     public string? ResultSummary { get; init; }
     public string? LastError { get; init; }
+    public string? LastOutcomeCategory { get; init; }
     public string? MissingReason { get; init; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? StartedAt { get; init; }

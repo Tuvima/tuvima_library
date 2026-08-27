@@ -110,12 +110,11 @@ function Wait-ForEngine {
         }
 
         try {
-            # /health is the aggregate operational health surface. It may be
-            # intentionally degraded by an unavailable optional library source
-            # even though the Engine is ready to serve the Dashboard. Startup
-            # readiness therefore uses the lightweight connectivity endpoint.
-            $status = Invoke-RestMethod -Uri "http://localhost:61495/system/status" -TimeoutSec 2
-            if ($status.status -eq "ok") {
+            # Readiness blocks only on required database, configuration,
+            # storage, and worker failures. Optional models and providers may
+            # report degraded while the Engine remains ready to serve.
+            $status = Invoke-RestMethod -Uri "http://localhost:61495/health/ready" -TimeoutSec 2
+            if ($status.status -in @("healthy", "degraded")) {
                 return
             }
         }
@@ -124,7 +123,7 @@ function Wait-ForEngine {
         }
     }
 
-    Write-Host "Timed out waiting for Engine readiness at http://localhost:61495/system/status."
+    Write-Host "Timed out waiting for Engine readiness at http://localhost:61495/health/ready."
     Write-Host "Engine output log: $OutputLog"
     Write-Host "Engine error log:  $ErrorLog"
     Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue

@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Jobs;
 
 namespace MediaEngine.Domain.Contracts;
 
@@ -21,7 +22,20 @@ public interface IMediaOperationRepository
     Task MarkMissingConfirmedAsync(Guid id, string? missingReason = null, CancellationToken ct = default);
     Task MarkBlockedAsync(Guid id, string reason, CancellationToken ct = default);
     Task MarkFailedRetryableAsync(Guid id, string error, DateTimeOffset nextRetryAt, CancellationToken ct = default);
+    Task MarkFailedRetryableForOutcomeAsync(
+        Guid id,
+        string error,
+        DateTimeOffset nextRetryAt,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
+        => MarkFailedRetryableAsync(id, error, nextRetryAt, ct);
     Task MarkFailedTerminalAsync(Guid id, string error, CancellationToken ct = default);
+    Task MarkFailedTerminalForOutcomeAsync(
+        Guid id,
+        string error,
+        BackgroundJobOutcomeCategory category,
+        CancellationToken ct = default)
+        => MarkFailedTerminalAsync(id, error, ct);
     Task MarkDeadLetteredAsync(Guid id, string error, CancellationToken ct = default);
     Task MarkCancelledAsync(Guid id, string? reason = null, CancellationToken ct = default);
     Task MarkInterruptedAsync(Guid id, string? reason = null, CancellationToken ct = default);

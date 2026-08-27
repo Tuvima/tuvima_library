@@ -31,18 +31,36 @@ public sealed class IdentityPipelineSignalTests
     public async Task RetryPolicy_DeadLettersAfterConfiguredMaxAttempts()
     {
         var repo = new RecordingIdentityJobRepository();
-        var job = new IdentityJob { AttemptCount = 1 };
+        var job = new IdentityJob { AttemptCount = 1, PoisonAttemptCount = 1 };
 
         await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
             repo,
             job,
             IdentityJobState.Queued,
-            new TimeoutException("temporary"),
+            new InvalidDataException("malformed content"),
             new HydrationSettings { IdentityRetryMaxAttempts = 2 },
             CancellationToken.None);
 
         Assert.True(repo.DeadLettered);
         Assert.False(repo.RetryScheduled);
+    }
+
+    [Fact]
+    public async Task RetryPolicy_TimeoutDoesNotConsumePoisonBudgetOrDeadLetter()
+    {
+        var repo = new RecordingIdentityJobRepository();
+        var job = new IdentityJob { AttemptCount = 20, PoisonAttemptCount = 20 };
+
+        await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+            repo,
+            job,
+            IdentityJobState.Queued,
+            new TimeoutException("dependency offline"),
+            new HydrationSettings { IdentityRetryMaxAttempts = 2 },
+            CancellationToken.None);
+
+        Assert.True(repo.RetryScheduled);
+        Assert.False(repo.DeadLettered);
     }
 
     [Fact]

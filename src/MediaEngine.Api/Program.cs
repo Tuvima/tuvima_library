@@ -15,6 +15,7 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.SignalR;
 using Serilog;
 
@@ -271,10 +272,15 @@ builder.Services.AddTuvimaAi(configLoader);
 builder.Services.AddTuvimaPlugins();
 builder.Services.AddTuvimaHostedServices();
 
+builder.Services.AddSingleton<StartupReadinessService>();
 builder.Services.AddHealthChecks()
-    .AddCheck<SqliteHealthCheck>("sqlite", tags: ["db"])
-    .AddCheck<LibraryRootHealthCheck>("library_root", tags: ["storage"])
-    .AddCheck<WatchFolderHealthCheck>("watch_folder", tags: ["storage"]);
+    .AddCheck<SqliteHealthCheck>("database_integrity", tags: ["readiness", "database", "required"])
+    .AddCheck<ConfigurationHealthCheck>("configuration_validity", tags: ["readiness", "configuration", "required"])
+    .AddCheck<LibraryRootHealthCheck>("library_storage", tags: ["readiness", "storage", "required"])
+    .AddCheck<WatchFolderHealthCheck>("watch_folders", tags: ["readiness", "storage"])
+    .AddCheck<ModelReadinessHealthCheck>("ai_models", tags: ["readiness", "models"])
+    .AddCheck<ProviderReadinessHealthCheck>("metadata_providers", tags: ["readiness", "providers"])
+    .AddCheck<WorkerReadinessHealthCheck>("background_workers", tags: ["readiness", "workers", "required"]);
 
 WebApplication app = builder.Build();
 
@@ -314,6 +320,30 @@ app.UseRateLimiter();
 app.UseMiddleware<ApiKeyMiddleware>();
 
 app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("readiness"),
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new
+        {
+            status = report.Status.ToString().ToLowerInvariant(),
+            checked_at = DateTimeOffset.UtcNow,
+            checks = report.Entries.Select(entry => new
+            {
+                name = entry.Key,
+                status = entry.Value.Status.ToString().ToLowerInvariant(),
+                description = entry.Value.Description,
+                data = entry.Value.Data,
+            }),
+        });
+    },
+});
 
 if (app.Environment.IsDevelopment())
 {

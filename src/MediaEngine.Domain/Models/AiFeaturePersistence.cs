@@ -1,3 +1,5 @@
+using MediaEngine.Domain.Jobs;
+
 namespace MediaEngine.Domain.Models;
 
 /// <summary>
@@ -39,7 +41,8 @@ public sealed record AiFeatureFailureRequest(
     string InputFingerprint,
     string Error,
     int MaxAttempts = 3,
-    TimeSpan? InitialRetryDelay = null);
+    TimeSpan? InitialRetryDelay = null,
+    BackgroundJobOutcomeCategory Category = BackgroundJobOutcomeCategory.ContentFailure);
 
 public sealed record AiFeatureWriteResult(
     AiFeatureStatus Status,
@@ -64,6 +67,7 @@ public sealed record AiFeatureState(
     DateTimeOffset? NextRetryAt,
     string? LastError,
     string? OutcomeReason,
+    BackgroundJobOutcomeCategory? LastOutcomeCategory,
     IReadOnlyList<string> PublishedFields,
     IReadOnlyList<string> ProtectedFields,
     IReadOnlyDictionary<string, IReadOnlyList<string>> PublishedValues,

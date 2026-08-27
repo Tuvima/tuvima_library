@@ -44,6 +44,15 @@ public static class SystemEndpoints
         .WithSummary("Returns service health and version. Used by external apps to test connectivity.")
         .Produces<SystemStatusResponse>(StatusCodes.Status200OK);
 
+        app.MapGet("/system/readiness", async (
+            StartupReadinessService readiness,
+            CancellationToken ct) => Results.Ok(await readiness.GetAsync(ct).ConfigureAwait(false)))
+        .WithTags("System")
+        .WithName("GetStartupReadiness")
+        .WithSummary("Reports database, configuration, storage, model, provider, and worker readiness.")
+        .Produces<StartupReadinessResponse>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
         app.MapGet("/system/activity-status", async (
             IMediaOperationRepository operations,
             CancellationToken ct) =>

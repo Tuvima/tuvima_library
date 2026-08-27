@@ -19,6 +19,12 @@ public sealed class ReconciliationResultResponse
 
     [JsonPropertyName("elapsed_ms")]
     public long ElapsedMs { get; set; }
+
+    [JsonPropertyName("duplicate_read_works_merged")]
+    public int DuplicateReadWorksMerged { get; set; }
+
+    [JsonPropertyName("audiobook_authors_aligned")]
+    public int AudiobookAuthorsAligned { get; set; }
 }
 
 /// <summary>

@@ -7,6 +7,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Jobs;
 using MediaEngine.Storage.Services;
 
 namespace MediaEngine.Storage.Tests;
@@ -1028,6 +1029,106 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task WorkIdentityReconciliation_RepeatedMergeCollapsesDuplicateArtworkIdempotently()
+    {
+        var service = new WorkIdentityReconciliationService(_db);
+        var qid = "Q_ARTWORK_DUPLICATE";
+        var firstWorkId = Guid.NewGuid();
+        var secondWorkId = Guid.NewGuid();
+        var firstEditionId = Guid.NewGuid();
+        var secondEditionId = Guid.NewGuid();
+        var firstAssetId = Guid.NewGuid();
+        var secondAssetId = Guid.NewGuid();
+        var firstArtworkId = Guid.NewGuid();
+        var secondArtworkId = Guid.NewGuid();
+
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind, wikidata_qid)
+                VALUES (@firstWorkId, 'Books', 'standalone', @qid),
+                       (@secondWorkId, 'Books', 'standalone', @qid);
+
+                INSERT INTO editions (id, work_id)
+                VALUES (@firstEditionId, @firstWorkId),
+                       (@secondEditionId, @secondWorkId);
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@firstAssetId, @firstEditionId, @firstHash, '/library/Books/Artwork One.epub', 'Normal'),
+                       (@secondAssetId, @secondEditionId, @secondHash, '/library/Books/Artwork Two.epub', 'Normal');
+
+                INSERT INTO entity_assets
+                    (id, entity_id, entity_type, asset_type, image_url,
+                     local_image_path_s, source_provider, width_px, height_px,
+                     aspect_class, is_user_override, created_at)
+                VALUES
+                    (@firstArtworkId, @firstWorkId, 'Work', 'CoverArt', 'https://images.example/Dune.jpg',
+                     '/assets/dune-small.webp', 'user_upload', 1200, 1800,
+                     'Portrait', 1, '2025-01-01T00:00:00Z');
+
+                INSERT INTO entity_assets
+                    (id, entity_id, entity_type, asset_type, image_url,
+                     local_image_path_l, source_provider, width_px, height_px,
+                     primary_hex, is_preferred, is_locally_exported, created_at)
+                VALUES
+                    (@secondArtworkId, @secondWorkId, 'Work', 'CoverArt', 'https://images.example/dune.jpg',
+                     '/assets/dune-large.webp', 'wikidata', 2000, 3000,
+                     '#123456', 1, 1, '2025-02-01T00:00:00Z');
+                """,
+                new
+                {
+                    qid,
+                    firstWorkId,
+                    secondWorkId,
+                    firstEditionId,
+                    secondEditionId,
+                    firstAssetId,
+                    secondAssetId,
+                    firstArtworkId,
+                    secondArtworkId,
+                    firstHash = $"book_{Guid.NewGuid():N}",
+                    secondHash = $"book_{Guid.NewGuid():N}",
+                });
+        }
+
+        Assert.Equal(1, await service.MergeDuplicateReadWorksByQidAsync());
+        for (var pass = 0; pass < 5; pass++)
+            Assert.Equal(0, await service.MergeDuplicateReadWorksByQidAsync());
+
+        using var verify = _db.CreateConnection();
+        Assert.Equal(1, await verify.ExecuteScalarAsync<int>(
+            "SELECT COUNT(1) FROM works WHERE wikidata_qid = @qid;",
+            new { qid }));
+        Assert.Equal(1, await verify.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(1)
+            FROM entity_assets
+            WHERE entity_type = 'Work'
+              AND asset_type = 'CoverArt'
+              AND image_url = 'https://images.example/dune.jpg' COLLATE NOCASE;
+            """));
+
+        var artwork = await verify.QuerySingleAsync<dynamic>(
+            """
+            SELECT local_image_path_s, local_image_path_l, width_px, height_px,
+                   primary_hex, is_preferred, is_user_override, is_locally_exported
+            FROM entity_assets
+            WHERE entity_type = 'Work' AND asset_type = 'CoverArt';
+            """);
+        Assert.Equal("/assets/dune-small.webp", (string)artwork.local_image_path_s);
+        Assert.Equal("/assets/dune-large.webp", (string)artwork.local_image_path_l);
+        Assert.Equal(2000L, (long)artwork.width_px);
+        Assert.Equal(3000L, (long)artwork.height_px);
+        Assert.Equal("#123456", (string)artwork.primary_hex);
+        Assert.Equal(1L, (long)artwork.is_preferred);
+        Assert.Equal(1L, (long)artwork.is_user_override);
+        Assert.Equal(1L, (long)artwork.is_locally_exported);
+        Assert.Equal("ok", await verify.ExecuteScalarAsync<string>("PRAGMA integrity_check;"));
+        Assert.Empty(await verify.QueryAsync<string>("PRAGMA foreign_key_check;"));
+    }
+
+    [Fact]
     public async Task WorkIdentityReconciliation_DoesNotMergeComicIssuesBySeriesQid()
     {
         var service = new WorkIdentityReconciliationService(_db);
@@ -1250,12 +1351,46 @@ public sealed class RepositoryTests : IDisposable
         var retrying = await repo.GetByIdAsync(job.Id);
         Assert.NotNull(retrying);
         Assert.Equal(1, retrying!.AttemptCount);
+        Assert.Equal(1, retrying.PoisonAttemptCount);
         Assert.Equal("locked", retrying.LastError);
         Assert.NotNull(retrying.NextRetryAt);
         Assert.Null(retrying.LeaseOwner);
 
         var notEligible = await repo.LeaseNextAsync("test-worker-2", [IdentityJobState.Queued], 1, TimeSpan.FromMinutes(10));
         Assert.Empty(notEligible);
+    }
+
+    [Fact]
+    public async Task IdentityJob_UnavailableCapabilityRetriesDoNotConsumePoisonBudget()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var job = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Quick",
+            State = IdentityJobState.Queued.ToString(),
+        };
+        await repo.CreateAsync(job);
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            await repo.ScheduleRetryForOutcomeAsync(
+                job.Id,
+                IdentityJobState.Queued,
+                DateTimeOffset.UtcNow,
+                "No enabled provider is configured.",
+                BackgroundJobOutcomeCategory.UnavailableCapability);
+        }
+
+        var retrying = await repo.GetByIdAsync(job.Id);
+        Assert.NotNull(retrying);
+        Assert.Equal(10, retrying!.AttemptCount);
+        Assert.Equal(0, retrying.PoisonAttemptCount);
+        Assert.Equal(nameof(BackgroundJobOutcomeCategory.UnavailableCapability), retrying.LastOutcomeCategory);
+        Assert.NotEqual(IdentityJobState.Failed.ToString(), retrying.State);
     }
 
     [Fact]
