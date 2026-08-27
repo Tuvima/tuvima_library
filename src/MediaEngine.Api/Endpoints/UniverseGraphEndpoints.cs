@@ -404,7 +404,7 @@ public static class UniverseGraphEndpoints
                     : "All neighboring entities are already enriched."));
         })
         .Produces<UniverseDeepEnrichResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // GET /universe/{qid}/paths?from=Q1&to=Q2&maxHops=4 — find paths between entities.
         group.MapGet("/universe/{qid}/paths", async (

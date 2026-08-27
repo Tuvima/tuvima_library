@@ -134,7 +134,7 @@ public sealed class ProfileAvatarEndpointTests
         DisplayName = "Avatar Test",
         AvatarColor = "#7C4DFF",
         AvatarImagePath = avatarPath,
-        Role = ProfileRole.Consumer,
+        Role = ProfileRole.RestrictedProfile,
         CreatedAt = DateTimeOffset.UtcNow,
     };
 
@@ -145,7 +145,6 @@ public sealed class ProfileAvatarEndpointTests
         AvatarColor = profile.AvatarColor,
         AvatarImagePath = profile.AvatarImagePath,
         Role = profile.Role,
-        PinHash = profile.PinHash,
         CreatedAt = profile.CreatedAt,
         NavigationConfig = profile.NavigationConfig,
     };

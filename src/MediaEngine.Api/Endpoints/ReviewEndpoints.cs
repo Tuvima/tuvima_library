@@ -43,7 +43,7 @@ public static class ReviewEndpoints
         .WithName("GetPendingReviews")
         .WithSummary("List pending review queue items.")
         .Produces<List<MediaEngine.Contracts.Review.ReviewItemDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── GET /review/count ────────────────────────────────────────────────
         group.MapGet("/count", async (
@@ -56,7 +56,7 @@ public static class ReviewEndpoints
         .WithName("GetReviewCount")
         .WithSummary("Get the number of pending review queue items (for sidebar badge).")
         .Produces<MediaEngine.Contracts.Review.ReviewCountResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── GET /review/{id} ─────────────────────────────────────────────────
         group.MapGet("/{id:guid}", async (
@@ -71,7 +71,7 @@ public static class ReviewEndpoints
         .WithSummary("Get a single review queue item with full details.")
         .Produces<MediaEngine.Contracts.Review.ReviewItemDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /review/{id}/resolve ────────────────────────────────────────
         group.MapPost("/{id:guid}/resolve", async (
@@ -212,7 +212,7 @@ public static class ReviewEndpoints
         .Produces<ReviewResolveResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /review/{id}/dismiss ────────────────────────────────────────
         group.MapPost("/{id:guid}/dismiss", async (
@@ -277,7 +277,7 @@ public static class ReviewEndpoints
         .Produces<ReviewDismissResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /review/{id}/skip-universe ────────────────────────────────
         group.MapPost("/{id:guid}/skip-universe", async (
@@ -349,7 +349,7 @@ public static class ReviewEndpoints
         .Produces<ReviewSkipUniverseResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

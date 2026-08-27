@@ -163,7 +163,7 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemPreferencesResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPut("/{entityId:guid}/display-overrides", async (
             Guid entityId,
@@ -236,7 +236,7 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemDisplayOverridesResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{entityId:guid}/canonical-search", async (
             Guid entityId,
@@ -345,7 +345,7 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemCanonicalSearchResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{entityId:guid}/canonical-apply", async (
             Guid entityId,
@@ -562,7 +562,7 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemCanonicalApplyResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/{entityId:guid}/editor-preferences/{profileId:guid}", async (
             Guid entityId,
@@ -639,7 +639,7 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemEditorPreferencesResponse>(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{entityId:guid}/retail-match", async (
             Guid entityId,
@@ -1044,7 +1044,7 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemCanonicalApplyResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{entityId:guid}/wikidata-match", async (
             Guid entityId,
@@ -1239,7 +1239,7 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemCanonicalApplyResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

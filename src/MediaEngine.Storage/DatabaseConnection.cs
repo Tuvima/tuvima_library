@@ -103,6 +103,13 @@ public sealed class DatabaseConnection : IDatabaseConnection
     public void ReleaseWriteLock()
         => _writeLock.Release();
 
+    internal static void ExecuteStartupTransaction(SqliteConnection conn, Action<SqliteTransaction> body)
+    {
+        using var transaction = conn.BeginTransaction();
+        body(transaction);
+        transaction.Commit();
+    }
+
     /// <inheritdoc/>
     public async Task<T> ExecuteWriteAsync<T>(
         Func<SqliteConnection, SqliteTransaction, CancellationToken, T> body,

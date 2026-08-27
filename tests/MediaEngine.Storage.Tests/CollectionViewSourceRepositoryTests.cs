@@ -195,7 +195,7 @@ public sealed class CollectionViewSourceRepositoryTests : IDisposable
         using var connection = _database.CreateConnection();
         connection.Execute("""
             INSERT INTO profiles (id, display_name, avatar_color, role, created_at)
-            VALUES (@id, @name, '#7C4DFF', 'Consumer', @now);
+            VALUES (@id, @name, '#7C4DFF', 'RestrictedProfile', @now);
             """, new { id, name, now = DateTimeOffset.UtcNow });
         return id;
     }

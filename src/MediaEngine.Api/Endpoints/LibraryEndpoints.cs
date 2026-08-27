@@ -76,7 +76,7 @@ public static class LibraryEndpoints
         .WithName("GetLibraryOverview")
         .WithSummary("Aggregated operational health summary for the library dashboard.")
         .Produces<LibraryOverviewDto>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/works", async (
             ILibraryWorkFeedReadService workFeedReadService,
@@ -178,7 +178,7 @@ public static class LibraryEndpoints
         .WithName("PreviewBatchEdit")
         .WithSummary("Dry-run preview of a batch edit operation.")
         .Produces<LibraryBatchEditPreview>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /library/batch-edit ────────────────────────────────────────
         group.MapPost("/batch-edit", async (
@@ -279,7 +279,7 @@ public static class LibraryEndpoints
         .WithName("ApplyBatchEdit")
         .WithSummary("Apply batch field edits to multiple items.")
         .Produces<LibraryBatchEditResult>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── GET /library/universe-candidates ───────────────────────────────
         group.MapGet("/universe-candidates", async (
@@ -301,7 +301,7 @@ public static class LibraryEndpoints
         .WithName("GetUniverseCandidates")
         .WithSummary("Items with universe-related QIDs but no collection assignment.")
         .Produces<List<UniverseCandidateDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /library/universe-candidates/{workId}/accept ──────────────
         group.MapPost("/universe-candidates/{workId:guid}/accept", async (
@@ -338,7 +338,7 @@ public static class LibraryEndpoints
         .WithName("AcceptUniverseCandidate")
         .WithSummary("Accept a universe assignment for a work.")
         .Produces<UniverseCandidateAcceptResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /library/universe-candidates/{workId}/reject ──────────────
         group.MapPost("/universe-candidates/{workId:guid}/reject", async (
@@ -371,7 +371,7 @@ public static class LibraryEndpoints
         .WithName("RejectUniverseCandidate")
         .WithSummary("Reject a universe candidate for a work.")
         .Produces<UniverseCandidateRejectResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /library/universe-candidates/batch-accept ─────────────────
         group.MapPost("/universe-candidates/batch-accept", async (
@@ -442,7 +442,7 @@ public static class LibraryEndpoints
         .WithName("BatchAcceptUniverseCandidates")
         .WithSummary("Batch accept universe assignments.")
         .Produces<UniverseBatchAcceptResult>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── GET /library/universe-unlinked ─────────────────────────────────
         group.MapGet("/universe-unlinked", async (
@@ -454,7 +454,7 @@ public static class LibraryEndpoints
         .WithName("GetUniverseUnlinked")
         .WithSummary("Works with Wikidata QID but no universe-related properties.")
         .Produces<List<UnlinkedWorkDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /library/universe-assign ──────────────────────────────────
         group.MapPost("/universe-assign", async (
@@ -468,7 +468,7 @@ public static class LibraryEndpoints
         .WithName("ManualUniverseAssign")
         .WithSummary("Manually assign a work to an existing collection.")
         .Produces<UniverseManualAssignResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

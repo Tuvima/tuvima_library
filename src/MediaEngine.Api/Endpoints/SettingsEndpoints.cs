@@ -310,7 +310,7 @@ public static class SettingsEndpoints
         .WithName("GetProviderHealth")
         .WithSummary("Returns health status for all tracked providers.")
         .Produces<IEnumerable<ProviderHealthStatusResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── PUT /settings/providers/{name} ───────────────────────────────────────
 
@@ -372,7 +372,7 @@ public static class SettingsEndpoints
         .WithName("GetProviderStatus")
         .WithSummary("Returns enabled/reachability status for all registered metadata providers.")
         .Produces<ProviderStatusResponse[]>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── GET /settings/organization-template ───────────────────────────────────
 
@@ -865,7 +865,7 @@ public static class SettingsEndpoints
         .WithName("GetHydrationSettings")
         .WithSummary("Load hydration pipeline configuration.")
         .Produces<HydrationSettingsDto>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── PUT /settings/hydration ──────────────────────────────────────────
         grp.MapPut("/hydration", (
@@ -931,7 +931,7 @@ public static class SettingsEndpoints
         .WithName("GetMediaTypes")
         .WithSummary("Load media type definitions including icons, extensions, and category folders.")
         .Produces<MediaTypeConfigurationDto>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── PUT /settings/media-types ──────────────────────────────────────────
         grp.MapPut("/media-types", (
@@ -1144,7 +1144,7 @@ public static class SettingsEndpoints
         .WithName("GetServerGeneral")
         .WithSummary("Returns server identity and regional settings.")
         .Produces<ServerGeneralResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── PUT /settings/server-general ──────────────────────────────────────
 
@@ -1238,7 +1238,7 @@ public static class SettingsEndpoints
         .WithName("GetSettingsCatalog")
         .WithSummary("Returns the canonical settings source-of-truth catalog.")
         .Produces<SettingsCatalogEntryResponse[]>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

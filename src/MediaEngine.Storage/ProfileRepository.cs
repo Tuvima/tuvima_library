@@ -36,7 +36,6 @@ public sealed class ProfileRepository : IProfileRepository
                    avatar_color AS AvatarColor,
                    avatar_image_path AS AvatarImagePath,
                    role         AS Role,
-                   pin_hash     AS PinHash,
                    created_at   AS CreatedAt,
                    navigation_config AS NavigationConfig
             FROM   profiles
@@ -58,7 +57,6 @@ public sealed class ProfileRepository : IProfileRepository
                    avatar_color AS AvatarColor,
                    avatar_image_path AS AvatarImagePath,
                    role         AS Role,
-                   pin_hash     AS PinHash,
                    created_at   AS CreatedAt,
                    navigation_config AS NavigationConfig
             FROM   profiles
@@ -77,8 +75,8 @@ public sealed class ProfileRepository : IProfileRepository
 
         using var conn = _db.CreateConnection();
         conn.Execute("""
-            INSERT INTO profiles (id, display_name, avatar_color, avatar_image_path, role, pin_hash, created_at, navigation_config)
-            VALUES (@id, @name, @color, @avatarImagePath, @role, @pin, @created, @nav);
+            INSERT INTO profiles (id, display_name, avatar_color, avatar_image_path, role, created_at, navigation_config)
+            VALUES (@id, @name, @color, @avatarImagePath, @role, @created, @nav);
             """, new
         {
             id      = profile.Id,
@@ -86,7 +84,6 @@ public sealed class ProfileRepository : IProfileRepository
             color   = profile.AvatarColor,
             avatarImagePath = profile.AvatarImagePath,
             role    = profile.Role.ToString(),
-            pin     = profile.PinHash,
             created = profile.CreatedAt.ToString("O"),
             nav     = profile.NavigationConfig,
         });
@@ -107,7 +104,6 @@ public sealed class ProfileRepository : IProfileRepository
                    avatar_color      = @color,
                    avatar_image_path = @avatarImagePath,
                    role              = @role,
-                   pin_hash          = @pin,
                    navigation_config = @nav
             WHERE  id = @id
               AND (@id <> @seedId OR @role = 'Administrator')
@@ -127,7 +123,6 @@ public sealed class ProfileRepository : IProfileRepository
             color = profile.AvatarColor,
             avatarImagePath = profile.AvatarImagePath,
             role  = profile.Role.ToString(),
-            pin   = profile.PinHash,
             nav   = profile.NavigationConfig,
             id    = profile.Id,
             seedId = Profile.SeedProfileId,
@@ -161,7 +156,6 @@ public sealed class ProfileRepository : IProfileRepository
         public string AvatarColor      { get; set; } = string.Empty;
         public string? AvatarImagePath { get; set; }
         public string Role             { get; set; } = string.Empty;
-        public string? PinHash         { get; set; }
         public string CreatedAt        { get; set; } = string.Empty;
         public string? NavigationConfig { get; set; }
     }
@@ -173,7 +167,6 @@ public sealed class ProfileRepository : IProfileRepository
         AvatarColor      = r.AvatarColor,
         AvatarImagePath  = r.AvatarImagePath,
         Role             = Enum.Parse<ProfileRole>(r.Role),
-        PinHash          = r.PinHash,
         CreatedAt        = DateTimeOffset.Parse(r.CreatedAt),
         NavigationConfig = r.NavigationConfig,
     };

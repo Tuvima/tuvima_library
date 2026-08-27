@@ -26,7 +26,7 @@ public sealed class ProfileRepositoryInvariantTests : IDisposable
     public async Task UpdateAsync_RejectsSeedOwnerDemotionAtomically()
     {
         var owner = Assert.IsType<Profile>(await _repository.GetByIdAsync(Profile.SeedProfileId));
-        owner.Role = ProfileRole.Consumer;
+        owner.Role = ProfileRole.RestrictedProfile;
 
         var updated = await _repository.UpdateAsync(owner);
 
@@ -45,7 +45,7 @@ public sealed class ProfileRepositoryInvariantTests : IDisposable
 
         var administrator = CreateProfile(ProfileRole.Administrator);
         await _repository.InsertAsync(administrator);
-        administrator.Role = ProfileRole.Curator;
+        administrator.Role = ProfileRole.StandardUser;
 
         var updated = await _repository.UpdateAsync(administrator);
 
@@ -59,13 +59,13 @@ public sealed class ProfileRepositoryInvariantTests : IDisposable
     {
         var administrator = CreateProfile(ProfileRole.Administrator);
         await _repository.InsertAsync(administrator);
-        administrator.Role = ProfileRole.Curator;
+        administrator.Role = ProfileRole.StandardUser;
 
         var updated = await _repository.UpdateAsync(administrator);
 
         Assert.True(updated);
         var persisted = Assert.IsType<Profile>(await _repository.GetByIdAsync(administrator.Id));
-        Assert.Equal(ProfileRole.Curator, persisted.Role);
+        Assert.Equal(ProfileRole.StandardUser, persisted.Role);
         var owner = Assert.IsType<Profile>(await _repository.GetByIdAsync(Profile.SeedProfileId));
         Assert.Equal(ProfileRole.Administrator, owner.Role);
     }

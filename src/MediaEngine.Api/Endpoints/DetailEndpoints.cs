@@ -95,7 +95,7 @@ public static class DetailEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status403Forbidden)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

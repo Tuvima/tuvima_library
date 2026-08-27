@@ -26,7 +26,7 @@ public sealed class ApiKey
 
     /// <summary>
     /// Authorization role for this key.  Determines which endpoints
-    /// the key can access.  One of: Administrator, Curator, Consumer.
+    /// the key can access. One of: Administrator, StandardUser, RestrictedProfile.
     /// Defaults to Administrator so that existing keys retain full access
     /// after migration M-006.
     /// </summary>

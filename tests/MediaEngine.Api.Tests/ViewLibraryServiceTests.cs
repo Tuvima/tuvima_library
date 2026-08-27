@@ -72,7 +72,7 @@ public sealed class ViewLibraryServiceTests
 
         var summary = Assert.Single(fixture.Service.GetLibraries(
             fixture.OwnerProfileId,
-            AppRoles.Consumer));
+            AppRoles.RestrictedProfile));
         Assert.Equal(fixture.PersonalLibraryId, summary.Id);
         Assert.Equal(4, summary.ItemCount);
         Assert.Equal(1, summary.ImageCount);
@@ -190,30 +190,30 @@ public sealed class ViewLibraryServiceTests
         Assert.True(fixture.Service.CanAccess(
             fixture.PersonalLibraryId,
             fixture.OwnerProfileId,
-            AppRoles.Consumer,
+            AppRoles.RestrictedProfile,
             LibraryAccessAction.Read));
         Assert.True(fixture.Service.CanAccess(
             fixture.PersonalLibraryId,
             fixture.OwnerProfileId,
-            AppRoles.Consumer,
+            AppRoles.RestrictedProfile,
             LibraryAccessAction.Contribute));
         Assert.True(fixture.Service.CanAccess(
             fixture.PersonalLibraryId,
             fixture.OwnerProfileId,
-            AppRoles.Consumer,
+            AppRoles.RestrictedProfile,
             LibraryAccessAction.Manage));
         Assert.False(fixture.Service.CanAccess(
             fixture.PersonalLibraryId,
             stranger,
-            AppRoles.Consumer,
+            AppRoles.RestrictedProfile,
             LibraryAccessAction.Read));
         Assert.True(fixture.Service.CanAccess(
             fixture.PersonalLibraryId,
             stranger,
             AppRoles.Administrator,
             LibraryAccessAction.Manage));
-        Assert.Empty(fixture.Service.GetLibraries(stranger, AppRoles.Consumer));
-        Assert.Single(fixture.Service.GetLibraries(fixture.OwnerProfileId, AppRoles.Consumer));
+        Assert.Empty(fixture.Service.GetLibraries(stranger, AppRoles.RestrictedProfile));
+        Assert.Single(fixture.Service.GetLibraries(fixture.OwnerProfileId, AppRoles.RestrictedProfile));
         Assert.Single(fixture.Service.GetLibraries(null, AppRoles.Administrator));
     }
 
@@ -245,7 +245,7 @@ public sealed class ViewLibraryServiceTests
             {
                 Id = OwnerProfileId,
                 DisplayName = "View owner",
-                Role = ProfileRole.Consumer,
+                Role = ProfileRole.RestrictedProfile,
             }).GetAwaiter().GetResult();
             _configuration.SaveLibraries(new LibrariesConfiguration
             {

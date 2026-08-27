@@ -25,7 +25,7 @@ public sealed class CollectionAccessPolicyTests
         var activeProfile = new Profile
         {
             Id = OwnerProfileId,
-            Role = ProfileRole.Consumer,
+            Role = ProfileRole.RestrictedProfile,
         };
 
         var ownedPrivateCollection = CreateCollection(CollectionScope.User, OwnerProfileId);
@@ -45,12 +45,12 @@ public sealed class CollectionAccessPolicyTests
         var consumer = new Profile
         {
             Id = OwnerProfileId,
-            Role = ProfileRole.Consumer,
+            Role = ProfileRole.RestrictedProfile,
         };
         var curator = new Profile
         {
             Id = OwnerProfileId,
-            Role = ProfileRole.Curator,
+            Role = ProfileRole.StandardUser,
         };
 
         Assert.False(CollectionAccessPolicy.CanEdit(sharedCollection, consumer));
@@ -66,7 +66,7 @@ public sealed class CollectionAccessPolicyTests
         var curator = new Profile
         {
             Id = OwnerProfileId,
-            Role = ProfileRole.Curator,
+            Role = ProfileRole.StandardUser,
         };
         var administrator = new Profile
         {

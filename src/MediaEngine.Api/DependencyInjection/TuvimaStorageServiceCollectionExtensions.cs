@@ -8,6 +8,7 @@ using MediaEngine.Application.Services;
 using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Identity;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Providers.Contracts;
@@ -18,6 +19,7 @@ using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Playback;
 using MediaEngine.Storage.Services;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.AspNetCore.Identity;
 
 namespace MediaEngine.Api.DependencyInjection;
 
@@ -66,6 +68,10 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<IProviderConfigurationRepository, ProviderConfigurationRepository>();
         services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
         services.AddSingleton<IProfileRepository, ProfileRepository>();
+        services.AddSingleton<IIdentityRepository, IdentityRepository>();
+        services.AddSingleton<IPasswordHasher<ProfileCredential>, PasswordHasher<ProfileCredential>>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<IFirstPartyIdentityService, FirstPartyIdentityService>();
         services.AddSingleton<IProfileWorkPreferencesRepository, ProfileWorkPreferencesRepository>();
         services.AddSingleton<IProfileSequencePreferencesRepository, ProfileSequencePreferencesRepository>();
         services.AddSingleton<ITasteProfileRepository, TasteProfileRepository>();

@@ -44,4 +44,9 @@
     <ProjectReference Include="..\MediaEngine.AI\MediaEngine.AI.csproj" />
   </ItemGroup>
 
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <Compile Remove="DevSupport\**\*.cs" />
+    <Compile Remove="Endpoints\DebugEndpoints.cs" />
+  </ItemGroup>
+
 </Project>

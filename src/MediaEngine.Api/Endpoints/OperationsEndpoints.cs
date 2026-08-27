@@ -27,7 +27,7 @@ public static class OperationsEndpoints
         .WithName("ListMediaOperations")
         .WithSummary("List durable media operations by queue order.")
         .Produces<IReadOnlyList<OperationDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/{id:guid}", async (
             Guid id,
@@ -49,7 +49,7 @@ public static class OperationsEndpoints
         .WithName("GetMediaOperation")
         .WithSummary("Get one durable media operation and its event timeline.")
         .Produces<OperationDetailDto>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/summary", async (
             IMediaOperationRepository repository,
@@ -61,7 +61,7 @@ public static class OperationsEndpoints
         .WithName("GetMediaOperationsSummary")
         .WithSummary("Get media operation counts by status.")
         .Produces<IReadOnlyDictionary<string, int>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{id:guid}/retry", async (
             Guid id,
@@ -77,7 +77,7 @@ public static class OperationsEndpoints
         .WithName("RetryMediaOperation")
         .WithSummary("Requeue a durable media operation for another attempt.")
         .Produces(StatusCodes.Status202Accepted)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{id:guid}/cancel", async (
             Guid id,
@@ -93,7 +93,7 @@ public static class OperationsEndpoints
         .WithName("CancelMediaOperation")
         .WithSummary("Cancel a durable media operation.")
         .Produces(StatusCodes.Status202Accepted)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

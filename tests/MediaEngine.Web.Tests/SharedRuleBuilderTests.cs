@@ -25,8 +25,11 @@ public sealed class SharedRuleBuilderTests : AsyncBunitContext
         Assert.Contains("Smart membership", cut.Markup);
         OpenConditionPicker(cut);
 
-        Assert.Contains("Media type", cut.Markup);
-        Assert.Contains("Genre", cut.Markup);
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Media type", cut.Markup);
+            Assert.Contains("Genre", cut.Markup);
+        });
         Assert.Contains("Release year", CollectionRuleCatalog.Instance.SortFields.Select(option => option.Label));
         Assert.Contains(CollectionRuleCatalog.Instance.Fields, field =>
             field.Key == "person_qid" && field.ValueProvider.Kind == RuleValueProviderKind.CollectionLibrary);
@@ -41,9 +44,12 @@ public sealed class SharedRuleBuilderTests : AsyncBunitContext
         Assert.Contains("Smart Gallery membership", cut.Markup);
         OpenConditionPicker(cut);
 
-        Assert.Contains("File type", cut.Markup);
-        Assert.Contains("Orientation", cut.Markup);
-        Assert.Contains("Duration", cut.Markup);
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("File type", cut.Markup);
+            Assert.Contains("Orientation", cut.Markup);
+            Assert.Contains("Duration", cut.Markup);
+        });
 
         var expectedFields = new[]
         {

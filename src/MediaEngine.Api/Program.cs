@@ -1,6 +1,8 @@
 using System.Threading.RateLimiting;
 using MediaEngine.Api.DependencyInjection;
+#if DEBUG
 using MediaEngine.Api.DevSupport;
+#endif
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Middleware;
 using MediaEngine.Api.Realtime;
@@ -11,10 +13,13 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.DependencyInjection;
+using MediaEngine.Identity.Contracts;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.SignalR;
@@ -193,7 +198,6 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
     string[] globalLimiterExemptPrefixes =
     [
         "/swagger",
-        SignalREvents.IntercomPath,
         "/stream",
         "/read",
         "/playback",
@@ -223,6 +227,24 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
                 {
                     PermitLimit = rateLimits.KeyGeneration.PermitLimit,
                     Window = TimeSpan.FromMinutes(rateLimits.KeyGeneration.WindowMinutes),
+                }));
+        options.AddPolicy("authentication", context =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 10,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                }));
+        options.AddPolicy("intercom", context =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 20,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
                 }));
         options.AddPolicy("streaming", context =>
             RateLimitPartition.GetFixedWindowLimiter(
@@ -270,11 +292,37 @@ builder.Services.AddSingleton<ApiKeyService>();
 builder.Services.AddSingleton<IApiKeyLookupCache, ApiKeyLookupCache>();
 builder.Services.AddSingleton<ILibraryAccessEvaluator, LibraryAccessEvaluator>();
 builder.Services.AddTuvimaStorage();
+builder.Services.AddSingleton(new DashboardServiceCredentialOptions(configDirectory));
+builder.Services.AddSingleton<DashboardServiceCredentialBootstrapper>();
+builder.Services.AddSingleton<BootstrapClaimService>();
+builder.Services.AddSingleton<IntercomTokenService>();
+builder.Services.AddSingleton<IntercomConnectionLimiter>();
+builder.Services.AddAuthentication(TuvimaAuthDefaults.Scheme)
+    .AddScheme<AuthenticationSchemeOptions, TuvimaAuthenticationHandler>(TuvimaAuthDefaults.Scheme, _ => { });
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy(AuthPolicies.Authenticated, policy => policy.RequireAuthenticatedUser());
+    options.AddPolicy(AuthPolicies.Administrator, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(MediaEngine.Domain.AppRoles.Administrator));
+    options.AddPolicy(AuthPolicies.StandardOrAdministrator, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(
+            MediaEngine.Domain.AppRoles.Administrator,
+            MediaEngine.Domain.AppRoles.StandardUser));
+    options.AddPolicy(AuthPolicies.DashboardService, policy =>
+        policy.RequireClaim(TuvimaClaimTypes.DashboardService, "true"));
+    options.AddPolicy(AuthPolicies.IntercomConnect, policy =>
+        policy.RequireClaim(TuvimaClaimTypes.DashboardService, "true"));
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
 builder.Services.AddTuvimaPlayback();
 builder.Services.AddTuvimaNetworking();
 builder.Services.AddMediaEngineIngestion(config, configLoader);
+#if DEBUG
 builder.Services.AddSingleton<DevHarnessResetService>();
 builder.Services.AddSingleton<ViewPhotoHarnessService>();
+#endif
 builder.Services.AddSingleton<AssetStoreCleanupService>();
 builder.Services.AddSingleton(sp => new DatabaseBackupService(
     sp.GetRequiredService<IDatabaseConnection>(),
@@ -299,6 +347,17 @@ builder.Services.AddHealthChecks()
     .AddCheck<WorkerReadinessHealthCheck>("background_workers", tags: ["readiness", "workers", "required"]);
 
 WebApplication app = builder.Build();
+await app.Services.GetRequiredService<DashboardServiceCredentialBootstrapper>()
+    .EnsureAsync()
+    .ConfigureAwait(false);
+if (!await app.Services.GetRequiredService<IFirstPartyIdentityService>()
+        .IsAdministratorConfiguredAsync()
+        .ConfigureAwait(false))
+{
+    app.Logger.LogWarning(
+        "First-boot administrator claim code: {BootstrapCode}. It is invalid after the administrator is configured and changes when the Engine restarts.",
+        app.Services.GetRequiredService<BootstrapClaimService>().DisplayCode);
+}
 
 // -- Middleware pipeline -------------------------------------------------------
 app.UseExceptionHandler(errorApp =>
@@ -328,18 +387,18 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 app.UseCors("BlazorWasm");
-// SECURITY: rate limiting must run before authentication. ApiKeyMiddleware performs
-// a database lookup for every X-Api-Key header it sees, so an unauthenticated flood
-// of requests must be throttled here first — otherwise the flood reaches the DB
-// lookup on every single request before any limiter has a chance to reject it.
+// SECURITY: rate limiting must run before authentication so credential floods are
+// rejected before the first-party session or API-key stores are consulted.
 app.UseRateLimiter();
-app.UseMiddleware<ApiKeyMiddleware>();
+app.UseAuthentication();
+app.UseAuthorization();
+app.UseMiddleware<IntercomTokenAuthenticationMiddleware>();
 
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health").RequireAuthorization(AuthPolicies.Administrator);
 app.MapHealthChecks("/health/live", new HealthCheckOptions
 {
     Predicate = _ => false,
-});
+}).AllowAnonymous();
 app.MapHealthChecks("/health/ready", new HealthCheckOptions
 {
     Predicate = registration => registration.Tags.Contains("readiness"),
@@ -359,7 +418,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
             }),
         });
     },
-});
+}).RequireAuthorization(AuthPolicies.Administrator);
 
 if (app.Environment.IsDevelopment())
 {

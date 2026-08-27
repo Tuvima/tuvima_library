@@ -17,7 +17,7 @@ public sealed class ViewQueryOrchestratorTests
         var http = new DefaultHttpContext();
         HttpViewRequestProfileContext.SetTrustedProfile(
             http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
         var context = new HttpViewRequestProfileContext(
             new HttpContextAccessor { HttpContext = http });
         var resolver = new ViewScopeResolver(
@@ -61,7 +61,7 @@ public sealed class ViewQueryOrchestratorTests
         var http = new DefaultHttpContext();
         HttpViewRequestProfileContext.SetTrustedProfile(
             http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
         var context = new HttpViewRequestProfileContext(
             new HttpContextAccessor { HttpContext = http });
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
@@ -85,7 +85,7 @@ public sealed class ViewQueryOrchestratorTests
         var galleryId = Guid.NewGuid();
         var http = new DefaultHttpContext();
         HttpViewRequestProfileContext.SetTrustedProfile(http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
         var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller, owner));
         var resource = new ViewResourceDescriptor(ViewResourceKind.Gallery, galleryId,
@@ -110,7 +110,7 @@ public sealed class ViewQueryOrchestratorTests
         var galleryId = Guid.NewGuid();
         var http = new DefaultHttpContext();
         HttpViewRequestProfileContext.SetTrustedProfile(http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
         var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
         var resource = new ViewResourceDescriptor(ViewResourceKind.Gallery, galleryId,
@@ -137,7 +137,7 @@ public sealed class ViewQueryOrchestratorTests
         var caller = State(access: false, include: false);
         var http = new DefaultHttpContext();
         HttpViewRequestProfileContext.SetTrustedProfile(http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
         var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
         var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore());

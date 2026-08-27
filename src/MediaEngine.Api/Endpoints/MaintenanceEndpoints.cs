@@ -37,7 +37,7 @@ public static class MaintenanceEndpoints
         .WithName("GetRetagSweepState")
         .WithSummary("Returns the pending writeback-fields.json diff and current per-media-type hashes.")
         .Produces<RetagSweepStateResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /maintenance/retag-sweep/apply ───────────────────────────
         // Commits the staged diff so the worker starts re-tagging. Idempotent.

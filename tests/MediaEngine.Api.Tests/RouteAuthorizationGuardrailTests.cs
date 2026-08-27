@@ -54,7 +54,7 @@ public sealed class RouteAuthorizationGuardrailTests
         RegexOptions.Compiled);
 
     private static readonly Regex RequireCallRegex = new(
-        @"\.Require(?:Admin|AdminOrCurator|AnyRole)\(\s*\)",
+        @"\.(?:Require(?:Admin|AdminOrStandardUser|AnyRole)\(\s*\)|RequireAuthorization\([^)]*\))",
         RegexOptions.Compiled);
 
     [Fact]
@@ -128,8 +128,8 @@ public sealed class RouteAuthorizationGuardrailTests
         }
 
         Assert.True(gaps.Count == 0,
-            "The following routes have no role requirement guard. Add .RequireAdmin() / " +
-            ".RequireAdminOrCurator() / .RequireAnyRole() to the route or its MapGroup(...) " +
+            "The following routes have no authorization requirement. Add .RequireAdmin() / " +
+            ".RequireAdminOrStandardUser() / .RequireAnyRole() / .RequireAuthorization(...) to the route or its MapGroup(...) " +
             "declaration, or — only for a deliberately public route — add it to the allowlist " +
             "in RouteAuthorizationGuardrailTests:\n" + string.Join("\n", gaps));
     }
@@ -149,10 +149,10 @@ public sealed class RouteAuthorizationGuardrailTests
         Assert.Contains("public sealed record RoleRequirementMetadata(IReadOnlyList<string> Roles);", source, StringComparison.Ordinal);
 
         Assert.Contains("public static RouteHandlerBuilder RequireAdmin(this RouteHandlerBuilder builder)", source, StringComparison.Ordinal);
-        Assert.Contains("public static RouteHandlerBuilder RequireAdminOrCurator(this RouteHandlerBuilder builder)", source, StringComparison.Ordinal);
+        Assert.Contains("public static RouteHandlerBuilder RequireAdminOrStandardUser(this RouteHandlerBuilder builder)", source, StringComparison.Ordinal);
         Assert.Contains("public static RouteHandlerBuilder RequireAnyRole(this RouteHandlerBuilder builder)", source, StringComparison.Ordinal);
         Assert.Contains("public static RouteGroupBuilder RequireAdmin(this RouteGroupBuilder builder)", source, StringComparison.Ordinal);
-        Assert.Contains("public static RouteGroupBuilder RequireAdminOrCurator(this RouteGroupBuilder builder)", source, StringComparison.Ordinal);
+        Assert.Contains("public static RouteGroupBuilder RequireAdminOrStandardUser(this RouteGroupBuilder builder)", source, StringComparison.Ordinal);
         Assert.Contains("public static RouteGroupBuilder RequireAnyRole(this RouteGroupBuilder builder)", source, StringComparison.Ordinal);
 
         var metadataAttachmentCount = Regex.Matches(source, @"\.WithMetadata\(new RoleRequirementMetadata\(").Count;

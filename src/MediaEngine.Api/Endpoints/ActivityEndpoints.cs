@@ -53,7 +53,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityBatches")
         .WithSummary("Returns paged ingestion batch summaries for the Activity audit page.")
         .Produces<PagedResponse<ActivityBatchSummaryDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/batches/{batchId:guid}/groups", async (
             Guid batchId,
@@ -66,7 +66,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityBatchGroups")
         .WithSummary("Returns media-type rollups for one ingestion batch.")
         .Produces<List<ActivityMediaTypeGroupDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/batches/{batchId:guid}/items", async (
             Guid batchId,
@@ -84,7 +84,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityBatchItems")
         .WithSummary("Returns paged title/item rows for one ingestion batch.")
         .Produces<PagedResponse<ActivityBatchItemDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/batches/{batchId:guid}/items/{assetId:guid}", async (
             Guid batchId,
@@ -101,7 +101,7 @@ public static class ActivityEndpoints
         .WithSummary("Returns timeline, file details, people, and provenance for one batch item.")
         .Produces<ActivityBatchItemDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/people", async (
             IActivityBatchReadService readService,
@@ -137,7 +137,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityPeopleAudit")
         .WithSummary("Returns people hydrated or linked by ingestion batches with source provenance.")
         .Produces<PagedResponse<ActivityPersonAuditDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // GET /activity/recent?limit=50 — returns the most recent activity entries.
         group.MapGet("/recent", async (
@@ -156,7 +156,7 @@ public static class ActivityEndpoints
         .WithName("GetRecentActivity")
         .WithSummary("Returns the most recent activity log entries, newest first.")
         .Produces<List<ActivityEntryResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // POST /activity/prune — manual prune trigger.
         group.MapPost("/prune", async (
@@ -195,7 +195,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityStats")
         .WithSummary("Returns the total entry count and the current retention setting.")
         .Produces<ActivityStatsResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // PUT /activity/retention — update retention period.
         group.MapPut("/retention", (
@@ -242,7 +242,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityByTypes")
         .WithSummary("Returns recent activity entries filtered by one or more action types (comma-separated).")
         .Produces<List<ActivityEntryResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // GET /activity/run/{runId} — returns all entries for a specific ingestion run.
         group.MapGet("/run/{runId:guid}", async (
@@ -259,7 +259,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityByRunId")
         .WithSummary("Returns all activity entries for a given ingestion run, ordered by timestamp.")
         .Produces<List<ActivityEntryResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

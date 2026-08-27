@@ -24,8 +24,11 @@ using System.Net;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Security.Claims;
+using MediaEngine.Contracts.Authentication;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddHttpContextAccessor();
 SettingsNav.ConfigureEnvironment(builder.Environment.IsProduction());
 
 // ── Windows Service hosting ────────────────────────────────────────────────────
@@ -112,21 +115,32 @@ var ssoEnabled =
     (string.Equals(authSettings.Mode, "Oidc", StringComparison.OrdinalIgnoreCase) ||
      string.Equals(authSettings.Mode, "Hybrid", StringComparison.OrdinalIgnoreCase));
 builder.Services.AddSingleton(new DashboardAuthUiOptions(ssoEnabled));
+builder.Services.AddScoped<DashboardCookieEvents>();
+var authentication = builder.Services
+    .AddAuthentication(options =>
+    {
+        options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    })
+    .AddCookie(options =>
+    {
+        options.Cookie.Name = "Tuvima.Auth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.IsEssential = true;
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+        options.LoginPath = "/auth/login";
+        options.AccessDeniedPath = "/auth/denied";
+        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = TimeSpan.FromHours(12);
+        options.EventsType = typeof(DashboardCookieEvents);
+    });
 
 if (ssoEnabled)
 {
-    builder.Services
-        .AddAuthentication(options =>
-        {
-            options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
-            options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;
-        })
-        .AddCookie(options =>
-        {
-            options.Cookie.Name = "Tuvima.Auth";
-            options.SlidingExpiration = true;
-        })
-        .AddOpenIdConnect(options =>
+    authentication.AddOpenIdConnect(options =>
         {
             options.Authority = authSettings.Oidc.Authority;
             options.ClientId = authSettings.Oidc.ClientId;
@@ -141,15 +155,58 @@ if (ssoEnabled)
             options.Scope.Clear();
             foreach (var scope in authSettings.Oidc.Scopes.Where(scope => !string.IsNullOrWhiteSpace(scope)))
                 options.Scope.Add(scope);
-        });
 
-    builder.Services.AddAuthorization(options =>
-    {
-        options.FallbackPolicy = new AuthorizationPolicyBuilder()
-            .RequireAuthenticatedUser()
-            .Build();
-    });
+            options.Events.OnTokenValidated = async context =>
+            {
+                var subject = context.Principal?.FindFirstValue("sub")
+                    ?? context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrWhiteSpace(subject))
+                {
+                    context.Fail("The identity provider did not return a subject identifier.");
+                    return;
+                }
+
+                var deviceId = context.Request.Cookies["Tuvima.Device"];
+                if (!Guid.TryParse(deviceId, out _))
+                {
+                    deviceId = Guid.NewGuid().ToString("D");
+                    context.Response.Cookies.Append("Tuvima.Device", deviceId, new CookieOptions
+                    {
+                        HttpOnly = true, IsEssential = true, SameSite = SameSiteMode.Lax,
+                        Secure = context.Request.IsHttps, Expires = DateTimeOffset.UtcNow.AddYears(2),
+                    });
+                }
+
+                var issued = await context.HttpContext.RequestServices
+                    .GetRequiredService<DashboardIdentityClient>()
+                    .CreateExternalSessionAsync(new ExternalSessionRequest
+                    {
+                        Provider = authSettings.Oidc.Authority.Trim(), Subject = subject,
+                        DeviceId = deviceId!, DeviceName = context.Request.Headers.UserAgent.ToString(),
+                        Client = "Tuvima Dashboard OIDC",
+                    }, context.HttpContext.RequestAborted)
+                    .ConfigureAwait(false);
+                if (issued is null)
+                {
+                    context.Fail("This external identity is not linked to a Tuvima profile.");
+                    return;
+                }
+
+                context.Principal = DashboardPrincipalFactory.Create(issued);
+                context.Properties ??= new Microsoft.AspNetCore.Authentication.AuthenticationProperties();
+                context.Properties.IsPersistent = true;
+                context.Properties.ExpiresUtc = issued.ExpiresAt;
+            };
+        });
 }
+
+builder.Services.AddAuthorization(options =>
+{
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build();
+});
+builder.Services.AddCascadingAuthenticationState();
 
 PaletteProvider.Initialize(dashboardConfig.LoadPalette());
 builder.Services.AddHostedService<DashboardPaletteReloadService>();
@@ -167,13 +224,10 @@ builder.Services.AddSingleton<StreamingServiceLogoResolver>();
 var apiBase = Environment.GetEnvironmentVariable("TUVIMA_ENGINE_URL")
            ?? builder.Configuration["Engine:BaseUrl"]
            ?? "http://localhost:61495";
-var apiKey  = builder.Configuration["Engine:ApiKey"]  ?? string.Empty;
 var configuredMediaGrantKey = builder.Configuration["View:MediaGrantKey"];
 var mediaGrantKey = !string.IsNullOrWhiteSpace(configuredMediaGrantKey)
     ? SHA256.HashData(Encoding.UTF8.GetBytes(configuredMediaGrantKey))
-    : !string.IsNullOrWhiteSpace(apiKey)
-        ? SHA256.HashData(Encoding.UTF8.GetBytes($"tuvima:view-media-grant:v1\n{apiKey}"))
-        : RandomNumberGenerator.GetBytes(32);
+    : RandomNumberGenerator.GetBytes(32);
 var mediaGrantLifetime = TimeSpan.FromSeconds(Math.Clamp(
     builder.Configuration.GetValue<int?>("View:MediaGrantLifetimeSeconds") ?? 600,
     30,
@@ -181,11 +235,13 @@ var mediaGrantLifetime = TimeSpan.FromSeconds(Math.Clamp(
 
 // Shared setup for every HttpClient that talks to the Engine — BaseAddress plus the
 // X-Api-Key header — so this configuration exists exactly once instead of once per client.
-void ConfigureEngineClient(HttpClient client)
+void ConfigureEngineClient(IServiceProvider services, HttpClient client)
 {
     client.BaseAddress = new Uri(apiBase);
-    if (!string.IsNullOrWhiteSpace(apiKey))
-        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+    client.DefaultRequestHeaders.Remove(DashboardEngineAuthenticationHandler.ServiceHeader);
+    client.DefaultRequestHeaders.Add(
+        DashboardEngineAuthenticationHandler.ServiceHeader,
+        services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken());
 }
 
 // The circuit-scoped client owns a circuit-scoped active-profile accessor. Its
@@ -193,49 +249,66 @@ void ConfigureEngineClient(HttpClient client)
 // is known; the Engine API key is never serialized into browser state.
 builder.Services.AddScoped<ActiveProfileAccessor>();
 builder.Services.AddScoped<IActiveProfileAccessor>(services => services.GetRequiredService<ActiveProfileAccessor>());
+builder.Services.AddSingleton(new DashboardServiceCredentialProviderOptions(configDir));
+builder.Services.AddSingleton<DashboardServiceCredentialProvider>();
+builder.Services.AddScoped<DashboardSessionAccessor>();
+builder.Services.AddTransient<DashboardEngineAuthenticationHandler>();
+builder.Services.AddScoped<DashboardIdentityClient>();
 builder.Services.AddSingleton(new ViewMediaGrantService(mediaGrantKey, mediaGrantLifetime));
 builder.Services.AddScoped<IEngineApiClient>(services =>
 {
+    var serviceToken = services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken();
+    var authenticationHandler = ActivatorUtilities.CreateInstance<DashboardEngineAuthenticationHandler>(services);
+    authenticationHandler.InnerHandler = new HttpClientHandler();
     var assertionHandler = new ViewProfileAssertionHandler(
         services.GetRequiredService<IActiveProfileAccessor>(),
-        apiKey)
+        serviceToken)
     {
-        InnerHandler = new HttpClientHandler(),
+        InnerHandler = authenticationHandler,
     };
     var client = new HttpClient(assertionHandler);
-    ConfigureEngineClient(client);
+    ConfigureEngineClient(services, client);
     return ActivatorUtilities.CreateInstance<EngineApiClient>(services, client);
 });
 builder.Services.AddScoped<EngineApiFailureState>();
 builder.Services.AddScoped<IViewMediaEngineClient>(services =>
 {
+    var serviceToken = services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken();
+    var authenticationHandler = ActivatorUtilities.CreateInstance<DashboardEngineAuthenticationHandler>(services);
+    authenticationHandler.InnerHandler = new HttpClientHandler();
     var assertionHandler = new ViewProfileAssertionHandler(
         services.GetRequiredService<IActiveProfileAccessor>(),
-        apiKey)
+        serviceToken)
     {
-        InnerHandler = new HttpClientHandler(),
+        InnerHandler = authenticationHandler,
     };
     var client = new HttpClient(assertionHandler);
-    ConfigureEngineClient(client);
+    ConfigureEngineClient(services, client);
     return new ViewMediaEngineClient(client);
 });
 builder.Services.AddScoped<ICollectionPersonalMediaClient>(services =>
 {
+    var serviceToken = services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken();
+    var authenticationHandler = ActivatorUtilities.CreateInstance<DashboardEngineAuthenticationHandler>(services);
+    authenticationHandler.InnerHandler = new HttpClientHandler();
     var assertionHandler = new ViewProfileAssertionHandler(
         services.GetRequiredService<IActiveProfileAccessor>(),
-        apiKey)
+        serviceToken)
     {
-        InnerHandler = new HttpClientHandler(),
+        InnerHandler = authenticationHandler,
     };
     var client = new HttpClient(assertionHandler);
-    ConfigureEngineClient(client);
+    ConfigureEngineClient(services, client);
     return ActivatorUtilities.CreateInstance<CollectionPersonalMediaClient>(services, client);
 });
 
 // Named "EngineApi" client — same base address and API key as the scoped client above.
 // Used by ad-hoc pages (e.g. the Enrichment Tester) that need direct HttpClient access
 // without routing through IEngineApiClient.
-builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient);
+builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient)
+    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
+builder.Services.AddHttpClient("EngineIdentity", ConfigureEngineClient)
+    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
 builder.Services.AddHealthChecks()
     .AddCheck<DashboardEngineHealthCheck>("engine_liveness", tags: ["readiness"]);
 
@@ -283,11 +356,8 @@ if (networkSettings.Remote.TrustedProxies.Count > 0)
     app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseRequestLocalization();
-if (ssoEnabled)
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapHealthChecks("/health/live", new HealthCheckOptions
@@ -325,9 +395,11 @@ app.MapMethods("/engine-stream/{assetId:guid}", [HttpMethods.Get, HttpMethods.He
 
 app.MapViewMediaProxy();
 
+app.MapDashboardAuthenticationEndpoints(ssoEnabled);
+
 if (ssoEnabled)
 {
-    app.MapGet("/auth/login", (string? returnUrl) =>
+    app.MapGet("/auth/oidc", (string? returnUrl) =>
         Results.Challenge(
             new Microsoft.AspNetCore.Authentication.AuthenticationProperties
             {
@@ -336,13 +408,9 @@ if (ssoEnabled)
             [OpenIdConnectDefaults.AuthenticationScheme]))
         .AllowAnonymous();
 
-    app.MapPost("/auth/logout", () =>
-        Results.SignOut(
-            new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = "/" },
-            [CookieAuthenticationDefaults.AuthenticationScheme, OpenIdConnectDefaults.AuthenticationScheme]));
 }
 
-app.MapStaticAssets();
+app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

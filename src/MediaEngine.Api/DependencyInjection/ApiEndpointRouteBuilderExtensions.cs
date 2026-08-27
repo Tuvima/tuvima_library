@@ -1,4 +1,6 @@
+#if DEBUG
 using MediaEngine.Api.DevSupport;
+#endif
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Realtime;
 using MediaEngine.Domain;
@@ -9,8 +11,11 @@ public static class ApiEndpointRouteBuilderExtensions
 {
     public static WebApplication MapEngineEndpoints(this WebApplication app)
     {
-        app.MapHub<Intercom>(SignalREvents.IntercomPath);
+        app.MapHub<Intercom>(SignalREvents.IntercomPath)
+            .RequireRateLimiting("intercom")
+            .AllowAnonymous();
         app.MapSystemEndpoints();
+        app.MapAuthenticationEndpoints();
         app.MapMaintenanceEndpoints();
         app.MapAdminEndpoints();
         app.MapCollectionEndpoints();
@@ -52,7 +57,6 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapTimelineEndpoints();
         app.MapSearchEndpoints();
         app.MapReportEndpoints();
-        app.MapDebugEndpoints();
         app.MapAiEndpoints();
         app.MapAiEnrichmentEndpoints();
         app.MapPluginEndpoints();
@@ -64,8 +68,11 @@ public static class ApiEndpointRouteBuilderExtensions
     {
         if (app.Environment.IsDevelopment())
         {
+#if DEBUG
+            app.MapDebugEndpoints();
             app.MapDevSeedEndpoints();
             app.MapIntegrationTestEndpoints();
+#endif
         }
 
         return app;

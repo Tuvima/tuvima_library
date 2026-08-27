@@ -461,6 +461,94 @@ MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.UrlExtractionResponse
 MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.VibesResponse
   vibes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.AuthBootstrapStatusResponse
+  AdministratorConfigured: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.AuthSessionResponse
+  SessionId: System.Guid | nullability=not-null | accessors=get,init
+  SessionToken: System.String | nullability=not-null | accessors=get,init
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  ActiveProfileId: System.Guid | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+  Role: System.String | nullability=not-null | accessors=get,init
+  AuthenticationMethod: System.String | nullability=not-null | accessors=get,init
+  ExpiresAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  RecoveryCodes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.BootstrapAdministratorRequest
+  Username: System.String | nullability=not-null | accessors=get,init
+  Password: System.String | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+  DeviceId: System.String | nullability=not-null | accessors=get,init
+  DeviceName: System.String | nullability=not-null | accessors=get,init
+  Client: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.ChangePasswordRequest
+  CurrentPassword: System.String | nullability=not-null | accessors=get,init
+  NewPassword: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.DashboardServiceCredentialBundle
+  KeyId: System.String | nullability=not-null | accessors=get,init
+  ProtectedToken: System.String | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.DeviceSessionResponse
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  ActiveProfileId: System.Guid | nullability=not-null | accessors=get,init
+  DeviceId: System.String | nullability=not-null | accessors=get,init
+  DeviceName: System.String | nullability=not-null | accessors=get,init
+  Client: System.String | nullability=not-null | accessors=get,init
+  AuthenticationMethod: System.String | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  LastSeenAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  ExpiresAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  RevokedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.ExternalSessionRequest
+  Provider: System.String | nullability=not-null | accessors=get,init
+  Subject: System.String | nullability=not-null | accessors=get,init
+  DeviceId: System.String | nullability=not-null | accessors=get,init
+  DeviceName: System.String | nullability=not-null | accessors=get,init
+  Client: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.IntercomTokenResponse
+  Token: System.String | nullability=not-null | accessors=get,init
+  ExpiresAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.LocalLoginRequest
+  Username: System.String | nullability=nullable | accessors=get,init
+  Password: System.String | nullability=nullable | accessors=get,init
+  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  Pin: System.String | nullability=nullable | accessors=get,init
+  DeviceId: System.String | nullability=not-null | accessors=get,init
+  DeviceName: System.String | nullability=not-null | accessors=get,init
+  Client: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.RecoverPasswordRequest
+  Username: System.String | nullability=not-null | accessors=get,init
+  RecoveryCode: System.String | nullability=not-null | accessors=get,init
+  NewPassword: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.RecoveryCodesResponse
+  RecoveryCodes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.SessionValidationResponse
+  SessionId: System.Guid | nullability=not-null | accessors=get,init
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  ActiveProfileId: System.Guid | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+  Role: System.String | nullability=not-null | accessors=get,init
+  AuthenticationMethod: System.String | nullability=not-null | accessors=get,init
+  ExpiresAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.SetProfilePinRequest
+  Pin: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.SwitchProfileRequest
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  Secret: System.String | nullability=nullable | accessors=get,init
+
 MediaEngine.Contracts.Characters.MediaEngine.Contracts.Characters.CharacterPortraitDto
   id: System.Guid | nullability=not-null | accessors=get,init
   person_id: System.Guid | nullability=not-null | accessors=get,init

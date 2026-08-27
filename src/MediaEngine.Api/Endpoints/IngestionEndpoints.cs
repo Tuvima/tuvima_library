@@ -33,7 +33,7 @@ public static class IngestionEndpoints
         .WithName("GetIngestionOperationsSnapshot")
         .WithSummary("Aggregated Ingestion status for scans, review, providers, folders, and recent batches.")
         .Produces<IngestionOperationsSnapshotDto>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/scan", async (
             ScanRequest? request,
@@ -174,7 +174,7 @@ public static class IngestionEndpoints
         .WithName("ListWatchFolder")
         .WithSummary("List files currently sitting in the Watch Folder.")
         .Produces<WatchFolderPageResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /ingestion/rescan ──────────────────────────────────────────────
 
@@ -230,7 +230,7 @@ public static class IngestionEndpoints
             "Files are fed into the ingestion pipeline for processing.")
         .Produces<RescanAcceptedResponse>(StatusCodes.Status202Accepted)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /ingestion/reconcile ─────────────────────────────────────────
 
@@ -267,7 +267,7 @@ public static class IngestionEndpoints
         .WithName("GetRecentBatches")
         .WithSummary("List recent ingestion batches, newest first.")
         .Produces<List<IngestionBatchResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── GET /ingestion/batches/attention-count ────────────────────────────
         group.MapGet("/batches/attention-count", async (
@@ -279,7 +279,7 @@ public static class IngestionEndpoints
         .WithName("GetBatchAttentionCount")
         .WithSummary("Count of items across all batches that need curator attention.")
         .Produces<BatchAttentionCountResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── GET /ingestion/batches/{id} ───────────────────────────────────────
         group.MapGet("/batches/{id:guid}/items", async (
@@ -324,7 +324,7 @@ public static class IngestionEndpoints
         .WithName("GetBatchItems")
         .WithSummary("List item-level ingestion progress for a batch.")
         .Produces<List<IngestionBatchItemResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
         group.MapGet("/batches/{id:guid}", async (
             Guid id,
             IIngestionBatchResponseService batchResponses,
@@ -337,7 +337,7 @@ public static class IngestionEndpoints
         .WithSummary("Get details of a specific ingestion batch.")
         .Produces<IngestionBatchResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /ingestion/upload ────────────────────────────────────────────────
 
@@ -466,7 +466,7 @@ public static class IngestionEndpoints
         .WithSummary("Uploads to an explicit destination library and queues direct intake without rediscovery.")
         .DisableAntiforgery()
         .Produces<UploadMediaResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

@@ -1780,7 +1780,7 @@ public sealed class RepositoryTests : IDisposable
         {
             Id = Guid.NewGuid(), Label = "Revoke Me",
             HashedKey = $"revoke_{Guid.NewGuid():N}",
-            Role = "Consumer", CreatedAt = DateTimeOffset.UtcNow,
+            Role = "RestrictedProfile", CreatedAt = DateTimeOffset.UtcNow,
         };
 
         await repo.InsertAsync(key);

@@ -16,7 +16,7 @@ public sealed class LibraryAccessEvaluatorTests
     public void Owner_HasAllLibraryAccess(LibraryAccessAction action)
     {
         Assert.True(_evaluator.IsAllowed(
-            new LibraryAccessSubject(_owner, AppRoles.Consumer),
+            new LibraryAccessSubject(_owner, AppRoles.RestrictedProfile),
             Policy(LibraryVisibility.Private),
             action));
     }
@@ -24,7 +24,7 @@ public sealed class LibraryAccessEvaluatorTests
     [Fact]
     public void PrivateLibrary_DoesNotExposeContentToAnotherProfile()
     {
-        var subject = new LibraryAccessSubject(_member, AppRoles.Consumer);
+        var subject = new LibraryAccessSubject(_member, AppRoles.RestrictedProfile);
         var policy = Policy(LibraryVisibility.Private);
 
         Assert.False(_evaluator.IsAllowed(subject, policy, LibraryAccessAction.Read));
@@ -35,7 +35,7 @@ public sealed class LibraryAccessEvaluatorTests
     [Fact]
     public void SharedMember_CanReadAndContribute_ButCannotManage()
     {
-        var subject = new LibraryAccessSubject(_member, AppRoles.Consumer);
+        var subject = new LibraryAccessSubject(_member, AppRoles.RestrictedProfile);
         var policy = Policy(LibraryVisibility.Shared, new HashSet<Guid> { _member });
 
         Assert.True(_evaluator.IsAllowed(subject, policy, LibraryAccessAction.Read));
@@ -46,7 +46,7 @@ public sealed class LibraryAccessEvaluatorTests
     [Fact]
     public void HouseholdMember_CanRead_ButCannotUploadWithoutExplicitGrant()
     {
-        var subject = new LibraryAccessSubject(_member, AppRoles.Consumer);
+        var subject = new LibraryAccessSubject(_member, AppRoles.RestrictedProfile);
         var policy = Policy(LibraryVisibility.Household);
 
         Assert.True(_evaluator.IsAllowed(subject, policy, LibraryAccessAction.Read));

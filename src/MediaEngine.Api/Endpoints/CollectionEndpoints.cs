@@ -1466,7 +1466,7 @@ public static class CollectionEndpoints
         .WithName("ReconcileCollections")
         .WithSummary("Repairs missing collection shelf assignments for already-ingested media.")
         .Produces<CollectionBackfillResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/managed/counts", async (
             Guid? profileId,

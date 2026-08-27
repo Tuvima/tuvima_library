@@ -21,6 +21,19 @@
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
   </ItemGroup>
 
+  <!-- Internal tester and harness components must not be compiled or published in Release. -->
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <RazorComponent Remove="Components\Settings\DevHarnessTab.razor" />
+    <RazorComponent Remove="Components\Settings\ProviderTesterToolTab.razor" />
+    <RazorComponent Remove="Components\Settings\EnrichmentTesterToolTab.razor" />
+    <Content Remove="Components\Settings\DevHarnessTab.razor" />
+    <Content Remove="Components\Settings\ProviderTesterToolTab.razor" />
+    <Content Remove="Components\Settings\ProviderTesterToolTab.razor.css" />
+    <Content Remove="Components\Settings\EnrichmentTesterToolTab.razor" />
+    <None Remove="Components\Settings\ProviderTesterToolTab.razor.css" />
+    <ScopedCssInput Remove="Components\Settings\ProviderTesterToolTab.razor.css" />
+  </ItemGroup>
+
   <!--
     Publish the shared brand directory as first-party static content. This keeps
     assets/images/library.svg authoritative without maintaining a second copy in

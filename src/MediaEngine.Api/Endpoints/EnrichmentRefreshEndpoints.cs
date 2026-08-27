@@ -42,7 +42,7 @@ public static class EnrichmentRefreshEndpoints
         .WithName("RunEnrichmentRefreshNow")
         .WithSummary("Queue an entity for the full enrichment cycle now.")
         .Produces<EnrichmentRefreshQueuedResponse>(StatusCodes.Status202Accepted)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

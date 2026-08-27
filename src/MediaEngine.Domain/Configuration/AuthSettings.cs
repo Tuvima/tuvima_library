@@ -5,10 +5,10 @@ namespace MediaEngine.Domain.Configuration;
 public sealed class AuthSettings
 {
     [JsonPropertyName("mode")]
-    public string Mode { get; set; } = "DisabledLocalOnly";
+    public string Mode { get; set; } = "Local";
 
     [JsonPropertyName("localhost_bypass")]
-    public bool LocalhostBypass { get; set; } = true;
+    public bool LocalhostBypass { get; set; }
 
     [JsonPropertyName("require_https_remote")]
     public bool RequireHttpsRemote { get; set; }

@@ -207,7 +207,7 @@ public sealed class ViewResourceAuthorizationTests
             new ResourceStore(resources));
 
     private static ViewRequestProfile Identity(ViewScopeStoreEntry state) =>
-        new(state.Policy.ProfileId, "Consumer");
+        new(state.Policy.ProfileId, "RestrictedProfile");
 
     private static ViewScopeStoreEntry State(bool access, bool include)
     {

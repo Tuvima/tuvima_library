@@ -11,12 +11,12 @@ public static class AppRoles
     /// <summary>Full system access.</summary>
     public const string Administrator = nameof(ProfileRole.Administrator);
 
-    /// <summary>Can correct metadata and manage library content.</summary>
-    public const string Curator = nameof(ProfileRole.Curator);
+    /// <summary>Normal library use without system administration.</summary>
+    public const string StandardUser = nameof(ProfileRole.StandardUser);
 
-    /// <summary>Read-only access to library content and personal preferences.</summary>
-    public const string Consumer = nameof(ProfileRole.Consumer);
+    /// <summary>Policy-limited library use and profile-local preferences.</summary>
+    public const string RestrictedProfile = nameof(ProfileRole.RestrictedProfile);
 
     /// <summary>All valid role names for validation.</summary>
-    public static readonly string[] All = [Administrator, Curator, Consumer];
+    public static readonly string[] All = [Administrator, StandardUser, RestrictedProfile];
 }

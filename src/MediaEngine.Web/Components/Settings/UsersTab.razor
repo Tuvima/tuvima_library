@@ -418,7 +418,7 @@
     private bool _createOpen;
     private bool _creating;
     private string _newDisplayName = string.Empty;
-    private string _newRole = "Consumer";
+    private string _newRole = "RestrictedProfile";
     private const string NewAvatarColor = "#7C4DFF";
     private bool _externalLoginsOpen;
     private bool _externalLoginsLoading;
@@ -456,8 +456,8 @@
     private IReadOnlyList<AppSelectOption> RoleOptions =>
     [
         new("Administrator", L["Users_RoleAdministrator"].Value),
-        new("Curator", L["Users_RoleCurator"].Value),
-        new("Consumer", L["Users_RoleConsumer"].Value),
+        new("StandardUser", "Standard user"),
+        new("RestrictedProfile", "Restricted profile"),
     ];
 
     protected override async Task OnInitializedAsync() => await RefreshProfilesAsync();
@@ -465,7 +465,7 @@
     private static AppUiTone RoleTone(string role) => role switch
     {
         "Administrator" => AppUiTone.Primary,
-        "Curator" => AppUiTone.Info,
+        "StandardUser" => AppUiTone.Info,
         _ => AppUiTone.Neutral,
     };
 
@@ -499,7 +499,7 @@
     private void OpenCreateDialog()
     {
         _newDisplayName = string.Empty;
-        _newRole = "Consumer";
+        _newRole = "RestrictedProfile";
         _createOpen = true;
     }
 

@@ -95,7 +95,7 @@ public static partial class MetadataEndpoints
         .WithName("GetConflicts")
         .WithSummary("Returns all canonical values with unresolved metadata conflicts.")
         .Produces<List<ConflictDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- PATCH /metadata/lock-claim ---------------------------------------
         group.MapMethods("/lock-claim", ["PATCH"], async (
@@ -169,7 +169,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Create a user-locked metadata claim and update the canonical value. Used by the Curator's Drawer.")
         .Produces<LockClaimResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- POST /metadata/hydrate/{entityId} -----------------------------
         group.MapPost("/hydrate/{entityId:guid}", async (
@@ -227,7 +227,7 @@ public static partial class MetadataEndpoints
         .WithName("HydrateEntity")
         .WithSummary("Run the two-stage hydration pipeline for a Work or Edition entity. Admin or Curator.")
         .Produces<HydrateResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- POST /metadata/search -----------------------------------------
         group.MapPost("/search", async (
@@ -305,7 +305,7 @@ public static partial class MetadataEndpoints
         .Produces<MetadataSearchResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- PUT /metadata/{entityId}/override ----------------------------
         group.MapPut("/{entityId:guid}/override", async (
@@ -413,7 +413,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Manually override metadata fields for an entity. Creates user-locked claims at confidence 1.0.")
         .Produces<MetadataOverrideResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- POST /metadata/{entityId}/reclassify ------------------------------
         group.MapPost("/{entityId:guid}/reclassify", async (
@@ -543,7 +543,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Reclassify a media asset to a different media type. Creates a user-locked claim and re-triggers hydration.")
         .Produces<ReclassifyResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- GET /metadata/{entityId}/editor-context -------------------------
         group.MapGet("/{entityId:guid}/editor-context", async (
@@ -677,7 +677,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Refresh provider artwork for one editor scope without rerunning full identity matching.")
         .Produces<ProviderArtworkRefreshEnvelope>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- GET /metadata/{entityId}/artwork --------------------------------
         group.MapGet("/{entityId:guid}/artwork", async (
@@ -851,7 +851,7 @@ public static partial class MetadataEndpoints
         .Produces<ArtworkUploadResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator()
+        .RequireAdminOrStandardUser()
         .DisableAntiforgery();
 
         // -- POST /metadata/{entityId}/artwork/{scopeId}/{assetType} --------
@@ -950,7 +950,7 @@ public static partial class MetadataEndpoints
         .Produces<ScopedArtworkUploadResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator()
+        .RequireAdminOrStandardUser()
         .DisableAntiforgery();
 
         // -- POST /metadata/{entityId}/artwork/{scopeId}/{assetType}/from-url -
@@ -1051,7 +1051,7 @@ public static partial class MetadataEndpoints
         .Produces<ScopedArtworkUploadResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- POST /metadata/{entityId}/artwork/{assetType} -------------------
         group.MapPost("/{entityId:guid}/artwork/{assetType}", async (
@@ -1136,7 +1136,7 @@ public static partial class MetadataEndpoints
         .Produces<ArtworkUploadResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator()
+        .RequireAdminOrStandardUser()
         .DisableAntiforgery();
 
         // -- PUT /metadata/artwork/{variantId}/preferred ---------------------
@@ -1175,7 +1175,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Mark an artwork variant as preferred for its slot.")
         .Produces<ArtworkVariantPreferredResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- DELETE /metadata/artwork/{variantId} ----------------------------
         group.MapDelete("/artwork/{variantId:guid}", async (
@@ -1241,7 +1241,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Delete an artwork variant from the item.")
         .Produces<ArtworkVariantDeletedResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- GET /metadata/wikidata-test ----------------------------------------
         //
@@ -1448,7 +1448,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Fan-out search across all eligible providers. Admin or Curator.")
         .Produces<FanOutSearchResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- GET /metadata/{entityId}/search-cache -------------------------
         group.MapGet("/{entityId:guid}/search-cache", async (
@@ -1464,7 +1464,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Retrieve cached fan-out search results for an entity (30-day TTL)")
         .Produces<SearchResultsCacheResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- PUT /metadata/{entityId}/search-cache -------------------------
         group.MapPut("/{entityId:guid}/search-cache", async (
@@ -1481,7 +1481,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Cache fan-out search results for an entity")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // GET /metadata/canonical/{entityId}
         //
@@ -1565,7 +1565,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Get all canonical values for an entity with provenance. Curator+.")
         .Produces<List<CanonicalFieldDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // POST /metadata/{entityId}/cover-from-url
         //
@@ -1665,7 +1665,7 @@ public static partial class MetadataEndpoints
         .Produces<CoverFromUrlResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // -- POST /metadata/labels/resolve ---------------------------------
         group.MapPost("/labels/resolve", async (

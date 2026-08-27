@@ -55,7 +55,9 @@ public sealed class SettingsNavTests
         Assert.Contains("ShouldDeferForRoleResolution", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("private readonly string _currentRole = \"Administrator\"", settingsSource, StringComparison.Ordinal);
         Assert.Contains("SetActiveProfileAsync", orchestratorSource, StringComparison.Ordinal);
-        Assert.Contains("tuvima-active-profile-id", sessionSource, StringComparison.Ordinal);
+        Assert.Contains("AuthenticationStateProvider", sessionSource, StringComparison.Ordinal);
+        Assert.Contains("tuvima:active_profile_id", sessionSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("localStorage", sessionSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -348,7 +350,7 @@ public sealed class SettingsNavTests
     public void Curator_SeesPersonalReviewAndAuditButNotServerAdministration()
     {
         var visible = SettingsNav.TreeGroups
-            .SelectMany(group => SettingsNav.FilteredTreeItems(group, "Curator"))
+            .SelectMany(group => SettingsNav.FilteredTreeItems(group, "StandardUser"))
             .Select(item => item.Value)
             .ToArray();
 

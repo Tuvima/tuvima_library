@@ -62,7 +62,7 @@ public static class PersonEndpoints
         .WithName("SavePersonEditorState")
         .WithSummary("Saves refresh-safe person display overrides and profile-local fields.")
         .Produces<PersonEditorSaveResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/{id:guid}/artwork", async (
             Guid id,
@@ -188,7 +188,7 @@ public static class PersonEndpoints
         })
         .WithName("UploadPersonArtwork")
         .Produces<ArtworkUploadResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator()
+        .RequireAdminOrStandardUser()
         .DisableAntiforgery();
 
         // GET /persons/{id} — person detail including local headshot availability.

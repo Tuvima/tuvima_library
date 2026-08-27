@@ -127,7 +127,7 @@ public static class TimelineEndpoints
         .WithSummary("Re-matches an entity through the full pipeline.")
         .Produces<RematchEntityResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

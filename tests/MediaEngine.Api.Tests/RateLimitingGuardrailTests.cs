@@ -3,21 +3,32 @@ namespace MediaEngine.Api.Tests;
 public sealed class RateLimitingGuardrailTests
 {
     [Fact]
-    public void Program_RunsRateLimiterBeforeApiKeyAuthentication()
+    public void Program_RunsRateLimiterBeforeAuthentication()
     {
         var source = Read(@"src\MediaEngine.Api\Program.cs");
 
         var rateLimiterIndex = source.IndexOf("app.UseRateLimiter();", StringComparison.Ordinal);
-        var apiKeyMiddlewareIndex = source.IndexOf("app.UseMiddleware<ApiKeyMiddleware>();", StringComparison.Ordinal);
+        var authenticationIndex = source.IndexOf("app.UseAuthentication();", StringComparison.Ordinal);
 
         Assert.True(rateLimiterIndex >= 0, "app.UseRateLimiter() was not found in Program.cs.");
-        Assert.True(apiKeyMiddlewareIndex >= 0, "app.UseMiddleware<ApiKeyMiddleware>() was not found in Program.cs.");
+        Assert.True(authenticationIndex >= 0, "app.UseAuthentication() was not found in Program.cs.");
         Assert.True(
-            rateLimiterIndex < apiKeyMiddlewareIndex,
-            "app.UseRateLimiter() must run BEFORE app.UseMiddleware<ApiKeyMiddleware>() in the request pipeline. " +
-            "ApiKeyMiddleware performs a database lookup for every X-Api-Key header, so an unauthenticated flood " +
-            "must be throttled by the rate limiter first, or every request in the flood reaches the DB lookup " +
-            "before any limiter can reject it.");
+            rateLimiterIndex < authenticationIndex,
+            "app.UseRateLimiter() must run before authentication so credential floods are rejected before identity storage is consulted.");
+    }
+
+    [Fact]
+    public void IntercomNegotiation_RequiresPurposeTokenAfterRateLimiting()
+    {
+        var source = Read(@"src\MediaEngine.Api\Program.cs");
+        var middleware = Read(@"src\MediaEngine.Api\Security\IntercomTokenAuthenticationMiddleware.cs");
+
+        var rateLimiterIndex = source.IndexOf("app.UseRateLimiter();", StringComparison.Ordinal);
+        var intercomIndex = source.IndexOf("app.UseMiddleware<IntercomTokenAuthenticationMiddleware>();", StringComparison.Ordinal);
+        Assert.True(rateLimiterIndex >= 0 && intercomIndex > rateLimiterIndex);
+        Assert.Contains("X-Tuvima-Intercom-Token", middleware, StringComparison.Ordinal);
+        Assert.DoesNotContain("access_token", middleware, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("X-Api-Key", middleware, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

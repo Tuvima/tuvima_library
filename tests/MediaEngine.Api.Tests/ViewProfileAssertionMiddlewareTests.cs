@@ -34,7 +34,7 @@ public sealed class ViewProfileAssertionMiddlewareTests
 
         Assert.NotNull(captured);
         Assert.Equal(profileId, captured.ProfileId);
-        Assert.Equal("Consumer", captured.Role);
+        Assert.Equal("RestrictedProfile", captured.Role);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class ViewProfileAssertionMiddlewareTests
         await middleware.InvokeAsync(context, Cache(), Configuration());
 
         Assert.Null(captured);
-        Assert.Equal("Consumer", context.Items["ApiKeyRole"]);
+        Assert.Equal("RestrictedProfile", context.Items["ApiKeyRole"]);
     }
 
     [Theory]
@@ -104,7 +104,7 @@ public sealed class ViewProfileAssertionMiddlewareTests
             request.Headers[ViewProfileAssertion.SignatureHeader] = "AAAA";
         }
 
-        var result = ViewProfileAssertion.Verify(request, RawKey, "Consumer", now);
+        var result = ViewProfileAssertion.Verify(request, RawKey, "RestrictedProfile", now);
 
         Assert.Null(result);
     }
@@ -206,7 +206,7 @@ public sealed class ViewProfileAssertionMiddlewareTests
         Id = Guid.NewGuid(),
         Label = "Dashboard",
         HashedKey = ApiKeyService.HashKey(RawKey),
-        Role = "Consumer",
+        Role = "RestrictedProfile",
         CreatedAt = DateTimeOffset.UtcNow,
     });
 

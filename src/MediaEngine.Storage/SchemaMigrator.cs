@@ -7,10 +7,117 @@ internal sealed class SchemaMigrator
 {
     public void RunStartupTasks(SqliteConnection conn)
     {
+        EnsureIdentitySchema(conn);
         EnsureCurrentColumns(conn);
         EnsureCurrentIndexes(conn);
         SeedMetadataProviders(conn);
         SeedDefaultProfile(conn);
+    }
+
+    private static void EnsureIdentitySchema(SqliteConnection conn)
+    {
+        using var legacyPin = conn.CreateCommand();
+        legacyPin.CommandText = "SELECT COUNT(1) FROM pragma_table_info('profiles') WHERE name = 'pin_hash';";
+        if (Convert.ToInt32(legacyPin.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) > 0)
+        {
+            using var populated = conn.CreateCommand();
+            populated.CommandText = "SELECT COUNT(1) FROM profiles WHERE pin_hash IS NOT NULL AND trim(pin_hash) <> '';";
+            if (Convert.ToInt32(populated.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) > 0)
+            {
+                throw new InvalidOperationException(
+                    "Unsupported pre-beta SHA-256 profile PIN state was found. Reset the disposable development database and configure a new password or profile PIN.");
+            }
+        }
+
+        DatabaseConnection.ExecuteStartupTransaction(conn, transaction =>
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = transaction;
+            cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS schema_migrations (
+                migration_id TEXT NOT NULL PRIMARY KEY,
+                applied_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS profile_credentials (
+                id BLOB NOT NULL PRIMARY KEY,
+                profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                credential_kind TEXT NOT NULL CHECK (credential_kind IN ('Password', 'ProfilePin')),
+                normalized_username TEXT,
+                secret_hash TEXT NOT NULL,
+                hash_scheme TEXT NOT NULL,
+                hash_version INTEGER NOT NULL,
+                security_stamp TEXT NOT NULL,
+                failed_attempt_count INTEGER NOT NULL DEFAULT 0,
+                locked_until TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                last_used_at TEXT,
+                UNIQUE(profile_id, credential_kind),
+                CHECK ((credential_kind = 'Password' AND normalized_username IS NOT NULL)
+                    OR (credential_kind = 'ProfilePin' AND normalized_username IS NULL))
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_profile_credentials_username
+                ON profile_credentials(normalized_username) WHERE normalized_username IS NOT NULL;
+
+            CREATE TABLE IF NOT EXISTS auth_sessions (
+                id BLOB NOT NULL PRIMARY KEY,
+                profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                active_profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                token_hash TEXT NOT NULL UNIQUE,
+                device_id TEXT NOT NULL,
+                device_name TEXT NOT NULL,
+                client TEXT NOT NULL,
+                authentication_method TEXT NOT NULL,
+                security_stamp TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                last_seen_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                revoked_at TEXT,
+                revoked_reason TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_auth_sessions_profile_active
+                ON auth_sessions(profile_id, revoked_at, expires_at);
+
+            CREATE TABLE IF NOT EXISTS password_recovery_codes (
+                id BLOB NOT NULL PRIMARY KEY,
+                profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+                code_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                consumed_at TEXT,
+                UNIQUE(profile_id, code_hash)
+            );
+
+            CREATE TABLE IF NOT EXISTS service_credentials (
+                id BLOB NOT NULL PRIMARY KEY,
+                purpose TEXT NOT NULL,
+                key_id TEXT NOT NULL UNIQUE,
+                token_hash TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                last_used_at TEXT,
+                revoked_at TEXT
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_service_credentials_active_purpose
+                ON service_credentials(purpose) WHERE revoked_at IS NULL;
+
+            CREATE TABLE IF NOT EXISTS identity_audit_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                profile_id BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+                session_id BLOB,
+                event_type TEXT NOT NULL,
+                succeeded INTEGER NOT NULL CHECK (succeeded IN (0, 1)),
+                detail TEXT,
+                occurred_at TEXT NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_identity_audit_profile_occurred
+                ON identity_audit_events(profile_id, occurred_at DESC);
+
+            INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+            VALUES ('003_first_party_identity', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+            """;
+            cmd.ExecuteNonQuery();
+        });
     }
 
     private static void EnsureCurrentColumns(SqliteConnection conn)

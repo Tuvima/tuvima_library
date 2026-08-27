@@ -1,5 +1,7 @@
 using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.JSInterop;
+using Microsoft.AspNetCore.Components.Authorization;
+using System.Security.Claims;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -8,26 +10,30 @@ namespace MediaEngine.Web.Services.Integration;
 /// </summary>
 public sealed class ActiveProfileSessionService : IDisposable
 {
-    private const string StorageKey = "tuvima-active-profile-id";
-
-    private readonly IJSRuntime _js;
     private readonly IEngineApiClient _api;
     private readonly ActiveProfileAccessor _activeProfileAccessor;
+    private readonly AuthenticationStateProvider? _authenticationStateProvider;
+    private readonly DashboardSessionAccessor? _dashboardSession;
+    private readonly DashboardIdentityClient? _identityClient;
     private readonly SemaphoreSlim _profilesGate = new(1, 1);
     private List<ProfileViewModel> _profiles = [];
     private ProfileViewModel? _activeProfile;
-    private Guid? _cachedProfileId;
-    private bool _storageLoaded;
     private bool _profilesLoaded;
 
     public ActiveProfileSessionService(
         IJSRuntime js,
         IEngineApiClient api,
-        ActiveProfileAccessor? activeProfileAccessor = null)
+        ActiveProfileAccessor? activeProfileAccessor = null,
+        AuthenticationStateProvider? authenticationStateProvider = null,
+        DashboardSessionAccessor? dashboardSession = null,
+        DashboardIdentityClient? identityClient = null)
     {
-        _js = js;
+        _ = js;
         _api = api;
         _activeProfileAccessor = activeProfileAccessor ?? new ActiveProfileAccessor();
+        _authenticationStateProvider = authenticationStateProvider;
+        _dashboardSession = dashboardSession;
+        _identityClient = identityClient;
     }
 
     public ProfileViewModel? CurrentProfile => _activeProfile;
@@ -83,11 +89,22 @@ public sealed class ActiveProfileSessionService : IDisposable
             return null;
         }
 
-        _cachedProfileId = profileId;
+        if (_identityClient is not null && _dashboardSession?.SessionToken is not null)
+        {
+            var switched = await _identityClient.SwitchProfileAsync(
+                new MediaEngine.Contracts.Authentication.SwitchProfileRequest { ProfileId = profileId }, ct);
+            if (switched is null)
+                return null;
+            _dashboardSession.Set(
+                _dashboardSession.SessionToken,
+                switched.ProfileId,
+                switched.ActiveProfileId,
+                switched.SessionId,
+                switched.Role);
+        }
+
         _activeProfile = profile;
         _activeProfileAccessor.SetProfile(profileId);
-        _storageLoaded = true;
-        await SaveAsync(profileId, ct);
         return profile;
     }
 
@@ -124,65 +141,28 @@ public sealed class ActiveProfileSessionService : IDisposable
             return null;
         }
 
-        await LoadAsync(ct);
-
-        if (_cachedProfileId is { } activeId)
+        if (_authenticationStateProvider is not null)
         {
-            var active = profiles.FirstOrDefault(profile => profile.Id == activeId);
-            if (active is not null)
+            var principal = (await _authenticationStateProvider.GetAuthenticationStateAsync()).User;
+            var token = principal.FindFirstValue(DashboardEngineAuthenticationHandler.SessionTokenClaim);
+            var profileId = ParseGuid(principal.FindFirstValue("tuvima:profile_id"));
+            var activeId = ParseGuid(principal.FindFirstValue("tuvima:active_profile_id"));
+            var sessionId = ParseGuid(principal.FindFirstValue("tuvima:session_id"));
+            var role = principal.FindFirstValue(ClaimTypes.Role);
+            _dashboardSession?.Set(token, profileId, activeId, sessionId, role);
+
+            if (activeId is { } authenticatedActiveId)
             {
-                return active;
+                return profiles.FirstOrDefault(profile => profile.Id == authenticatedActiveId);
             }
         }
 
-        var fallback = profiles.FirstOrDefault(profile => profile.IsSeed)
-            ?? profiles.FirstOrDefault(profile =>
-                string.Equals(profile.Role, "Administrator", StringComparison.OrdinalIgnoreCase))
-            ?? profiles[0];
-
-        _cachedProfileId = fallback.Id;
-        await SaveAsync(fallback.Id, ct);
-        return fallback;
+        // The production Dashboard always registers AuthenticationStateProvider. This
+        // fallback exists only for isolated component/service tests without an auth host.
+        return _authenticationStateProvider is null ? profiles.FirstOrDefault() : null;
     }
 
-    private async Task LoadAsync(CancellationToken ct)
-    {
-        if (_storageLoaded)
-        {
-            return;
-        }
-
-        _storageLoaded = true;
-
-        try
-        {
-            var stored = await _js.InvokeAsync<string?>("localStorage.getItem", ct, StorageKey);
-            if (Guid.TryParse(stored, out var parsed))
-            {
-                _cachedProfileId = parsed;
-            }
-        }
-        catch (InvalidOperationException)
-        {
-        }
-        catch (JSException)
-        {
-        }
-    }
-
-    private async Task SaveAsync(Guid profileId, CancellationToken ct)
-    {
-        try
-        {
-            await _js.InvokeVoidAsync("localStorage.setItem", ct, StorageKey, profileId.ToString("D"));
-        }
-        catch (InvalidOperationException)
-        {
-        }
-        catch (JSException)
-        {
-        }
-    }
+    private static Guid? ParseGuid(string? value) => Guid.TryParse(value, out var parsed) ? parsed : null;
 
     public void Dispose() => _profilesGate.Dispose();
 }

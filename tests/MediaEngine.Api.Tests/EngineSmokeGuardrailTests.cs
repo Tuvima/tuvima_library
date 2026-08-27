@@ -28,18 +28,16 @@ public sealed class EngineSmokeGuardrailTests
     }
 
     [Fact]
-    public void EngineLiveness_IsPublicWhileReadinessDetailsRemainBehindApiKeyMiddleware()
+    public void EngineLiveness_IsPublicWhileReadinessDetailsRequireAdministratorPolicy()
     {
         var repoRoot = FindRepoRoot();
         var program = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Api", "Program.cs"));
-        var middleware = File.ReadAllText(Path.Combine(
-            repoRoot, "src", "MediaEngine.Api", "Middleware", "ApiKeyMiddleware.cs"));
         var dashboard = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Web", "Program.cs"));
 
-        Assert.Contains("\"/health/live\"", middleware);
-        Assert.DoesNotContain("\"/health/ready\"", middleware);
         Assert.Contains("app.MapHealthChecks(\"/health/live\"", program);
+        Assert.Contains(".AllowAnonymous()", program);
         Assert.Contains("app.MapHealthChecks(\"/health/ready\"", program);
+        Assert.Contains(".RequireAuthorization(AuthPolicies.Administrator)", program);
         Assert.Contains("app.MapHealthChecks(\"/health/live\"", dashboard);
         Assert.Contains("app.MapHealthChecks(\"/health/ready\"", dashboard);
         Assert.Contains("DashboardEngineHealthCheck", dashboard);
@@ -93,7 +91,8 @@ public sealed class EngineSmokeGuardrailTests
             "app.UseExceptionHandler",
             "app.UseCors(\"BlazorWasm\")",
             "app.UseRateLimiter()",
-            "app.UseMiddleware<ApiKeyMiddleware>()",
+            "app.UseAuthentication()",
+            "app.UseAuthorization()",
             "app.MapHealthChecks(\"/health\")",
             "app.UseSwagger()",
             "app.MapEngineEndpoints()",

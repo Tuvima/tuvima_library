@@ -119,7 +119,7 @@ internal static class AiEnrichmentEndpoints
         .WithSummary("Extract structured metadata from a URL using AI. Requires Curator or Administrator role.")
         .Produces<UrlExtractionResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return group;
     }

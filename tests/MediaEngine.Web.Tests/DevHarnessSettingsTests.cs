@@ -9,7 +9,9 @@ public sealed class DevHarnessSettingsTests
         var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
 
         Assert.Contains("case SettingsSection.DevHarness", source, StringComparison.Ordinal);
-        Assert.Contains("<DevHarnessTab Subsection=\"@_activeSubsection\" />", source, StringComparison.Ordinal);
+        Assert.Contains("RenderInternalTool(", source, StringComparison.Ordinal);
+        Assert.Contains("MediaEngine.Web.Components.Settings.DevHarnessTab", source, StringComparison.Ordinal);
+        Assert.Contains("This internal tool is not included in this build.", source, StringComparison.Ordinal);
         Assert.Contains("dev-harness", nav, StringComparison.Ordinal);
         Assert.Contains("Developer Tools", nav, StringComparison.Ordinal);
     }

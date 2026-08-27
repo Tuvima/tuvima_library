@@ -42,7 +42,8 @@ public static class SystemEndpoints
         .WithTags("System")
         .WithName("GetSystemStatus")
         .WithSummary("Returns service health and version. Used by external apps to test connectivity.")
-        .Produces<SystemStatusResponse>(StatusCodes.Status200OK);
+        .Produces<SystemStatusResponse>(StatusCodes.Status200OK)
+        .AllowAnonymous();
 
         app.MapGet("/system/readiness", async (
             StartupReadinessService readiness,

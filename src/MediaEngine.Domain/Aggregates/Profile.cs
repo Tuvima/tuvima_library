@@ -36,13 +36,7 @@ public sealed class Profile
     public string? AvatarImagePath { get; set; }
 
     /// <summary>Access level.  Determines which Settings tabs are visible.</summary>
-    public ProfileRole Role { get; set; } = ProfileRole.Consumer;
-
-    /// <summary>
-    /// SHA-256 hash of a 4-digit PIN.  <see langword="null"/> means no PIN is set.
-    /// PIN authentication is a future feature; the field is defined now for schema stability.
-    /// </summary>
-    public string? PinHash { get; set; }
+    public ProfileRole Role { get; set; } = ProfileRole.RestrictedProfile;
 
     /// <summary>When this profile was created.</summary>
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

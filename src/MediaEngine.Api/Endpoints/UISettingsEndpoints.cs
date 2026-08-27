@@ -105,7 +105,7 @@ public static class UISettingsEndpoints
         .Produces<UIDeviceProfileDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── PUT /settings/ui/device/{deviceClass} ────────────────────────────
         grp.MapPut("/device/{deviceClass}", (
@@ -148,7 +148,7 @@ public static class UISettingsEndpoints
         .WithSummary("Returns the UI preferences for a specific user profile.")
         .Produces<UIProfileSettingsDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── PUT /settings/ui/profile/{profileId} ─────────────────────────────
         grp.MapPut("/profile/{profileId}", (
@@ -169,7 +169,7 @@ public static class UISettingsEndpoints
         .WithName("UpdateUIProfileSettings")
         .WithSummary("Saves UI preferences for a user profile to the configuration file and updates the cache.")
         .Produces<UIProfileSettingsDto>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── GET /settings/ui/resolved ────────────────────────────────────────
         grp.MapGet("/resolved", (

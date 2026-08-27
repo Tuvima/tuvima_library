@@ -61,7 +61,7 @@ public static class LibraryItemEndpoints
         .WithName("GetLibraryCatalogItems")
         .WithSummary("Paginated list of all ingested items with filtering.")
         .Produces<LibraryItemsPageDto>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/{entityId}/detail", async (
             Guid entityId,
@@ -77,14 +77,14 @@ public static class LibraryItemEndpoints
         .WithSummary("Full detail for a single library item.")
         .Produces<LibraryItemDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/counts", async (ILibraryItemRepository repo, CancellationToken ct) =>
             Results.Ok((await repo.GetStatusCountsAsync(ct)).ToContract()))
         .WithName("GetLibraryItemStatusCounts")
         .WithSummary("Status counts for tab badges (All, Staging, Review, Auto, Edited, Duplicate).")
         .Produces<LibraryItemStatusCountsDto>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/state-counts", async (
             Guid? batchId,
@@ -94,14 +94,14 @@ public static class LibraryItemEndpoints
         .WithName("GetLibraryItemLifecycleCounts")
         .WithSummary("Four-state counts (Registered, NeedsReview, NoMatch, Failed) with trigger breakdown.")
         .Produces<LibraryItemLifecycleCountsDto>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/type-counts", async (ILibraryItemRepository repo, CancellationToken ct) =>
             Results.Ok(await repo.GetMediaTypeCountsAsync(ct)))
         .WithName("GetLibraryItemTypeCounts")
         .WithSummary("Per-media-type item counts.")
         .Produces<Dictionary<string, int>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{entityId}/apply-match", async (
             Guid entityId,
@@ -218,7 +218,7 @@ public static class LibraryItemEndpoints
         .WithSummary("Apply a selected match to a library item. Provide a QID to register the item.")
         .Produces<ApplyMatchResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{entityId}/create-manual", async (
             Guid entityId,
@@ -253,7 +253,7 @@ public static class LibraryItemEndpoints
         .Produces<CreateManualResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapDelete("/{entityId}", async (
             Guid entityId,
@@ -281,7 +281,7 @@ public static class LibraryItemEndpoints
         .WithSummary("Permanently remove a work and all its files from the library.")
         .Produces<DeleteLibraryItemResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{entityId}/reject", async (
             Guid entityId,
@@ -323,7 +323,7 @@ public static class LibraryItemEndpoints
         .Produces<RejectLibraryItemResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/batch/approve", async (
             BatchLibraryItemRequest request,
@@ -345,7 +345,7 @@ public static class LibraryItemEndpoints
         .WithName("BatchApproveLibraryCatalogItems")
         .WithSummary("Approve multiple library items in one transaction.")
         .Produces<BatchLibraryItemResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/batch/delete", async (
             BatchLibraryItemRequest request,
@@ -393,7 +393,7 @@ public static class LibraryItemEndpoints
         .WithName("BatchDeleteLibraryCatalogItems")
         .WithSummary("Permanently delete multiple library items and their files in batch.")
         .Produces<BatchLibraryItemResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/batch/reject", async (
             BatchLibraryItemRequest request,
@@ -446,7 +446,7 @@ public static class LibraryItemEndpoints
         .WithName("BatchRejectLibraryCatalogItems")
         .WithSummary("Reject multiple library items and move their representative files to the rejected folder.")
         .Produces<BatchLibraryItemResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{entityId:guid}/recover", async (
             Guid entityId,
@@ -487,7 +487,7 @@ public static class LibraryItemEndpoints
         .WithSummary("Recover a previously rejected library item and return it to review.")
         .Produces<RecoverLibraryItemResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/{entityId:guid}/provisional", async (
             Guid entityId,
@@ -551,7 +551,7 @@ public static class LibraryItemEndpoints
         .Produces<MarkProvisionalResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/{entityId:guid}/history", async (
             Guid entityId,
@@ -561,7 +561,7 @@ public static class LibraryItemEndpoints
         .WithName("GetLibraryCatalogItemHistory")
         .WithSummary("Get processing history timeline for a library item.")
         .Produces<IReadOnlyList<LibraryItemHistoryDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

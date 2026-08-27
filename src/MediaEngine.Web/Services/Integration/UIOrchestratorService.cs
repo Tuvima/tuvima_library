@@ -58,6 +58,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     private readonly UniverseStateContainer _state;
     private readonly ActiveProfileSessionService _activeProfileSession;
     private readonly IConfiguration _config;
+    private readonly DashboardIdentityClient? _identityClient;
     private readonly ILogger<UIOrchestratorService> _logger;
 
     private HubConnection? _hubConnection;
@@ -68,11 +69,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         UniverseStateContainer state,
         ActiveProfileSessionService activeProfileSession,
         IConfiguration config,
-        ILogger<UIOrchestratorService> logger)
+        ILogger<UIOrchestratorService> logger,
+        DashboardIdentityClient? identityClient = null)
     {
         _api = api;
         _state = state;
         _activeProfileSession = activeProfileSession;
+        _identityClient = identityClient;
         _config = config;
         _logger = logger;
     }
@@ -1147,18 +1150,25 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         var baseUrl = Environment.GetEnvironmentVariable("TUVIMA_ENGINE_URL")
             ?? _config["Engine:BaseUrl"]
             ?? "http://localhost:61495";
-        var apiKey = _config["Engine:ApiKey"] ?? string.Empty;
         var collectionUrl = $"{baseUrl.TrimEnd('/')}{SignalREvents.IntercomPath}";
+        if (_identityClient is null)
+        {
+            _logger.LogDebug("Intercom is unavailable because the first-party identity client is not registered.");
+            return;
+        }
+
+        var intercomToken = await _identityClient.GetIntercomTokenAsync(ct).ConfigureAwait(false);
+        if (intercomToken is null)
+        {
+            _logger.LogWarning("Could not mint a short-lived Intercom token; real-time updates remain disabled.");
+            SetEngineConnectionState(EngineConnectionState.LiveUpdatesDisconnected);
+            return;
+        }
 
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(collectionUrl, options =>
             {
-                // Pass the API key as a request header so ApiKeyMiddleware
-                // accepts the WebSocket upgrade request.
-                if (!string.IsNullOrEmpty(apiKey))
-                {
-                    options.Headers.Add("X-Api-Key", apiKey);
-                }
+                options.Headers.Add("X-Tuvima-Intercom-Token", intercomToken.Token);
             })
             .WithAutomaticReconnect(new[]
             {

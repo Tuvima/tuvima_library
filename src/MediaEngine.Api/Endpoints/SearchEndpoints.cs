@@ -36,7 +36,7 @@ public static class SearchEndpoints
         .WithSummary("Search Wikidata for identity candidates, enriched with cover art from retail providers.")
         .Produces<SearchUniverseResult>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         group.MapPost("/retail/detail", async (
             RetailCandidateDetailRequestDto request,
@@ -95,7 +95,7 @@ public static class SearchEndpoints
         .WithSummary("Load provider-specific evidence, including album track lists, for a retail candidate.")
         .Produces<RetailCandidateDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /search/retail ──────────────────────────────────────────────
         group.MapPost("/retail", async (
@@ -121,7 +121,7 @@ public static class SearchEndpoints
         .WithSummary("Search retail providers (TMDB, Apple Books, etc.) for cover art and basic metadata.")
         .Produces<SearchRetailResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // ── POST /search/resolve ─────────────────────────────────────────────
         group.MapPost("/resolve", async (
@@ -177,7 +177,7 @@ public static class SearchEndpoints
                          "Wikidata bridge resolution runs client-side after candidate selection.")
         .Produces<SearchResolveResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

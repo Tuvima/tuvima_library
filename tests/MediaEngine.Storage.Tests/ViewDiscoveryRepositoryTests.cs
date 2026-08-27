@@ -131,7 +131,7 @@ public sealed class ViewDiscoveryRepositoryTests : IDisposable
         {
             connection.Execute("""
                 INSERT INTO profiles (id, display_name, avatar_color, role, created_at)
-                VALUES (@profileId, @name, '#7C4DFF', 'Consumer', @now);
+                VALUES (@profileId, @name, '#7C4DFF', 'RestrictedProfile', @now);
                 """, new { profileId, name = $"Profile {profileId:N}", now = DateTimeOffset.UtcNow });
         }
         var space = await _spaces.CreateAsync(profileId, libraryId);

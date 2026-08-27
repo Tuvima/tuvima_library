@@ -93,7 +93,7 @@ public sealed class ViewDiscoveryServiceTests
         {
             HttpViewRequestProfileContext.SetTrustedProfile(
                 http,
-                new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
+                new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
         }
         var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
         var authorization = new ViewResourceAuthorizationService(

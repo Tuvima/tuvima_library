@@ -14,15 +14,15 @@ public sealed class CoreSettingsWireContractTests
     public void ApiKeyContracts_PreserveRoleAcrossListAndOneTimeCreationResponses()
     {
         const string listJson =
-            """{"id":"8fb74f89-4250-43db-9d9d-3010956eb4ca","label":"living-room","role":"Consumer","created_at":"2026-07-26T12:00:00+00:00"}""";
+            """{"id":"8fb74f89-4250-43db-9d9d-3010956eb4ca","label":"living-room","role":"RestrictedProfile","created_at":"2026-07-26T12:00:00+00:00"}""";
         const string createJson =
-            """{"id":"8fb74f89-4250-43db-9d9d-3010956eb4ca","label":"living-room","role":"Consumer","key":"secret-once","created_at":"2026-07-26T12:00:00+00:00"}""";
+            """{"id":"8fb74f89-4250-43db-9d9d-3010956eb4ca","label":"living-room","role":"RestrictedProfile","key":"secret-once","created_at":"2026-07-26T12:00:00+00:00"}""";
 
         var listed = JsonSerializer.Deserialize<ApiKeyDto>(listJson, JsonOptions);
         var created = JsonSerializer.Deserialize<CreateApiKeyResponse>(createJson, JsonOptions);
 
-        Assert.Equal("Consumer", listed!.Role);
-        Assert.Equal("Consumer", created!.Role);
+        Assert.Equal("RestrictedProfile", listed!.Role);
+        Assert.Equal("RestrictedProfile", created!.Role);
         Assert.Equal("secret-once", created.Key);
     }
 

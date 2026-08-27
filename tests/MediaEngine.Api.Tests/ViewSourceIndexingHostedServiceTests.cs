@@ -184,7 +184,7 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
         {
             Id = profileId,
             DisplayName = profileId.ToString("N"),
-            Role = ProfileRole.Consumer,
+            Role = ProfileRole.RestrictedProfile,
         }).GetAwaiter().GetResult();
         var space = _spaces.CreateAsync(profileId, libraryId).GetAwaiter().GetResult();
         var now = DateTimeOffset.UtcNow;

@@ -60,8 +60,8 @@ public sealed class ApiKeyServiceTests
         var repo = new InMemoryApiKeyRepo();
         var service = new ApiKeyService(repo);
 
-        var (key, _) = await service.GenerateAsync("Curator App", "Curator");
-        Assert.Equal("Curator", key.Role);
+        var (key, _) = await service.GenerateAsync("Curator App", "StandardUser");
+        Assert.Equal("StandardUser", key.Role);
     }
 
     // ── Hash determinism ─────────────────────────────────────────────────────
@@ -98,8 +98,8 @@ public sealed class ApiKeyServiceTests
 
     [Theory]
     [InlineData("Administrator")]
-    [InlineData("Curator")]
-    [InlineData("Consumer")]
+    [InlineData("StandardUser")]
+    [InlineData("RestrictedProfile")]
     public async Task GenerateAsync_AcceptsValidRoles(string role)
     {
         var repo = new InMemoryApiKeyRepo();

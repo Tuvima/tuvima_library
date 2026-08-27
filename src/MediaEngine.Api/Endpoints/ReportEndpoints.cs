@@ -53,7 +53,7 @@ public static class ReportEndpoints
         .WithSummary("Submits a user problem report on a media item.")
         .Produces<SubmitReportResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // GET /reports/entity/{entityId} — get all reports for a specific item.
         group.MapGet("/entity/{entityId:guid}", async (
@@ -81,7 +81,7 @@ public static class ReportEndpoints
         .WithName("GetReportsForEntity")
         .WithSummary("Returns all problem reports for a specific media item.")
         .Produces<List<ReportEntryResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // POST /reports/{activityId}/resolve — resolve a report.
         group.MapPost("/{activityId:long}/resolve", async (
@@ -104,7 +104,7 @@ public static class ReportEndpoints
         .WithName("ResolveReport")
         .WithSummary("Marks a problem report as resolved.")
         .Produces<SubmitReportResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // POST /reports/{activityId}/dismiss — dismiss a report.
         group.MapPost("/{activityId:long}/dismiss", async (
@@ -127,7 +127,7 @@ public static class ReportEndpoints
         .WithName("DismissReport")
         .WithSummary("Dismisses a problem report without action.")
         .Produces<SubmitReportResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

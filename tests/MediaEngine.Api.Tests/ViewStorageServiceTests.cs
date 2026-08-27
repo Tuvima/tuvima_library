@@ -106,7 +106,7 @@ public sealed class ViewStorageServiceTests : IDisposable
         {
             Id = profileId,
             DisplayName = "View owner",
-            Role = ProfileRole.Consumer,
+            Role = ProfileRole.RestrictedProfile,
         });
         return profileId;
     }

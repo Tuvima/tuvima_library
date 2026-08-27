@@ -19,7 +19,7 @@ public static class CollectionAccessPolicy
             : PrivateVisibility;
 
     public static bool CanManageSharedCollections(Profile? profile) =>
-        profile?.Role is ProfileRole.Administrator or ProfileRole.Curator;
+        profile?.Role is ProfileRole.Administrator or ProfileRole.StandardUser;
 
     public static bool CanManageCuratedCollections(Profile? profile) =>
         profile?.Role is ProfileRole.Administrator;

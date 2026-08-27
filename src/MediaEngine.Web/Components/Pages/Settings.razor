@@ -79,7 +79,9 @@
                             <IngestionTasksTab />
                             break;
                         case SettingsSection.DevHarness:
-                            <DevHarnessTab Subsection="@_activeSubsection" />
+                            @RenderInternalTool(
+                                "MediaEngine.Web.Components.Settings.DevHarnessTab",
+                                new Dictionary<string, object?> { ["Subsection"] = _activeSubsection })
                             break;
                         case SettingsSection.Providers:
                             <MetadataSettingsPage Subsection="@_activeSubsection" Detail="@Detail" />
@@ -109,10 +111,10 @@
                             <SettingsReviewQueueTab />
                             break;
                         case SettingsSection.ProviderTester:
-                            <ProviderTesterToolTab />
+                            @RenderInternalTool("MediaEngine.Web.Components.Settings.ProviderTesterToolTab")
                             break;
                         case SettingsSection.EnrichmentTester:
-                            <EnrichmentTesterToolTab />
+                            @RenderInternalTool("MediaEngine.Web.Components.Settings.EnrichmentTesterToolTab")
                             break;
                 }
             }
@@ -243,13 +245,13 @@
         {
             _activeProfile = await Orchestrator.GetActiveProfileAsync();
             _currentRole = string.IsNullOrWhiteSpace(_activeProfile?.Role)
-                ? "Consumer"
+                ? "RestrictedProfile"
                 : _activeProfile.Role;
         }
         catch
         {
             _activeProfile = null;
-            _currentRole = "Consumer";
+            _currentRole = "RestrictedProfile";
         }
         finally
         {
@@ -404,6 +406,30 @@
             && !DeviceContext.IsFeatureDisabled("internal_tools")
             && !DeviceContext.IsFeatureDisabled("enrichment_tester"),
         _ => true,
+    };
+
+    private RenderFragment RenderInternalTool(
+        string typeName,
+        IReadOnlyDictionary<string, object?>? parameters = null) => builder =>
+    {
+        var componentType = typeof(Settings).Assembly.GetType(typeName, throwOnError: false);
+        if (componentType is null)
+        {
+            builder.OpenComponent<MudText>(0);
+            builder.AddAttribute(1, nameof(MudText.Typo), Typo.body1);
+            builder.AddContent(2, "This internal tool is not included in this build.");
+            builder.CloseComponent();
+            return;
+        }
+
+        builder.OpenComponent(0, componentType);
+        if (parameters is not null)
+        {
+            var sequence = 1;
+            foreach (var parameter in parameters)
+                builder.AddAttribute(sequence++, parameter.Key, parameter.Value);
+        }
+        builder.CloseComponent();
     };
 
     private void OnMobilePageChanged(string? route)

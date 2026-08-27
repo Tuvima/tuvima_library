@@ -22,7 +22,7 @@ public sealed class ResidualBoundaryContractTests
             ItemTitle = "Dune",
             Category = "Metadata",
             Note = "Wrong year",
-            ReporterName = "Curator",
+            ReporterName = "StandardUser",
         };
         var response = new SubmitReportResponse { Success = true };
         var entry = new ReportEntryResponse
@@ -31,7 +31,7 @@ public sealed class ResidualBoundaryContractTests
             OccurredAt = "2026-07-26T12:00:00.0000000Z",
             Category = "Metadata",
             Note = "Wrong year",
-            ReporterName = "Curator",
+            ReporterName = "StandardUser",
             Detail = "Submitted",
         };
 

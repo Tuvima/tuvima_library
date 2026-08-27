@@ -14,7 +14,7 @@ public sealed class ViewScopeResolverTests
         var resolver = new ViewScopeResolver(new ScopeStore(caller, included, excluded));
 
         var resolution = Assert.IsType<ViewScopeResolution>(await resolver.ResolveAsync(
-            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"),
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"),
             ViewScopeRequest.Shared));
 
         Assert.Equal(ViewScopeKind.Shared, resolution.Scope.Kind);
@@ -34,7 +34,7 @@ public sealed class ViewScopeResolverTests
         var resolver = new ViewScopeResolver(new ScopeStore(caller, other));
 
         var resolution = Assert.IsType<ViewScopeResolution>(await resolver.ResolveAsync(
-            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"),
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"),
             ViewScopeRequest.Shared));
 
         Assert.Equal(ViewScopeKind.Mine, resolution.Scope.Kind);
@@ -51,7 +51,7 @@ public sealed class ViewScopeResolverTests
         var resolver = new ViewScopeResolver(new ScopeStore(caller, revoked));
 
         var resolution = Assert.IsType<ViewScopeResolution>(await resolver.ResolveAsync(
-            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"),
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"),
             ViewScopeRequest.ForProfile(revoked.Policy.ProfileId)));
 
         Assert.Equal(ViewScopeKind.Shared, resolution.Scope.Kind);
@@ -67,7 +67,7 @@ public sealed class ViewScopeResolverTests
         var resolver = new ViewScopeResolver(new ScopeStore(caller));
 
         var result = await resolver.ResolveAsync(
-            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"),
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"),
             ViewScopeRequest.Mine);
 
         Assert.Null(result);

@@ -45,8 +45,8 @@ internal static class DetailActionAuthorizationPolicy
 
     private static bool IsManager(string? role) =>
         string.Equals(role, AppRoles.Administrator, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(role, AppRoles.Curator, StringComparison.OrdinalIgnoreCase);
+        || string.Equals(role, AppRoles.StandardUser, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsManager(Profile profile) =>
-        profile.Role is ProfileRole.Administrator or ProfileRole.Curator;
+        profile.Role is ProfileRole.Administrator or ProfileRole.StandardUser;
 }

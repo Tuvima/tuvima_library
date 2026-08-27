@@ -17,7 +17,7 @@ public sealed class ViewRequestProfileContextTests
 
         Assert.Null(context.Current);
 
-        var trusted = new ViewRequestProfile(Guid.NewGuid(), "Consumer");
+        var trusted = new ViewRequestProfile(Guid.NewGuid(), "RestrictedProfile");
         HttpViewRequestProfileContext.SetTrustedProfile(http, trusted);
         Assert.Equal(trusted, context.Current);
     }

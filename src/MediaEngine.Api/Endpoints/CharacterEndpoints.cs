@@ -141,7 +141,7 @@ public static class CharacterEndpoints
             return Results.Ok(new SetDefaultPortraitResponse(portrait_id: portraitId, is_default: true));
         })
         .Produces<SetDefaultPortraitResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         // GET /library/persons/{personId}/character-roles
         // Returns all character roles for a person, with portraits and universe info.
@@ -255,7 +255,7 @@ public static class CharacterEndpoints
             return Results.Ok(new UniverseEnrichmentTriggerResponse(triggered: true, message: "Universe enrichment sweep queued."));
         })
         .Produces<UniverseEnrichmentTriggerResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
+        .RequireAdminOrStandardUser();
 
         return app;
     }

@@ -185,7 +185,7 @@ public sealed class CreateProfileRequest
     public string DisplayName { get; init; } = string.Empty;
 
     [JsonPropertyName("role")]
-    public string Role { get; init; } = AppRoles.Consumer;
+    public string Role { get; init; } = AppRoles.RestrictedProfile;
 
     [JsonPropertyName("avatar_color")]
     public string AvatarColor { get; init; } = "#7C4DFF";

@@ -10,7 +10,7 @@ public sealed class DetailActionAuthorizationPolicyTests
 {
     [Theory]
     [InlineData(AppRoles.Administrator)]
-    [InlineData(AppRoles.Curator)]
+    [InlineData(AppRoles.StandardUser)]
     public async Task ResolveAsync_AllowsManagersWithoutAProfileContext(string callerRole)
     {
         var result = await DetailActionAuthorizationPolicy.ResolveAsync(callerRole, null, null, CancellationToken.None);
@@ -19,7 +19,7 @@ public sealed class DetailActionAuthorizationPolicyTests
     }
 
     [Theory]
-    [InlineData(AppRoles.Consumer)]
+    [InlineData(AppRoles.RestrictedProfile)]
     [InlineData(null)]
     [InlineData("unknown")]
     public async Task ResolveAsync_DeniesCallersWithoutManagementRights(string? callerRole)
@@ -32,8 +32,8 @@ public sealed class DetailActionAuthorizationPolicyTests
     [Fact]
     public async Task ResolveAsync_RequiresBothCallerAndSelectedProfileToManageMetadata()
     {
-        var consumer = ProfileWithRole(ProfileRole.Consumer);
-        var curator = ProfileWithRole(ProfileRole.Curator);
+        var consumer = ProfileWithRole(ProfileRole.RestrictedProfile);
+        var curator = ProfileWithRole(ProfileRole.StandardUser);
         var profiles = new FakeProfileRepository(consumer, curator);
 
         var consumerResult = await DetailActionAuthorizationPolicy.ResolveAsync(

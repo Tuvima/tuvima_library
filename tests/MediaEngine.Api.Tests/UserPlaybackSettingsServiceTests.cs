@@ -28,7 +28,7 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
             Id = _profileId,
             DisplayName = "Playback Test",
             AvatarColor = "#7C4DFF",
-            Role = ProfileRole.Consumer,
+            Role = ProfileRole.RestrictedProfile,
             CreatedAt = DateTimeOffset.UtcNow,
         }).GetAwaiter().GetResult();
         _profiles.InsertAsync(new Profile
@@ -36,7 +36,7 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
             Id = _otherProfileId,
             DisplayName = "Other Profile",
             AvatarColor = "#C9922E",
-            Role = ProfileRole.Consumer,
+            Role = ProfileRole.RestrictedProfile,
             CreatedAt = DateTimeOffset.UtcNow,
         }).GetAwaiter().GetResult();
         _service = new UserPlaybackSettingsService(_db, _profiles);

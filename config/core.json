@@ -27,8 +27,8 @@
   "date_format": "system",
   "time_format": "system",
   "auth": {
-    "mode": "DisabledLocalOnly",
-    "localhost_bypass": true,
+    "mode": "Local",
+    "localhost_bypass": false,
     "require_https_remote": false,
     "oidc": {
       "enabled": false,

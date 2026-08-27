@@ -4,13 +4,12 @@ namespace MediaEngine.Api.Security;
 
 /// <summary>
 /// Minimal API endpoint filter that restricts access based on the caller's role.
-/// The role is set by <see cref="Middleware.ApiKeyMiddleware"/> in
-/// <c>HttpContext.Items["ApiKeyRole"]</c>.
+/// Roles come from the authenticated first-party session or a supported API key.
 ///
 /// Usage on individual endpoints:
 /// <code>
 ///   group.MapGet("/", handler).RequireAdmin();
-///   group.MapGet("/", handler).RequireAdminOrCurator();
+///   group.MapGet("/", handler).RequireAdminOrStandardUser();
 ///   group.MapGet("/", handler).RequireAnyRole();
 /// </code>
 /// </summary>
@@ -66,31 +65,31 @@ public static class RoleFilterExtensions
 {
     /// <summary>Restricts the endpoint to Administrators only.</summary>
     public static RouteHandlerBuilder RequireAdmin(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator))
+        builder.RequireAuthorization(AuthPolicies.Administrator)
                .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator]));
 
-    /// <summary>Restricts the endpoint to Administrators and Curators.</summary>
-    public static RouteHandlerBuilder RequireAdminOrCurator(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator, AppRoles.Curator))
-               .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator, AppRoles.Curator]));
+    /// <summary>Restricts the endpoint to Administrators and Standard Users.</summary>
+    public static RouteHandlerBuilder RequireAdminOrStandardUser(this RouteHandlerBuilder builder) =>
+        builder.RequireAuthorization(AuthPolicies.StandardOrAdministrator)
+               .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator, AppRoles.StandardUser]));
 
-    /// <summary>Requires any authenticated role (Administrator, Curator, or Consumer).</summary>
+    /// <summary>Requires any authenticated first-party role.</summary>
     public static RouteHandlerBuilder RequireAnyRole(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.All))
+        builder.RequireAuthorization(AuthPolicies.Authenticated)
                .WithMetadata(new RoleRequirementMetadata(AppRoles.All));
 
     /// <summary>Restricts every endpoint in the group to Administrators only.</summary>
     public static RouteGroupBuilder RequireAdmin(this RouteGroupBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator))
+        builder.RequireAuthorization(AuthPolicies.Administrator)
                .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator]));
 
-    /// <summary>Restricts every endpoint in the group to Administrators and Curators.</summary>
-    public static RouteGroupBuilder RequireAdminOrCurator(this RouteGroupBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator, AppRoles.Curator))
-               .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator, AppRoles.Curator]));
+    /// <summary>Restricts every endpoint in the group to Administrators and Standard Users.</summary>
+    public static RouteGroupBuilder RequireAdminOrStandardUser(this RouteGroupBuilder builder) =>
+        builder.RequireAuthorization(AuthPolicies.StandardOrAdministrator)
+               .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator, AppRoles.StandardUser]));
 
-    /// <summary>Requires any authenticated role (Administrator, Curator, or Consumer) for every endpoint in the group.</summary>
+    /// <summary>Requires any authenticated first-party role for every endpoint in the group.</summary>
     public static RouteGroupBuilder RequireAnyRole(this RouteGroupBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.All))
+        builder.RequireAuthorization(AuthPolicies.Authenticated)
                .WithMetadata(new RoleRequirementMetadata(AppRoles.All));
 }

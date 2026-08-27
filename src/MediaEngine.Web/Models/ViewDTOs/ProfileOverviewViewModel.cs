@@ -10,7 +10,7 @@ public sealed class ProfileOverviewViewModel
         Guid.Empty,
         "Profile",
         "#7C4DFF",
-        "Consumer",
+        "RestrictedProfile",
         DateTimeOffset.UtcNow);
 
     [JsonPropertyName("stats")]

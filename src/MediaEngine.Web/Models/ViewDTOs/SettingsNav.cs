@@ -355,7 +355,7 @@ public static class SettingsNav
             return true;
         }
 
-        if (IsCuratorRole(role))
+        if (IsStandardUserRole(role))
         {
             return section is SettingsSection.Overview
                 or SettingsSection.Playback
@@ -508,12 +508,12 @@ public static class SettingsNav
         return $"/settings/{item.Slug}";
     }
 
-    private static bool IsAdminRole(string role) =>
-        IsAdministratorRole(role) || IsCuratorRole(role);
+    private static bool IsAdminRole(string role) => IsAdministratorRole(role);
 
     private static bool IsAdministratorRole(string role) =>
         string.Equals(role, "Administrator", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsCuratorRole(string role) =>
-        string.Equals(role, "Curator", StringComparison.OrdinalIgnoreCase);
+    private static bool IsStandardUserRole(string role) =>
+        string.Equals(role, "StandardUser", StringComparison.OrdinalIgnoreCase);
+
 }

@@ -12,7 +12,7 @@ public sealed class ProfileServiceTests
         var repository = new FakeProfileRepository(SeedOwner());
         var service = new ProfileService(repository);
         var update = SeedOwner();
-        update.Role = ProfileRole.Consumer;
+        update.Role = ProfileRole.RestrictedProfile;
 
         var updated = await service.UpdateProfileAsync(update);
 
@@ -28,7 +28,7 @@ public sealed class ProfileServiceTests
         var repository = new FakeProfileRepository(administrator);
         var service = new ProfileService(repository);
         var update = Clone(administrator);
-        update.Role = ProfileRole.Curator;
+        update.Role = ProfileRole.StandardUser;
 
         var updated = await service.UpdateProfileAsync(update);
 
@@ -45,13 +45,13 @@ public sealed class ProfileServiceTests
         var repository = new FakeProfileRepository(first, second);
         var service = new ProfileService(repository);
         var update = Clone(first);
-        update.Role = ProfileRole.Curator;
+        update.Role = ProfileRole.StandardUser;
 
         var updated = await service.UpdateProfileAsync(update);
 
         Assert.True(updated);
         Assert.Equal(1, repository.UpdateCount);
-        Assert.Equal(ProfileRole.Curator, repository.Profiles.Single(profile => profile.Id == first.Id).Role);
+        Assert.Equal(ProfileRole.StandardUser, repository.Profiles.Single(profile => profile.Id == first.Id).Role);
         Assert.Equal(ProfileRole.Administrator, repository.Profiles.Single(profile => profile.Id == second.Id).Role);
     }
 
@@ -96,7 +96,6 @@ public sealed class ProfileServiceTests
         AvatarColor = profile.AvatarColor,
         AvatarImagePath = profile.AvatarImagePath,
         Role = profile.Role,
-        PinHash = profile.PinHash,
         CreatedAt = profile.CreatedAt,
         NavigationConfig = profile.NavigationConfig,
     };
