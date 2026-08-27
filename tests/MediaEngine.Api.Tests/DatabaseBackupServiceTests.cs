@@ -10,6 +10,23 @@ public sealed class DatabaseBackupServiceTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"tuvima-backup-tests-{Guid.NewGuid():N}");
 
+    [Fact]
+    public async Task CreateAsync_UsesExplicitBackupDirectory()
+    {
+        var config = Path.Combine(_root, "config-explicit");
+        var backup = Path.Combine(_root, "backup-explicit");
+        Directory.CreateDirectory(config);
+        await File.WriteAllTextAsync(Path.Combine(config, "core.json"), "{}");
+        var dbPath = Path.Combine(_root, "explicit.db");
+        using var database = CreateDatabase(dbPath);
+        var service = new DatabaseBackupService(database, config, backup);
+
+        var archive = await service.CreateAsync(CancellationToken.None);
+
+        Assert.StartsWith(Path.GetFullPath(backup), archive, StringComparison.OrdinalIgnoreCase);
+        Assert.True(File.Exists(archive));
+    }
+
     public DatabaseBackupServiceTests() => Directory.CreateDirectory(_root);
 
     [Fact]

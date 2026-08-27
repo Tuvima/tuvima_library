@@ -1,4 +1,6 @@
 using MediaEngine.Api.Services.View;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -58,6 +60,30 @@ public sealed class ViewThumbnailServiceTests : IDisposable
         Assert.Null(result);
     }
 
+    [Fact]
+    public async Task GetOrCreateAsync_UsesFfmpegForVideoFrameThumbnail()
+    {
+        Directory.CreateDirectory(_root);
+        var sourcePath = Path.Combine(_root, "clip.mp4");
+        await File.WriteAllBytesAsync(sourcePath, [0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]);
+        var itemId = Guid.NewGuid();
+        var ffmpeg = new ThumbnailFfmpegService();
+        var service = new ViewThumbnailService(
+            new AssetPathService(_root),
+            NullLogger<ViewThumbnailService>.Instance,
+            ffmpeg);
+
+        var result = await service.GetOrCreateAsync(
+            itemId,
+            Location(itemId, sourcePath) with { MimeType = "video/mp4" });
+
+        Assert.NotNull(result);
+        Assert.True(File.Exists(result));
+        Assert.Contains("-frames:v 1", ffmpeg.LastArguments, StringComparison.Ordinal);
+        using var thumbnail = SKBitmap.Decode(result);
+        Assert.NotNull(thumbnail);
+    }
+
     private static LocalAssetContentLocation Location(Guid itemId, string filePath) => new(
         itemId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, null,
         filePath, "image/jpeg", new FileInfo(filePath).Length, "hash", "primary", null);
@@ -71,6 +97,28 @@ public sealed class ViewThumbnailServiceTests : IDisposable
         using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
         using var output = File.Create(path);
         data.SaveTo(output);
+    }
+
+    private sealed class ThumbnailFfmpegService : IFFmpegService
+    {
+        public string? LastArguments { get; private set; }
+        public string? FfmpegPath => "/usr/bin/ffmpeg";
+        public string? FfprobePath => "/usr/bin/ffprobe";
+        public bool IsAvailable => true;
+        public HardwareCapabilities HardwareCapabilities { get; } = new();
+
+        public Task<MediaProbeResult?> ProbeAsync(string filePath, CancellationToken ct = default) =>
+            Task.FromResult<MediaProbeResult?>(null);
+
+        public Task<(int ExitCode, string Output, string Error)> RunAsync(
+            string arguments,
+            CancellationToken ct = default)
+        {
+            LastArguments = arguments;
+            var outputPath = arguments.Split('"', StringSplitOptions.RemoveEmptyEntries)[^1];
+            WriteJpeg(outputPath, 320, 180);
+            return Task.FromResult((0, string.Empty, string.Empty));
+        }
     }
 
     public void Dispose()

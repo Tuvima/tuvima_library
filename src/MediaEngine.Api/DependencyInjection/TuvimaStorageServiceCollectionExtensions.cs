@@ -57,7 +57,7 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton(sp =>
         {
             var core = sp.GetRequiredService<IConfigurationLoader>().LoadCore();
-            return new AssetPathService(core.LibraryRoot, core.StoragePolicy);
+            return new AssetPathService(core.LibraryRoot, core.StoragePolicy, core.DataRoot);
         });
         services.AddSingleton<IAssetExportService, AssetExportService>();
         services.AddSingleton<ICollectionRepository, CollectionRepository>();

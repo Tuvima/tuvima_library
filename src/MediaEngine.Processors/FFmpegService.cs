@@ -12,9 +12,9 @@ namespace MediaEngine.Processors;
 /// <para>
 /// <b>Auto-detection order (first found wins):</b>
 /// <list type="number">
+///   <item>Explicit paths from <c>config/transcoding.json</c> — authoritative deployment configuration.</item>
 ///   <item><c>tools/ffmpeg/</c> relative to the app base directory — self-contained deployment.</item>
 ///   <item>System PATH — user-managed system-wide installation.</item>
-///   <item>Explicit paths from <c>config/transcoding.json</c> — user override.</item>
 /// </list>
 /// </para>
 /// </summary>
@@ -50,8 +50,8 @@ public sealed class FFmpegService : IFFmpegService
         else
         {
             _logger.LogWarning(
-                "FFmpeg binaries not found. Place ffmpeg.exe and ffprobe.exe in tools/ffmpeg/ " +
-                "or install FFmpeg system-wide. Transcoding and video metadata extraction are disabled.");
+                "FFmpeg binaries not found. Check explicit transcoding paths, tools/ffmpeg/, " +
+                "or the system PATH. Transcoding and video metadata extraction are disabled.");
             HardwareCapabilities = new HardwareCapabilities();
         }
     }
@@ -83,9 +83,10 @@ public sealed class FFmpegService : IFFmpegService
 
     private static string? ResolveBinary(string name, string? configuredPath)
     {
-        // 1. Explicit config path
-        if (!string.IsNullOrWhiteSpace(configuredPath) && File.Exists(configuredPath))
-            return configuredPath;
+        // 1. An explicit deployment path is authoritative. Do not silently
+        // hide a stale container/NAS configuration by falling back elsewhere.
+        if (!string.IsNullOrWhiteSpace(configuredPath))
+            return File.Exists(configuredPath) ? Path.GetFullPath(configuredPath) : null;
 
         // 2. tools/ffmpeg/ relative to app base directory
         var appBase = AppContext.BaseDirectory;

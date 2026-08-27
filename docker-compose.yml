@@ -20,7 +20,6 @@ services:
 
     ports:
       - "5016:5016"    # Dashboard — open this in your browser
-      - "61495:61495"  # Engine API — used internally; also for external tool access
 
     volumes:
       # ── EDIT THESE PATHS to match your NAS/server layout ─────────────────
@@ -34,6 +33,12 @@ services:
       - /mnt/user/appdata/tuvima/db:/db
       # Models: AI model files (downloaded on first run, ~4GB).
       - /mnt/user/appdata/tuvima/models:/models
+      # Artwork and generated cache: managed images, thumbnails and logs.
+      - /mnt/user/appdata/tuvima/artwork-cache:/artwork-cache
+      # Backups: SQLite/config archives and restore staging.
+      - /mnt/user/appdata/tuvima/backups:/backups
+      # Transcoding: generated playback variants and temporary workspace.
+      - /mnt/user/appdata/tuvima/transcode:/transcode
 
     environment:
       # Runtime state locations. Library/watch paths are defined in the
@@ -41,15 +46,22 @@ services:
       TUVIMA_CONFIG_DIR: /config
       TUVIMA_DB_PATH: /db/library.db
       TUVIMA_MODELS_DIR: /models
+      TUVIMA_BACKUP_DIR: /backups
+
+      # Application processes run with this NAS identity. Match the owner/group
+      # of the bind-mounted folders above. 0002 keeps new files group-writable.
+      TUVIMA_UID: "1000"
+      TUVIMA_GID: "1000"
+      TUVIMA_UMASK: "0002"
 
       # Replace with your server's actual LAN IP so external devices can
       # reach the Dashboard.  localhost works only from the same machine.
       # Example: TUVIMA_CORS_ORIGINS: "http://192.168.1.50:5016"
       # TUVIMA_CORS_ORIGINS: ""
 
-      # Advanced: split Engine and Dashboard into separate containers and set
-      # the Engine's address here.  Leave blank for single-container mode.
-      # TUVIMA_ENGINE_URL: "http://engine:61495"
+      # Advanced internal Engine address override. Port 61495 is intentionally
+      # not published to the host by the default deployment.
+      # TUVIMA_ENGINE_URL: "http://127.0.0.1:61495"
 
     # Resource limits (optional — recommended for Unraid/NAS boxes).
     # Adjust to suit your hardware.

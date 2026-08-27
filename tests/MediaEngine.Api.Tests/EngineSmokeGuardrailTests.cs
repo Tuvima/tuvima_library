@@ -15,6 +15,7 @@ public sealed class EngineSmokeGuardrailTests
         Assert.Contains("MapHealthChecks(\"/health/ready\",", program);
         Assert.Contains("StartupReadinessService", program);
         Assert.Contains("WorkerReadinessHealthCheck", program);
+        Assert.Contains("MediaRuntimeHealthCheck", program);
         Assert.Contains("MapEngineEndpoints()", program);
         Assert.Contains("AddTuvimaStorage()", program);
         Assert.Contains("AddTuvimaProviders(configLoader)", program);
@@ -24,6 +25,24 @@ public sealed class EngineSmokeGuardrailTests
         Assert.Contains("AddTuvimaPlugins()", program);
         Assert.Contains("AddTuvimaDisplay()", program);
         Assert.Contains("AddTuvimaHostedServices()", program);
+    }
+
+    [Fact]
+    public void EngineLiveness_IsPublicWhileReadinessDetailsRemainBehindApiKeyMiddleware()
+    {
+        var repoRoot = FindRepoRoot();
+        var program = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Api", "Program.cs"));
+        var middleware = File.ReadAllText(Path.Combine(
+            repoRoot, "src", "MediaEngine.Api", "Middleware", "ApiKeyMiddleware.cs"));
+        var dashboard = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Web", "Program.cs"));
+
+        Assert.Contains("\"/health/live\"", middleware);
+        Assert.DoesNotContain("\"/health/ready\"", middleware);
+        Assert.Contains("app.MapHealthChecks(\"/health/live\"", program);
+        Assert.Contains("app.MapHealthChecks(\"/health/ready\"", program);
+        Assert.Contains("app.MapHealthChecks(\"/health/live\"", dashboard);
+        Assert.Contains("app.MapHealthChecks(\"/health/ready\"", dashboard);
+        Assert.Contains("DashboardEngineHealthCheck", dashboard);
     }
 
     [Fact]

@@ -5,9 +5,9 @@ namespace MediaEngine.Domain.Contracts;
 /// <summary>
 /// Provides access to FFmpeg binaries for media probing and processing.
 /// The implementation auto-detects binaries at startup in priority order:
-///   1. tools/ffmpeg/ relative to the app base directory (self-contained)
-///   2. System PATH
-///   3. Explicit path from config/transcoding.json
+///   1. Explicit path from config/transcoding.json (authoritative when set)
+///   2. tools/ffmpeg/ relative to the app base directory (self-contained)
+///   3. System PATH
 /// </summary>
 public interface IFFmpegService
 {

@@ -2,8 +2,16 @@
 **/bin/
 **/obj/
 
-# Live config and database — user data, not code
-config/
+# Runtime data — never send user state or secrets to the Docker build context.
+# Committed distributable defaults under config/ remain available to the
+# Dockerfile; the exclusions below are deliberately narrower than config/.
+config/secrets/
+config/backups/
+config/**/*.bak
+config/**/*.tmp
+config/ui/library-preferences.json
+config/ui/profiles/*
+!config/ui/profiles/example-profile.json
 *.db
 *.db-shm
 *.db-wal

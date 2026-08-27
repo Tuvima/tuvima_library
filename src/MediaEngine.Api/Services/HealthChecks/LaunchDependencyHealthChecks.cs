@@ -1,12 +1,16 @@
+using System.Runtime.InteropServices;
 using MediaEngine.AI.Configuration;
 using MediaEngine.AI.Infrastructure;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using SkiaSharp;
 
 namespace MediaEngine.Api.Services.HealthChecks;
 
-public sealed class ConfigurationHealthCheck(IConfigurationLoader configuration) : IHealthCheck
+public sealed class ConfigurationHealthCheck(
+    IConfigurationLoader configuration,
+    AiSettings effectiveAiSettings) : IHealthCheck
 {
     public Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -18,9 +22,7 @@ public sealed class ConfigurationHealthCheck(IConfigurationLoader configuration)
             _ = configuration.LoadLibraries();
             _ = configuration.LoadPipelines();
             var providers = configuration.LoadAllProviders();
-            var ai = configuration.LoadAi<AiSettings>()
-                ?? throw new InvalidOperationException("config/ai.json is required.");
-            var aiErrors = AiSettingsValidator.Validate(ai);
+            var aiErrors = AiSettingsValidator.Validate(effectiveAiSettings);
             if (aiErrors.Count > 0)
             {
                 return Task.FromResult(HealthCheckResult.Unhealthy(
@@ -46,6 +48,103 @@ public sealed class ConfigurationHealthCheck(IConfigurationLoader configuration)
         var data = new Dictionary<string, object> { ["category"] = "configuration", ["required"] = required };
         foreach (var (key, value) in values) data[key] = value;
         return data;
+    }
+}
+
+public sealed class MediaRuntimeHealthCheck(IFFmpegService ffmpeg) : IHealthCheck
+{
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        var failures = new List<string>();
+        string? ffmpegVersion = null;
+        var skiaAvailable = false;
+        var llamaAvailable = false;
+
+        if (!ffmpeg.IsAvailable)
+        {
+            failures.Add("FFmpeg and FFprobe are not both available.");
+        }
+        else
+        {
+            try
+            {
+                var version = await ffmpeg.RunAsync("-version", cancellationToken).ConfigureAwait(false);
+                ffmpegVersion = version.Output
+                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                    .FirstOrDefault();
+                if (version.ExitCode != 0) failures.Add("FFmpeg version probe returned a non-zero exit code.");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failures.Add($"FFmpeg version probe failed: {ex.Message}");
+            }
+        }
+
+        try
+        {
+            using var bitmap = new SKBitmap(2, 2);
+            bitmap.Erase(SKColors.Purple);
+            using var image = SKImage.FromBitmap(bitmap);
+            using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
+            skiaAvailable = encoded is { Size: > 0 };
+            if (!skiaAvailable) failures.Add("SkiaSharp could not encode a probe image.");
+        }
+        catch (Exception ex)
+        {
+            failures.Add($"SkiaSharp native runtime failed: {ex.Message}");
+        }
+
+        try
+        {
+            var libraryName = OperatingSystem.IsWindows()
+                ? "llama.dll"
+                : OperatingSystem.IsMacOS() ? "libllama.dylib" : "libllama.so";
+            var runtimeSegment = Path.Combine("runtimes", RuntimeInformation.RuntimeIdentifier);
+            var candidate = Directory
+                .EnumerateFiles(AppContext.BaseDirectory, libraryName, SearchOption.AllDirectories)
+                .FirstOrDefault(path => path.Contains(runtimeSegment, StringComparison.OrdinalIgnoreCase))
+                ?? Directory.EnumerateFiles(AppContext.BaseDirectory, libraryName, SearchOption.AllDirectories).FirstOrDefault();
+
+            if (candidate is null || !NativeLibrary.TryLoad(candidate, out var handle))
+            {
+                failures.Add($"LLamaSharp CPU native library {libraryName} could not be loaded for {RuntimeInformation.RuntimeIdentifier}.");
+            }
+            else
+            {
+                llamaAvailable = true;
+                NativeLibrary.Free(handle);
+            }
+        }
+        catch (Exception ex)
+        {
+            failures.Add($"LLamaSharp CPU native runtime failed: {ex.Message}");
+        }
+
+        var required = string.Equals(
+            Environment.GetEnvironmentVariable("TUVIMA_REQUIRE_MEDIA_RUNTIME"),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
+        var data = new Dictionary<string, object>
+        {
+            ["category"] = "native_media_runtime",
+            ["required"] = required,
+            ["runtime_identifier"] = RuntimeInformation.RuntimeIdentifier,
+            ["ffmpeg"] = ffmpegVersion ?? "unavailable",
+            ["skia"] = skiaAvailable,
+            ["llama_cpu"] = llamaAvailable,
+            ["failures"] = string.Join(" | ", failures),
+        };
+
+        if (failures.Count == 0)
+        {
+            return HealthCheckResult.Healthy("FFmpeg, SkiaSharp, and LLamaSharp CPU native runtimes are available.", data);
+        }
+
+        return required
+            ? HealthCheckResult.Unhealthy("One or more required media runtimes are unavailable.", data: data)
+            : HealthCheckResult.Degraded("One or more optional media runtimes are unavailable.", data: data);
     }
 }
 

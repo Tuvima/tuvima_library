@@ -14,6 +14,7 @@ using MediaEngine.Ingestion.DependencyInjection;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.SignalR;
@@ -26,6 +27,17 @@ string configDirectory =
     Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
     ?? config["MediaEngine:ConfigDirectory"]
     ?? "config";
+string backupDirectory =
+    Environment.GetEnvironmentVariable("TUVIMA_BACKUP_DIR")
+    ?? Path.Combine(configDirectory, "backups");
+string dataProtectionDirectory =
+    Environment.GetEnvironmentVariable("TUVIMA_DATA_PROTECTION_DIR")
+    ?? Path.Combine(configDirectory, ".keys");
+string logDirectory =
+    Environment.GetEnvironmentVariable("TUVIMA_LOG_DIR")
+    ?? "logs";
+Directory.CreateDirectory(dataProtectionDirectory);
+Directory.CreateDirectory(logDirectory);
 
 // -- Serilog ------------------------------------------------------------------
 builder.Host.UseSerilog((context, services, loggerConfig) => loggerConfig
@@ -34,7 +46,7 @@ builder.Host.UseSerilog((context, services, loggerConfig) => loggerConfig
     .Enrich.FromLogContext()
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}")
     .WriteTo.File(
-        path: Path.Combine("logs", "tuvima-.log"),
+        path: Path.Combine(logDirectory, "tuvima-.log"),
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 14,
         fileSizeLimitBytes: 50 * 1024 * 1024,
@@ -71,7 +83,9 @@ builder.Services.AddSignalR(options =>
     options.AddFilter<IntercomAuthFilter>();
 });
 builder.Services.AddSingleton<IEventPublisher, SignalREventPublisher>();
-builder.Services.AddDataProtection();
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionDirectory))
+    .SetApplicationName("Tuvima.Library");
 builder.Services.AddSingleton<ISecretStore, DataProtectionSecretStore>();
 builder.Services.AddProblemDetails(options =>
 {
@@ -129,7 +143,7 @@ string dbPath;
     }
 }
 
-DatabaseBackupService.ApplyPendingRestore(configDirectory, dbPath);
+DatabaseBackupService.ApplyPendingRestore(configDirectory, dbPath, backupDirectory);
 
 builder.Services.AddSingleton<IDatabaseConnection>(_ =>
 {
@@ -175,7 +189,7 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 // -- Rate limiting -------------------------------------------------------------
 {
     var rateLimits = configLoader.LoadCore().RateLimiting;
-    string[] globalLimiterExemptPaths = ["/system/status", "/health"];
+    string[] globalLimiterExemptPaths = ["/system/status", "/health", "/health/live"];
     string[] globalLimiterExemptPrefixes =
     [
         "/swagger",
@@ -264,7 +278,8 @@ builder.Services.AddSingleton<ViewPhotoHarnessService>();
 builder.Services.AddSingleton<AssetStoreCleanupService>();
 builder.Services.AddSingleton(sp => new DatabaseBackupService(
     sp.GetRequiredService<IDatabaseConnection>(),
-    configDirectory));
+    configDirectory,
+    backupDirectory));
 builder.Services.AddTuvimaDisplay();
 builder.Services.AddTuvimaIntelligence();
 builder.Services.AddTuvimaProviders(configLoader);
@@ -280,6 +295,7 @@ builder.Services.AddHealthChecks()
     .AddCheck<WatchFolderHealthCheck>("watch_folders", tags: ["readiness", "storage"])
     .AddCheck<ModelReadinessHealthCheck>("ai_models", tags: ["readiness", "models"])
     .AddCheck<ProviderReadinessHealthCheck>("metadata_providers", tags: ["readiness", "providers"])
+    .AddCheck<MediaRuntimeHealthCheck>("media_runtime", tags: ["readiness", "native", "media"])
     .AddCheck<WorkerReadinessHealthCheck>("background_workers", tags: ["readiness", "workers", "required"]);
 
 WebApplication app = builder.Build();

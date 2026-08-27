@@ -10,13 +10,22 @@ namespace MediaEngine.Api.Services;
 /// Creates consistent SQLite + non-secret configuration archives and stages a
 /// selected archive for atomic application before the next Engine startup.
 /// </summary>
-public sealed class DatabaseBackupService(
-    IDatabaseConnection database,
-    string configDirectory)
+public sealed class DatabaseBackupService
 {
     private const string PendingRestoreFileName = ".restore-pending.json";
-    private readonly string _configDirectory = Path.GetFullPath(configDirectory);
-    private readonly string _backupDirectory = Path.Combine(Path.GetFullPath(configDirectory), "backups");
+    private readonly IDatabaseConnection _database;
+    private readonly string _configDirectory;
+    private readonly string _backupDirectory;
+
+    public DatabaseBackupService(
+        IDatabaseConnection database,
+        string configDirectory,
+        string? backupDirectory = null)
+    {
+        _database = database;
+        _configDirectory = Path.GetFullPath(configDirectory);
+        _backupDirectory = ResolveBackupDirectory(_configDirectory, backupDirectory);
+    }
 
     public IReadOnlyList<BackupArchiveDto> List()
     {
@@ -46,17 +55,17 @@ public sealed class DatabaseBackupService(
         try
         {
             var databaseCopy = Path.Combine(stagingDirectory, "library.db");
-            await database.AcquireWriteLockAsync(ct).ConfigureAwait(false);
+            await _database.AcquireWriteLockAsync(ct).ConfigureAwait(false);
             try
             {
                 ct.ThrowIfCancellationRequested();
-                using var source = database.CreateConnection();
+                using var source = _database.CreateConnection();
                 using var destination = SqliteBackupTarget.Create(databaseCopy);
                 source.BackupDatabase(destination);
             }
             finally
             {
-                database.ReleaseWriteLock();
+                _database.ReleaseWriteLock();
             }
 
             using var archive = ZipFile.Open(archivePath, ZipArchiveMode.Create);
@@ -160,7 +169,10 @@ public sealed class DatabaseBackupService(
         return path;
     }
 
-    public static void ApplyPendingRestore(string configDirectory, string databasePath)
+    public static void ApplyPendingRestore(
+        string configDirectory,
+        string databasePath,
+        string? backupDirectory = null)
     {
         var fullConfigDirectory = Path.GetFullPath(configDirectory);
         var markerPath = Path.Combine(fullConfigDirectory, PendingRestoreFileName);
@@ -171,8 +183,10 @@ public sealed class DatabaseBackupService(
 
         var marker = JsonSerializer.Deserialize<PendingRestore>(File.ReadAllText(markerPath))
             ?? throw new InvalidOperationException("Pending restore marker is invalid.");
-        var backupDirectory = Path.Combine(fullConfigDirectory, "backups");
-        var stagedDirectory = SafeChildPath(backupDirectory, Path.GetRelativePath(backupDirectory, marker.StagingDirectory));
+        var resolvedBackupDirectory = ResolveBackupDirectory(fullConfigDirectory, backupDirectory);
+        var stagedDirectory = SafeChildPath(
+            resolvedBackupDirectory,
+            Path.GetRelativePath(resolvedBackupDirectory, marker.StagingDirectory));
         var stagedDatabase = Path.Combine(stagedDirectory, "library.db");
         SqliteBackupTarget.Verify(stagedDatabase);
 
@@ -221,6 +235,11 @@ public sealed class DatabaseBackupService(
                     && !relative.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(relative, PendingRestoreFileName, StringComparison.OrdinalIgnoreCase);
             });
+
+    private static string ResolveBackupDirectory(string fullConfigDirectory, string? configuredDirectory) =>
+        string.IsNullOrWhiteSpace(configuredDirectory)
+            ? Path.Combine(fullConfigDirectory, "backups")
+            : Path.GetFullPath(configuredDirectory);
 
     private static string SafeChildPath(string parent, string relative)
     {

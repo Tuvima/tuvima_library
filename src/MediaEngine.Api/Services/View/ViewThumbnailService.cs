@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using SkiaSharp;
@@ -11,7 +12,8 @@ namespace MediaEngine.Api.Services.View;
 /// </summary>
 public sealed class ViewThumbnailService(
     AssetPathService assetPaths,
-    ILogger<ViewThumbnailService> logger)
+    ILogger<ViewThumbnailService> logger,
+    IFFmpegService? ffmpeg = null)
 {
     private const int MaximumEdge = 640;
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _itemLocks = new();
@@ -22,7 +24,8 @@ public sealed class ViewThumbnailService(
         CancellationToken ct = default)
     {
         if (itemId == Guid.Empty
-            || !source.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+            || (!source.MimeType.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                && !source.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
             || !File.Exists(source.FilePath))
         {
             return null;
@@ -40,7 +43,14 @@ public sealed class ViewThumbnailService(
         try
         {
             if (IsCurrent(target, source.FilePath)) return target;
-            return await Task.Run(() => Generate(source.FilePath, target), ct).ConfigureAwait(false)
+            if (source.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
+            {
+                return await GenerateVideoAsync(source.FilePath, target, ct).ConfigureAwait(false)
+                    ? target
+                    : null;
+            }
+
+            return await Task.Run(() => GenerateImage(source.FilePath, target), ct).ConfigureAwait(false)
                 ? target
                 : null;
         }
@@ -59,7 +69,29 @@ public sealed class ViewThumbnailService(
         File.Exists(target)
         && File.GetLastWriteTimeUtc(target) >= File.GetLastWriteTimeUtc(source);
 
-    private static bool Generate(string source, string target)
+    private async Task<bool> GenerateVideoAsync(string source, string target, CancellationToken ct)
+    {
+        if (ffmpeg is not { IsAvailable: true }) return false;
+
+        var directory = Path.GetDirectoryName(target)!;
+        Directory.CreateDirectory(directory);
+        var temporary = Path.Combine(directory, $".{Path.GetFileNameWithoutExtension(target)}.{Guid.NewGuid():N}.tmp.jpg");
+        try
+        {
+            var result = await ffmpeg.RunAsync(
+                $"-y -ss 0.5 -i {Quote(source)} -frames:v 1 -vf scale={MaximumEdge}:-2:force_original_aspect_ratio=decrease {Quote(temporary)}",
+                ct).ConfigureAwait(false);
+            if (result.ExitCode != 0 || !File.Exists(temporary)) return false;
+            File.Move(temporary, target, overwrite: true);
+            return true;
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
+    private static bool GenerateImage(string source, string target)
     {
         using var input = File.Open(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var bitmap = SKBitmap.Decode(input);
@@ -91,4 +123,6 @@ public sealed class ViewThumbnailService(
             if (File.Exists(temporary)) File.Delete(temporary);
         }
     }
+
+    private static string Quote(string path) => $"\"{path.Replace("\"", "\\\"")}\"";
 }

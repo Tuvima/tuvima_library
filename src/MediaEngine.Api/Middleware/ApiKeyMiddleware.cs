@@ -19,8 +19,9 @@ namespace MediaEngine.Api.Middleware;
 ///    which is the default), requests from loopback addresses are treated as
 ///    Administrator. This preserves the existing local development experience.
 ///
-/// 3. Exempt paths — <c>/system/status</c>, <c>/swagger*</c>, and the SignalR
-///    negotiate endpoint are exempt. They pass through without authentication.
+/// 3. Exempt paths — <c>/system/status</c>, <c>/health/live</c>,
+///    <c>/swagger*</c>, and the SignalR negotiate endpoint are exempt. They pass
+///    through without authentication. Detailed readiness remains protected.
 ///
 /// All other requests receive 401 Unauthorized.
 ///
@@ -36,6 +37,7 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
     private static readonly string[] ExemptPaths =
     [
         "/system/status",
+        "/health/live",
     ];
 
     /// <summary>

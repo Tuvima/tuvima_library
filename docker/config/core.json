@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "database_path": "/db/library.db",
-  "data_root": "/db",
+  "data_root": "/artwork-cache",
   "watch_directories": [
     "/watch"
   ],

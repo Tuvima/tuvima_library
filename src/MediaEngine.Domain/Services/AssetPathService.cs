@@ -10,11 +10,18 @@ public sealed class AssetPathService
 {
     private readonly LibraryStoragePolicy _policy;
 
-    public AssetPathService(string libraryRoot, LibraryStoragePolicy? policy = null)
+    public AssetPathService(
+        string libraryRoot,
+        LibraryStoragePolicy? policy = null,
+        string? dataRoot = null)
     {
         LibraryRoot = string.IsNullOrWhiteSpace(libraryRoot)
             ? Path.Combine(Path.GetTempPath(), "tuvima_library_unset")
             : Path.GetFullPath(libraryRoot);
+
+        DataRoot = string.IsNullOrWhiteSpace(dataRoot)
+            ? Path.Combine(LibraryRoot, ".data")
+            : Path.GetFullPath(dataRoot);
 
         _policy = policy ?? new LibraryStoragePolicy();
     }
@@ -23,7 +30,7 @@ public sealed class AssetPathService
 
     public LibraryStoragePolicy Policy => _policy;
 
-    public string DataRoot => Path.Combine(LibraryRoot, ".data");
+    public string DataRoot { get; }
 
     public string AssetsRoot => Path.Combine(DataRoot, "assets");
 

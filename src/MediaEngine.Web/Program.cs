@@ -15,8 +15,11 @@ using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Net;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -67,6 +70,12 @@ builder.Services.AddSingleton<ThemeService>();
 string configDir = Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
                 ?? builder.Configuration["MediaEngine:ConfigDirectory"]
                 ?? "config";
+string dataProtectionDir = Environment.GetEnvironmentVariable("TUVIMA_DATA_PROTECTION_DIR")
+                        ?? Path.Combine(configDir, ".keys");
+Directory.CreateDirectory(dataProtectionDir);
+builder.Services.AddDataProtection()
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionDir))
+    .SetApplicationName("Tuvima.Library");
 var dashboardConfig = new DashboardConfigurationReader(configDir);
 builder.Services.AddSingleton(dashboardConfig);
 var networkSettings = dashboardConfig.LoadNetwork();
@@ -227,6 +236,8 @@ builder.Services.AddScoped<ICollectionPersonalMediaClient>(services =>
 // Used by ad-hoc pages (e.g. the Enrichment Tester) that need direct HttpClient access
 // without routing through IEngineApiClient.
 builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient);
+builder.Services.AddHealthChecks()
+    .AddCheck<DashboardEngineHealthCheck>("engine_liveness", tags: ["readiness"]);
 
 // ── State + Orchestration (scoped = one per SignalR circuit) ──────────────────
 builder.Services.AddScoped<UniverseStateContainer>();
@@ -278,6 +289,20 @@ if (ssoEnabled)
     app.UseAuthorization();
 }
 app.UseAntiforgery();
+
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = _ => false,
+}).AllowAnonymous();
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("readiness"),
+    ResponseWriter = async (context, report) =>
+    {
+        context.Response.ContentType = "text/plain";
+        await context.Response.WriteAsync(report.Status.ToString().ToLowerInvariant());
+    },
+}).AllowAnonymous();
 
 // ── Culture cookie setter ─────────────────────────────────────────────────────
 // Sets the ASP.NET Core culture cookie and redirects back to the requested page.
@@ -367,4 +392,25 @@ static void CopyResponseHeaders(HttpResponseMessage source, HttpResponse target)
     }
 
     target.Headers.Remove("transfer-encoding");
+}
+
+sealed class DashboardEngineHealthCheck(IHttpClientFactory httpClientFactory) : IHealthCheck
+{
+    public async Task<HealthCheckResult> CheckHealthAsync(
+        HealthCheckContext context,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var client = httpClientFactory.CreateClient("EngineApi");
+            using var response = await client.GetAsync("/health/live", cancellationToken);
+            return response.IsSuccessStatusCode
+                ? HealthCheckResult.Healthy("The Dashboard can reach the Engine liveness endpoint.")
+                : HealthCheckResult.Unhealthy($"The Engine liveness endpoint returned HTTP {(int)response.StatusCode}.");
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return HealthCheckResult.Unhealthy("The Dashboard cannot reach the Engine liveness endpoint.", ex);
+        }
+    }
 }

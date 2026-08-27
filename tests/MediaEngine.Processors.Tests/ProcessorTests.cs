@@ -81,6 +81,35 @@ public class GenericFileProcessorTests
 public class FFmpegServiceParsingTests
 {
     [Fact]
+    public void ResolveBinary_DoesNotHideInvalidExplicitConfigurationWithPathFallback()
+    {
+        var resolver = typeof(FFmpegService).GetMethod("ResolveBinary", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(resolver);
+
+        var missing = Path.Combine(Path.GetTempPath(), $"missing-ffmpeg-{Guid.NewGuid():N}");
+        var result = resolver!.Invoke(null, ["ffmpeg", missing]);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void ResolveBinary_ReturnsAbsoluteExplicitPath()
+    {
+        var resolver = typeof(FFmpegService).GetMethod("ResolveBinary", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(resolver);
+        var configured = Path.GetTempFileName();
+        try
+        {
+            var result = Assert.IsType<string>(resolver!.Invoke(null, ["ffmpeg", configured]));
+            Assert.Equal(Path.GetFullPath(configured), result);
+        }
+        finally
+        {
+            File.Delete(configured);
+        }
+    }
+
+    [Fact]
     public void ParseProbeJson_PreservesTimedAudiobookChapters()
     {
         const string json = """

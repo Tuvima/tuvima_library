@@ -1,0 +1,20 @@
+{
+  "_comment": "Container FFmpeg paths and persistent transcoding workspace.",
+  "ffmpeg_binary_path": "/usr/bin/ffmpeg",
+  "ffprobe_binary_path": "/usr/bin/ffprobe",
+  "hardware_acceleration": "auto",
+  "max_concurrent_transcodes": 1,
+  "shadow_storage_limit_gb": 500,
+  "scheduled_encodes_enabled": true,
+  "maintenance_window": "01:00-05:00",
+  "variant_cache_path": "/transcode/variants",
+  "variant_retention_days": 30,
+  "cleanup_lru_enabled": true,
+  "default_mobile_profile": "mobile-small",
+  "quality_profiles": [
+    { "name": "mobile-small", "resolution": "540p", "codec": "h264", "audio_codec": "aac", "container": "mp4", "bitrate": "1M", "size_guidance": "400-700 MB for a typical 2-hour movie" },
+    { "name": "mobile-standard", "resolution": "720p", "codec": "h264", "audio_codec": "aac", "container": "mp4", "bitrate": "2M", "size_guidance": "Offline-friendly quality" },
+    { "name": "tv-direct-hls", "resolution": "source", "codec": "h264", "audio_codec": "aac", "container": "hls", "bitrate": "source", "size_guidance": "High-quality TV fallback" },
+    { "name": "audio-mobile", "resolution": "audio", "codec": "none", "audio_codec": "aac", "container": "m4a", "bitrate": "96k", "size_guidance": "Lower bitrate audiobook/music option" }
+  ]
+}

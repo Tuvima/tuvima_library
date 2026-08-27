@@ -14,7 +14,7 @@
     <!-- LLamaSharp CUDA 12 GPU backend: NVIDIA-optimised higher-throughput path.
          Vulkan backend intentionally excluded — it causes a fatal segfault (0xC0000005)
          on NVIDIA RTX hardware during llama_decode. CUDA is the correct backend for NVIDIA. -->
-    <PackageReference Include="LLamaSharp.Backend.Cuda12" />
+    <PackageReference Include="LLamaSharp.Backend.Cuda12" Condition="'$(TuvimaContainerBuild)' != 'true'" />
     <!-- Whisper.net: .NET native whisper.cpp binding for audio transcription.
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageReference Include="Whisper.net" />

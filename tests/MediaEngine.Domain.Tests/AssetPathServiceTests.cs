@@ -5,6 +5,19 @@ namespace MediaEngine.Domain.Tests;
 public sealed class AssetPathServiceTests
 {
     [Fact]
+    public void ExplicitDataRoot_SeparatesManagedAssetsFromTheMediaLibrary()
+    {
+        var libraryRoot = Path.Combine(Path.GetTempPath(), "tuvima-library-root");
+        var dataRoot = Path.Combine(Path.GetTempPath(), "tuvima-managed-assets");
+
+        var service = new AssetPathService(libraryRoot, dataRoot: dataRoot);
+
+        Assert.Equal(Path.GetFullPath(dataRoot), service.DataRoot);
+        Assert.StartsWith(Path.GetFullPath(dataRoot), service.ArtworkRoot, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(Path.Combine(Path.GetFullPath(libraryRoot), ".data"), service.ArtworkRoot, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void CentralArtworkPath_UsesDataAssetsTree()
     {
         var root = Path.Combine(Path.GetTempPath(), "tuvima-domain-tests");

@@ -300,15 +300,30 @@ public sealed class PlaybackCapabilitiesService
     {
         var activeJobs = await _playbackState.ListActiveEncodeJobsAsync(ct);
         var warnings = new List<string>();
+        string? ffmpegVersion = null;
         if (!_ffmpeg.IsAvailable)
         {
             warnings.Add("FFmpeg is not available. Direct file streaming can work, but HLS, transcoding, thumbnails, and offline variants cannot be generated.");
+        }
+        else
+        {
+            try
+            {
+                var versionResult = await _ffmpeg.RunAsync("-version", ct).ConfigureAwait(false);
+                ffmpegVersion = versionResult.Output
+                    .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+                    .FirstOrDefault();
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                warnings.Add($"FFmpeg was located but its version probe failed: {ex.Message}");
+            }
         }
 
         return new PlaybackDiagnosticsDto
         {
             FFmpegAvailable = _ffmpeg.IsAvailable,
-            FFmpegVersion = _ffmpeg.FfmpegPath,
+            FFmpegVersion = ffmpegVersion,
             MediaInfoAvailable = TryGetMediaInfoVersion(out var mediaInfoVersion),
             MediaInfoVersion = mediaInfoVersion,
             ActiveJobs = activeJobs,
