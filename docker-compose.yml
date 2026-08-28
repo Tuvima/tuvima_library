@@ -47,6 +47,9 @@ services:
       TUVIMA_DB_PATH: /db/library.db
       TUVIMA_MODELS_DIR: /models
       TUVIMA_BACKUP_DIR: /backups
+      # The application can now explain that the visible gateway belongs to
+      # Docker's bridge rather than attempting PCP/NAT-PMP/UPnP against it.
+      TUVIMA_CONTAINER_NETWORK_MODE: bridge
 
       # Application processes run with this NAS identity. Match the owner/group
       # of the bind-mounted folders above. 0002 keeps new files group-writable.

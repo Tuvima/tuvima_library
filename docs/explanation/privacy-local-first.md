@@ -69,7 +69,10 @@ Some providers require credentials before they can be used. The Dashboard labels
 
 Local-first does not mean network-free. Metadata enrichment can call public and commercial provider APIs. If you want a fully offline run, disable providers that make network calls and use only local file metadata.
 
-Local-first also does not mean multi-user remote access is complete. Current builds support local profiles and API keys, while broader remote-access hardening is still an outstanding product area.
+Local-first also does not mean anonymous or automatically public access. Tuvima
+starts local-network-only and requires its normal sign-in plus a verified
+Tailscale Serve or HTTPS reverse-proxy path before remote access can be enabled.
+Router mapping is an Advanced, opt-in deployment tool and is never the default.
 
 ## Related
 

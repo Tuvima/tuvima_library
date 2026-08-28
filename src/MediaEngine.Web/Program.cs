@@ -92,22 +92,13 @@ if (string.IsNullOrWhiteSpace(builder.Configuration["urls"])
     builder.WebHost.UseUrls($"http://0.0.0.0:{networkSettings.Local.Port}");
 }
 
-if (networkSettings.Remote.TrustedProxies.Count > 0)
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    builder.Services.Configure<ForwardedHeadersOptions>(options =>
-    {
-        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
-            | ForwardedHeaders.XForwardedProto
-            | ForwardedHeaders.XForwardedHost;
-        options.ForwardLimit = 1;
-        options.KnownProxies.Clear();
-        foreach (var address in networkSettings.Remote.TrustedProxies)
-        {
-            if (IPAddress.TryParse(address, out var proxy))
-                options.KnownProxies.Add(proxy);
-        }
-    });
-}
+    ForwardedHeaderConfiguration.Configure(
+        options,
+        networkSettings.Remote,
+        Environment.GetEnvironmentVariable("TUVIMA_TAILSCALE_URL"));
+});
 
 var authSettings = dashboardConfig.LoadCore().Auth;
 var ssoEnabled =
@@ -345,6 +336,11 @@ builder.Services.AddScoped<DeviceContextService>();
 // ── Build ─────────────────────────────────────────────────────────────────────
 var app = builder.Build();
 
+// Forwarded scheme/client information must be established before HSTS,
+// redirection, authentication, and URL generation. Only loopback plus the
+// explicitly configured proxy addresses/networks are trusted.
+app.UseForwardedHeaders();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -352,8 +348,17 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
-if (networkSettings.Remote.TrustedProxies.Count > 0)
-    app.UseForwardedHeaders();
+app.Use(async (context, next) =>
+{
+    if (!context.Request.IsHttps && !ForwardedHeaderConfiguration.IsLocalNetworkClient(context.Connection.RemoteIpAddress))
+    {
+        context.Response.StatusCode = StatusCodes.Status426UpgradeRequired;
+        await context.Response.WriteAsync("Remote access requires a verified HTTPS or tunnel path.");
+        return;
+    }
+
+    await next();
+});
 app.UseHttpsRedirection();
 app.UseRequestLocalization();
 app.UseAuthentication();
@@ -373,6 +378,13 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
         await context.Response.WriteAsync(report.Status.ToString().ToLowerInvariant());
     },
 }).AllowAnonymous();
+
+app.MapGet("/_tuvima/remote-probe", (HttpContext context, string? nonce) => Results.Ok(new
+{
+    product = "Tuvima Library",
+    nonce = nonce ?? string.Empty,
+    secure = context.Request.IsHttps,
+})).AllowAnonymous();
 
 // ── Culture cookie setter ─────────────────────────────────────────────────────
 // Sets the ASP.NET Core culture cookie and redirects back to the requested page.

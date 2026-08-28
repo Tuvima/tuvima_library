@@ -2,80 +2,74 @@
 @using MediaEngine.Contracts.Settings
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
 
 <div class="network-panel">
     <header class="network-panel__heading">
-        <div><h3>Remote Access</h3><p>Allow secure access to Tuvima from outside your home.</p></div>
+        <div><h3>Remote Access</h3><p>Use a verified private HTTPS path. Tuvima sign-in is always required.</p></div>
     </header>
-    <AppSwitchRow Label="Enable Remote Access"
-                  Description="Allow Tuvima to be accessed securely outside your home."
-                  Value="@Settings.Remote.Enabled" ValueChanged="ChangeEnabledAsync" />
 
-    <SettingsSectionPanel Title="Connection Mode" Icon="@Icons.Material.Outlined.Public"
-                          Description="Choose how Tuvima connects to the internet.">
+    <SettingsSectionPanel Title="Access" Icon="@Icons.Material.Outlined.Public"
+                          Description="Local access works without router, DNS, or certificate setup.">
         <div class="network-mode-list" role="radiogroup" aria-label="Remote connection mode">
-            @Mode("automatic", "Automatic — Recommended", "Try direct router configuration first and use an installed secure provider when needed.", false)
-            @Mode("direct-only", "Direct Only", "Use a router mapping or a manually forwarded port. Remote access is unavailable when direct connectivity fails.", false)
-            @Mode("secure-provider", "Secure Connectivity Provider", "Use an installed secure tunnel or relay provider.", true)
-            @Mode("custom", "Custom", "Use your own HTTPS hostname or reverse proxy.", false)
+            @Mode("local-only", "Local network only — Default", "No public router mapping or remote tunnel is attempted.")
+            @Mode("tailscale", "Tailscale", "Private HTTPS access through an independently installed Tailscale client and Tailscale Serve.")
+            @Mode("custom", "HTTPS reverse proxy", "Use a trusted HTTPS hostname served by Caddy, nginx, Traefik, or another reverse proxy.")
         </div>
     </SettingsSectionPanel>
 
-    @if (Settings.Remote.ConnectionMode == "custom")
+    @if (Settings.Remote.ConnectionMode == "tailscale")
     {
-        <SettingsSectionPanel Title="Custom HTTPS Address" Icon="@Icons.Material.Outlined.Language">
-            <AppTextField T="string" @bind-Value="Settings.Remote.PublicHostname"
-                          Label="Public HTTPS address" Placeholder="https://tuvima.example.com" />
-            <div class="network-card-actions"><AppButton Label="Save address" OnClick="SaveRequested" /></div>
+        <SettingsSectionPanel Title="Tailscale Serve" Icon="@Icons.Material.Outlined.VpnLock">
+            <dl class="network-facts">
+                @Fact("Status", Display(Status?.TailscaleState))
+                @Fact("Private HTTPS address", Status?.TailnetAddress ?? "Not detected")
+                @Fact("Serve HTTPS", Status?.TailscaleServeHttps == true ? "Active" : "Not verified")
+                @Fact("Router mapping", "Not used")
+            </dl>
+            <AppAlert Tone="AppUiTone.Info">Tailscale is a supported deployment preset, not an embedded VPN. Install it on the host or use the official sidecar preset.</AppAlert>
         </SettingsSectionPanel>
     }
 
-    <SettingsSectionPanel Title="Automatic Router Configuration" Icon="@Icons.Material.Outlined.Router">
-        <dl class="network-facts">
-            @Fact("Status", Display(Status?.MappingStatus))
-            @Fact("Method", Status?.RouterMethod ?? "Not detected")
-            @Fact("Internal address", Status?.PreferredLocalAddress ?? "Unavailable")
-            @Fact("External port", (Settings.Remote.ExternalPort ?? Settings.Local.Port).ToString())
-            @Fact("Last checked", Status?.MappingCheckedAt?.ToLocalTime().ToString("g") ?? "Not checked")
-            @Fact("Lease renewal", Status?.MappingExpiresAt?.ToLocalTime().ToString("g") ?? "Not reported")
-        </dl>
-        <AppSwitchRow Label="Manage the router mapping automatically"
-                      Description="Tuvima tries PCP, NAT-PMP, then UPnP and renews only the mapping it owns."
-                      Value="@Settings.Remote.AutomaticRouterConfiguration"
-                      ValueChanged="ChangeRouterAutomationAsync" />
-        <div class="network-card-actions">
-            @if (Settings.Remote.Enabled && Status?.MappingStatus != "active")
-            {
-                <AppButton Label="Set Up Manually" StartIcon="@Icons.Material.Outlined.Tune" OnClick="OpenManual" />
-            }
-            @if (Settings.Remote.Enabled && Settings.Remote.AutomaticRouterConfiguration)
-            {
-                <AppButton Label="Renew Now" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="RenewAsync" />
-            }
-            <AppButton Label="Test Remote Access" StartIcon="@Icons.Material.Outlined.Science" OnClick="TestRemoteAsync" />
-            <AppButton Label="Refresh Status" OnClick="StatusRefreshRequested" />
-        </div>
-    </SettingsSectionPanel>
+    @if (Settings.Remote.ConnectionMode == "custom")
+    {
+        <SettingsSectionPanel Title="HTTPS Reverse Proxy" Icon="@Icons.Material.Outlined.Language"
+                              Description="The address must have a trusted certificate and route to this Dashboard.">
+            <AppTextField T="string" @bind-Value="Settings.Remote.PublicHostname"
+                          Label="Public HTTPS address" Placeholder="https://tuvima.example.com" />
+            <div class="network-card-actions"><AppButton Label="Save and verify" OnClick="SaveAddressAsync" /></div>
+        </SettingsSectionPanel>
+    }
 
-    <SettingsSectionPanel Title="Remote Access Address" Icon="@Icons.Material.Outlined.Link">
-        <dl class="network-facts network-facts--compact">
-            @Fact("Address", Status?.ExternalAddress ?? Settings.Remote.PublicHostname ?? "Not available")
-            @Fact("Public IP", Status?.PublicIp ?? "Not observed")
-        </dl>
-        @if (Status?.CgnatSuspected == true)
-        {
-            <AppAlert Tone="AppUiTone.Warning">Carrier-grade NAT may prevent a direct connection. A secure connectivity provider or your own reverse proxy may be required.</AppAlert>
-        }
-    </SettingsSectionPanel>
+    @if (Settings.Remote.ConnectionMode != "local-only")
+    {
+        <SettingsSectionPanel Title="Security Check" Icon="@Icons.Material.Outlined.VerifiedUser"
+                              Description="Remote access stays off until every required check passes.">
+            @if (_readiness is null)
+            {
+                <AppSkeleton Size="AppControlSize.Compact" />
+            }
+            else
+            {
+                <dl class="network-facts network-facts--compact">
+                    @foreach (var check in _readiness.Checks)
+                    {
+                        @Fact(check.Label, $"{(check.Status == "passed" ? "Ready" : "Blocked")} — {check.Detail}")
+                    }
+                </dl>
+            }
+            <AppSwitchRow Label="Enable Remote Access"
+                          Description="Requires Tuvima authentication and the verified secure path above."
+                          Value="@Settings.Remote.Enabled" ValueChanged="ChangeEnabledAsync" />
+            <div class="network-card-actions">
+                <AppButton Label="Check again" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="RefreshReadinessAsync" />
+                <AppButton Label="Test remote access" StartIcon="@Icons.Material.Outlined.Science" OnClick="TestRemoteAsync" />
+            </div>
+        </SettingsSectionPanel>
+    }
 </div>
 
 <NetworkTestDialog @bind-Visible="_testDialogOpen" Busy="@_testing" Result="@_testResult" />
-<ManualPortForwardingDialog @bind-Visible="_manualDialogOpen"
-                            InternalPort="@Settings.Local.Port"
-                            ExternalPort="@(Settings.Remote.ExternalPort ?? Settings.Local.Port)"
-                            InternalAddress="@InternalAddress"
-                            CgnatSuspected="@(Status?.CgnatSuspected == true)"
-                            TestAgain="TestRemoteAsync" />
 
 @code {
     [Parameter, EditorRequired] public NetworkSettingsDto Settings { get; set; } = new();
@@ -85,35 +79,61 @@
 
     private bool _testDialogOpen;
     private bool _testing;
-    private bool _manualDialogOpen;
     private NetworkTestResultDto? _testResult;
-    private string InternalAddress => Status?.LocalAddresses.FirstOrDefault(address => address.AddressFamily == "ipv4")?.Address
-        ?? Status?.LocalAddresses.FirstOrDefault()?.Address
-        ?? "Unavailable";
+    private RemoteAccessReadinessDto? _readiness;
 
-    private RenderFragment Mode(string value, string title, string description, bool unavailable) => @<label class="network-mode-option @(unavailable ? "is-disabled" : null)">
+    protected override async Task OnInitializedAsync()
+    {
+        if (Settings.Remote.ConnectionMode != "local-only")
+            await RefreshReadinessAsync();
+    }
+
+    private RenderFragment Mode(string value, string title, string description) => @<label class="network-mode-option">
         <AppNativeInput Type="radio" Name="network-mode" Value="@value"
                         Checked="@(Settings.Remote.ConnectionMode == value)"
-                        Disabled="@unavailable" OnChange="@(_ => ChangeModeAsync(value))" />
-        <span><strong>@title</strong><small>@description</small>@if (unavailable) { <em>No provider installed</em> }</span>
+                        OnChange="@(_ => ChangeModeAsync(value))" />
+        <span><strong>@title</strong><small>@description</small></span>
     </label>;
 
     private async Task ChangeEnabledAsync(bool value)
     {
+        if (value)
+        {
+            await RefreshReadinessAsync();
+            if (_readiness?.Ready != true)
+            {
+                Snackbar.Add("Remote access remains off until every security check passes.", Severity.Warning);
+                return;
+            }
+        }
+
         Settings.Remote.Enabled = value;
         await SaveRequested.InvokeAsync();
+        await StatusRefreshRequested.InvokeAsync();
     }
 
     private async Task ChangeModeAsync(string value)
     {
+        Settings.Remote.Enabled = false;
         Settings.Remote.ConnectionMode = value;
+        if (value != "direct-only")
+            Settings.Remote.AutomaticRouterConfiguration = false;
         await SaveRequested.InvokeAsync();
+        _readiness = value == "local-only" ? null : await ApiClient.GetRemoteAccessReadinessAsync();
+        await StatusRefreshRequested.InvokeAsync();
     }
 
-    private async Task ChangeRouterAutomationAsync(bool value)
+    private async Task SaveAddressAsync()
     {
-        Settings.Remote.AutomaticRouterConfiguration = value;
+        Settings.Remote.Enabled = false;
         await SaveRequested.InvokeAsync();
+        await RefreshReadinessAsync();
+    }
+
+    private async Task RefreshReadinessAsync()
+    {
+        _readiness = await ApiClient.GetRemoteAccessReadinessAsync();
+        await StatusRefreshRequested.InvokeAsync();
     }
 
     private async Task TestRemoteAsync()
@@ -122,15 +142,7 @@
         _testing = true;
         _testResult = await ApiClient.TestRemoteNetworkAsync();
         _testing = false;
-        await StatusRefreshRequested.InvokeAsync();
-    }
-
-    private void OpenManual() => _manualDialogOpen = true;
-
-    private async Task RenewAsync()
-    {
-        await ApiClient.RenewNetworkRouterMappingAsync();
-        await StatusRefreshRequested.InvokeAsync();
+        await RefreshReadinessAsync();
     }
 
     private static string Display(string? value) => string.IsNullOrWhiteSpace(value)

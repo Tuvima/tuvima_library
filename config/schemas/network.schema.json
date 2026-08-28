@@ -5,7 +5,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "setup_completed", "local", "remote", "streaming"],
   "properties": {
-    "schema_version": { "const": "1.0" },
+    "schema_version": { "const": "2.0" },
     "setup_completed": { "type": "boolean" },
     "local": {
       "type": "object",
@@ -23,15 +23,16 @@
     "remote": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["enabled", "connection_mode", "automatic_router_configuration", "trusted_proxies"],
+      "required": ["enabled", "connection_mode", "automatic_router_configuration", "trusted_proxies", "trusted_proxy_networks"],
       "properties": {
         "enabled": { "type": "boolean" },
-        "connection_mode": { "enum": ["automatic", "direct-only", "secure-provider", "custom"] },
+        "connection_mode": { "enum": ["local-only", "tailscale", "direct-only", "custom"] },
         "automatic_router_configuration": { "type": "boolean" },
         "external_port": { "type": ["integer", "null"], "minimum": 1, "maximum": 65535 },
-        "provider_key": { "type": ["string", "null"] },
+        "tls_termination_port": { "type": ["integer", "null"], "minimum": 1, "maximum": 65535 },
         "public_hostname": { "type": ["string", "null"] },
-        "trusted_proxies": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+        "trusted_proxies": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "trusted_proxy_networks": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
       }
     },
     "streaming": {

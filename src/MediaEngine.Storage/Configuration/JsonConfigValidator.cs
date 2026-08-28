@@ -68,9 +68,9 @@ public static class JsonConfigValidator
 
     private static void ValidateNetwork(NetworkSettings settings, List<string> errors)
     {
-        if (!string.Equals(settings.SchemaVersion, "1.0", StringComparison.Ordinal))
+        if (!string.Equals(settings.SchemaVersion, "2.0", StringComparison.Ordinal))
         {
-            errors.Add("schema_version must be 1.0; pre-beta network configuration is not migrated in place.");
+            errors.Add("schema_version must be 2.0; pre-beta network configuration is not migrated in place.");
         }
 
         if (settings.Local.Port is < 1 or > 65535)
@@ -89,25 +89,37 @@ public static class JsonConfigValidator
             errors.Add("local.preferred_server_name must be a 1-63 character DNS label containing only letters, numbers, and hyphens.");
 
         if (!Allowed(settings.Remote.ConnectionMode,
-                NetworkConnectionModes.Automatic,
+                NetworkConnectionModes.LocalOnly,
+                NetworkConnectionModes.Tailscale,
                 NetworkConnectionModes.DirectOnly,
-                NetworkConnectionModes.SecureProvider,
                 NetworkConnectionModes.Custom))
             errors.Add("remote.connection_mode is unsupported.");
+        if (settings.Remote.Enabled && settings.Remote.ConnectionMode == NetworkConnectionModes.LocalOnly)
+            errors.Add("remote.connection_mode must select tailscale, custom, or direct-only when remote access is enabled.");
         if (settings.Remote.ExternalPort is < 1 or > 65535)
             errors.Add("remote.external_port must be between 1 and 65535 when provided.");
-        if (settings.Remote.ConnectionMode == NetworkConnectionModes.SecureProvider
-            && string.IsNullOrWhiteSpace(settings.Remote.ProviderKey))
-            errors.Add("remote.provider_key is required for secure-provider mode.");
-        if (settings.Remote.ConnectionMode == NetworkConnectionModes.Custom
+        if (settings.Remote.TlsTerminationPort is < 1 or > 65535)
+            errors.Add("remote.tls_termination_port must be between 1 and 65535 when provided.");
+        if (settings.Remote.ConnectionMode is NetworkConnectionModes.Custom or NetworkConnectionModes.DirectOnly
             && (!Uri.TryCreate(settings.Remote.PublicHostname, UriKind.Absolute, out var publicUri)
                 || publicUri.Scheme != Uri.UriSchemeHttps))
-            errors.Add("remote.public_hostname must be an absolute HTTPS URL for custom mode.");
+            errors.Add("remote.public_hostname must be an absolute HTTPS URL for custom and direct-only modes.");
+        if (settings.Remote.AutomaticRouterConfiguration
+            && settings.Remote.ConnectionMode != NetworkConnectionModes.DirectOnly)
+            errors.Add("remote.automatic_router_configuration is available only in direct-only mode.");
+        if (settings.Remote.AutomaticRouterConfiguration && settings.Remote.TlsTerminationPort is null)
+            errors.Add("remote.tls_termination_port is required for automatic router configuration so the Dashboard is never mapped directly.");
 
         foreach (var proxy in settings.Remote.TrustedProxies)
         {
             if (!System.Net.IPAddress.TryParse(proxy, out _))
                 errors.Add($"remote.trusted_proxies contains an invalid IP address: '{proxy}'.");
+        }
+
+        foreach (var network in settings.Remote.TrustedProxyNetworks)
+        {
+            if (!System.Net.IPNetwork.TryParse(network, out _))
+                errors.Add($"remote.trusted_proxy_networks contains an invalid CIDR network: '{network}'.");
         }
 
         if (!Allowed(settings.Streaming.RemoteQuality,

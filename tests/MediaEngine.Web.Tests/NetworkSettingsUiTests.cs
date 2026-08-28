@@ -1,4 +1,9 @@
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Domain.Configuration;
+using MediaEngine.Web.Services.Configuration;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 
 namespace MediaEngine.Web.Tests;
 
@@ -43,13 +48,20 @@ public sealed class NetworkSettingsUiTests
     }
 
     [Fact]
-    public void RemoteAccessDoesNotPretendAnUnavailableProviderExists()
+    public void RemoteAccessOffersOnlySupportedSecurePathsAndKeepsRouterToolsAdvanced()
     {
-        var source = Read(@"src\MediaEngine.Web\Components\Settings\RemoteAccessSettingsPanel.razor");
+        var remote = Read(@"src\MediaEngine.Web\Components\Settings\RemoteAccessSettingsPanel.razor");
+        var advanced = Read(@"src\MediaEngine.Web\Components\Settings\AdvancedNetworkSettingsPanel.razor");
 
-        Assert.Contains("No provider installed", source, StringComparison.Ordinal);
-        Assert.Contains("secure tunnel or relay provider.\", true)", source, StringComparison.Ordinal);
-        Assert.Contains("TestRemoteNetworkAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Local network only — Default", remote, StringComparison.Ordinal);
+        Assert.Contains("Tailscale Serve", remote, StringComparison.Ordinal);
+        Assert.Contains("HTTPS reverse proxy", remote, StringComparison.Ordinal);
+        Assert.Contains("GetRemoteAccessReadinessAsync", remote, StringComparison.Ordinal);
+        Assert.DoesNotContain("secure-provider", remote, StringComparison.Ordinal);
+        Assert.DoesNotContain("Automatic Router Configuration", remote, StringComparison.Ordinal);
+        Assert.Contains("Port Forwarding &amp; Router Mapping", advanced, StringComparison.Ordinal);
+        Assert.Contains("PCP, NAT-PMP, and UPnP", advanced, StringComparison.Ordinal);
+        Assert.Contains("ManualPortForwardingDialog", advanced, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -78,10 +90,42 @@ public sealed class NetworkSettingsUiTests
     {
         var source = Read(@"src\MediaEngine.Web\Program.cs");
 
-        Assert.Contains("networkSettings.Remote.TrustedProxies.Count > 0", source, StringComparison.Ordinal);
-        Assert.Contains("options.KnownProxies.Add(proxy)", source, StringComparison.Ordinal);
-        Assert.Contains("options.ForwardLimit = 1", source, StringComparison.Ordinal);
+        Assert.Contains("ForwardedHeaderConfiguration.Configure", source, StringComparison.Ordinal);
         Assert.Contains("app.UseForwardedHeaders()", source, StringComparison.Ordinal);
+        Assert.True(
+            source.IndexOf("app.UseForwardedHeaders()", StringComparison.Ordinal)
+            < source.IndexOf("app.UseHsts()", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ForwardedHeaderConfigurationSupportsExactDockerCidrAndAllowedHosts()
+    {
+        var options = new ForwardedHeadersOptions();
+        ForwardedHeaderConfiguration.Configure(options, new RemoteNetworkSettings
+        {
+            PublicHostname = "https://library.example.test",
+            TrustedProxies = ["172.20.0.2"],
+            TrustedProxyNetworks = ["172.21.0.0/24"],
+        }, "https://tuvima.example.ts.net");
+
+        Assert.Equal(1, options.ForwardLimit);
+        Assert.Contains(IPAddress.Parse("172.20.0.2"), options.KnownProxies);
+        Assert.Contains(IPAddress.Parse("172.20.0.2").MapToIPv6(), options.KnownProxies);
+        Assert.Contains(System.Net.IPNetwork.Parse("172.21.0.0/24"), options.KnownIPNetworks);
+        Assert.Contains(System.Net.IPNetwork.Parse("::ffff:172.21.0.0/120"), options.KnownIPNetworks);
+        Assert.Contains("library.example.test", options.AllowedHosts);
+        Assert.Contains("tuvima.example.ts.net", options.AllowedHosts);
+    }
+
+    [Theory]
+    [InlineData("127.0.0.1", true)]
+    [InlineData("192.168.1.20", true)]
+    [InlineData("172.18.0.3", true)]
+    [InlineData("100.100.10.20", false)]
+    [InlineData("203.0.113.10", false)]
+    public void RemoteHttpsBoundaryDoesNotTreatTailnetOrPublicAddressesAsLocal(string value, bool expected)
+    {
+        Assert.Equal(expected, ForwardedHeaderConfiguration.IsLocalNetworkClient(IPAddress.Parse(value)));
     }
 
     private static string Read(string relativePath) => File.ReadAllText(

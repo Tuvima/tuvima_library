@@ -8,11 +8,16 @@ public sealed class NatPmpRouterPortMapper : IRouterPortMapper
 {
     private const int NatPmpPort = 5351;
     private readonly IGatewayDiscoveryService _gateways;
+    private readonly IUdpGatewayTransport _transport;
     private readonly ILogger<NatPmpRouterPortMapper> _logger;
 
-    public NatPmpRouterPortMapper(IGatewayDiscoveryService gateways, ILogger<NatPmpRouterPortMapper> logger)
+    public NatPmpRouterPortMapper(
+        IGatewayDiscoveryService gateways,
+        IUdpGatewayTransport transport,
+        ILogger<NatPmpRouterPortMapper> logger)
     {
         _gateways = gateways;
+        _transport = transport;
         _logger = logger;
     }
 
@@ -43,18 +48,18 @@ public sealed class NatPmpRouterPortMapper : IRouterPortMapper
                 BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(4, 2), checked((ushort)request.InternalPort));
                 BinaryPrimitives.WriteUInt16BigEndian(payload.AsSpan(6, 2), checked((ushort)request.ExternalPort));
                 BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(8, 4), lifetimeSeconds);
-                var response = await ExchangeAsync(gateway.GatewayAddress, payload, ct);
+                var response = await _transport.ExchangeAsync(gateway.GatewayAddress, NatPmpPort, payload, TimeSpan.FromSeconds(2), ct);
                 if (response.Length < 16 || response[0] != 0 || response[1] != 130)
                     continue;
 
                 var resultCode = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(2, 2));
                 if (resultCode != 0)
-                    return new RouterMappingResult(NetworkCapabilityState.Failed, Method, TranslateResult(resultCode));
+                    return new RouterMappingResult(RouterMappingState.RouterRefused, Method, TranslateResult(resultCode), ReasonCode: $"nat-pmp-result-{resultCode}");
 
                 var externalPort = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(10, 2));
                 var lease = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(12, 4));
                 return new RouterMappingResult(
-                    lifetimeSeconds == 0 ? NetworkCapabilityState.Available : NetworkCapabilityState.Active,
+                    lifetimeSeconds == 0 ? RouterMappingState.NotAttempted : RouterMappingState.Active,
                     Method,
                     lifetimeSeconds == 0 ? "The Tuvima NAT-PMP mapping was removed." : "Your router was configured automatically.",
                     externalPort,
@@ -69,25 +74,15 @@ public sealed class NatPmpRouterPortMapper : IRouterPortMapper
             }
         }
 
-        return new RouterMappingResult(NetworkCapabilityState.Unavailable, Method, "NAT-PMP was not available on this router.");
+        return new RouterMappingResult(RouterMappingState.ProtocolUnavailable, Method, "NAT-PMP was not available on this router.", ReasonCode: "no-response");
     }
 
-    private static async Task<string?> GetPublicAddressAsync(IPAddress gateway, CancellationToken ct)
+    private async Task<string?> GetPublicAddressAsync(IPAddress gateway, CancellationToken ct)
     {
-        var response = await ExchangeAsync(gateway, [0, 0], ct);
+        var response = await _transport.ExchangeAsync(gateway, NatPmpPort, new byte[] { 0, 0 }, TimeSpan.FromSeconds(2), ct);
         return response.Length >= 12 && response[0] == 0 && response[1] == 128
             ? new IPAddress(response.AsSpan(8, 4)).ToString()
             : null;
-    }
-
-    private static async Task<byte[]> ExchangeAsync(IPAddress gateway, byte[] payload, CancellationToken ct)
-    {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(TimeSpan.FromSeconds(2));
-        using var client = new UdpClient(AddressFamily.InterNetwork);
-        await client.SendAsync(payload, new IPEndPoint(gateway, NatPmpPort), timeout.Token);
-        var result = await client.ReceiveAsync(timeout.Token);
-        return result.Buffer;
     }
 
     private static string TranslateResult(ushort code) => code switch

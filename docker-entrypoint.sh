@@ -78,7 +78,7 @@ export TUVIMA_ENGINE_URL="${TUVIMA_ENGINE_URL:-http://127.0.0.1:61495}"
 export TUVIMA_CORS_ORIGINS="${TUVIMA_CORS_ORIGINS:-http://localhost:5016}"
 
 echo "[Tuvima] Starting as UID=$(id -u) GID=$(id -g) UMASK=$TUVIMA_UMASK_VALUE"
-echo "[Tuvima] Dashboard=http://0.0.0.0:5016 Engine=http://0.0.0.0:61495 (internal)"
+echo "[Tuvima] Dashboard=http://0.0.0.0:5016 Engine=http://127.0.0.1:61495 (loopback only)"
 
 ENGINE_PID=""
 DASHBOARD_PID=""
@@ -91,7 +91,7 @@ shutdown() {
 }
 trap shutdown TERM INT
 
-ASPNETCORE_URLS="http://+:61495" \
+ASPNETCORE_URLS="http://127.0.0.1:61495" \
 ASPNETCORE_ENVIRONMENT="Production" \
 dotnet /app/engine/MediaEngine.Api.dll &
 ENGINE_PID=$!

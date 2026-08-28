@@ -37,6 +37,7 @@ public sealed class DatabaseBackupServiceTests : IDisposable
         Directory.CreateDirectory(Path.Combine(config, "secrets"));
         File.WriteAllText(Path.Combine(config, "core.json"), "{\"server_name\":\"Before\"}");
         File.WriteAllText(Path.Combine(config, "secrets", "tmdb.json"), "{\"api_key\":\"secret\"}");
+        File.WriteAllText(Path.Combine(config, "secrets", "tailscale-auth-key"), "tskey-auth-not-for-backups");
 
         using var database = CreateDatabase(dbPath);
         using (var connection = database.CreateConnection())
@@ -53,6 +54,7 @@ public sealed class DatabaseBackupServiceTests : IDisposable
         Assert.NotNull(archive.GetEntry("config/core.json"));
         Assert.NotNull(archive.GetEntry("manifest.json"));
         Assert.DoesNotContain(archive.Entries, entry => entry.FullName.StartsWith("config/secrets/", StringComparison.Ordinal));
+        Assert.DoesNotContain(archive.Entries, entry => entry.FullName.Contains("tailscale", StringComparison.OrdinalIgnoreCase));
     }
 
     [Fact]

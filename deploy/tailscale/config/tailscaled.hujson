@@ -1,0 +1,4 @@
+{
+  "version": "alpha0",
+  "authKey": "file:/run/secrets/tailscale_auth_key"
+}

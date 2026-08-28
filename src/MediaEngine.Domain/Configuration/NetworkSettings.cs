@@ -10,7 +10,7 @@ namespace MediaEngine.Domain.Configuration;
 public sealed class NetworkSettings
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; set; } = "1.0";
+    public string SchemaVersion { get; set; } = "2.0";
 
     [JsonPropertyName("setup_completed")]
     public bool SetupCompleted { get; set; }
@@ -52,22 +52,25 @@ public sealed class RemoteNetworkSettings
     public bool Enabled { get; set; }
 
     [JsonPropertyName("connection_mode")]
-    public string ConnectionMode { get; set; } = NetworkConnectionModes.Automatic;
+    public string ConnectionMode { get; set; } = NetworkConnectionModes.LocalOnly;
 
     [JsonPropertyName("automatic_router_configuration")]
-    public bool AutomaticRouterConfiguration { get; set; } = true;
+    public bool AutomaticRouterConfiguration { get; set; }
 
     [JsonPropertyName("external_port")]
     public int? ExternalPort { get; set; }
 
-    [JsonPropertyName("provider_key")]
-    public string? ProviderKey { get; set; }
+    [JsonPropertyName("tls_termination_port")]
+    public int? TlsTerminationPort { get; set; }
 
     [JsonPropertyName("public_hostname")]
     public string? PublicHostname { get; set; }
 
     [JsonPropertyName("trusted_proxies")]
     public List<string> TrustedProxies { get; set; } = [];
+
+    [JsonPropertyName("trusted_proxy_networks")]
+    public List<string> TrustedProxyNetworks { get; set; } = [];
 }
 
 public sealed class NetworkStreamingSettings
@@ -93,9 +96,9 @@ public static class NetworkBindModes
 
 public static class NetworkConnectionModes
 {
-    public const string Automatic = "automatic";
+    public const string LocalOnly = "local-only";
+    public const string Tailscale = "tailscale";
     public const string DirectOnly = "direct-only";
-    public const string SecureProvider = "secure-provider";
     public const string Custom = "custom";
 }
 

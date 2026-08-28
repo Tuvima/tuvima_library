@@ -6,11 +6,10 @@
 
 <div class="network-panel network-advanced">
     <details class="network-advanced-card">
-        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.SettingsEthernet" /></span><span><strong>Ports &amp; Binding</strong><small>Configure ports, binding address, and protocol settings.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
+        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.SettingsEthernet" /></span><span><strong>Ports &amp; Binding</strong><small>Inspect the local Dashboard listener and address binding.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
         <div class="network-advanced-card__body">
             <dl class="network-facts">
-                @Fact("Internal port", Settings.Local.Port.ToString())
-                @Fact("External port", (Settings.Remote.ExternalPort ?? Settings.Local.Port).ToString())
+                @Fact("Dashboard HTTP port", Settings.Local.Port.ToString())
                 @Fact("Binding", Settings.Local.BindMode == "automatic" ? "Automatic — All Interfaces" : Settings.Local.InterfaceId ?? "Selected interface unavailable")
                 @Fact("IPv4", "Automatic")
                 @Fact("IPv6", Settings.Local.Ipv6Enabled ? "Enabled when available" : "Disabled")
@@ -19,36 +18,51 @@
     </details>
 
     <details class="network-advanced-card">
-        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Router" /></span><span><strong>Router Configuration</strong><small>View and manage automatic port mappings.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
-        <div class="network-advanced-card__body">
+        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Router" /></span><span><strong>Port Forwarding &amp; Router Mapping</strong><small>Advanced direct access through your own local TLS reverse proxy.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
+        <div class="network-advanced-card__body network-advanced-fields">
+            <AppAlert Tone="AppUiTone.Warning">PCP, NAT-PMP, and UPnP are never enabled by default. Tuvima maps only the HTTPS reverse-proxy port below and never maps its Dashboard HTTP listener directly.</AppAlert>
             <dl class="network-facts">
-                @Fact("Automatic setup", Settings.Remote.AutomaticRouterConfiguration ? "Enabled" : "Disabled")
-                @Fact("Current mapping", Display(Status?.MappingStatus))
+                @Fact("Topology", Display(Status?.Topology))
+                @Fact("Observed gateway", Status?.RouterGateway ?? "Not detected")
+                @Fact("Mapping state", Display(Status?.MappingStatus))
                 @Fact("Selected method", Status?.RouterMethod ?? "None")
+                @Fact("Lease expires", Status?.MappingExpiresAt?.ToLocalTime().ToString("g") ?? "Not active")
                 @Fact("Public address", Status?.PublicIp ?? "Not observed")
             </dl>
-            <AppSwitchRow Label="Automatic Router Configuration" Value="@Settings.Remote.AutomaticRouterConfiguration" ValueChanged="ChangeRouterAutomationAsync" />
-        </div>
-    </details>
+            <p class="network-supporting-copy">@(Status?.TopologyDetail ?? "Topology has not been inspected.")</p>
+            <p class="network-supporting-copy">@(Status?.MappingDetail ?? "Router mapping has not been attempted.")</p>
 
-    <details class="network-advanced-card">
-        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Security" /></span><span><strong>Secure Connectivity</strong><small>Manage secure tunnel or relay providers.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
-        <div class="network-advanced-card__body">
-            <AppAlert Tone="AppUiTone.Info">No secure connectivity provider is installed. Provider credentials will use Tuvima's protected secret store when an adapter is added.</AppAlert>
-        </div>
-    </details>
-
-    <details class="network-advanced-card">
-        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Language" /></span><span><strong>Custom Domain &amp; Reverse Proxy</strong><small>Use your own domain and reverse proxy.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
-        <div class="network-advanced-card__body network-advanced-fields">
             <AppTextField T="string" @bind-Value="Settings.Remote.PublicHostname" Label="Public HTTPS address" Placeholder="https://tuvima.example.com" />
-            <AppTextField T="string" @bind-Value="_trustedProxyText" Label="Trusted proxy addresses" HelpText="Comma-separated IP addresses. Forwarded headers are ignored from every other source." />
-            <AppButton Label="Save proxy settings" OnClick="SaveProxySettingsAsync" />
+            <AppTextField T="string" @bind-Value="_tlsPortText" Label="Local TLS reverse-proxy port" HelpText="The local Caddy/nginx/Traefik HTTPS listener. Never use the Dashboard HTTP port." />
+            <AppTextField T="string" @bind-Value="_externalPortText" Label="External HTTPS port" HelpText="Normally 443." />
+            <AppSwitchRow Label="Manage router mapping automatically"
+                          Description="Try PCP, NAT-PMP, then UPnP for the explicitly configured TLS listener."
+                          Value="@Settings.Remote.AutomaticRouterConfiguration"
+                          ValueChanged="ChangeRouterAutomationAsync" />
+            <AppSwitchRow Label="Enable direct remote access"
+                          Description="Available only after authentication, topology, the TLS listener, and the public HTTPS route are verified."
+                          Value="@DirectRemoteEnabled"
+                          ValueChanged="ChangeDirectEnabledAsync" />
+            <div class="network-card-actions">
+                <AppButton Label="Save direct settings" OnClick="SaveRouterSettingsAsync" />
+                <AppButton Label="Set up manually" StartIcon="@Icons.Material.Outlined.Tune" OnClick="OpenManual" />
+                <AppButton Label="Renew now" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="RenewAsync" />
+            </div>
         </div>
     </details>
 
     <details class="network-advanced-card">
-        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Science" /></span><span><strong>Diagnostics</strong><small>Advanced network diagnostics and troubleshooting tools.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
+        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Language" /></span><span><strong>Reverse Proxy Trust</strong><small>Accept forwarded client and HTTPS information only from known proxy peers.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
+        <div class="network-advanced-card__body network-advanced-fields">
+            <AppTextField T="string" @bind-Value="_trustedProxyText" Label="Trusted proxy addresses" HelpText="Comma-separated exact IP addresses." />
+            <AppTextField T="string" @bind-Value="_trustedProxyNetworkText" Label="Trusted proxy networks" HelpText="Comma-separated CIDR ranges for isolated Docker proxy networks, for example 172.21.0.0/24." />
+            <AppAlert Tone="AppUiTone.Info">Forwarded headers from every other peer are ignored. A Dashboard restart applies proxy trust changes.</AppAlert>
+            <AppButton Label="Save proxy trust" OnClick="SaveProxySettingsAsync" />
+        </div>
+    </details>
+
+    <details class="network-advanced-card">
+        <summary><span class="network-advanced-card__icon"><MudIcon Icon="@Icons.Material.Outlined.Science" /></span><span><strong>Diagnostics</strong><small>Observed network facts without assuming public reachability.</small></span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></summary>
         <div class="network-advanced-card__body">
             <dl class="network-facts">
                 @Fact("IPv6 available", Status?.Ipv6Available == true ? "Yes" : "No")
@@ -60,8 +74,8 @@
     </details>
 
     <AppAlert Tone="AppUiTone.Warning" Icon="@Icons.Material.Outlined.WarningAmber" Class="network-advanced-warning">
-        <strong>Advanced settings are intended for experienced users.</strong>
-        <span>Changing these settings may affect your server's availability.</span>
+        <strong>Advanced settings are intended for experienced administrators.</strong>
+        <span>Tailscale or a documented reverse proxy is the supported default for remote access.</span>
     </AppAlert>
 
     <div class="network-danger-row">
@@ -69,6 +83,13 @@
         <AppButton Label="Reset Network Settings" Tone="AppUiTone.Error" OnClick="OpenReset" />
     </div>
 </div>
+
+<ManualPortForwardingDialog @bind-Visible="_manualDialogOpen"
+                            InternalPort="@(Settings.Remote.TlsTerminationPort ?? 443)"
+                            ExternalPort="@(Settings.Remote.ExternalPort ?? 443)"
+                            InternalAddress="@InternalAddress"
+                            CgnatSuspected="@(Status?.CgnatSuspected == true)"
+                            TestAgain="TestRemoteAsync" />
 
 <AppDialog @bind-Visible="_resetDialogOpen"
            Title="Reset network settings?"
@@ -87,30 +108,91 @@
     [Parameter] public NetworkRuntimeStatusDto? Status { get; set; }
     [Parameter] public EventCallback SaveRequested { get; set; }
     [Parameter] public EventCallback<NetworkSettingsDto> SettingsReplaced { get; set; }
+    [Parameter] public EventCallback StatusRefreshRequested { get; set; }
 
     private bool _resetDialogOpen;
+    private bool _manualDialogOpen;
     private string? _trustedProxyText;
+    private string? _trustedProxyNetworkText;
+    private string? _tlsPortText;
+    private string? _externalPortText;
+
+    private bool DirectRemoteEnabled => Settings.Remote.Enabled && Settings.Remote.ConnectionMode == "direct-only";
+    private string InternalAddress => Status?.LocalAddresses.FirstOrDefault(address => address.AddressFamily == "ipv4")?.Address
+        ?? Status?.LocalAddresses.FirstOrDefault()?.Address
+        ?? "Unavailable";
 
     protected override void OnParametersSet()
     {
         _trustedProxyText ??= string.Join(", ", Settings.Remote.TrustedProxies);
+        _trustedProxyNetworkText ??= string.Join(", ", Settings.Remote.TrustedProxyNetworks);
+        _tlsPortText ??= (Settings.Remote.TlsTerminationPort ?? 443).ToString();
+        _externalPortText ??= (Settings.Remote.ExternalPort ?? 443).ToString();
     }
 
     private async Task ChangeRouterAutomationAsync(bool value)
     {
+        Settings.Remote.Enabled = false;
+        Settings.Remote.ConnectionMode = "direct-only";
         Settings.Remote.AutomaticRouterConfiguration = value;
+        if (value && !ApplyPortText())
+            return;
+        await SaveRequested.InvokeAsync();
+    }
+
+    private async Task SaveRouterSettingsAsync()
+    {
+        if (!ApplyPortText())
+            return;
+        Settings.Remote.Enabled = false;
+        Settings.Remote.ConnectionMode = "direct-only";
+        await SaveRequested.InvokeAsync();
+    }
+
+    private bool ApplyPortText()
+    {
+        if (!int.TryParse(_tlsPortText, out var tlsPort) || tlsPort is < 1 or > 65535
+            || !int.TryParse(_externalPortText, out var externalPort) || externalPort is < 1 or > 65535)
+        {
+            Snackbar.Add("TLS and external ports must be between 1 and 65535.", Severity.Warning);
+            return false;
+        }
+        Settings.Remote.TlsTerminationPort = tlsPort;
+        Settings.Remote.ExternalPort = externalPort;
+        return true;
+    }
+
+    private async Task ChangeDirectEnabledAsync(bool value)
+    {
+        if (value)
+        {
+            var readiness = await ApiClient.GetRemoteAccessReadinessAsync();
+            if (readiness?.Ready != true)
+            {
+                Snackbar.Add("Direct remote access remains off until every security check passes.", Severity.Warning);
+                return;
+            }
+        }
+        Settings.Remote.Enabled = value;
         await SaveRequested.InvokeAsync();
     }
 
     private async Task SaveProxySettingsAsync()
     {
-        Settings.Remote.TrustedProxies = (_trustedProxyText ?? string.Empty)
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        Settings.Remote.TrustedProxies = Split(_trustedProxyText);
+        Settings.Remote.TrustedProxyNetworks = Split(_trustedProxyNetworkText);
         await SaveRequested.InvokeAsync();
     }
 
+    private async Task RenewAsync()
+    {
+        await ApiClient.RenewNetworkRouterMappingAsync();
+        await StatusRefreshRequested.InvokeAsync();
+        Snackbar.Add("Router mapping reconciliation completed.", Severity.Info);
+    }
+
+    private async Task TestRemoteAsync() => _ = await ApiClient.TestRemoteNetworkAsync();
+    private void OpenManual() => _manualDialogOpen = true;
     private void OpenReset() => _resetDialogOpen = true;
     private void CloseReset() => _resetDialogOpen = false;
 
@@ -126,6 +208,11 @@
         Snackbar.Add("Network settings reset. Remote access is off.", Severity.Success);
         await SettingsReplaced.InvokeAsync(replacement);
     }
+
+    private static List<string> Split(string? value) => (value ?? string.Empty)
+        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
 
     private static string Display(string? value) => string.IsNullOrWhiteSpace(value)
         ? "Unavailable"

@@ -22,9 +22,11 @@ public static class NetworkEndpoints
             .WithSummary("Return desired local, remote, and network-streaming settings.")
             .Produces<NetworkSettingsDto>();
 
-        settings.MapPut("", (
+        settings.MapPut("", async (
             NetworkSettingsDto request,
-            IConfigurationLoader configuration) =>
+            IConfigurationLoader configuration,
+            RemoteAccessReadinessService readiness,
+            CancellationToken ct) =>
         {
             var current = configuration.LoadNetwork();
             var proposed = NetworkContractMapper.ToStorage(request);
@@ -35,6 +37,17 @@ public static class NetworkEndpoints
 
             try
             {
+                if (proposed.Remote.Enabled)
+                {
+                    var result = await readiness.EvaluateAsync(proposed.Remote, ct).ConfigureAwait(false);
+                    if (!result.Ready)
+                    {
+                        var blockers = string.Join(" ", result.Checks
+                            .Where(check => check.Status == "failed")
+                            .Select(check => check.Detail));
+                        return ApiErrors.Conflict($"Remote access was not enabled. {blockers}");
+                    }
+                }
                 configuration.SaveNetwork(proposed);
                 return Results.Ok(NetworkContractMapper.ToContract(proposed));
             }
@@ -57,6 +70,15 @@ public static class NetworkEndpoints
             .WithName("GetNetworkRuntimeStatus")
             .WithSummary("Return observed connectivity state without mixing it into configuration.")
             .Produces<NetworkRuntimeStatusDto>();
+
+        network.MapGet("/readiness", async (
+            IConfigurationLoader configuration,
+            RemoteAccessReadinessService readiness,
+            CancellationToken ct) =>
+            Results.Ok(await readiness.EvaluateAsync(configuration.LoadNetwork().Remote, ct).ConfigureAwait(false)))
+            .WithName("GetRemoteAccessReadiness")
+            .WithSummary("Verify authentication and a secure remote path before remote access can be enabled.")
+            .Produces<RemoteAccessReadinessDto>();
 
         network.MapPost("/tests/local", async (INetworkDiagnosticsService diagnostics, CancellationToken ct) =>
             Results.Ok(await diagnostics.TestLocalAsync(ct)))
@@ -97,7 +119,8 @@ public static class NetworkEndpoints
             try
             {
                 configuration.SaveNetwork(current);
-                if (current.Remote.Enabled && current.Remote.AutomaticRouterConfiguration)
+                if (current.Remote.AutomaticRouterConfiguration
+                    && current.Remote.ConnectionMode == NetworkConnectionModes.DirectOnly)
                     await routerMappings.EnsureMappingAsync(ct);
                 return Results.Ok(new PortAvailabilityResultDto
                 {

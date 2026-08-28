@@ -4,7 +4,7 @@ namespace MediaEngine.Contracts.Settings;
 
 public sealed class NetworkSettingsDto
 {
-    [JsonPropertyName("schema_version")] public string SchemaVersion { get; set; } = "1.0";
+    [JsonPropertyName("schema_version")] public string SchemaVersion { get; set; } = "2.0";
     [JsonPropertyName("setup_completed")] public bool SetupCompleted { get; set; }
     [JsonPropertyName("local")] public LocalNetworkSettingsDto Local { get; set; } = new();
     [JsonPropertyName("remote")] public RemoteNetworkSettingsDto Remote { get; set; } = new();
@@ -24,12 +24,13 @@ public sealed class LocalNetworkSettingsDto
 public sealed class RemoteNetworkSettingsDto
 {
     [JsonPropertyName("enabled")] public bool Enabled { get; set; }
-    [JsonPropertyName("connection_mode")] public string ConnectionMode { get; set; } = "automatic";
-    [JsonPropertyName("automatic_router_configuration")] public bool AutomaticRouterConfiguration { get; set; } = true;
+    [JsonPropertyName("connection_mode")] public string ConnectionMode { get; set; } = "local-only";
+    [JsonPropertyName("automatic_router_configuration")] public bool AutomaticRouterConfiguration { get; set; }
     [JsonPropertyName("external_port")] public int? ExternalPort { get; set; }
-    [JsonPropertyName("provider_key")] public string? ProviderKey { get; set; }
+    [JsonPropertyName("tls_termination_port")] public int? TlsTerminationPort { get; set; }
     [JsonPropertyName("public_hostname")] public string? PublicHostname { get; set; }
     [JsonPropertyName("trusted_proxies")] public List<string> TrustedProxies { get; set; } = [];
+    [JsonPropertyName("trusted_proxy_networks")] public List<string> TrustedProxyNetworks { get; set; } = [];
 }
 
 public sealed class NetworkStreamingSettingsDto
@@ -56,6 +57,13 @@ public sealed class NetworkRuntimeStatusDto
     [JsonPropertyName("mapping_status")] public string MappingStatus { get; set; } = "inactive";
     [JsonPropertyName("mapping_checked_at")] public DateTimeOffset? MappingCheckedAt { get; set; }
     [JsonPropertyName("mapping_expires_at")] public DateTimeOffset? MappingExpiresAt { get; set; }
+    [JsonPropertyName("mapping_detail")] public string MappingDetail { get; set; } = string.Empty;
+    [JsonPropertyName("topology")] public string Topology { get; set; } = "unknown";
+    [JsonPropertyName("topology_detail")] public string TopologyDetail { get; set; } = string.Empty;
+    [JsonPropertyName("router_gateway")] public string? RouterGateway { get; set; }
+    [JsonPropertyName("tailscale_state")] public string TailscaleState { get; set; } = "not-installed";
+    [JsonPropertyName("tailnet_address")] public string? TailnetAddress { get; set; }
+    [JsonPropertyName("tailscale_serve_https")] public bool TailscaleServeHttps { get; set; }
     [JsonPropertyName("last_tested_at")] public DateTimeOffset? LastTestedAt { get; set; }
     [JsonPropertyName("last_test_succeeded")] public bool? LastTestSucceeded { get; set; }
     [JsonPropertyName("uptime_seconds")] public long UptimeSeconds { get; set; }
@@ -100,6 +108,12 @@ public sealed class NetworkTestCheckDto
     [JsonPropertyName("label")] public string Label { get; set; } = string.Empty;
     [JsonPropertyName("status")] public string Status { get; set; } = "unknown";
     [JsonPropertyName("detail")] public string Detail { get; set; } = string.Empty;
+}
+
+public sealed class RemoteAccessReadinessDto
+{
+    [JsonPropertyName("ready")] public bool Ready { get; set; }
+    [JsonPropertyName("checks")] public List<NetworkTestCheckDto> Checks { get; set; } = [];
 }
 
 public sealed class PortAvailabilityRequest

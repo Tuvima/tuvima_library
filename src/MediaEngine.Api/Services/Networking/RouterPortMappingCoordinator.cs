@@ -6,6 +6,7 @@ public sealed class RouterPortMappingCoordinator : BackgroundService
 {
     private readonly IConfigurationLoader _configuration;
     private readonly INetworkEnvironmentService _environment;
+    private readonly INetworkTopologyService _topology;
     private readonly IReadOnlyList<IRouterPortMapper> _mappers;
     private readonly NetworkRuntimeState _runtime;
     private readonly ILogger<RouterPortMappingCoordinator> _logger;
@@ -16,12 +17,14 @@ public sealed class RouterPortMappingCoordinator : BackgroundService
     public RouterPortMappingCoordinator(
         IConfigurationLoader configuration,
         INetworkEnvironmentService environment,
+        INetworkTopologyService topology,
         IEnumerable<IRouterPortMapper> mappers,
         NetworkRuntimeState runtime,
         ILogger<RouterPortMappingCoordinator> logger)
     {
         _configuration = configuration;
         _environment = environment;
+        _topology = topology;
         _mappers = mappers.OrderBy(mapper => mapper.Priority).ToList();
         _runtime = runtime;
         _logger = logger;
@@ -33,18 +36,36 @@ public sealed class RouterPortMappingCoordinator : BackgroundService
         try
         {
             var settings = _configuration.LoadNetwork();
-            if (!settings.Remote.Enabled || !settings.Remote.AutomaticRouterConfiguration)
+            if (!settings.Remote.AutomaticRouterConfiguration
+                || settings.Remote.ConnectionMode != MediaEngine.Domain.Configuration.NetworkConnectionModes.DirectOnly)
             {
                 await RemoveActiveMappingAsync(ct);
-                var inactive = new RouterMappingResult(NetworkCapabilityState.Unavailable, "None", "Automatic router configuration is turned off.");
+                var inactive = new RouterMappingResult(RouterMappingState.NotAttempted, "None", "Automatic router configuration was not attempted because it is turned off.", ReasonCode: "disabled");
                 _runtime.RecordRouterMapping(inactive);
                 return inactive;
             }
 
-            var internalAddress = _environment.GetUsableAddresses(includeIpv6: false).FirstOrDefault()?.Address;
+            var topology = _topology.GetSnapshot();
+            if (!topology.SupportsRouterDiscovery)
+            {
+                await RemoveActiveMappingAsync(ct);
+                var unsupported = new RouterMappingResult(
+                    RouterMappingState.UnsupportedTopology,
+                    "None",
+                    topology.Detail,
+                    ReasonCode: "docker-bridge");
+                _runtime.RecordRouterMapping(unsupported);
+                return unsupported;
+            }
+
+            var usableAddresses = _environment.GetUsableAddresses(includeIpv6: false);
+            var internalAddress = usableAddresses
+                .FirstOrDefault(address => string.Equals(address.InterfaceName, topology.InterfaceName, StringComparison.OrdinalIgnoreCase))
+                ?.Address
+                ?? usableAddresses.FirstOrDefault()?.Address;
             if (string.IsNullOrWhiteSpace(internalAddress))
             {
-                var unavailable = new RouterMappingResult(NetworkCapabilityState.Unavailable, "None", "Tuvima could not find a usable local IPv4 address.");
+                var unavailable = new RouterMappingResult(RouterMappingState.UnsupportedTopology, "None", "Tuvima could not find a usable local IPv4 address.", ReasonCode: "no-local-ipv4");
                 _runtime.RecordRouterMapping(unavailable);
                 return unavailable;
             }
@@ -52,8 +73,8 @@ public sealed class RouterPortMappingCoordinator : BackgroundService
             var request = new RouterMappingRequest(
                 "Tuvima Remote Access",
                 internalAddress,
-                settings.Local.Port,
-                settings.Remote.ExternalPort ?? settings.Local.Port,
+                settings.Remote.TlsTerminationPort ?? settings.Local.Port,
+                settings.Remote.ExternalPort ?? 443,
                 TimeSpan.FromHours(1));
             _lastRequest = request;
 
@@ -63,19 +84,19 @@ public sealed class RouterPortMappingCoordinator : BackgroundService
                 var result = string.Equals(_activeMethod, mapper.Method, StringComparison.OrdinalIgnoreCase)
                     ? await mapper.TryRenewAsync(request, ct)
                     : await mapper.TryCreateAsync(request, ct);
-                if (result.State == NetworkCapabilityState.Active)
+                if (result.State == RouterMappingState.Active)
                 {
                     _activeMethod = mapper.Method;
                     _runtime.RecordRouterMapping(result);
                     return result;
                 }
 
-                if (result.State == NetworkCapabilityState.Failed)
+                if (result.State is RouterMappingState.RouterRefused or RouterMappingState.Failed)
                     lastFailure = result;
             }
 
             var final = lastFailure ?? new RouterMappingResult(
-                NetworkCapabilityState.Unavailable,
+                RouterMappingState.ProtocolUnavailable,
                 "None",
                 "Tuvima could not configure your router automatically.");
             _runtime.RecordRouterMapping(final);

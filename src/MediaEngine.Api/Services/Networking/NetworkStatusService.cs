@@ -9,17 +9,23 @@ public sealed class NetworkStatusService
 {
     private readonly IConfigurationLoader _configuration;
     private readonly INetworkEnvironmentService _environment;
+    private readonly INetworkTopologyService _topology;
     private readonly NetworkRuntimeState _runtime;
+    private readonly TimeProvider _timeProvider;
     private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
 
     public NetworkStatusService(
         IConfigurationLoader configuration,
         INetworkEnvironmentService environment,
-        NetworkRuntimeState runtime)
+        INetworkTopologyService topology,
+        NetworkRuntimeState runtime,
+        TimeProvider timeProvider)
     {
         _configuration = configuration;
         _environment = environment;
+        _topology = topology;
         _runtime = runtime;
+        _timeProvider = timeProvider;
     }
 
     public NetworkRuntimeStatusDto GetStatus()
@@ -29,8 +35,14 @@ public sealed class NetworkStatusService
         var selected = SelectPreferredAddress(settings, addresses);
         var remoteTest = _runtime.LastRemoteTest;
         var mapping = _runtime.RouterMapping;
+        var tailscale = _runtime.GetRemoteProvider("tailscale");
+        var topology = _topology.GetSnapshot();
+        var mappingState = EffectiveMappingState(mapping, _timeProvider.GetUtcNow());
         var remoteState = !settings.Remote.Enabled
             ? "disabled"
+            : settings.Remote.ConnectionMode == NetworkConnectionModes.Tailscale
+                && tailscale is { State: RemoteProviderState.Connected, SecureHttps: true }
+                    ? "available"
             : remoteTest?.Status == "passed"
                 ? "available"
                 : remoteTest?.Status == "failed" ? "needs-attention" : "unavailable";
@@ -38,15 +50,18 @@ public sealed class NetworkStatusService
             ? "local-only"
             : settings.Remote.ConnectionMode switch
             {
-                NetworkConnectionModes.SecureProvider => "secure-provider",
+                NetworkConnectionModes.Tailscale => "tailscale",
                 NetworkConnectionModes.Custom => "custom",
+                NetworkConnectionModes.DirectOnly => "direct",
                 _ => "direct",
             };
         var secure = settings.Remote.ConnectionMode switch
         {
-            NetworkConnectionModes.Custom when Uri.TryCreate(settings.Remote.PublicHostname, UriKind.Absolute, out var uri)
-                                                    && uri.Scheme == Uri.UriSchemeHttps => "enabled",
-            NetworkConnectionModes.SecureProvider when remoteTest?.Status == "passed" => "enabled",
+            NetworkConnectionModes.Custom when remoteTest?.Status == "passed"
+                                                && Uri.TryCreate(settings.Remote.PublicHostname, UriKind.Absolute, out var uri)
+                                                && uri.Scheme == Uri.UriSchemeHttps => "enabled",
+            NetworkConnectionModes.DirectOnly when remoteTest?.Status == "passed" => "enabled",
+            NetworkConnectionModes.Tailscale when tailscale is { State: RemoteProviderState.Connected, SecureHttps: true } => "enabled",
             _ when !settings.Remote.Enabled => "not-configured",
             _ => "needs-attention",
         };
@@ -61,19 +76,33 @@ public sealed class NetworkStatusService
             SecureConnection = secure,
             LocalAddresses = addresses,
             PreferredLocalAddress = selected is null ? null : NetworkDiagnosticsService.FormatAddress(selected.Address, settings.Local.Port),
-            ExternalAddress = settings.Remote.PublicHostname,
+            ExternalAddress = settings.Remote.ConnectionMode == NetworkConnectionModes.Tailscale
+                ? tailscale?.PublicAddress
+                : settings.Remote.PublicHostname,
             PublicIp = mapping?.PublicAddress,
-            RouterConfiguration = settings.Remote.AutomaticRouterConfiguration ? "automatic" : "manual",
-            RouterMethod = mapping?.State == NetworkCapabilityState.Active ? mapping.Method : null,
-            MappingStatus = mapping?.State switch
+            RouterConfiguration = settings.Remote.AutomaticRouterConfiguration
+                ? "automatic"
+                : settings.Remote.ConnectionMode == NetworkConnectionModes.DirectOnly ? "manual" : "not-configured",
+            RouterMethod = mappingState == RouterMappingState.Active ? mapping?.Method : null,
+            MappingStatus = mappingState switch
             {
-                NetworkCapabilityState.Active => "active",
-                NetworkCapabilityState.Failed => "failed",
-                NetworkCapabilityState.Available => "available",
-                _ => settings.Remote.Enabled && settings.Remote.AutomaticRouterConfiguration ? "unverified" : "inactive",
+                RouterMappingState.Active => "active",
+                RouterMappingState.Expired => "expired",
+                RouterMappingState.RouterRefused => "router-refused",
+                RouterMappingState.UnsupportedTopology => "unsupported-topology",
+                RouterMappingState.ProtocolUnavailable => "protocol-unavailable",
+                RouterMappingState.Failed => "failed",
+                _ => "not-attempted",
             },
             MappingCheckedAt = _runtime.RouterMappingCheckedAt,
             MappingExpiresAt = mapping?.ExpiresAt,
+            MappingDetail = mapping?.Message ?? "Router mapping has not been attempted.",
+            Topology = topology.Kind,
+            TopologyDetail = topology.Detail,
+            RouterGateway = topology.GatewayAddress,
+            TailscaleState = tailscale?.State.ToString().ToLowerInvariant() ?? "not-installed",
+            TailnetAddress = tailscale?.PublicAddress,
+            TailscaleServeHttps = tailscale?.SecureHttps == true,
             LastTestedAt = remoteTest?.TestedAt ?? _runtime.LastLocalTest?.TestedAt,
             LastTestSucceeded = remoteTest is null ? null : remoteTest.Status == "passed",
             UptimeSeconds = Math.Max(0, (long)(DateTimeOffset.UtcNow - _startedAt).TotalSeconds),
@@ -99,6 +128,11 @@ public sealed class NetworkStatusService
 
         return addresses.FirstOrDefault(address => address.AddressFamily == "ipv4") ?? addresses.FirstOrDefault();
     }
+
+    internal static RouterMappingState EffectiveMappingState(RouterMappingResult? mapping, DateTimeOffset now) =>
+        mapping is { State: RouterMappingState.Active, ExpiresAt: { } expiresAt } && expiresAt <= now
+            ? RouterMappingState.Expired
+            : mapping?.State ?? RouterMappingState.NotAttempted;
 
     private static string BuildHeadline(string local, string remote, bool remoteEnabled) =>
         local != "healthy" ? "Local access needs attention"

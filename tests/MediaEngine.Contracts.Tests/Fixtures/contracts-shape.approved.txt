@@ -5242,6 +5242,13 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkRuntimeStat
   MappingStatus: System.String | nullability=not-null | accessors=get,set
   MappingCheckedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
   MappingExpiresAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+  MappingDetail: System.String | nullability=not-null | accessors=get,set
+  Topology: System.String | nullability=not-null | accessors=get,set
+  TopologyDetail: System.String | nullability=not-null | accessors=get,set
+  RouterGateway: System.String | nullability=nullable | accessors=get,set
+  TailscaleState: System.String | nullability=not-null | accessors=get,set
+  TailnetAddress: System.String | nullability=nullable | accessors=get,set
+  TailscaleServeHttps: System.Boolean | nullability=not-null | accessors=get,set
   LastTestedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
   LastTestSucceeded: System.Boolean? | nullability=nullable | accessors=get,set
   UptimeSeconds: System.Int64 | nullability=not-null | accessors=get,set
@@ -5430,14 +5437,19 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderTestResult
   SampleFields: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,init
   Message: System.String | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.RemoteAccessReadinessDto
+  Ready: System.Boolean | nullability=not-null | accessors=get,set
+  Checks: System.Collections.Generic.List<MediaEngine.Contracts.Settings.NetworkTestCheckDto> | nullability=not-null | accessors=get,set
+
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.RemoteNetworkSettingsDto
   Enabled: System.Boolean | nullability=not-null | accessors=get,set
   ConnectionMode: System.String | nullability=not-null | accessors=get,set
   AutomaticRouterConfiguration: System.Boolean | nullability=not-null | accessors=get,set
   ExternalPort: System.Int32? | nullability=nullable | accessors=get,set
-  ProviderKey: System.String | nullability=nullable | accessors=get,set
+  TlsTerminationPort: System.Int32? | nullability=nullable | accessors=get,set
   PublicHostname: System.String | nullability=nullable | accessors=get,set
   TrustedProxies: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+  TrustedProxyNetworks: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ResolvedUISettingsDto
   DeviceClass: System.String | nullability=not-null | accessors=get,set

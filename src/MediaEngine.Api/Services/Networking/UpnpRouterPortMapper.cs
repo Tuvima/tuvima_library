@@ -16,11 +16,16 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
     ];
 
     private readonly HttpClient _http;
+    private readonly IUpnpDiscoveryTransport _discovery;
     private readonly ILogger<UpnpRouterPortMapper> _logger;
 
-    public UpnpRouterPortMapper(HttpClient http, ILogger<UpnpRouterPortMapper> logger)
+    public UpnpRouterPortMapper(
+        HttpClient http,
+        IUpnpDiscoveryTransport discovery,
+        ILogger<UpnpRouterPortMapper> logger)
     {
         _http = http;
+        _discovery = discovery;
         _logger = logger;
     }
 
@@ -42,7 +47,7 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
     {
         var service = await DiscoverServiceAsync(ct);
         if (service is null)
-            return new RouterMappingResult(NetworkCapabilityState.Unavailable, Method, "UPnP was not available on this router.");
+            return new RouterMappingResult(RouterMappingState.ProtocolUnavailable, Method, "UPnP was not available on this router.", ReasonCode: "discovery-unavailable");
 
         try
         {
@@ -55,12 +60,12 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogDebug("UPnP {Action} returned {StatusCode}", action, response.StatusCode);
-                return new RouterMappingResult(NetworkCapabilityState.Failed, Method, "The router refused this automatic mapping.");
+                return new RouterMappingResult(RouterMappingState.RouterRefused, Method, "The router refused this automatic mapping.", ReasonCode: $"http-{(int)response.StatusCode}");
             }
 
             var publicAddress = delete ? null : await GetExternalAddressAsync(service.Value, ct);
             return new RouterMappingResult(
-                delete ? NetworkCapabilityState.Available : NetworkCapabilityState.Active,
+                delete ? RouterMappingState.NotAttempted : RouterMappingState.Active,
                 Method,
                 delete ? "The Tuvima UPnP mapping was removed." : "Your router was configured automatically.",
                 request.ExternalPort,
@@ -72,7 +77,7 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
             if (ex is OperationCanceledException && ct.IsCancellationRequested)
                 throw;
             _logger.LogDebug(ex, "UPnP mapping request failed");
-            return new RouterMappingResult(NetworkCapabilityState.Failed, Method, "Tuvima could not configure your router automatically.");
+            return new RouterMappingResult(RouterMappingState.Failed, Method, "Tuvima could not configure your router automatically.", ReasonCode: "transport-error");
         }
     }
 
@@ -80,7 +85,7 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
     {
         foreach (var target in SearchTargets)
         {
-            var locations = await DiscoverLocationsAsync(target, ct);
+            var locations = await _discovery.DiscoverLocationsAsync(target, ct);
             foreach (var location in locations)
             {
                 try
@@ -105,7 +110,7 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
                         continue;
                     return new UpnpService(serviceType, controlUri);
                 }
-                catch (Exception ex) when (ex is HttpRequestException or System.Xml.XmlException or InvalidOperationException)
+                catch (Exception ex) when (ex is HttpRequestException or SocketException or System.Xml.XmlException or InvalidOperationException)
                 {
                     _logger.LogDebug(ex, "UPnP device description could not be read from {Host}", location.Host);
                 }
@@ -113,42 +118,6 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
         }
 
         return null;
-    }
-
-    private static async Task<IReadOnlyList<Uri>> DiscoverLocationsAsync(string searchTarget, CancellationToken ct)
-    {
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        timeout.CancelAfter(TimeSpan.FromSeconds(3));
-        using var client = new UdpClient(AddressFamily.InterNetwork);
-        client.EnableBroadcast = true;
-        var payload = Encoding.ASCII.GetBytes(
-            "M-SEARCH * HTTP/1.1\r\n" +
-            "HOST: 239.255.255.250:1900\r\n" +
-            "MAN: \"ssdp:discover\"\r\n" +
-            "MX: 2\r\n" +
-            $"ST: {searchTarget}\r\n\r\n");
-        await client.SendAsync(payload, new IPEndPoint(IPAddress.Parse("239.255.255.250"), 1900), timeout.Token);
-
-        var locations = new HashSet<Uri>();
-        while (!timeout.IsCancellationRequested)
-        {
-            try
-            {
-                var response = Encoding.ASCII.GetString((await client.ReceiveAsync(timeout.Token)).Buffer);
-                var locationLine = response.Split("\r\n", StringSplitOptions.RemoveEmptyEntries)
-                    .FirstOrDefault(line => line.StartsWith("LOCATION:", StringComparison.OrdinalIgnoreCase));
-                if (locationLine is not null
-                    && Uri.TryCreate(locationLine[(locationLine.IndexOf(':') + 1)..].Trim(), UriKind.Absolute, out var location)
-                    && location.Scheme == Uri.UriSchemeHttp)
-                    locations.Add(location);
-            }
-            catch (OperationCanceledException)
-            {
-                break;
-            }
-        }
-
-        return locations.ToList();
     }
 
     private async Task<string?> GetExternalAddressAsync(UpnpService service, CancellationToken ct)

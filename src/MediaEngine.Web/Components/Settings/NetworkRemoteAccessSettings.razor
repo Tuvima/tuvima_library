@@ -37,7 +37,8 @@
                 break;
             case "advanced":
                 <AdvancedNetworkSettingsPanel Settings="@_settings" Status="@_status"
-                                              SaveRequested="SaveAsync" SettingsReplaced="ReplaceSettingsAsync" />
+                                              SaveRequested="SaveAsync" SettingsReplaced="ReplaceSettingsAsync"
+                                              StatusRefreshRequested="RefreshStatusAsync" />
                 break;
             default:
                 <NetworkOverviewPanel Settings="@_settings" Status="@_status"

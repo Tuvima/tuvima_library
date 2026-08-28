@@ -1,10 +1,13 @@
 namespace MediaEngine.Api.Services.Networking;
 
-public enum NetworkCapabilityState
+public enum RouterMappingState
 {
-    Unavailable,
-    Available,
+    NotAttempted,
+    UnsupportedTopology,
+    ProtocolUnavailable,
+    RouterRefused,
     Active,
+    Expired,
     Failed,
 }
 
@@ -16,12 +19,13 @@ public sealed record RouterMappingRequest(
     TimeSpan LeaseDuration);
 
 public sealed record RouterMappingResult(
-    NetworkCapabilityState State,
+    RouterMappingState State,
     string Method,
     string Message,
     int? ExternalPort = null,
     DateTimeOffset? ExpiresAt = null,
-    string? PublicAddress = null);
+    string? PublicAddress = null,
+    string? ReasonCode = null);
 
 public interface IRouterPortMapper
 {
@@ -46,7 +50,8 @@ public sealed record RemoteProviderSnapshot(
     string DisplayName,
     RemoteProviderState State,
     string? PublicAddress,
-    string Message);
+    string Message,
+    bool SecureHttps = false);
 
 public interface IRemoteConnectivityProvider
 {
@@ -54,4 +59,11 @@ public interface IRemoteConnectivityProvider
     string DisplayName { get; }
     Task<RemoteProviderSnapshot> GetStateAsync(CancellationToken ct);
     Task<RemoteProviderSnapshot> TestAsync(CancellationToken ct);
+}
+
+public sealed record CommandResult(int ExitCode, string StandardOutput, string StandardError);
+
+public interface ICommandRunner
+{
+    Task<CommandResult> RunAsync(string fileName, IReadOnlyList<string> arguments, TimeSpan timeout, CancellationToken ct);
 }

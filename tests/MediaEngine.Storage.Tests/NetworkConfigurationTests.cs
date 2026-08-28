@@ -7,6 +7,17 @@ namespace MediaEngine.Storage.Tests;
 public sealed class NetworkConfigurationTests
 {
     [Fact]
+    public void NewNetworkSettingsAreLocalOnlyAndDoNotAttemptRouterMapping()
+    {
+        var settings = new NetworkSettings();
+
+        Assert.Equal("2.0", settings.SchemaVersion);
+        Assert.False(settings.Remote.Enabled);
+        Assert.Equal(NetworkConnectionModes.LocalOnly, settings.Remote.ConnectionMode);
+        Assert.False(settings.Remote.AutomaticRouterConfiguration);
+    }
+
+    [Fact]
     public void SaveNetwork_RoundTripsDesiredStateAndSetupCompletion()
     {
         var path = CreateTempDirectory();
@@ -74,6 +85,26 @@ public sealed class NetworkConfigurationTests
             Assert.Contains("local.port", exception.Message, StringComparison.Ordinal);
             Assert.Contains("HTTPS", exception.Message, StringComparison.Ordinal);
             Assert.Contains("trusted_proxies", exception.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(path, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveNetwork_HardRejectsRemovedSecureProviderMode()
+    {
+        var path = CreateTempDirectory();
+        try
+        {
+            var loader = new ConfigurationDirectoryLoader(path);
+            var settings = new NetworkSettings();
+            settings.Remote.ConnectionMode = "secure-provider";
+
+            var exception = Assert.Throws<ConfigValidationException>(() => loader.SaveNetwork(settings));
+
+            Assert.Contains("connection_mode is unsupported", exception.Message, StringComparison.Ordinal);
         }
         finally
         {

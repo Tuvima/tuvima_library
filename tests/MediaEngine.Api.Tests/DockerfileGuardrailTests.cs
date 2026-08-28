@@ -51,6 +51,27 @@ public sealed class DockerfileGuardrailTests
         Assert.Contains("Waiting for Engine liveness", entrypoint);
         Assert.Contains("http://127.0.0.1:61495/health/live", entrypoint);
         Assert.Contains("Engine exited before becoming live", entrypoint);
+        Assert.Contains("ASPNETCORE_URLS=\"http://127.0.0.1:61495\"", entrypoint);
+        Assert.DoesNotContain("ASPNETCORE_URLS=\"http://+:61495\"", entrypoint);
+    }
+
+    [Fact]
+    public void TailscalePresetUsesOfficialSidecarPrivateServeAndDeploymentSecret()
+    {
+        var repoRoot = FindRepoRoot();
+        var overlay = File.ReadAllText(Path.Combine(repoRoot, "deploy", "tailscale", "docker-compose.tailscale.yml"));
+        var serve = File.ReadAllText(Path.Combine(repoRoot, "deploy", "tailscale", "config", "serve.json"));
+        var daemon = File.ReadAllText(Path.Combine(repoRoot, "deploy", "tailscale", "config", "tailscaled.hujson"));
+
+        Assert.Contains("tailscale/tailscale:stable", overlay);
+        Assert.Contains("network_mode: service:tuvima", overlay);
+        Assert.Contains("TS_SERVE_CONFIG", overlay);
+        Assert.Contains("tailscale_auth_key", overlay);
+        Assert.Contains("file:/run/secrets/tailscale_auth_key", daemon);
+        Assert.Contains("http://127.0.0.1:5016", serve);
+        Assert.Contains("\"AllowFunnel\"", serve);
+        Assert.Contains("false", serve);
+        Assert.DoesNotContain("61495", serve);
     }
 
     [Fact]

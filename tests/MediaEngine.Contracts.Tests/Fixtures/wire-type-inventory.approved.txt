@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=654; api=0; web-client=87
+# scopes: contracts=655; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6261,6 +6261,13 @@
   MappingStatus: System.String | json=mapping_status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MappingCheckedAt: System.DateTimeOffset? | json=mapping_checked_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MappingExpiresAt: System.DateTimeOffset? | json=mapping_expires_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MappingDetail: System.String | json=mapping_detail | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Topology: System.String | json=topology | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TopologyDetail: System.String | json=topology_detail | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RouterGateway: System.String | json=router_gateway | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TailscaleState: System.String | json=tailscale_state | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TailnetAddress: System.String | json=tailnet_address | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TailscaleServeHttps: System.Boolean | json=tailscale_serve_https | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LastTestedAt: System.DateTimeOffset? | json=last_tested_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LastTestSucceeded: System.Boolean? | json=last_test_succeeded | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   UptimeSeconds: System.Int64 | json=uptime_seconds | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -6270,7 +6277,7 @@
   Guidance: System.String | json=guidance | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Bandwidth: MediaEngine.Contracts.Settings.NetworkBandwidthStatusDto | json=bandwidth | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   HardwareAcceleration: System.String | json=hardware_acceleration | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"local_access":"sample","remote_access":"sample","connection_type":"sample","secure_connection":"sample","local_addresses":[],"preferred_local_address":"sample","external_address":"sample","public_ip":"sample","router_configuration":"sample","router_method":"sample","mapping_status":"sample","mapping_checked_at":"2025-01-02T03:04:05+00:00","mapping_expires_at":"2025-01-02T03:04:05+00:00","last_tested_at":"2025-01-02T03:04:05+00:00","last_test_succeeded":true,"uptime_seconds":7,"ipv6_available":true,"cgnat_suspected":true,"headline":"sample","guidance":"sample","bandwidth":null,"hardware_acceleration":"sample"}
+  sample={"local_access":"sample","remote_access":"sample","connection_type":"sample","secure_connection":"sample","local_addresses":[],"preferred_local_address":"sample","external_address":"sample","public_ip":"sample","router_configuration":"sample","router_method":"sample","mapping_status":"sample","mapping_checked_at":"2025-01-02T03:04:05+00:00","mapping_expires_at":"2025-01-02T03:04:05+00:00","mapping_detail":"sample","topology":"sample","topology_detail":"sample","router_gateway":"sample","tailscale_state":"sample","tailnet_address":"sample","tailscale_serve_https":true,"last_tested_at":"2025-01-02T03:04:05+00:00","last_test_succeeded":true,"uptime_seconds":7,"ipv6_available":true,"cgnat_suspected":true,"headline":"sample","guidance":"sample","bandwidth":null,"hardware_acceleration":"sample"}
 
 [contracts] MediaEngine.Contracts.Settings.NetworkSettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6489,16 +6496,23 @@
   Message: System.String | json=message | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"success":true,"response_time_ms":7,"sample_fields":[],"message":"sample"}
 
+[contracts] MediaEngine.Contracts.Settings.RemoteAccessReadinessDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Ready: System.Boolean | json=ready | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Checks: System.Collections.Generic.List<MediaEngine.Contracts.Settings.NetworkTestCheckDto> | json=checks | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"ready":true,"checks":[]}
+
 [contracts] MediaEngine.Contracts.Settings.RemoteNetworkSettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Enabled: System.Boolean | json=enabled | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ConnectionMode: System.String | json=connection_mode | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AutomaticRouterConfiguration: System.Boolean | json=automatic_router_configuration | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ExternalPort: System.Int32? | json=external_port | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ProviderKey: System.String | json=provider_key | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TlsTerminationPort: System.Int32? | json=tls_termination_port | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PublicHostname: System.String | json=public_hostname | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   TrustedProxies: System.Collections.Generic.List<System.String> | json=trusted_proxies | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"enabled":true,"connection_mode":"sample","automatic_router_configuration":true,"external_port":7,"provider_key":"sample","public_hostname":"sample","trusted_proxies":[]}
+  TrustedProxyNetworks: System.Collections.Generic.List<System.String> | json=trusted_proxy_networks | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"enabled":true,"connection_mode":"sample","automatic_router_configuration":true,"external_port":7,"tls_termination_port":7,"public_hostname":"sample","trusted_proxies":[],"trusted_proxy_networks":[]}
 
 [contracts] MediaEngine.Contracts.Settings.ResolvedUISettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default

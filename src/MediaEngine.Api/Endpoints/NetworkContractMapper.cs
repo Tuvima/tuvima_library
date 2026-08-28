@@ -24,9 +24,10 @@ internal static class NetworkContractMapper
             ConnectionMode = settings.Remote.ConnectionMode,
             AutomaticRouterConfiguration = settings.Remote.AutomaticRouterConfiguration,
             ExternalPort = settings.Remote.ExternalPort,
-            ProviderKey = settings.Remote.ProviderKey,
+            TlsTerminationPort = settings.Remote.TlsTerminationPort,
             PublicHostname = settings.Remote.PublicHostname,
             TrustedProxies = [.. settings.Remote.TrustedProxies],
+            TrustedProxyNetworks = [.. settings.Remote.TrustedProxyNetworks],
         },
         Streaming = new NetworkStreamingSettingsDto
         {
@@ -56,9 +57,14 @@ internal static class NetworkContractMapper
             ConnectionMode = Normalize(dto.Remote.ConnectionMode),
             AutomaticRouterConfiguration = dto.Remote.AutomaticRouterConfiguration,
             ExternalPort = dto.Remote.ExternalPort,
-            ProviderKey = NormalizeOptional(dto.Remote.ProviderKey),
+            TlsTerminationPort = dto.Remote.TlsTerminationPort,
             PublicHostname = NormalizeOptional(dto.Remote.PublicHostname),
             TrustedProxies = dto.Remote.TrustedProxies
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            TrustedProxyNetworks = dto.Remote.TrustedProxyNetworks
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Select(value => value.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase)

@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
 using System.Net;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 
 namespace MediaEngine.Api.Services.Networking;
 
@@ -9,13 +8,20 @@ public sealed class PcpRouterPortMapper : IRouterPortMapper
 {
     private const int PcpPort = 5351;
     private readonly IGatewayDiscoveryService _gateways;
+    private readonly IUdpGatewayTransport _transport;
     private readonly ILogger<PcpRouterPortMapper> _logger;
-    private readonly byte[] _nonce = RandomNumberGenerator.GetBytes(12);
+    private readonly byte[] _nonce;
 
-    public PcpRouterPortMapper(IGatewayDiscoveryService gateways, ILogger<PcpRouterPortMapper> logger)
+    public PcpRouterPortMapper(
+        IGatewayDiscoveryService gateways,
+        IUdpGatewayTransport transport,
+        IRouterNonceSource nonceSource,
+        ILogger<PcpRouterPortMapper> logger)
     {
         _gateways = gateways;
+        _transport = transport;
         _logger = logger;
+        _nonce = nonceSource.Create(12);
     }
 
     public string Method => "PCP";
@@ -39,17 +45,18 @@ public sealed class PcpRouterPortMapper : IRouterPortMapper
             try
             {
                 var payload = BuildMapRequest(gateway.InternalAddress, request, lifetimeSeconds);
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                timeout.CancelAfter(TimeSpan.FromSeconds(2));
-                using var client = new UdpClient(AddressFamily.InterNetwork);
-                await client.SendAsync(payload, new IPEndPoint(gateway.GatewayAddress, PcpPort), timeout.Token);
-                var response = (await client.ReceiveAsync(timeout.Token)).Buffer;
+                var response = await _transport.ExchangeAsync(
+                    gateway.GatewayAddress,
+                    PcpPort,
+                    payload,
+                    TimeSpan.FromSeconds(2),
+                    ct);
                 if (response.Length < 60 || response[0] != 2 || response[1] != 0x81)
                     continue;
 
                 var resultCode = response[3];
                 if (resultCode != 0)
-                    return new RouterMappingResult(NetworkCapabilityState.Failed, Method, TranslateResult(resultCode));
+                    return new RouterMappingResult(RouterMappingState.RouterRefused, Method, TranslateResult(resultCode), ReasonCode: $"pcp-result-{resultCode}");
                 if (!response.AsSpan(24, 12).SequenceEqual(_nonce))
                     continue;
 
@@ -61,7 +68,7 @@ public sealed class PcpRouterPortMapper : IRouterPortMapper
                     ? externalAddress.MapToIPv4().ToString()
                     : externalAddress.ToString();
                 return new RouterMappingResult(
-                    lifetimeSeconds == 0 ? NetworkCapabilityState.Available : NetworkCapabilityState.Active,
+                    lifetimeSeconds == 0 ? RouterMappingState.NotAttempted : RouterMappingState.Active,
                     Method,
                     lifetimeSeconds == 0 ? "The Tuvima PCP mapping was removed." : "Your router was configured automatically.",
                     externalPort,
@@ -76,7 +83,7 @@ public sealed class PcpRouterPortMapper : IRouterPortMapper
             }
         }
 
-        return new RouterMappingResult(NetworkCapabilityState.Unavailable, Method, "PCP was not available on this router.");
+        return new RouterMappingResult(RouterMappingState.ProtocolUnavailable, Method, "PCP was not available on this router.", ReasonCode: "no-response");
     }
 
     private byte[] BuildMapRequest(IPAddress internalAddress, RouterMappingRequest request, uint lifetimeSeconds)

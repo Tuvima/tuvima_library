@@ -1,0 +1,41 @@
+# Apply on top of the root docker-compose.yml:
+#   docker compose -f docker-compose.yml -f deploy/tailscale/docker-compose.tailscale.yml up -d
+#
+# Required deployment values:
+#   TAILSCALE_AUTH_KEY_FILE=/absolute/path/to/tailscale-auth-key
+#   TUVIMA_TAILSCALE_URL=https://tuvima-library.<your-tailnet>.ts.net
+
+services:
+  tuvima:
+    environment:
+      TUVIMA_TAILSCALE_HEALTH_URL: http://127.0.0.1:9002/healthz
+      TUVIMA_TAILSCALE_URL: ${TUVIMA_TAILSCALE_URL:?Set the private HTTPS tailnet address}
+
+  tailscale:
+    image: tailscale/tailscale:stable
+    container_name: tuvima-tailscale
+    hostname: tuvima-library
+    network_mode: service:tuvima
+    depends_on:
+      - tuvima
+    restart: unless-stopped
+    environment:
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_AUTH_ONCE: "true"
+      TS_SERVE_CONFIG: /etc/tuvima-tailscale/serve.json
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: 127.0.0.1:9002
+      TS_TAILSCALED_EXTRA_ARGS: --config=/etc/tuvima-tailscale/tailscaled.hujson
+    volumes:
+      - tuvima-tailscale-state:/var/lib/tailscale
+      - ./deploy/tailscale/config:/etc/tuvima-tailscale:ro
+    secrets:
+      - tailscale_auth_key
+
+volumes:
+  tuvima-tailscale-state:
+
+secrets:
+  tailscale_auth_key:
+    file: ${TAILSCALE_AUTH_KEY_FILE:?Point to a deployment secret file outside the Tuvima config and backup directories}

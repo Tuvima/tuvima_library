@@ -12,6 +12,7 @@ public sealed class NetworkDiagnosticsService : INetworkDiagnosticsService
     private readonly INetworkEnvironmentService _environment;
     private readonly NetworkRuntimeState _runtime;
     private readonly RouterPortMappingCoordinator _routerMappings;
+    private readonly IReadOnlyDictionary<string, IRemoteConnectivityProvider> _remoteProviders;
     private readonly HttpClient _http;
     private readonly ILogger<NetworkDiagnosticsService> _logger;
 
@@ -20,6 +21,7 @@ public sealed class NetworkDiagnosticsService : INetworkDiagnosticsService
         INetworkEnvironmentService environment,
         NetworkRuntimeState runtime,
         RouterPortMappingCoordinator routerMappings,
+        IEnumerable<IRemoteConnectivityProvider> remoteProviders,
         HttpClient http,
         ILogger<NetworkDiagnosticsService> logger)
     {
@@ -27,6 +29,7 @@ public sealed class NetworkDiagnosticsService : INetworkDiagnosticsService
         _environment = environment;
         _runtime = runtime;
         _routerMappings = routerMappings;
+        _remoteProviders = remoteProviders.ToDictionary(provider => provider.Key, StringComparer.OrdinalIgnoreCase);
         _http = http;
         _logger = logger;
     }
@@ -99,25 +102,50 @@ public sealed class NetworkDiagnosticsService : INetworkDiagnosticsService
         }
 
         if (settings.Remote.AutomaticRouterConfiguration
-            && settings.Remote.ConnectionMode is NetworkConnectionModes.Automatic or NetworkConnectionModes.DirectOnly)
+            && settings.Remote.ConnectionMode == NetworkConnectionModes.DirectOnly)
         {
             var mapping = await _routerMappings.EnsureMappingAsync(ct);
             checks.Add(new NetworkTestCheckDto
             {
                 Key = "router-mapping",
                 Label = "Automatic router configuration",
-                Status = mapping.State == NetworkCapabilityState.Active ? "passed"
-                    : mapping.State == NetworkCapabilityState.Failed ? "failed" : "unknown",
+                Status = mapping.State == RouterMappingState.Active ? "passed"
+                    : mapping.State is RouterMappingState.RouterRefused or RouterMappingState.Failed ? "failed" : "unknown",
                 Detail = mapping.Message,
             });
         }
 
-        if (settings.Remote.ConnectionMode == NetworkConnectionModes.Custom
+        if (settings.Remote.ConnectionMode == NetworkConnectionModes.Tailscale)
+        {
+            if (!_remoteProviders.TryGetValue("tailscale", out var provider))
+            {
+                checks.Add(new NetworkTestCheckDto
+                {
+                    Key = "tailscale",
+                    Label = "Tailscale Serve",
+                    Status = "failed",
+                    Detail = "The Tailscale deployment provider is unavailable.",
+                });
+            }
+            else
+            {
+                var snapshot = await provider.TestAsync(ct);
+                _runtime.RecordRemoteProvider(snapshot);
+                checks.Add(new NetworkTestCheckDto
+                {
+                    Key = "tailscale",
+                    Label = "Tailscale Serve",
+                    Status = snapshot.State == RemoteProviderState.Connected && snapshot.SecureHttps ? "passed" : "failed",
+                    Detail = snapshot.Message,
+                });
+            }
+        }
+        else if (settings.Remote.ConnectionMode is NetworkConnectionModes.Custom or NetworkConnectionModes.DirectOnly
             && Uri.TryCreate(settings.Remote.PublicHostname, UriKind.Absolute, out var endpoint))
         {
             checks.Add(await TestCustomEndpointAsync(endpoint, ct));
         }
-        else
+        else if (settings.Remote.ConnectionMode != NetworkConnectionModes.Tailscale)
         {
             checks.Add(new NetworkTestCheckDto
             {

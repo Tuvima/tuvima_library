@@ -10,6 +10,7 @@ public sealed class NetworkRuntimeState
     private NetworkBandwidthStatusDto _bandwidth = new();
     private RouterMappingResult? _routerMapping;
     private DateTimeOffset? _routerMappingCheckedAt;
+    private readonly Dictionary<string, RemoteProviderSnapshot> _remoteProviders = new(StringComparer.OrdinalIgnoreCase);
 
     public NetworkTestResultDto? LastLocalTest
     {
@@ -36,6 +37,11 @@ public sealed class NetworkRuntimeState
         get { lock (_gate) return _routerMappingCheckedAt; }
     }
 
+    public RemoteProviderSnapshot? GetRemoteProvider(string key)
+    {
+        lock (_gate) return _remoteProviders.GetValueOrDefault(key);
+    }
+
     public void RecordLocalTest(NetworkTestResultDto result)
     {
         lock (_gate) _lastLocalTest = result;
@@ -58,5 +64,10 @@ public sealed class NetworkRuntimeState
             _routerMapping = result;
             _routerMappingCheckedAt = DateTimeOffset.UtcNow;
         }
+    }
+
+    public void RecordRemoteProvider(RemoteProviderSnapshot snapshot)
+    {
+        lock (_gate) _remoteProviders[snapshot.Key] = snapshot;
     }
 }
