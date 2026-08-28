@@ -103,16 +103,8 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
             // Get mood vocabulary for this media category.
             var moodVocab = _settings.VibeVocabulary.GetForCategory(mediaCategory);
 
-            // Resolve the configured enrichment role. Hardware can make larger
-            // roles available, but the default path remains small-first.
-            var tier = _settings.HardwareProfile.Tier;
-            var features = HardwareTierPolicy.GetFeatures(tier);
-            var modelRole = features.EnrichmentModel switch
-            {
-                "text_scholar" => AiModelRole.TextScholar,
-                "text_quality" => AiModelRole.TextQuality,
-                _ => AiModelRole.TextQuality,
-            };
+            // Logical workloads share the one text artifact selected by resource profile.
+            var modelRole = AiModelRole.TextScholar;
 
             _logger.LogInformation(
                 "[DESCRIPTION-INTEL] Analyzing {Title} ({Category}) — {DescLen} chars of descriptions, model={Model}",

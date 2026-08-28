@@ -45,7 +45,6 @@ public static class TuvimaHostedServiceCollectionExtensions
         services.AddHostedService<ModelAutoDownloadService>();
         services.AddHostedService<VibeBatchService>();
         services.AddHostedService<SeriesAlignmentBackgroundService>();
-        services.AddHostedService<TasteProfileBackgroundService>();
         services.AddHostedService<DescriptionIntelligenceBatchService>();
         services.AddHostedService(sp => sp.GetRequiredService<UniverseEnrichmentService>());
         services.AddHostedService<EnrichmentRefreshScheduleWorker>();

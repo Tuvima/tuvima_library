@@ -4,6 +4,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Jobs;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.AI.Infrastructure;
 
 namespace MediaEngine.Api.Services;
 
@@ -19,7 +20,8 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
     private const string PromptVersion = "series-position-v1";
 
     private readonly AiSettings _settings;
-    private readonly IConfigurationLoader _configLoader;
+    private readonly AiFeatureGate _featureGate;
+    private readonly AiConfigurationService _configurationStore;
     private readonly ISeriesAligner _aligner;
     private readonly ICanonicalValueRepository _canonicals;
     private readonly IAiFeaturePersistenceRepository _featurePersistence;
@@ -28,7 +30,8 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
 
     public SeriesAlignmentBackgroundService(
         AiSettings settings,
-        IConfigurationLoader configLoader,
+        AiFeatureGate featureGate,
+        AiConfigurationService configurationStore,
         ISeriesAligner aligner,
         ICanonicalValueRepository canonicals,
         IAiFeaturePersistenceRepository featurePersistence,
@@ -36,7 +39,8 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
         ILogger<SeriesAlignmentBackgroundService> logger)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(featureGate);
+        ArgumentNullException.ThrowIfNull(configurationStore);
         ArgumentNullException.ThrowIfNull(aligner);
         ArgumentNullException.ThrowIfNull(canonicals);
         ArgumentNullException.ThrowIfNull(featurePersistence);
@@ -44,7 +48,8 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
         ArgumentNullException.ThrowIfNull(logger);
 
         _settings = settings;
-        _configLoader = configLoader;
+        _featureGate = featureGate;
+        _configurationStore = configurationStore;
         _aligner = aligner;
         _canonicals = canonicals;
         _featurePersistence = featurePersistence;
@@ -78,16 +83,13 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                 _logger.LogError(ex, "SeriesAlignmentService batch failed");
             }
 
-            var maintenance = _configLoader.LoadMaintenance();
-            var cron = maintenance.Schedules.TryGetValue("series_check", out var schedule)
-                ? schedule
-                : "0 3 * * *";
+            var cron = _settings.Scheduling.SeriesCheckCron;
             var delay = CronScheduler.UntilNext(cron, TimeSpan.FromHours(24));
             _logger.LogInformation("SeriesAlignmentService: next run in {Delay}", delay);
 
             try
             {
-                await Task.Delay(delay, stoppingToken);
+                await _configurationStore.WaitForDelayOrChangeAsync(delay, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -98,6 +100,12 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
 
     private async Task RunAlignmentAsync(CancellationToken ct)
     {
+        if (!_featureGate.CanExecute(AiFeature.SeriesAlignment, MediaEngine.Domain.Enums.AiModelRole.TextQuality))
+        {
+            _logger.LogDebug("SeriesAlignmentService: feature disabled or selected model unavailable — skipping before scan");
+            return;
+        }
+
         _logger.LogInformation("SeriesAlignmentService: scanning for unpositioned series works");
         var page = await _libraryItems.GetPageAsync(
             new LibraryItemQuery(Offset: 0, Limit: 200, Sort: "newest"),

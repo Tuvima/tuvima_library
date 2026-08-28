@@ -361,18 +361,17 @@ internal class EngineApiClientStub : DispatchProxy
         _handlers[nameof(IEngineApiClient.CancelAiModelDownloadAsync)] = _ => Task.FromResult(AiOperationResultDto.Success());
         _handlers[nameof(IEngineApiClient.LoadAiModelAsync)] = _ => Task.FromResult(AiOperationResultDto.Success());
         _handlers[nameof(IEngineApiClient.UnloadAiModelAsync)] = _ => Task.FromResult(AiOperationResultDto.Success());
-        _handlers[nameof(IEngineApiClient.RunAiModelBenchmarkAsync)] = _ =>
-            Task.FromResult(AiOperationResultDto<AiBenchmarkReportDto>.Success(new AiBenchmarkReportDto
-            {
-                SuiteKey = "text_instant",
-                Role = "text_fast",
-                CatalogKey = "qwen3_0_6b_q8",
-                Passed = true,
-            }));
         _handlers[nameof(IEngineApiClient.RunBenchmarkAsync)] = _ =>
             Task.FromResult(AiOperationResultDto<HardwareProfileDto>.Success(new HardwareProfileDto
             {
                 Tier = "starter",
+                Backend = "cpu",
+            }));
+        _handlers[nameof(IEngineApiClient.InvalidateBenchmarkAsync)] = _ =>
+            Task.FromResult(AiOperationResultDto<HardwareProfileDto>.Success(new HardwareProfileDto
+            {
+                Outcome = "invalidated",
+                Tier = "auto",
                 Backend = "cpu",
             }));
 
@@ -383,15 +382,16 @@ internal class EngineApiClientStub : DispatchProxy
                 IdleUnloadSeconds = 300,
                 InferenceTimeoutSeconds = 60,
                 EnrichmentBatchSize = 10,
-                Models = new Dictionary<string, AiModelDefinitionDto>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["text_fast"] = new() { Description = "Fast local text model", File = "fast.gguf", SizeMB = 750, DownloadUrl = "https://huggingface.co/example/fast.gguf" },
-                },
+                ResourceProfile = "standard",
+                AudioPackEnabled = false,
                 Features = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["smart_labeling"] = true,
-                    ["intent_search"] = true,
-                    ["subtitle_sync"] = false,
+                    ["type_logic"] = true,
+                    ["series_alignment"] = true,
+                    ["vibe_tags"] = true,
+                    ["tldr"] = true,
+                    ["description_intelligence"] = true,
                 },
                 VibeVocabulary = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase)
                 {
@@ -404,12 +404,8 @@ internal class EngineApiClientStub : DispatchProxy
                 {
                     ["vibe_batch_cron"] = "0 4 * * *",
                     ["series_check_cron"] = "0 3 * * *",
-                    ["whisper_bake_cron"] = "0 2 * * *",
-                    ["whisper_bake_window_hours"] = 4,
-                    ["taste_profile_update_cron"] = "0 5 * * 0",
-                    ["description_intelligence"] = "*/15 * * * *",
+                    ["description_intelligence_cron"] = "*/15 * * * *",
                 },
-                HardwareProfile = new HardwareProfileDto { Tier = "starter", Backend = "cpu" },
             });
 
         _handlers[nameof(IEngineApiClient.SaveAiConfigAsync)] =

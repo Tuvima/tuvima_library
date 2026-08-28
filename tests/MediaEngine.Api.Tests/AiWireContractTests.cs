@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using MediaEngine.AI.Configuration;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Contracts.Ai;
@@ -11,59 +10,43 @@ public sealed class AiWireContractTests
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
-    public void AiConfigContract_RoundTripsResourceLimitsAndNestedCatalogFields()
+    public void AiConfigContract_RoundTripsProfilesWithoutRawCatalogOrHardwareState()
     {
         var settings = new AiSettings
         {
-            MaxConcurrentInferences = 3,
+            ResourceProfile = AiResourceProfileNames.Essential,
+            AudioPackEnabled = true,
             MinimumFreeDiskMB = 4096,
-        };
-        var catalog = settings.ModelCatalog.Values.First();
-        catalog.IntendedRoles = ["text_fast"];
-        catalog.ParametersB = 1.7;
-        catalog.Compatibility.SupportedBackends = ["cpu", "cuda"];
-        catalog.Capabilities.StructuredJson = true;
-        catalog.Validation.MinTaskPassRate = 0.95;
-        settings.OperationalRoles["test_role"] = new AiOperationalRoleDefinition
-        {
-            CatalogKey = settings.ModelCatalog.Keys.First(),
-            MaxOutputTokens = 512,
-            MaxConcurrency = 2,
         };
 
         var contract = AiContractMapper.ToContract(settings);
         var roundTrip = AiContractMapper.ToSettings(contract);
-        var settingsJson = JsonSerializer.SerializeToNode(settings, JsonOptions);
-        var contractJson = JsonSerializer.SerializeToNode(contract, JsonOptions);
+        var json = JsonSerializer.Serialize(contract, JsonOptions);
 
-        Assert.Equal(3, contract.MaxConcurrentInferences);
-        Assert.Equal(4096, contract.MinimumFreeDiskMB);
-        Assert.Equal(1.7, contract.ModelCatalog.Values.First().ParametersB);
-        Assert.Equal(["cpu", "cuda"], contract.ModelCatalog.Values.First().Compatibility.SupportedBackends);
-        Assert.True(contract.ModelCatalog.Values.First().Capabilities.StructuredJson);
-        Assert.Equal(0.95, contract.ModelCatalog.Values.First().Validation.MinTaskPassRate);
-        Assert.Equal(512, contract.OperationalRoles["test_role"].MaxOutputTokens);
-        Assert.Equal(2, roundTrip.OperationalRoles["test_role"].MaxConcurrency);
-        Assert.Equal(3, roundTrip.MaxConcurrentInferences);
+        Assert.Equal(AiResourceProfileNames.Essential, roundTrip.ResourceProfile);
+        Assert.Equal(AiResourceProfileNames.Essential, contract.EffectiveResourceProfile);
+        Assert.True(roundTrip.AudioPackEnabled);
         Assert.Equal(4096, roundTrip.MinimumFreeDiskMB);
-        Assert.True(JsonNode.DeepEquals(settingsJson, contractJson));
+        Assert.DoesNotContain("model_catalog", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("operational_roles", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("hardware_profile", json, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AiContracts_PreserveResourceLimitAndFractionalCpuJsonNames()
+    public void HardwareContract_DistinguishesFailureFromZeroThroughputSuccess()
     {
-        var configJson = JsonSerializer.Serialize(new AiConfigDto
+        var failed = AiContractMapper.ToContract(new HardwareProfile
         {
-            MaxConcurrentInferences = 2,
-            MinimumFreeDiskMB = 2048,
-        }, JsonOptions);
-        var resourceJson = JsonSerializer.Serialize(new ResourceSnapshotDto
+            Outcome = AiBenchmarkOutcomes.Failed,
+            TokensPerSecond = null,
+        });
+        var zero = AiContractMapper.ToContract(new HardwareProfile
         {
-            CpuPressure = 0.73,
-        }, JsonOptions);
+            Outcome = AiBenchmarkOutcomes.Succeeded,
+            TokensPerSecond = 0,
+        });
 
-        Assert.Contains("\"max_concurrent_inferences\":2", configJson, StringComparison.Ordinal);
-        Assert.Contains("\"minimum_free_disk_mb\":2048", configJson, StringComparison.Ordinal);
-        Assert.Contains("\"cpu_pressure\":0.73", resourceJson, StringComparison.Ordinal);
+        Assert.Null(failed.TokensPerSecond);
+        Assert.Equal(0, zero.TokensPerSecond);
     }
 }

@@ -6,6 +6,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Api.Services;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -54,11 +55,6 @@ internal static class AiEndpoints
                     return ToModelStatusResponse(status, settings, lifecycle.CurrentlyLoadedRole, inventory);
                 })
                 .ToList();
-            var lifecycleRoles = statuses.Select(status => status.Role).ToHashSet(StringComparer.OrdinalIgnoreCase);
-            statuses.AddRange(settings.OperationalRoles.Keys
-                .Where(role => !lifecycleRoles.Contains(role))
-                .Order(StringComparer.OrdinalIgnoreCase)
-                .Select(role => ToOperationalStatusResponse(role, settings)));
             return Results.Ok(statuses);
         })
         .WithName("GetAiModelStatuses")
@@ -179,9 +175,9 @@ internal static class AiEndpoints
 
         // ── GET /ai/config ───────────────────────────────────────────────────
         group.MapGet("/config", (
-            AiSettings settings) =>
+            AiConfigurationService configurationStore) =>
         {
-            return Results.Ok(AiContractMapper.ToContract(settings));
+            return Results.Ok(AiContractMapper.ToContract(configurationStore.Current));
         })
         .WithName("GetAiConfig")
         .WithSummary("Returns the current AI configuration (config/ai.json).")
@@ -191,14 +187,15 @@ internal static class AiEndpoints
         // ── PUT /ai/config ───────────────────────────────────────────────────
         group.MapPut("/config", (
             AiConfigDto request,
-            IConfigurationLoader configLoader) =>
+            AiConfigurationService configurationStore) =>
         {
             var settings = AiContractMapper.ToSettings(request);
-            var errors = ValidateAiSettings(settings);
+            var errors = configurationStore.Save(settings);
             if (errors.Count > 0)
-                return Results.ValidationProblem(errors.ToDictionary(e => e.Key, e => e.Value));
+                return Results.ValidationProblem(errors
+                    .GroupBy(error => error.Path)
+                    .ToDictionary(group => group.Key, group => group.Select(error => error.Message).ToArray()));
 
-            configLoader.SaveAi(settings);
             return Results.Ok(new AiSettingsSavedResponse(true));
         })
         .WithName("SaveAiConfig")
@@ -207,10 +204,9 @@ internal static class AiEndpoints
         .RequireAdmin();
 
         // ── GET /ai/profile ──────────────────────────────────────────────────
-        group.MapGet("/profile", (AiSettings settings) =>
+        group.MapGet("/profile", (HardwareBenchmarkService benchmark) =>
         {
-            var p = settings.HardwareProfile;
-            return Results.Ok(AiContractMapper.ToContract(p));
+            return Results.Ok(AiContractMapper.ToContract(benchmark.Current));
         })
         .WithName("GetAiHardwareProfile")
         .WithSummary("Returns the cached hardware profile and performance tier.")
@@ -222,7 +218,7 @@ internal static class AiEndpoints
             MediaEngine.AI.Infrastructure.HardwareBenchmarkService benchmark,
             CancellationToken ct) =>
         {
-            var profile = await benchmark.BenchmarkAsync(ct);
+            var profile = await benchmark.BenchmarkAsync(force: true, ct: ct);
             return Results.Ok(AiContractMapper.ToContract(profile));
         })
         .WithName("RunAiHardwareBenchmark")
@@ -230,65 +226,17 @@ internal static class AiEndpoints
         .Produces<HardwareProfileDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
-        group.MapGet("/benchmark/suites", (
-            AiBenchmarkHarness harness) =>
-        {
-            return Results.Ok(harness.GetBuiltInSuites()
-                .Select(AiContractMapper.ToContract)
-                .ToList());
-        })
-        .WithName("GetAiBenchmarkSuites")
-        .WithSummary("Returns built-in model validation suites and promotion gates.")
-        .Produces<IReadOnlyList<AiBenchmarkSuiteDto>>(StatusCodes.Status200OK)
-        .RequireAdmin();
-
-        group.MapPost("/benchmark/suites/{suiteKey}/run", async (
-            string suiteKey,
-            AiBenchmarkRunRequest request,
-            AiBenchmarkHarness harness,
-            IAiBenchmarkModelRunner runner,
-            ILoggerFactory loggerFactory,
+        group.MapDelete("/benchmark", async (
+            HardwareBenchmarkService benchmark,
+            IModelLifecycleManager lifecycle,
             CancellationToken ct) =>
         {
-            try
-            {
-                var report = await harness.RunAsync(suiteKey, request.CatalogKey, runner,
-                    new(request.AllowHardwareBenchmark, request.AllowModelExecution), ct);
-                return Results.Ok(AiContractMapper.ToContract(report));
-            }
-            catch (AiBenchmarkExecutionBlockedException ex)
-            {
-                return Results.Problem(
-                    detail: string.Join(" ", ex.BlockingReasons),
-                    type: $"https://tuvima.local/problems/ai/{ex.Code}",
-                    title: "AI evaluation is blocked",
-                    statusCode: StatusCodes.Status409Conflict,
-                    extensions: new Dictionary<string, object?> { ["blockingReasons"] = ex.BlockingReasons });
-            }
-            catch (AiBenchmarkRuntimeUnavailableException ex)
-            {
-                return Results.Problem(
-                    detail: "The configured local runtime cannot execute this evaluation role.",
-                    type: $"https://tuvima.local/problems/ai/{ex.Code}",
-                    title: "AI evaluation runtime is unavailable",
-                    statusCode: StatusCodes.Status422UnprocessableEntity,
-                    extensions: new Dictionary<string, object?> { ["role"] = ex.Role });
-            }
-            catch (Exception ex)
-            {
-                loggerFactory.CreateLogger("AiBenchmarkExecution").LogError(ex, "AI evaluation {Suite} failed", suiteKey);
-                return Results.Problem(
-                    detail: "The AI evaluation failed. Review Engine logs for diagnostic details.",
-                    type: "https://tuvima.local/problems/ai/evaluation-failed",
-                    title: "AI evaluation failed",
-                    statusCode: StatusCodes.Status500InternalServerError);
-            }
+            await lifecycle.UnloadCurrentAsync(ct);
+            return Results.Ok(AiContractMapper.ToContract(benchmark.Invalidate()));
         })
-        .WithName("RunAiBenchmarkSuite")
-        .WithSummary("Runs a versioned local text evaluation suite after explicit hardware and model-execution opt-in.")
-        .Produces<AiBenchmarkReportDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status409Conflict)
-        .Produces(StatusCodes.Status422UnprocessableEntity)
+        .WithName("InvalidateAiHardwareBenchmark")
+        .WithSummary("Invalidates the machine-local hardware benchmark.")
+        .Produces<HardwareProfileDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /ai/resources ────────────────────────────────────────────────
@@ -449,67 +397,6 @@ internal static class AiEndpoints
         };
     }
 
-    private static AiModelStatusDto ToOperationalStatusResponse(string role, AiSettings settings)
-    {
-        var advisor = new AiModelSelectionAdvisor(settings);
-        var decision = advisor.GetDecision(role);
-        settings.ModelCatalog.TryGetValue(decision.CatalogKey ?? "", out var catalog);
-        settings.OperationalRoles.TryGetValue(role, out var definition);
-        var file = catalog?.File ?? "";
-        var path = GetCatalogModelPath(settings, file, definition?.RuntimeKind);
-        var state = path is null ? "Unavailable" : GetDiskStatus(path) == "present" ? "Ready" : "NotDownloaded";
-        return new AiModelStatusDto
-        {
-            Role = role,
-            RoleName = role.Replace('_', ' '),
-            Supported = false,
-            ModelType = definition?.RuntimeKind ?? "unknown",
-            State = state,
-            Description = decision.Requirement,
-            ModelFile = file,
-            SizeMB = decision.SizeMB,
-            DownloadUrlHost = TryGetUriHost(catalog?.DownloadUrl),
-            RequiredHardwareTier = "not integrated",
-            CatalogKey = decision.CatalogKey,
-            DisplayName = decision.DisplayName,
-            Family = decision.Family,
-            Provider = decision.Provider,
-            License = decision.License,
-            Runtime = decision.Runtime,
-            SelectionTier = decision.SelectionTier,
-            SelectionStatus = decision.Status,
-            SelectionRationale = decision.Rationale,
-            RoleRequirement = decision.Requirement,
-            BenchmarkSuite = decision.BenchmarkSuite,
-            ValidationWarnings = decision.Warnings.ToList(),
-            Capabilities = FormatCapabilities(catalog?.Capabilities).ToList(),
-            DiskStatus = path is null ? "not_configured" : GetDiskStatus(path),
-            DiskSizeMB = path is null ? 0 : GetDiskSizeMB(path),
-            MemoryEnvelopeMB = decision.MemoryEnvelopeMB,
-            Quantization = decision.Quantization,
-            SourceUrl = decision.SourceUrl,
-            ChecksumStatus = decision.ChecksumConfigured ? "configured" : "missing",
-            ConfigurationReady = decision.ConfigurationReady,
-            RuntimeReady = decision.RuntimeReady,
-            Validated = decision.Validated,
-            CanOperate = decision.CanEnable,
-            Experimental = decision.Experimental,
-            BlockingReasons = decision.BlockingReasons.ToList(),
-        };
-    }
-
-    private static string? GetCatalogModelPath(AiSettings settings, string file, string? runtimeKind)
-    {
-        if (string.IsNullOrWhiteSpace(file)) return null;
-        var subdirectory = runtimeKind?.ToLowerInvariant() switch
-        {
-            "audio" => "whisper",
-            "text" => "llama",
-            _ => null,
-        };
-        return subdirectory is null ? null : Path.Combine(settings.ModelsDirectory, subdirectory, file);
-    }
-
     private static string GetDiskStatus(string path) => File.Exists(path) ? "present" : "missing";
 
     private static long GetDiskSizeMB(string path)
@@ -540,106 +427,6 @@ internal static class AiEndpoints
         if (capabilities.FunctionCalling) values.Add("function calling");
         if (capabilities.ToolCalling) values.Add("tool calling");
         return values;
-    }
-
-    private static IReadOnlyDictionary<string, string[]> ValidateAiSettings(AiSettings settings)
-    {
-        var errors = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
-        void Add(string key, string message) => errors[key] = [message];
-
-        foreach (var error in AiSettingsValidator.Validate(settings))
-            Add(error.Path, error.Message);
-
-        if (string.IsNullOrWhiteSpace(settings.ModelsDirectory))
-            Add("models_directory", "Models directory is required.");
-        if (settings.IdleUnloadSeconds <= 0)
-            Add("idle_unload_seconds", "Idle unload seconds must be positive.");
-        if (settings.InferenceTimeoutSeconds <= 0)
-            Add("inference_timeout_seconds", "Inference timeout seconds must be positive.");
-        if (settings.EnrichmentBatchSize <= 0)
-            Add("enrichment_batch_size", "Enrichment batch size must be positive.");
-
-        foreach (var role in Enum.GetValues<AiModelRole>())
-        {
-            var key = ToRoleKey(role);
-            var model = settings.Models.GetByRole(role);
-            if (string.IsNullOrWhiteSpace(model.File))
-                Add($"models.{key}.file", "Model file is required.");
-            if (model.SizeMB <= 0)
-                Add($"models.{key}.size_mb", "Model size must be positive.");
-            if (model.ContextLength <= 0)
-                Add($"models.{key}.context_length", "Context length must be positive.");
-            if (model.MaxTokens <= 0)
-                Add($"models.{key}.max_tokens", "Max tokens must be positive.");
-            if (model.Temperature < 0 || model.Temperature > 2)
-                Add($"models.{key}.temperature", "Temperature must be between 0 and 2.");
-            if (model.GpuLayers < 0)
-                Add($"models.{key}.gpu_layers", "GPU layers cannot be negative.");
-            if (model.Threads <= 0)
-                Add($"models.{key}.threads", "Threads must be positive.");
-            if (!string.IsNullOrWhiteSpace(model.DownloadUrl)
-                && !Uri.TryCreate(model.DownloadUrl, UriKind.Absolute, out _))
-            {
-                Add($"models.{key}.download_url", "Download URL must be an absolute URI.");
-            }
-            if (!string.IsNullOrWhiteSpace(model.CatalogKey)
-                && !settings.ModelCatalog.ContainsKey(model.CatalogKey))
-            {
-                Add($"models.{key}.catalog_key", "Catalog key must reference model_catalog.");
-            }
-        }
-
-        foreach (var (key, entry) in settings.ModelCatalog)
-        {
-            if (string.IsNullOrWhiteSpace(key))
-                Add("model_catalog", "Model catalog keys cannot be empty.");
-            if (string.IsNullOrWhiteSpace(entry.DisplayName))
-                Add($"model_catalog.{key}.display_name", "Display name is required.");
-            if (entry.SizeMB <= 0)
-                Add($"model_catalog.{key}.size_mb", "Catalog model size must be positive.");
-            if (!string.IsNullOrWhiteSpace(entry.DownloadUrl)
-                && !Uri.TryCreate(entry.DownloadUrl, UriKind.Absolute, out _))
-            {
-                Add($"model_catalog.{key}.download_url", "Download URL must be an absolute URI.");
-            }
-            if (!string.IsNullOrWhiteSpace(entry.SourceUrl)
-                && !Uri.TryCreate(entry.SourceUrl, UriKind.Absolute, out _))
-            {
-                Add($"model_catalog.{key}.source_url", "Source URL must be an absolute URI.");
-            }
-        }
-
-        foreach (var (key, requirement) in settings.RoleRequirements)
-        {
-            if (requirement.PreferredCatalogKeys.Count == 0)
-                Add($"role_requirements.{key}.preferred_catalog_keys", "At least one preferred model is required.");
-
-            foreach (var catalogKey in requirement.PreferredCatalogKeys.Concat(requirement.FallbackCatalogKeys))
-            {
-                if (!settings.ModelCatalog.ContainsKey(catalogKey))
-                    Add($"role_requirements.{key}.{catalogKey}", "Requirement references an unknown model catalog key.");
-            }
-        }
-
-        var advisor = new AiModelSelectionAdvisor(settings);
-        foreach (var (key, role) in settings.OperationalRoles.Where(pair => pair.Value.Enabled))
-        {
-            var decision = advisor.GetDecision(key);
-            if (!decision.CanEnable)
-                Add($"operational_roles.{key}.enabled", $"Cannot enable this role: {string.Join(" ", decision.Warnings)}");
-            if (role.Experimental)
-            {
-                if (!settings.RoleRequirements.TryGetValue(key, out var experimentalRequirement))
-                    Add($"operational_roles.{key}", "Experimental roles require an explicit role requirement.");
-                else if (!experimentalRequirement.ExperimentalAllowed)
-                    Add($"operational_roles.{key}.experimental", "This role does not permit experimental models.");
-            }
-        }
-
-        if (settings.Scheduling.WhisperBakeWindowHours <= 0)
-            Add("scheduling.whisper_bake_window_hours", "Whisper bake window must be positive.");
-
-        return errors;
     }
 
 }

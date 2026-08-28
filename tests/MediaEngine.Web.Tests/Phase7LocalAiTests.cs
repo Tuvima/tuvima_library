@@ -11,7 +11,7 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("GetAiProfileAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetResourceSnapshotAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetEnrichmentProgressAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Local AI runs on this server", source, StringComparison.Ordinal);
+        Assert.Contains("Local AI is partially available", source, StringComparison.Ordinal);
         Assert.Contains("MaxConcurrentInferences", source, StringComparison.Ordinal);
         Assert.Contains("MinimumFreeDiskMB", source, StringComparison.Ordinal);
         Assert.Contains("CpuPressureLabel(double pressure)", source, StringComparison.Ordinal);
@@ -28,11 +28,11 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("CancelAiModelDownloadAsync", source, StringComparison.Ordinal);
         Assert.Contains("LoadAiModelAsync", source, StringComparison.Ordinal);
         Assert.Contains("UnloadAiModelAsync", source, StringComparison.Ordinal);
-        Assert.Contains("RunAiModelBenchmarkAsync", source, StringComparison.Ordinal);
+        Assert.Contains("RunBenchmarkAsync", source, StringComparison.Ordinal);
+        Assert.Contains("InvalidateBenchmarkAsync", source, StringComparison.Ordinal);
+        Assert.Contains("Qwen3 1.7B Q5", source, StringComparison.Ordinal);
+        Assert.Contains("Optional Whisper feature pack", source, StringComparison.Ordinal);
         Assert.Contains("result.Problem?.ToUserMessage()", source, StringComparison.Ordinal);
-        Assert.Contains("Run validation", source, StringComparison.Ordinal);
-        Assert.Contains("Configured, but lifecycle endpoints do not support this role", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("catalogue-only", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Task.Delay", source, StringComparison.Ordinal);
     }
 
@@ -44,9 +44,9 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("GetAiConfigAsync", source, StringComparison.Ordinal);
         Assert.Contains("SaveAiConfigAsync", source, StringComparison.Ordinal);
         Assert.Contains("Missing model", source, StringComparison.Ordinal);
-        Assert.Contains("Hardware limited", source, StringComparison.Ordinal);
-        Assert.Contains("Planned", source, StringComparison.Ordinal);
-        Assert.Contains("Series & relationship alignment", source, StringComparison.Ordinal);
+        Assert.Contains("Local AI is partial", source, StringComparison.Ordinal);
+        Assert.Contains("Media-type assistance", source, StringComparison.Ordinal);
+        Assert.Contains("Series alignment", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Audiobook chapter naming", source, StringComparison.Ordinal);
     }
 
@@ -69,7 +69,8 @@ public sealed class Phase7LocalAiTests
 
         Assert.Contains("GetAiConfigAsync", schedule, StringComparison.Ordinal);
         Assert.Contains("SaveAiConfigAsync", schedule, StringComparison.Ordinal);
-        Assert.Contains("Last-run and next-run times are not shown", schedule, StringComparison.Ordinal);
+        Assert.Contains("Saving wakes waiting workers", schedule, StringComparison.Ordinal);
+        Assert.Contains("description_intelligence_cron", schedule, StringComparison.Ordinal);
         Assert.Contains("GetAiConfigAsync", vocabulary, StringComparison.Ordinal);
         Assert.Contains("SaveAiConfigAsync", vocabulary, StringComparison.Ordinal);
         Assert.Contains("Duplicate tag", vocabulary, StringComparison.Ordinal);
@@ -94,9 +95,9 @@ public sealed class Phase7LocalAiTests
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LocalAiSettingsTab.razor");
 
-        Assert.Contains("Local AI is healthy", source, StringComparison.Ordinal);
+        Assert.Contains("Local AI is partially available", source, StringComparison.Ordinal);
         Assert.Contains("Enabled features", source, StringComparison.Ordinal);
-        Assert.Contains("Subtitle synchronization — Planned", source, StringComparison.Ordinal);
+        Assert.Contains("Media-type assistance", source, StringComparison.Ordinal);
         Assert.Contains("/settings/ai/models", source, StringComparison.Ordinal);
         Assert.Contains("/settings/ai/vocabulary", source, StringComparison.Ordinal);
         Assert.Contains("/settings/ai/automation", source, StringComparison.Ordinal);

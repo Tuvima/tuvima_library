@@ -2,147 +2,132 @@ using System.Diagnostics;
 using MediaEngine.AI.Configuration;
 using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Infrastructure;
 
-/// <summary>
-/// Runs a hardware benchmark at startup to classify the system into a performance tier.
-/// Results are cached in AiSettings.HardwareProfile AND persisted to config/ai.json so
-/// the benchmark is skipped on subsequent restarts unless the user explicitly re-runs it.
-/// </summary>
+/// <summary>Runs and persists a versioned benchmark for the current physical machine.</summary>
 public sealed class HardwareBenchmarkService
 {
-    private readonly LlamaInferenceService              _llama;
-    private readonly AiSettings                         _settings;
-    private readonly GpuBackendDetector                 _gpuDetector;
-    private readonly IConfigurationLoader               _configLoader;
-    private readonly ILogger<HardwareBenchmarkService>  _logger;
+    private readonly LlamaInferenceService _llama;
+    private readonly AiSettings _settings;
+    private readonly GpuBackendDetector _gpuDetector;
+    private readonly AiBenchmarkStateStore _stateStore;
+    private readonly ILogger<HardwareBenchmarkService> _logger;
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     public HardwareBenchmarkService(
-        LlamaInferenceService              llama,
-        AiSettings                         settings,
-        GpuBackendDetector                 gpuDetector,
-        IConfigurationLoader               configLoader,
-        ILogger<HardwareBenchmarkService>  logger)
+        LlamaInferenceService llama,
+        AiSettings settings,
+        GpuBackendDetector gpuDetector,
+        AiBenchmarkStateStore stateStore,
+        ILogger<HardwareBenchmarkService> logger)
     {
-        _llama        = llama;
-        _settings     = settings;
-        _gpuDetector  = gpuDetector;
-        _configLoader = configLoader;
-        _logger       = logger;
+        _llama = llama;
+        _settings = settings;
+        _gpuDetector = gpuDetector;
+        _stateStore = stateStore;
+        _logger = logger;
+        var detected = _gpuDetector.Detect();
+        Copy(_stateStore.LoadCurrent(detected.Backend, detected.GpuName), _settings.HardwareProfile);
     }
 
-    /// <summary>
-    /// Run the benchmark if not already cached (or if tier is "auto").
-    /// Returns the resolved hardware profile.
-    /// </summary>
-    public async Task<HardwareProfile> BenchmarkAsync(CancellationToken ct = default)
-    {
-        var profile = _settings.HardwareProfile;
+    public HardwareProfile Current => _settings.HardwareProfile;
 
-        // Skip if already benchmarked and not set to "auto".
-        if (profile.BenchmarkedAt.HasValue
-            && !string.Equals(profile.Tier, "auto", StringComparison.OrdinalIgnoreCase))
+    public async Task<HardwareProfile> BenchmarkAsync(bool force = false, CancellationToken ct = default)
+    {
+        await _gate.WaitAsync(ct).ConfigureAwait(false);
+        try
         {
-            _logger.LogInformation(
-                "Hardware profile cached: tier={Tier}, backend={Backend}, {TokPerSec:F1} tok/s (benchmarked {When})",
-                profile.Tier, profile.Backend, profile.TokensPerSecond, profile.BenchmarkedAt);
+            var detected = _gpuDetector.Detect();
+            var fingerprint = AiBenchmarkStateStore.CreateMachineFingerprint(detected.Backend, detected.GpuName);
+            var profile = _settings.HardwareProfile;
+            if (!force
+                && profile.Outcome == AiBenchmarkOutcomes.Succeeded
+                && string.Equals(profile.MachineFingerprint, fingerprint, StringComparison.Ordinal))
+            {
+                return profile;
+            }
+
+            profile.MachineFingerprint = fingerprint;
+            profile.Backend = detected.Backend;
+            profile.GpuName = detected.GpuName;
+            profile.AvailableRamMb = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024);
+            profile.BenchmarkModel = _settings.Models.TextFast.CatalogKey;
+            profile.BenchmarkedAt = DateTime.UtcNow;
+            profile.FailureCode = null;
+            profile.FailureMessage = null;
+
+            try
+            {
+                const string prompt = "Write a detailed paragraph about the history of libraries, including at least five key facts:";
+                var sw = Stopwatch.StartNew();
+                var result = await _llama.InferAsync(AiModelRole.TextFast, prompt, ct: ct).ConfigureAwait(false);
+                sw.Stop();
+
+                // Empty output is a completed zero-throughput measurement, not an execution failure.
+                var estimatedTokens = string.IsNullOrEmpty(result) ? 0 : Math.Max(1, (int)(result.Length / 3.5));
+                var throughput = estimatedTokens == 0
+                    ? 0d
+                    : estimatedTokens / Math.Max(sw.Elapsed.TotalSeconds, 0.1);
+                profile.Outcome = AiBenchmarkOutcomes.Succeeded;
+                profile.TokensPerSecond = throughput;
+                profile.Tier = HardwareTierPolicy.ClassifyTier(
+                    throughput,
+                    profile.AvailableRamMb,
+                    _gpuDetector.HasDedicatedGpu);
+                _logger.LogInformation(
+                    "AI benchmark succeeded on {Model}: {Throughput:F1} tok/s; tier={Tier}",
+                    profile.BenchmarkModel,
+                    throughput,
+                    profile.Tier);
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                profile.Outcome = AiBenchmarkOutcomes.Failed;
+                profile.TokensPerSecond = null;
+                profile.Tier = "auto";
+                profile.FailureCode = "benchmark_execution_failed";
+                profile.FailureMessage = ex.Message;
+                _logger.LogWarning(ex, "AI benchmark execution failed");
+            }
+
+            _stateStore.Save(profile);
+            _settings.ApplyEffectiveResourceProfile();
             return profile;
         }
-
-        _logger.LogInformation("Running hardware benchmark...");
-
-        // Measure available RAM.
-        var availableRam = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024);
-        profile.AvailableRamMb = availableRam;
-
-        // Detect GPU backend via Vulkan → CUDA → CPU probe chain.
-        var (backend, gpuName) = _gpuDetector.Detect();
-        profile.Backend = backend;
-        profile.GpuName = gpuName;
-
-        bool hasDedicatedGpu = _gpuDetector.HasDedicatedGpu;
-        _logger.LogInformation(
-            "GPU detection result: backend={Backend}, name={GpuName}, dedicated={Dedicated}",
-            backend, gpuName ?? "none", hasDedicatedGpu);
-
-        // Run token generation benchmark.
-        // Generate enough text to get a stable measurement (~50 tokens).
-        double tokPerSec = 0;
-        try
+        finally
         {
-            const string testPrompt = "Write a detailed paragraph about the history of libraries, including at least five key facts:";
-            var sw     = Stopwatch.StartNew();
-            var result = await _llama.InferAsync(AiModelRole.TextFast, testPrompt, ct: ct);
-            sw.Stop();
-
-            if (!string.IsNullOrEmpty(result))
-            {
-                // LLaMA tokenizer averages ~3.5 chars per token for English prose.
-                // Use 3.5 for a more accurate estimate than 4.
-                int estimatedTokens = Math.Max(1, (int)(result.Length / 3.5));
-                tokPerSec = estimatedTokens / Math.Max(sw.Elapsed.TotalSeconds, 0.1);
-
-                _logger.LogInformation(
-                    "Benchmark inference: {Chars} chars ≈ {Tokens} tokens in {Elapsed:F1}s → {TokPerSec:F1} tok/s",
-                    result.Length, estimatedTokens, sw.Elapsed.TotalSeconds, tokPerSec);
-            }
-            else
-            {
-                _logger.LogWarning("Benchmark inference returned empty result");
-            }
+            _gate.Release();
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Benchmark inference failed — assuming minimal tier");
-            tokPerSec = 0;
-        }
-
-        profile.TokensPerSecond = tokPerSec;
-
-        // Classify tier using dedicated GPU flag (integrated GPUs do not qualify for AI acceleration).
-        profile.Tier          = HardwareTierPolicy.ClassifyTier(tokPerSec, availableRam, hasDedicatedGpu);
-        profile.BenchmarkedAt = DateTime.UtcNow;
-
-        var features = HardwareTierPolicy.GetFeatures(profile.Tier);
-
-        _logger.LogInformation(
-            "Hardware benchmark complete: tier={Tier} ({Backend}{Gpu}, {TokPerSec:F1} tok/s, {Ram}MB RAM) " +
-            "→ Ingestion AI: {Ingestion}, Enrichment: {Enrichment}, Whisper: {Whisper}",
-            profile.Tier,
-            profile.Backend,
-            gpuName is not null ? $" — {gpuName}" : "",
-            profile.TokensPerSecond,
-            profile.AvailableRamMb,
-            features.SmartLabelerEnabled ? "enabled" : "disabled",
-            features.EnrichmentMode,
-            features.WhisperEnabled ? "enabled" : "disabled");
-
-        // Persist benchmark results to config/ai.json so restarts skip the benchmark.
-        await PersistConfigAsync(ct);
-
-        return profile;
     }
 
-    /// <summary>
-    /// Writes the updated AiSettings (including the populated HardwareProfile) back to
-    /// config/ai.json via IConfigurationLoader so the benchmark result survives restarts.
-    /// </summary>
-    private Task PersistConfigAsync(CancellationToken ct)
+    public HardwareProfile Invalidate()
     {
-        try
-        {
-            _configLoader.SaveAi(_settings);
-            _logger.LogInformation("Benchmark results persisted to config/ai.json");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to persist benchmark results to config/ai.json");
-        }
-
-        return Task.CompletedTask;
+        var detected = _gpuDetector.Detect();
+        var invalidated = _stateStore.Invalidate(detected.Backend, detected.GpuName);
+        Copy(invalidated, _settings.HardwareProfile);
+        _settings.ApplyEffectiveResourceProfile();
+        return _settings.HardwareProfile;
     }
 
+    private static void Copy(HardwareProfile source, HardwareProfile destination)
+    {
+        destination.Outcome = source.Outcome;
+        destination.Tier = source.Tier;
+        destination.Backend = source.Backend;
+        destination.GpuName = source.GpuName;
+        destination.TokensPerSecond = source.TokensPerSecond;
+        destination.AvailableRamMb = source.AvailableRamMb;
+        destination.BenchmarkedAt = source.BenchmarkedAt;
+        destination.MachineFingerprint = source.MachineFingerprint;
+        destination.BenchmarkModel = source.BenchmarkModel;
+        destination.BenchmarkVersion = source.BenchmarkVersion;
+        destination.FailureCode = source.FailureCode;
+        destination.FailureMessage = source.FailureMessage;
+    }
 }

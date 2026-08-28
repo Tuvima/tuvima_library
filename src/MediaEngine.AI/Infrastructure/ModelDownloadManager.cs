@@ -21,6 +21,7 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
     private readonly IEventPublisher _eventPublisher;
     private readonly ILogger<ModelDownloadManager> _logger;
     private readonly int _minimumFreeDiskMb;
+    private readonly AiSettings _liveSettings;
     private readonly CancellationTokenSource _shutdownCts = new();
     private readonly Dictionary<string, DownloadOperation> _activeDownloads = new(ArtifactComparer);
     private readonly Dictionary<string, ModelDownloadResult> _completedDownloads = new(ArtifactComparer);
@@ -37,6 +38,7 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
     {
         var snapshot = AiRuntimeSettingsSnapshot.Create(settings);
         _minimumFreeDiskMb = snapshot.MinimumFreeDiskMB;
+        _liveSettings = settings;
         _inventory = inventory ?? throw new ArgumentNullException(nameof(inventory));
         _httpClientFactory = httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory));
         _eventPublisher = eventPublisher ?? throw new ArgumentNullException(nameof(eventPublisher));
@@ -159,7 +161,11 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
     }
 
     public IReadOnlyList<AiModelStatus> GetAllStatuses() =>
-        Enum.GetValues<AiModelRole>().Select(GetStatus).ToList();
+        (_liveSettings.AudioPackEnabled
+            ? new[] { AiModelRole.TextQuality, AiModelRole.Audio }
+            : new[] { AiModelRole.TextQuality })
+        .Select(GetStatus)
+        .ToList();
 
     public bool AreAllModelsReady() => _inventory.AreAllReady();
 

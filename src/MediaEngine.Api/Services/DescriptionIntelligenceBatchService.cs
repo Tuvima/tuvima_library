@@ -29,6 +29,8 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
     private readonly AiSettings _settings;
     private readonly IConfigurationLoader _configLoader;
     private readonly ResourceMonitorService _resourceMonitor;
+    private readonly AiFeatureGate _featureGate;
+    private readonly AiConfigurationService _configurationStore;
     private readonly ICanonicalValueRepository _canonicals;
     private readonly IAiFeaturePersistenceRepository _featurePersistence;
     private readonly IWorkRepository _works;
@@ -47,6 +49,8 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         AiSettings settings,
         IConfigurationLoader configLoader,
         ResourceMonitorService resourceMonitor,
+        AiFeatureGate featureGate,
+        AiConfigurationService configurationStore,
         ICanonicalValueRepository canonicals,
         IAiFeaturePersistenceRepository featurePersistence,
         IWorkRepository works,
@@ -64,6 +68,8 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(resourceMonitor);
+        ArgumentNullException.ThrowIfNull(featureGate);
+        ArgumentNullException.ThrowIfNull(configurationStore);
         ArgumentNullException.ThrowIfNull(canonicals);
         ArgumentNullException.ThrowIfNull(featurePersistence);
         ArgumentNullException.ThrowIfNull(works);
@@ -81,6 +87,8 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         _settings     = settings;
         _configLoader = configLoader;
         _resourceMonitor = resourceMonitor;
+        _featureGate = featureGate;
+        _configurationStore = configurationStore;
         _canonicals = canonicals;
         _featurePersistence = featurePersistence;
         _works = works;
@@ -120,14 +128,13 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                 _logger.LogError(ex, "[DESCRIPTION-INTEL-BATCH] Batch run failed");
             }
 
-            var maintenance = _configLoader.LoadMaintenance();
-            var cron = maintenance.Schedules.TryGetValue("description_intelligence", out var s) ? s : "*/15 * * * *";
+            var cron = _settings.Scheduling.DescriptionIntelligenceCron;
             var delay = CronScheduler.UntilNext(cron, TimeSpan.FromMinutes(15));
 
             _logger.LogInformation("[DESCRIPTION-INTEL-BATCH] Next run in {Delay}", delay);
             try
             {
-                await Task.Delay(delay, stoppingToken);
+                await _configurationStore.WaitForDelayOrChangeAsync(delay, stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
@@ -138,19 +145,14 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
 
     private async Task ProcessBatchAsync(CancellationToken ct)
     {
-        if (!_settings.Features.DescriptionIntelligence)
+        if (!_featureGate.CanExecute(AiFeature.DescriptionIntelligence, MediaEngine.Domain.Enums.AiModelRole.TextScholar))
         {
-            _logger.LogDebug("[DESCRIPTION-INTEL-BATCH] Feature disabled — skipping batch");
+            _logger.LogDebug("[DESCRIPTION-INTEL-BATCH] Feature disabled or selected model unavailable — skipping before scan");
             return;
         }
 
-        // Check hardware tier and select the best model available right now.
-        var features = HardwareTierPolicy.GetFeatures(_settings.HardwareProfile.Tier);
-
         // Check if resources allow enrichment right now.
-        var modelSize = features.ScholarAvailable
-            ? _settings.Models.TextScholar.SizeMB
-            : _settings.Models.TextQuality.SizeMB;
+        var modelSize = _settings.Models.TextScholar.SizeMB;
         var recommendation = _resourceMonitor.CanLoadModel(modelSize);
         if (!recommendation.CanLoad)
         {
@@ -159,10 +161,9 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         }
 
         _logger.LogDebug(
-            "[DESCRIPTION-INTEL-BATCH] Using {Model} for enrichment (ScholarAvailable={Scholar})",
-            features.ScholarAvailable ? "text_scholar (8B)" : "text_quality (3B)",
-            features.ScholarAvailable);
-        var modelId = features.ScholarAvailable ? "text_scholar" : "text_quality";
+            "[DESCRIPTION-INTEL-BATCH] Using selected {Profile} profile for enrichment",
+            _settings.ResourceProfile);
+        var modelId = _settings.Models.TextScholar.CatalogKey ?? _settings.ResourceProfile;
         var canonicalRepo = _canonicals;
         var workRepo = _works;
         var descIntel = _descriptionIntelligence;

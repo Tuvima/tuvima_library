@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page">
@@ -11,251 +11,195 @@
         <AppAlert Tone="@MessageTone" Class="mb-3">@_message</AppAlert>
     }
 
+    @if (_config is not null)
+    {
+        <AppCard Title="Resource profile"
+                 Description="Tuvima downloads and runs one text model. Advanced is available only after this machine passes its benchmark."
+                 Class="mb-3">
+            <div class="model-card__header">
+                <AppChip Text="Essential · Qwen3 0.6B Q8" Tone="@ProfileTone("essential")" />
+                <AppChip Text="Standard · Qwen3 1.7B Q5" Tone="@ProfileTone("standard")" />
+                <AppChip Text="Advanced · Qwen3 4B Q4" Tone="@ProfileTone("advanced")" />
+            </div>
+            <div class="mt-3">
+                <AppChip Text="@($"Effective on this machine · {_config.EffectiveResourceProfile}")" Tone="AppUiTone.Info" />
+            </div>
+            <AppActionBar Align="AppHorizontalAlignment.Start" Class="mt-3">
+                <AppButton Label="Use Essential" Size="AppControlSize.Compact" Disabled="@ProfileSelected("essential")" OnClick="@(() => SelectProfileAsync("essential"))" />
+                <AppButton Label="Use Standard" Size="AppControlSize.Compact" Disabled="@ProfileSelected("standard")" OnClick="@(() => SelectProfileAsync("standard"))" />
+                <AppButton Label="Use Advanced" Size="AppControlSize.Compact" Disabled="@AdvancedUnavailable" OnClick="@(() => SelectProfileAsync("advanced"))" />
+            </AppActionBar>
+            <div class="mt-3">
+                <AppSwitchRow Value="@_config.AudioPackEnabled"
+                              ValueChanged="SetAudioPackAsync"
+                              Label="Optional Whisper feature pack"
+                              Description="Whisper is not downloaded during basic setup. Enable this only when audio transcription or alignment is needed." />
+            </div>
+        </AppCard>
+
+        <AppCard Title="Current-machine benchmark" Class="mb-3">
+            <span class="model-card__meta">@BenchmarkSummary(_profile)</span>
+            @if (!string.IsNullOrWhiteSpace(_profile?.FailureMessage))
+            {
+                <AppAlert Tone="AppUiTone.Warning" Class="mt-2">@_profile.FailureMessage</AppAlert>
+            }
+            <AppActionBar Align="AppHorizontalAlignment.Start" Class="mt-3">
+                <AppButton Label="Run benchmark again" Size="AppControlSize.Compact" Tone="AppUiTone.Primary" Disabled="_benchmarking" OnClick="RunHardwareBenchmarkAsync" />
+                <AppButton Label="Invalidate benchmark" Size="AppControlSize.Compact" Tone="AppUiTone.Warning" Disabled="_benchmarking" OnClick="InvalidateBenchmarkAsync" />
+            </AppActionBar>
+        </AppCard>
+    }
+
     @if (_loading)
     {
         <AppProgressBar Indeterminate="true" />
     }
     else if (_models.Count == 0)
     {
-        <AppAlert Tone="AppUiTone.Warning">Model status unavailable.</AppAlert>
+        <AppAlert Tone="AppUiTone.Warning">The selected model status is unavailable.</AppAlert>
     }
     else
     {
         <div class="models-grid">
-            @foreach (var model in _models.OrderBy(m => m.Role))
+            @foreach (var model in _models)
             {
                 <AppCard Class="model-card">
                     <div class="model-card__header">
-                        <AppChip Text="@model.Role" Tone="AppUiTone.Primary" />
+                        <AppChip Text="@(model.ModelType.Equals("Audio", StringComparison.OrdinalIgnoreCase) ? "Optional audio" : "Selected text")" Tone="AppUiTone.Primary" />
                         <AppChip Text="@StateLabel(model)" Tone="@StateTone(model)" />
                     </div>
                     <strong class="model-card__title">@ModelTitle(model)</strong>
-                    @if (!string.IsNullOrWhiteSpace(model.Family) || !string.IsNullOrWhiteSpace(model.Runtime))
+                    <span class="model-card__meta">@model.ModelFile · @FormatMb(model.SizeMB) · @model.Quantization</span>
+                    <span class="model-card__meta">On disk: @DiskLabel(model) · Checksum: @model.ChecksumStatus</span>
+                    @foreach (var warning in model.ValidationWarnings.Concat(model.BlockingReasons).Distinct(StringComparer.Ordinal))
                     {
-                        <span class="model-card__meta">@ModelFamilyLine(model)</span>
+                        <AppAlert Tone="AppUiTone.Warning" Class="mt-2">@warning</AppAlert>
                     }
-                    <span class="model-card__meta">File: @(string.IsNullOrWhiteSpace(model.ModelFile) ? "manual gated artifact" : model.ModelFile)</span>
-                    <span class="model-card__meta">Catalog size: @FormatMb(model.SizeMB) · On disk: @DiskLabel(model)</span>
-                    <span class="model-card__meta">Memory envelope: @FormatMb(model.MemoryEnvelopeMB) · Quantization: @(string.IsNullOrWhiteSpace(model.Quantization) ? "not specified" : model.Quantization)</span>
-                    <span class="model-card__meta">Checksum: @model.ChecksumStatus · Validation: @(model.Validated ? "passed" : "pending") · Suite: @(string.IsNullOrWhiteSpace(model.BenchmarkSuite) ? "not configured" : model.BenchmarkSuite)</span>
-                    @if (!string.IsNullOrWhiteSpace(model.SourceUrl))
-                    {
-                        <a class="model-card__meta" href="@model.SourceUrl" target="_blank" rel="noopener noreferrer">Official/source model page</a>
-                    }
-                    else
-                    {
-                        <span class="model-card__meta">Source: @(model.DownloadUrlHost ?? "not configured")</span>
-                    }
-                    <div class="model-card__header mt-2">
-                        <AppChip Text="@(model.ConfigurationReady ? "Config ready" : "Config blocked")" Tone="@(model.ConfigurationReady ? AppUiTone.Success : AppUiTone.Warning)" />
-                        <AppChip Text="@(model.RuntimeReady ? "Runtime ready" : "Runtime blocked")" Tone="@(model.RuntimeReady ? AppUiTone.Success : AppUiTone.Warning)" />
-                        @if (model.Experimental) { <AppChip Text="Experimental" Tone="AppUiTone.Warning" /> }
-                    </div>
-                    @if (!string.IsNullOrWhiteSpace(model.RoleRequirement))
-                    {
-                        <span class="model-card__meta">Requirement: @model.RoleRequirement</span>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(model.SelectionRationale))
-                    {
-                        <span class="model-card__meta">Why selected: @model.SelectionRationale</span>
-                    }
-                    @if (model.Capabilities.Count > 0)
-                    {
-                        <div class="model-card__header mt-2">
-                            @foreach (var capability in model.Capabilities)
-                            {
-                                <AppChip Text="@capability" Tone="AppUiTone.Info" />
-                            }
-                        </div>
-                    }
-
                     @if (model.State.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
                     {
                         <AppProgressBar Value="@model.DownloadProgressPercent" ShowValue="true" Class="mt-3" />
                     }
-
-                    @if (!string.IsNullOrWhiteSpace(model.ErrorMessage))
-                    {
-                        <AppAlert Tone="AppUiTone.Error" Class="mt-3">@model.ErrorMessage</AppAlert>
-                    }
-
-                    @foreach (var warning in AllWarnings(model))
-                    {
-                        <AppAlert Tone="AppUiTone.Warning" Class="mt-3">@warning</AppAlert>
-                    }
-
-                    <span class="model-card__meta mt-3">Used by enabled features: @UsedBy(model.Role)</span>
-                    <span class="model-card__meta">Memory footprint: @(model.MemoryFootprintMB > 0 ? FormatMb(model.MemoryFootprintMB) : "not loaded").</span>
-
-                    @if (!model.Supported)
-                    {
-                        <AppAlert Tone="AppUiTone.Info" Class="mt-3">Configured, but lifecycle endpoints do not support this role.</AppAlert>
-                    }
-                    else
-                    {
-                        <AppActionBar Align="AppHorizontalAlignment.Start" Class="model-card__actions mt-3">
-                            <AppButton Label="Download"
-                                       Size="AppControlSize.Compact"
-                                       ButtonStyle="AppButtonStyle.Filled"
-                                       Tone="AppUiTone.Primary"
-                                       StartIcon="@Icons.Material.Outlined.Download"
-                                       Disabled="@(!CanDownload(model))"
-                                       OnClick="@(() => RunAction(model.Role, AiModelAction.Download))" />
-                            <AppButton Label="Cancel"
-                                       Size="AppControlSize.Compact"
-                                       Tone="AppUiTone.Warning"
-                                       StartIcon="@Icons.Material.Outlined.Cancel"
-                                       Disabled="@(!CanCancel(model))"
-                                       OnClick="@(() => RunAction(model.Role, AiModelAction.Cancel))" />
-                            <AppButton Label="Load"
-                                       Size="AppControlSize.Compact"
-                                       Tone="AppUiTone.Success"
-                                       StartIcon="@Icons.Material.Outlined.PlayArrow"
-                                       Disabled="@(!CanLoad(model))"
-                                       OnClick="@(() => RunAction(model.Role, AiModelAction.Load))" />
-                            <AppButton Label="Unload"
-                                       Size="AppControlSize.Compact"
-                                       StartIcon="@Icons.Material.Outlined.Stop"
-                                       Disabled="@(!CanUnload(model))"
-                                       OnClick="@(() => RunAction(model.Role, AiModelAction.Unload))" />
-                            <AppButton Label="Run validation"
-                                       Size="AppControlSize.Compact"
-                                       Tone="AppUiTone.Info"
-                                       StartIcon="@Icons.Material.Outlined.FactCheck"
-                                       Disabled="@(!CanValidate(model))"
-                                       OnClick="@(() => RunValidation(model))" />
-                        </AppActionBar>
-                    }
+                    <AppActionBar Align="AppHorizontalAlignment.Start" Class="mt-3">
+                        <AppButton Label="Download" Size="AppControlSize.Compact" Tone="AppUiTone.Primary" Disabled="@(!CanDownload(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Download))" />
+                        <AppButton Label="Cancel" Size="AppControlSize.Compact" Tone="AppUiTone.Warning" Disabled="@(!CanCancel(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Cancel))" />
+                        <AppButton Label="Load" Size="AppControlSize.Compact" Tone="AppUiTone.Success" Disabled="@(!CanLoad(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Load))" />
+                        <AppButton Label="Unload" Size="AppControlSize.Compact" Disabled="@(!CanUnload(model))" OnClick="@(() => RunAction(model.Role, AiModelAction.Unload))" />
+                    </AppActionBar>
                 </AppCard>
             }
         </div>
     }
-
-    <AppAlert Tone="AppUiTone.Info" Class="mt-4">
-        Delete is not shown because the Engine has no public model deletion endpoint. Local model downloads do not imply cloud inference.
-    </AppAlert>
 </div>
 
 @code {
     private List<AiModelStatusDto> _models = [];
     private AiConfigDto? _config;
+    private HardwareProfileDto? _profile;
     private bool _loading;
+    private bool _benchmarking;
     private string? _message;
     private Severity _messageSeverity = Severity.Info;
-    private AppUiTone MessageTone => ToTone(_messageSeverity);
+    private AppUiTone MessageTone => _messageSeverity switch
+    {
+        Severity.Success => AppUiTone.Success,
+        Severity.Warning => AppUiTone.Warning,
+        Severity.Error => AppUiTone.Error,
+        _ => AppUiTone.Info,
+    };
+    private bool AdvancedUnavailable => _profile?.AdvancedEligible != true || ProfileSelected("advanced");
 
     protected override async Task OnInitializedAsync() => await RefreshAsync();
 
     private async Task RefreshAsync()
     {
         _loading = true;
-        _models = (await Orchestrator.GetAiModelStatusesAsync()).ToList();
         _config = await Orchestrator.GetAiConfigAsync();
+        _profile = await Orchestrator.GetAiProfileAsync();
+        _models = (await Orchestrator.GetAiModelStatusesAsync()).ToList();
         _loading = false;
+    }
+
+    private bool ProfileSelected(string profile) =>
+        string.Equals(_config?.ResourceProfile, profile, StringComparison.OrdinalIgnoreCase);
+
+    private AppUiTone ProfileTone(string profile) => ProfileSelected(profile) ? AppUiTone.Success : AppUiTone.Neutral;
+
+    private async Task SelectProfileAsync(string profile)
+    {
+        if (_config is null)
+            return;
+        _config.ResourceProfile = profile;
+        var saved = await Orchestrator.SaveAiConfigAsync(_config);
+        _messageSeverity = saved ? Severity.Success : Severity.Error;
+        _message = saved
+            ? $"{profile} selected. Restart the Engine to activate a different physical text artifact."
+            : "The resource profile could not be saved.";
+        await RefreshAsync();
+    }
+
+    private async Task SetAudioPackAsync(bool enabled)
+    {
+        if (_config is null)
+            return;
+        _config.AudioPackEnabled = enabled;
+        var saved = await Orchestrator.SaveAiConfigAsync(_config);
+        if (saved && enabled)
+            await Orchestrator.StartAiModelDownloadAsync("audio");
+        _messageSeverity = saved ? Severity.Success : Severity.Error;
+        _message = saved ? (enabled ? "Whisper feature pack enabled." : "Whisper feature pack disabled.") : "Audio feature-pack setting could not be saved.";
+        await RefreshAsync();
+    }
+
+    private async Task RunHardwareBenchmarkAsync()
+    {
+        _benchmarking = true;
+        var result = await Orchestrator.RunBenchmarkAsync();
+        _benchmarking = false;
+        _messageSeverity = result.Succeeded && result.Value?.Outcome == "succeeded" ? Severity.Success : Severity.Warning;
+        _message = result.Succeeded ? BenchmarkSummary(result.Value) : result.Problem?.ToUserMessage() ?? "Benchmark failed.";
+        await RefreshAsync();
+    }
+
+    private async Task InvalidateBenchmarkAsync()
+    {
+        _benchmarking = true;
+        var result = await Orchestrator.InvalidateBenchmarkAsync();
+        _benchmarking = false;
+        _messageSeverity = result.Succeeded ? Severity.Success : Severity.Error;
+        _message = result.Succeeded ? "The saved benchmark was invalidated." : result.Problem?.ToUserMessage() ?? "Benchmark invalidation failed.";
+        await RefreshAsync();
     }
 
     private async Task RunAction(string role, AiModelAction action)
     {
-        _message = null;
         var result = action switch
         {
             AiModelAction.Download => await Orchestrator.StartAiModelDownloadAsync(role),
             AiModelAction.Cancel => await Orchestrator.CancelAiModelDownloadAsync(role),
             AiModelAction.Load => await Orchestrator.LoadAiModelAsync(role),
             AiModelAction.Unload => await Orchestrator.UnloadAiModelAsync(role),
-            _ => AiOperationResultDto.Failure(new AiProblemDetailsDto
-            {
-                Title = "Unsupported AI action",
-                Detail = "The Dashboard does not recognize this model action.",
-            }),
+            _ => AiOperationResultDto.Failure(new AiProblemDetailsDto { Title = "Unsupported AI action" }),
         };
-
         _messageSeverity = result.Succeeded ? Severity.Success : Severity.Error;
-        _message = result.Succeeded
-            ? $"{action} requested for {role}."
-            : result.Problem?.ToUserMessage() ?? $"{action} failed for {role}.";
+        _message = result.Succeeded ? $"{action} requested for {role}." : result.Problem?.ToUserMessage() ?? $"{action} failed.";
         await RefreshAsync();
     }
 
-    private async Task RunValidation(AiModelStatusDto model)
+    private static string BenchmarkSummary(HardwareProfileDto? profile) => profile?.Outcome switch
     {
-        _message = null;
-        var result = await Orchestrator.RunAiModelBenchmarkAsync(
-            model.BenchmarkSuite,
-            model.CatalogKey!,
-            allowHardwareBenchmark: true,
-            allowModelExecution: true);
-        if (!result.Succeeded)
-        {
-            _messageSeverity = Severity.Error;
-            _message = result.Problem?.ToUserMessage() ?? "AI validation failed.";
-            return;
-        }
+        "succeeded" => $"Succeeded on this machine at {profile.TokensPerSecond.GetValueOrDefault():F1} tokens/sec. Advanced eligibility: {(profile.AdvancedEligible ? "eligible" : "not eligible")}.",
+        "failed" => "The benchmark failed. No throughput value was recorded and Advanced remains locked.",
+        "invalidated" => "The prior benchmark is invalid for this machine and will not be reused.",
+        _ => "No benchmark has been recorded for this machine.",
+    };
 
-        var report = result.Value!;
-        _messageSeverity = report.Passed ? Severity.Success : Severity.Warning;
-        _message = report.Passed
-            ? $"{report.SuiteKey} passed for {report.CatalogKey}."
-            : $"{report.SuiteKey} did not pass. {string.Join(" ", report.Failures)}";
-        await RefreshAsync();
-    }
-
-    private string UsedBy(string role)
-    {
-        if (_config is null)
-            return "unknown";
-
-        var names = FeatureDefinitions()
-            .Where(f => string.Equals(f.RequiredModelRole, role, StringComparison.OrdinalIgnoreCase))
-            .Where(f => _config.Features.TryGetValue(f.Key, out var enabled) && enabled)
-            .Select(f => f.Name)
-            .ToList();
-
-        return names.Count == 0 ? "none currently enabled" : string.Join(", ", names);
-    }
-
-    private static bool CanDownload(AiModelStatusDto m) =>
-        m.Supported && m.CanOperate && IsState(m, "NotDownloaded", "Error") && !string.IsNullOrWhiteSpace(m.ModelFile);
-
-    private static bool CanCancel(AiModelStatusDto m) => m.Supported && IsState(m, "Downloading");
-
-    private static bool CanLoad(AiModelStatusDto m) => m.Supported && m.CanOperate && IsState(m, "Ready") && !m.Loaded;
-
-    private static bool CanUnload(AiModelStatusDto m) => m.Supported && (m.Loaded || m.Active || IsState(m, "Loaded"));
-
-    private static bool CanValidate(AiModelStatusDto m) =>
-        m.Supported && m.CanOperate && IsState(m, "Ready", "Loaded")
-        && !string.IsNullOrWhiteSpace(m.BenchmarkSuite)
-        && !string.IsNullOrWhiteSpace(m.CatalogKey);
-
-    private static bool IsState(AiModelStatusDto m, params string[] states) =>
-        states.Any(s => string.Equals(m.State, s, StringComparison.OrdinalIgnoreCase));
-
+    private static bool CanDownload(AiModelStatusDto model) => model.CanOperate && IsState(model, "NotDownloaded", "Error");
+    private static bool CanCancel(AiModelStatusDto model) => IsState(model, "Downloading");
+    private static bool CanLoad(AiModelStatusDto model) => model.CanOperate && IsState(model, "Ready") && !model.Loaded;
+    private static bool CanUnload(AiModelStatusDto model) => model.Loaded || model.Active || IsState(model, "Loaded");
+    private static bool IsState(AiModelStatusDto model, params string[] states) => states.Any(state => model.State.Equals(state, StringComparison.OrdinalIgnoreCase));
     private static string StateLabel(AiModelStatusDto model) => model.Active ? "Active" : model.Loaded ? "Loaded" : model.State;
-
-    private static string ModelTitle(AiModelStatusDto model)
-    {
-        if (!string.IsNullOrWhiteSpace(model.DisplayName))
-            return model.DisplayName;
-
-        return !string.IsNullOrWhiteSpace(model.Description) ? model.Description : "Configured model";
-    }
-
-    private static string ModelFamilyLine(AiModelStatusDto model)
-    {
-        var parts = new[]
-            {
-                model.Family,
-                model.Provider,
-                model.Runtime,
-                string.IsNullOrWhiteSpace(model.License) ? "" : $"License: {model.License}",
-                string.IsNullOrWhiteSpace(model.SelectionTier) ? "" : $"Tier: {model.SelectionTier}",
-            }
-            .Where(value => !string.IsNullOrWhiteSpace(value));
-
-        return string.Join(" | ", parts);
-    }
-
+    private static string ModelTitle(AiModelStatusDto model) => string.IsNullOrWhiteSpace(model.DisplayName) ? model.Description : model.DisplayName;
     private static AppUiTone StateTone(AiModelStatusDto model) => StateLabel(model).ToLowerInvariant() switch
     {
         "active" or "loaded" or "ready" => AppUiTone.Success,
@@ -263,48 +207,7 @@
         "error" => AppUiTone.Error,
         _ => AppUiTone.Warning,
     };
-
-    private static AppUiTone ToTone(Severity severity) => severity switch
-    {
-        Severity.Success => AppUiTone.Success,
-        Severity.Warning => AppUiTone.Warning,
-        Severity.Error => AppUiTone.Error,
-        _ => AppUiTone.Info,
-    };
-
     private static string FormatMb(long mb) => mb >= 1024 ? $"{mb / 1024.0:F1} GB" : $"{mb} MB";
-
-    private static string DiskLabel(AiModelStatusDto model) => model.DiskStatus switch
-    {
-        "present" => model.DiskSizeMB > 0 ? FormatMb(model.DiskSizeMB) : "present",
-        "missing" => "not downloaded",
-        _ => "not configured",
-    };
-
-    private static IEnumerable<string> AllWarnings(AiModelStatusDto model) =>
-        model.ValidationWarnings.Concat(model.BlockingReasons).Distinct(StringComparer.Ordinal);
-
+    private static string DiskLabel(AiModelStatusDto model) => model.DiskStatus == "present" ? "present" : "not downloaded";
     private enum AiModelAction { Download, Cancel, Load, Unload }
-
-    private sealed record FeatureDefinition(string Key, string Name, string RequiredModelRole);
-
-    private static IReadOnlyList<FeatureDefinition> FeatureDefinitions() =>
-    [
-        new("smart_labeling", "Smart labeling", "text_fast"),
-        new("type_logic", "Type logic", "text_fast"),
-        new("audio_language_detection", "Audio language detection", "audio"),
-        new("qid_disambiguation", "QID disambiguation", "text_quality"),
-        new("series_alignment", "Series alignment", "text_quality"),
-        new("watching_order", "Watching order", "text_fast"),
-        new("vibe_tags", "Vibe tags", "text_quality"),
-        new("tldr", "TL;DR", "text_fast"),
-        new("cover_art_validation", "Cover art validation", "text_quality"),
-        new("whisper_alignment", "Whisper alignment", "audio"),
-        new("subtitle_sync", "Subtitle sync", "audio"),
-        new("taste_profiling", "Taste profiling", "text_quality"),
-        new("why_factor", "Why factor", "text_fast"),
-        new("intent_search", "Intent search", "text_fast"),
-        new("url_paste", "URL paste", "text_quality"),
-        new("description_intelligence", "Description intelligence", "text_scholar"),
-    ];
 }

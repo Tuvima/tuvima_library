@@ -31,26 +31,61 @@ public sealed class AiSettings
     [JsonPropertyName("minimum_free_disk_mb")]
     public int MinimumFreeDiskMB { get; set; } = 1024;
 
-    /// <summary>Model definitions by role.</summary>
-    [JsonPropertyName("models")]
-    public AiModelDefinitions Models { get; set; } = new();
+    /// <summary>The single text resource profile selected for this machine.</summary>
+    private string _resourceProfile = AiResourceProfileNames.Standard;
+
+    [JsonPropertyName("resource_profile")]
+    public string ResourceProfile
+    {
+        get => _resourceProfile;
+        set
+        {
+            _resourceProfile = value;
+            Models = AiResourceProfileCatalog.CreateDefinitions(value);
+        }
+    }
+
+    /// <summary>Whisper is an explicit optional feature pack and is never part of basic setup.</summary>
+    [JsonPropertyName("audio_pack_enabled")]
+    public bool AudioPackEnabled { get; set; }
+
+    /// <summary>
+    /// Runtime definitions are code-owned. Every logical text workload resolves to
+    /// the one artifact selected by <see cref="ResourceProfile"/>.
+    /// </summary>
+    [JsonIgnore]
+    public AiModelDefinitions Models { get; set; } =
+        AiResourceProfileCatalog.CreateDefinitions(AiResourceProfileNames.Standard);
+
+    [JsonIgnore]
+    public string EffectiveResourceProfile
+    {
+        get
+        {
+            var availableRam = HardwareProfile.AvailableRamMb > 0
+                ? HardwareProfile.AvailableRamMb
+                : GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024);
+            if (availableRam < 8192)
+                return AiResourceProfileNames.Essential;
+            if (string.Equals(ResourceProfile, AiResourceProfileNames.Advanced, StringComparison.OrdinalIgnoreCase)
+                && !HardwareProfile.AdvancedEligible)
+                return AiResourceProfileNames.Standard;
+            return AiResourceProfileNames.IsSupported(ResourceProfile)
+                ? ResourceProfile.ToLowerInvariant()
+                : AiResourceProfileNames.Standard;
+        }
+    }
+
+    public void ApplyEffectiveResourceProfile() =>
+        Models = AiResourceProfileCatalog.CreateDefinitions(EffectiveResourceProfile);
 
     /// <summary>Reusable catalog of current, candidate, experimental, and escalation models.</summary>
-    [JsonPropertyName("model_catalog")]
+    [JsonIgnore]
     public Dictionary<string, AiModelCatalogEntry> ModelCatalog { get; set; } = AiModelCatalogDefaults.CreateCatalog();
 
     /// <summary>Small-first validation gates for each functional model role.</summary>
-    [JsonPropertyName("role_requirements")]
+    [JsonIgnore]
     public Dictionary<string, AiRoleRequirement> RoleRequirements { get; set; } = AiModelCatalogDefaults.CreateRoleRequirements();
-
-    /// <summary>
-    /// Runtime-neutral role definitions for text, audio, embedding, function, and
-    /// multimodal workloads. Keys are configuration-owned and are not limited to
-    /// the legacy <see cref="Domain.Enums.AiModelRole"/> enum.
-    /// </summary>
-    [JsonPropertyName("operational_roles")]
-    public Dictionary<string, AiOperationalRoleDefinition> OperationalRoles { get; set; } =
-        new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Per-feature enable/disable flags.</summary>
     [JsonPropertyName("features")]
@@ -68,8 +103,8 @@ public sealed class AiSettings
     [JsonPropertyName("enrichment_batch_size")]
     public int EnrichmentBatchSize { get; set; } = 10;
 
-    /// <summary>Hardware profiling result — populated once at startup by HardwareBenchmarkService.</summary>
-    [JsonPropertyName("hardware_profile")]
+    /// <summary>Machine-local runtime state. Never serialized into deployable AI configuration.</summary>
+    [JsonIgnore]
     public HardwareProfile HardwareProfile { get; set; } = new();
 
     public AiModelCatalogEntry? GetCatalogEntryForRole(Domain.Enums.AiModelRole role)
@@ -387,36 +422,6 @@ public sealed class AiModelReadiness
     public List<string> BlockingReasons { get; set; } = [];
 }
 
-public sealed class AiOperationalRoleDefinition
-{
-    [JsonPropertyName("catalog_key")]
-    public string CatalogKey { get; set; } = "";
-
-    [JsonPropertyName("runtime_kind")]
-    public string RuntimeKind { get; set; } = "text";
-
-    [JsonPropertyName("enabled")]
-    public bool Enabled { get; set; } = true;
-
-    [JsonPropertyName("experimental")]
-    public bool Experimental { get; set; }
-
-    [JsonPropertyName("memory_envelope_mb")]
-    public int MemoryEnvelopeMB { get; set; }
-
-    [JsonPropertyName("max_context_length")]
-    public int MaxContextLength { get; set; }
-
-    [JsonPropertyName("max_output_tokens")]
-    public int MaxOutputTokens { get; set; }
-
-    [JsonPropertyName("temperature")]
-    public double Temperature { get; set; } = 0.1;
-
-    [JsonPropertyName("max_concurrency")]
-    public int MaxConcurrency { get; set; } = 1;
-}
-
 public sealed class AiModelValidationProfile
 {
     [JsonPropertyName("target_warm_latency_ms")]
@@ -492,51 +497,20 @@ public sealed class AiRoleRequirement
 /// <summary>Per-feature enable/disable flags.</summary>
 public sealed class AiFeatureFlags
 {
-
     [JsonPropertyName("smart_labeling")]
     public bool SmartLabeling { get; set; } = true;
 
     [JsonPropertyName("type_logic")]
     public bool TypeLogic { get; set; } = true;
 
-    [JsonPropertyName("audio_language_detection")]
-    public bool AudioLanguageDetection { get; set; } = true;
-
-    [JsonPropertyName("qid_disambiguation")]
-    public bool QidDisambiguation { get; set; } = true;
-
     [JsonPropertyName("series_alignment")]
     public bool SeriesAlignment { get; set; } = true;
-
-    [JsonPropertyName("watching_order")]
-    public bool WatchingOrder { get; set; } = true;
 
     [JsonPropertyName("vibe_tags")]
     public bool VibeTags { get; set; } = true;
 
     [JsonPropertyName("tldr")]
     public bool Tldr { get; set; } = true;
-
-    [JsonPropertyName("cover_art_validation")]
-    public bool CoverArtValidation { get; set; } = true;
-
-    [JsonPropertyName("whisper_alignment")]
-    public bool WhisperAlignment { get; set; } = true;
-
-    [JsonPropertyName("subtitle_sync")]
-    public bool SubtitleSync { get; set; } = true;
-
-    [JsonPropertyName("taste_profiling")]
-    public bool TasteProfiling { get; set; } = true;
-
-    [JsonPropertyName("why_factor")]
-    public bool WhyFactor { get; set; } = true;
-
-    [JsonPropertyName("intent_search")]
-    public bool IntentSearch { get; set; } = true;
-
-    [JsonPropertyName("url_paste")]
-    public bool UrlPaste { get; set; } = true;
 
     [JsonPropertyName("description_intelligence")]
     public bool DescriptionIntelligence { get; set; } = true;
@@ -596,20 +570,6 @@ public sealed class AiScheduling
     [JsonPropertyName("series_check_cron")]
     public string SeriesCheckCron { get; set; } = "0 3 * * *";
 
-    [JsonPropertyName("whisper_bake_cron")]
-    public string WhisperBakeCron { get; set; } = "0 2 * * *";
-
-    /// <summary>
-    /// Number of hours within which a Whisper bake job may be deferred
-    /// after the scheduled start time. Jobs triggered outside this window
-    /// are skipped until the next scheduled run.
-    /// </summary>
-    [JsonPropertyName("whisper_bake_window_hours")]
-    public int WhisperBakeWindowHours { get; set; } = 4;
-
-    [JsonPropertyName("taste_profile_update_cron")]
-    public string TasteProfileUpdateCron { get; set; } = "0 5 * * 0";
-
-    [JsonPropertyName("description_intelligence")]
-    public string DescriptionIntelligence { get; set; } = "*/15 * * * *";
+    [JsonPropertyName("description_intelligence_cron")]
+    public string DescriptionIntelligenceCron { get; set; } = "*/15 * * * *";
 }

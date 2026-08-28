@@ -5,7 +5,6 @@ public sealed class AiBackgroundServiceGuardrailTests
     [Theory]
     [InlineData("VibeBatchService.cs")]
     [InlineData("SeriesAlignmentBackgroundService.cs")]
-    [InlineData("TasteProfileBackgroundService.cs")]
     [InlineData("DescriptionIntelligenceBatchService.cs")]
     public void AiWorkers_UseExplicitDependenciesAndDurableFeatureOutcomes(string fileName)
     {
@@ -16,6 +15,22 @@ public sealed class AiBackgroundServiceGuardrailTests
         Assert.Contains("IAiFeaturePersistenceRepository", source, StringComparison.Ordinal);
         Assert.Contains("OperationCanceledException", source, StringComparison.Ordinal);
         Assert.Contains("RecordAiFeatureFailureAsync", source, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("VibeBatchService.cs")]
+    [InlineData("SeriesAlignmentBackgroundService.cs")]
+    [InlineData("DescriptionIntelligenceBatchService.cs")]
+    public void LaunchAiWorkers_GateBeforeScanning(string fileName)
+    {
+        var source = File.ReadAllText(GetRepoFilePath($@"src\MediaEngine.Api\Services\{fileName}"));
+        var gate = source.IndexOf("_featureGate.CanExecute", StringComparison.Ordinal);
+        var scan = source.IndexOf("GetPageAsync", StringComparison.Ordinal);
+        if (scan < 0)
+            scan = source.IndexOf("GetEntitiesNeedingEnrichmentAsync", StringComparison.Ordinal);
+
+        Assert.True(gate >= 0, $"{fileName} must use the shared feature gate.");
+        Assert.True(scan < 0 || gate < scan, $"{fileName} must gate before its first scan.");
     }
 
     [Fact]
@@ -42,6 +57,18 @@ public sealed class AiBackgroundServiceGuardrailTests
 
         Assert.Contains("IAiFeaturePersistenceRepository", source, StringComparison.Ordinal);
         Assert.Contains("ITasteProfileRepository, TasteProfileRepository", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StartupDownloadsOnlySelectedTextAndExplicitAudioPack()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ModelAutoDownloadService.cs"));
+
+        Assert.Contains("DownloadIfNeededAsync(AiModelRole.TextQuality", source, StringComparison.Ordinal);
+        Assert.Contains("if (_settings.AudioPackEnabled)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AiModelRole.TextFast,", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AiModelRole.TextScholar,", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ShouldDownloadCjkModel", source, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(string relativePath)

@@ -17,7 +17,7 @@
     else
     {
         <AppAlert Tone="AppUiTone.Info" Class="mb-3">
-            Feature toggles persist to config/ai.json. A feature is active only when it is enabled, connected, the Engine is healthy, and required model/hardware checks pass.
+            Local AI is partial while any launch feature lacks an end-to-end result. Feature toggles take effect in running workers and stop work before library scans or model loads.
         </AppAlert>
 
         @if (!string.IsNullOrWhiteSpace(_message))
@@ -133,28 +133,11 @@
                 return new("Missing model", $"{feature.RequiredModelRole} is not downloaded.", AppUiTone.Error);
         }
 
-        if (!HardwareAdequate(feature.RequiredHardwareTier))
-            return new("Hardware limited", $"This feature is best on {feature.RequiredHardwareTier} tier hardware.", AppUiTone.Warning);
-
         if (!_status.IsReady && feature.RequiredModelRole is not null)
             return new("Enabled but blocked", "AI subsystem is not fully ready.", AppUiTone.Warning);
 
         return new("Ready", $"{feature.RequiredModelRole ?? "No model"} dependency is available.", AppUiTone.Success);
     }
-
-    private bool HardwareAdequate(string tier)
-    {
-        var current = _config?.HardwareProfile.Tier ?? "unknown";
-        return TierRank(current) >= TierRank(tier);
-    }
-
-    private static int TierRank(string tier) => tier.ToLowerInvariant() switch
-    {
-        "high" => 3,
-        "medium" => 2,
-        "low" or "starter" => 1,
-        _ => 0,
-    };
 
     private static AppUiTone ToTone(Severity severity) => severity switch
     {
@@ -169,21 +152,11 @@
 
     private static IReadOnlyList<FeatureDefinition> FeatureDefinitions() =>
     [
-        new("smart_labeling", "Smart labeling", "Cleans filenames and extracts initial metadata during ingestion.", "text_fast", "low", true),
-        new("type_logic", "Type logic", "Classifies ambiguous media types during ingestion.", "text_fast", "low", true),
-        new("audio_language_detection", "Audio language detection", "Uses Whisper to detect audio language.", "audio", "medium", true),
-        new("qid_disambiguation", "QID disambiguation", "Ranks ambiguous Wikidata candidates.", "text_quality", "medium", true),
-        new("series_alignment", "Series & relationship alignment", "Assists structural order, series grouping, and related-work alignment across media.", "text_quality", "medium", true),
-        new("watching_order", "Watching order", "Optional on-demand order advice.", "text_fast", "low", true),
-        new("vibe_tags", "Vibe tags", "Generates controlled vocabulary mood tags.", "text_quality", "medium", true),
-        new("tldr", "TL;DR", "Generates short summaries from descriptions.", "text_fast", "low", true),
-        new("cover_art_validation", "Cover art validation", "Checks whether cover images appear to match content.", "text_quality", "medium", true),
-        new("whisper_alignment", "Whisper alignment", "Bakes transcript timing when audio models are available.", "audio", "medium", true),
-        new("subtitle_sync", "Subtitle sync", "Subtitle alignment is saved as a flag but is not connected to Engine behavior yet.", "audio", "medium", false),
-        new("taste_profiling", "Taste profiling", "Builds local preference signals from usage history.", "text_quality", "medium", true),
-        new("why_factor", "Why factor", "Explains why an item matches a local taste profile.", "text_fast", "low", true),
-        new("intent_search", "Intent search", "Parses natural-language search into structured filters.", "text_fast", "low", true),
-        new("url_paste", "URL paste", "Extracts metadata from a pasted URL.", "text_quality", "medium", true),
-        new("description_intelligence", "Description intelligence", "Extracts themes, mood, setting, and entities from descriptions.", "text_scholar", "high", true),
+        new("smart_labeling", "Smart labeling", "Cleans filenames and extracts initial metadata during ingestion.", "text_quality", "selected", true),
+        new("type_logic", "Media-type assistance", "Classifies ambiguous media types during ingestion.", "text_quality", "selected", true),
+        new("series_alignment", "Series alignment", "Assists structural order and series placement across media.", "text_quality", "selected", true),
+        new("vibe_tags", "Vibe tags", "Generates controlled-vocabulary mood tags in a scheduled batch.", "text_quality", "selected", true),
+        new("tldr", "Description TL;DR", "Presents short summaries produced by description intelligence.", "text_quality", "selected", true),
+        new("description_intelligence", "Description intelligence", "Extracts themes, mood, setting, entities, and TL;DR from descriptions.", "text_quality", "selected", true),
     ];
 }

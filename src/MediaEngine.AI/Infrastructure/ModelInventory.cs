@@ -14,6 +14,7 @@ public sealed class ModelInventory
         : StringComparer.Ordinal;
 
     private readonly AiRuntimeSettingsSnapshot _settings;
+    private readonly AiSettings _liveSettings;
     private readonly ILogger<ModelInventory> _logger;
     private readonly Dictionary<AiModelRole, AiModelState> _states = [];
     private readonly object _lock = new();
@@ -21,6 +22,7 @@ public sealed class ModelInventory
     public ModelInventory(AiSettings settings, ILogger<ModelInventory> logger)
     {
         _settings = AiRuntimeSettingsSnapshot.Create(settings);
+        _liveSettings = settings;
         _logger = logger;
         Refresh();
     }
@@ -115,8 +117,11 @@ public sealed class ModelInventory
     {
         lock (_lock)
         {
-            return Enum.GetValues<AiModelRole>()
-                .All(role => _states.GetValueOrDefault(role) is AiModelState.Ready or AiModelState.Loaded);
+            var textReady = _states.GetValueOrDefault(AiModelRole.TextQuality)
+                is AiModelState.Ready or AiModelState.Loaded;
+            var audioReady = !_liveSettings.AudioPackEnabled || _states.GetValueOrDefault(AiModelRole.Audio)
+                is AiModelState.Ready or AiModelState.Loaded;
+            return textReady && audioReady;
         }
     }
 
@@ -124,7 +129,10 @@ public sealed class ModelInventory
     {
         lock (_lock)
         {
-            return Enum.GetValues<AiModelRole>().Select(role =>
+            var roles = _liveSettings.AudioPackEnabled
+                ? new[] { AiModelRole.TextQuality, AiModelRole.Audio }
+                : new[] { AiModelRole.TextQuality };
+            return roles.Select(role =>
             {
                 var definition = _settings.GetModel(role);
                 return new AiModelStatus

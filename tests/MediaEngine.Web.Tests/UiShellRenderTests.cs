@@ -412,7 +412,9 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.Contains("LoadAiModelAsync", source);
         Assert.Contains("UnloadAiModelAsync", source);
         Assert.Contains("result.Problem?.ToUserMessage()", source);
-        Assert.Contains("RunAiModelBenchmarkAsync", source);
+        Assert.Contains("RunBenchmarkAsync", source);
+        Assert.Contains("Essential · Qwen3 0.6B Q8", source);
+        Assert.Contains("Advanced · Qwen3 4B Q4", source);
         Assert.DoesNotContain("SimulateDownload", source);
         Assert.DoesNotContain("Task.Delay", source);
         Assert.DoesNotContain("ChangeStatus", source);

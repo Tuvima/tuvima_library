@@ -58,9 +58,6 @@ public static class ClaimConfidence
     /// <summary>Audiobook narrator from retail provider metadata.</summary>
     public const double Narrator = 0.90;
 
-    /// <summary>AI QID disambiguation fallback selection.</summary>
-    public const double QidDisambiguator = 0.90;
-
     /// <summary>Entity QID companion references (e.g. genre_qid, director_qid).</summary>
     public const double EntityQidReference = 0.90;
 
@@ -79,15 +76,6 @@ public static class ClaimConfidence
     /// <summary>Raw Wikidata P50 author — reduced so embedded/pen-name author wins.</summary>
     public const double WikidataAuthorRaw = 0.75;
 
-    /// <summary>Web scraping / URL metadata extraction.</summary>
-    public const double UrlExtraction = 0.75;
-
     /// <summary>LLM-generated description (Description Intelligence).</summary>
     public const double AiDescription = 0.70;
-
-    /// <summary>Valid cover art assessment from CoverArtValidator.</summary>
-    public const double CoverArtValid = 0.70;
-
-    /// <summary>Invalid/placeholder cover art detection (high confidence in the negative signal).</summary>
-    public const double CoverArtInvalid = 0.95;
 }

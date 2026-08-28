@@ -1566,14 +1566,6 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<AiOperationResultDto> UnloadAiModelAsync(string role, CancellationToken ct = default)
         => _api.UnloadAiModelAsync(role, ct);
 
-    public Task<AiOperationResultDto<AiBenchmarkReportDto>> RunAiModelBenchmarkAsync(
-        string suiteKey,
-        string catalogKey,
-        bool allowHardwareBenchmark,
-        bool allowModelExecution,
-        CancellationToken ct = default)
-        => _api.RunAiModelBenchmarkAsync(suiteKey, catalogKey, allowHardwareBenchmark, allowModelExecution, ct);
-
     public Task<AiConfigDto?> GetAiConfigAsync(CancellationToken ct = default)
         => _api.GetAiConfigAsync(ct);
 
@@ -1585,6 +1577,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     public Task<AiOperationResultDto<HardwareProfileDto>> RunBenchmarkAsync(CancellationToken ct = default)
         => _api.RunBenchmarkAsync(ct);
+
+    public Task<AiOperationResultDto<HardwareProfileDto>> InvalidateBenchmarkAsync(CancellationToken ct = default)
+        => _api.InvalidateBenchmarkAsync(ct);
 
     public Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default)
         => _api.GetEnrichmentProgressAsync(ct);

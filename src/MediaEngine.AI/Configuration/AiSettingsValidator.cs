@@ -21,9 +21,6 @@ public sealed class AiConfigurationException(IReadOnlyList<AiConfigurationError>
 /// </summary>
 public static partial class AiSettingsValidator
 {
-    private static readonly HashSet<string> RuntimeKinds =
-        new(["text", "audio", "embedding", "multimodal", "function"], StringComparer.OrdinalIgnoreCase);
-
     public static IReadOnlyList<AiConfigurationError> Validate(AiSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -56,6 +53,11 @@ public static partial class AiSettingsValidator
         if (settings.MinimumFreeDiskMB < 256)
         {
             Add("minimum_free_disk_mb", "Must retain at least 256 MB.");
+        }
+
+        if (!AiResourceProfileNames.IsSupported(settings.ResourceProfile))
+        {
+            Add("resource_profile", "Must be essential, standard, or advanced.");
         }
 
         if (settings.EnrichmentBatchSize <= 0)
@@ -107,57 +109,6 @@ public static partial class AiSettingsValidator
             if (entry.MaxContextLength < 0)
             {
                 Add($"{path}.max_context_length", "Cannot be negative.");
-            }
-        }
-
-        foreach (var (key, role) in settings.OperationalRoles ?? new Dictionary<string, AiOperationalRoleDefinition>())
-        {
-            var path = $"operational_roles.{key}";
-            if (string.IsNullOrWhiteSpace(key))
-            {
-                Add("operational_roles", "Role keys cannot be blank.");
-            }
-
-            if (!RuntimeKinds.Contains(role.RuntimeKind))
-            {
-                Add($"{path}.runtime_kind", "Must be text, audio, embedding, multimodal, or function.");
-            }
-
-            if (role.MaxConcurrency != 1)
-            {
-                Add($"{path}.max_concurrency", "Must be 1 while the runtime supports one resident model.");
-            }
-
-            if (role.MemoryEnvelopeMB < 0)
-            {
-                Add($"{path}.memory_envelope_mb", "Cannot be negative.");
-            }
-
-            if (role.MaxContextLength < 0)
-            {
-                Add($"{path}.max_context_length", "Cannot be negative.");
-            }
-
-            if (role.MaxOutputTokens < 0)
-            {
-                Add($"{path}.max_output_tokens", "Cannot be negative.");
-            }
-
-            if (role.Temperature is < 0 or > 2)
-            {
-                Add($"{path}.temperature", "Must be between 0 and 2.");
-            }
-
-            if (role.Enabled)
-            {
-                if (string.IsNullOrWhiteSpace(role.CatalogKey))
-                {
-                    Add($"{path}.catalog_key", "Enabled roles require a catalog key.");
-                }
-                else if (!catalog.ContainsKey(role.CatalogKey))
-                {
-                    Add($"{path}.catalog_key", "References an unknown catalog entry.");
-                }
             }
         }
 

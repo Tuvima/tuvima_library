@@ -22,22 +22,22 @@ public sealed class Phase7AiEndpointGuardrailTests
     [Fact]
     public void AiConfigSave_ValidatesBeforePersisting()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Api\Endpoints\AiEndpoints.cs");
+        var endpoint = ReadRepoFile(@"src\MediaEngine.Api\Endpoints\AiEndpoints.cs");
+        var store = ReadRepoFile(@"src\MediaEngine.Api\Services\AiConfigurationService.cs");
 
-        Assert.Contains("ValidateAiSettings", source, StringComparison.Ordinal);
-        Assert.Contains("ValidationProblem", source, StringComparison.Ordinal);
-        Assert.Contains("Idle unload seconds must be positive", source, StringComparison.Ordinal);
-        Assert.Contains("Download URL must be an absolute URI", source, StringComparison.Ordinal);
-        Assert.Contains("Catalog key must reference model_catalog", source, StringComparison.Ordinal);
-        Assert.Contains("Requirement references an unknown model catalog key", source, StringComparison.Ordinal);
+        Assert.Contains("configurationStore.Save", endpoint, StringComparison.Ordinal);
+        Assert.Contains("ValidationProblem", endpoint, StringComparison.Ordinal);
+        Assert.Contains("AiSettingsValidator.Validate", store, StringComparison.Ordinal);
+        Assert.Contains("CronExpression.Parse", store, StringComparison.Ordinal);
+        Assert.Contains("Advanced requires a successful benchmark", store, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void AiModelStatus_ExposesCatalogSelectionAndBenchmarkSuites()
+    public void AiModelStatus_ExposesSelectedRuntimeFactsWithoutExperimentEndpoints()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Api\Endpoints\AiEndpoints.cs");
 
-        Assert.Contains("GetAiBenchmarkSuites", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("/benchmark/suites", source, StringComparison.Ordinal);
         Assert.Contains("SelectionRationale", source, StringComparison.Ordinal);
         Assert.Contains("ValidationWarnings", source, StringComparison.Ordinal);
         Assert.Contains("Capabilities", source, StringComparison.Ordinal);
@@ -56,7 +56,7 @@ public sealed class Phase7AiEndpointGuardrailTests
         var source = ReadRepoFile(@"src\MediaEngine.Api\Endpoints\AiEndpoints.cs");
 
         Assert.Contains("unknown-model-role", source, StringComparison.Ordinal);
-        Assert.Contains("AiBenchmarkRuntimeUnavailableException", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("evaluation-failed", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ex.Message}", source, StringComparison.Ordinal);
     }
 

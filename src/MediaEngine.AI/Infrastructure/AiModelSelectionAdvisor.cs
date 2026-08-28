@@ -3,106 +3,94 @@ using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.AI.Infrastructure;
 
-/// <summary>
-/// Explains whether a configured model satisfies its role contract. This class
-/// never loads a model; it is safe to use from configuration and status paths.
-/// </summary>
+/// <summary>Produces the one truthful runtime plan for the configured machine.</summary>
 public sealed class AiModelSelectionAdvisor
 {
     private readonly AiSettings _settings;
 
     public AiModelSelectionAdvisor(AiSettings settings) => _settings = settings;
 
+    public AiExecutionPlan GetExecutionPlan()
+    {
+        var configured = Normalize(_settings.ResourceProfile);
+        var recommended = GetRecommendedProfile();
+        var constrained = GetRecommendedProfile() == AiResourceProfileNames.Essential;
+        var advancedBlocked = configured == AiResourceProfileNames.Advanced
+            && !_settings.HardwareProfile.AdvancedEligible;
+        var effective = constrained ? AiResourceProfileNames.Essential : advancedBlocked ? recommended : configured;
+        if (effective == AiResourceProfileNames.Advanced && !_settings.HardwareProfile.AdvancedEligible)
+            effective = AiResourceProfileNames.Standard;
+
+        var model = AiResourceProfileCatalog.CreateText(effective);
+        return new AiExecutionPlan(
+            configured,
+            effective,
+            recommended,
+            model.CatalogKey ?? "",
+            _settings.AudioPackEnabled,
+            !advancedBlocked,
+            advancedBlocked
+                ? ["Advanced requires a successful current-machine benchmark meeting its throughput and memory gate."]
+                : []);
+    }
+
+    public string GetRecommendedProfile()
+    {
+        if (_settings.HardwareProfile.AdvancedEligible)
+            return AiResourceProfileNames.Advanced;
+
+        var ram = _settings.HardwareProfile.AvailableRamMb;
+        if (ram <= 0)
+            ram = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024);
+        return ram < 8192 ? AiResourceProfileNames.Essential : AiResourceProfileNames.Standard;
+    }
+
     public AiModelSelectionDecision GetDecision(AiModelRole role)
     {
-        var roleKey = AiModelDefinitions.ToRoleKey(role);
         var definition = _settings.Models.GetByRole(role);
         var catalog = _settings.GetCatalogEntryForRole(role);
-        return BuildDecision(roleKey, definition.CatalogKey, enabled: true, experimental: false,
-            definition.ContextLength, 0, _settings.GetRequirementForRole(role), catalog);
-    }
-
-    public AiModelSelectionDecision GetDecision(string operationalRole)
-    {
-        if (!_settings.OperationalRoles.TryGetValue(operationalRole, out var role))
-        {
-            return BuildDecision(operationalRole, null, enabled: false, experimental: false,
-                0, 0, GetRequirement(operationalRole), null,
-                "Operational role is not configured.");
-        }
-
-        _settings.ModelCatalog.TryGetValue(role.CatalogKey, out var catalog);
-        return BuildDecision(operationalRole, role.CatalogKey, role.Enabled, role.Experimental,
-            role.MaxContextLength, role.MemoryEnvelopeMB, GetRequirement(operationalRole), catalog);
-    }
-
-    public IReadOnlyList<AiModelSelectionDecision> GetOperationalDecisions() =>
-        _settings.OperationalRoles.Keys.Order(StringComparer.OrdinalIgnoreCase).Select(GetDecision).ToList();
-
-    private AiRoleRequirement? GetRequirement(string key) =>
-        _settings.RoleRequirements.TryGetValue(key, out var requirement) ? requirement : null;
-
-    private static AiModelSelectionDecision BuildDecision(
-        string role,
-        string? catalogKey,
-        bool enabled,
-        bool experimental,
-        int contextEnvelope,
-        int memoryEnvelope,
-        AiRoleRequirement? requirement,
-        AiModelCatalogEntry? catalog,
-        string? initialWarning = null)
-    {
+        var plan = GetExecutionPlan();
+        var isAudio = role == AiModelRole.Audio;
+        var enabled = !isAudio || plan.AudioPackEnabled;
         var warnings = new List<string>();
-        if (initialWarning is not null) warnings.Add(initialWarning);
-        if (catalog is null) warnings.Add("Selected model is not present in the model catalog.");
-        if (requirement is null) warnings.Add("No role requirement is configured.");
+        if (isAudio && !plan.AudioPackEnabled)
+            warnings.Add("The optional Whisper feature pack is disabled.");
+        warnings.AddRange(plan.BlockingReasons);
 
-        if (catalog is not null && requirement is not null)
-        {
-            if (requirement.MaxDefaultSizeMB > 0 && catalog.SizeMB > requirement.MaxDefaultSizeMB)
-                warnings.Add($"Selected model is {catalog.SizeMB} MB, above the role cap of {requirement.MaxDefaultSizeMB} MB.");
-            if (memoryEnvelope > 0 && catalog.MemoryEnvelopeMB > memoryEnvelope)
-                warnings.Add($"Model memory envelope ({catalog.MemoryEnvelopeMB} MB) exceeds the role envelope ({memoryEnvelope} MB).");
-            if (contextEnvelope > 0 && catalog.MaxContextLength > 0 && contextEnvelope > catalog.MaxContextLength)
-                warnings.Add($"Role context ({contextEnvelope}) exceeds the model maximum ({catalog.MaxContextLength}).");
-            if (catalog.Experimental && !requirement.ExperimentalAllowed)
-                warnings.Add("Experimental model is not permitted for this role.");
-            if (experimental != catalog.Experimental)
-                warnings.Add("Role and catalog experimental flags do not agree.");
-
-            foreach (var capability in requirement.RequiredCapabilities.Where(c => !HasCapability(catalog.Capabilities, c)))
-                warnings.Add($"Missing required capability: {capability}.");
-        }
-
-        if (catalog is not null)
-        {
-            if (!catalog.Readiness.ConfigurationReady) warnings.Add("Model configuration is not ready.");
-            if (!catalog.Readiness.RuntimeReady) warnings.Add("A compatible local runtime is not available.");
-            if (!catalog.Readiness.Validated) warnings.Add("The configured evaluation suite has not passed.");
-            warnings.AddRange(catalog.Readiness.BlockingReasons.Where(reason => !warnings.Contains(reason, StringComparer.Ordinal)));
-        }
-
-        var canEnable = catalog is not null
-            && requirement is not null
+        var canEnable = enabled && catalog is not null
             && catalog.Readiness.ConfigurationReady
             && catalog.Readiness.RuntimeReady
-            && !warnings.Any(w => w.StartsWith("Missing required capability", StringComparison.Ordinal)
-                                  || w.Contains("exceeds", StringComparison.OrdinalIgnoreCase)
-                                  || w.Contains("not permitted", StringComparison.OrdinalIgnoreCase));
-        var status = !enabled ? "disabled" : !canEnable ? "blocked" : catalog?.Readiness.Validated == true ? "ready" : "needs_validation";
+            && (!string.Equals(_settings.ResourceProfile, AiResourceProfileNames.Advanced, StringComparison.OrdinalIgnoreCase)
+                || _settings.HardwareProfile.AdvancedEligible);
+        var status = !enabled ? "disabled" : canEnable ? "ready" : "blocked";
 
-        return new(
-            role, catalogKey, catalog?.DisplayName ?? catalogKey ?? "Unconfigured", catalog?.Family ?? "",
-            catalog?.Provider ?? "", catalog?.License ?? "", catalog?.Runtime ?? "", status,
-            catalog?.SelectionTier ?? "", requirement?.BenchmarkSuite ?? catalog?.Validation.BenchmarkSuite ?? "",
-            catalog?.SelectionRationale ?? "No catalog rationale is available.", requirement?.Description ?? "", warnings,
-            enabled, canEnable, catalog?.Experimental ?? experimental, catalog?.Quantization ?? "", catalog?.SizeMB ?? 0,
-            memoryEnvelope > 0 ? memoryEnvelope : catalog?.MemoryEnvelopeMB ?? 0,
-            contextEnvelope > 0 ? contextEnvelope : catalog?.MaxContextLength ?? 0,
-            catalog?.SourceUrl ?? "", !string.IsNullOrWhiteSpace(catalog?.Sha256),
-            catalog?.Readiness.ConfigurationReady ?? false, catalog?.Readiness.RuntimeReady ?? false,
-            catalog?.Readiness.Validated ?? false, catalog?.Readiness.BlockingReasons ?? []);
+        return new AiModelSelectionDecision(
+            AiModelDefinitions.ToRoleKey(role),
+            definition.CatalogKey,
+            catalog?.DisplayName ?? definition.CatalogKey ?? "Unconfigured",
+            catalog?.Family ?? "",
+            catalog?.Provider ?? "",
+            catalog?.License ?? "",
+            catalog?.Runtime ?? "",
+            status,
+            catalog?.SelectionTier ?? "",
+            catalog?.Validation.BenchmarkSuite ?? "",
+            catalog?.SelectionRationale ?? "",
+            isAudio ? "Optional audio feature pack" : $"{plan.EffectiveProfile} text profile",
+            warnings,
+            enabled,
+            canEnable,
+            false,
+            catalog?.Quantization ?? "",
+            catalog?.SizeMB ?? definition.SizeMB,
+            catalog?.MemoryEnvelopeMB ?? definition.SizeMB,
+            definition.ContextLength,
+            catalog?.SourceUrl ?? "",
+            !string.IsNullOrWhiteSpace(catalog?.Sha256),
+            catalog?.Readiness.ConfigurationReady ?? false,
+            catalog?.Readiness.RuntimeReady ?? false,
+            canEnable,
+            warnings);
     }
 
     public static bool HasCapability(AiModelCapabilities capabilities, string capability) => capability.ToLowerInvariant() switch
@@ -118,13 +106,25 @@ public sealed class AiModelSelectionAdvisor
         "sync_grade" => capabilities.SyncGrade,
         "multilingual" => capabilities.Multilingual,
         "cjk" => capabilities.Cjk,
-        "experimental_multimodal" => capabilities.ExperimentalMultimodal,
-        "embedding_output" => capabilities.EmbeddingOutput,
-        "function_calling" => capabilities.FunctionCalling,
-        "tool_calling" => capabilities.ToolCalling,
         _ => false,
     };
+
+    private static string Normalize(string? profile) => profile?.ToLowerInvariant() switch
+    {
+        AiResourceProfileNames.Essential => AiResourceProfileNames.Essential,
+        AiResourceProfileNames.Advanced => AiResourceProfileNames.Advanced,
+        _ => AiResourceProfileNames.Standard,
+    };
 }
+
+public sealed record AiExecutionPlan(
+    string ConfiguredProfile,
+    string EffectiveProfile,
+    string RecommendedProfile,
+    string TextCatalogKey,
+    bool AudioPackEnabled,
+    bool ConfiguredProfileEligible,
+    IReadOnlyList<string> BlockingReasons);
 
 public sealed record AiModelSelectionDecision(
     string Role,

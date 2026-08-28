@@ -108,8 +108,7 @@ internal sealed class LlamaSharpExecutionBackend : ILlamaExecutionBackend
 
             var modelPath = _inventory.GetModelPath(role);
             var definition = _inventory.GetDefinition(role);
-            var forceCpu = role == AiModelRole.TextFast;
-            var gpuLayers = forceCpu ? 0 : ResolveGpuLayerCount(definition.GpuLayers);
+            var gpuLayers = ResolveGpuLayerCount(definition.GpuLayers);
             var modelParams = new ModelParams(modelPath)
             {
                 ContextSize = (uint)definition.ContextLength,
@@ -135,17 +134,17 @@ internal sealed class LlamaSharpExecutionBackend : ILlamaExecutionBackend
     private int ResolveGpuLayerCount(int configuredLayers)
     {
         var profile = _settings.HardwareProfile;
+        if (string.Equals(profile.Backend, "cuda", StringComparison.OrdinalIgnoreCase)
+            && profile.Outcome is AiBenchmarkOutcomes.NotRun or AiBenchmarkOutcomes.Failed or AiBenchmarkOutcomes.Invalidated)
+        {
+            return configuredLayers > 0 ? configuredLayers : 999;
+        }
+
         if (profile.BenchmarkedAt.HasValue
             && !string.Equals(profile.Backend, "cpu", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrEmpty(profile.Tier))
         {
-            var features = HardwareTierPolicy.GetFeatures(profile.Tier);
-            return features.MaxGpuLayers switch
-            {
-                -1 => 999,
-                > 0 => features.MaxGpuLayers,
-                _ => 0,
-            };
+            return HardwareTierPolicy.GetGpuLayerCount(profile.Tier);
         }
 
         return configuredLayers;

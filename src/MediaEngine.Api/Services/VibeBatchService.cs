@@ -4,6 +4,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Jobs;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.AI.Infrastructure;
 
 namespace MediaEngine.Api.Services;
 
@@ -18,7 +19,8 @@ public sealed class VibeBatchService : BackgroundService
     private const string ModelId = "text_quality";
     private const string PromptVersion = "vibe-v1";
     private readonly AiSettings _settings;
-    private readonly IConfigurationLoader _configLoader;
+    private readonly AiFeatureGate _featureGate;
+    private readonly AiConfigurationService _configurationStore;
     private readonly IVibeTagger _tagger;
     private readonly ICanonicalValueRepository _canonicals;
     private readonly ICanonicalValueArrayRepository _canonicalArrays;
@@ -28,7 +30,8 @@ public sealed class VibeBatchService : BackgroundService
 
     public VibeBatchService(
         AiSettings settings,
-        IConfigurationLoader configLoader,
+        AiFeatureGate featureGate,
+        AiConfigurationService configurationStore,
         IVibeTagger tagger,
         ICanonicalValueRepository canonicals,
         ICanonicalValueArrayRepository canonicalArrays,
@@ -37,7 +40,8 @@ public sealed class VibeBatchService : BackgroundService
         ILogger<VibeBatchService> logger)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        ArgumentNullException.ThrowIfNull(configLoader);
+        ArgumentNullException.ThrowIfNull(featureGate);
+        ArgumentNullException.ThrowIfNull(configurationStore);
         ArgumentNullException.ThrowIfNull(tagger);
         ArgumentNullException.ThrowIfNull(canonicals);
         ArgumentNullException.ThrowIfNull(canonicalArrays);
@@ -46,7 +50,8 @@ public sealed class VibeBatchService : BackgroundService
         ArgumentNullException.ThrowIfNull(logger);
 
         _settings     = settings;
-        _configLoader = configLoader;
+        _featureGate = featureGate;
+        _configurationStore = configurationStore;
         _tagger = tagger;
         _canonicals = canonicals;
         _canonicalArrays = canonicalArrays;
@@ -79,17 +84,22 @@ public sealed class VibeBatchService : BackgroundService
                 _logger.LogError(ex, "VibeBatchService batch failed");
             }
 
-            var maintenance = _configLoader.LoadMaintenance();
-            var cron = maintenance.Schedules.TryGetValue("vibe_batch", out var s) ? s : "0 4 * * *";
+            var cron = _settings.Scheduling.VibeBatchCron;
             var delay = CronScheduler.UntilNext(cron, TimeSpan.FromHours(24));
 
             _logger.LogInformation("VibeBatchService: next run in {Delay}", delay);
-            await Task.Delay(delay, stoppingToken);
+            await _configurationStore.WaitForDelayOrChangeAsync(delay, stoppingToken);
         }
     }
 
     private async Task RunBatchAsync(CancellationToken ct)
     {
+        if (!_featureGate.CanExecute(AiFeature.VibeTags, MediaEngine.Domain.Enums.AiModelRole.TextQuality))
+        {
+            _logger.LogDebug("VibeBatchService: feature disabled or selected model unavailable — skipping before scan");
+            return;
+        }
+
         _logger.LogInformation("VibeBatchService: scanning for entities needing vibe tags");
 
         // Page through the libraryItem to find entities (up to 200 candidates per batch).

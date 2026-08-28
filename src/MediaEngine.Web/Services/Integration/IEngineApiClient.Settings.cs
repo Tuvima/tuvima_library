@@ -333,14 +333,6 @@ public partial interface IEngineApiClient
     /// <summary>POST /ai/models/{role}/unload — unloads model from memory.</summary>
     Task<AiOperationResultDto> UnloadAiModelAsync(string role, CancellationToken ct = default);
 
-    /// <summary>POST /ai/benchmark/suites/{suiteKey}/run - explicitly runs a local model validation suite.</summary>
-    Task<AiOperationResultDto<AiBenchmarkReportDto>> RunAiModelBenchmarkAsync(
-        string suiteKey,
-        string catalogKey,
-        bool allowHardwareBenchmark,
-        bool allowModelExecution,
-        CancellationToken ct = default);
-
     /// <summary>GET /ai/config — returns persisted AI configuration.</summary>
     Task<AiConfigDto?> GetAiConfigAsync(CancellationToken ct = default);
 
@@ -354,6 +346,9 @@ public partial interface IEngineApiClient
 
     /// <summary>POST /ai/benchmark — re-runs the hardware benchmark and returns the updated profile.</summary>
     Task<AiOperationResultDto<HardwareProfileDto>> RunBenchmarkAsync(CancellationToken ct = default);
+
+    /// <summary>DELETE /ai/benchmark — invalidates the machine-local result.</summary>
+    Task<AiOperationResultDto<HardwareProfileDto>> InvalidateBenchmarkAsync(CancellationToken ct = default);
 
     /// <summary>GET /ai/enrichment/progress — pending and completed AI enrichment counts.</summary>
     Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default);

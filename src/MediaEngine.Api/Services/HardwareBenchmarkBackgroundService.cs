@@ -37,7 +37,7 @@ public sealed class HardwareBenchmarkBackgroundService : BackgroundService
 
         try
         {
-            await _benchmark.BenchmarkAsync(stoppingToken);
+            await _benchmark.BenchmarkAsync(ct: stoppingToken);
         }
         catch (OperationCanceledException)
         {

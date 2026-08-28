@@ -8,7 +8,7 @@ namespace MediaEngine.Web.Tests;
 public sealed class EngineApiClientAiOperationTests
 {
     [Fact]
-    public async Task AiConfig_ExposesEngineResourceLimitsAndCompleteNestedSettings()
+    public async Task AiConfig_ExposesResourceProfileWithoutRawModelCatalogue()
     {
         using var http = CreateHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -16,25 +16,11 @@ public sealed class EngineApiClientAiOperationTests
                 {
                   "max_concurrent_inferences": 3,
                   "minimum_free_disk_mb": 4096,
-                  "models": {},
-                  "model_catalog": {
-                    "sample": {
-                      "display_name": "Sample",
-                      "parameters_b": 1.7,
-                      "compatibility": { "supported_backends": ["cpu", "cuda"] },
-                      "capabilities": { "structured_json": true },
-                      "readiness": {},
-                      "validation": { "min_task_pass_rate": 0.95 }
-                    }
-                  },
-                  "operational_roles": {
-                    "test": { "max_output_tokens": 512, "max_concurrency": 2 }
-                  },
-                  "role_requirements": {},
+                  "resource_profile": "standard",
+                  "audio_pack_enabled": false,
                   "features": {},
                   "vibe_vocabulary": {},
-                  "scheduling": {},
-                  "hardware_profile": {}
+                  "scheduling": {}
                 }
                 """, Encoding.UTF8, "application/json"),
         });
@@ -45,12 +31,8 @@ public sealed class EngineApiClientAiOperationTests
         Assert.NotNull(config);
         Assert.Equal(3, config.MaxConcurrentInferences);
         Assert.Equal(4096, config.MinimumFreeDiskMB);
-        Assert.Equal(1.7, config.ModelCatalog["sample"].ParametersB);
-        Assert.Equal(["cpu", "cuda"], config.ModelCatalog["sample"].Compatibility.SupportedBackends);
-        Assert.True(config.ModelCatalog["sample"].Capabilities.StructuredJson);
-        Assert.Equal(0.95, config.ModelCatalog["sample"].Validation.MinTaskPassRate);
-        Assert.Equal(512, config.OperationalRoles["test"].MaxOutputTokens);
-        Assert.Equal(2, config.OperationalRoles["test"].MaxConcurrency);
+        Assert.Equal("standard", config.ResourceProfile);
+        Assert.False(config.AudioPackEnabled);
     }
 
     [Fact]
@@ -132,27 +114,6 @@ public sealed class EngineApiClientAiOperationTests
 
         Assert.DoesNotContain("SECRET", untrustedResult.Problem!.ToUserMessage(), StringComparison.Ordinal);
         Assert.DoesNotContain("InvalidOperationException", untrustedResult.Problem.ToUserMessage(), StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public async Task ModelBenchmark_ParsesTypedOptInBlocker()
-    {
-        using var http = CreateHttpClient(_ => Problem(HttpStatusCode.Conflict, """
-            {
-              "type": "https://tuvima.local/problems/ai/evaluation_opt_in_required",
-              "title": "AI evaluation is blocked",
-              "status": 409,
-              "detail": "Explicit opt-in is required.",
-              "blockingReasons": ["Model execution requires explicit opt-in."]
-            }
-            """));
-        var client = new EngineApiClient(http, NullLogger<EngineApiClient>.Instance);
-
-        var result = await client.RunAiModelBenchmarkAsync("text_instant", "qwen3_0_6b_q8", false, false);
-
-        Assert.False(result.Succeeded);
-        Assert.Equal("AI evaluation is blocked", result.Problem!.Title);
-        Assert.Contains("Model execution requires explicit opt-in.", result.Problem.BlockingReasons);
     }
 
     [Fact]

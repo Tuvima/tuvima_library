@@ -166,56 +166,6 @@ MediaEngine.Contracts.Admin.MediaEngine.Contracts.Admin.UpsertProviderConfigRequ
   Value: System.String | nullability=not-null | accessors=get,init
   IsSecret: System.Boolean | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiBenchmarkAssertionDto
-  Property: System.String | nullability=not-null | accessors=get,set
-  ExpectedValue: System.String | nullability=nullable | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiBenchmarkCaseDto
-  Key: System.String | nullability=not-null | accessors=get,set
-  Feature: System.String | nullability=not-null | accessors=get,set
-  FixtureDescription: System.String | nullability=not-null | accessors=get,set
-  RequiresJson: System.Boolean | nullability=not-null | accessors=get,set
-  FixtureInputJson: System.String | nullability=not-null | accessors=get,set
-  ExpectedAssertions: System.Collections.Generic.List<MediaEngine.Contracts.Ai.AiBenchmarkAssertionDto> | nullability=nullable | accessors=get,set
-  ExpectedRootProperties: System.Collections.Generic.List<System.String> | nullability=nullable | accessors=get,set
-  Assertions: System.Collections.Generic.List<MediaEngine.Contracts.Ai.AiBenchmarkAssertionDto> | nullability=not-null | accessors=get,set
-  AllowedRootProperties: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiBenchmarkGatesDto
-  TargetWarmLatencyMs: System.Int32 | nullability=not-null | accessors=get,set
-  MaxWarmLatencyMs: System.Int32 | nullability=not-null | accessors=get,set
-  MinJsonValidityRate: System.Double | nullability=not-null | accessors=get,set
-  MinTaskPassRate: System.Double | nullability=not-null | accessors=get,set
-  MaxHallucinationRate: System.Double | nullability=not-null | accessors=get,set
-  MaxWer: System.Double? | nullability=nullable | accessors=get,set
-  MaxTimestampDriftMs: System.Int32? | nullability=nullable | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiBenchmarkReportDto
-  SuiteKey: System.String | nullability=not-null | accessors=get,set
-  Role: System.String | nullability=not-null | accessors=get,set
-  CatalogKey: System.String | nullability=not-null | accessors=get,set
-  EvaluatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
-  Passed: System.Boolean | nullability=not-null | accessors=get,set
-  JsonValidityRate: System.Double | nullability=not-null | accessors=get,set
-  TaskPassRate: System.Double | nullability=not-null | accessors=get,set
-  HallucinationRate: System.Double | nullability=not-null | accessors=get,set
-  WorstWordErrorRate: System.Double | nullability=not-null | accessors=get,set
-  WorstTimestampDriftMs: System.Int32 | nullability=not-null | accessors=get,set
-  WorstLatencyMs: System.Int32 | nullability=not-null | accessors=get,set
-  MissingCases: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
-  Failures: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiBenchmarkRunRequest
-  CatalogKey: System.String | nullability=not-null | accessors=get,set
-  AllowHardwareBenchmark: System.Boolean | nullability=not-null | accessors=get,set
-  AllowModelExecution: System.Boolean | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiBenchmarkSuiteDto
-  Key: System.String | nullability=not-null | accessors=get,set
-  Role: System.String | nullability=not-null | accessors=get,set
-  Gates: MediaEngine.Contracts.Ai.AiBenchmarkGatesDto | nullability=not-null | accessors=get,set
-  Cases: System.Collections.Generic.List<MediaEngine.Contracts.Ai.AiBenchmarkCaseDto> | nullability=not-null | accessors=get,set
-
 MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiConfigDto
   DevSkipDownload: System.Boolean | nullability=not-null | accessors=get,set
   ModelsDirectory: System.String | nullability=not-null | accessors=get,set
@@ -223,15 +173,13 @@ MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiConfigDto
   InferenceTimeoutSeconds: System.Int32 | nullability=not-null | accessors=get,set
   MaxConcurrentInferences: System.Int32 | nullability=not-null | accessors=get,set
   MinimumFreeDiskMB: System.Int32 | nullability=not-null | accessors=get,set
-  Models: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Ai.AiModelDefinitionDto> | nullability=not-null | accessors=get,set
-  ModelCatalog: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Ai.AiModelCatalogEntryDto> | nullability=not-null | accessors=get,set
-  OperationalRoles: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Ai.AiOperationalRoleDto> | nullability=not-null | accessors=get,set
-  RoleRequirements: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Ai.AiRoleRequirementDto> | nullability=not-null | accessors=get,set
+  ResourceProfile: System.String | nullability=not-null | accessors=get,set
+  EffectiveResourceProfile: System.String | nullability=not-null | accessors=get,set
+  AudioPackEnabled: System.Boolean | nullability=not-null | accessors=get,set
   Features: System.Collections.Generic.Dictionary<System.String, System.Boolean> | nullability=not-null | accessors=get,set
   VibeVocabulary: System.Collections.Generic.Dictionary<System.String, System.Collections.Generic.List<System.String>> | nullability=not-null | accessors=get,set
   Scheduling: System.Collections.Generic.Dictionary<System.String, System.Object> | nullability=not-null | accessors=get,set
   EnrichmentBatchSize: System.Int32 | nullability=not-null | accessors=get,set
-  HardwareProfile: MediaEngine.Contracts.Ai.HardwareProfileDto | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiDownloadCancelledResponse
   cancelled: System.Boolean | nullability=not-null | accessors=get,init
@@ -245,81 +193,9 @@ MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiHealthStatusDto
   MemoryProfile: System.String | nullability=not-null | accessors=get,set
   IsReady: System.Boolean | nullability=not-null | accessors=get,set
 
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiModelCapabilitiesDto
-  TextInput: System.Boolean | nullability=not-null | accessors=get,set
-  AudioInput: System.Boolean | nullability=not-null | accessors=get,set
-  ImageInput: System.Boolean | nullability=not-null | accessors=get,set
-  TextOutput: System.Boolean | nullability=not-null | accessors=get,set
-  StructuredJson: System.Boolean | nullability=not-null | accessors=get,set
-  Gbnf: System.Boolean | nullability=not-null | accessors=get,set
-  TimestampSegments: System.Boolean | nullability=not-null | accessors=get,set
-  WordTimestamps: System.Boolean | nullability=not-null | accessors=get,set
-  SyncGrade: System.Boolean | nullability=not-null | accessors=get,set
-  Multilingual: System.Boolean | nullability=not-null | accessors=get,set
-  Cjk: System.Boolean | nullability=not-null | accessors=get,set
-  ExperimentalMultimodal: System.Boolean | nullability=not-null | accessors=get,set
-  EmbeddingOutput: System.Boolean | nullability=not-null | accessors=get,set
-  FunctionCalling: System.Boolean | nullability=not-null | accessors=get,set
-  ToolCalling: System.Boolean | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiModelCatalogEntryDto
-  DisplayName: System.String | nullability=not-null | accessors=get,set
-  Family: System.String | nullability=not-null | accessors=get,set
-  Provider: System.String | nullability=not-null | accessors=get,set
-  License: System.String | nullability=not-null | accessors=get,set
-  Runtime: System.String | nullability=not-null | accessors=get,set
-  Status: System.String | nullability=not-null | accessors=get,set
-  SelectionTier: System.String | nullability=not-null | accessors=get,set
-  IntendedRoles: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
-  File: System.String | nullability=not-null | accessors=get,set
-  DownloadUrl: System.String | nullability=not-null | accessors=get,set
-  Sha256: System.String | nullability=nullable | accessors=get,set
-  SourceUrl: System.String | nullability=not-null | accessors=get,set
-  SizeMB: System.Int32 | nullability=not-null | accessors=get,set
-  ParametersB: System.Double | nullability=not-null | accessors=get,set
-  EffectiveParametersB: System.Double? | nullability=nullable | accessors=get,set
-  Quantization: System.String | nullability=not-null | accessors=get,set
-  ContextLength: System.Int32 | nullability=not-null | accessors=get,set
-  MemoryEnvelopeMB: System.Int32 | nullability=not-null | accessors=get,set
-  MaxContextLength: System.Int32 | nullability=not-null | accessors=get,set
-  Experimental: System.Boolean | nullability=not-null | accessors=get,set
-  Compatibility: MediaEngine.Contracts.Ai.AiModelCompatibilityDto | nullability=not-null | accessors=get,set
-  Readiness: MediaEngine.Contracts.Ai.AiModelReadinessDto | nullability=not-null | accessors=get,set
-  Capabilities: MediaEngine.Contracts.Ai.AiModelCapabilitiesDto | nullability=not-null | accessors=get,set
-  Validation: MediaEngine.Contracts.Ai.AiModelValidationProfileDto | nullability=not-null | accessors=get,set
-  SelectionRationale: System.String | nullability=not-null | accessors=get,set
-  IntegrationNotes: System.String | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiModelCompatibilityDto
-  SupportedBackends: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
-  MinimumRuntimeVersion: System.String | nullability=nullable | accessors=get,set
-  RequiresMmproj: System.Boolean | nullability=not-null | accessors=get,set
-  RequiresAudioEncoder: System.Boolean | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiModelDefinitionDto
-  CatalogKey: System.String | nullability=nullable | accessors=get,set
-  Description: System.String | nullability=not-null | accessors=get,set
-  File: System.String | nullability=not-null | accessors=get,set
-  DownloadUrl: System.String | nullability=not-null | accessors=get,set
-  Sha256: System.String | nullability=nullable | accessors=get,set
-  SizeMB: System.Int32 | nullability=not-null | accessors=get,set
-  ContextLength: System.Int32 | nullability=not-null | accessors=get,set
-  MaxTokens: System.Int32 | nullability=not-null | accessors=get,set
-  Temperature: System.Double | nullability=not-null | accessors=get,set
-  GpuLayers: System.Int32 | nullability=not-null | accessors=get,set
-  Threads: System.Int32 | nullability=not-null | accessors=get,set
-  Language: System.String | nullability=nullable | accessors=get,set
-  Translate: System.Boolean | nullability=not-null | accessors=get,set
-
 MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiModelLoadedResponse
   loaded: System.Boolean | nullability=not-null | accessors=get,init
   role: System.String | nullability=not-null | accessors=get,init
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiModelReadinessDto
-  ConfigurationReady: System.Boolean | nullability=not-null | accessors=get,set
-  RuntimeReady: System.Boolean | nullability=not-null | accessors=get,set
-  Validated: System.Boolean | nullability=not-null | accessors=get,set
-  BlockingReasons: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiModelStatusDto
   Role: System.String | nullability=not-null | accessors=get,set
@@ -369,43 +245,6 @@ MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiModelUnloadedResponse
   unloaded: System.Boolean | nullability=not-null | accessors=get,init
   role: System.String | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiModelValidationProfileDto
-  TargetWarmLatencyMs: System.Int32 | nullability=not-null | accessors=get,set
-  MaxWarmLatencyMs: System.Int32 | nullability=not-null | accessors=get,set
-  MinJsonValidityRate: System.Double | nullability=not-null | accessors=get,set
-  MinTaskPassRate: System.Double | nullability=not-null | accessors=get,set
-  MaxHallucinationRate: System.Double | nullability=not-null | accessors=get,set
-  MaxWer: System.Double? | nullability=nullable | accessors=get,set
-  MaxTimestampDriftMs: System.Int32? | nullability=nullable | accessors=get,set
-  BenchmarkSuite: System.String | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiOperationalRoleDto
-  CatalogKey: System.String | nullability=not-null | accessors=get,set
-  RuntimeKind: System.String | nullability=not-null | accessors=get,set
-  Enabled: System.Boolean | nullability=not-null | accessors=get,set
-  Experimental: System.Boolean | nullability=not-null | accessors=get,set
-  MemoryEnvelopeMB: System.Int32 | nullability=not-null | accessors=get,set
-  MaxContextLength: System.Int32 | nullability=not-null | accessors=get,set
-  MaxOutputTokens: System.Int32 | nullability=not-null | accessors=get,set
-  Temperature: System.Double | nullability=not-null | accessors=get,set
-  MaxConcurrency: System.Int32 | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiRoleRequirementDto
-  Description: System.String | nullability=not-null | accessors=get,set
-  SelectionPolicy: System.String | nullability=not-null | accessors=get,set
-  RequiredCapabilities: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
-  PreferredCatalogKeys: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
-  FallbackCatalogKeys: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
-  MaxDefaultSizeMB: System.Int32 | nullability=not-null | accessors=get,set
-  TargetWarmLatencyMs: System.Int32 | nullability=not-null | accessors=get,set
-  MaxBackgroundLatencyMs: System.Int32 | nullability=not-null | accessors=get,set
-  MinJsonValidityRate: System.Double | nullability=not-null | accessors=get,set
-  MinTaskPassRate: System.Double | nullability=not-null | accessors=get,set
-  BenchmarkSuite: System.String | nullability=not-null | accessors=get,set
-  MemoryEnvelopeMB: System.Int32 | nullability=not-null | accessors=get,set
-  MaxContextLength: System.Int32 | nullability=not-null | accessors=get,set
-  ExperimentalAllowed: System.Boolean | nullability=not-null | accessors=get,set
-
 MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiSettingsSavedResponse
   saved: System.Boolean | nullability=not-null | accessors=get,init
 
@@ -415,25 +254,18 @@ MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.EnrichmentProgressDto
   Total: System.Int32 | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.HardwareProfileDto
+  Outcome: System.String | nullability=not-null | accessors=get,set
   Tier: System.String | nullability=not-null | accessors=get,set
   Backend: System.String | nullability=not-null | accessors=get,set
   GpuName: System.String | nullability=nullable | accessors=get,set
-  TokensPerSecond: System.Double | nullability=not-null | accessors=get,set
+  TokensPerSecond: System.Double? | nullability=nullable | accessors=get,set
   AvailableRamMb: System.Int64 | nullability=not-null | accessors=get,set
   BenchmarkedAt: System.DateTime? | nullability=nullable | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.IntentSearchRequest
-  Query: System.String | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.IntentSearchResponse
-  Genres: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,set
-  Moods: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,set
-  YearFrom: System.Int32? | nullability=nullable | accessors=get,set
-  YearTo: System.Int32? | nullability=nullable | accessors=get,set
-  MediaTypes: System.Collections.Generic.IReadOnlyList<MediaEngine.Domain.Enums.MediaType> | nullability=not-null | accessors=get,set
-  Keywords: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,set
-  Confidence: System.Double | nullability=not-null | accessors=get,set
-  OriginalQuery: System.String | nullability=not-null | accessors=get,set
+  MachineFingerprint: System.String | nullability=nullable | accessors=get,set
+  BenchmarkModel: System.String | nullability=nullable | accessors=get,set
+  FailureCode: System.String | nullability=nullable | accessors=get,set
+  FailureMessage: System.String | nullability=nullable | accessors=get,set
+  AdvancedEligible: System.Boolean | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.ResourceSnapshotDto
   TotalRamMb: System.Int64 | nullability=not-null | accessors=get,set
@@ -441,25 +273,6 @@ MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.ResourceSnapshotDto
   EngineRamMb: System.Int64 | nullability=not-null | accessors=get,set
   CpuPressure: System.Double | nullability=not-null | accessors=get,set
   TranscodingActive: System.Boolean | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.TldrResponse
-  tldr: System.String | nullability=not-null | accessors=get,init
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.TldrUnavailableResponse
-  tldr: System.String | nullability=nullable | accessors=get,init
-  note: System.String | nullability=not-null | accessors=get,init
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.UrlExtractRequest
-  Url: System.String | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.UrlExtractionResponse
-  Success: System.Boolean | nullability=not-null | accessors=get,set
-  Fields: System.Collections.Generic.IReadOnlyDictionary<System.String, System.String> | nullability=not-null | accessors=get,set
-  Confidence: System.Double | nullability=not-null | accessors=get,set
-  ErrorMessage: System.String | nullability=nullable | accessors=get,set
-
-MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.VibesResponse
-  vibes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.AuthBootstrapStatusResponse
   AdministratorConfigured: System.Boolean | nullability=not-null | accessors=get,init

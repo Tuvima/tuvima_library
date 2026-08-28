@@ -2,6 +2,7 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page local-ai-settings">
+    <AppAlert Tone="AppUiTone.Info" Class="mb-3">Local AI runs on this server and is currently partial: only the launch features shown here are supported end to end.</AppAlert>
     @switch (NormalizedSubsection)
     {
         case "models":
@@ -34,7 +35,7 @@
                             @if (_profile is not null)
                             {
                                 <span><strong>Backend</strong>@_profile.Backend</span>
-                                <span><strong>Benchmark</strong>@($"{_profile.TokensPerSecond:F1} tokens/sec")</span>
+                                <span><strong>Benchmark</strong>@BenchmarkLabel()</span>
                             }
                             @if (_resources is not null)
                             {
@@ -189,11 +190,11 @@
     private AppUiTone OverviewTone => _status?.IsReady == true ? AppUiTone.Success : _status is null ? AppUiTone.Warning : AppUiTone.Info;
 
     private string OverviewStatusTitle => _status?.IsReady == true
-        ? "Local AI is healthy"
+        ? "Local AI is partially available"
         : _status is null ? "Local AI status is unavailable" : "Local AI is available with limitations";
 
     private string OverviewStatusDescription => _status?.IsReady == true
-        ? "Local AI runs on this server; local intelligence is ready and inference stays private."
+        ? "The selected model is ready. Individual launch features remain partial until their complete product paths are verified."
         : _status is null ? "Library browsing continues without Local AI status." : "Review models and runtime details before relying on every feature.";
 
     private string ActiveModelName()
@@ -257,16 +258,23 @@
         _ => "Low",
     };
 
+    private string BenchmarkLabel() => _profile?.Outcome switch
+    {
+        "succeeded" => $"{_profile.TokensPerSecond.GetValueOrDefault():F1} tokens/sec",
+        "failed" => "Failed — rerun available",
+        "invalidated" => "Invalidated for this machine",
+        _ => "Not run",
+    };
+
     private sealed record FeatureDefinition(string Key, string Name, string Description, bool Connected = true);
 
     private static IReadOnlyList<FeatureDefinition> FeatureDefinitions() =>
     [
         new("smart_labeling", "Smart labeling", "Improve filenames and initial metadata."),
-        new("intent_search", "Intent search", "Understand natural-language search."),
-        new("taste_profiling", "Taste profiling", "Build local preference signals."),
-        new("series_alignment", "Series & universe alignment", "Assist grouping and order checks."),
-        new("vibe_tags", "Vibe tags", "Generate local mood tags."),
-        new("description_intelligence", "Description intelligence", "Extract themes and useful context."),
-        new("subtitle_sync", "Subtitle synchronization — Planned", "Future local alignment support.", Connected: false),
+        new("type_logic", "Media-type assistance", "Classify ambiguous incoming files."),
+        new("series_alignment", "Series alignment", "Assist structural order and grouping."),
+        new("vibe_tags", "Vibe tags", "Generate controlled local mood tags."),
+        new("tldr", "Description TL;DR", "Present concise summaries created by description intelligence."),
+        new("description_intelligence", "Description intelligence", "Extract themes, setting, entities, and useful context."),
     ];
 }

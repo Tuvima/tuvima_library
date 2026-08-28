@@ -1418,48 +1418,6 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<AiOperationResultDto<AiBenchmarkReportDto>> RunAiModelBenchmarkAsync(
-        string suiteKey,
-        string catalogKey,
-        bool allowHardwareBenchmark,
-        bool allowModelExecution,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            using var response = await _http.PostAsJsonAsync(
-                $"/ai/benchmark/suites/{Uri.EscapeDataString(suiteKey)}/run",
-                new AiBenchmarkRunRequest
-                {
-                    CatalogKey = catalogKey,
-                    AllowHardwareBenchmark = allowHardwareBenchmark,
-                    AllowModelExecution = allowModelExecution,
-                },
-                ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                return AiOperationResultDto<AiBenchmarkReportDto>.Failure(
-                    await ReadAiProblemAsync(response, "AI validation failed", ct));
-            }
-
-            var report = await response.Content.ReadFromJsonAsync<AiBenchmarkReportDto>(cancellationToken: ct);
-            return report is null
-                ? AiOperationResultDto<AiBenchmarkReportDto>.Failure(ClientProblem("Invalid Engine response", "The validation report was empty."))
-                : AiOperationResultDto<AiBenchmarkReportDto>.Success(report);
-        }
-        catch (OperationCanceledException)
-        {
-            return AiOperationResultDto<AiBenchmarkReportDto>.Failure(
-                ClientProblem("AI validation cancelled", "The validation run was cancelled."));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "AI validation {Suite} failed", suiteKey);
-            return AiOperationResultDto<AiBenchmarkReportDto>.Failure(
-                ClientProblem("Engine communication failed", "The Dashboard could not reach the Engine for this validation run."));
-        }
-    }
-
     private static async Task<AiProblemDetailsDto> ReadAiProblemAsync(
         HttpResponseMessage response,
         string fallbackTitle,
@@ -1604,6 +1562,28 @@ public sealed partial class EngineApiClient
             _logger.LogWarning(ex, "POST /ai/benchmark failed");
             return AiOperationResultDto<HardwareProfileDto>.Failure(
                 ClientProblem("Engine communication failed", "The Dashboard could not reach the Engine for the hardware benchmark."));
+        }
+    }
+
+    public async Task<AiOperationResultDto<HardwareProfileDto>> InvalidateBenchmarkAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Delete, "/ai/benchmark");
+            using var response = await _http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+                return AiOperationResultDto<HardwareProfileDto>.Failure(
+                    await ReadAiProblemAsync(response, "Benchmark invalidation failed", ct));
+            var profile = await response.Content.ReadFromJsonAsync<HardwareProfileDto>(cancellationToken: ct);
+            return profile is null
+                ? AiOperationResultDto<HardwareProfileDto>.Failure(ClientProblem("Invalid Engine response", "The benchmark state was empty."))
+                : AiOperationResultDto<HardwareProfileDto>.Success(profile);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE /ai/benchmark failed");
+            return AiOperationResultDto<HardwareProfileDto>.Failure(
+                ClientProblem("Engine communication failed", "The Dashboard could not invalidate the benchmark."));
         }
     }
 

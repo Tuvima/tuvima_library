@@ -3,7 +3,9 @@ using MediaEngine.AI.Features;
 using MediaEngine.AI.Infrastructure;
 using MediaEngine.AI.Llama;
 using MediaEngine.AI.Whisper;
+using MediaEngine.Api.Services;
 using MediaEngine.Domain.Contracts;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Api.DependencyInjection;
 
@@ -21,11 +23,17 @@ public static class TuvimaAiServiceCollectionExtensions
             settings.ModelsDirectory = modelsDirectory;
 
         AiSettingsValidator.ValidateAndThrow(settings);
+        var gpuDetector = new GpuBackendDetector(NullLogger<GpuBackendDetector>.Instance);
+        var detected = gpuDetector.Detect();
+        var benchmarkStore = new AiBenchmarkStateStore(settings, NullLogger<AiBenchmarkStateStore>.Instance);
+        settings.HardwareProfile = benchmarkStore.LoadCurrent(detected.Backend, detected.GpuName);
+        settings.ApplyEffectiveResourceProfile();
         services.AddSingleton(settings);
+        services.AddSingleton<AiConfigurationService>();
         services.AddSingleton<ModelInventory>();
         services.AddSingleton<AiModelSelectionAdvisor>();
-        services.AddSingleton<AiBenchmarkHarness>();
-        services.AddSingleton<IAiBenchmarkModelRunner, LocalTextBenchmarkModelRunner>();
+        services.AddSingleton<AiFeatureGate>();
+        services.AddSingleton(benchmarkStore);
         services.AddSingleton<IModelDownloadManager, ModelDownloadManager>();
         services.AddSingleton<IModelLifecycleManager, ModelLifecycleManager>();
         services.AddSingleton<LlamaInferenceService>();
@@ -39,20 +47,12 @@ public static class TuvimaAiServiceCollectionExtensions
         services.AddSingleton<AudioPreprocessor>();
         services.AddSingleton<ISmartLabeler, SmartLabeler>();
         services.AddSingleton<IMediaTypeAdvisor, MediaTypeAdvisor>();
-        services.AddSingleton<IQidDisambiguator, QidDisambiguator>();
         services.AddSingleton<ISeriesAligner, SeriesAligner>();
-        services.AddSingleton<IWatchingOrderAdvisor, WatchingOrderAdvisor>();
         services.AddSingleton<IVibeTagger, VibeTagger>();
-        services.AddSingleton<ITldrGenerator, TldrGenerator>();
-        services.AddSingleton<ICoverArtValidator, CoverArtValidator>();
-        services.AddSingleton<IAudioSimilarityService, AudioSimilarityService>();
         services.AddSingleton<ICoverArtHashService, CoverArtHashService>();
         services.AddSingleton<ITasteProfiler, TasteProfiler>();
-        services.AddSingleton<IWhyExplainer, WhyExplainer>();
-        services.AddSingleton<IIntentSearchParser, IntentSearchParser>();
-        services.AddSingleton<IUrlMetadataExtractor, UrlMetadataExtractor>();
         services.AddSingleton<IDescriptionIntelligenceService, DescriptionIntelligenceService>();
-        services.AddSingleton<GpuBackendDetector>();
+        services.AddSingleton(gpuDetector);
         services.AddSingleton<ResourceMonitorService>();
         services.AddSingleton<HardwareBenchmarkService>();
         return services;

@@ -11,7 +11,7 @@
     </AppActionBar>
 
     <AppAlert Tone="AppUiTone.Info" Class="mb-3">
-        These values are persisted in AI config. Last-run and next-run times are not shown because the Engine does not provide job-run metadata here. Schedule changes can require Engine restart or scheduler reload.
+        These values are the schedules used by the running AI workers. Saving wakes waiting workers so they immediately recompute their next run.
     </AppAlert>
 
     @if (_progress is not null)
@@ -173,9 +173,6 @@
     [
         new("vibe_batch_cron", "Vibe batch", "Generates vibe tags for eligible items."),
         new("series_check_cron", "Series check", "Runs series alignment checks."),
-        new("whisper_bake_cron", "Whisper bake", "Runs transcript/audio alignment work."),
-        new("whisper_bake_window_hours", "Whisper bake window", "Hours after the scheduled time where a Whisper bake can still run.", true),
-        new("taste_profile_update_cron", "Taste profile update", "Refreshes local taste profile signals."),
-        new("description_intelligence", "Description intelligence", "Runs description intelligence enrichment."),
+        new("description_intelligence_cron", "Description intelligence", "Runs description intelligence and TL;DR enrichment."),
     ];
 }

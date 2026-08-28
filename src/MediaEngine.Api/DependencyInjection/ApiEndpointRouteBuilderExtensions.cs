@@ -58,7 +58,6 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapSearchEndpoints();
         app.MapReportEndpoints();
         app.MapAiEndpoints();
-        app.MapAiEnrichmentEndpoints();
         app.MapPluginEndpoints();
 
         return app;

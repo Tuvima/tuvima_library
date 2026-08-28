@@ -53,7 +53,7 @@ public sealed class AiRuntimeSafetyTests
         var modelPath = System.IO.Path.Combine(directory.Path, "llama", settings.Models.TextFast.File);
         Directory.CreateDirectory(System.IO.Path.GetDirectoryName(modelPath)!);
         File.WriteAllText(modelPath, "corrupt");
-        settings.Models.TextFast.Sha256 = Convert.ToHexStringLower(SHA256.HashData("expected"u8.ToArray()));
+        SetSharedTextMetadata(settings, sha256: Convert.ToHexStringLower(SHA256.HashData("expected"u8.ToArray())));
 
         var inventory = CreateInventory(settings);
 
@@ -67,8 +67,7 @@ public sealed class AiRuntimeSafetyTests
         var payload = "verified-model"u8.ToArray();
         var settings = CreateSettings(directory.Path);
         settings.MinimumFreeDiskMB = 256;
-        settings.Models.TextFast.SizeMB = 1;
-        settings.Models.TextFast.Sha256 = Convert.ToHexStringLower(SHA256.HashData(payload));
+        SetSharedTextMetadata(settings, sizeMb: 1, sha256: Convert.ToHexStringLower(SHA256.HashData(payload)));
         var inventory = CreateInventory(settings);
         await using var manager = new ModelDownloadManager(
             settings,
@@ -91,8 +90,7 @@ public sealed class AiRuntimeSafetyTests
         using var directory = new TemporaryDirectory();
         var settings = CreateSettings(directory.Path);
         settings.MinimumFreeDiskMB = 256;
-        settings.Models.TextFast.SizeMB = 1;
-        settings.Models.TextFast.Sha256 = new string('0', 64);
+        SetSharedTextMetadata(settings, sizeMb: 1, sha256: new string('0', 64));
         var inventory = CreateInventory(settings);
         await using var manager = new ModelDownloadManager(
             settings,
@@ -117,10 +115,7 @@ public sealed class AiRuntimeSafetyTests
         var payload = "shared-qwen-model"u8.ToArray();
         var checksum = Convert.ToHexStringLower(SHA256.HashData(payload));
         var settings = CreateSettings(directory.Path);
-        settings.Models.TextScholar.SizeMB = 1;
-        settings.Models.TextCjk.SizeMB = 1;
-        settings.Models.TextScholar.Sha256 = checksum;
-        settings.Models.TextCjk.Sha256 = checksum;
+        SetSharedTextMetadata(settings, sizeMb: 1, sha256: checksum);
         var inventory = CreateInventory(settings);
         var http = new GatedHttpClientFactory(payload);
         await using var manager = new ModelDownloadManager(
@@ -161,19 +156,10 @@ public sealed class AiRuntimeSafetyTests
         var settings = CreateSettings();
         settings.MaxConcurrentInferences = 2;
         settings.Models.TextCjk.Sha256 = new string('a', 64);
-        settings.OperationalRoles["future_text"] = new AiOperationalRoleDefinition
-        {
-            CatalogKey = "qwen3_0_6b_q8",
-            RuntimeKind = "text",
-            Enabled = true,
-            MaxConcurrency = 2,
-        };
-
         var errors = AiSettingsValidator.Validate(settings);
 
         Assert.Contains(errors, error => error.Path == "max_concurrent_inferences");
         Assert.Contains(errors, error => error.Path == "models.text_cjk.sha256");
-        Assert.Contains(errors, error => error.Path == "operational_roles.future_text.max_concurrency");
     }
 
     [Fact]
@@ -311,16 +297,18 @@ public sealed class AiRuntimeSafetyTests
     }
 
     [Fact]
-    public void AiSchema_IsValidJsonAndUsesExtensibleRoleMaps()
+    public void AiSchema_IsValidJsonAndRejectsRawModelConfiguration()
     {
         var path = FindRepositoryFile("config", "schemas", "ai.schema.json");
         using var document = JsonDocument.Parse(File.ReadAllText(path));
         var root = document.RootElement;
 
-        Assert.Equal("object", root.GetProperty("properties").GetProperty("models").GetProperty("type").GetString());
-        Assert.Equal(
-            "#/$defs/executableModel",
-            root.GetProperty("properties").GetProperty("models").GetProperty("additionalProperties").GetProperty("$ref").GetString());
+        var properties = root.GetProperty("properties");
+        Assert.Equal("standard", properties.GetProperty("resource_profile").GetProperty("enum")[1].GetString());
+        Assert.True(properties.GetProperty("audio_pack_enabled").GetProperty("type").GetString() == "boolean");
+        Assert.False(properties.TryGetProperty("models", out _));
+        Assert.False(properties.TryGetProperty("model_catalog", out _));
+        Assert.False(root.GetProperty("additionalProperties").GetBoolean());
     }
 
     private static AiSettings CreateSettings(string? modelsDirectory = null)
@@ -337,6 +325,23 @@ public sealed class AiRuntimeSafetyTests
 
     private static ModelInventory CreateInventory(AiSettings settings) =>
         new(settings, NullLogger<ModelInventory>.Instance);
+
+    private static void SetSharedTextMetadata(AiSettings settings, int? sizeMb = null, string? sha256 = null)
+    {
+        foreach (var definition in new[]
+                 {
+                     settings.Models.TextFast,
+                     settings.Models.TextQuality,
+                     settings.Models.TextScholar,
+                     settings.Models.TextCjk,
+                 })
+        {
+            if (sizeMb.HasValue)
+                definition.SizeMB = sizeMb.Value;
+            if (sha256 is not null)
+                definition.Sha256 = sha256;
+        }
+    }
 
     private static ModelLifecycleManager CreateLifecycle(AiSettings settings, ModelInventory inventory) =>
         new(settings, inventory, new NoOpEventPublisher(), NullLogger<ModelLifecycleManager>.Instance);

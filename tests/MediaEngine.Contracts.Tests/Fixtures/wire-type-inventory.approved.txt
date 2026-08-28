@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=655; api=0; web-client=87
+# scopes: contracts=634; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -209,68 +209,6 @@
   IsSecret: System.Boolean | json=is_secret | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"value":"sample","is_secret":true}
 
-[contracts] MediaEngine.Contracts.Ai.AiBenchmarkAssertionDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Property: System.String | json=property | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ExpectedValue: System.String | json=expectedValue | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"property":"sample","expectedValue":"sample"}
-
-[contracts] MediaEngine.Contracts.Ai.AiBenchmarkCaseDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Key: System.String | json=key | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Feature: System.String | json=feature | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  FixtureDescription: System.String | json=fixtureDescription | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  RequiresJson: System.Boolean | json=requiresJson | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  FixtureInputJson: System.String | json=fixtureInputJson | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ExpectedAssertions: System.Collections.Generic.List<MediaEngine.Contracts.Ai.AiBenchmarkAssertionDto> | json=expectedAssertions | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ExpectedRootProperties: System.Collections.Generic.List<System.String> | json=expectedRootProperties | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Assertions: System.Collections.Generic.List<MediaEngine.Contracts.Ai.AiBenchmarkAssertionDto> | json=assertions | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  AllowedRootProperties: System.Collections.Generic.List<System.String> | json=allowedRootProperties | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"key":"sample","feature":"sample","fixtureDescription":"sample","requiresJson":true,"fixtureInputJson":"sample","expectedAssertions":[],"expectedRootProperties":[],"assertions":[],"allowedRootProperties":[]}
-
-[contracts] MediaEngine.Contracts.Ai.AiBenchmarkGatesDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  TargetWarmLatencyMs: System.Int32 | json=targetWarmLatencyMs | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxWarmLatencyMs: System.Int32 | json=maxWarmLatencyMs | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MinJsonValidityRate: System.Double | json=minJsonValidityRate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MinTaskPassRate: System.Double | json=minTaskPassRate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxHallucinationRate: System.Double | json=maxHallucinationRate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxWer: System.Double? | json=maxWer | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxTimestampDriftMs: System.Int32? | json=maxTimestampDriftMs | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"targetWarmLatencyMs":7,"maxWarmLatencyMs":7,"minJsonValidityRate":7,"minTaskPassRate":7,"maxHallucinationRate":7,"maxWer":7,"maxTimestampDriftMs":7}
-
-[contracts] MediaEngine.Contracts.Ai.AiBenchmarkReportDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  SuiteKey: System.String | json=suiteKey | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Role: System.String | json=role | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  CatalogKey: System.String | json=catalogKey | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  EvaluatedAt: System.DateTimeOffset | json=evaluatedAt | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Passed: System.Boolean | json=passed | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  JsonValidityRate: System.Double | json=jsonValidityRate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  TaskPassRate: System.Double | json=taskPassRate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  HallucinationRate: System.Double | json=hallucinationRate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  WorstWordErrorRate: System.Double | json=worstWordErrorRate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  WorstTimestampDriftMs: System.Int32 | json=worstTimestampDriftMs | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  WorstLatencyMs: System.Int32 | json=worstLatencyMs | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MissingCases: System.Collections.Generic.List<System.String> | json=missingCases | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Failures: System.Collections.Generic.List<System.String> | json=failures | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"suiteKey":"sample","role":"sample","catalogKey":"sample","evaluatedAt":"2025-01-02T03:04:05+00:00","passed":true,"jsonValidityRate":7,"taskPassRate":7,"hallucinationRate":7,"worstWordErrorRate":7,"worstTimestampDriftMs":7,"worstLatencyMs":7,"missingCases":[],"failures":[]}
-
-[contracts] MediaEngine.Contracts.Ai.AiBenchmarkRunRequest
-  kind=class | converter=default | number-handling=default | unmapped=default
-  CatalogKey: System.String | json=catalogKey | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  AllowHardwareBenchmark: System.Boolean | json=allowHardwareBenchmark | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  AllowModelExecution: System.Boolean | json=allowModelExecution | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"catalogKey":"sample","allowHardwareBenchmark":true,"allowModelExecution":true}
-
-[contracts] MediaEngine.Contracts.Ai.AiBenchmarkSuiteDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Key: System.String | json=key | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Role: System.String | json=role | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Gates: MediaEngine.Contracts.Ai.AiBenchmarkGatesDto | json=gates | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Cases: System.Collections.Generic.List<MediaEngine.Contracts.Ai.AiBenchmarkCaseDto> | json=cases | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"key":"sample","role":"sample","gates":null,"cases":[]}
-
 [contracts] MediaEngine.Contracts.Ai.AiConfigDto
   kind=class | converter=default | number-handling=default | unmapped=default
   DevSkipDownload: System.Boolean | json=dev_skip_download | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -279,16 +217,14 @@
   InferenceTimeoutSeconds: System.Int32 | json=inference_timeout_seconds | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MaxConcurrentInferences: System.Int32 | json=max_concurrent_inferences | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MinimumFreeDiskMB: System.Int32 | json=minimum_free_disk_mb | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Models: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Ai.AiModelDefinitionDto> | json=models | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ModelCatalog: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Ai.AiModelCatalogEntryDto> | json=model_catalog | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  OperationalRoles: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Ai.AiOperationalRoleDto> | json=operational_roles | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  RoleRequirements: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Ai.AiRoleRequirementDto> | json=role_requirements | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ResourceProfile: System.String | json=resource_profile | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EffectiveResourceProfile: System.String | json=effective_resource_profile | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AudioPackEnabled: System.Boolean | json=audio_pack_enabled | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Features: System.Collections.Generic.Dictionary<System.String, System.Boolean> | json=features | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   VibeVocabulary: System.Collections.Generic.Dictionary<System.String, System.Collections.Generic.List<System.String>> | json=vibe_vocabulary | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Scheduling: System.Collections.Generic.Dictionary<System.String, System.Object> | json=scheduling | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   EnrichmentBatchSize: System.Int32 | json=enrichment_batch_size | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  HardwareProfile: MediaEngine.Contracts.Ai.HardwareProfileDto | json=hardware_profile | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"dev_skip_download":true,"models_directory":"sample","idle_unload_seconds":7,"inference_timeout_seconds":7,"max_concurrent_inferences":7,"minimum_free_disk_mb":7,"models":{},"model_catalog":{},"operational_roles":{},"role_requirements":{},"features":{},"vibe_vocabulary":{},"scheduling":{},"enrichment_batch_size":7,"hardware_profile":null}
+  sample={"dev_skip_download":true,"models_directory":"sample","idle_unload_seconds":7,"inference_timeout_seconds":7,"max_concurrent_inferences":7,"minimum_free_disk_mb":7,"resource_profile":"sample","effective_resource_profile":"sample","audio_pack_enabled":true,"features":{},"vibe_vocabulary":{},"scheduling":{},"enrichment_batch_size":7}
 
 [contracts] MediaEngine.Contracts.Ai.AiDownloadCancelledResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -305,92 +241,10 @@
   IsReady: System.Boolean | json=isReady | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"models":[],"memoryUsedMB":7,"memoryLimitMB":7,"gpuAvailable":true,"memoryProfile":"sample","isReady":true}
 
-[contracts] MediaEngine.Contracts.Ai.AiModelCapabilitiesDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  TextInput: System.Boolean | json=text_input | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  AudioInput: System.Boolean | json=audio_input | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ImageInput: System.Boolean | json=image_input | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  TextOutput: System.Boolean | json=text_output | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  StructuredJson: System.Boolean | json=structured_json | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Gbnf: System.Boolean | json=gbnf | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  TimestampSegments: System.Boolean | json=timestamp_segments | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  WordTimestamps: System.Boolean | json=word_timestamps | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SyncGrade: System.Boolean | json=sync_grade | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Multilingual: System.Boolean | json=multilingual | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Cjk: System.Boolean | json=cjk | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ExperimentalMultimodal: System.Boolean | json=experimental_multimodal | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  EmbeddingOutput: System.Boolean | json=embedding_output | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  FunctionCalling: System.Boolean | json=function_calling | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ToolCalling: System.Boolean | json=tool_calling | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"text_input":true,"audio_input":true,"image_input":true,"text_output":true,"structured_json":true,"gbnf":true,"timestamp_segments":true,"word_timestamps":true,"sync_grade":true,"multilingual":true,"cjk":true,"experimental_multimodal":true,"embedding_output":true,"function_calling":true,"tool_calling":true}
-
-[contracts] MediaEngine.Contracts.Ai.AiModelCatalogEntryDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  DisplayName: System.String | json=display_name | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Family: System.String | json=family | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Provider: System.String | json=provider | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  License: System.String | json=license | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Runtime: System.String | json=runtime | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Status: System.String | json=status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SelectionTier: System.String | json=selection_tier | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  IntendedRoles: System.Collections.Generic.List<System.String> | json=intended_roles | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  File: System.String | json=file | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  DownloadUrl: System.String | json=download_url | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Sha256: System.String | json=sha256 | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SourceUrl: System.String | json=source_url | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SizeMB: System.Int32 | json=size_mb | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ParametersB: System.Double | json=parameters_b | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  EffectiveParametersB: System.Double? | json=effective_parameters_b | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Quantization: System.String | json=quantization | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ContextLength: System.Int32 | json=context_length | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MemoryEnvelopeMB: System.Int32 | json=memory_envelope_mb | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxContextLength: System.Int32 | json=max_context_length | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Experimental: System.Boolean | json=experimental | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Compatibility: MediaEngine.Contracts.Ai.AiModelCompatibilityDto | json=compatibility | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Readiness: MediaEngine.Contracts.Ai.AiModelReadinessDto | json=readiness | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Capabilities: MediaEngine.Contracts.Ai.AiModelCapabilitiesDto | json=capabilities | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Validation: MediaEngine.Contracts.Ai.AiModelValidationProfileDto | json=validation | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SelectionRationale: System.String | json=selection_rationale | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  IntegrationNotes: System.String | json=integration_notes | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"display_name":"sample","family":"sample","provider":"sample","license":"sample","runtime":"sample","status":"sample","selection_tier":"sample","intended_roles":[],"file":"sample","download_url":"sample","sha256":"sample","source_url":"sample","size_mb":7,"parameters_b":7,"effective_parameters_b":7,"quantization":"sample","context_length":7,"memory_envelope_mb":7,"max_context_length":7,"experimental":true,"compatibility":null,"readiness":null,"capabilities":null,"validation":null,"selection_rationale":"sample","integration_notes":"sample"}
-
-[contracts] MediaEngine.Contracts.Ai.AiModelCompatibilityDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  SupportedBackends: System.Collections.Generic.List<System.String> | json=supported_backends | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MinimumRuntimeVersion: System.String | json=minimum_runtime_version | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  RequiresMmproj: System.Boolean | json=requires_mmproj | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  RequiresAudioEncoder: System.Boolean | json=requires_audio_encoder | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"supported_backends":[],"minimum_runtime_version":"sample","requires_mmproj":true,"requires_audio_encoder":true}
-
-[contracts] MediaEngine.Contracts.Ai.AiModelDefinitionDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  CatalogKey: System.String | json=catalog_key | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Description: System.String | json=description | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  File: System.String | json=file | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  DownloadUrl: System.String | json=download_url | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Sha256: System.String | json=sha256 | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SizeMB: System.Int32 | json=size_mb | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ContextLength: System.Int32 | json=context_length | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxTokens: System.Int32 | json=max_tokens | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Temperature: System.Double | json=temperature | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  GpuLayers: System.Int32 | json=gpu_layers | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Threads: System.Int32 | json=threads | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Language: System.String | json=language | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Translate: System.Boolean | json=translate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"catalog_key":"sample","description":"sample","file":"sample","download_url":"sample","sha256":"sample","size_mb":7,"context_length":7,"max_tokens":7,"temperature":7,"gpu_layers":7,"threads":7,"language":"sample","translate":true}
-
 [contracts] MediaEngine.Contracts.Ai.AiModelLoadedResponse
   kind=class | converter=default | number-handling=default | unmapped=default
   loaded: System.Boolean | json=loaded | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   role: System.String | json=role | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
-[contracts] MediaEngine.Contracts.Ai.AiModelReadinessDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  ConfigurationReady: System.Boolean | json=configuration_ready | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  RuntimeReady: System.Boolean | json=runtime_ready | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Validated: System.Boolean | json=validated | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  BlockingReasons: System.Collections.Generic.List<System.String> | json=blocking_reasons | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"configuration_ready":true,"runtime_ready":true,"validated":true,"blocking_reasons":[]}
 
 [contracts] MediaEngine.Contracts.Ai.AiModelStatusDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -443,49 +297,6 @@
   unloaded: System.Boolean | json=unloaded | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   role: System.String | json=role | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
-[contracts] MediaEngine.Contracts.Ai.AiModelValidationProfileDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  TargetWarmLatencyMs: System.Int32 | json=target_warm_latency_ms | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxWarmLatencyMs: System.Int32 | json=max_warm_latency_ms | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MinJsonValidityRate: System.Double | json=min_json_validity_rate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MinTaskPassRate: System.Double | json=min_task_pass_rate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxHallucinationRate: System.Double | json=max_hallucination_rate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxWer: System.Double? | json=max_wer | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxTimestampDriftMs: System.Int32? | json=max_timestamp_drift_ms | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  BenchmarkSuite: System.String | json=benchmark_suite | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"target_warm_latency_ms":7,"max_warm_latency_ms":7,"min_json_validity_rate":7,"min_task_pass_rate":7,"max_hallucination_rate":7,"max_wer":7,"max_timestamp_drift_ms":7,"benchmark_suite":"sample"}
-
-[contracts] MediaEngine.Contracts.Ai.AiOperationalRoleDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  CatalogKey: System.String | json=catalog_key | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  RuntimeKind: System.String | json=runtime_kind | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Enabled: System.Boolean | json=enabled | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Experimental: System.Boolean | json=experimental | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MemoryEnvelopeMB: System.Int32 | json=memory_envelope_mb | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxContextLength: System.Int32 | json=max_context_length | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxOutputTokens: System.Int32 | json=max_output_tokens | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Temperature: System.Double | json=temperature | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxConcurrency: System.Int32 | json=max_concurrency | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"catalog_key":"sample","runtime_kind":"sample","enabled":true,"experimental":true,"memory_envelope_mb":7,"max_context_length":7,"max_output_tokens":7,"temperature":7,"max_concurrency":7}
-
-[contracts] MediaEngine.Contracts.Ai.AiRoleRequirementDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Description: System.String | json=description | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SelectionPolicy: System.String | json=selection_policy | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  RequiredCapabilities: System.Collections.Generic.List<System.String> | json=required_capabilities | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  PreferredCatalogKeys: System.Collections.Generic.List<System.String> | json=preferred_catalog_keys | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  FallbackCatalogKeys: System.Collections.Generic.List<System.String> | json=fallback_catalog_keys | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxDefaultSizeMB: System.Int32 | json=max_default_size_mb | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  TargetWarmLatencyMs: System.Int32 | json=target_warm_latency_ms | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxBackgroundLatencyMs: System.Int32 | json=max_background_latency_ms | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MinJsonValidityRate: System.Double | json=min_json_validity_rate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MinTaskPassRate: System.Double | json=min_task_pass_rate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  BenchmarkSuite: System.String | json=benchmark_suite | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MemoryEnvelopeMB: System.Int32 | json=memory_envelope_mb | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MaxContextLength: System.Int32 | json=max_context_length | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ExperimentalAllowed: System.Boolean | json=experimental_allowed | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"description":"sample","selection_policy":"sample","required_capabilities":[],"preferred_catalog_keys":[],"fallback_catalog_keys":[],"max_default_size_mb":7,"target_warm_latency_ms":7,"max_background_latency_ms":7,"min_json_validity_rate":7,"min_task_pass_rate":7,"benchmark_suite":"sample","memory_envelope_mb":7,"max_context_length":7,"experimental_allowed":true}
-
 [contracts] MediaEngine.Contracts.Ai.AiSettingsSavedResponse
   kind=class | converter=default | number-handling=default | unmapped=default
   saved: System.Boolean | json=saved | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -499,30 +310,19 @@
 
 [contracts] MediaEngine.Contracts.Ai.HardwareProfileDto
   kind=class | converter=default | number-handling=default | unmapped=default
+  Outcome: System.String | json=outcome | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Tier: System.String | json=tier | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Backend: System.String | json=backend | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   GpuName: System.String | json=gpu_name | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  TokensPerSecond: System.Double | json=tokens_per_second | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TokensPerSecond: System.Double? | json=tokens_per_second | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AvailableRamMb: System.Int64 | json=available_ram_mb | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   BenchmarkedAt: System.DateTime? | json=benchmarked_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"tier":"sample","backend":"sample","gpu_name":"sample","tokens_per_second":7,"available_ram_mb":7,"benchmarked_at":"2025-01-02T03:04:05Z"}
-
-[contracts] MediaEngine.Contracts.Ai.IntentSearchRequest
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Query: System.String | json=query | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"query":"sample"}
-
-[contracts] MediaEngine.Contracts.Ai.IntentSearchResponse
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Genres: System.Collections.Generic.IReadOnlyList<System.String> | json=genres | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Moods: System.Collections.Generic.IReadOnlyList<System.String> | json=moods | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  YearFrom: System.Int32? | json=yearFrom | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  YearTo: System.Int32? | json=yearTo | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MediaTypes: System.Collections.Generic.IReadOnlyList<MediaEngine.Domain.Enums.MediaType> | json=mediaTypes | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Keywords: System.Collections.Generic.IReadOnlyList<System.String> | json=keywords | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Confidence: System.Double | json=confidence | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  OriginalQuery: System.String | json=originalQuery | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"genres":[],"moods":[],"yearFrom":7,"yearTo":7,"mediaTypes":[],"keywords":[],"confidence":7,"originalQuery":"sample"}
+  MachineFingerprint: System.String | json=machine_fingerprint | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BenchmarkModel: System.String | json=benchmark_model | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FailureCode: System.String | json=failure_code | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FailureMessage: System.String | json=failure_message | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AdvancedEligible: System.Boolean | json=advanced_eligible | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"outcome":"sample","tier":"sample","backend":"sample","gpu_name":"sample","tokens_per_second":7,"available_ram_mb":7,"benchmarked_at":"2025-01-02T03:04:05Z","machine_fingerprint":"sample","benchmark_model":"sample","failure_code":"sample","failure_message":"sample","advanced_eligible":true}
 
 [contracts] MediaEngine.Contracts.Ai.ResourceSnapshotDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -532,32 +332,6 @@
   CpuPressure: System.Double | json=cpu_pressure | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   TranscodingActive: System.Boolean | json=transcoding_active | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"total_ram_mb":7,"free_ram_mb":7,"engine_ram_mb":7,"cpu_pressure":7,"transcoding_active":true}
-
-[contracts] MediaEngine.Contracts.Ai.TldrResponse
-  kind=class | converter=default | number-handling=default | unmapped=default
-  tldr: System.String | json=tldr | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
-[contracts] MediaEngine.Contracts.Ai.TldrUnavailableResponse
-  kind=class | converter=default | number-handling=default | unmapped=default
-  tldr: System.String | json=tldr | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  note: System.String | json=note | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
-[contracts] MediaEngine.Contracts.Ai.UrlExtractRequest
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Url: System.String | json=url | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"url":"sample"}
-
-[contracts] MediaEngine.Contracts.Ai.UrlExtractionResponse
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Success: System.Boolean | json=success | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Fields: System.Collections.Generic.IReadOnlyDictionary<System.String, System.String> | json=fields | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Confidence: System.Double | json=confidence | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ErrorMessage: System.String | json=errorMessage | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"success":true,"fields":{},"confidence":7,"errorMessage":"sample"}
-
-[contracts] MediaEngine.Contracts.Ai.VibesResponse
-  kind=class | converter=default | number-handling=default | unmapped=default
-  vibes: System.Collections.Generic.IReadOnlyList<System.String> | json=vibes | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.Authentication.AuthBootstrapStatusResponse
   kind=class | converter=default | number-handling=default | unmapped=default
