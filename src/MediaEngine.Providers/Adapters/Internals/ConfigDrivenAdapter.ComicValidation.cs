@@ -476,6 +476,8 @@ public sealed partial class ConfigDrivenAdapter
         ProviderLookupRequest request,
         IReadOnlyList<ProviderClaim> claims)
     {
+        claims = ApplyConfiguredClaimSafety(strategy, request, claims);
+
         if (!string.Equals(Name, "comicvine", StringComparison.OrdinalIgnoreCase)
             || request.MediaType != MediaType.Comics
             || (!strategy.Name.Contains("issue", StringComparison.OrdinalIgnoreCase)
@@ -491,6 +493,35 @@ public sealed partial class ConfigDrivenAdapter
             .Where(claim => !string.Equals(claim.Key, MetadataFieldConstants.Description, StringComparison.OrdinalIgnoreCase))
             .Where(claim => ShouldKeepComicIssueClaim(claim, request))
             .ToList();
+    }
+
+    private static IReadOnlyList<ProviderClaim> ApplyConfiguredClaimSafety(
+        SearchStrategyConfig strategy,
+        ProviderLookupRequest request,
+        IReadOnlyList<ProviderClaim> claims)
+    {
+        if (strategy.SuppressClaims.Count == 0
+            && strategy.RequestClaimOverrides.Count == 0)
+        {
+            return claims;
+        }
+
+        var suppressed = strategy.SuppressClaims.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var overridden = strategy.RequestClaimOverrides.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var normalized = claims
+            .Where(claim => !suppressed.Contains(claim.Key) && !overridden.Contains(claim.Key))
+            .ToList();
+
+        foreach (var (claimKey, requestField) in strategy.RequestClaimOverrides)
+        {
+            var value = ResolveRequestField(request, requestField);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                normalized.Add(new ProviderClaim(claimKey, value.Trim(), 1.0));
+            }
+        }
+
+        return normalized;
     }
 
     private static IReadOnlyList<ProviderClaim> NormalizeComicVineVolumeClaims(

@@ -217,6 +217,7 @@ internal sealed partial class DetailCompositionOrchestrator
         DetailActionAuthorizationContext actionAuthorization,
         IReadOnlySet<Guid> favoriteWorkIds,
         Guid? profileId,
+        string? selectedContainerId,
         CancellationToken ct)
     {
         var canonicalSeries = await BuildCollectionAsync(
@@ -227,7 +228,8 @@ internal sealed partial class DetailCompositionOrchestrator
             actionAuthorization,
             favoriteWorkIds,
             ct,
-            profileId: profileId);
+            profileId: profileId,
+            selectedContainerId: selectedContainerId);
         if (canonicalSeries is not null || _collectionBrowse is null)
         {
             return canonicalSeries;
@@ -250,7 +252,7 @@ internal sealed partial class DetailCompositionOrchestrator
                 context,
                 isAdminView,
                 actionAuthorization,
-                selectedContainerId: null,
+                selectedContainerId: selectedContainerId,
                 favoriteWorkIds: favoriteWorkIds,
                 profileId: profileId,
                 ct: ct);

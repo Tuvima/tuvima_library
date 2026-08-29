@@ -101,7 +101,7 @@ internal sealed partial class DetailCompositionOrchestrator
         return entityType switch
         {
             DetailEntityType.Person => await BuildPersonAsync(id, entityType, context, isAdminView, actionAuthorization, ct),
-            DetailEntityType.BookSeries => await BuildBookSeriesAsync(id, context, isAdminView, actionAuthorization, favoriteWorkIds, profileId, ct),
+            DetailEntityType.BookSeries => await BuildBookSeriesAsync(id, context, isAdminView, actionAuthorization, favoriteWorkIds, profileId, selectedContainerId, ct),
             DetailEntityType.Collection or DetailEntityType.TvShow or DetailEntityType.MovieSeries
                 or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(
                     id,
@@ -111,7 +111,8 @@ internal sealed partial class DetailCompositionOrchestrator
                     actionAuthorization,
                     favoriteWorkIds,
                     ct,
-                    profileId: profileId),
+                    profileId: profileId,
+                    selectedContainerId: selectedContainerId),
             DetailEntityType.Character => await BuildCharacterAsync(id, context, isAdminView, actionAuthorization, ct),
             DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, actionAuthorization, ct),
             _ => await BuildWorkAsync(id, entityType, context, isAdminView, actionAuthorization, selectedContainerId, favoriteWorkIds, profileId, ct),

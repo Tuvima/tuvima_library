@@ -320,6 +320,10 @@ builder.Services.AddScoped<ICollectionPersonalMediaClient>(services =>
 // without routing through IEngineApiClient.
 builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient)
     .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
+// Artwork requests are already authorized at the same-origin Dashboard route.
+// Forward only the server-held service credential so a shelf of images does not
+// repeat user-session validation and a SQLite lookup for every image.
+builder.Services.AddHttpClient("EngineArtwork", ConfigureEngineClient);
 builder.Services.AddHttpClient("EngineIdentity", ConfigureEngineClient)
     .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
 builder.Services.AddHealthChecks()
@@ -491,7 +495,7 @@ static async Task ProxyEngineImageAsync(
         return;
     }
 
-    var client = httpFactory.CreateClient("EngineApi");
+    var client = httpFactory.CreateClient("EngineArtwork");
     using var request = new HttpRequestMessage(
         HttpMethods.IsHead(ctx.Request.Method) ? HttpMethod.Head : HttpMethod.Get,
         $"{upstreamPath}{ctx.Request.QueryString}");

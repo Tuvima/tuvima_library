@@ -16,6 +16,19 @@ namespace MediaEngine.Web.Tests;
 
 public sealed class ArchitecturalHardeningTests
 {
+    [Fact]
+    public void ArtworkProxy_UsesServiceOnlyEngineClient()
+    {
+        var source = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Program.cs"));
+
+        Assert.Contains("AddHttpClient(\"EngineArtwork\", ConfigureEngineClient)", source, StringComparison.Ordinal);
+        Assert.Contains("CreateClient(\"EngineArtwork\")", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "AddHttpClient(\"EngineArtwork\", ConfigureEngineClient)\n    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>()",
+            source.Replace("\r\n", "\n", StringComparison.Ordinal),
+            StringComparison.Ordinal);
+    }
+
     private static readonly string RepoRoot =
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
 

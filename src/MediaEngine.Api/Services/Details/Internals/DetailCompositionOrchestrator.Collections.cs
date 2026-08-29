@@ -39,7 +39,8 @@ internal sealed partial class DetailCompositionOrchestrator
         IReadOnlySet<Guid> favoriteWorkIds,
         CancellationToken ct,
         Guid? currentWorkId = null,
-        Guid? profileId = null)
+        Guid? profileId = null,
+        string? selectedContainerId = null)
     {
         using var conn = _db.CreateConnection();
         var rawRow = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
@@ -257,7 +258,11 @@ internal sealed partial class DetailCompositionOrchestrator
             ? []
             : await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
         var heroProgress = BuildCollectionHeroProgress(entityType, works);
-        var manifest = await _seriesManifests.GetViewByCollectionIdAsync(collectionId, ct);
+        var manifest = await ResolveCollectionSequenceManifestAsync(
+            collectionId,
+            works,
+            selectedContainerId,
+            ct);
         var displayWorks = MergeCollectionManifestPlaceholders(entityType, works, manifest);
         var expectedTotal = AuthoritativeManifestTotal(manifest);
         var artwork = BuildArtwork(
@@ -274,11 +279,12 @@ internal sealed partial class DetailCompositionOrchestrator
             collectionLogo);
         var relationships = BuildCollectionRelationships(row, entityType);
         var collectionTitle = ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values);
+        var sequenceCollectionId = manifest?.CollectionId ?? collectionId;
         var sequencePlacement = BuildCollectionSequencePlacement(
-            collectionId,
+            sequenceCollectionId,
             entityType,
-            collectionTitle,
-            row.WikidataQid,
+            StringHelpers.FirstNonBlankOr(collectionTitle, manifest?.SeriesLabel, collectionTitle)!,
+            StringHelpers.FirstNonBlank(manifest?.SeriesQid, row.WikidataQid),
             entityType == DetailEntityType.TvShow ? heroSummary : longDescription,
             displayWorks,
             expectedTotal,
@@ -335,6 +341,77 @@ internal sealed partial class DetailCompositionOrchestrator
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
         };
+    }
+
+    private async Task<SeriesManifestViewDto?> ResolveCollectionSequenceManifestAsync(
+        Guid collectionId,
+        IReadOnlyList<CollectionWorkSummary> works,
+        string? selectedContainerId,
+        CancellationToken ct)
+    {
+        var direct = await _seriesManifests.GetViewByCollectionIdAsync(collectionId, ct);
+        var normalizedSelection = NormalizeSequenceContainerId(selectedContainerId);
+        if (direct is not null
+            && (string.IsNullOrWhiteSpace(normalizedSelection)
+                || SequenceContainerIdEquals(normalizedSelection, direct.SeriesQid)
+                || SequenceContainerIdEquals(normalizedSelection, direct.CollectionId.ToString("D"))))
+        {
+            return direct;
+        }
+
+        var workIds = works
+            .Select(work => Guid.TryParse(work.Id, out var workId) ? workId : (Guid?)null)
+            .Where(workId => workId.HasValue)
+            .Select(workId => GuidSql.ToBlob(workId!.Value))
+            .ToArray();
+        if (workIds.Length == 0)
+        {
+            return direct;
+        }
+
+        using var conn = _db.CreateConnection();
+        var rows = await conn.QueryAsync(new CommandDefinition(
+            """
+            SELECT h.collection_id AS CollectionId,
+                   h.series_qid AS SeriesQid,
+                   COUNT(DISTINCT CASE
+                       WHEN member.linked_work_id IN @workIds THEN hex(member.linked_work_id)
+                       ELSE NULL
+                   END) AS OwnedOverlap,
+                   SUM(CASE WHEN member.ownership_state = 'Missing' THEN 1 ELSE 0 END) AS MissingCount
+            FROM series_manifest_hydrations h
+            JOIN series_manifest_items member ON member.series_qid = h.series_qid
+            WHERE EXISTS (
+                SELECT 1
+                FROM series_manifest_items linked
+                WHERE linked.series_qid = h.series_qid
+                  AND linked.linked_work_id IN @workIds
+            )
+            GROUP BY h.collection_id, h.series_qid
+            ORDER BY CASE
+                         WHEN @selectedContainerId IS NOT NULL
+                          AND (h.series_qid = @selectedContainerId
+                               OR lower(hex(h.collection_id)) = replace(lower(@selectedContainerId), '-', ''))
+                         THEN 0 ELSE 1
+                     END,
+                     OwnedOverlap DESC,
+                     MissingCount DESC,
+                     h.series_qid;
+            """,
+            new
+            {
+                workIds,
+                selectedContainerId = normalizedSelection,
+            },
+            cancellationToken: ct));
+
+        var selected = rows.FirstOrDefault();
+        string? selectedCollectionId = selected is null
+            ? null
+            : StringValue((object?)selected.CollectionId);
+        return Guid.TryParse(selectedCollectionId, out Guid manifestCollectionId)
+            ? await _seriesManifests.GetViewByCollectionIdAsync(manifestCollectionId, ct)
+            : direct;
     }
 
     private static IReadOnlyList<CollectionWorkSummary> NormalizeStandardCollectionWorks(

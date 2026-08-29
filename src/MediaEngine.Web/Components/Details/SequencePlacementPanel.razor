@@ -581,7 +581,7 @@ else
             : Placement.OrderedItems;
     private IReadOnlyList<SequenceItemViewModel> ActiveItems => ApplyMissingItemPolicy(GroupItems);
     private bool CanShowMissingToggle => _missingItemPolicy?.Enabled == true
-        && GroupItems.Any(item => !item.IsOwned);
+        && MissingCount > 0;
     private bool UsesPagedMissingItems => string.Equals(
         _missingItemPolicy?.Presentation,
         "paged",

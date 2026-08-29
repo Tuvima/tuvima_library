@@ -613,6 +613,23 @@ public sealed class SearchStrategyConfig
     /// <summary>Optional generic scoring and filtering for result arrays.</summary>
     [JsonPropertyName("candidate_selection")]
     public CandidateSelectionConfig? CandidateSelection { get; set; }
+
+    /// <summary>
+    /// Claims that must not be emitted by this strategy. This is useful when a
+    /// provider returns work-level aggregate arrays that cannot be attributed to
+    /// the exact edition represented by the lookup request.
+    /// </summary>
+    [JsonPropertyName("suppress_claims")]
+    public List<string> SuppressClaims { get; set; } = [];
+
+    /// <summary>
+    /// Maps a claim key to a lookup-request field whose exact value replaces the
+    /// provider response for this strategy (for example, <c>isbn</c> to
+    /// <c>isbn</c> on an exact ISBN lookup).
+    /// </summary>
+    [JsonPropertyName("request_claim_overrides")]
+    public Dictionary<string, string> RequestClaimOverrides { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class QueryCompositionConfig

@@ -1,6 +1,6 @@
 {
   "name": "open_library",
-  "version": "1.1",
+  "version": "1.2",
   "enabled": true,
   "weight": 0.7,
   "domain": "Ebook",
@@ -52,7 +52,11 @@
       "required_fields": ["isbn"],
       "url_template": "{base_url}/search.json?isbn={isbn}&limit=3&fields=title,subtitle,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed,publisher,language,first_sentence",
       "results_path": "docs",
-      "result_index": 0
+      "result_index": 0,
+      "suppress_claims": ["description", "publisher", "language"],
+      "request_claim_overrides": {
+        "isbn": "isbn"
+      }
     },
     {
       "name": "title_search",
@@ -61,7 +65,8 @@
       "url_template": "{base_url}/search.json?q={query}&limit=5&fields=title,subtitle,author_name,first_publish_year,cover_i,isbn,key,edition_key,seed,publisher,language,first_sentence",
       "query_template": "{title} {author}",
       "results_path": "docs",
-      "result_index": 0
+      "result_index": 0,
+      "suppress_claims": ["isbn", "description", "publisher", "language"]
     }
   ],
 
