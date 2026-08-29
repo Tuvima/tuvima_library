@@ -212,7 +212,7 @@ public sealed class EngineApiClientPersonCreditsTests
         var alias = Assert.Single(aliases!.Aliases);
         Assert.Equal(["Author", "Illustrator"], alias.Roles);
         Assert.Equal(
-            "http://localhost:61495/persons/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/headshot",
+            "/engine-image/persons/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/headshot",
             alias.HeadshotUrl);
     }
 

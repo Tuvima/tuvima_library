@@ -427,6 +427,11 @@ app.MapMethods("/engine-stream/{assetId:guid}", [HttpMethods.Get, HttpMethods.He
     .WithName("ProxyEngineMediaStream")
     .WithSummary("Proxies Engine media bytes through the Dashboard origin for browser media playback.");
 
+app.MapMethods("/engine-image/{**enginePath}", [HttpMethods.Get, HttpMethods.Head], ProxyEngineImageAsync)
+    .WithName("ProxyEngineImage")
+    .WithSummary("Proxies authenticated Engine artwork through the Dashboard origin.")
+    .RequireAuthorization();
+
 app.MapViewMediaProxy();
 
 app.MapDashboardAuthenticationEndpoints(ssoEnabled);
@@ -471,6 +476,33 @@ static async Task ProxyEngineStreamAsync(
     }
 
     await response.Content.CopyToAsync(ctx.Response.Body, ct);
+}
+
+static async Task ProxyEngineImageAsync(
+    string enginePath,
+    HttpContext ctx,
+    IHttpClientFactory httpFactory,
+    CancellationToken ct)
+{
+    var upstreamPath = $"/{enginePath.TrimStart('/')}";
+    if (!EngineImageProxyPath.IsAllowedEnginePath(upstreamPath))
+    {
+        ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var client = httpFactory.CreateClient("EngineApi");
+    using var request = new HttpRequestMessage(
+        HttpMethods.IsHead(ctx.Request.Method) ? HttpMethod.Head : HttpMethod.Get,
+        $"{upstreamPath}{ctx.Request.QueryString}");
+    using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+    ctx.Response.StatusCode = (int)response.StatusCode;
+    CopyResponseHeaders(response, ctx.Response);
+
+    if (!HttpMethods.IsHead(ctx.Request.Method))
+    {
+        await response.Content.CopyToAsync(ctx.Response.Body, ct);
+    }
 }
 
 static void CopyRequestHeader(HttpContext ctx, HttpRequestMessage request, string headerName)

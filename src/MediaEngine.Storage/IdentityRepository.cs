@@ -117,7 +117,10 @@ public sealed class IdentityRepository(IDatabaseConnection db) : IIdentityReposi
         GetSessionAsync("token_hash = @value", tokenHash, ct);
 
     public Task<AuthSession?> GetSessionByIdAsync(Guid sessionId, CancellationToken ct = default) =>
-        GetSessionAsync("id = @value", sessionId, ct);
+        // GetSessionAsync accepts object so Dapper cannot infer the Guid handler
+        // from the anonymous parameter. Bind the same 16-byte representation used
+        // by auth_sessions.id explicitly or every id lookup silently misses.
+        GetSessionAsync("id = @value", GuidSql.ToBlob(sessionId), ct);
 
     public Task<IReadOnlyList<AuthSession>> GetSessionsAsync(Guid profileId, CancellationToken ct = default)
     {

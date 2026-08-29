@@ -26,7 +26,8 @@ public sealed class RateLimitingGuardrailTests
         var rateLimiterIndex = source.IndexOf("app.UseRateLimiter();", StringComparison.Ordinal);
         var intercomIndex = source.IndexOf("app.UseMiddleware<IntercomTokenAuthenticationMiddleware>();", StringComparison.Ordinal);
         Assert.True(rateLimiterIndex >= 0 && intercomIndex > rateLimiterIndex);
-        Assert.Contains("X-Tuvima-Intercom-Token", middleware, StringComparison.Ordinal);
+        Assert.Contains("Headers.Authorization", middleware, StringComparison.Ordinal);
+        Assert.Contains("Bearer", middleware, StringComparison.Ordinal);
         Assert.DoesNotContain("access_token", middleware, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("X-Api-Key", middleware, StringComparison.OrdinalIgnoreCase);
     }

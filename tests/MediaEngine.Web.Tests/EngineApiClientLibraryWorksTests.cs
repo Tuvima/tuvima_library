@@ -255,13 +255,13 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal(new DateTimeOffset(2026, 4, 17, 12, 0, 0, TimeSpan.Zero), work.CreatedAt);
         Assert.Equal("Dune", work.Title);
         Assert.Equal("Frank Herbert", work.Author);
-        Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/cover", work.CoverUrl);
-        Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/background", work.BackgroundUrl);
-        Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/banner", work.BannerUrl);
+        Assert.Equal("/engine-image/stream/22222222-2222-2222-2222-222222222222/cover", work.CoverUrl);
+        Assert.Equal("/engine-image/stream/22222222-2222-2222-2222-222222222222/background", work.BackgroundUrl);
+        Assert.Equal("/engine-image/stream/22222222-2222-2222-2222-222222222222/banner", work.BannerUrl);
         Assert.Null(work.HeroUrl);
-        Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/logo", work.LogoUrl);
-        Assert.Equal("http://localhost:61495/stream/artwork/44444444-4444-4444-4444-444444444444", work.SquareUrl);
-        Assert.Equal("http://localhost:61495/stream/artwork/22222222-2222-2222-2222-222222222222?size=s", work.CoverUrlSmall);
+        Assert.Equal("/engine-image/stream/22222222-2222-2222-2222-222222222222/logo", work.LogoUrl);
+        Assert.Equal("/engine-image/stream/artwork/44444444-4444-4444-4444-444444444444", work.SquareUrl);
+        Assert.Equal("/engine-image/stream/artwork/22222222-2222-2222-2222-222222222222?size=s", work.CoverUrlSmall);
     }
 
     [Fact]
@@ -321,10 +321,10 @@ public sealed class EngineApiClientLibraryWorksTests
         var results = await client.GetLibraryWorksAsync();
 
         var work = Assert.Single(results);
-        Assert.Equal("http://localhost:61495/stream/22222222-2222-2222-2222-222222222222/cover", work.CoverUrl);
+        Assert.Equal("/engine-image/stream/22222222-2222-2222-2222-222222222222/cover", work.CoverUrl);
         Assert.Null(work.HeroUrl);
-        Assert.Equal("http://localhost:61495/stream/artwork/22222222-2222-2222-2222-222222222222", work.SquareUrl);
-        Assert.Equal("http://localhost:61495/stream/artwork/33333333-3333-3333-3333-333333333333?size=m", work.BackgroundUrlMedium);
+        Assert.Equal("/engine-image/stream/artwork/22222222-2222-2222-2222-222222222222", work.SquareUrl);
+        Assert.Equal("/engine-image/stream/artwork/33333333-3333-3333-3333-333333333333?size=m", work.BackgroundUrlMedium);
     }
 
     [Fact]
@@ -461,7 +461,7 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal("Fresh in your library", group.Tagline);
         Assert.Equal(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), group.PersonId);
         Assert.Equal(
-            "http://localhost:61495/persons/cccccccc-cccc-cccc-cccc-cccccccccccc/headshot",
+            "/engine-image/persons/cccccccc-cccc-cccc-cccc-cccccccccccc/headshot",
             group.PersonPhotoUrl);
         Assert.Equal(["Artist"], group.PersonRoles);
     }

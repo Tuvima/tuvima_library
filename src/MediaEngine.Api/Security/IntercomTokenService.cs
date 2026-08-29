@@ -7,7 +7,10 @@ namespace MediaEngine.Api.Security;
 
 public sealed record IntercomTokenPayload(Guid SessionId, Guid ProfileId, string Audience, string TokenId);
 
-public sealed class IntercomTokenService(IDataProtectionProvider provider, IIdentityRepository identities)
+public sealed class IntercomTokenService(
+    IDataProtectionProvider provider,
+    IIdentityRepository identities,
+    ILogger<IntercomTokenService> logger)
 {
     public static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(10);
     private readonly ITimeLimitedDataProtector _protector = provider
@@ -30,12 +33,31 @@ public sealed class IntercomTokenService(IDataProtectionProvider provider, IIden
             var payload = JsonSerializer.Deserialize<IntercomTokenPayload>(json);
             if (payload is null || !payload.Audience.Equals("intercom", StringComparison.Ordinal)) return null;
             var session = await identities.GetSessionByIdAsync(payload.SessionId, ct).ConfigureAwait(false);
-            return session is not null && session.ProfileId == payload.ProfileId && session.IsActive(DateTimeOffset.UtcNow)
-                ? payload
-                : null;
+            if (session is null)
+            {
+                logger.LogWarning("Intercom token validation failed because session {SessionId} no longer exists.", payload.SessionId);
+                return null;
+            }
+
+            if (session.ProfileId != payload.ProfileId)
+            {
+                logger.LogWarning(
+                    "Intercom token validation failed because session {SessionId} belongs to a different owner profile.",
+                    payload.SessionId);
+                return null;
+            }
+
+            if (!session.IsActive(DateTimeOffset.UtcNow))
+            {
+                logger.LogWarning("Intercom token validation failed because session {SessionId} is expired or revoked.", payload.SessionId);
+                return null;
+            }
+
+            return payload;
         }
         catch (System.Security.Cryptography.CryptographicException)
         {
+            logger.LogWarning("Intercom token validation failed because the protected token could not be read.");
             return null;
         }
     }

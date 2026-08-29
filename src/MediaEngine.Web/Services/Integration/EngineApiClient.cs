@@ -1958,8 +1958,8 @@ public sealed partial class EngineApiClient : IEngineApiClient, IDisposable
         => string.IsNullOrWhiteSpace(value) ? value : AbsoluteUrl(value);
 
     /// <summary>
-    /// Converts relative /stream/... paths stored in canonical values to absolute
-    /// Engine URLs so Dashboard components can use them directly as &lt;img src&gt;.
+    /// Converts browser-visible Engine artwork to an authenticated, same-origin
+    /// Dashboard URL. Other relative Engine URLs remain absolute server URLs.
     /// </summary>
     private string AbsoluteUrl(string value)
     {
@@ -1968,17 +1968,7 @@ public sealed partial class EngineApiClient : IEngineApiClient, IDisposable
             return value;
         }
 
-        if (Uri.TryCreate(value, UriKind.Absolute, out var absolute))
-        {
-            return absolute.ToString();
-        }
-
-        if (_http.BaseAddress is { } baseAddr)
-        {
-            return new Uri(baseAddr, value.StartsWith('/') ? value : $"/{value}").ToString();
-        }
-
-        return value;
+        return EngineImageProxyPath.ToBrowserUrl(value, _http.BaseAddress);
     }
 
     private static string GetImageContentType(string fileName) =>

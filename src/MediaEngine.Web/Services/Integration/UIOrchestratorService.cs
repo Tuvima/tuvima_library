@@ -1180,7 +1180,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(collectionUrl, options =>
             {
-                options.Headers.Add("X-Tuvima-Intercom-Token", intercomToken.Token);
+                // The standard bearer-token hook is applied consistently to the
+                // negotiate request and every selected SignalR transport.
+                options.AccessTokenProvider = () => Task.FromResult<string?>(intercomToken.Token);
             })
             .WithAutomaticReconnect(new[]
             {

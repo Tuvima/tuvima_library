@@ -53,6 +53,19 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SessionCreatedByLogin_CanBeReadBackByItsGuid()
+    {
+        var bootstrap = await _service.BootstrapAdministratorAsync(
+            "owner", "correct horse battery staple", "Owner", "browser-1", "Living room", "Dashboard");
+
+        var stored = await _identities.GetSessionByIdAsync(bootstrap.Session.Id);
+
+        Assert.NotNull(stored);
+        Assert.Equal(bootstrap.Session.Id, stored.Id);
+        Assert.Equal(bootstrap.Session.ProfileId, stored.ProfileId);
+    }
+
+    [Fact]
     public async Task PasswordFailures_LockCredentialAfterFiveAttempts()
     {
         await _service.BootstrapAdministratorAsync(

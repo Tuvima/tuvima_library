@@ -138,10 +138,10 @@ public sealed class ArchitecturalHardeningTests
 
         Assert.NotNull(result);
         Assert.Equal(
-            "http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s",
+            "/engine-image/stream/artwork/11111111-1111-1111-1111-111111111111?size=s",
             result.Catalog.Single().PreviewItems.Single().ImageUrl);
         Assert.Equal(
-            "http://localhost:61495/stream/artwork/11111111-1111-1111-1111-111111111111?size=s",
+            "/engine-image/stream/artwork/11111111-1111-1111-1111-111111111111?size=s",
             result.Shelves.Single().Items.Single().PreviewItems.Single().ImageUrl);
     }
 
