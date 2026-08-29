@@ -239,7 +239,7 @@ public static class DashboardAuthenticationEndpoints
               <label>Password<input type="password" name="password" autocomplete="current-password" required></label><button>Sign in</button></form>
               <details><summary>Forgot password?</summary>
               <p class="supporting">Use one of the one-time recovery codes saved when the administrator was created.</p>
-              <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="recover"><label>Username<input name="username" autocomplete="username" required></label><label>Recovery code<input name="recoveryCode" autocomplete="off" spellcheck="false" required></label><label>New password<input type="password" name="newPassword" minlength="12" autocomplete="new-password" required><small>Use at least 12 characters.</small></label><button>Reset with recovery code</button></form>
+              <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="recover"><label>Username<input name="username" autocomplete="username" required></label><label>Recovery code<input name="recoveryCode" autocomplete="off" spellcheck="false" required></label><label>New password<input type="password" name="newPassword" minlength="8" autocomplete="new-password" required><small>Use at least 8 characters.</small></label><button>Reset with recovery code</button></form>
               <p class="supporting">No recovery code? Run <code>tuvima-admin auth reset-password</code> with administrator privileges on the computer running Tuvima Library.</p>
               </details>
               <details><summary>Sign in with a profile PIN</summary><form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}"><label>Profile ID<input name="profileId" required></label><label>PIN<input type="password" inputmode="numeric" name="pin" required></label><button>Unlock profile</button></form></details>
@@ -264,7 +264,7 @@ public static class DashboardAuthenticationEndpoints
               <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="bootstrap"><input type="hidden" name="returnUrl" value="/">
               <label>Display name<input name="displayName" value="Administrator" autocomplete="name" required autofocus></label>
               <label>Username<input name="username" autocomplete="username" spellcheck="false" required><small>Used only to sign in to this Tuvima Library.</small></label>
-              <label>Password<input type="password" name="password" minlength="12" autocomplete="new-password" required><small>Use at least 12 characters.</small></label>
+              <label>Password<input type="password" name="password" minlength="8" autocomplete="new-password" required><small>Use at least 8 characters.</small></label>
               <button>Create administrator</button></form>
               """;
         }
@@ -275,7 +275,7 @@ public static class DashboardAuthenticationEndpoints
     private static string SecurityPage(IReadOnlyList<DeviceSessionResponse> sessions, string? currentId, string token)
     {
         var rows = string.Join("", sessions.Select(session => $"<tr><td>{H(session.DeviceName)}</td><td>{H(session.AuthenticationMethod)}</td><td>{session.LastSeenAt:g}</td><td>{session.ExpiresAt:g}</td><td>{(session.Id.ToString("D").Equals(currentId, StringComparison.OrdinalIgnoreCase) ? "Current" : $"<form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"revoke\"><input type=\"hidden\" name=\"sessionId\" value=\"{session.Id:D}\"><button>Revoke</button></form>")}</td></tr>"));
-        return Shell($"<h1>Account security</h1><p><a href=\"/\">Back to library</a></p><h2>Your sessions</h2><table><thead><tr><th>Device</th><th>Method</th><th>Last used</th><th>Expires</th><th></th></tr></thead><tbody>{rows}</tbody></table><h2>Change password</h2><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"password\"><label>Current password<input type=\"password\" name=\"currentPassword\" required></label><label>New password<input type=\"password\" name=\"newPassword\" minlength=\"12\" required></label><button>Change password</button></form>");
+        return Shell($"<h1>Account security</h1><p><a href=\"/\">Back to library</a></p><h2>Your sessions</h2><table><thead><tr><th>Device</th><th>Method</th><th>Last used</th><th>Expires</th><th></th></tr></thead><tbody>{rows}</tbody></table><h2>Change password</h2><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"password\"><label>Current password<input type=\"password\" name=\"currentPassword\" required></label><label>New password<input type=\"password\" name=\"newPassword\" minlength=\"8\" required><small>Use at least 8 characters.</small></label><button>Change password</button></form>");
     }
 
     private static string RecoveryCodesPage(

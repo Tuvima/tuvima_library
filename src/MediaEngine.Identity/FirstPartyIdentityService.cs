@@ -16,6 +16,8 @@ public sealed class FirstPartyIdentityService(
     TimeProvider timeProvider) : IFirstPartyIdentityService, IHostAdministratorRecoveryService
 {
     private const int MaxFailedAttempts = 5;
+    private const int MinimumPasswordLength = 8;
+    private const int MaximumPasswordLength = 128;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(14);
     private static readonly TimeSpan RecoveryLifetime = TimeSpan.FromDays(365);
@@ -449,9 +451,10 @@ public sealed class FirstPartyIdentityService(
     private static void ValidatePassword(string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
-        if (value.Length is < 12 or > 128)
+        if (value.Length is < MinimumPasswordLength or > MaximumPasswordLength)
         {
-            throw new ArgumentException("Password must be between 12 and 128 characters.");
+            throw new ArgumentException(
+                $"Password must be between {MinimumPasswordLength} and {MaximumPasswordLength} characters.");
         }
     }
     private static void ValidatePin(string value)

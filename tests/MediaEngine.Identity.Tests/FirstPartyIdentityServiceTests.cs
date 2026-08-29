@@ -111,6 +111,25 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task LocalPassword_AllowsEightCharacters()
+    {
+        var bootstrap = await _service.BootstrapAdministratorAsync(
+            "administrator", "12345678", "Administrator", "browser-1", "Server", "Dashboard");
+
+        Assert.Equal("Administrator", bootstrap.Profile.DisplayName);
+    }
+
+    [Fact]
+    public async Task LocalPassword_RejectsFewerThanEightCharacters()
+    {
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            _service.BootstrapAdministratorAsync(
+                "administrator", "1234567", "Administrator", "browser-1", "Server", "Dashboard"));
+
+        Assert.Contains("between 8 and 128 characters", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task HostAdministratorPasswordReset_RevokesSessionsClearsLockoutAndRotatesRecoveryCodes()
     {
         var bootstrap = await _service.BootstrapAdministratorAsync(

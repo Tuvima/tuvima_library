@@ -15,6 +15,10 @@ public sealed class DashboardFirstRunExperienceTests
         Assert.Contains("available only from localhost", dashboard, StringComparison.Ordinal);
         Assert.Contains("Create a local Tuvima user for this library", dashboard, StringComparison.Ordinal);
         Assert.Contains("value=\"Administrator\"", dashboard, StringComparison.Ordinal);
+        Assert.Contains("minlength=\"8\"", dashboard, StringComparison.Ordinal);
+        Assert.Contains("Use at least 8 characters", dashboard, StringComparison.Ordinal);
+        Assert.DoesNotContain("minlength=\"12\"", dashboard, StringComparison.Ordinal);
+        Assert.DoesNotContain("Use at least 12 characters", dashboard, StringComparison.Ordinal);
         Assert.DoesNotContain("No external account or claim code is required", dashboard, StringComparison.Ordinal);
         Assert.DoesNotContain("name=\"setupCode\"", dashboard, StringComparison.Ordinal);
         Assert.DoesNotContain("X-Tuvima-Bootstrap-Code", client, StringComparison.Ordinal);
