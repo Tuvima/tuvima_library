@@ -3,7 +3,8 @@ param(
     [string]$Role = "Both",
 
     [switch]$NoBuild,
-    [switch]$NoStop
+    [switch]$NoStop,
+    [switch]$NoBrowser
 )
 
 Set-StrictMode -Version Latest
@@ -110,11 +111,11 @@ function Wait-ForEngine {
         }
 
         try {
-            # Readiness blocks only on required database, configuration,
-            # storage, and worker failures. Optional models and providers may
-            # report degraded while the Engine remains ready to serve.
-            $status = Invoke-RestMethod -Uri "http://localhost:61495/health/ready" -TimeoutSec 2
-            if ($status.status -in @("healthy", "degraded")) {
+            # The detailed readiness report is administrator-only. The public
+            # liveness endpoint is the safe startup signal for the local launcher;
+            # Dashboard readiness then verifies that it can reach this endpoint.
+            $status = Invoke-RestMethod -Uri "http://localhost:61495/health/live" -TimeoutSec 2
+            if ([string]$status -eq "Healthy") {
                 return
             }
         }
@@ -123,9 +124,51 @@ function Wait-ForEngine {
         }
     }
 
-    Write-Host "Timed out waiting for Engine readiness at http://localhost:61495/health/ready."
+    Write-Host "Timed out waiting for Engine liveness at http://localhost:61495/health/live."
     Write-Host "Engine output log: $OutputLog"
     Write-Host "Engine error log:  $ErrorLog"
+    Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
+    exit 1
+}
+
+function Wait-ForDashboard {
+    param(
+        [System.Diagnostics.Process]$Process,
+        [string]$OutputLog,
+        [string]$ErrorLog
+    )
+
+    $deadline = [DateTimeOffset]::Now.AddSeconds(60)
+    while ([DateTimeOffset]::Now -lt $deadline) {
+        if ($Process.HasExited) {
+            Write-Host "Dashboard exited before becoming ready. Exit code: $($Process.ExitCode)"
+            if (Test-Path $OutputLog) {
+                Write-Host ""
+                Write-Host "Dashboard output:"
+                Get-Content -LiteralPath $OutputLog -Tail 80
+            }
+            if (Test-Path $ErrorLog) {
+                Write-Host ""
+                Write-Host "Dashboard errors:"
+                Get-Content -LiteralPath $ErrorLog -Tail 80
+            }
+            exit $Process.ExitCode
+        }
+
+        try {
+            $status = Invoke-RestMethod -Uri "http://localhost:5016/health/ready" -TimeoutSec 2
+            if ([string]$status -in @("healthy", "degraded")) {
+                return
+            }
+        }
+        catch {
+            Start-Sleep -Seconds 1
+        }
+    }
+
+    Write-Host "Timed out waiting for Dashboard readiness at http://localhost:5016/health/ready."
+    Write-Host "Dashboard output log: $OutputLog"
+    Write-Host "Dashboard error log:  $ErrorLog"
     Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
     exit 1
 }
@@ -160,24 +203,52 @@ if ($Role -eq "Both") {
         -RedirectStandardOutput $engineOut `
         -RedirectStandardError $engineErr `
         -WorkingDirectory $RepoRoot
+    $dashboardProcess = $null
 
     try {
         Wait-ForEngine -Process $engineProcess -OutputLog $engineOut -ErrorLog $engineErr
 
-        Write-Host ""
-        Write-Host "Engine is ready. Engine logs:"
-        Write-Host "  $engineOut"
-        Write-Host "  $engineErr"
-        Write-Host ""
-        Write-Host "Starting Dashboard in this terminal. Stop this command to stop the run."
-        Write-Host ""
-
         $env:TUVIMA_ENGINE_URL = "http://localhost:61495"
         $env:ASPNETCORE_URLS = "http://localhost:5016"
-        & dotnet $DashboardDll *>&1 | Tee-Object -FilePath $dashboardOut
-        exit $LASTEXITCODE
+        $dashboardProcess = Start-Process -FilePath "dotnet" `
+            -ArgumentList @($DashboardDll) `
+            -PassThru `
+            -WindowStyle Hidden `
+            -RedirectStandardOutput $dashboardOut `
+            -RedirectStandardError $dashboardErr `
+            -WorkingDirectory $RepoRoot
+
+        Wait-ForDashboard -Process $dashboardProcess -OutputLog $dashboardOut -ErrorLog $dashboardErr
+
+        Write-Host ""
+        Write-Host "Tuvima Library is ready."
+        Write-Host "Engine:    http://localhost:61495"
+        Write-Host "Dashboard: http://localhost:5016"
+        Write-Host "Logs:      $LogDir"
+        Write-Host "Stop this command to stop both services."
+        Write-Host ""
+
+        if (-not $NoBrowser) {
+            Start-Process "http://localhost:5016"
+        }
+
+        while (-not $engineProcess.HasExited -and -not $dashboardProcess.HasExited) {
+            Start-Sleep -Seconds 1
+        }
+
+        if ($engineProcess.HasExited) {
+            Write-Host "Engine stopped unexpectedly. Exit code: $($engineProcess.ExitCode)"
+            exit $engineProcess.ExitCode
+        }
+
+        Write-Host "Dashboard stopped unexpectedly. Exit code: $($dashboardProcess.ExitCode)"
+        exit $dashboardProcess.ExitCode
     }
     finally {
+        if ($dashboardProcess -and -not $dashboardProcess.HasExited) {
+            Stop-Process -Id $dashboardProcess.Id -Force -ErrorAction SilentlyContinue
+            Write-Host "Stopped Dashboard PID $($dashboardProcess.Id)"
+        }
         if ($engineProcess -and -not $engineProcess.HasExited) {
             Stop-Process -Id $engineProcess.Id -Force -ErrorAction SilentlyContinue
             Write-Host "Stopped Engine PID $($engineProcess.Id)"
