@@ -4,8 +4,7 @@ namespace MediaEngine.Contracts.Settings;
 
 public sealed class NetworkSettingsDto
 {
-    [JsonPropertyName("schema_version")] public string SchemaVersion { get; set; } = "2.0";
-    [JsonPropertyName("setup_completed")] public bool SetupCompleted { get; set; }
+    [JsonPropertyName("schema_version")] public string SchemaVersion { get; set; } = "3.0";
     [JsonPropertyName("local")] public LocalNetworkSettingsDto Local { get; set; } = new();
     [JsonPropertyName("remote")] public RemoteNetworkSettingsDto Remote { get; set; } = new();
     [JsonPropertyName("streaming")] public NetworkStreamingSettingsDto Streaming { get; set; } = new();

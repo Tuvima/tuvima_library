@@ -2,6 +2,7 @@ using MediaEngine.AI.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Storage;
 
 namespace MediaEngine.Api.Services;
 
@@ -12,21 +13,30 @@ public sealed class ModelAutoDownloadService : BackgroundService
     private readonly IModelDownloadManager _downloadManager;
     private readonly AiSettings _settings;
     private readonly ILogger<ModelAutoDownloadService> _logger;
+    private readonly OnboardingActivationGate? _onboardingGate;
 
     public ModelAutoDownloadService(
         IModelDownloadManager downloadManager,
         AiSettings settings,
-        ILogger<ModelAutoDownloadService> logger)
+        ILogger<ModelAutoDownloadService> logger,
+        OnboardingActivationGate? onboardingGate = null)
     {
         _downloadManager = downloadManager;
         _settings = settings;
         _logger = logger;
+        _onboardingGate = onboardingGate;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
+            if (_onboardingGate is not null && !_onboardingGate.IsComplete)
+            {
+                _logger.LogInformation("Automatic AI downloads are waiting for first-run setup to complete");
+                await _onboardingGate.WaitAsync(stoppingToken).ConfigureAwait(false);
+            }
+
             await Task.Delay(StartupDelay, stoppingToken).ConfigureAwait(false);
             if (_settings.DevSkipDownload)
             {

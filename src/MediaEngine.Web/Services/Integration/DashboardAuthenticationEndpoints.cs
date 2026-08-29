@@ -20,15 +20,18 @@ public static class DashboardAuthenticationEndpoints
             }
 
             var bootstrap = await identity.GetBootstrapStatusAsync(context.RequestAborted).ConfigureAwait(false);
+            if (bootstrap?.AdministratorConfigured != true)
+            {
+                return Results.Redirect("/setup");
+            }
+
             var tokens = antiforgery.GetAndStoreTokens(context);
             EnsureDeviceCookie(context);
             return Results.Content(
                 LoginPage(
                     tokens.RequestToken ?? string.Empty,
-                    bootstrap?.AdministratorConfigured == true,
                     oidcEnabled,
-                    SafeReturnUrl(returnUrl),
-                    IsLoopbackRequest(context)),
+                    SafeReturnUrl(returnUrl)),
                 "text/html",
                 Encoding.UTF8);
         }).AllowAnonymous();
@@ -66,43 +69,22 @@ public static class DashboardAuthenticationEndpoints
                     Encoding.UTF8);
             }
 
-            AuthSessionResponse? issued;
             if (action.Equals("bootstrap", StringComparison.OrdinalIgnoreCase))
             {
-                if (!IsLoopbackRequest(context))
-                {
-                    return Results.Content(
-                        LoginFailurePage(
-                            "First-run administrator setup is available only from localhost on the computer running Tuvima Library."),
-                        "text/html",
-                        Encoding.UTF8,
-                        StatusCodes.Status403Forbidden);
-                }
+                return Results.Redirect("/setup");
+            }
 
-                issued = await identity.BootstrapAsync(new BootstrapAdministratorRequest
-                {
-                    Username = form["username"].ToString(),
-                    Password = form["password"].ToString(),
-                    DisplayName = form["displayName"].ToString(),
-                    DeviceId = deviceId,
-                    DeviceName = deviceName,
-                    Client = "Tuvima Dashboard",
-                }, context.RequestAborted).ConfigureAwait(false);
-            }
-            else
+            Guid? profileId = Guid.TryParse(form["profileId"].ToString(), out var parsed) ? parsed : null;
+            var issued = await identity.LoginAsync(new LocalLoginRequest
             {
-                Guid? profileId = Guid.TryParse(form["profileId"].ToString(), out var parsed) ? parsed : null;
-                issued = await identity.LoginAsync(new LocalLoginRequest
-                {
-                    Username = profileId is null ? form["username"].ToString() : null,
-                    Password = profileId is null ? form["password"].ToString() : null,
-                    ProfileId = profileId,
-                    Pin = profileId is null ? null : form["pin"].ToString(),
-                    DeviceId = deviceId,
-                    DeviceName = deviceName,
-                    Client = "Tuvima Dashboard",
-                }, context.RequestAborted).ConfigureAwait(false);
-            }
+                Username = profileId is null ? form["username"].ToString() : null,
+                Password = profileId is null ? form["password"].ToString() : null,
+                ProfileId = profileId,
+                Pin = profileId is null ? null : form["pin"].ToString(),
+                DeviceId = deviceId,
+                DeviceName = deviceName,
+                Client = "Tuvima Dashboard",
+            }, context.RequestAborted).ConfigureAwait(false);
 
             if (issued is null)
             {
@@ -205,33 +187,12 @@ public static class DashboardAuthenticationEndpoints
     private static string SanitizeDeviceName(string value) =>
         string.IsNullOrWhiteSpace(value) ? "Browser" : value.Length <= 100 ? value : value[..100];
 
-    private static bool IsLoopbackRequest(HttpContext context)
-    {
-        var address = context.Connection.RemoteIpAddress;
-        if (address is null)
-        {
-            return false;
-        }
-
-        if (address.IsIPv4MappedToIPv6)
-        {
-            address = address.MapToIPv4();
-        }
-
-        return IPAddress.IsLoopback(address);
-    }
-
     private static string LoginPage(
         string token,
-        bool configured,
         bool oidcEnabled,
-        string returnUrl,
-        bool localBootstrap)
+        string returnUrl)
     {
-        string form;
-        if (configured)
-        {
-            form = $"""
+        var form = $"""
               <p class="eyebrow">Tuvima Library</p>
               <h1>Sign in to Tuvima Library</h1>
               <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}">
@@ -245,29 +206,6 @@ public static class DashboardAuthenticationEndpoints
               <details><summary>Sign in with a profile PIN</summary><form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}"><label>Profile ID<input name="profileId" required></label><label>PIN<input type="password" inputmode="numeric" name="pin" required></label><button>Unlock profile</button></form></details>
               {(oidcEnabled ? "<p><a class=\"button\" href=\"/auth/oidc?returnUrl=" + Uri.EscapeDataString(returnUrl) + "\">Continue with OpenID Connect</a></p>" : string.Empty)}
               """;
-        }
-        else if (!localBootstrap)
-        {
-            form = """
-              <p class="eyebrow">First-run setup</p>
-              <h1>Finish setup on the Tuvima computer</h1>
-              <p class="lede">For security, the first administrator can be created only from <strong>localhost</strong> on the computer running Tuvima Library.</p>
-              <div class="notice">Open <code>http://localhost:5016</code> on that computer to continue.</div>
-              """;
-        }
-        else
-        {
-            form = $"""
-              <p class="eyebrow">First-run setup</p>
-              <h1>Create your administrator</h1>
-              <p class="lede">Create a local Tuvima user for this library. The account is stored and used only by this Tuvima installation.</p>
-              <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="bootstrap"><input type="hidden" name="returnUrl" value="/">
-              <label>Display name<input name="displayName" value="Administrator" autocomplete="name" required autofocus></label>
-              <label>Username<input name="username" autocomplete="username" spellcheck="false" required><small>Used only to sign in to this Tuvima Library.</small></label>
-              <label>Password<input type="password" name="password" minlength="8" autocomplete="new-password" required><small>Use at least 8 characters.</small></label>
-              <button>Create administrator</button></form>
-              """;
-        }
 
         return Shell(form);
     }

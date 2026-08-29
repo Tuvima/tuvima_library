@@ -17,25 +17,6 @@ public static class AuthenticationEndpoints
             .Produces<AuthBootstrapStatusResponse>()
             .RequireAuthorization(AuthPolicies.DashboardService);
 
-        group.MapPost("/bootstrap/administrator", async (
-            BootstrapAdministratorRequest request,
-            IFirstPartyIdentityService identity,
-            CancellationToken ct) =>
-        {
-            try
-            {
-                var issued = await identity.BootstrapAdministratorAsync(
-                    request.Username, request.Password, request.DisplayName,
-                    request.DeviceId, request.DeviceName, request.Client, ct).ConfigureAwait(false);
-                return Results.Ok(ToResponse(issued));
-            }
-            catch (ArgumentException ex) { return ApiErrors.BadRequest(ex.Message); }
-            catch (InvalidOperationException ex) { return ApiErrors.Conflict(ex.Message); }
-        })
-        .Produces<AuthSessionResponse>()
-        .RequireRateLimiting("authentication")
-        .RequireAuthorization(AuthPolicies.DashboardService);
-
         group.MapPost("/login", async (LocalLoginRequest request, IFirstPartyIdentityService identity, CancellationToken ct) =>
         {
             AuthenticationAttemptResult result;

@@ -1,6 +1,8 @@
 using System.IO.Compression;
 using System.Text.Json;
+using MediaEngine.Contracts.Setup;
 using MediaEngine.Contracts.System;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Data.Sqlite;
 
@@ -13,6 +15,9 @@ namespace MediaEngine.Api.Services;
 public sealed class DatabaseBackupService
 {
     private const string PendingRestoreFileName = ".restore-pending.json";
+    private const long MaxSetupUploadBytes = 2L * 1024 * 1024 * 1024;
+    private const long MaxUncompressedBytes = 16L * 1024 * 1024 * 1024;
+    private const int MaxArchiveEntries = 10_000;
     private readonly IDatabaseConnection _database;
     private readonly string _configDirectory;
     private readonly string _backupDirectory;
@@ -153,6 +158,140 @@ public sealed class DatabaseBackupService
         }
     }
 
+    public async Task<SetupBackupInspectionDto> UploadAndInspectAsync(
+        Stream upload,
+        string originalFileName,
+        OnboardingRepository onboarding,
+        CancellationToken ct)
+    {
+        if (!originalFileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Tuvima backups must be ZIP archives.");
+
+        Directory.CreateDirectory(_backupDirectory);
+        var operationId = Guid.NewGuid();
+        var archivePath = Path.Combine(
+            _backupDirectory,
+            $"tuvima-backup-upload-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}-{operationId:N}.zip");
+        try
+        {
+            await using (var destination = new FileStream(
+                archivePath, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                var buffer = new byte[128 * 1024];
+                long total = 0;
+                while (true)
+                {
+                    var read = await upload.ReadAsync(buffer, ct).ConfigureAwait(false);
+                    if (read == 0) break;
+                    total += read;
+                    if (total > MaxSetupUploadBytes)
+                        throw new InvalidDataException("The backup exceeds the 2 GB setup upload limit.");
+                    await destination.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
+                }
+                await destination.FlushAsync(ct).ConfigureAwait(false);
+            }
+
+            var inspection = InspectArchive(operationId, archivePath, originalFileName);
+            onboarding.SaveRestoreOperation(
+                operationId, archivePath, Path.GetFileName(originalFileName),
+                inspection.ManifestVersion, inspection.DatabaseEpoch,
+                JsonSerializer.Serialize(inspection));
+            return inspection;
+        }
+        catch
+        {
+            if (File.Exists(archivePath)) File.Delete(archivePath);
+            throw;
+        }
+    }
+
+    public ScheduleRestoreResultDto ConfirmUploadedRestore(Guid operationId, OnboardingRepository onboarding)
+    {
+        var operation = onboarding.GetRestoreOperation(operationId)
+            ?? throw new FileNotFoundException("The inspected backup operation was not found.");
+        if (!string.Equals(operation.Status, "inspected", StringComparison.Ordinal))
+            throw new InvalidOperationException("The backup operation is no longer awaiting confirmation.");
+        var fileName = Path.GetFileName(operation.ArchivePath);
+        var result = ScheduleRestore(fileName);
+        onboarding.MarkRestoreScheduled(operationId);
+        return result;
+    }
+
+    private static SetupBackupInspectionDto InspectArchive(Guid operationId, string archivePath, string originalFileName)
+    {
+        using var archive = ZipFile.OpenRead(archivePath);
+        if (archive.Entries.Count == 0 || archive.Entries.Count > MaxArchiveEntries)
+            throw new InvalidDataException("The backup contains an unsupported number of entries.");
+
+        long uncompressed = 0;
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var entry in archive.Entries)
+        {
+            var normalized = entry.FullName.Replace('\\', '/');
+            if (normalized.StartsWith("/", StringComparison.Ordinal)
+                || normalized.Contains("../", StringComparison.Ordinal)
+                || !seen.Add(normalized))
+                throw new InvalidDataException("The backup contains an unsafe or duplicate entry path.");
+            if (IsForbiddenRestoreEntry(normalized))
+                throw new InvalidDataException($"The backup contains forbidden host secret material: {normalized}");
+            checked { uncompressed += entry.Length; }
+            if (uncompressed > MaxUncompressedBytes)
+                throw new InvalidDataException("The expanded backup exceeds the 16 GB safety limit.");
+            if (entry.CompressedLength > 0 && entry.Length / Math.Max(1, entry.CompressedLength) > 250)
+                throw new InvalidDataException("The backup contains an unsafe compression ratio.");
+        }
+
+        var manifestEntry = archive.GetEntry("manifest.json")
+            ?? throw new InvalidDataException("The backup does not contain manifest.json.");
+        var databaseEntry = archive.GetEntry("database/library.db")
+            ?? throw new InvalidDataException("The backup does not contain database/library.db.");
+        if (manifestEntry.Length > 1024 * 1024)
+            throw new InvalidDataException("The backup manifest is unexpectedly large.");
+
+        string manifestVersion;
+        string databaseEpoch;
+        DateTimeOffset? createdAt = null;
+        using (var document = ZipArchiveJson.Parse(manifestEntry))
+        {
+            var root = document.RootElement;
+            manifestVersion = root.TryGetProperty("schema_version", out var version) ? version.GetString() ?? "unknown" : "unknown";
+            databaseEpoch = root.TryGetProperty("database_epoch", out var epoch) ? epoch.GetString() ?? "unknown" : "unknown";
+            if (root.TryGetProperty("created_at", out var created) && created.TryGetDateTimeOffset(out var parsed)) createdAt = parsed;
+            if (root.TryGetProperty("includes_secrets", out var includesSecrets) && includesSecrets.ValueKind == JsonValueKind.True)
+                throw new InvalidDataException("Backups containing secrets cannot be restored during setup.");
+        }
+        if (!string.Equals(manifestVersion, "1.0", StringComparison.Ordinal)
+            && !string.Equals(manifestVersion, "2.0", StringComparison.Ordinal))
+            throw new InvalidDataException($"Backup manifest version '{manifestVersion}' is unsupported.");
+        if (!string.Equals(databaseEpoch, "guid-blob-v3-view-storage", StringComparison.Ordinal))
+            throw new InvalidDataException($"Backup database epoch '{databaseEpoch}' is unsupported.");
+
+        var verifyPath = Path.Combine(Path.GetDirectoryName(archivePath)!, $".verify-{operationId:N}.db");
+        try
+        {
+            databaseEntry.ExtractToFile(verifyPath);
+            SqliteBackupTarget.Verify(verifyPath);
+        }
+        finally
+        {
+            if (File.Exists(verifyPath)) File.Delete(verifyPath);
+        }
+
+        var configCount = archive.Entries.Count(entry => entry.FullName.StartsWith("config/", StringComparison.Ordinal));
+        return new SetupBackupInspectionDto(
+            operationId, Path.GetFileName(originalFileName), createdAt, manifestVersion,
+            databaseEpoch, new FileInfo(archivePath).Length, uncompressed, archive.Entries.Count,
+            configCount,
+            "Provider credentials, active sessions, downloaded models, artwork caches, and original media are not restored.");
+    }
+
+    private static bool IsForbiddenRestoreEntry(string relative) =>
+        relative.StartsWith("config/secrets/", StringComparison.OrdinalIgnoreCase)
+        || relative.StartsWith("config/.secrets/", StringComparison.OrdinalIgnoreCase)
+        || relative.StartsWith("config/.keys/", StringComparison.OrdinalIgnoreCase)
+        || relative.EndsWith(".restore-pending.json", StringComparison.OrdinalIgnoreCase);
+
     public string ResolveArchive(string fileName)
     {
         if (string.IsNullOrWhiteSpace(fileName) || !string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal))
@@ -231,6 +370,8 @@ public sealed class DatabaseBackupService
                 var relative = Path.GetRelativePath(_configDirectory, path).Replace('\\', '/');
                 return !relative.StartsWith("backups/", StringComparison.OrdinalIgnoreCase)
                     && !relative.StartsWith("secrets/", StringComparison.OrdinalIgnoreCase)
+                    && !relative.StartsWith(".secrets/", StringComparison.OrdinalIgnoreCase)
+                    && !relative.StartsWith(".keys/", StringComparison.OrdinalIgnoreCase)
                     && !relative.EndsWith(".bak", StringComparison.OrdinalIgnoreCase)
                     && !relative.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(relative, PendingRestoreFileName, StringComparison.OrdinalIgnoreCase);

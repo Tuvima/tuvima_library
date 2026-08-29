@@ -194,7 +194,29 @@ if (ssoEnabled)
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
+        .RequireAssertion(context =>
+        {
+            if (context.User.Identity?.IsAuthenticated == true)
+            {
+                return true;
+            }
+
+            if (context.Resource is not HttpContext http)
+            {
+                return false;
+            }
+
+            var path = http.Request.Path;
+            return path.StartsWithSegments("/setup")
+                || path.StartsWithSegments("/_blazor")
+                || path.StartsWithSegments("/_framework")
+                || path.StartsWithSegments("/_content")
+                || path.StartsWithSegments("/assets")
+                || path.StartsWithSegments("/js")
+                || path.StartsWithSegments("/app.css")
+                || path.StartsWithSegments("/MediaEngine.Web.styles.css")
+                || path.StartsWithSegments("/favicon");
+        })
         .Build();
 });
 builder.Services.AddCascadingAuthenticationState();

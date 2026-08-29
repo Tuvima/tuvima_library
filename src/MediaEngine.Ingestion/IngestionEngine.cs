@@ -20,6 +20,7 @@ using MediaEngine.Intelligence.Models;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Storage;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -76,6 +77,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
     private readonly IEventPublisher _publisher;
     private readonly IngestionOptions _options;
     private readonly ILogger<IngestionEngine> _logger;
+    private readonly OnboardingActivationGate? _onboardingGate;
 
     // Phase 9: claim/canonical persistence + external metadata harvesting.
     private readonly IMetadataClaimRepository _claimRepo;
@@ -191,7 +193,8 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         IMediaOperationTracker? operationTracker = null,
         IMediaOperationRepository? operationRepository = null,
         ILibraryFolderResolver? libraryFolderResolver = null,
-        ISourceMutationPolicyGate? sourceMutationPolicyGate = null)
+        ISourceMutationPolicyGate? sourceMutationPolicyGate = null,
+        OnboardingActivationGate? onboardingGate = null)
     {
         _watcher = watcher;
         _debounce = debounce;
@@ -232,6 +235,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         _identityStageDependencies = identityStageDependencies;
         _libraryFolderResolver = libraryFolderResolver;
         _sourceMutationPolicyGate = sourceMutationPolicyGate;
+        _onboardingGate = onboardingGate;
         _ingestionStages =
         [
             new DelegateIngestionStage("settle/detect", RunSettleAndDetectStageAsync),
@@ -250,6 +254,12 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (_onboardingGate is not null && !_onboardingGate.IsComplete)
+        {
+            _logger.LogInformation("Ingestion is waiting for first-run setup to complete");
+            await _onboardingGate.WaitAsync(stoppingToken).ConfigureAwait(false);
+        }
+
         _executeCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, _shutdownCts.Token);
         var lifetimeToken = _executeCts.Token;
 

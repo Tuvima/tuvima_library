@@ -11,14 +11,14 @@ public sealed class NetworkConfigurationTests
     {
         var settings = new NetworkSettings();
 
-        Assert.Equal("2.0", settings.SchemaVersion);
+        Assert.Equal("3.0", settings.SchemaVersion);
         Assert.False(settings.Remote.Enabled);
         Assert.Equal(NetworkConnectionModes.LocalOnly, settings.Remote.ConnectionMode);
         Assert.False(settings.Remote.AutomaticRouterConfiguration);
     }
 
     [Fact]
-    public void SaveNetwork_RoundTripsDesiredStateAndSetupCompletion()
+    public void SaveNetwork_RoundTripsDesiredState()
     {
         var path = CreateTempDirectory();
         try
@@ -26,7 +26,6 @@ public sealed class NetworkConfigurationTests
             var loader = new ConfigurationDirectoryLoader(path);
             loader.SaveNetwork(new NetworkSettings
             {
-                SetupCompleted = true,
                 Local = new LocalNetworkSettings
                 {
                     Port = 8096,
@@ -48,12 +47,11 @@ public sealed class NetworkConfigurationTests
 
             var actual = loader.LoadNetwork();
 
-            Assert.True(actual.SetupCompleted);
             Assert.Equal(8096, actual.Local.Port);
             Assert.Equal("tuvima-den", actual.Local.PreferredServerName);
             Assert.Equal("https://media.example.test", actual.Remote.PublicHostname);
             Assert.Equal(RemoteStreamingQualities.Hd720, actual.Streaming.RemoteQuality);
-            Assert.Contains("\"setup_completed\": true", File.ReadAllText(Path.Combine(path, "network.json")), StringComparison.Ordinal);
+            Assert.DoesNotContain("setup_completed", File.ReadAllText(Path.Combine(path, "network.json")), StringComparison.Ordinal);
         }
         finally
         {

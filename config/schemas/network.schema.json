@@ -3,10 +3,9 @@
   "title": "Tuvima Network Settings",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "setup_completed", "local", "remote", "streaming"],
+  "required": ["schema_version", "local", "remote", "streaming"],
   "properties": {
-    "schema_version": { "const": "2.0" },
-    "setup_completed": { "type": "boolean" },
+    "schema_version": { "const": "3.0" },
     "local": {
       "type": "object",
       "additionalProperties": false,

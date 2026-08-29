@@ -20,31 +20,26 @@ public sealed class NetworkSettingsUiTests
     }
 
     [Fact]
-    public void SettingsAndFirstRunShareTheSameNetworkPanels()
+    public void FirstRunUsesTheVersionedSetupWorkflow()
     {
-        var settings = Read(@"src\MediaEngine.Web\Components\Settings\NetworkRemoteAccessSettings.razor");
-        var setup = Read(@"src\MediaEngine.Web\Components\Settings\NetworkSetupWizard.razor");
+        var setup = Read(@"src\MediaEngine.Web\Components\Pages\SetupPage.razor");
 
-        foreach (var panel in new[] { "LocalNetworkSettingsPanel", "RemoteAccessSettingsPanel", "NetworkStreamingSettingsPanel" })
-        {
-            Assert.Contains(panel, settings, StringComparison.Ordinal);
-            Assert.Contains(panel, setup, StringComparison.Ordinal);
-        }
-
-        Assert.Contains("SetupCompleted = true", setup, StringComparison.Ordinal);
-        Assert.Contains("Remote.Enabled = false", setup, StringComparison.Ordinal);
+        Assert.Contains("@page \"/setup\"", setup, StringComparison.Ordinal);
+        Assert.Contains("UploadBackupAsync", setup, StringComparison.Ordinal);
+        Assert.Contains("AddLibraryWizard Embedded=\"true\"", setup, StringComparison.Ordinal);
+        Assert.Contains("SetupWorkflow.StepKeys", setup, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void IncompleteNetworkWizardDoesNotGateStartupUntilTheFeatureIsEnabled()
+    public void RetiredNetworkWizardFlagAndSetupCompletionFieldAreRemoved()
     {
         var layout = Read(@"src\MediaEngine.Web\Shared\MainLayout.razor");
         var appSettings = Read(@"src\MediaEngine.Web\appsettings.json");
+        var network = Read(@"src\MediaEngine.Contracts\Settings\NetworkSettingsContracts.cs");
 
-        Assert.Contains("Features:NetworkSetupWizardEnabled", layout, StringComparison.Ordinal);
-        Assert.Contains("networkSetupWizardEnabled", layout, StringComparison.Ordinal);
-        Assert.Contains("\"NetworkSetupWizardEnabled\": false", appSettings, StringComparison.Ordinal);
-        Assert.Contains("networkSettings is { SetupCompleted: false }", layout, StringComparison.Ordinal);
+        Assert.DoesNotContain("NetworkSetupWizardEnabled", layout, StringComparison.Ordinal);
+        Assert.DoesNotContain("NetworkSetupWizardEnabled", appSettings, StringComparison.Ordinal);
+        Assert.DoesNotContain("setup_completed", network, StringComparison.Ordinal);
     }
 
     [Fact]

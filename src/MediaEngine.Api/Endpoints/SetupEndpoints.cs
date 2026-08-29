@@ -1,0 +1,205 @@
+using System.Security.Claims;
+using MediaEngine.Api.Http;
+using MediaEngine.Api.Security;
+using MediaEngine.Api.Services;
+using MediaEngine.Contracts.Setup;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Identity.Contracts;
+using MediaEngine.Storage;
+using Microsoft.AspNetCore.Mvc;
+
+namespace MediaEngine.Api.Endpoints;
+
+public static class SetupEndpoints
+{
+    public static IEndpointRouteBuilder MapSetupEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/setup/v1").WithTags("Setup")
+            .RequireAuthorization(AuthPolicies.DashboardService);
+
+        group.MapGet("/status", async (SetupClaimService claims, CancellationToken ct) =>
+            Results.Ok(await claims.GetStatusAsync(ct).ConfigureAwait(false)))
+            .Produces<SetupStatusDto>();
+
+        group.MapPost("/claim", async (SetupClaimRequest request, SetupClaimService claims, CancellationToken ct) =>
+        {
+            var result = await claims.ClaimAsync(request.Token, ct).ConfigureAwait(false);
+            return result is null
+                ? ApiErrors.Problem(StatusCodes.Status403Forbidden, "Claim failed.", "The claim token is invalid, expired, or already used.")
+                : Results.Ok(result);
+        }).Produces<SetupClaimResponse>()
+            .RequireRateLimiting("authentication");
+
+        group.MapPost("/preflight", async (
+            HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            SetupPreflightService preflight, OnboardingRepository onboarding, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            var result = await preflight.RunAsync(ct).ConfigureAwait(false);
+            await onboarding.SetStepAsync(
+                "preflight", result.Passed ? "passed" : "blocked",
+                result.Passed ? "Required storage and configuration checks passed." : "One or more required paths are blocked.",
+                result.Passed ? null : "/setup?step=preflight", null, ct).ConfigureAwait(false);
+            return Results.Ok(result);
+        }).Produces<SetupPreflightDto>();
+
+        group.MapPost("/administrator", async (
+            SetupAdministratorRequest request, HttpContext context, ClaimsPrincipal user,
+            SetupClaimService claims, IFirstPartyIdentityService identity,
+            OnboardingRepository onboarding, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (await identity.IsAdministratorConfiguredAsync(ct).ConfigureAwait(false))
+            {
+                await onboarding.SetStepAsync("administrator", "passed", "Administrator account is configured.", null, null, ct).ConfigureAwait(false);
+                return Results.Ok(new SetupAdministratorResponse(false, []));
+            }
+            try
+            {
+                var issued = await identity.BootstrapAdministratorAsync(
+                    request.Username, request.Password, request.DisplayName,
+                    request.DeviceId, request.DeviceName, "Tuvima Setup", ct).ConfigureAwait(false);
+                await onboarding.SetStepAsync(
+                    "administrator", "passed", "Administrator account and initial profile created.",
+                    null, issued.Profile.Id, ct).ConfigureAwait(false);
+                return Results.Ok(new SetupAdministratorResponse(true, issued.RecoveryCodes));
+            }
+            catch (ArgumentException ex) { return ApiErrors.BadRequest(ex.Message); }
+            catch (InvalidOperationException ex) { return ApiErrors.Conflict(ex.Message); }
+        }).Produces<SetupAdministratorResponse>()
+            .RequireRateLimiting("authentication");
+
+        group.MapPost("/media-locations/validate", async (
+            HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            IConfigurationLoader configuration, OnboardingRepository onboarding, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            var libraries = configuration.LoadLibraries();
+            var sources = libraries.Libraries.SelectMany(library => library.Sources).ToList();
+            var readable = sources.Count(source => Directory.Exists(source.Path));
+            var passed = sources.Count > 0 && readable > 0;
+            var detail = passed
+                ? $"{readable} of {sources.Count} configured media locations are visible to the server."
+                : "Add at least one readable media location before completing setup.";
+            await onboarding.SetStepAsync("media-locations", passed ? "passed" : "blocked", detail,
+                passed ? null : "/setup?step=media-locations", null, ct).ConfigureAwait(false);
+            return Results.Ok(new SetupMediaLocationsDto(passed, sources.Count, readable, detail));
+        }).Produces<SetupMediaLocationsDto>();
+
+        group.MapPost("/steps/{stepKey}", async (
+            string stepKey, SetupStepDecisionRequest request, HttpContext context, ClaimsPrincipal user,
+            SetupClaimService claims, OnboardingRepository onboarding, IConfigurationLoader configuration,
+            CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (stepKey is not ("providers" or "local-ai" or "access"))
+                return ApiErrors.BadRequest("This setup step has a dedicated server-side validator.");
+            if (request.Status is not ("passed" or "deferred"))
+                return ApiErrors.BadRequest("Optional setup steps may be passed or deferred.");
+
+            if (stepKey == "access" && request.Status == "deferred")
+            {
+                var network = configuration.LoadNetwork();
+                network.Remote.Enabled = false;
+                network.Remote.ConnectionMode = MediaEngine.Domain.Configuration.NetworkConnectionModes.LocalOnly;
+                configuration.SaveNetwork(network);
+            }
+            await onboarding.SetStepAsync(stepKey, request.Status,
+                request.Detail ?? (request.Status == "deferred" ? "Deferred during first-run setup." : "Configured during first-run setup."),
+                request.Status == "deferred" ? $"/setup?step={stepKey}" : null, null, ct).ConfigureAwait(false);
+            return Results.Ok(await claims.GetStatusAsync(ct).ConfigureAwait(false));
+        }).Produces<SetupStatusDto>();
+
+        group.MapPost("/restore/upload", async (
+            HttpRequest request, HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            DatabaseBackupService backups, OnboardingRepository onboarding, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!request.HasFormContentType) return ApiErrors.BadRequest("Upload the backup as multipart form data.");
+            try
+            {
+                var form = await request.ReadFormAsync(ct).ConfigureAwait(false);
+                var file = form.Files.GetFile("backup");
+                if (file is null || file.Length == 0) return ApiErrors.BadRequest("Choose a Tuvima backup ZIP file.");
+                await using var stream = file.OpenReadStream();
+                return Results.Ok(await backups.UploadAndInspectAsync(stream, file.FileName, onboarding, ct).ConfigureAwait(false));
+            }
+            catch (InvalidDataException ex) { return ApiErrors.BadRequest(ex.Message); }
+            catch (IOException ex) { return ApiErrors.BadRequest($"The backup could not be staged: {ex.Message}"); }
+        }).Produces<SetupBackupInspectionDto>()
+            .WithMetadata(
+                new RequestSizeLimitAttribute(2L * 1024 * 1024 * 1024),
+                new RequestFormLimitsAttribute { MultipartBodyLengthLimit = 2L * 1024 * 1024 * 1024 })
+            .DisableAntiforgery();
+
+        group.MapPost("/restore/{operationId:guid}/confirm", async (
+            Guid operationId, HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            DatabaseBackupService backups, OnboardingRepository onboarding,
+            IHostApplicationLifetime lifetime, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            try
+            {
+                var result = backups.ConfirmUploadedRestore(operationId, onboarding);
+                if (string.Equals(Environment.GetEnvironmentVariable("DOTNET_RUNNING_IN_CONTAINER"), "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(2)).ConfigureAwait(false);
+                        lifetime.StopApplication();
+                    });
+                }
+                return Results.Ok(new SetupRestoreConfirmationDto(result.Scheduled, result.RestartRequired, result.Message));
+            }
+            catch (FileNotFoundException ex) { return ApiErrors.NotFound(ex.Message); }
+            catch (InvalidDataException ex) { return ApiErrors.BadRequest(ex.Message); }
+            catch (InvalidOperationException ex) { return ApiErrors.BadRequest(ex.Message); }
+        }).Produces<SetupRestoreConfirmationDto>();
+
+        group.MapGet("/readiness", async (
+            HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            OnboardingRepository onboarding, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            return Results.Ok(BuildReadiness(onboarding.Get()));
+        }).Produces<SetupReadinessDto>();
+
+        group.MapPost("/complete", async (
+            HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            OnboardingRepository onboarding, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            return await onboarding.CompleteAsync(ct).ConfigureAwait(false)
+                ? Results.Ok(await claims.GetStatusAsync(ct).ConfigureAwait(false))
+                : ApiErrors.Conflict("Required setup capabilities are still blocked.");
+        }).Produces<SetupStatusDto>();
+
+        return app;
+    }
+
+    private static async Task<bool> AuthorizedAsync(
+        HttpContext context, ClaimsPrincipal user, SetupClaimService claims, CancellationToken ct)
+    {
+        if (user.IsInRole(MediaEngine.Domain.AppRoles.Administrator)) return true;
+        return await claims.ValidateSessionAsync(
+            context.Request.Headers[SetupClaimService.SessionHeader].ToString(), ct).ConfigureAwait(false);
+    }
+
+    private static SetupReadinessDto BuildReadiness(OnboardingWorkflowRecord workflow)
+    {
+        var required = new HashSet<string>(["claim", "preflight", "administrator", "media-locations"], StringComparer.Ordinal);
+        var capabilities = workflow.Steps.Select(step => new SetupCapabilityDto(
+            step.Key,
+            step.Key.Replace('-', ' '),
+            step.Status,
+            required.Contains(step.Key),
+            step.Detail ?? "Not checked yet.",
+            step.RepairTarget ?? (step.Status is "passed" ? null : $"/setup?step={step.Key}"))).ToList();
+        var canComplete = capabilities
+            .Where(capability => capability.Key != "readiness")
+            .All(capability => capability.Required
+                ? capability.Status == "passed"
+                : capability.Status is "passed" or "deferred");
+        return new SetupReadinessDto(canComplete, capabilities);
+    }
+}

@@ -58,6 +58,39 @@ public sealed class DatabaseBackupServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SetupUpload_InspectsARealBackupAndRejectsSecretMaterial()
+    {
+        var config = Path.Combine(_root, "setup-upload-config");
+        var backup = Path.Combine(_root, "setup-upload-backups");
+        Directory.CreateDirectory(config);
+        await File.WriteAllTextAsync(Path.Combine(config, "core.json"), "{}");
+        var dbPath = Path.Combine(_root, "setup-upload.db");
+        using var database = CreateDatabase(dbPath);
+        var onboarding = new OnboardingRepository(database);
+        var service = new DatabaseBackupService(database, config, backup);
+        var archivePath = await service.CreateAsync(CancellationToken.None);
+
+        await using (var stream = File.OpenRead(archivePath))
+        {
+            var inspection = await service.UploadAndInspectAsync(
+                stream, "recovery.zip", onboarding, CancellationToken.None);
+            Assert.Equal("recovery.zip", inspection.FileName);
+            Assert.Equal("guid-blob-v3-view-storage", inspection.DatabaseEpoch);
+            Assert.Equal("inspected", onboarding.GetRestoreOperation(inspection.OperationId)?.Status);
+        }
+
+        var unsafePath = Path.Combine(_root, "unsafe.zip");
+        using (var archive = ZipFile.Open(unsafePath, ZipArchiveMode.Create))
+        {
+            archive.CreateEntry("config/.keys/key.xml");
+        }
+        await using var unsafeStream = File.OpenRead(unsafePath);
+        var error = await Assert.ThrowsAsync<InvalidDataException>(() => service.UploadAndInspectAsync(
+            unsafeStream, "unsafe.zip", onboarding, CancellationToken.None));
+        Assert.Contains("secret", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task ScheduledRestore_ReplacesDatabaseAndConfigOnNextStartup()
     {
         var config = Path.Combine(_root, "restore-config");

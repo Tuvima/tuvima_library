@@ -15,6 +15,7 @@ public static class ApiEndpointRouteBuilderExtensions
             .RequireRateLimiting("intercom")
             .AllowAnonymous();
         app.MapSystemEndpoints();
+        app.MapSetupEndpoints();
         app.MapAuthenticationEndpoints();
         app.MapMaintenanceEndpoints();
         app.MapAdminEndpoints();

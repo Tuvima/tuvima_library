@@ -19,19 +19,6 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients)
             : null;
     }
 
-    public async Task<AuthSessionResponse?> BootstrapAsync(
-        BootstrapAdministratorRequest request,
-        CancellationToken ct = default)
-    {
-        using var response = await Client.PostAsJsonAsync(
-            "/auth/bootstrap/administrator",
-            request,
-            ct).ConfigureAwait(false);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<AuthSessionResponse>(cancellationToken: ct).ConfigureAwait(false)
-            : null;
-    }
-
     public async Task<SessionValidationResponse?> ValidateAsync(string sessionToken, CancellationToken ct = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/session/validate");

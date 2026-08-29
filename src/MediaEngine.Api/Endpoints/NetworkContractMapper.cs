@@ -8,7 +8,6 @@ internal static class NetworkContractMapper
     public static NetworkSettingsDto ToContract(NetworkSettings settings) => new()
     {
         SchemaVersion = settings.SchemaVersion,
-        SetupCompleted = settings.SetupCompleted,
         Local = new LocalNetworkSettingsDto
         {
             Port = settings.Local.Port,
@@ -41,7 +40,6 @@ internal static class NetworkContractMapper
     public static NetworkSettings ToStorage(NetworkSettingsDto dto) => new()
     {
         SchemaVersion = dto.SchemaVersion,
-        SetupCompleted = dto.SetupCompleted,
         Local = new LocalNetworkSettings
         {
             Port = dto.Local.Port,

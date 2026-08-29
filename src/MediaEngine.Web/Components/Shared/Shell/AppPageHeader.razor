@@ -1,0 +1,43 @@
+@namespace MediaEngine.Web.Components.Shared.Shell
+
+<header class="@RootClass">
+    <div class="app-page-header__copy">
+        @if (!string.IsNullOrWhiteSpace(Eyebrow))
+        {
+            <div class="app-page-header__eyebrow">@Eyebrow</div>
+        }
+        <AppCssElement Tag="@HeadingTag" Class="app-page-header__title">@Title</AppCssElement>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p>@Subtitle</p>
+        }
+        @if (Metadata is not null)
+        {
+            <div class="app-page-header__metadata">@Metadata</div>
+        }
+    </div>
+    @if (Actions is not null || !string.IsNullOrWhiteSpace(Status))
+    {
+        <div class="app-page-header__actions">
+            @if (!string.IsNullOrWhiteSpace(Status))
+            {
+                <AppStatusBadge Text="@Status" Tone="@(Healthy ? AppUiTone.Success : AppUiTone.Warning)" />
+            }
+            @Actions
+        </div>
+    }
+</header>
+
+@code {
+    [Parameter] public string? Eyebrow { get; set; }
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string HeadingTag { get; set; } = "h1";
+    [Parameter] public string? Status { get; set; }
+    [Parameter] public bool Healthy { get; set; }
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? Metadata { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    private string RootClass => string.Join(' ', new[] { "app-page-header", Compact ? "app-page-header--compact" : null, Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
+}

@@ -10,10 +10,7 @@ namespace MediaEngine.Domain.Configuration;
 public sealed class NetworkSettings
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; set; } = "2.0";
-
-    [JsonPropertyName("setup_completed")]
-    public bool SetupCompleted { get; set; }
+    public string SchemaVersion { get; set; } = "3.0";
 
     [JsonPropertyName("local")]
     public LocalNetworkSettings Local { get; set; } = new();

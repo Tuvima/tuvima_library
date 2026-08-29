@@ -8,10 +8,86 @@ internal sealed class SchemaMigrator
     public void RunStartupTasks(SqliteConnection conn)
     {
         EnsureIdentitySchema(conn);
+        EnsureOnboardingSchema(conn);
         EnsureCurrentColumns(conn);
         EnsureCurrentIndexes(conn);
         SeedMetadataProviders(conn);
         SeedDefaultProfile(conn);
+    }
+
+    private static void EnsureOnboardingSchema(SqliteConnection conn)
+    {
+        DatabaseConnection.ExecuteStartupTransaction(conn, transaction =>
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = transaction;
+            cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS onboarding_workflows (
+                workflow_version INTEGER NOT NULL PRIMARY KEY,
+                state TEXT NOT NULL CHECK (state IN ('unclaimed', 'claimed', 'in_progress', 'complete')),
+                current_step TEXT NOT NULL,
+                administrator_profile_id BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+                revision INTEGER NOT NULL DEFAULT 0,
+                claimed_at TEXT,
+                completed_at TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS onboarding_steps (
+                workflow_version INTEGER NOT NULL REFERENCES onboarding_workflows(workflow_version) ON DELETE CASCADE,
+                step_key TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('not_started', 'in_progress', 'passed', 'deferred', 'blocked')),
+                detail TEXT,
+                repair_target TEXT,
+                completed_at TEXT,
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (workflow_version, step_key)
+            );
+
+            CREATE TABLE IF NOT EXISTS onboarding_sessions (
+                id BLOB NOT NULL PRIMARY KEY,
+                workflow_version INTEGER NOT NULL REFERENCES onboarding_workflows(workflow_version) ON DELETE CASCADE,
+                token_hash TEXT NOT NULL UNIQUE,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                last_used_at TEXT NOT NULL,
+                revoked_at TEXT
+            );
+            CREATE INDEX IF NOT EXISTS idx_onboarding_sessions_active
+                ON onboarding_sessions(workflow_version, expires_at, revoked_at);
+
+            CREATE TABLE IF NOT EXISTS onboarding_restore_operations (
+                id BLOB NOT NULL PRIMARY KEY,
+                workflow_version INTEGER NOT NULL REFERENCES onboarding_workflows(workflow_version) ON DELETE CASCADE,
+                archive_path TEXT NOT NULL,
+                original_file_name TEXT NOT NULL,
+                status TEXT NOT NULL CHECK (status IN ('inspected', 'scheduled', 'applied', 'failed', 'cancelled')),
+                manifest_version TEXT NOT NULL,
+                database_epoch TEXT NOT NULL,
+                summary_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            INSERT OR IGNORE INTO onboarding_workflows
+                (workflow_version, state, current_step, revision, created_at, updated_at)
+            VALUES
+                (1, 'unclaimed', 'claim', 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+
+            INSERT OR IGNORE INTO onboarding_steps (workflow_version, step_key, status, updated_at)
+            VALUES
+                (1, 'claim', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                (1, 'preflight', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                (1, 'administrator', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                (1, 'media-locations', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                (1, 'providers', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                (1, 'local-ai', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                (1, 'access', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+                (1, 'readiness', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+            """;
+            cmd.ExecuteNonQuery();
+        });
     }
 
     private static void EnsureIdentitySchema(SqliteConnection conn)

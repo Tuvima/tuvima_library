@@ -1,4 +1,5 @@
 using MediaEngine.AI.Infrastructure;
+using MediaEngine.Storage;
 
 namespace MediaEngine.Api.Services;
 
@@ -16,17 +17,26 @@ public sealed class HardwareBenchmarkBackgroundService : BackgroundService
 
     private readonly HardwareBenchmarkService              _benchmark;
     private readonly ILogger<HardwareBenchmarkBackgroundService> _logger;
+    private readonly OnboardingActivationGate? _onboardingGate;
 
     public HardwareBenchmarkBackgroundService(
         HardwareBenchmarkService                        benchmark,
-        ILogger<HardwareBenchmarkBackgroundService>     logger)
+        ILogger<HardwareBenchmarkBackgroundService>     logger,
+        OnboardingActivationGate? onboardingGate = null)
     {
         _benchmark = benchmark;
         _logger    = logger;
+        _onboardingGate = onboardingGate;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (_onboardingGate is not null && !_onboardingGate.IsComplete)
+        {
+            _logger.LogInformation("Hardware benchmarking is waiting for first-run setup to complete");
+            await _onboardingGate.WaitAsync(stoppingToken).ConfigureAwait(false);
+        }
+
         _logger.LogInformation(
             "HardwareBenchmarkBackgroundService: waiting {Seconds}s before running benchmark",
             StartupDelay.TotalSeconds);

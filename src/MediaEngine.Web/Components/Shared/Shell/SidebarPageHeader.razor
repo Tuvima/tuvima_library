@@ -1,35 +1,7 @@
 ﻿@namespace MediaEngine.Web.Components.Shared.Shell
 
-<header class="sidebar-page-header">
-    <div class="sidebar-page-header__copy">
-        @if (!string.IsNullOrWhiteSpace(Eyebrow))
-        {
-            <div class="sidebar-page-header__eyebrow">@Eyebrow</div>
-        }
-        <h1>@Title</h1>
-        @if (!string.IsNullOrWhiteSpace(Subtitle))
-        {
-            <p>@Subtitle</p>
-        }
-        @if (Metadata is not null)
-        {
-            <div class="sidebar-page-header__metadata">@Metadata</div>
-        }
-    </div>
-
-    @if (Actions is not null || !string.IsNullOrWhiteSpace(Status))
-    {
-        <div class="sidebar-page-header__actions">
-            @if (!string.IsNullOrWhiteSpace(Status))
-            {
-                <span class="sidebar-page-header__status @(Healthy ? "is-healthy" : "is-warning")">
-                    @Status
-                </span>
-            }
-            @Actions
-        </div>
-    }
-</header>
+<AppPageHeader Eyebrow="@Eyebrow" Title="@Title" Subtitle="@Subtitle" Status="@Status"
+               Healthy="@Healthy" Metadata="@Metadata" Actions="@Actions" Class="sidebar-page-header" />
 
 @code {
     [Parameter] public string? Eyebrow { get; set; }

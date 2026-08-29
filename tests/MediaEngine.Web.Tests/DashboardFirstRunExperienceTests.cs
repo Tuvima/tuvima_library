@@ -3,28 +3,20 @@ namespace MediaEngine.Web.Tests;
 public sealed class DashboardFirstRunExperienceTests
 {
     [Fact]
-    public void FirstRunSetup_IsLocalOnlyAndDoesNotRequireAClaimCode()
+    public void FirstRunSetup_RequiresTheContainerLogClaimToken()
     {
         var dashboard = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");
-        var client = Read("src/MediaEngine.Web/Services/Integration/DashboardIdentityClient.cs");
+        var setup = Read("src/MediaEngine.Web/Components/Pages/SetupPage.razor");
         var engine = Read("src/MediaEngine.Api/Endpoints/AuthenticationEndpoints.cs");
-        var program = Read("src/MediaEngine.Api/Program.cs");
+        var claims = Read("src/MediaEngine.Api/Services/SetupClaimService.cs");
 
-        Assert.Contains("IsLoopbackRequest(context)", dashboard, StringComparison.Ordinal);
-        Assert.Contains("IPAddress.IsLoopback(address)", dashboard, StringComparison.Ordinal);
-        Assert.Contains("available only from localhost", dashboard, StringComparison.Ordinal);
-        Assert.Contains("Create a local Tuvima user for this library", dashboard, StringComparison.Ordinal);
-        Assert.Contains("value=\"Administrator\"", dashboard, StringComparison.Ordinal);
-        Assert.Contains("minlength=\"8\"", dashboard, StringComparison.Ordinal);
-        Assert.Contains("Use at least 8 characters", dashboard, StringComparison.Ordinal);
-        Assert.DoesNotContain("minlength=\"12\"", dashboard, StringComparison.Ordinal);
-        Assert.DoesNotContain("Use at least 12 characters", dashboard, StringComparison.Ordinal);
-        Assert.DoesNotContain("No external account or claim code is required", dashboard, StringComparison.Ordinal);
-        Assert.DoesNotContain("name=\"setupCode\"", dashboard, StringComparison.Ordinal);
-        Assert.DoesNotContain("X-Tuvima-Bootstrap-Code", client, StringComparison.Ordinal);
-        Assert.DoesNotContain("BootstrapClaimService", engine, StringComparison.Ordinal);
-        Assert.DoesNotContain("BootstrapClaimService", program, StringComparison.Ordinal);
-        Assert.DoesNotContain("administrator claim code", program, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Results.Redirect(\"/setup\")", dashboard, StringComparison.Ordinal);
+        Assert.Contains("Claim this server", setup, StringComparison.Ordinal);
+        Assert.Contains("container logs", setup, StringComparison.Ordinal);
+        Assert.Contains("X-Tuvima-Setup-Session", claims, StringComparison.Ordinal);
+        Assert.Contains("Console.Out.WriteLineAsync", claims, StringComparison.Ordinal);
+        Assert.DoesNotContain("/bootstrap/administrator", engine, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsLoopbackRequest", dashboard, StringComparison.Ordinal);
     }
 
     [Fact]

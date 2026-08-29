@@ -5074,7 +5074,6 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkRuntimeStat
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.NetworkSettingsDto
   SchemaVersion: System.String | nullability=not-null | accessors=get,set
-  SetupCompleted: System.Boolean | nullability=not-null | accessors=get,set
   Local: MediaEngine.Contracts.Settings.LocalNetworkSettingsDto | nullability=not-null | accessors=get,set
   Remote: MediaEngine.Contracts.Settings.RemoteNetworkSettingsDto | nullability=not-null | accessors=get,set
   Streaming: MediaEngine.Contracts.Settings.NetworkStreamingSettingsDto | nullability=not-null | accessors=get,set
@@ -5518,6 +5517,104 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ValidateServerFold
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ViewStorageDto
   StorageLocationId: System.String | nullability=not-null | accessors=get,set
   RelativeRoot: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupAdministratorRequest
+  Username: System.String | nullability=not-null | accessors=get,init
+  Password: System.String | nullability=not-null | accessors=get,init
+  DisplayName: System.String | nullability=not-null | accessors=get,init
+  DeviceId: System.String | nullability=not-null | accessors=get,init
+  DeviceName: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupAdministratorResponse
+  Created: System.Boolean | nullability=not-null | accessors=get,init
+  RecoveryCodes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupBackupInspectionDto
+  OperationId: System.Guid | nullability=not-null | accessors=get,init
+  FileName: System.String | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  ManifestVersion: System.String | nullability=not-null | accessors=get,init
+  DatabaseEpoch: System.String | nullability=not-null | accessors=get,init
+  CompressedBytes: System.Int64 | nullability=not-null | accessors=get,init
+  UncompressedBytes: System.Int64 | nullability=not-null | accessors=get,init
+  EntryCount: System.Int32 | nullability=not-null | accessors=get,init
+  ConfigurationFiles: System.Int32 | nullability=not-null | accessors=get,init
+  Warning: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupCapabilityDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  Status: System.String | nullability=not-null | accessors=get,init
+  Required: System.Boolean | nullability=not-null | accessors=get,init
+  Detail: System.String | nullability=not-null | accessors=get,init
+  RepairTarget: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupClaimRequest
+  Token: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupClaimResponse
+  SetupSessionToken: System.String | nullability=not-null | accessors=get,init
+  ExpiresAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  Status: MediaEngine.Contracts.Setup.SetupStatusDto | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupMediaLocationsDto
+  Passed: System.Boolean | nullability=not-null | accessors=get,init
+  Configured: System.Int32 | nullability=not-null | accessors=get,init
+  Readable: System.Int32 | nullability=not-null | accessors=get,init
+  Detail: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupPathCheckDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  Path: System.String | nullability=not-null | accessors=get,init
+  PathSource: System.String | nullability=not-null | accessors=get,init
+  Status: System.String | nullability=not-null | accessors=get,init
+  Readable: System.Boolean | nullability=not-null | accessors=get,init
+  Writable: System.Boolean | nullability=not-null | accessors=get,init
+  FreeBytes: System.Int64? | nullability=nullable | accessors=get,init
+  Detail: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupPreflightDto
+  Passed: System.Boolean | nullability=not-null | accessors=get,init
+  RunningInContainer: System.Boolean | nullability=not-null | accessors=get,init
+  ContainerExplanation: System.String | nullability=not-null | accessors=get,init
+  RuntimeIdentifier: System.String | nullability=not-null | accessors=get,init
+  OsArchitecture: System.String | nullability=not-null | accessors=get,init
+  ProcessArchitecture: System.String | nullability=not-null | accessors=get,init
+  FfmpegStatus: System.String | nullability=not-null | accessors=get,init
+  Checks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Setup.SetupPathCheckDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupReadinessDto
+  CanComplete: System.Boolean | nullability=not-null | accessors=get,init
+  Capabilities: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Setup.SetupCapabilityDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupRestoreConfirmationDto
+  Scheduled: System.Boolean | nullability=not-null | accessors=get,init
+  RestartRequired: System.Boolean | nullability=not-null | accessors=get,init
+  Message: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupStatusDto
+  WorkflowVersion: System.Int32 | nullability=not-null | accessors=get,init
+  State: System.String | nullability=not-null | accessors=get,init
+  CurrentStep: System.String | nullability=not-null | accessors=get,init
+  Revision: System.Int64 | nullability=not-null | accessors=get,init
+  RequiresClaim: System.Boolean | nullability=not-null | accessors=get,init
+  RequiresAuthentication: System.Boolean | nullability=not-null | accessors=get,init
+  AdministratorConfigured: System.Boolean | nullability=not-null | accessors=get,init
+  Steps: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Setup.SetupStepStatusDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupStepDecisionRequest
+  Status: System.String | nullability=not-null | accessors=get,init
+  Detail: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupStepStatusDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  Status: System.String | nullability=not-null | accessors=get,init
+  Detail: System.String | nullability=nullable | accessors=get,init
+  RepairTarget: System.String | nullability=nullable | accessors=get,init
+  CompletedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupWorkflow
 
 MediaEngine.Contracts.System.MediaEngine.Contracts.System.BackupArchiveDto
   FileName: System.String | nullability=not-null | accessors=get,init

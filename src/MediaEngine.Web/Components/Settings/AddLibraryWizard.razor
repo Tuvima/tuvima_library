@@ -20,7 +20,10 @@
     else
     {
         <div class="add-library-wizard__header">
-            <AppIconButton Icon="@Icons.Material.Outlined.ArrowBack" Tooltip="Back to libraries" AriaLabel="Back to libraries" OnClick="Cancel" />
+            @if (!Embedded)
+            {
+                <AppIconButton Icon="@Icons.Material.Outlined.ArrowBack" Tooltip="Back to libraries" AriaLabel="Back to libraries" OnClick="Cancel" />
+            }
             <div><h2>Add Library</h2><p>Create a structured library to organize and enrich your media.</p></div>
         </div>
 
@@ -200,6 +203,9 @@
 </div>
 
 @code {
+    [Parameter] public bool Embedded { get; set; }
+    [Parameter] public EventCallback LibraryCreated { get; set; }
+    [Parameter] public EventCallback Cancelled { get; set; }
     private sealed record LibraryTypeOption(string Key, string Label, string PluralLabel, string Area, string MediaType, string Icon, string Accent, string Description);
     private sealed record WizardStep(int Number, string Title, string Help);
     private sealed record OrganizationMode(string Value, string Label, string Description, string Icon);
@@ -397,7 +403,13 @@
     private string StepClass(int step) => step == _step ? "is-active" : step < _step ? "is-complete" : string.Empty;
     private void Back() => _step = Math.Max(1, _step - 1);
     private void Next() { if (CanContinue) _step = Math.Min(4, _step + 1); }
-    private void Cancel() => Nav.NavigateTo("/settings/libraries");
+    private async Task Cancel()
+    {
+        if (Embedded)
+            await Cancelled.InvokeAsync();
+        else
+            Nav.NavigateTo("/settings/libraries");
+    }
 
     private async Task CreateAsync()
     {
@@ -422,7 +434,10 @@
                 return;
             }
             Snackbar.Add($"{_draft.Name} library created.", Severity.Success);
-            Nav.NavigateTo($"/settings/libraries/{_draft.Id}");
+            if (Embedded)
+                await LibraryCreated.InvokeAsync();
+            else
+                Nav.NavigateTo($"/settings/libraries/{_draft.Id}");
         }
         finally
         {

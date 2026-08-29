@@ -68,9 +68,9 @@ public static class JsonConfigValidator
 
     private static void ValidateNetwork(NetworkSettings settings, List<string> errors)
     {
-        if (!string.Equals(settings.SchemaVersion, "2.0", StringComparison.Ordinal))
+        if (!string.Equals(settings.SchemaVersion, "3.0", StringComparison.Ordinal))
         {
-            errors.Add("schema_version must be 2.0; pre-beta network configuration is not migrated in place.");
+            errors.Add("schema_version must be 3.0; pre-beta network configuration is not migrated in place.");
         }
 
         if (settings.Local.Port is < 1 or > 65535)
