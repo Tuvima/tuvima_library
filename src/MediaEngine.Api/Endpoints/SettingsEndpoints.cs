@@ -1,6 +1,7 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
@@ -24,6 +25,8 @@ using MediaTypeConfigurationDto = MediaEngine.Contracts.Settings.MediaTypeConfig
 using MediaTypeDefinitionDto = MediaEngine.Contracts.Settings.MediaTypeDefinitionDto;
 using OrganizationTemplateResponse = MediaEngine.Contracts.Settings.OrganizationTemplateDto;
 using ProviderConfigUpdateRequest = MediaEngine.Contracts.Settings.ProviderConfigUpdateDto;
+using ProviderCredentialOperationResultDto = MediaEngine.Contracts.Settings.ProviderCredentialOperationResultDto;
+using ProviderCredentialWriteRequest = MediaEngine.Contracts.Settings.ProviderCredentialWriteRequest;
 using ProviderHealthRecord = MediaEngine.Domain.Entities.ProviderHealthRecord;
 // Explicit aliases (not a blanket `using MediaEngine.Contracts.Settings;`) because that
 // namespace and MediaEngine.Domain.Configuration (imported above) both declare
@@ -505,6 +508,45 @@ public static class SettingsEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
+        // ── Provider credential onboarding ────────────────────────────────────
+
+        grp.MapPost("/providers/{name}/credentials/test", async (
+            string name,
+            ProviderCredentialWriteRequest request,
+            ProviderCredentialService credentials,
+            CancellationToken ct) =>
+        {
+            return Results.Ok(await credentials.TestAsync(name, request.Credentials, ct));
+        })
+        .WithName("TestProviderCredentials")
+        .WithSummary("Validates provider credential format and performs a non-mutating authentication check.")
+        .Produces<ProviderCredentialOperationResultDto>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        grp.MapPut("/providers/{name}/credentials", async (
+            string name,
+            ProviderCredentialWriteRequest request,
+            ProviderCredentialService credentials,
+            CancellationToken ct) =>
+        {
+            return Results.Ok(await credentials.SaveAsync(name, request.Credentials, ct));
+        })
+        .WithName("SaveProviderCredentials")
+        .WithSummary("Verifies and atomically saves or rotates a provider credential set.")
+        .Produces<ProviderCredentialOperationResultDto>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        grp.MapDelete("/providers/{name}/credentials", (
+            string name,
+            ProviderCredentialService credentials) =>
+        {
+            return Results.Ok(credentials.Remove(name));
+        })
+        .WithName("RemoveProviderCredentials")
+        .WithSummary("Removes every stored credential for a provider.")
+        .Produces<ProviderCredentialOperationResultDto>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
         // ── POST /settings/providers/{name}/test ────────────────────────────────
         // Tests a provider by sending a real request with a known title and
         // returning success/failure, response time, and sample fields.
@@ -586,7 +628,9 @@ public static class SettingsEndpoints
                     Success = false,
                     ResponseTimeMs = (int)sw.ElapsedMilliseconds,
                     SampleFields = [],
-                    Message = $"Test failed: {ex.Message}",
+                    Message = ex is HttpRequestException or OperationCanceledException
+                        ? "The Engine could not complete the provider connection test."
+                        : "The provider test failed before a safe result could be produced.",
                 });
             }
             sw.Stop();
@@ -786,17 +830,11 @@ public static class SettingsEndpoints
                     .ToList();
             }
 
-            // HTTP client settings: timeout and API key.
+            // HTTP client settings. Credentials use the dedicated atomic lifecycle endpoints.
             if (request.TimeoutSeconds.HasValue)
             {
                 existing.HttpClient ??= new MediaEngine.Domain.Configuration.HttpClientConfig();
                 existing.HttpClient.TimeoutSeconds = Math.Clamp(request.TimeoutSeconds.Value, 1, 120);
-            }
-            if (request.ApiKey is not null)
-            {
-                existing.HttpClient ??= new MediaEngine.Domain.Configuration.HttpClientConfig();
-                existing.HttpClient.ApiKey = request.ApiKey;
-                SaveProviderSecrets(configLoader, existing);
             }
             if (request.CustomIconName is not null)
             {
@@ -1281,26 +1319,6 @@ public static class SettingsEndpoints
         }
 
         return _displayNames.TryGetValue(config.Name, out var dn) ? dn : config.Name;
-    }
-
-    private static void SaveProviderSecrets(
-        IConfigurationLoader configLoader,
-        ProviderConfiguration provider)
-    {
-        if (provider.HttpClient is null)
-        {
-            return;
-        }
-
-        configLoader.SaveConfig(
-            "secrets",
-            provider.Name,
-            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
-            {
-                ["api_key"] = provider.HttpClient.ApiKey,
-                ["username"] = provider.HttpClient.Username,
-                ["password"] = provider.HttpClient.Password,
-            });
     }
 
     private static void SaveProviderManifest(

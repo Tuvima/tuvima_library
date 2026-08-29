@@ -651,6 +651,46 @@ public sealed partial class EngineApiClient
 
     // -- Provider management -------------------------------------------------
 
+    public async Task<ProviderCredentialOperationResultDto?> TestProviderCredentialsAsync(
+        string name,
+        ProviderCredentialWriteRequest request,
+        CancellationToken ct = default)
+        => await SendProviderCredentialRequestAsync(
+            HttpMethod.Post, name, "credentials/test", request, ct);
+
+    public async Task<ProviderCredentialOperationResultDto?> SaveProviderCredentialsAsync(
+        string name,
+        ProviderCredentialWriteRequest request,
+        CancellationToken ct = default)
+        => await SendProviderCredentialRequestAsync(
+            HttpMethod.Put, name, "credentials", request, ct);
+
+    public async Task<ProviderCredentialOperationResultDto?> RemoveProviderCredentialsAsync(
+        string name,
+        CancellationToken ct = default)
+        => await SendProviderCredentialRequestAsync(
+            HttpMethod.Delete, name, "credentials", request: null, ct);
+
+    private async Task<ProviderCredentialOperationResultDto?> SendProviderCredentialRequestAsync(
+        HttpMethod method,
+        string name,
+        string suffix,
+        ProviderCredentialWriteRequest? request,
+        CancellationToken ct)
+    {
+        var encoded = WebUtility.UrlEncode(name);
+        using var message = new HttpRequestMessage(
+            method,
+            $"/settings/providers/{encoded}/{suffix}");
+        if (request is not null)
+        {
+            message.Content = JsonContent.Create(request);
+        }
+
+        using var response = await _http.SendAsync(message, ct);
+        return await response.Content.ReadFromJsonAsync<ProviderCredentialOperationResultDto>(ct);
+    }
+
     public async Task<ProviderTestResultDto?> TestProviderAsync(
         string name, CancellationToken ct = default)
     {

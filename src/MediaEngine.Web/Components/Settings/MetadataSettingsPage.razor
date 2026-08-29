@@ -261,14 +261,15 @@
                           Value="@draft.Enabled"
                           Disabled="@provider.RequiredSystemProvider"
                           ValueChanged="@(value => draft.Enabled = value)" />
-            @if (provider.RequiresKey)
+            @foreach (var credential in provider.Catalogue.Onboarding?.Credentials ?? [])
             {
-                <AppTextField Value="@draft.ApiKeyReplacement"
-                              ValueChanged="@(value => draft.ApiKeyReplacement = value ?? string.Empty)"
-                              Label="API key"
-                              Placeholder="@(provider.HasKey ? "Configured — enter a replacement" : "Enter API key")"
-                              HelpText="The stored credential is never returned to this page."
-                              InputType="InputType.Password" />
+                var credentialKey = credential.Key;
+                <AppTextField Value="@draft.CredentialReplacements.GetValueOrDefault(credentialKey)"
+                              ValueChanged="@(value => draft.CredentialReplacements[credentialKey] = value ?? string.Empty)"
+                              Label="@credential.Label"
+                              Placeholder="@(credential.Configured ? "Configured — enter a replacement" : $"Enter {credential.Label}")"
+                              HelpText="@(credential.FormatHint ?? "The stored credential is never returned to this page.")"
+                              InputType="@(string.Equals(credential.InputType, "password", StringComparison.OrdinalIgnoreCase) ? InputType.Password : InputType.Text)" />
             }
             <AppSelect Value="@draft.LanguageStrategy"
                        ValueChanged="@(value => draft.LanguageStrategy = value ?? "source")"
@@ -372,6 +373,19 @@
             foreach (var (key, draft) in _providerDrafts)
             {
                 if (_providerBaselines.GetValueOrDefault(key) == draft.Fingerprint()) continue;
+                if (draft.HasCredentialReplacements)
+                {
+                    var credentialResult = await ApiClient.SaveProviderCredentialsAsync(key, draft.ToCredentialRequest());
+                    if (credentialResult?.Success != true)
+                    {
+                        Snackbar.Add(
+                            credentialResult?.Message ?? $"Could not save {CatalogueService.GetDisplayName(key)} credentials.",
+                            Severity.Error);
+                        return;
+                    }
+
+                    draft.CredentialReplacements.Clear();
+                }
                 if (!await ApiClient.SaveProviderConfigAsync(key, draft.ToUpdate("api")))
                 {
                     Snackbar.Add($"Could not save {CatalogueService.GetDisplayName(key)} settings.", Severity.Error);
@@ -396,6 +410,20 @@
         if (!_testing.Add(key)) return;
         try
         {
+            var provider = _snapshot?.Providers.FirstOrDefault(item =>
+                string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase));
+            if (provider?.Catalogue.Onboarding?.Credentials.Count > 0)
+            {
+                var credentialResult = await ApiClient.TestProviderCredentialsAsync(
+                    key,
+                    DraftFor(key).ToCredentialRequest());
+                _testMessages[key] = credentialResult?.Message ?? "No authentication result was returned.";
+                Snackbar.Add(
+                    _testMessages[key],
+                    credentialResult?.Success == true ? Severity.Success : Severity.Warning);
+                return;
+            }
+
             var result = await ApiClient.TestProviderAsync(key);
             _testMessages[key] = result?.Message ?? "No connection result was returned.";
             Snackbar.Add(_testMessages[key], result?.Success == true ? Severity.Success : Severity.Warning);

@@ -512,5 +512,20 @@
   "requires_api_key": false,
   "custom_icon_name": null,
   "language_strategy": "localized",
-  "ui_metadata": null
+  "ui_metadata": null,
+  "onboarding": {
+    "classification": "built_in",
+    "signup_url": null,
+    "help_url": "https://performance-partners.apple.com/search-api",
+    "terms_url": "https://www.apple.com/legal/internet-services/itunes/",
+    "privacy_url": "https://www.apple.com/legal/privacy/",
+    "supported_lanes": ["read", "listen"],
+    "required_scopes": [],
+    "skip_consequences": [
+      { "lane": "read", "summary": "Books will lose the default Apple catalogue identity and artwork source.", "unavailable_capabilities": ["identity", "metadata", "artwork", "ratings"] },
+      { "lane": "listen", "summary": "Music and audiobooks will lose the default Apple catalogue identity and artwork source.", "unavailable_capabilities": ["identity", "metadata", "artwork", "ratings"] }
+    ],
+    "credentials": [],
+    "authentication_probe": null
+  }
 }

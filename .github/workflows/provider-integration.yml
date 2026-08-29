@@ -1,0 +1,44 @@
+name: Live Provider Integration
+
+on:
+  schedule:
+    - cron: "23 8 * * 2"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  live-provider-checks:
+    name: Read-only provider checks
+    runs-on: ubuntu-latest
+    environment: provider-integration
+    env:
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+      DOTNET_CLI_TELEMETRY_OPTOUT: true
+      TUVIMA_RUN_LIVE_PROVIDER_TESTS: "true"
+      TUVIMA_TEST_TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.2xx"
+
+      - name: Restore provider tests
+        run: dotnet restore tests/MediaEngine.Providers.Tests/MediaEngine.Providers.Tests.csproj
+
+      - name: Build provider tests
+        run: dotnet build tests/MediaEngine.Providers.Tests/MediaEngine.Providers.Tests.csproj --no-restore --warnaserror
+
+      - name: Run read-only live checks
+        run: dotnet test tests/MediaEngine.Providers.Tests/MediaEngine.Providers.Tests.csproj --no-build --filter "Category=LiveProvider" --logger "trx;LogFileName=provider-integration.trx" --results-directory ./TestResults
+
+      - name: Upload sanitized test result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: provider-integration-results
+          path: ./TestResults/*.trx
+          retention-days: 14

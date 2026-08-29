@@ -237,6 +237,104 @@ public sealed class ProviderConfiguration
     /// </summary>
     [JsonPropertyName("ui_metadata")]
     public ProviderUiMetadata? UiMetadata { get; set; }
+
+    /// <summary>
+    /// Provider-neutral setup metadata consumed by first-run and settings UI.
+    /// Provider names, signup instructions, credential fields, and skip impact
+    /// belong here rather than in Dashboard components.
+    /// </summary>
+    [JsonPropertyName("onboarding")]
+    public ProviderOnboardingConfiguration? Onboarding { get; set; }
+}
+
+/// <summary>Declarative provider setup contract.</summary>
+public sealed class ProviderOnboardingConfiguration
+{
+    /// <summary><c>built_in</c>, <c>recommended</c>, or <c>optional</c>.</summary>
+    [JsonPropertyName("classification")]
+    public string Classification { get; set; } = "optional";
+
+    [JsonPropertyName("signup_url")]
+    public string? SignupUrl { get; set; }
+
+    [JsonPropertyName("help_url")]
+    public string? HelpUrl { get; set; }
+
+    [JsonPropertyName("terms_url")]
+    public string? TermsUrl { get; set; }
+
+    [JsonPropertyName("privacy_url")]
+    public string? PrivacyUrl { get; set; }
+
+    /// <summary>Stable lane identifiers: <c>read</c>, <c>watch</c>, and <c>listen</c>.</summary>
+    [JsonPropertyName("supported_lanes")]
+    public List<string> SupportedLanes { get; set; } = [];
+
+    [JsonPropertyName("required_scopes")]
+    public List<string> RequiredScopes { get; set; } = [];
+
+    [JsonPropertyName("skip_consequences")]
+    public List<ProviderSkipConsequenceConfiguration> SkipConsequences { get; set; } = [];
+
+    [JsonPropertyName("credentials")]
+    public List<ProviderCredentialFieldConfiguration> Credentials { get; set; } = [];
+
+    [JsonPropertyName("authentication_probe")]
+    public ProviderAuthenticationProbeConfiguration? AuthenticationProbe { get; set; }
+}
+
+public sealed class ProviderSkipConsequenceConfiguration
+{
+    [JsonPropertyName("lane")]
+    public string Lane { get; set; } = string.Empty;
+
+    [JsonPropertyName("summary")]
+    public string Summary { get; set; } = string.Empty;
+
+    [JsonPropertyName("unavailable_capabilities")]
+    public List<string> UnavailableCapabilities { get; set; } = [];
+}
+
+public sealed class ProviderCredentialFieldConfiguration
+{
+    /// <summary>Stable storage key such as <c>api_key</c>.</summary>
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("input_type")]
+    public string InputType { get; set; } = "password";
+
+    [JsonPropertyName("required")]
+    public bool Required { get; set; } = true;
+
+    [JsonPropertyName("format_hint")]
+    public string? FormatHint { get; set; }
+
+    [JsonPropertyName("minimum_length")]
+    public int? MinimumLength { get; set; }
+
+    [JsonPropertyName("maximum_length")]
+    public int? MaximumLength { get; set; }
+
+    /// <summary>Server-side local validation pattern. It is not returned to clients.</summary>
+    [JsonPropertyName("validation_pattern")]
+    public string? ValidationPattern { get; set; }
+}
+
+public sealed class ProviderAuthenticationProbeConfiguration
+{
+    /// <summary>Relative path beneath the provider's configured API endpoint.</summary>
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    [JsonPropertyName("method")]
+    public string Method { get; set; } = "GET";
+
+    [JsonPropertyName("success_status_codes")]
+    public List<int> SuccessStatusCodes { get; set; } = [200];
 }
 
 public sealed class ProviderSequenceManifestRequestConfiguration

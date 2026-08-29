@@ -444,6 +444,18 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<ProviderTestResultDto?> TestProviderAsync(string name, CancellationToken ct = default)
         => _api.TestProviderAsync(name, ct);
 
+    public Task<ProviderCredentialOperationResultDto?> TestProviderCredentialsAsync(
+        string name, ProviderCredentialWriteRequest request, CancellationToken ct = default)
+        => _api.TestProviderCredentialsAsync(name, request, ct);
+
+    public Task<ProviderCredentialOperationResultDto?> SaveProviderCredentialsAsync(
+        string name, ProviderCredentialWriteRequest request, CancellationToken ct = default)
+        => _api.SaveProviderCredentialsAsync(name, request, ct);
+
+    public Task<ProviderCredentialOperationResultDto?> RemoveProviderCredentialsAsync(
+        string name, CancellationToken ct = default)
+        => _api.RemoveProviderCredentialsAsync(name, ct);
+
     /// <summary>Fetches sample claims from a provider for the property picker.</summary>
     public Task<ProviderSampleResultDto?> FetchProviderSampleAsync(
         string name, string title, string? author = null,

@@ -63,8 +63,11 @@ public sealed class MetadataSettingsCompositionTests
         Assert.Contains("Provider enabled", page, StringComparison.Ordinal);
         Assert.Contains("Disabled=\"@provider.RequiredSystemProvider\"", page, StringComparison.Ordinal);
         Assert.Contains("The stored credential is never returned", page, StringComparison.Ordinal);
-        Assert.Contains("InputType=\"InputType.Password\"", page, StringComparison.Ordinal);
+        Assert.Contains("credential.InputType, \"password\"", page, StringComparison.Ordinal);
+        Assert.Contains("InputType.Password : InputType.Text", page, StringComparison.Ordinal);
         Assert.Contains("TestProviderAsync", page, StringComparison.Ordinal);
+        Assert.Contains("TestProviderCredentialsAsync", page, StringComparison.Ordinal);
+        Assert.Contains("SaveProviderCredentialsAsync", page, StringComparison.Ordinal);
         Assert.Contains("SaveProviderConfigAsync", page, StringComparison.Ordinal);
         Assert.DoesNotContain("UpdateHydrationSettingsAsync", page, StringComparison.Ordinal);
     }

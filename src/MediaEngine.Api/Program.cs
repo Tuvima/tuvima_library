@@ -190,6 +190,7 @@ catch (ConfigValidationException ex)
 }
 
 builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
+builder.Services.AddSingleton<ProviderCredentialService>();
 
 // -- Rate limiting -------------------------------------------------------------
 {

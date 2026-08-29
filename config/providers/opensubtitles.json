@@ -54,5 +54,21 @@
       "Movies": ["Download count", "Exact ID"],
       "TV": ["Episode match", "Language"]
     }
+  },
+  "onboarding": {
+    "classification": "optional",
+    "signup_url": "https://www.opensubtitles.com/en/consumers",
+    "help_url": "https://opensubtitles.stoplight.io/docs/opensubtitles-api/b1eb44d4c8502-open-subtitles-api",
+    "terms_url": "https://www.opensubtitles.com/en/tos",
+    "privacy_url": "https://www.opensubtitles.com/en/privacy",
+    "supported_lanes": ["watch"],
+    "required_scopes": ["Read-only OpenSubtitles API access"],
+    "skip_consequences": [
+      { "lane": "watch", "summary": "Movies and owned TV episodes will not receive downloadable subtitles from OpenSubtitles.", "unavailable_capabilities": ["subtitles"] }
+    ],
+    "credentials": [
+      { "key": "api_key", "label": "OpenSubtitles API Key", "input_type": "password", "required": true, "format_hint": "The API key assigned to your OpenSubtitles consumer application.", "minimum_length": 16, "maximum_length": 128, "validation_pattern": "^[A-Za-z0-9_-]+$" }
+    ],
+    "authentication_probe": { "path": "/infos/formats", "method": "GET", "success_status_codes": [200] }
   }
 }

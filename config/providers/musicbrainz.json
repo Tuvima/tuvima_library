@@ -315,5 +315,19 @@
         "tooltip": "Open the artist identity on MusicBrainz."
       }
     }
+  },
+  "onboarding": {
+    "classification": "built_in",
+    "signup_url": null,
+    "help_url": "https://musicbrainz.org/doc/MusicBrainz_API",
+    "terms_url": "https://musicbrainz.org/doc/About/Data_License",
+    "privacy_url": "https://musicbrainz.org/doc/About/Privacy_Policy",
+    "supported_lanes": ["listen"],
+    "required_scopes": [],
+    "skip_consequences": [
+      { "lane": "listen", "summary": "Music will lose the built-in recording, release, album, and artist identity source.", "unavailable_capabilities": ["identity", "metadata", "artwork", "people", "relationships"] }
+    ],
+    "credentials": [],
+    "authentication_probe": null
   }
 }

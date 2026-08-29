@@ -35,6 +35,22 @@
       }
     }
   },
+  "onboarding": {
+    "classification": "built_in",
+    "signup_url": null,
+    "help_url": "https://www.wikidata.org/wiki/Wikidata:Data_access",
+    "terms_url": "https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use",
+    "privacy_url": "https://foundation.wikimedia.org/wiki/Policy:Privacy_policy",
+    "supported_lanes": ["read", "watch", "listen"],
+    "required_scopes": [],
+    "skip_consequences": [
+      { "lane": "read", "summary": "Canonical work, person, series, and universe alignment would be unavailable for Read.", "unavailable_capabilities": ["identity", "metadata", "people", "relationships"] },
+      { "lane": "watch", "summary": "Canonical work, person, series, and universe alignment would be unavailable for Watch.", "unavailable_capabilities": ["identity", "metadata", "people", "relationships"] },
+      { "lane": "listen", "summary": "Canonical work, person, series, and universe alignment would be unavailable for Listen.", "unavailable_capabilities": ["identity", "metadata", "people", "relationships"] }
+    ],
+    "credentials": [],
+    "authentication_probe": null
+  },
   "batch_size": 50,
   "reconciliation": {
     "auto_accept_threshold": 95,

@@ -273,5 +273,21 @@
         "tooltip": "Open the matched issue on Comic Vine."
       }
     }
+  },
+  "onboarding": {
+    "classification": "recommended",
+    "signup_url": "https://comicvine.gamespot.com/api/",
+    "help_url": "https://comicvine.gamespot.com/api/documentation",
+    "terms_url": "https://www.fandom.com/terms-of-use",
+    "privacy_url": "https://www.fandom.com/privacy-policy",
+    "supported_lanes": ["read"],
+    "required_scopes": ["Read-only Comic Vine API access"],
+    "skip_consequences": [
+      { "lane": "read", "summary": "Comics will not receive Comic Vine issue identity, covers, creators, publisher facts, or volume sequencing.", "unavailable_capabilities": ["identity", "metadata", "artwork", "people", "relationships"] }
+    ],
+    "credentials": [
+      { "key": "api_key", "label": "Comic Vine API Key", "input_type": "password", "required": true, "format_hint": "The API key shown on your Comic Vine API page.", "minimum_length": 16, "maximum_length": 128, "validation_pattern": "^[A-Za-z0-9_-]+$" }
+    ],
+    "authentication_probe": { "path": "/types/", "method": "GET", "success_status_codes": [200] }
   }
 }

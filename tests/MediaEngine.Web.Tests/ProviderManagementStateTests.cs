@@ -5,7 +5,19 @@ namespace MediaEngine.Web.Tests;
 public sealed class ProviderManagementStateTests
 {
     [Fact]
-    public void EditorDraft_DoesNotSendAStoredCredentialPlaceholder()
+    public void ProviderSettings_UsesCatalogueCredentialFieldsWithoutProviderSpecificInstructions()
+    {
+        var page = File.ReadAllText(FindRepoFile(
+            "src", "MediaEngine.Web", "Components", "Settings", "MetadataSettingsPage.razor"));
+
+        Assert.Contains("Catalogue.Onboarding?.Credentials", page, StringComparison.Ordinal);
+        Assert.Contains("credential.Label", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("TMDB API Key", page, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Comic Vine API Key", page, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void EditorDraft_DoesNotSendCredentialsThroughProviderConfiguration()
     {
         var item = new ProviderManagementItem
         {
@@ -15,20 +27,23 @@ public sealed class ProviderManagementStateTests
             Endpoints = new Dictionary<string, string> { ["api"] = "https://example.test" },
         };
 
-        var update = ProviderEditorDraft.From(item).ToUpdate("api");
+        var draft = ProviderEditorDraft.From(item);
+        var update = draft.ToUpdate("api");
 
-        Assert.Null(update.ApiKey);
+        Assert.NotNull(update);
+        Assert.Empty(draft.ToCredentialRequest().Credentials);
     }
 
     [Fact]
     public void EditorDraft_SendsOnlyAnExplicitCredentialReplacement()
     {
         var draft = ProviderEditorDraft.From(new ProviderManagementItem { Key = "tmdb" });
-        draft.ApiKeyReplacement = "replacement";
+        draft.CredentialReplacements["api_key"] = "replacement";
 
-        var update = draft.ToUpdate("api");
+        var request = draft.ToCredentialRequest();
 
-        Assert.Equal("replacement", update.ApiKey);
+        Assert.Equal("replacement", request.Credentials["api_key"]);
+        Assert.DoesNotContain("replacement", draft.Fingerprint(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -40,5 +55,19 @@ public sealed class ProviderManagementStateTests
         draft.MaxConcurrency++;
 
         Assert.NotEqual(baseline, draft.Fingerprint());
+    }
+
+    private static string FindRepoFile(params string[] segments)
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            var candidate = Path.Combine([directory.FullName, .. segments]);
+            if (File.Exists(candidate))
+                return candidate;
+            directory = directory.Parent;
+        }
+
+        throw new FileNotFoundException(string.Join(Path.DirectorySeparatorChar, segments));
     }
 }

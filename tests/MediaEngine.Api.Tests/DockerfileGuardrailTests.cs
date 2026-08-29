@@ -223,7 +223,9 @@ public sealed class DockerfileGuardrailTests
             Assert.Equal("media", libraries.ViewStorage.StorageLocationId);
             Assert.Equal("/usr/bin/ffmpeg", transcoding.FfmpegBinaryPath);
             Assert.Equal("/usr/bin/ffprobe", transcoding.FfprobeBinaryPath);
-            Assert.False(Directory.Exists(Path.Combine(temporaryConfig, "secrets")));
+            var secretsDirectory = Path.Combine(temporaryConfig, "secrets");
+            Assert.True(Directory.Exists(secretsDirectory));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(secretsDirectory));
             Assert.False(Directory.Exists(Path.Combine(temporaryConfig, "backups")));
             Assert.Empty(Directory.EnumerateFiles(temporaryConfig, "*.bak", SearchOption.AllDirectories));
         }

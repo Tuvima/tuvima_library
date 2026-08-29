@@ -6,11 +6,12 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Providers.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Providers;
 
-public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider
+public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProviderCredentialConsumer
 {
     private readonly ProviderConfiguration _config;
     private readonly IHttpClientFactory _httpFactory;
@@ -40,6 +41,17 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider
     public TextTrackKind Kind => TextTrackKind.Subtitles;
 
     public bool IsEnabled => _config.Enabled;
+
+    /// <inheritdoc />
+    public void ApplyCredentials(IReadOnlyDictionary<string, string?> credentials)
+    {
+        _config.HttpClient ??= new HttpClientConfig();
+        _config.HttpClient.ApiKey = credentials.GetValueOrDefault("api_key");
+        _config.HttpClient.Username = credentials.GetValueOrDefault("username");
+        _config.HttpClient.Password = credentials.GetValueOrDefault("password");
+        _bearerToken = null;
+        _bearerTokenExpiresAt = default;
+    }
 
     public bool CanHandle(MediaType mediaType) => mediaType is MediaType.Movies or MediaType.TV;
 

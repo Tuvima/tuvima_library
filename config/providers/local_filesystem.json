@@ -9,5 +9,21 @@
   "endpoints": {},
   "rate_limit": null,
 
-  "adapter_type": "coded"
+  "adapter_type": "coded",
+  "onboarding": {
+    "classification": "built_in",
+    "signup_url": null,
+    "help_url": null,
+    "terms_url": null,
+    "privacy_url": null,
+    "supported_lanes": ["read", "watch", "listen"],
+    "required_scopes": [],
+    "skip_consequences": [
+      { "lane": "read", "summary": "Local file metadata is always required for Read ingestion.", "unavailable_capabilities": ["metadata"] },
+      { "lane": "watch", "summary": "Local file metadata is always required for Watch ingestion.", "unavailable_capabilities": ["metadata"] },
+      { "lane": "listen", "summary": "Local file metadata is always required for Listen ingestion.", "unavailable_capabilities": ["metadata"] }
+    ],
+    "credentials": [],
+    "authentication_probe": null
+  }
 }

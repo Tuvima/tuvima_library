@@ -304,6 +304,13 @@ public sealed class CoreSettingsWireContractTests
             SystemRole = "canonical_source",
             RequiredSystemProvider = true,
             LanguageStrategy = "source",
+            Onboarding = new ProviderOnboardingDto
+            {
+                Classification = "built_in",
+                SupportedLanes = ["read"],
+                RequiredScopes = ["Read-only metadata"],
+                Credentials = [],
+            },
         };
 
         var json = JsonSerializer.Serialize(catalogue, JsonOptions);
@@ -317,5 +324,7 @@ public sealed class CoreSettingsWireContractTests
         Assert.Equal("canonical_source", roundTrip.SystemRole);
         Assert.True(roundTrip.RequiredSystemProvider);
         Assert.Equal("source", roundTrip.LanguageStrategy);
+        Assert.Equal("built_in", roundTrip.Onboarding!.Classification);
+        Assert.Equal(["read"], roundTrip.Onboarding.SupportedLanes);
     }
 }

@@ -47,7 +47,7 @@ public static class ProviderCatalogueEndpoints
 
     // ── Private helpers ──────────────────────────────────────────────────────────
 
-    private static ProviderCatalogueDto MapToEntry(MediaEngine.Domain.Configuration.ProviderConfiguration p)
+    internal static ProviderCatalogueDto MapToEntry(MediaEngine.Domain.Configuration.ProviderConfiguration p)
     {
         var ui = p.UiMetadata;
 
@@ -89,8 +89,57 @@ public static class ProviderCatalogueEndpoints
             SystemRole          = ui?.SystemRole,
             RequiredSystemProvider = ui?.RequiredSystemProvider ?? false,
             LanguageStrategy    = p.LanguageStrategyRaw,
+            Onboarding          = MapOnboarding(p),
         };
     }
+
+    private static ProviderOnboardingDto? MapOnboarding(
+        MediaEngine.Domain.Configuration.ProviderConfiguration provider)
+    {
+        var onboarding = provider.Onboarding;
+        if (onboarding is null)
+            return null;
+
+        return new ProviderOnboardingDto
+        {
+            Classification = onboarding.Classification,
+            SignupUrl = onboarding.SignupUrl,
+            HelpUrl = onboarding.HelpUrl,
+            TermsUrl = onboarding.TermsUrl,
+            PrivacyUrl = onboarding.PrivacyUrl,
+            SupportedLanes = [.. onboarding.SupportedLanes],
+            RequiredScopes = [.. onboarding.RequiredScopes],
+            SkipConsequences = onboarding.SkipConsequences.Select(consequence =>
+                new ProviderSkipConsequenceDto
+                {
+                    Lane = consequence.Lane,
+                    Summary = consequence.Summary,
+                    UnavailableCapabilities = [.. consequence.UnavailableCapabilities],
+                }).ToList(),
+            Credentials = onboarding.Credentials.Select(field =>
+                new ProviderCredentialFieldDto
+                {
+                    Key = field.Key,
+                    Label = field.Label,
+                    InputType = field.InputType,
+                    Required = field.Required,
+                    FormatHint = field.FormatHint,
+                    MinimumLength = field.MinimumLength,
+                    MaximumLength = field.MaximumLength,
+                    Configured = IsCredentialConfigured(provider, field.Key),
+                }).ToList(),
+        };
+    }
+
+    private static bool IsCredentialConfigured(
+        MediaEngine.Domain.Configuration.ProviderConfiguration provider,
+        string key) => key.ToLowerInvariant() switch
+        {
+            "api_key" => !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey),
+            "username" => !string.IsNullOrWhiteSpace(provider.HttpClient?.Username),
+            "password" => !string.IsNullOrWhiteSpace(provider.HttpClient?.Password),
+            _ => false,
+        };
 
     private static Dictionary<string, List<string>> BuildChips(
         Dictionary<string, List<string>>? source)

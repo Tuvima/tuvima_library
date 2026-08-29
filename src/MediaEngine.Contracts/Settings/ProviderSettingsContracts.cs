@@ -67,6 +67,105 @@ public sealed class ProviderCatalogueDto
 
     [JsonPropertyName("languageStrategy")]
     public string LanguageStrategy { get; set; } = "source";
+
+    [JsonPropertyName("onboarding")]
+    public ProviderOnboardingDto? Onboarding { get; set; }
+}
+
+public sealed class ProviderOnboardingDto
+{
+    [JsonPropertyName("classification")]
+    public string Classification { get; set; } = "optional";
+
+    [JsonPropertyName("signupUrl")]
+    public string? SignupUrl { get; set; }
+
+    [JsonPropertyName("helpUrl")]
+    public string? HelpUrl { get; set; }
+
+    [JsonPropertyName("termsUrl")]
+    public string? TermsUrl { get; set; }
+
+    [JsonPropertyName("privacyUrl")]
+    public string? PrivacyUrl { get; set; }
+
+    [JsonPropertyName("supportedLanes")]
+    public List<string> SupportedLanes { get; set; } = [];
+
+    [JsonPropertyName("requiredScopes")]
+    public List<string> RequiredScopes { get; set; } = [];
+
+    [JsonPropertyName("skipConsequences")]
+    public List<ProviderSkipConsequenceDto> SkipConsequences { get; set; } = [];
+
+    [JsonPropertyName("credentials")]
+    public List<ProviderCredentialFieldDto> Credentials { get; set; } = [];
+}
+
+public sealed class ProviderSkipConsequenceDto
+{
+    [JsonPropertyName("lane")]
+    public string Lane { get; set; } = string.Empty;
+
+    [JsonPropertyName("summary")]
+    public string Summary { get; set; } = string.Empty;
+
+    [JsonPropertyName("unavailableCapabilities")]
+    public List<string> UnavailableCapabilities { get; set; } = [];
+}
+
+public sealed class ProviderCredentialFieldDto
+{
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("inputType")]
+    public string InputType { get; set; } = "password";
+
+    [JsonPropertyName("required")]
+    public bool Required { get; set; }
+
+    [JsonPropertyName("formatHint")]
+    public string? FormatHint { get; set; }
+
+    [JsonPropertyName("minimumLength")]
+    public int? MinimumLength { get; set; }
+
+    [JsonPropertyName("maximumLength")]
+    public int? MaximumLength { get; set; }
+
+    [JsonPropertyName("configured")]
+    public bool Configured { get; set; }
+}
+
+public sealed class ProviderCredentialWriteRequest
+{
+    [JsonPropertyName("credentials")]
+    public Dictionary<string, string> Credentials { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+public sealed class ProviderCredentialOperationResultDto
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "connectivity_failure";
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("responseTimeMs")]
+    public int ResponseTimeMs { get; set; }
+
+    [JsonPropertyName("retryAfterSeconds")]
+    public int? RetryAfterSeconds { get; set; }
+
+    [JsonPropertyName("fieldErrors")]
+    public Dictionary<string, string> FieldErrors { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class ProviderExternalLinkDto
@@ -261,9 +360,6 @@ public sealed class ProviderConfigUpdateDto
 
     [JsonPropertyName("timeout_seconds")]
     public int? TimeoutSeconds { get; set; }
-
-    [JsonPropertyName("api_key")]
-    public string? ApiKey { get; set; }
 
     [JsonPropertyName("custom_icon_name")]
     public string? CustomIconName { get; set; }

@@ -35,7 +35,7 @@ namespace MediaEngine.Providers.Adapters;
 /// in <c>config/providers/</c>, restart, done.
 /// </para>
 /// </summary>
-public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider
+public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IProviderCredentialConsumer
 {
     private readonly ProviderConfiguration _config;
     private readonly IHttpClientFactory _httpFactory;
@@ -91,6 +91,15 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider
     public IReadOnlyList<string> CapabilityTags => _config.CapabilityTags;
 
     public Guid ProviderId => _providerId;
+
+    /// <inheritdoc />
+    public void ApplyCredentials(IReadOnlyDictionary<string, string?> credentials)
+    {
+        _config.HttpClient ??= new HttpClientConfig();
+        _config.HttpClient.ApiKey = credentials.GetValueOrDefault("api_key");
+        _config.HttpClient.Username = credentials.GetValueOrDefault("username");
+        _config.HttpClient.Password = credentials.GetValueOrDefault("password");
+    }
 
     public bool CanHandle(MediaType mediaType) =>
         _mediaTypes.Count == 0 || mediaType == MediaType.Unknown || _mediaTypes.Contains(mediaType);

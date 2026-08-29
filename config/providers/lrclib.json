@@ -46,5 +46,19 @@
     "ranking_chips": {
       "Music": ["Duration match", "Artist/title"]
     }
+  },
+  "onboarding": {
+    "classification": "optional",
+    "signup_url": null,
+    "help_url": "https://lrclib.net/docs",
+    "terms_url": null,
+    "privacy_url": null,
+    "supported_lanes": ["listen"],
+    "required_scopes": [],
+    "skip_consequences": [
+      { "lane": "listen", "summary": "Songs will not receive synchronized lyrics from LRCLIB.", "unavailable_capabilities": ["lyrics"] }
+    ],
+    "credentials": [],
+    "authentication_probe": null
   }
 }

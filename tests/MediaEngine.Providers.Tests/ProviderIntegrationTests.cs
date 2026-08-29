@@ -29,7 +29,7 @@ namespace MediaEngine.Providers.Tests;
 /// Cover art: downloaded as bytes, SHA-256 hashed, hash logged — images discarded.
 /// These tests are intentionally separated from unit tests via the Integration trait.
 /// </summary>
-[Trait("Category", "Integration")]
+[Trait("Category", "LiveProvider")]
 public sealed class ProviderIntegrationTests
 {
     private readonly ITestOutputHelper _output;
@@ -41,7 +41,7 @@ public sealed class ProviderIntegrationTests
 
     // ── Apple Books (Ebook) ──────────────────────────────────────────────────
 
-    [Fact(Skip = "Requires live Apple API network access. Run locally with: dotnet test --filter Category=Integration")]
+    [LiveProviderFact]
     public async Task AppleBooks_Ebook_Returns_Claims_For_FellowshipOfTheRing()
     {
         var adapter = BuildConfigDrivenAdapter("apple_api");
@@ -70,7 +70,7 @@ public sealed class ProviderIntegrationTests
 
     // ── Apple Books (Audiobook) ──────────────────────────────────────────────
 
-    [Fact(Skip = "Requires live Apple API network access. Run locally with: dotnet test --filter Category=Integration")]
+    [LiveProviderFact]
     public async Task AppleBooks_Audiobook_Returns_Claims_For_FellowshipOfTheRing()
     {
         var adapter = BuildConfigDrivenAdapter("apple_api");
@@ -96,7 +96,7 @@ public sealed class ProviderIntegrationTests
 
     // ── Open Library ─────────────────────────────────────────────────────────
 
-    [Fact(Skip = "Requires live OpenLibrary API network access. OpenLibrary is not part of the default Tuvima Library provider path; run locally with: dotnet test --filter Category=Integration")]
+    [LiveProviderFact]
     public async Task OpenLibrary_Returns_Claims_For_FellowshipOfTheRing()
     {
         var adapter = BuildConfigDrivenAdapter("open_library");
@@ -127,7 +127,7 @@ public sealed class ProviderIntegrationTests
 
     // ── Open Library (ISBN-first search) ─────────────────────────────────────
 
-    [Fact(Skip = "Requires live OpenLibrary API network access. OpenLibrary is not part of the default Tuvima Library provider path; run locally with: dotnet test --filter Category=Integration")]
+    [LiveProviderFact]
     public async Task OpenLibrary_ISBN_Search_Returns_Claims()
     {
         var adapter = BuildConfigDrivenAdapter("open_library");
@@ -150,7 +150,7 @@ public sealed class ProviderIntegrationTests
 
     // ── Search tests (multi-result SearchAsync) ─────────────────────────────
 
-    [Fact(Skip = "Requires live Apple API network access. Run locally with: dotnet test --filter Category=Integration")]
+    [LiveProviderFact]
     public async Task AppleBooks_Search_Returns_Results()
     {
         var adapter = BuildConfigDrivenAdapter("apple_api");
@@ -175,7 +175,7 @@ public sealed class ProviderIntegrationTests
         Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
     }
 
-    [Fact(Skip = "Requires live OpenLibrary API network access. OpenLibrary is not part of the default Tuvima Library provider path; run locally with: dotnet test --filter Category=Integration")]
+    [LiveProviderFact]
     public async Task OpenLibrary_Search_Returns_Results()
     {
         var adapter = BuildConfigDrivenAdapter("open_library");
@@ -200,6 +200,29 @@ public sealed class ProviderIntegrationTests
         Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
     }
 
+    [LiveProviderFact]
+    public async Task Tmdb_ReadOnlyCredential_Returns_MovieClaims()
+    {
+        var apiKey = Environment.GetEnvironmentVariable("TUVIMA_TEST_TMDB_API_KEY");
+        Assert.False(string.IsNullOrWhiteSpace(apiKey), "TUVIMA_TEST_TMDB_API_KEY must be injected by the live-provider workflow.");
+        var adapter = BuildConfigDrivenAdapter("tmdb", apiKey);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.Work,
+            MediaType = MediaType.Movies,
+            Title = "The Lord of the Rings: The Fellowship of the Ring",
+            BaseUrl = "https://api.themoviedb.org/3",
+            Language = "en",
+            Country = "US",
+        });
+
+        LogClaims("TMDB", claims);
+        Assert.NotEmpty(claims);
+        AssertHasClaim(claims, "tmdb_id");
+    }
+
     // ── Config-driven adapter builder ───────────────────────────────────────
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()
@@ -213,9 +236,14 @@ public sealed class ProviderIntegrationTests
     /// and creates a <see cref="ConfigDrivenAdapter"/> with a real HTTP client factory.
     /// Proves that the JSON config files correctly drive the universal adapter.
     /// </summary>
-    private static ConfigDrivenAdapter BuildConfigDrivenAdapter(string configName)
+    private static ConfigDrivenAdapter BuildConfigDrivenAdapter(string configName, string? apiKey = null)
     {
         var config = LoadExampleConfig(configName);
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            config.HttpClient ??= new HttpClientConfig();
+            config.HttpClient.ApiKey = apiKey;
+        }
         var factory = BuildRealHttpFactory(config.Name);
         return new ConfigDrivenAdapter(config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
     }
@@ -315,6 +343,20 @@ public sealed class ProviderIntegrationTests
         }
         var sp = services.BuildServiceProvider();
         return sp.GetRequiredService<IHttpClientFactory>();
+    }
+}
+
+file sealed class LiveProviderFactAttribute : FactAttribute
+{
+    public LiveProviderFactAttribute()
+    {
+        if (!string.Equals(
+                Environment.GetEnvironmentVariable("TUVIMA_RUN_LIVE_PROVIDER_TESTS"),
+                "true",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            Skip = "Live provider checks run only in the scheduled secret-injected integration workflow.";
+        }
     }
 }
 

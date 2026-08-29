@@ -600,10 +600,25 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     private void EnsureInitialized()
     {
         if (Directory.Exists(_configDir))
-            return; // Already initialized
+        {
+            EnsureSecretsDirectory();
+            return;
+        }
 
         // First run — create defaults
         CreateDefaultDirectory();
+        EnsureSecretsDirectory();
+    }
+
+    private void EnsureSecretsDirectory()
+    {
+        var secretsDirectory = Directory.CreateDirectory(Path.Combine(_configDir, "secrets"));
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(
+                secretsDirectory.FullName,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
     }
 
     /// <summary>

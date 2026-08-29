@@ -67,6 +67,7 @@ public sealed class ProviderAdapterDecompositionGuardrailTests
 
         Assert.Equal(
             [
+                "ApplyCredentials",
                 "CanHandle",
                 "FetchAsync",
                 "SearchAsync",

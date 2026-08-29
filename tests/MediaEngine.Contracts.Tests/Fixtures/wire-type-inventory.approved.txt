@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=634; api=0; web-client=87
+# scopes: contracts=639; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6166,7 +6166,8 @@
   SystemRole: System.String | json=systemRole | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RequiredSystemProvider: System.Boolean | json=requiredSystemProvider | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LanguageStrategy: System.String | json=languageStrategy | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"providerId":"sample","name":"sample","displayName":"sample","enabled":true,"domain":"sample","mediaTypes":[],"accentColor":"sample","materialIcon":"sample","externalUrlTemplate":"sample","externalLinks":{},"category":"sample","requiresKey":true,"authType":"sample","searchChips":{},"rankingChips":{},"iconPath":"sample","hydrationStages":[],"capabilities":[],"systemRole":"sample","requiredSystemProvider":true,"languageStrategy":"sample"}
+  Onboarding: MediaEngine.Contracts.Settings.ProviderOnboardingDto | json=onboarding | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"providerId":"sample","name":"sample","displayName":"sample","enabled":true,"domain":"sample","mediaTypes":[],"accentColor":"sample","materialIcon":"sample","externalUrlTemplate":"sample","externalLinks":{},"category":"sample","requiresKey":true,"authType":"sample","searchChips":{},"rankingChips":{},"iconPath":"sample","hydrationStages":[],"capabilities":[],"systemRole":"sample","requiredSystemProvider":true,"languageStrategy":"sample","onboarding":null}
 
 [contracts] MediaEngine.Contracts.Settings.ProviderConfigUpdateDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6180,9 +6181,35 @@
   LanguageStrategy: System.String | json=language_strategy | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   FieldMappings: System.Collections.Generic.List<MediaEngine.Contracts.Settings.FieldMappingDto> | json=field_mappings | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   TimeoutSeconds: System.Int32? | json=timeout_seconds | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ApiKey: System.String | json=api_key | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CustomIconName: System.String | json=custom_icon_name | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"enabled":true,"weight":7,"field_weights":{},"capability_tags":[],"endpoints":{},"throttle_ms":7,"max_concurrency":7,"language_strategy":"sample","field_mappings":[],"timeout_seconds":7,"api_key":"sample","custom_icon_name":"sample"}
+  sample={"enabled":true,"weight":7,"field_weights":{},"capability_tags":[],"endpoints":{},"throttle_ms":7,"max_concurrency":7,"language_strategy":"sample","field_mappings":[],"timeout_seconds":7,"custom_icon_name":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.ProviderCredentialFieldDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Key: System.String | json=key | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Label: System.String | json=label | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  InputType: System.String | json=inputType | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Required: System.Boolean | json=required | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FormatHint: System.String | json=formatHint | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MinimumLength: System.Int32? | json=minimumLength | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MaximumLength: System.Int32? | json=maximumLength | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Configured: System.Boolean | json=configured | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"key":"sample","label":"sample","inputType":"sample","required":true,"formatHint":"sample","minimumLength":7,"maximumLength":7,"configured":true}
+
+[contracts] MediaEngine.Contracts.Settings.ProviderCredentialOperationResultDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Success: System.Boolean | json=success | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Status: System.String | json=status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Message: System.String | json=message | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ResponseTimeMs: System.Int32 | json=responseTimeMs | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RetryAfterSeconds: System.Int32? | json=retryAfterSeconds | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FieldErrors: System.Collections.Generic.Dictionary<System.String, System.String> | json=fieldErrors | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"success":true,"status":"sample","message":"sample","responseTimeMs":7,"retryAfterSeconds":7,"fieldErrors":{}}
+
+[contracts] MediaEngine.Contracts.Settings.ProviderCredentialWriteRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Credentials: System.Collections.Generic.Dictionary<System.String, System.String> | json=credentials | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"credentials":{}}
 
 [contracts] MediaEngine.Contracts.Settings.ProviderExternalLinkDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6207,6 +6234,19 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   path: System.String | json=path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
+[contracts] MediaEngine.Contracts.Settings.ProviderOnboardingDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Classification: System.String | json=classification | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SignupUrl: System.String | json=signupUrl | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HelpUrl: System.String | json=helpUrl | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TermsUrl: System.String | json=termsUrl | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PrivacyUrl: System.String | json=privacyUrl | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SupportedLanes: System.Collections.Generic.List<System.String> | json=supportedLanes | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RequiredScopes: System.Collections.Generic.List<System.String> | json=requiredScopes | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SkipConsequences: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ProviderSkipConsequenceDto> | json=skipConsequences | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Credentials: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ProviderCredentialFieldDto> | json=credentials | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"classification":"sample","signupUrl":"sample","helpUrl":"sample","termsUrl":"sample","privacyUrl":"sample","supportedLanes":[],"requiredScopes":[],"skipConsequences":[],"credentials":[]}
+
 [contracts] MediaEngine.Contracts.Settings.ProviderSampleClaimDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Key: System.String | json=key | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -6229,6 +6269,13 @@
   Claims: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ProviderSampleClaimDto> | json=claims | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Message: System.String | json=message | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"provider_name":"sample","claims":[],"message":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.ProviderSkipConsequenceDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Lane: System.String | json=lane | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Summary: System.String | json=summary | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  UnavailableCapabilities: System.Collections.Generic.List<System.String> | json=unavailableCapabilities | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"lane":"sample","summary":"sample","unavailableCapabilities":[]}
 
 [contracts] MediaEngine.Contracts.Settings.ProviderStatusDto
   kind=class | converter=default | number-handling=default | unmapped=default

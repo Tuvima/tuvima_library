@@ -183,6 +183,15 @@ public partial interface IEngineApiClient
     /// <summary>POST /settings/providers/{name}/test — test a provider's connectivity.</summary>
     Task<ProviderTestResultDto?> TestProviderAsync(string name, CancellationToken ct = default);
 
+    Task<ProviderCredentialOperationResultDto?> TestProviderCredentialsAsync(
+        string name, ProviderCredentialWriteRequest request, CancellationToken ct = default);
+
+    Task<ProviderCredentialOperationResultDto?> SaveProviderCredentialsAsync(
+        string name, ProviderCredentialWriteRequest request, CancellationToken ct = default);
+
+    Task<ProviderCredentialOperationResultDto?> RemoveProviderCredentialsAsync(
+        string name, CancellationToken ct = default);
+
     /// <summary>POST /settings/providers/{name}/sample — fetch sample claims from a provider.</summary>
     Task<ProviderSampleResultDto?> FetchProviderSampleAsync(
         string name, string title, string? author = null,

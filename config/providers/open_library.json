@@ -75,5 +75,19 @@
     { "claim_key": "description", "json_path": "first_sentence[0]",  "confidence": 0.6, "transform": "strip_html" },
     { "claim_key": "publisher", "json_path": "publisher[0]",       "confidence": 0.7 },
     { "claim_key": "language",  "json_path": "language[0]",        "confidence": 0.7 }
-  ]
+  ],
+  "onboarding": {
+    "classification": "optional",
+    "signup_url": null,
+    "help_url": "https://openlibrary.org/developers/api",
+    "terms_url": "https://archive.org/about/terms.php",
+    "privacy_url": "https://archive.org/about/privacy.php",
+    "supported_lanes": ["read"],
+    "required_scopes": [],
+    "skip_consequences": [
+      { "lane": "read", "summary": "Books will not use Open Library as an additional ISBN, publication, description, or cover source.", "unavailable_capabilities": ["identity", "metadata", "artwork", "people"] }
+    ],
+    "credentials": [],
+    "authentication_probe": null
+  }
 }

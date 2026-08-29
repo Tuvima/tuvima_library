@@ -296,5 +296,38 @@
         "tooltip": "Open the title on IMDb."
       }
     }
+  },
+  "onboarding": {
+    "classification": "recommended",
+    "signup_url": "https://www.themoviedb.org/settings/api",
+    "help_url": "https://developer.themoviedb.org/docs/getting-started",
+    "terms_url": "https://www.themoviedb.org/api-terms-of-use",
+    "privacy_url": "https://www.themoviedb.org/privacy-policy",
+    "supported_lanes": ["watch"],
+    "required_scopes": ["Read-only application access to the TMDB API"],
+    "skip_consequences": [
+      {
+        "lane": "watch",
+        "summary": "Movies and TV shows will not receive TMDB identity, artwork, ratings, cast, or relationship metadata.",
+        "unavailable_capabilities": ["identity", "metadata", "artwork", "ratings", "people", "relationships"]
+      }
+    ],
+    "credentials": [
+      {
+        "key": "api_key",
+        "label": "TMDB API Key (v3 auth)",
+        "input_type": "password",
+        "required": true,
+        "format_hint": "32 hexadecimal characters from the API section of your TMDB account.",
+        "minimum_length": 32,
+        "maximum_length": 32,
+        "validation_pattern": "^[A-Fa-f0-9]{32}$"
+      }
+    ],
+    "authentication_probe": {
+      "path": "/configuration",
+      "method": "GET",
+      "success_status_codes": [200]
+    }
   }
 }

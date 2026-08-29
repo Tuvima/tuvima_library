@@ -72,5 +72,22 @@
     "auth_type": "api_key",
     "search_chips": {},
     "ranking_chips": {}
+  },
+  "onboarding": {
+    "classification": "optional",
+    "signup_url": "https://fanart.tv/get-an-api-key/",
+    "help_url": "https://fanart.tv/api-docs/",
+    "terms_url": "https://fanart.tv/terms-of-service/",
+    "privacy_url": "https://fanart.tv/privacy-policy/",
+    "supported_lanes": ["watch", "listen"],
+    "required_scopes": ["Read-only Fanart.tv API access"],
+    "skip_consequences": [
+      { "lane": "watch", "summary": "Movies and TV shows will use other artwork sources and may have fewer logos or backgrounds.", "unavailable_capabilities": ["artwork"] },
+      { "lane": "listen", "summary": "Music will use other artwork sources and may have fewer artist or album images.", "unavailable_capabilities": ["artwork"] }
+    ],
+    "credentials": [
+      { "key": "api_key", "label": "Fanart.tv API Key", "input_type": "password", "required": true, "format_hint": "The personal API key from your Fanart.tv account.", "minimum_length": 16, "maximum_length": 128, "validation_pattern": "^[A-Za-z0-9_-]+$" }
+    ],
+    "authentication_probe": { "path": "/movies/603", "method": "GET", "success_status_codes": [200] }
   }
 }
