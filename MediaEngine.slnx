@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/MediaEngine.AI/MediaEngine.AI.csproj" />
+    <Project Path="src/MediaEngine.Admin/MediaEngine.Admin.csproj" />
     <Project Path="src/MediaEngine.Application/MediaEngine.Application.csproj" />
     <Project Path="src/MediaEngine.Api/MediaEngine.Api.csproj" />
     <Project Path="src/MediaEngine.Contracts/MediaEngine.Contracts.csproj" />
@@ -18,6 +19,7 @@
     <Project Path="src/MediaEngine.Web/MediaEngine.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/MediaEngine.Admin.Tests/MediaEngine.Admin.Tests.csproj" />
     <Project Path="tests/MediaEngine.Domain.Tests/MediaEngine.Domain.Tests.csproj" />
     <Project Path="tests/MediaEngine.Ingestion.Tests/MediaEngine.Ingestion.Tests.csproj" />
     <Project Path="tests/MediaEngine.Identity.Tests/MediaEngine.Identity.Tests.csproj" />

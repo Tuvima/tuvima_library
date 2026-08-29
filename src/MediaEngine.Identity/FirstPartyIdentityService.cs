@@ -13,7 +13,7 @@ public sealed class FirstPartyIdentityService(
     IIdentityRepository identities,
     IProfileRepository profiles,
     IPasswordHasher<ProfileCredential> passwordHasher,
-    TimeProvider timeProvider) : IFirstPartyIdentityService
+    TimeProvider timeProvider) : IFirstPartyIdentityService, IHostAdministratorRecoveryService
 {
     private const int MaxFailedAttempts = 5;
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
@@ -199,7 +199,7 @@ public sealed class FirstPartyIdentityService(
         return codes;
     }
 
-    public async Task<IReadOnlyList<string>> ResetLocalAdministratorPasswordAsync(
+    public async Task<IReadOnlyList<string>> ResetAdministratorPasswordFromHostAsync(
         string username,
         string newPassword,
         CancellationToken ct = default)
@@ -213,7 +213,7 @@ public sealed class FirstPartyIdentityService(
             : await profiles.GetByIdAsync(credential.ProfileId, ct).ConfigureAwait(false);
         if (credential is null || profile?.Role != ProfileRole.Administrator)
         {
-            await AuditAsync(profile?.Id, null, "local_administrator_password_reset", false, "invalid_administrator", ct)
+            await AuditAsync(profile?.Id, null, "host_administrator_password_reset", false, "invalid_administrator", ct)
                 .ConfigureAwait(false);
             throw new UnauthorizedAccessException("The local administrator information is invalid.");
         }
@@ -228,14 +228,14 @@ public sealed class FirstPartyIdentityService(
         await identities.RevokeProfileSessionsAsync(
             credential.ProfileId,
             UtcNow,
-            "local_administrator_password_reset",
+            "host_administrator_password_reset",
             null,
             ct).ConfigureAwait(false);
         var codes = await ReplaceRecoveryCodesAsync(credential.ProfileId, ct).ConfigureAwait(false);
         await AuditAsync(
             credential.ProfileId,
             null,
-            "local_administrator_password_reset",
+            "host_administrator_password_reset",
             true,
             null,
             ct).ConfigureAwait(false);

@@ -33,6 +33,47 @@ Every Engine endpoint requires authentication, with two exceptions:
 
 All other unauthenticated requests receive `401 Unauthorized`.
 
+## Local Administrator Password Recovery
+
+Tuvima Library does not expose an anonymous password-reset endpoint, including
+on localhost. A loopback request proves where a request originated, but it does
+not prove that the person making it owns or administers the library.
+
+Local administrator recovery has two supported paths:
+
+- Use one of the one-time recovery codes generated during first-run setup. A
+  successful recovery rotates the full set, so the used and previously saved
+  codes can no longer be reused.
+- Run the bundled `tuvima-admin auth reset-password` command on the Engine host.
+  The command requires an elevated Windows administrator terminal or effective
+  user ID 0 on Linux, macOS, and containers. It reads the new password from an
+  interactive, non-echoing prompt and refuses redirected input, so passwords
+  are never accepted as command-line arguments or shell input.
+
+For a source checkout, run this from an elevated terminal at the repository root:
+
+```powershell
+dotnet run --project src/MediaEngine.Admin -- auth reset-password --config-dir config
+```
+
+For the official container image, run:
+
+```bash
+docker exec -it --user 0 tuvima-library /app/admin/tuvima-admin auth reset-password
+```
+
+The host command verifies that the named credential belongs to an Administrator,
+changes its security stamp, clears password lockout state, revokes every active
+session for that profile, rotates all recovery codes, and records a security
+audit event. It fails if it cannot locate an existing library database and never
+creates or migrates a database as part of recovery.
+
+This design follows the same physical-host proof used by established local
+servers: Jellyfin writes a short-lived reset artifact into its server data
+directory, while Immich and Grafana provide server-side administrator commands.
+Tuvima uses the command model so resetting access requires operating-system or
+container administration rather than mere access to the Dashboard URL.
+
 ## Role-Based Authorization
 
 Each API key carries one of three roles:

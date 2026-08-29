@@ -51,20 +51,6 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients)
         return result?.RecoveryCodes;
     }
 
-    public async Task<IReadOnlyList<string>?> ResetLocalAdministratorPasswordAsync(
-        ResetLocalAdministratorPasswordRequest request,
-        CancellationToken ct = default)
-    {
-        using var response = await Client.PostAsJsonAsync(
-            "/auth/password/local-administrator-reset",
-            request,
-            ct).ConfigureAwait(false);
-        var result = response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<RecoveryCodesResponse>(cancellationToken: ct).ConfigureAwait(false)
-            : null;
-        return result?.RecoveryCodes;
-    }
-
     public async Task<List<DeviceSessionResponse>> GetSessionsAsync(CancellationToken ct = default) =>
         await Client.GetFromJsonAsync<List<DeviceSessionResponse>>("/auth/sessions", ct).ConfigureAwait(false) ?? [];
 

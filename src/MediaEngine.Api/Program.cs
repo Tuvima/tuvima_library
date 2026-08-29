@@ -108,39 +108,11 @@ builder.Services.AddSwaggerGen(options =>
 
 // -- Storage bootstrap ---------------------------------------------------------
 DapperConfiguration.Configure();
-string dbPath;
+string dbPath = TuvimaDataPathResolver.ResolveDatabasePath(
+    configDirectory,
+    Environment.GetEnvironmentVariable("TUVIMA_DB_PATH"),
+    Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT"));
 {
-    var environmentDatabasePath = Environment.GetEnvironmentVariable("TUVIMA_DB_PATH");
-    if (!string.IsNullOrWhiteSpace(environmentDatabasePath))
-    {
-        dbPath = environmentDatabasePath;
-    }
-    else
-    {
-        var coreJsonPath = Path.Combine(configDirectory, "core.json");
-        string? earlyLibraryRoot = null;
-        if (File.Exists(coreJsonPath))
-        {
-            using var stream = File.OpenRead(coreJsonPath);
-            using var document = System.Text.Json.JsonDocument.Parse(stream);
-            if (document.RootElement.TryGetProperty("library_root", out var libraryRoot))
-            {
-                earlyLibraryRoot = libraryRoot.GetString();
-            }
-        }
-
-        var environmentLibraryRoot =
-            Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
-        if (!string.IsNullOrWhiteSpace(environmentLibraryRoot))
-        {
-            earlyLibraryRoot = environmentLibraryRoot;
-        }
-
-        dbPath = !string.IsNullOrWhiteSpace(earlyLibraryRoot)
-            ? Path.Combine(earlyLibraryRoot, ".data", "database", "library.db")
-            : Path.Combine(".data", "database", "library.db");
-    }
-
     var databaseDirectory = Path.GetDirectoryName(Path.GetFullPath(dbPath));
     if (!string.IsNullOrEmpty(databaseDirectory))
     {

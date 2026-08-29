@@ -21,6 +21,7 @@ public sealed class DockerfileGuardrailTests
             "src/MediaEngine.Providers/MediaEngine.Providers.csproj",
             "src/MediaEngine.Ingestion/MediaEngine.Ingestion.csproj",
             "src/MediaEngine.Identity/MediaEngine.Identity.csproj",
+            "src/MediaEngine.Admin/MediaEngine.Admin.csproj",
             "src/MediaEngine.AI/MediaEngine.AI.csproj",
             "src/MediaEngine.Plugins/MediaEngine.Plugins.csproj",
             "src/MediaEngine.Plugin.CommercialSkip/MediaEngine.Plugin.CommercialSkip.csproj",
@@ -162,6 +163,8 @@ public sealed class DockerfileGuardrailTests
         Assert.Contains("TUVIMA_UMASK", entrypoint);
         Assert.Contains("exec gosu", entrypoint);
         Assert.Contains("Application startup refused to continue as root", entrypoint);
+        Assert.Contains("dotnet publish src/MediaEngine.Admin/MediaEngine.Admin.csproj", dockerfile);
+        Assert.Contains("COPY --from=build /app/admin", dockerfile);
         Assert.Contains("HEALTHCHECK", dockerfile);
         Assert.Contains("61495/health/live", dockerfile);
         Assert.Contains("5016/health/live", dockerfile);

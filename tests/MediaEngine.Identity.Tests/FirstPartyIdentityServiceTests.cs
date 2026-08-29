@@ -111,7 +111,7 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task LocalAdministratorPasswordReset_RevokesSessionsClearsLockoutAndRotatesRecoveryCodes()
+    public async Task HostAdministratorPasswordReset_RevokesSessionsClearsLockoutAndRotatesRecoveryCodes()
     {
         var bootstrap = await _service.BootstrapAdministratorAsync(
             "administrator", "correct horse battery staple", "Administrator", "browser-1", "Server", "Dashboard");
@@ -123,7 +123,7 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
                 "administrator", "wrong password", $"browser-{index + 2}", "Unknown", "Dashboard");
         }
 
-        var replacementCodes = await _service.ResetLocalAdministratorPasswordAsync(
+        var replacementCodes = await _service.ResetAdministratorPasswordFromHostAsync(
             "administrator", "a newer correct horse battery staple");
 
         Assert.Equal(10, replacementCodes.Count);
@@ -147,13 +147,13 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task LocalAdministratorPasswordReset_RejectsUnknownUsername()
+    public async Task HostAdministratorPasswordReset_RejectsUnknownUsername()
     {
         await _service.BootstrapAdministratorAsync(
             "administrator", "correct horse battery staple", "Administrator", "browser-1", "Server", "Dashboard");
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
-            _service.ResetLocalAdministratorPasswordAsync(
+            _service.ResetAdministratorPasswordFromHostAsync(
                 "somebody-else",
                 "a newer correct horse battery staple"));
     }

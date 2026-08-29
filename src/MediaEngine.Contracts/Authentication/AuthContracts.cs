@@ -87,12 +87,6 @@ public sealed class RecoverPasswordRequest
     [JsonPropertyName("new_password")] public string NewPassword { get; init; } = string.Empty;
 }
 
-public sealed class ResetLocalAdministratorPasswordRequest
-{
-    [JsonPropertyName("username")] public string Username { get; init; } = string.Empty;
-    [JsonPropertyName("new_password")] public string NewPassword { get; init; } = string.Empty;
-}
-
 public sealed class SetProfilePinRequest
 {
     [JsonPropertyName("pin")] public string Pin { get; init; } = string.Empty;

@@ -29,6 +29,7 @@ COPY src/MediaEngine.Processors/MediaEngine.Processors.csproj     src/MediaEngin
 COPY src/MediaEngine.Providers/MediaEngine.Providers.csproj       src/MediaEngine.Providers/
 COPY src/MediaEngine.Ingestion/MediaEngine.Ingestion.csproj       src/MediaEngine.Ingestion/
 COPY src/MediaEngine.Identity/MediaEngine.Identity.csproj         src/MediaEngine.Identity/
+COPY src/MediaEngine.Admin/MediaEngine.Admin.csproj               src/MediaEngine.Admin/
 COPY src/MediaEngine.AI/MediaEngine.AI.csproj                     src/MediaEngine.AI/
 COPY src/MediaEngine.Plugins/MediaEngine.Plugins.csproj           src/MediaEngine.Plugins/
 COPY src/MediaEngine.Plugin.CommercialSkip/MediaEngine.Plugin.CommercialSkip.csproj src/MediaEngine.Plugin.CommercialSkip/
@@ -40,6 +41,7 @@ COPY src/MediaEngine.Web/MediaEngine.Web.csproj                   src/MediaEngin
 # Restore (cached until any .csproj changes).
 RUN dotnet restore src/MediaEngine.Api/MediaEngine.Api.csproj -a $TARGETARCH -p:TuvimaContainerBuild=true
 RUN dotnet restore src/MediaEngine.Web/MediaEngine.Web.csproj -a $TARGETARCH
+RUN dotnet restore src/MediaEngine.Admin/MediaEngine.Admin.csproj -a $TARGETARCH
 
 # Copy remaining source and config, then publish both projects.
 COPY src/ src/
@@ -58,6 +60,12 @@ RUN dotnet publish src/MediaEngine.Web/MediaEngine.Web.csproj \
     --output /app/dashboard \
     --no-restore
 
+RUN dotnet publish src/MediaEngine.Admin/MediaEngine.Admin.csproj \
+    --configuration Release \
+    --arch $TARGETARCH \
+    --output /app/admin \
+    --no-restore
+
 # Some native-package build targets copy their complete RID catalog even during
 # a targeted publish. Keep only the selected Linux runtime tree in each image.
 RUN case "$TARGETARCH" in \
@@ -65,7 +73,7 @@ RUN case "$TARGETARCH" in \
       arm64) target_rid="linux-arm64" ;; \
       *) echo "Unsupported container architecture: $TARGETARCH" >&2; exit 1 ;; \
     esac \
- && for runtime_root in /app/engine/runtimes /app/dashboard/runtimes; do \
+ && for runtime_root in /app/engine/runtimes /app/dashboard/runtimes /app/admin/runtimes; do \
       if [ -d "$runtime_root" ]; then \
         find "$runtime_root" -mindepth 1 -maxdepth 1 -type d ! -name "$target_rid" -exec rm -rf -- {} +; \
       fi; \
@@ -92,6 +100,7 @@ RUN ffmpeg -version >/dev/null \
 # Copy published output from build stage.
 COPY --from=build /app/engine    ./engine
 COPY --from=build /app/dashboard ./dashboard
+COPY --from=build /app/admin      ./admin
 
 # Copy only the distributable defaults admitted by .dockerignore. The entrypoint
 # seeds these into an empty /config volume and overlays container path defaults.

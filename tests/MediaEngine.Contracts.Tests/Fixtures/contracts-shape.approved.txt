@@ -346,10 +346,6 @@ MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.Recove
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.RecoveryCodesResponse
   RecoveryCodes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.ResetLocalAdministratorPasswordRequest
-  Username: System.String | nullability=not-null | accessors=get,init
-  NewPassword: System.String | nullability=not-null | accessors=get,init
-
 MediaEngine.Contracts.Authentication.MediaEngine.Contracts.Authentication.SessionValidationResponse
   SessionId: System.Guid | nullability=not-null | accessors=get,init
   ProfileId: System.Guid | nullability=not-null | accessors=get,init

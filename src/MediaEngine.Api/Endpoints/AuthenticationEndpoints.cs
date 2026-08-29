@@ -143,27 +143,6 @@ public static class AuthenticationEndpoints
             catch (UnauthorizedAccessException) { return Results.Unauthorized(); }
         }).Produces<RecoveryCodesResponse>().RequireRateLimiting("authentication").RequireAuthorization(AuthPolicies.DashboardService);
 
-        group.MapPost("/password/local-administrator-reset", async (
-            ResetLocalAdministratorPasswordRequest request,
-            IFirstPartyIdentityService identity,
-            CancellationToken ct) =>
-        {
-            try
-            {
-                var codes = await identity.ResetLocalAdministratorPasswordAsync(
-                    request.Username,
-                    request.NewPassword,
-                    ct).ConfigureAwait(false);
-                return Results.Ok(new RecoveryCodesResponse(codes));
-            }
-            catch (ArgumentException ex) { return ApiErrors.BadRequest(ex.Message); }
-            catch (UnauthorizedAccessException) { return Results.Unauthorized(); }
-        })
-        .WithName("ResetLocalAdministratorPassword")
-        .Produces<RecoveryCodesResponse>()
-        .RequireRateLimiting("authentication")
-        .RequireAuthorization(AuthPolicies.DashboardService);
-
         group.MapPut("/profiles/{profileId:guid}/pin", async (Guid profileId, SetProfilePinRequest request, IFirstPartyIdentityService identity, CancellationToken ct) =>
         {
             try { await identity.SetProfilePinAsync(profileId, request.Pin, ct).ConfigureAwait(false); return Results.NoContent(); }

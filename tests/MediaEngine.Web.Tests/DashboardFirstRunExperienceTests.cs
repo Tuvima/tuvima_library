@@ -24,23 +24,28 @@ public sealed class DashboardFirstRunExperienceTests
     }
 
     [Fact]
-    public void LocalAdministratorPasswordReset_IsHostOnlyAndInvalidatesExistingAccess()
+    public void AnonymousPasswordReset_RequiresRecoveryCodeOrElevatedHostCommand()
     {
         var dashboard = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");
         var client = Read("src/MediaEngine.Web/Services/Integration/DashboardIdentityClient.cs");
         var engine = Read("src/MediaEngine.Api/Endpoints/AuthenticationEndpoints.cs");
         var identity = Read("src/MediaEngine.Identity/FirstPartyIdentityService.cs");
+        var publicIdentityContract = Read("src/MediaEngine.Identity/Contracts/IFirstPartyIdentityService.cs");
+        var hostRecoveryContract = Read("src/MediaEngine.Identity/Contracts/IHostAdministratorRecoveryService.cs");
 
-        Assert.Contains("reset-local-administrator", dashboard, StringComparison.Ordinal);
-        Assert.Contains("IsLoopbackRequest(context)", dashboard, StringComparison.Ordinal);
-        Assert.Contains("ResetLocalAdministratorPasswordAsync", client, StringComparison.Ordinal);
-        Assert.Contains("/auth/password/local-administrator-reset", client, StringComparison.Ordinal);
-        Assert.Contains("ResetLocalAdministratorPassword", engine, StringComparison.Ordinal);
+        Assert.DoesNotContain("reset-local-administrator", dashboard, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResetLocalAdministratorPassword", client, StringComparison.Ordinal);
+        Assert.DoesNotContain("/auth/password/local-administrator-reset", client, StringComparison.Ordinal);
+        Assert.DoesNotContain("local-administrator-reset", engine, StringComparison.Ordinal);
+        Assert.DoesNotContain("ResetAdministratorPasswordFromHostAsync", publicIdentityContract, StringComparison.Ordinal);
+        Assert.Contains("tuvima-admin auth reset-password", dashboard, StringComparison.Ordinal);
+        Assert.Contains("Use one of the one-time recovery codes", dashboard, StringComparison.Ordinal);
+        Assert.Contains("Reset with recovery code", dashboard, StringComparison.Ordinal);
+        Assert.Contains("ResetAdministratorPasswordFromHostAsync", hostRecoveryContract, StringComparison.Ordinal);
         Assert.Contains("ProfileRole.Administrator", identity, StringComparison.Ordinal);
-        Assert.Contains("local_administrator_password_reset", identity, StringComparison.Ordinal);
+        Assert.Contains("host_administrator_password_reset", identity, StringComparison.Ordinal);
         Assert.Contains("RevokeProfileSessionsAsync", identity, StringComparison.Ordinal);
         Assert.Contains("ReplaceRecoveryCodesAsync", identity, StringComparison.Ordinal);
-        Assert.Contains("This signs out every device", dashboard, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -42,51 +42,6 @@ public static class DashboardAuthenticationEndpoints
             var deviceName = SanitizeDeviceName(context.Request.Headers.UserAgent.ToString());
             var returnUrl = SafeReturnUrl(form["returnUrl"].ToString());
 
-            if (action.Equals("reset-local-administrator", StringComparison.OrdinalIgnoreCase))
-            {
-                if (!IsLoopbackRequest(context))
-                {
-                    return Results.Content(
-                        LoginFailurePage(
-                            "Local administrator password reset is available only from localhost on the computer running Tuvima Library."),
-                        "text/html",
-                        Encoding.UTF8,
-                        StatusCodes.Status403Forbidden);
-                }
-
-                var newPassword = form["newPassword"].ToString();
-                if (!newPassword.Equals(form["confirmPassword"].ToString(), StringComparison.Ordinal))
-                {
-                    return Results.Content(
-                        LoginFailurePage("The new passwords do not match."),
-                        "text/html",
-                        Encoding.UTF8,
-                        StatusCodes.Status400BadRequest);
-                }
-
-                var localCodes = await identity.ResetLocalAdministratorPasswordAsync(
-                    new ResetLocalAdministratorPasswordRequest
-                    {
-                        Username = form["username"].ToString(),
-                        NewPassword = newPassword,
-                    },
-                    context.RequestAborted).ConfigureAwait(false);
-                if (localCodes is null)
-                {
-                    return Results.Content(
-                        LoginFailurePage("Password reset failed. Check the administrator username and new password."),
-                        "text/html",
-                        Encoding.UTF8,
-                        StatusCodes.Status400BadRequest);
-                }
-
-                await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
-                return Results.Content(
-                    RecoveryCodesPage(localCodes, "/auth/login", "Continue to sign in"),
-                    "text/html",
-                    Encoding.UTF8);
-            }
-
             if (action.Equals("recover", StringComparison.OrdinalIgnoreCase))
             {
                 var codes = await identity.RecoverAsync(new RecoverPasswordRequest
@@ -276,31 +231,19 @@ public static class DashboardAuthenticationEndpoints
         string form;
         if (configured)
         {
-            var passwordReset = localBootstrap
-                ? $"""
-                  <details><summary>Forgot password?</summary>
-                  <p class="supporting">Reset the local administrator password from this Tuvima computer. This signs out every device.</p>
-                  <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="reset-local-administrator">
-                  <label>Administrator username<input name="username" autocomplete="username" spellcheck="false" required></label>
-                  <label>New password<input type="password" name="newPassword" minlength="12" autocomplete="new-password" required><small>Use at least 12 characters.</small></label>
-                  <label>Confirm new password<input type="password" name="confirmPassword" minlength="12" autocomplete="new-password" required></label>
-                  <button>Reset local password</button></form></details>
-                  """
-                : """
-                  <details><summary>Forgot password?</summary>
-                  <p class="supporting">Open <code>http://localhost:5016</code> on the computer running Tuvima Library to reset the local administrator password.</p>
-                  </details>
-                  """;
             form = $"""
               <p class="eyebrow">Tuvima Library</p>
               <h1>Sign in to Tuvima Library</h1>
               <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}">
               <label>Username<input name="username" autocomplete="username" required autofocus></label>
               <label>Password<input type="password" name="password" autocomplete="current-password" required></label><button>Sign in</button></form>
-              {passwordReset}
+              <details><summary>Forgot password?</summary>
+              <p class="supporting">Use one of the one-time recovery codes saved when the administrator was created.</p>
+              <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="recover"><label>Username<input name="username" autocomplete="username" required></label><label>Recovery code<input name="recoveryCode" autocomplete="off" spellcheck="false" required></label><label>New password<input type="password" name="newPassword" minlength="12" autocomplete="new-password" required><small>Use at least 12 characters.</small></label><button>Reset with recovery code</button></form>
+              <p class="supporting">No recovery code? Run <code>tuvima-admin auth reset-password</code> with administrator privileges on the computer running Tuvima Library.</p>
+              </details>
               <details><summary>Sign in with a profile PIN</summary><form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}"><label>Profile ID<input name="profileId" required></label><label>PIN<input type="password" inputmode="numeric" name="pin" required></label><button>Unlock profile</button></form></details>
               {(oidcEnabled ? "<p><a class=\"button\" href=\"/auth/oidc?returnUrl=" + Uri.EscapeDataString(returnUrl) + "\">Continue with OpenID Connect</a></p>" : string.Empty)}
-              <details><summary>Use a recovery code</summary><form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="recover"><label>Username<input name="username" required></label><label>Recovery code<input name="recoveryCode" required></label><label>New password<input type="password" name="newPassword" minlength="12" autocomplete="new-password" required></label><button>Reset with recovery code</button></form></details>
               """;
         }
         else if (!localBootstrap)

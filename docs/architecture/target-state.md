@@ -102,6 +102,13 @@ All user-scoped data is bound to a `profileId`:
 
 PIN and password management is available in the Users settings tab.
 
+The first administrator is created locally without an external claim code. If
+that administrator forgets the password, they can use a saved one-time recovery
+code. Break-glass recovery without a code is deliberately outside the Dashboard:
+an operator with elevated access to the Engine host runs
+`tuvima-admin auth reset-password`, which revokes active sessions and rotates
+the saved recovery codes.
+
 ### Shared Journey Detection
 
 When two or more profiles access the same asset within a 5-minute window, the Engine tags the session as a "Shared Journey." Solo sessions are tagged "Solo Journey." The Dashboard surfaces which journeys were shared.
