@@ -38,7 +38,7 @@ public sealed class RemoteAccessReadinessService
             administratorConfigured,
             administratorConfigured
                 ? "An administrator account is configured and Dashboard authentication is required."
-                : "Claim this Tuvima Library and create the administrator password before enabling remote access."));
+                : "Complete first-run administrator setup from the Dashboard on the Tuvima host before enabling remote access."));
 
         var bypassDisabled = authentication.LocalhostBypassDisabled;
         checks.Add(Check(

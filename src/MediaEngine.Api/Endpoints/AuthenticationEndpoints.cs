@@ -19,13 +19,9 @@ public static class AuthenticationEndpoints
 
         group.MapPost("/bootstrap/administrator", async (
             BootstrapAdministratorRequest request,
-            HttpRequest httpRequest,
-            BootstrapClaimService claim,
             IFirstPartyIdentityService identity,
             CancellationToken ct) =>
         {
-            if (!claim.Verify(httpRequest.Headers["X-Tuvima-Bootstrap-Code"].ToString()))
-                return Results.Unauthorized();
             try
             {
                 var issued = await identity.BootstrapAdministratorAsync(
@@ -74,7 +70,11 @@ public static class AuthenticationEndpoints
             try
             {
                 var linked = await externalLogins.ResolveAsync(request.Provider, request.Subject, ct).ConfigureAwait(false);
-                if (linked is null) return Results.Unauthorized();
+                if (linked is null)
+                {
+                    return Results.Unauthorized();
+                }
+
                 await externalLogins.RecordLoginAsync(linked.Id, ct).ConfigureAwait(false);
                 return Results.Ok(ToResponse(await identity.CreateExternalSessionAsync(
                     linked.ProfileId, request.Provider, request.DeviceId, request.DeviceName, request.Client, ct).ConfigureAwait(false)));
@@ -94,10 +94,17 @@ public static class AuthenticationEndpoints
             var sessions = await identity.GetSessionsAsync(profileId, ct).ConfigureAwait(false);
             return Results.Ok(sessions.Select(session => new DeviceSessionResponse
             {
-                Id = session.Id, ProfileId = session.ProfileId, ActiveProfileId = session.ActiveProfileId,
-                DeviceId = session.DeviceId, DeviceName = session.DeviceName, Client = session.Client,
-                AuthenticationMethod = session.AuthenticationMethod, CreatedAt = session.CreatedAt,
-                LastSeenAt = session.LastSeenAt, ExpiresAt = session.ExpiresAt, RevokedAt = session.RevokedAt,
+                Id = session.Id,
+                ProfileId = session.ProfileId,
+                ActiveProfileId = session.ActiveProfileId,
+                DeviceId = session.DeviceId,
+                DeviceName = session.DeviceName,
+                Client = session.Client,
+                AuthenticationMethod = session.AuthenticationMethod,
+                CreatedAt = session.CreatedAt,
+                LastSeenAt = session.LastSeenAt,
+                ExpiresAt = session.ExpiresAt,
+                RevokedAt = session.RevokedAt,
             }).ToList());
         }).Produces<IReadOnlyList<DeviceSessionResponse>>().RequireAuthorization(AuthPolicies.Authenticated);
 
@@ -105,7 +112,11 @@ public static class AuthenticationEndpoints
         {
             var profileId = RequiredGuidClaim(user, TuvimaClaimTypes.ProfileId);
             var owned = (await identity.GetSessionsAsync(profileId, ct).ConfigureAwait(false)).Any(session => session.Id == sessionId);
-            if (!owned && !user.IsInRole(MediaEngine.Domain.AppRoles.Administrator)) return Results.Forbid();
+            if (!owned && !user.IsInRole(MediaEngine.Domain.AppRoles.Administrator))
+            {
+                return Results.Forbid();
+            }
+
             return await identity.RevokeSessionAsync(sessionId, "user_revoked", ct).ConfigureAwait(false) ? Results.NoContent() : ApiErrors.NotFound("Session not found.");
         }).WithName("RevokeAuthSession").Produces(StatusCodes.Status204NoContent).RequireAuthorization(AuthPolicies.Authenticated);
 
@@ -131,6 +142,27 @@ public static class AuthenticationEndpoints
             catch (ArgumentException ex) { return ApiErrors.BadRequest(ex.Message); }
             catch (UnauthorizedAccessException) { return Results.Unauthorized(); }
         }).Produces<RecoveryCodesResponse>().RequireRateLimiting("authentication").RequireAuthorization(AuthPolicies.DashboardService);
+
+        group.MapPost("/password/local-administrator-reset", async (
+            ResetLocalAdministratorPasswordRequest request,
+            IFirstPartyIdentityService identity,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var codes = await identity.ResetLocalAdministratorPasswordAsync(
+                    request.Username,
+                    request.NewPassword,
+                    ct).ConfigureAwait(false);
+                return Results.Ok(new RecoveryCodesResponse(codes));
+            }
+            catch (ArgumentException ex) { return ApiErrors.BadRequest(ex.Message); }
+            catch (UnauthorizedAccessException) { return Results.Unauthorized(); }
+        })
+        .WithName("ResetLocalAdministratorPassword")
+        .Produces<RecoveryCodesResponse>()
+        .RequireRateLimiting("authentication")
+        .RequireAuthorization(AuthPolicies.DashboardService);
 
         group.MapPut("/profiles/{profileId:guid}/pin", async (Guid profileId, SetProfilePinRequest request, IFirstPartyIdentityService identity, CancellationToken ct) =>
         {
@@ -164,18 +196,26 @@ public static class AuthenticationEndpoints
 
     private static AuthSessionResponse ToResponse(SessionIssueResult issued) => new()
     {
-        SessionId = issued.Session.Id, SessionToken = issued.PlaintextToken,
-        ProfileId = issued.Profile.Id, ActiveProfileId = issued.ActiveProfile.Id,
-        DisplayName = issued.ActiveProfile.DisplayName, Role = issued.ActiveProfile.Role.ToString(),
-        AuthenticationMethod = issued.Session.AuthenticationMethod, ExpiresAt = issued.Session.ExpiresAt,
+        SessionId = issued.Session.Id,
+        SessionToken = issued.PlaintextToken,
+        ProfileId = issued.Profile.Id,
+        ActiveProfileId = issued.ActiveProfile.Id,
+        DisplayName = issued.ActiveProfile.DisplayName,
+        Role = issued.ActiveProfile.Role.ToString(),
+        AuthenticationMethod = issued.Session.AuthenticationMethod,
+        ExpiresAt = issued.Session.ExpiresAt,
         RecoveryCodes = issued.RecoveryCodes,
     };
 
     private static SessionValidationResponse ToValidationResponse(SessionValidationResult result) => new()
     {
-        SessionId = result.Session.Id, ProfileId = result.Profile.Id, ActiveProfileId = result.ActiveProfile.Id,
-        DisplayName = result.ActiveProfile.DisplayName, Role = result.ActiveProfile.Role.ToString(),
-        AuthenticationMethod = result.Session.AuthenticationMethod, ExpiresAt = result.Session.ExpiresAt,
+        SessionId = result.Session.Id,
+        ProfileId = result.Profile.Id,
+        ActiveProfileId = result.ActiveProfile.Id,
+        DisplayName = result.ActiveProfile.DisplayName,
+        Role = result.ActiveProfile.Role.ToString(),
+        AuthenticationMethod = result.Session.AuthenticationMethod,
+        ExpiresAt = result.Session.ExpiresAt,
     };
 
     private static Guid RequiredGuidClaim(ClaimsPrincipal user, string type) =>

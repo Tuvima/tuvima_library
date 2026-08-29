@@ -59,6 +59,17 @@ config/secrets/*
 !config/secrets/.gitkeep
 !config/secrets/*.sample.json
 
+# Runtime-generated Dashboard credentials and ASP.NET Data Protection keys
+config/.secrets/
+config/.keys/
+
+# Downloaded AI model artifacts and local hardware benchmark results
+*.gguf
+/models/.tuvima/
+/models/whisper/
+/src/MediaEngine.Api/Models/.tuvima/
+/src/MediaEngine.Api/Models/whisper/
+
 # Build-output config copies (projects that copy config/ to output directory)
 src/*/config/
 src/*/*/config/

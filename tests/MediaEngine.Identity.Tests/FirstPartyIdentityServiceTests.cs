@@ -101,6 +101,63 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
         Assert.Null(await _service.ValidateSessionAsync(pinLogin.IssuedSession.PlaintextToken));
     }
 
+    [Fact]
+    public async Task BootstrapAdministrator_BlankDisplayNameDefaultsToAdministrator()
+    {
+        var bootstrap = await _service.BootstrapAdministratorAsync(
+            "administrator", "correct horse battery staple", "", "browser-1", "Server", "Dashboard");
+
+        Assert.Equal("Administrator", bootstrap.Profile.DisplayName);
+    }
+
+    [Fact]
+    public async Task LocalAdministratorPasswordReset_RevokesSessionsClearsLockoutAndRotatesRecoveryCodes()
+    {
+        var bootstrap = await _service.BootstrapAdministratorAsync(
+            "administrator", "correct horse battery staple", "Administrator", "browser-1", "Server", "Dashboard");
+        var previousRecoveryCode = bootstrap.RecoveryCodes[0];
+
+        for (var index = 0; index < 5; index++)
+        {
+            await _service.AuthenticatePasswordAsync(
+                "administrator", "wrong password", $"browser-{index + 2}", "Unknown", "Dashboard");
+        }
+
+        var replacementCodes = await _service.ResetLocalAdministratorPasswordAsync(
+            "administrator", "a newer correct horse battery staple");
+
+        Assert.Equal(10, replacementCodes.Count);
+        Assert.DoesNotContain(previousRecoveryCode, replacementCodes);
+        Assert.Null(await _service.ValidateSessionAsync(bootstrap.PlaintextToken));
+
+        var oldPassword = await _service.AuthenticatePasswordAsync(
+            "administrator", "correct horse battery staple", "browser-8", "Office", "Dashboard");
+        Assert.False(oldPassword.Succeeded);
+        Assert.False(oldPassword.LockedOut);
+
+        var newPassword = await _service.AuthenticatePasswordAsync(
+            "administrator", "a newer correct horse battery staple", "browser-9", "Office", "Dashboard");
+        Assert.True(newPassword.Succeeded);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.ResetPasswordWithRecoveryCodeAsync(
+                "administrator",
+                previousRecoveryCode,
+                "yet another correct horse battery staple"));
+    }
+
+    [Fact]
+    public async Task LocalAdministratorPasswordReset_RejectsUnknownUsername()
+    {
+        await _service.BootstrapAdministratorAsync(
+            "administrator", "correct horse battery staple", "Administrator", "browser-1", "Server", "Dashboard");
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
+            _service.ResetLocalAdministratorPasswordAsync(
+                "somebody-else",
+                "a newer correct horse battery staple"));
+    }
+
     public void Dispose()
     {
         _database.Dispose();
@@ -113,7 +170,10 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     {
         try
         {
-            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
         }
         catch
         {

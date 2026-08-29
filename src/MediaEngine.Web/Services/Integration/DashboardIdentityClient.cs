@@ -19,14 +19,14 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients)
             : null;
     }
 
-    public async Task<AuthSessionResponse?> BootstrapAsync(BootstrapAdministratorRequest request, string setupCode, CancellationToken ct = default)
+    public async Task<AuthSessionResponse?> BootstrapAsync(
+        BootstrapAdministratorRequest request,
+        CancellationToken ct = default)
     {
-        using var message = new HttpRequestMessage(HttpMethod.Post, "/auth/bootstrap/administrator")
-        {
-            Content = JsonContent.Create(request),
-        };
-        message.Headers.TryAddWithoutValidation("X-Tuvima-Bootstrap-Code", setupCode);
-        using var response = await Client.SendAsync(message, ct).ConfigureAwait(false);
+        using var response = await Client.PostAsJsonAsync(
+            "/auth/bootstrap/administrator",
+            request,
+            ct).ConfigureAwait(false);
         return response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<AuthSessionResponse>(cancellationToken: ct).ConfigureAwait(false)
             : null;
@@ -45,6 +45,20 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients)
     public async Task<IReadOnlyList<string>?> RecoverAsync(RecoverPasswordRequest request, CancellationToken ct = default)
     {
         using var response = await Client.PostAsJsonAsync("/auth/password/recover", request, ct).ConfigureAwait(false);
+        var result = response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<RecoveryCodesResponse>(cancellationToken: ct).ConfigureAwait(false)
+            : null;
+        return result?.RecoveryCodes;
+    }
+
+    public async Task<IReadOnlyList<string>?> ResetLocalAdministratorPasswordAsync(
+        ResetLocalAdministratorPasswordRequest request,
+        CancellationToken ct = default)
+    {
+        using var response = await Client.PostAsJsonAsync(
+            "/auth/password/local-administrator-reset",
+            request,
+            ct).ConfigureAwait(false);
         var result = response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<RecoveryCodesResponse>(cancellationToken: ct).ConfigureAwait(false)
             : null;

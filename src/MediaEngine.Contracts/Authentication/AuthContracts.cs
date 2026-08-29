@@ -9,7 +9,7 @@ public sealed class BootstrapAdministratorRequest
 {
     [JsonPropertyName("username")] public string Username { get; init; } = string.Empty;
     [JsonPropertyName("password")] public string Password { get; init; } = string.Empty;
-    [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "Owner";
+    [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "Administrator";
     [JsonPropertyName("device_id")] public string DeviceId { get; init; } = string.Empty;
     [JsonPropertyName("device_name")] public string DeviceName { get; init; } = string.Empty;
     [JsonPropertyName("client")] public string Client { get; init; } = "Dashboard";
@@ -84,6 +84,12 @@ public sealed class RecoverPasswordRequest
 {
     [JsonPropertyName("username")] public string Username { get; init; } = string.Empty;
     [JsonPropertyName("recovery_code")] public string RecoveryCode { get; init; } = string.Empty;
+    [JsonPropertyName("new_password")] public string NewPassword { get; init; } = string.Empty;
+}
+
+public sealed class ResetLocalAdministratorPasswordRequest
+{
+    [JsonPropertyName("username")] public string Username { get; init; } = string.Empty;
     [JsonPropertyName("new_password")] public string NewPassword { get; init; } = string.Empty;
 }
 

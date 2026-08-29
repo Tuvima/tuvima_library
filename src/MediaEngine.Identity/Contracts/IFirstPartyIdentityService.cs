@@ -31,6 +31,7 @@ public interface IFirstPartyIdentityService
     Task<int> RevokeOtherSessionsAsync(Guid profileId, Guid currentSessionId, string reason, CancellationToken ct = default);
     Task ChangePasswordAsync(Guid profileId, string currentPassword, string newPassword, Guid? currentSessionId = null, CancellationToken ct = default);
     Task<IReadOnlyList<string>> ResetPasswordWithRecoveryCodeAsync(string username, string recoveryCode, string newPassword, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> ResetLocalAdministratorPasswordAsync(string username, string newPassword, CancellationToken ct = default);
     Task<IReadOnlyList<string>> RegenerateRecoveryCodesAsync(Guid profileId, CancellationToken ct = default);
     Task SetProfilePinAsync(Guid profileId, string? pin, CancellationToken ct = default);
     Task<SessionValidationResult> SwitchActiveProfileAsync(string sessionToken, Guid targetProfileId, string? secret, CancellationToken ct = default);

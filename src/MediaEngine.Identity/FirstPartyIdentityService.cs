@@ -33,23 +33,27 @@ public sealed class FirstPartyIdentityService(
         CancellationToken ct = default)
     {
         if (await identities.HasAdministratorPasswordAsync(ct).ConfigureAwait(false))
+        {
             throw new InvalidOperationException("The administrator has already been configured.");
+        }
 
         ValidatePassword(password);
         var normalizedUsername = NormalizeUsername(username);
-        var owner = await profiles.GetByIdAsync(Profile.SeedProfileId, ct).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("The seeded Owner profile is unavailable.");
+        var administrator = await profiles.GetByIdAsync(Profile.SeedProfileId, ct).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The seeded administrator profile is unavailable.");
 
-        owner.DisplayName = string.IsNullOrWhiteSpace(displayName) ? "Owner" : displayName.Trim();
-        owner.Role = ProfileRole.Administrator;
-        if (!await profiles.UpdateAsync(owner, ct).ConfigureAwait(false))
-            throw new InvalidOperationException("The Owner profile could not be updated.");
+        administrator.DisplayName = string.IsNullOrWhiteSpace(displayName) ? "Administrator" : displayName.Trim();
+        administrator.Role = ProfileRole.Administrator;
+        if (!await profiles.UpdateAsync(administrator, ct).ConfigureAwait(false))
+        {
+            throw new InvalidOperationException("The administrator profile could not be updated.");
+        }
 
-        var credential = NewCredential(owner.Id, ProfileCredentialKind.Password, normalizedUsername, password);
+        var credential = NewCredential(administrator.Id, ProfileCredentialKind.Password, normalizedUsername, password);
         await identities.UpsertCredentialAsync(credential, ct).ConfigureAwait(false);
-        var codes = await ReplaceRecoveryCodesAsync(owner.Id, ct).ConfigureAwait(false);
-        var issued = await IssueSessionAsync(owner, owner, credential.SecurityStamp, "Password", deviceId, deviceName, client, ct).ConfigureAwait(false);
-        await AuditAsync(owner.Id, issued.Session.Id, "administrator_bootstrap", true, null, ct).ConfigureAwait(false);
+        var codes = await ReplaceRecoveryCodesAsync(administrator.Id, ct).ConfigureAwait(false);
+        var issued = await IssueSessionAsync(administrator, administrator, credential.SecurityStamp, "Password", deviceId, deviceName, client, ct).ConfigureAwait(false);
+        await AuditAsync(administrator.Id, issued.Session.Id, "administrator_bootstrap", true, null, ct).ConfigureAwait(false);
         return issued with { RecoveryCodes = codes };
     }
 
@@ -90,14 +94,24 @@ public sealed class FirstPartyIdentityService(
 
     public async Task<SessionValidationResult?> ValidateSessionAsync(string plaintextToken, bool touch = true, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(plaintextToken)) return null;
+        if (string.IsNullOrWhiteSpace(plaintextToken))
+        {
+            return null;
+        }
+
         var now = UtcNow;
         var session = await identities.GetSessionByTokenHashAsync(HashToken(plaintextToken), ct).ConfigureAwait(false);
-        if (session is null || !session.IsActive(now)) return null;
+        if (session is null || !session.IsActive(now))
+        {
+            return null;
+        }
 
         var profile = await profiles.GetByIdAsync(session.ProfileId, ct).ConfigureAwait(false);
         var active = await profiles.GetByIdAsync(session.ActiveProfileId, ct).ConfigureAwait(false);
-        if (profile is null || active is null) return null;
+        if (profile is null || active is null)
+        {
+            return null;
+        }
 
         if (!session.AuthenticationMethod.Equals("Oidc", StringComparison.OrdinalIgnoreCase))
         {
@@ -108,7 +122,9 @@ public sealed class FirstPartyIdentityService(
             if (credential is null || !CryptographicOperations.FixedTimeEquals(
                     Encoding.UTF8.GetBytes(credential.SecurityStamp),
                     Encoding.UTF8.GetBytes(session.SecurityStamp)))
+            {
                 return null;
+            }
         }
 
         if (touch && now - session.LastSeenAt >= TimeSpan.FromMinutes(1))
@@ -127,7 +143,11 @@ public sealed class FirstPartyIdentityService(
     {
         var session = await identities.GetSessionByIdAsync(sessionId, ct).ConfigureAwait(false);
         var revoked = await identities.RevokeSessionAsync(sessionId, UtcNow, SanitizeReason(reason), ct).ConfigureAwait(false);
-        if (revoked) await AuditAsync(session?.ProfileId, sessionId, "session_revoked", true, reason, ct).ConfigureAwait(false);
+        if (revoked)
+        {
+            await AuditAsync(session?.ProfileId, sessionId, "session_revoked", true, reason, ct).ConfigureAwait(false);
+        }
+
         return revoked;
     }
 
@@ -140,7 +160,9 @@ public sealed class FirstPartyIdentityService(
         var credential = await identities.GetCredentialAsync(profileId, ProfileCredentialKind.Password, ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException("This profile does not have a local password.");
         if (!Verify(credential, currentPassword, out _))
+        {
             throw new UnauthorizedAccessException("The current password is incorrect.");
+        }
 
         credential.SecretHash = Hash(credential, newPassword);
         credential.SecurityStamp = NewSecurityStamp();
@@ -161,7 +183,9 @@ public sealed class FirstPartyIdentityService(
         var code = await identities.GetActiveRecoveryCodeAsync(credential.ProfileId, HashToken(NormalizeRecoveryCode(recoveryCode)), UtcNow, ct).ConfigureAwait(false)
             ?? throw new UnauthorizedAccessException("The recovery information is invalid.");
         if (!await identities.ConsumeRecoveryCodeAsync(code.Id, UtcNow, ct).ConfigureAwait(false))
+        {
             throw new UnauthorizedAccessException("The recovery information is invalid.");
+        }
 
         credential.SecretHash = Hash(credential, newPassword);
         credential.SecurityStamp = NewSecurityStamp();
@@ -175,6 +199,49 @@ public sealed class FirstPartyIdentityService(
         return codes;
     }
 
+    public async Task<IReadOnlyList<string>> ResetLocalAdministratorPasswordAsync(
+        string username,
+        string newPassword,
+        CancellationToken ct = default)
+    {
+        ValidatePassword(newPassword);
+        var credential = await identities.GetCredentialByUsernameAsync(
+            NormalizeUsername(username),
+            ct).ConfigureAwait(false);
+        var profile = credential is null
+            ? null
+            : await profiles.GetByIdAsync(credential.ProfileId, ct).ConfigureAwait(false);
+        if (credential is null || profile?.Role != ProfileRole.Administrator)
+        {
+            await AuditAsync(profile?.Id, null, "local_administrator_password_reset", false, "invalid_administrator", ct)
+                .ConfigureAwait(false);
+            throw new UnauthorizedAccessException("The local administrator information is invalid.");
+        }
+
+        credential.SecretHash = Hash(credential, newPassword);
+        credential.SecurityStamp = NewSecurityStamp();
+        credential.HashVersion = 1;
+        credential.UpdatedAt = UtcNow;
+        credential.FailedAttemptCount = 0;
+        credential.LockedUntil = null;
+        await identities.UpsertCredentialAsync(credential, ct).ConfigureAwait(false);
+        await identities.RevokeProfileSessionsAsync(
+            credential.ProfileId,
+            UtcNow,
+            "local_administrator_password_reset",
+            null,
+            ct).ConfigureAwait(false);
+        var codes = await ReplaceRecoveryCodesAsync(credential.ProfileId, ct).ConfigureAwait(false);
+        await AuditAsync(
+            credential.ProfileId,
+            null,
+            "local_administrator_password_reset",
+            true,
+            null,
+            ct).ConfigureAwait(false);
+        return codes;
+    }
+
     public Task<IReadOnlyList<string>> RegenerateRecoveryCodesAsync(Guid profileId, CancellationToken ct = default) =>
         ReplaceRecoveryCodesAsync(profileId, ct);
 
@@ -183,7 +250,9 @@ public sealed class FirstPartyIdentityService(
         if (string.IsNullOrWhiteSpace(pin))
         {
             if (await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false) is null)
+            {
                 throw new KeyNotFoundException($"Profile '{profileId}' was not found.");
+            }
 
             await identities.DeleteCredentialAsync(profileId, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
             await identities.RevokeProfileSessionsAsync(profileId, UtcNow, "profile_pin_removed", null, ct).ConfigureAwait(false);
@@ -192,7 +261,9 @@ public sealed class FirstPartyIdentityService(
         }
         ValidatePin(pin);
         if (await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false) is null)
+        {
             throw new KeyNotFoundException($"Profile '{profileId}' was not found.");
+        }
 
         var existing = await identities.GetCredentialAsync(profileId, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
         var credential = existing ?? NewCredential(profileId, ProfileCredentialKind.ProfilePin, null, pin);
@@ -222,11 +293,16 @@ public sealed class FirstPartyIdentityService(
             var pin = await identities.GetCredentialAsync(target.Id, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
             var credential = password ?? pin;
             if (credential is null || string.IsNullOrEmpty(secret) || !Verify(credential, secret, out _))
+            {
                 throw new UnauthorizedAccessException("That profile requires authentication.");
+            }
         }
 
         if (!await identities.UpdateActiveProfileAsync(current.Session.Id, target.Id, ct).ConfigureAwait(false))
+        {
             throw new UnauthorizedAccessException("The session is no longer valid.");
+        }
+
         current.Session.ActiveProfileId = target.Id;
         await AuditAsync(current.Profile.Id, current.Session.Id, "active_profile_changed", true, target.Id.ToString("D"), ct).ConfigureAwait(false);
         return new SessionValidationResult(current.Session, current.Profile, target);
@@ -234,7 +310,11 @@ public sealed class FirstPartyIdentityService(
 
     public async Task<bool> ValidateServiceCredentialAsync(string plaintextToken, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(plaintextToken)) return false;
+        if (string.IsNullOrWhiteSpace(plaintextToken))
+        {
+            return false;
+        }
+
         return await identities.GetServiceCredentialByHashAsync(HashToken(plaintextToken), ct).ConfigureAwait(false) is not null;
     }
 
@@ -247,7 +327,9 @@ public sealed class FirstPartyIdentityService(
             return new(false, false, "Invalid credentials.", null);
         }
         if (credential.LockedUntil is { } lockedUntil && lockedUntil > now)
+        {
             return new(false, true, "Too many attempts. Try again later.", null);
+        }
 
         if (!Verify(credential, secret, out var rehashNeeded))
         {
@@ -268,7 +350,11 @@ public sealed class FirstPartyIdentityService(
         await identities.UpdateCredentialAttemptAsync(credential.Id, 0, null, now, ct).ConfigureAwait(false);
 
         var profile = await profiles.GetByIdAsync(credential.ProfileId, ct).ConfigureAwait(false);
-        if (profile is null) return new(false, false, "Invalid credentials.", null);
+        if (profile is null)
+        {
+            return new(false, false, "Invalid credentials.", null);
+        }
+
         var method = credential.Kind.ToString();
         var issued = await IssueSessionAsync(profile, profile, credential.SecurityStamp, method, deviceId, deviceName, client, ct).ConfigureAwait(false);
         await AuditAsync(profile.Id, issued.Session.Id, "login_local", true, method, ct).ConfigureAwait(false);
@@ -281,11 +367,18 @@ public sealed class FirstPartyIdentityService(
         var token = RandomToken(32);
         var session = new AuthSession
         {
-            Id = Guid.NewGuid(), ProfileId = profile.Id, ActiveProfileId = activeProfile.Id,
-            TokenHash = HashToken(token), DeviceId = Sanitize(deviceId, 100, "unknown"),
-            DeviceName = Sanitize(deviceName, 100, "Unknown device"), Client = Sanitize(client, 200, "Dashboard"),
-            AuthenticationMethod = method, SecurityStamp = securityStamp, CreatedAt = now,
-            LastSeenAt = now, ExpiresAt = now.Add(SessionLifetime),
+            Id = Guid.NewGuid(),
+            ProfileId = profile.Id,
+            ActiveProfileId = activeProfile.Id,
+            TokenHash = HashToken(token),
+            DeviceId = Sanitize(deviceId, 100, "unknown"),
+            DeviceName = Sanitize(deviceName, 100, "Unknown device"),
+            Client = Sanitize(client, 200, "Dashboard"),
+            AuthenticationMethod = method,
+            SecurityStamp = securityStamp,
+            CreatedAt = now,
+            LastSeenAt = now,
+            ExpiresAt = now.Add(SessionLifetime),
         };
         await identities.InsertSessionAsync(session, ct).ConfigureAwait(false);
         return new(session, profile, activeProfile, token, []);
@@ -296,9 +389,15 @@ public sealed class FirstPartyIdentityService(
         var now = UtcNow;
         var credential = new ProfileCredential
         {
-            Id = Guid.NewGuid(), ProfileId = profileId, Kind = kind, NormalizedUsername = normalizedUsername,
-            HashScheme = "aspnet-pbkdf2-v3", HashVersion = 1, SecurityStamp = NewSecurityStamp(),
-            CreatedAt = now, UpdatedAt = now,
+            Id = Guid.NewGuid(),
+            ProfileId = profileId,
+            Kind = kind,
+            NormalizedUsername = normalizedUsername,
+            HashScheme = "aspnet-pbkdf2-v3",
+            HashVersion = 1,
+            SecurityStamp = NewSecurityStamp(),
+            CreatedAt = now,
+            UpdatedAt = now,
         };
         credential.SecretHash = Hash(credential, secret);
         return credential;
@@ -310,8 +409,11 @@ public sealed class FirstPartyIdentityService(
         var plaintext = Enumerable.Range(0, 10).Select(_ => RecoveryCode()).ToArray();
         var rows = plaintext.Select(code => new PasswordRecoveryCode
         {
-            Id = Guid.NewGuid(), ProfileId = profileId, CodeHash = HashToken(NormalizeRecoveryCode(code)),
-            CreatedAt = now, ExpiresAt = now.Add(RecoveryLifetime),
+            Id = Guid.NewGuid(),
+            ProfileId = profileId,
+            CodeHash = HashToken(NormalizeRecoveryCode(code)),
+            CreatedAt = now,
+            ExpiresAt = now.Add(RecoveryLifetime),
         }).ToArray();
         await identities.DeleteRecoveryCodesAsync(profileId, ct).ConfigureAwait(false);
         await identities.InsertRecoveryCodesAsync(rows, ct).ConfigureAwait(false);
@@ -347,12 +449,17 @@ public sealed class FirstPartyIdentityService(
     private static void ValidatePassword(string value)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(value);
-        if (value.Length is < 12 or > 128) throw new ArgumentException("Password must be between 12 and 128 characters.");
+        if (value.Length is < 12 or > 128)
+        {
+            throw new ArgumentException("Password must be between 12 and 128 characters.");
+        }
     }
     private static void ValidatePin(string value)
     {
         if (value.Length is < 4 or > 12 || value.Any(character => !char.IsAsciiDigit(character)))
+        {
             throw new ArgumentException("Profile PIN must contain 4 to 12 digits.");
+        }
     }
     private static string Sanitize(string? value, int maximumLength, string fallback)
     {

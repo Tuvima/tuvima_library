@@ -295,7 +295,6 @@ builder.Services.AddSingleton<ILibraryAccessEvaluator, LibraryAccessEvaluator>()
 builder.Services.AddTuvimaStorage();
 builder.Services.AddSingleton(new DashboardServiceCredentialOptions(configDirectory));
 builder.Services.AddSingleton<DashboardServiceCredentialBootstrapper>();
-builder.Services.AddSingleton<BootstrapClaimService>();
 builder.Services.AddSingleton<IntercomTokenService>();
 builder.Services.AddSingleton<IntercomConnectionLimiter>();
 builder.Services.AddAuthentication(TuvimaAuthDefaults.Scheme)
@@ -351,14 +350,6 @@ WebApplication app = builder.Build();
 await app.Services.GetRequiredService<DashboardServiceCredentialBootstrapper>()
     .EnsureAsync()
     .ConfigureAwait(false);
-if (!await app.Services.GetRequiredService<IFirstPartyIdentityService>()
-        .IsAdministratorConfiguredAsync()
-        .ConfigureAwait(false))
-{
-    app.Logger.LogWarning(
-        "First-boot administrator claim code: {BootstrapCode}. It is invalid after the administrator is configured and changes when the Engine restarts.",
-        app.Services.GetRequiredService<BootstrapClaimService>().DisplayCode);
-}
 
 // -- Middleware pipeline -------------------------------------------------------
 app.UseExceptionHandler(errorApp =>
