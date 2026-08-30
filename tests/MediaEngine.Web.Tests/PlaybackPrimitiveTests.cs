@@ -117,7 +117,7 @@ public sealed class PlaybackPrimitiveTests
 
         Assert.Contains("tuvima.playback.v2.state", script, StringComparison.Ordinal);
         Assert.Contains("tuvima.playback.v2.command", script, StringComparison.Ordinal);
-        Assert.Contains("tuvima.playback.v2.device-id", script, StringComparison.Ordinal);
+        Assert.DoesNotContain("tuvima.playback.v2.device-id", script, StringComparison.Ordinal);
         Assert.DoesNotContain("listen-playback-state", script, StringComparison.Ordinal);
         Assert.DoesNotContain("listen-playback-command", script, StringComparison.Ordinal);
     }

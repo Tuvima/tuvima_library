@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Paging;
@@ -16,12 +18,12 @@ public static class DisplayEndpoints
             .WithTags("Display")
             .CacheOutput("display-read");
 
-        group.MapGet("/home", async (bool? includeCatalog, Guid? profileId, DisplayComposerService display, CancellationToken ct) =>
-            Results.Ok(await display.BuildHomeAsync(includeCatalog ?? true, profileId, ct)))
+        group.MapGet("/home", async (bool? includeCatalog, ClaimsPrincipal user, DisplayComposerService display, CancellationToken ct) =>
+            Results.Ok(await display.BuildHomeAsync(includeCatalog ?? true, ProfileId(user), ct)))
             .WithName("GetDisplayHome")
             .WithSummary("Returns the cross-platform consumer Home display model.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)
-            .RequireAnyRole();
+            .RequireClientScope(ClientApiScopes.LibraryRead);
 
         group.MapGet("/browse", async (
             string? lane,
@@ -36,7 +38,7 @@ public static class DisplayEndpoints
             int? offset,
             int? limit,
             bool? includeCatalog,
-            Guid? profileId,
+            ClaimsPrincipal user,
             DisplayComposerService display,
             CancellationToken ct) =>
         {
@@ -49,7 +51,7 @@ public static class DisplayEndpoints
                 paged.Offset,
                 paged.Limit,
                 includeCatalog ?? true,
-                profileId,
+                ProfileId(user),
                 ct,
                 genres,
                 creator,
@@ -60,7 +62,7 @@ public static class DisplayEndpoints
             .WithName("GetDisplayBrowse")
             .WithSummary("Returns cross-platform display cards for a media lane or browse query.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)
-            .RequireAnyRole();
+            .RequireClientScope(ClientApiScopes.LibraryRead);
 
         group.MapGet("/continue", async (
             string? lane,
@@ -76,14 +78,14 @@ public static class DisplayEndpoints
             .WithName("GetDisplayContinue")
             .WithSummary("Returns cross-platform continue cards with progress.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)
-            .RequireAnyRole();
+            .RequireClientScope(ClientApiScopes.ProgressRead);
 
         group.MapGet("/contributor-shelves", async (ContributorShelfReadService shelves, CancellationToken ct) =>
             Results.Ok(await shelves.LoadAsync(ct)))
             .WithName("GetDisplayContributorShelves")
             .WithSummary("Returns multi-work Collections shelves grouped by canonical primary contributors.")
             .Produces<IReadOnlyList<ContributorShelfDto>>(StatusCodes.Status200OK)
-            .RequireAnyRole();
+            .RequireClientScope(ClientApiScopes.LibraryRead);
 
         group.MapGet("/search", async (
             string? q,
@@ -97,7 +99,7 @@ public static class DisplayEndpoints
             .WithName("GetDisplaySearch")
             .WithSummary("Returns ranked local media, people, series, collections, and playlists for universal search.")
             .Produces<UniversalSearchResponseDto>(StatusCodes.Status200OK)
-            .RequireAnyRole();
+            .RequireClientScope(ClientApiScopes.LibraryRead);
 
         group.MapGet("/shelves/{shelfKey}", async (
             string shelfKey,
@@ -108,7 +110,7 @@ public static class DisplayEndpoints
             string? cursor,
             int? offset,
             int? limit,
-            Guid? profileId,
+            ClaimsPrincipal user,
             DisplayComposerService display,
             CancellationToken ct) =>
         {
@@ -122,7 +124,7 @@ public static class DisplayEndpoints
                 cursor,
                 paged.Offset,
                 paged.Limit,
-                profileId,
+                ProfileId(user),
                 ct);
             return page is null ? ApiErrors.NotFound($"No shelf found for key '{shelfKey}'.") : Results.Ok(page);
         })
@@ -130,24 +132,27 @@ public static class DisplayEndpoints
             .WithSummary("Returns one paged display shelf for native and TV clients.")
             .Produces<DisplayShelfPageDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .RequireAnyRole();
+            .RequireClientScope(ClientApiScopes.LibraryRead);
 
         group.MapGet("/groups/{groupId:guid}", async (
             Guid groupId,
             bool? includeCatalog,
-            Guid? profileId,
+            ClaimsPrincipal user,
             DisplayComposerService display,
             CancellationToken ct) =>
         {
-            var page = await display.BuildGroupAsync(groupId, includeCatalog ?? true, profileId, ct);
+            var page = await display.BuildGroupAsync(groupId, includeCatalog ?? true, ProfileId(user), ct);
             return page is null ? ApiErrors.NotFound($"No display group found for '{groupId}'.") : Results.Ok(page);
         })
             .WithName("GetDisplayGroup")
             .WithSummary("Returns display cards for a consumer group or collection.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status404NotFound)
-            .RequireAnyRole();
+            .RequireClientScope(ClientApiScopes.LibraryRead);
 
         return app;
     }
+
+    private static Guid? ProfileId(ClaimsPrincipal user) =>
+        Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.ActiveProfileId), out var value) ? value : null;
 }

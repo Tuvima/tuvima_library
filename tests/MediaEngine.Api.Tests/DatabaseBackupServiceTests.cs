@@ -75,7 +75,7 @@ public sealed class DatabaseBackupServiceTests : IDisposable
             var inspection = await service.UploadAndInspectAsync(
                 stream, "recovery.zip", onboarding, CancellationToken.None);
             Assert.Equal("recovery.zip", inspection.FileName);
-            Assert.Equal("guid-blob-v3-view-storage", inspection.DatabaseEpoch);
+            Assert.Equal("guid-blob-v4-client-auth", inspection.DatabaseEpoch);
             Assert.Equal("inspected", onboarding.GetRestoreOperation(inspection.OperationId)?.Status);
         }
 

@@ -118,7 +118,7 @@ public sealed class DisplayContractTests
         Assert.Contains("group.MapGet(\"/search\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/groups/{groupId:guid}\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("includeCatalog", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("RequireAnyRole", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("RequireClientScope(ClientApiScopes.LibraryRead)", endpointSource, StringComparison.Ordinal);
         Assert.Contains("app.MapDisplayEndpoints();", programSource, StringComparison.Ordinal);
     }
 

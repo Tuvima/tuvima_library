@@ -3,6 +3,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Details;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -110,7 +111,7 @@ public static class StreamEndpoints
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status206PartialContent)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole()
+        .RequireClientScope(ClientApiScopes.PlaybackRead)
         .RequireRateLimiting("streaming");
 
         group.MapGet("/artwork/{variantId:guid}", async (
@@ -170,7 +171,7 @@ public static class StreamEndpoints
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status302Found)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ArtworkRead);
 
         group.MapGet("/entity/{entityType}/{entityId:guid}/cover", async (
             string entityType,
@@ -230,7 +231,7 @@ public static class StreamEndpoints
         .WithSummary("Serve the same managed or canonical cover artwork used by a detail page.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ArtworkRead);
 
         group.MapGet("/{assetId:guid}/cover", async (
             Guid assetId,
@@ -257,7 +258,7 @@ public static class StreamEndpoints
         .WithSummary("Serve the preferred centrally-managed cover artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ArtworkRead);
         // NOTE: No rate limit — cover art is small, cacheable, and loaded in bulk on
         // Home/category pages (dozens per reload). The streaming policy (100/min) is
         // sized for true media streams, not static thumbnails.
@@ -296,7 +297,7 @@ public static class StreamEndpoints
         .WithSummary("List lyrics and subtitle tracks available for a media asset.")
         .Produces<IReadOnlyList<TextTrackDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.PlaybackRead);
 
         group.MapGet("/{assetId:guid}/lyrics", async (
             Guid assetId,
@@ -314,7 +315,7 @@ public static class StreamEndpoints
         .WithSummary("Serve the preferred synchronized lyrics for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.PlaybackRead);
 
         group.MapGet("/{assetId:guid}/subtitles", async (
             Guid assetId,
@@ -333,7 +334,7 @@ public static class StreamEndpoints
         .WithSummary("Serve the preferred normalized WebVTT subtitles for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.PlaybackRead);
 
         group.MapPost("/{assetId:guid}/text-tracks/refresh", async (
             Guid assetId,
@@ -361,7 +362,7 @@ public static class StreamEndpoints
         .WithSummary("Manually refresh timed lyrics or subtitles for a media asset.")
         .Produces<RefreshTextTracksResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.PlaybackWrite);
 
         group.MapGet("/{assetId:guid}/cover-thumb", async (
             Guid assetId,
@@ -389,7 +390,7 @@ public static class StreamEndpoints
         .WithSummary("Serve the centrally-managed derived cover thumbnail for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ArtworkRead);
         // NOTE: No rate limit — thumbnails are loaded in bulk on Home/category pages.
         // The 100/min streaming cap was causing 429s on page reloads with many swimlanes.
 
@@ -419,7 +420,7 @@ public static class StreamEndpoints
         .WithSummary("Serve uploaded background artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ArtworkRead);
 
         group.MapGet("/{assetId:guid}/logo", async (
             Guid assetId,
@@ -447,7 +448,7 @@ public static class StreamEndpoints
         .WithSummary("Serve uploaded logo artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ArtworkRead);
 
         return app;
     }

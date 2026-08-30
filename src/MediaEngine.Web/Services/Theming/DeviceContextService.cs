@@ -15,9 +15,9 @@ namespace MediaEngine.Web.Services.Theming;
 ///
 /// <para>
 /// Initialised by <c>MainLayout.OnAfterRenderAsync</c> via JS interop — the browser
-/// calls <c>detectDeviceClass()</c> to determine the active device class (from URL
-/// param, localStorage, or auto-detection), then the service fetches resolved settings
-/// from the Engine API.
+/// calls <c>detectDeviceClass()</c> to select responsive web/mobile presentation.
+/// Native television and automotive identity is issued by the Engine during pairing
+/// and is not derived from browser-controlled state.
 /// </para>
 ///
 /// <para>
@@ -60,7 +60,7 @@ public sealed class DeviceContextService
     /// <param name="profileId">Optional profile UUID for the current user.</param>
     public async Task InitialiseAsync(string deviceClass, string? profileId = null)
     {
-        DeviceClass = string.IsNullOrWhiteSpace(deviceClass) ? "web" : deviceClass;
+        DeviceClass = string.Equals(deviceClass, "mobile", StringComparison.OrdinalIgnoreCase) ? "mobile" : "web";
 
         var resolved = await _apiClient.GetResolvedUISettingsAsync(DeviceClass, profileId);
         Settings = resolved ?? new ResolvedUISettingsViewModel { DeviceClass = DeviceClass };
@@ -70,12 +70,11 @@ public sealed class DeviceContextService
     }
 
     /// <summary>
-    /// Switches the device class at runtime (e.g. from a device-selector UI)
-    /// and re-fetches resolved settings from the Engine API.
+    /// Switches responsive presentation density and re-fetches resolved settings.
     /// </summary>
     public async Task SwitchDeviceAsync(string deviceClass, string? profileId = null)
     {
-        DeviceClass = string.IsNullOrWhiteSpace(deviceClass) ? "web" : deviceClass;
+        DeviceClass = string.Equals(deviceClass, "mobile", StringComparison.OrdinalIgnoreCase) ? "mobile" : "web";
 
         var resolved = await _apiClient.GetResolvedUISettingsAsync(DeviceClass, profileId);
         Settings = resolved ?? new ResolvedUISettingsViewModel { DeviceClass = DeviceClass };

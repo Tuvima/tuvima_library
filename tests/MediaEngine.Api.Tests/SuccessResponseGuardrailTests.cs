@@ -49,12 +49,15 @@ public sealed partial class SuccessResponseGuardrailTests
         "RemoveCollectionPersonalMediaSource",
         "RevokeApiKey",
         "RevokeAuthSession",
+        "RevokeClientDevice",
         "ReorderCollectionItems",
         "RetryMediaOperation",
         "StartAiModelDownload",
         "StreamAsset",
         "SetDetailDefaultSequence",
         "SetProfilePin",
+        "DecideDevicePairing",
+        "UpdateClientCapabilities",
         "ChangePassword",
         "PutSearchResultsCache",
         "UnlinkProfileExternalLogin",
@@ -172,7 +175,7 @@ public sealed partial class SuccessResponseGuardrailTests
             }
         }
 
-        Assert.Equal(446, routeCount);
+        Assert.Equal(454, routeCount);
         Assert.True(
             missingSuccessMetadata.Count == 0,
             "Routes missing explicit 2xx Produces metadata: " + string.Join(", ", missingSuccessMetadata));

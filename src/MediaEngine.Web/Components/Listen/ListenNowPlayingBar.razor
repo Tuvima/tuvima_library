@@ -629,18 +629,8 @@
 
     private async Task ConfigurePlaybackClientContextAsync()
     {
-        try
-        {
-            var deviceId = await JS.InvokeAsync<string>("listenPlayback.getOrCreateDeviceId");
-            Playback.SetClientContext(PlaybackClientContext.WebDefault with
-            {
-                DeviceId = deviceId,
-            });
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Could not load playback device identity from browser storage.");
-        }
+        Playback.SetClientContext(PlaybackClientContext.WebDefault);
+        await Task.CompletedTask;
     }
 
     private void HandlePlaybackChanged(PlaybackChangeKind changeKind)

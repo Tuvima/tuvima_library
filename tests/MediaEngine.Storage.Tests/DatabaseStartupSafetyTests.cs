@@ -43,6 +43,9 @@ public sealed class DatabaseStartupSafetyTests
             "collection_view_sources",
             "profile_view_policies",
             "profile_view_preferences",
+            "client_devices",
+            "device_pairing_requests",
+            "client_tokens",
         ];
 
         foreach (var table in requiredTables)
@@ -107,7 +110,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v3-view-storage", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v4-client-auth", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
 
         (string Table, string Column)[] internalGuidColumns =
         [
@@ -169,6 +172,12 @@ public sealed class DatabaseStartupSafetyTests
             ("character_portraits", "id"),
             ("character_portraits", "person_id"),
             ("character_portraits", "fictional_entity_id"),
+            ("client_devices", "id"),
+            ("client_devices", "profile_id"),
+            ("client_tokens", "id"),
+            ("client_tokens", "device_id"),
+            ("client_tokens", "profile_id"),
+            ("client_tokens", "token_family_id"),
             ("media_operations", "id"),
             ("media_operations", "entity_id"),
             ("media_operations", "batch_id"),
@@ -202,6 +211,9 @@ public sealed class DatabaseStartupSafetyTests
             ("collections", "profile_id"),
             ("deferred_enrichment_queue", "id"),
             ("deferred_enrichment_queue", "entity_id"),
+            ("device_pairing_requests", "id"),
+            ("device_pairing_requests", "profile_id"),
+            ("device_pairing_requests", "approved_by_profile_id"),
             ("editions", "work_id"),
             ("encode_jobs", "id"),
             ("encode_jobs", "asset_id"),
@@ -505,7 +517,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v3-view-storage", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v4-client-auth", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.True(TableExists(conn, "review_queue"));
     }
 
@@ -538,7 +550,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         var exception = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
-        Assert.Contains("guid-blob-v3-view-storage", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("guid-blob-v4-client-auth", exception.Message, StringComparison.Ordinal);
         Assert.Contains("not migrated in place", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -562,7 +574,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v3-view-storage", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v4-client-auth", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("BLOB", ColumnType(conn, "metadata_providers", "id"));
         Assert.True(TableExists(conn, "review_queue"));
 

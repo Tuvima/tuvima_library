@@ -28,6 +28,9 @@ public sealed class RouteAuthorizationGuardrailTests
         // src/MediaEngine.Api/Endpoints), so it never appears in this scan today — listed
         // defensively in case a health route is ever added under Endpoints/.
         "/health",
+        // Public OAuth discovery and RFC 8628 device-code/token endpoints.
+        "/device_authorization",
+        "/token",
     };
 
     /// <summary>
@@ -54,7 +57,7 @@ public sealed class RouteAuthorizationGuardrailTests
         RegexOptions.Compiled);
 
     private static readonly Regex RequireCallRegex = new(
-        @"\.(?:Require(?:Admin|AdminOrStandardUser|AnyRole)\(\s*\)|RequireAuthorization\([^)]*\))",
+        @"\.(?:Require(?:Admin|AdminOrStandardUser|AnyRole)\(\s*\)|RequireAuthorization\([^)]*\)|RequireClientScope\([^)]*\))",
         RegexOptions.Compiled);
 
     [Fact]

@@ -1,6 +1,6 @@
 ﻿-- =============================================================================
 -- Tuvima Library - SQLite initialization script
--- Current storage epoch: guid-blob-v3-view-storage
+-- Current storage epoch: guid-blob-v4-client-auth
 --
 -- Internal UUIDs are stored as 16-byte BLOBs where the current domain model owns
 -- the identifier. External provider identifiers, QIDs, hashes, URLs, and file
@@ -1255,6 +1255,72 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_profile_active
     ON auth_sessions(profile_id, revoked_at, expires_at);
 
+-- Server-issued identities for Dashboard, television, mobile and future
+-- clients. Request fields and browser storage are never identity authorities.
+CREATE TABLE IF NOT EXISTS client_devices (
+    id                BLOB NOT NULL PRIMARY KEY,
+    profile_id        BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    device_name       TEXT NOT NULL,
+    device_class      TEXT NOT NULL CHECK (device_class IN ('web','mobile','television','automotive')),
+    client_id         TEXT NOT NULL,
+    client_name       TEXT NOT NULL,
+    client_version    TEXT NOT NULL,
+    scopes            TEXT NOT NULL,
+    capabilities_json TEXT NOT NULL DEFAULT '{}',
+    created_at        TEXT NOT NULL,
+    last_seen_at      TEXT NOT NULL,
+    revoked_at        TEXT,
+    revoked_reason    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_client_devices_profile_active
+    ON client_devices(profile_id, revoked_at, last_seen_at DESC);
+
+CREATE TABLE IF NOT EXISTS device_pairing_requests (
+    id                     BLOB NOT NULL PRIMARY KEY,
+    device_code_hash       TEXT NOT NULL UNIQUE,
+    user_code_hash         TEXT NOT NULL UNIQUE,
+    client_id              TEXT NOT NULL,
+    client_name            TEXT NOT NULL,
+    client_version         TEXT NOT NULL,
+    device_name            TEXT NOT NULL,
+    device_class           TEXT NOT NULL CHECK (device_class IN ('web','mobile','television','automotive')),
+    requested_scopes       TEXT NOT NULL,
+    approved_scopes        TEXT NOT NULL DEFAULT '',
+    capabilities_json      TEXT NOT NULL DEFAULT '{}',
+    status                 TEXT NOT NULL DEFAULT 'pending'
+                           CHECK (status IN ('pending','approved','denied','consumed','expired')),
+    poll_interval_seconds  INTEGER NOT NULL DEFAULT 5,
+    last_polled_at         TEXT,
+    profile_id             BLOB REFERENCES profiles(id) ON DELETE CASCADE,
+    approved_by_profile_id BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+    created_at             TEXT NOT NULL,
+    expires_at             TEXT NOT NULL,
+    decided_at             TEXT,
+    consumed_at            TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_device_pairing_expiry
+    ON device_pairing_requests(status, expires_at);
+
+CREATE TABLE IF NOT EXISTS client_tokens (
+    id              BLOB NOT NULL PRIMARY KEY,
+    device_id       BLOB NOT NULL REFERENCES client_devices(id) ON DELETE CASCADE,
+    profile_id      BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    token_family_id BLOB NOT NULL,
+    token_kind      TEXT NOT NULL CHECK (token_kind IN ('access','refresh')),
+    token_hash      TEXT NOT NULL UNIQUE,
+    scopes          TEXT NOT NULL,
+    generation      INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL,
+    expires_at      TEXT NOT NULL,
+    consumed_at     TEXT,
+    revoked_at      TEXT,
+    revoked_reason  TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_client_tokens_family_active
+    ON client_tokens(token_family_id, token_kind, revoked_at, expires_at);
+CREATE INDEX IF NOT EXISTS idx_client_tokens_device_active
+    ON client_tokens(device_id, revoked_at, expires_at);
+
 CREATE TABLE IF NOT EXISTS password_recovery_codes (
     id          BLOB NOT NULL PRIMARY KEY,
     profile_id  BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -1521,7 +1587,7 @@ CREATE TABLE IF NOT EXISTS storage_metadata (
 );
 
 INSERT OR REPLACE INTO storage_metadata (key, value)
-VALUES ('storage_epoch', 'guid-blob-v3-view-storage');
+VALUES ('storage_epoch', 'guid-blob-v4-client-auth');
 
 CREATE TABLE IF NOT EXISTS system_activity (
     id           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,

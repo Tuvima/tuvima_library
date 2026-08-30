@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using MediaEngine.Contracts.Authentication;
 using Dapper;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Aggregates;
@@ -66,7 +67,8 @@ public sealed class PlaybackCapabilitiesService
         string? client,
         Guid? profileId = null,
         CancellationToken ct = default,
-        PlaybackConnectionContextDto? connection = null)
+        PlaybackConnectionContextDto? connection = null,
+        ClientCapabilitiesDto? negotiatedCapabilities = null)
     {
         var asset = await _assets.FindByIdAsync(assetId, ct);
         if (asset is null)
@@ -75,7 +77,9 @@ public sealed class PlaybackCapabilitiesService
         }
 
         var normalizedClient = NormalizeClient(client);
-        var profile = ProfileFor(normalizedClient);
+        var profile = negotiatedCapabilities is null
+            ? ProfileFor(normalizedClient)
+            : ProfileForCapabilities(normalizedClient, negotiatedCapabilities);
         var extension = Path.GetExtension(asset.FilePathRoot);
         var mediaType = await ResolveMediaTypeAsync(asset, extension, ct);
         var warnings = new List<string>();
@@ -203,6 +207,23 @@ public sealed class PlaybackCapabilitiesService
             Connection = connection,
         };
     }
+
+    private static PlaybackProfileDto ProfileForCapabilities(string client, ClientCapabilitiesDto capabilities) => new()
+    {
+        Key = client,
+        DisplayName = client,
+        PreferredDelivery = PlaybackDeliveryModes.DirectStream,
+        SupportedContainers = capabilities.Containers,
+        SupportedVideoCodecs = capabilities.VideoCodecs,
+        SupportedAudioCodecs = capabilities.AudioCodecs,
+        SupportedSubtitleFormats = capabilities.SubtitleFormats,
+        MaxHeight = capabilities.MaxHeight,
+        MaxBitrateKbps = capabilities.MaxBitrateKbps,
+        SupportsPlaybackSpeed = capabilities.SupportsPlaybackSpeed,
+        SupportsAlternateAudio = capabilities.MaxAudioChannels is > 1,
+        SupportsSubtitles = capabilities.SubtitleFormats.Count > 0,
+        SupportsOfflineDownloads = capabilities.SupportsOfflineDownloads,
+    };
 
     private static PlaybackConnectionContextDto NormalizeConnection(PlaybackConnectionContextDto? connection)
     {

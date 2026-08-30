@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Application.ReadModels;
@@ -13,27 +15,29 @@ public static class ProgressEndpoints
 {
     public static IEndpointRouteBuilder MapProgressEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/progress")
+        var group = app.MapGroup("/api/v1/progress")
                        .WithTags("Progress")
-                       .RequireAnyRole();
+                       .RequireAuthorization(AuthPolicies.Authenticated);
 
         group.MapGet("/{assetId:guid}", async (
             Guid assetId,
-            string? userId,
+            ClaimsPrincipal user,
             IUserStateStore stateStore,
             CancellationToken ct) =>
         {
-            var uid = ResolveUserId(userId);
+            var uid = ResolveUserId(user);
             var state = await stateStore.GetAsync(uid, assetId, ct);
             return state is null
                 ? ApiErrors.NotFound("No progress recorded for this asset.")
                 : Results.Ok(MapStateResponse(state));
         })
-        .Produces<UserStateResponse>(StatusCodes.Status200OK);
+        .Produces<UserStateResponse>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.ProgressRead);
 
         group.MapPut("/{assetId:guid}", async (
             Guid assetId,
             ProgressUpdateRequest body,
+            ClaimsPrincipal user,
             IUserStateStore stateStore,
             IMediaAssetRepository assetRepo,
             CancellationToken ct) =>
@@ -44,7 +48,7 @@ public static class ProgressEndpoints
 
             var state = new UserState
             {
-                UserId = ResolveUserId(body.UserId),
+                UserId = ResolveUserId(user),
                 AssetId = assetId,
                 ContentHash = asset.ContentHash,
                 ProgressPct = Math.Clamp(body.ProgressPct, 0.0, 100.0),
@@ -55,44 +59,47 @@ public static class ProgressEndpoints
             await stateStore.SaveAsync(state, ct);
             return Results.Ok(MapStateResponse(state));
         })
-        .Produces<UserStateResponse>(StatusCodes.Status200OK);
+        .Produces<UserStateResponse>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.ProgressWrite);
 
         group.MapGet("/recent", async (
-            string? userId,
+            ClaimsPrincipal user,
             int? limit,
             IUserStateStore stateStore,
             CancellationToken ct) =>
         {
-            var uid = ResolveUserId(userId);
+            var uid = ResolveUserId(user);
             var page = PagedRequest.From(null, limit, defaultLimit: 10);
             var items = await stateStore.GetRecentAsync(uid, page.Limit, ct);
             return Results.Ok(items.Select(MapStateResponse));
         })
-        .Produces<IEnumerable<UserStateResponse>>(StatusCodes.Status200OK);
+        .Produces<IEnumerable<UserStateResponse>>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.ProgressRead);
 
         group.MapGet("/journey", async (
-            string? userId,
+            ClaimsPrincipal user,
             string? collectionId,
             int? limit,
             IJourneyReadService journeyReadService,
             CancellationToken ct) =>
         {
-            var uid = ResolveUserId(userId);
+            var uid = ResolveUserId(user);
             var parsedCollectionId = Guid.TryParse(collectionId, out var value) ? value : (Guid?)null;
             var page = PagedRequest.From(null, limit, defaultLimit: 5);
             IReadOnlyList<JourneyItemResponse> results =
                 await journeyReadService.GetJourneyAsync(uid, parsedCollectionId, page.Limit, ct);
             return Results.Ok(results.Select(MapJourneyItem).ToList());
         })
-        .Produces<IReadOnlyList<JourneyItemDto>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<JourneyItemDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.ProgressRead);
 
         return app;
     }
 
-    private static Guid ResolveUserId(string? userId) =>
-        Guid.TryParse(userId, out var parsed)
+    private static Guid ResolveUserId(ClaimsPrincipal user) =>
+        Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.ActiveProfileId), out var parsed)
             ? parsed
-            : Guid.Parse("00000000-0000-0000-0000-000000000001");
+            : throw new UnauthorizedAccessException("The authenticated profile identity is missing.");
 
     private static UserStateResponse MapStateResponse(UserState s) => new(
         UserId: s.UserId,

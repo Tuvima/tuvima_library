@@ -98,7 +98,7 @@ public sealed partial class EngineApiClient
             if (!string.IsNullOrWhiteSpace(containerId))
                 query.Add($"containerId={Uri.EscapeDataString(containerId)}");
             AddQuery(query, "profileId", profileId?.ToString("D"));
-            var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/details/{entity}/{id:D}?{string.Join('&', query)}", ct);
+            var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/v1/details/{entity}/{id:D}?{string.Join('&', query)}", ct);
             return detail is null ? null : NormalizeDetailArtwork(detail);
         }
         catch (OperationCanceledException) { return null; }
@@ -120,7 +120,7 @@ public sealed partial class EngineApiClient
         {
             var entity = Uri.EscapeDataString(entityType.ToString().ToLowerInvariant());
             var response = await _http.PutAsJsonAsync(
-                $"/api/details/{entity}/{id:D}/sequence-default",
+                $"/api/v1/details/{entity}/{id:D}/sequence-default",
                 new SetDefaultSequenceRequest { ContainerId = containerId, ContainerTitle = containerTitle },
                 ct);
             return response.IsSuccessStatusCode;

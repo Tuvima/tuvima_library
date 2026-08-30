@@ -78,7 +78,6 @@ window.unregisterCtrlK = function () {
 // -- Device Context ---------------------------------------------------------
 
 window.tuvimaResponsive = (function () {
-    var validDeviceClasses = ['web', 'mobile', 'television', 'automotive'];
     var observer = null;
     var observerTimer = null;
     var lastObservedClass = null;
@@ -95,53 +94,20 @@ window.tuvimaResponsive = (function () {
         return window.innerWidth <= readBreakpoint('navigation', 840) ? 'mobile' : 'web';
     }
 
-    function isValid(value) {
-        return !!value && validDeviceClasses.indexOf(value.toLowerCase()) !== -1;
-    }
-
-    function persist(deviceClass, source) {
-        localStorage.setItem('device_class', deviceClass);
-        localStorage.setItem('device_class_source', source);
-    }
-
-    function resolve() {
-        var params = new URLSearchParams(window.location.search);
-        var urlDevice = params.get('device');
-        if (isValid(urlDevice)) {
-            var explicitDevice = urlDevice.toLowerCase();
-            persist(explicitDevice, 'explicit');
-            return explicitDevice;
-        }
-
-        var stored = localStorage.getItem('device_class');
-        var source = localStorage.getItem('device_class_source');
-        if (isValid(stored)) {
-            stored = stored.toLowerCase();
-            if (source === 'explicit' || stored === 'television' || stored === 'automotive') {
-                return stored;
-            }
-        }
-
-        var detected = classifyViewport();
-        persist(detected, 'auto');
-        return detected;
-    }
-
     function register(dotNetRef) {
         unregister();
         observer = dotNetRef;
-        lastObservedClass = resolve();
+        lastObservedClass = classifyViewport();
         window.addEventListener('resize', onResize, { passive: true });
     }
 
     function onResize() {
         window.clearTimeout(observerTimer);
         observerTimer = window.setTimeout(function () {
-            if (!observer || localStorage.getItem('device_class_source') === 'explicit') return;
+            if (!observer) return;
             var next = classifyViewport();
             if (next === lastObservedClass) return;
             lastObservedClass = next;
-            persist(next, 'auto');
             observer.invokeMethodAsync('HandleViewportDeviceClassChanged', next);
         }, 160);
     }
@@ -154,7 +120,7 @@ window.tuvimaResponsive = (function () {
     }
 
     return {
-        resolveDeviceClass: resolve,
+        resolveDeviceClass: classifyViewport,
         registerDeviceClassObserver: register,
         unregisterDeviceClassObserver: unregister,
         navigationBreakpoint: function () { return readBreakpoint('navigation', 840); }
@@ -162,31 +128,12 @@ window.tuvimaResponsive = (function () {
 })();
 
 /**
- * Detects the active device class for this browser session.
- * Priority:
- *   1. URL query parameter ?device=  (explicit override, highest priority)
- *   2. Explicitly persisted device class
- *   3. Viewport fallback using the canonical navigation breakpoint
- *
- * Television and automotive must be explicitly selected (URL param or UI toggle).
- *
- * @returns {string} Device class: "web", "mobile", "television", or "automotive".
+ * Returns responsive presentation density only. Trusted native device identity
+ * and class come from the server-issued bearer token and are never read here.
+ * @returns {string} "web" or "mobile".
  */
 window.detectDeviceClass = function () {
     return window.tuvimaResponsive.resolveDeviceClass();
-};
-
-/**
- * Persists the chosen device class to localStorage.
- * Called from the Dashboard when the user explicitly selects a device mode.
- *
- * @param {string} deviceClass - "web", "mobile", "television", or "automotive".
- */
-window.setDeviceClass = function (deviceClass) {
-    if (deviceClass && ['web', 'mobile', 'television', 'automotive'].indexOf(deviceClass.toLowerCase()) !== -1) {
-        localStorage.setItem('device_class', deviceClass.toLowerCase());
-        localStorage.setItem('device_class_source', 'explicit');
-    }
 };
 
 // -- Installable web app ----------------------------------------------------
@@ -1234,7 +1181,6 @@ window.listenPlayback = (function () {
     };
     var stateKey = 'tuvima.playback.v2.state';
     var commandKey = 'tuvima.playback.v2.command';
-    var deviceIdKey = 'tuvima.playback.v2.device-id';
     var popupName = 'tuvima-listen-mini-player';
     var channel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('tuvima-listen-playback') : null;
     var stateHandler = null;
@@ -1271,23 +1217,6 @@ window.listenPlayback = (function () {
         playbackConfig.seekToleranceSeconds = asFiniteNumber(readConfigValue(options, 'seekToleranceSeconds', 'seek_tolerance_seconds', playbackConfig.seekToleranceSeconds), playbackConfig.seekToleranceSeconds, 0.05, 10);
         playbackConfig.volumeStep = asFiniteNumber(readConfigValue(options, 'volumeStep', 'volume_step', playbackConfig.volumeStep), playbackConfig.volumeStep, 0.01, 0.5);
         playbackConfig.defaultVolume = asFiniteNumber(readConfigValue(options, 'defaultVolume', 'default_volume', playbackConfig.defaultVolume), playbackConfig.defaultVolume, 0, 1);
-    }
-
-    function createDeviceId() {
-        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-            return window.crypto.randomUUID();
-        }
-
-        return 'web-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
-    }
-
-    function getOrCreateDeviceId() {
-        var existing = localStorage.getItem(deviceIdKey);
-        if (existing) return existing;
-
-        var next = createDeviceId();
-        localStorage.setItem(deviceIdKey, next);
-        return next;
     }
 
     function notifyState(json) {
@@ -1740,7 +1669,6 @@ window.listenPlayback = (function () {
 
     return {
         configure: configure,
-        getOrCreateDeviceId: getOrCreateDeviceId,
         getState: function () {
             return localStorage.getItem(stateKey);
         },

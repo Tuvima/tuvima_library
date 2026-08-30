@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Details;
@@ -12,7 +14,7 @@ public static class DetailEndpoints
 {
     public static IEndpointRouteBuilder MapDetailEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/details")
+        var group = app.MapGroup("/api/v1/details")
             .WithTags("Details");
 
         group.MapGet("/{entityType}/{id:guid}", async (
@@ -20,7 +22,7 @@ public static class DetailEndpoints
             Guid id,
             string? context,
             string? containerId,
-            Guid? profileId,
+            ClaimsPrincipal user,
             HttpContext httpContext,
             DetailComposerService composer,
             CancellationToken ct) =>
@@ -29,9 +31,10 @@ public static class DetailEndpoints
                 return ApiErrors.BadRequest($"Unsupported detail entity type '{entityType}'.");
 
             var presentationContext = DetailComposerService.ParseContext(context);
-            var callerRole = httpContext.Items.TryGetValue("ApiKeyRole", out var roleValue)
-                ? roleValue as string
-                : null;
+            var profileId = Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.ActiveProfileId), out var parsedProfileId)
+                ? parsedProfileId
+                : (Guid?)null;
+            var callerRole = user.FindFirstValue(ClaimTypes.Role);
             var detail = await composer.BuildAsync(parsedType, id, presentationContext, ct, containerId, profileId, callerRole);
             return detail is null
                 ? ApiErrors.NotFound($"No detail page found for {entityType} '{id}'.")
@@ -42,7 +45,7 @@ public static class DetailEndpoints
         .Produces<DetailPageViewModel>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         group.MapPut("/{entityType}/{id:guid}/sequence-default", async (
             string entityType,

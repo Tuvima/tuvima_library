@@ -39,6 +39,7 @@ builder.Services.AddOutputCache(options =>
     options.AddPolicy("display-read", policy => policy
         .Expire(TimeSpan.FromSeconds(5))
         .SetVaryByQuery("*")
+        .SetVaryByHeader("Authorization", TuvimaAuthDefaults.SessionHeader)
         .Tag("display"));
 });
 ConfigurationManager config = builder.Configuration;
@@ -279,6 +280,7 @@ builder.Services.AddSingleton<ApiKeyService>();
 builder.Services.AddSingleton<IApiKeyLookupCache, ApiKeyLookupCache>();
 builder.Services.AddSingleton<ILibraryAccessEvaluator, LibraryAccessEvaluator>();
 builder.Services.AddTuvimaStorage();
+builder.Services.AddSingleton<ClientAuthorizationService>();
 builder.Services.AddSingleton(new DashboardServiceCredentialOptions(configDirectory));
 builder.Services.AddSingleton<DashboardServiceCredentialBootstrapper>();
 builder.Services.AddSingleton<IntercomTokenService>();
@@ -296,6 +298,9 @@ builder.Services.AddAuthorization(options =>
             MediaEngine.Domain.AppRoles.StandardUser));
     options.AddPolicy(AuthPolicies.DashboardService, policy =>
         policy.RequireClaim(TuvimaClaimTypes.DashboardService, "true"));
+    options.AddPolicy(AuthPolicies.DashboardInteractive, policy =>
+        policy.RequireClaim(TuvimaClaimTypes.DashboardService, "true")
+            .RequireClaim(TuvimaClaimTypes.ActiveProfileId));
     options.AddPolicy(AuthPolicies.IntercomConnect, policy =>
         policy.RequireClaim(TuvimaClaimTypes.DashboardService, "true"));
     options.FallbackPolicy = new AuthorizationPolicyBuilder()

@@ -69,6 +69,7 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
         services.AddSingleton<IProfileRepository, ProfileRepository>();
         services.AddSingleton<IIdentityRepository, IdentityRepository>();
+        services.AddSingleton<IClientAuthorizationRepository, ClientAuthorizationRepository>();
         services.AddSingleton<OnboardingRepository>();
         services.AddSingleton<OnboardingActivationGate>();
         services.AddSingleton<IPasswordHasher<ProfileCredential>, PasswordHasher<ProfileCredential>>();

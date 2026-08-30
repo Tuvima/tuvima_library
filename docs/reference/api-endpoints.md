@@ -12,11 +12,44 @@ tags:
 
 # Engine API Reference
 
-Base URL: `http://localhost:61495`
+Public client base URL: the Dashboard origin plus `/api/v1` (for local development, `http://localhost:5016/api/v1`).
+
+The Engine origin (`http://localhost:61495` in development) is an internal service boundary. Native clients must discover and call the Dashboard origin and never receive the Dashboard service credential or connect to the Engine port.
 
 Interactive documentation: `http://localhost:61495/swagger`
 
-All endpoints require authentication unless noted. Three roles: **Administrator** (full access), **Curator** (browse + metadata), **Consumer** (browse only). API keys are passed as `X-Api-Key` header.
+Administrative Engine endpoints require a first-party Dashboard session or an API key. Public v1 client endpoints use scoped bearer tokens issued to a paired device.
+
+## Public client API v1
+
+API v1 is the frozen native-client contract. Breaking request or response changes require a new major path. Additive fields may be introduced in v1; clients must ignore fields they do not understand.
+
+### Discovery and pairing
+
+1. `GET /.well-known/tuvima` on the Dashboard origin returns the public API base, supported versions, device-authorization and token endpoints, verification URL, and server capabilities.
+2. A television or other input-constrained client posts form data or JSON to `POST /api/v1/oauth/device_authorization` with a stable public `client_id`, display names, version, device class, requested space-delimited scopes, and capabilities.
+3. The user opens the returned `verification_uri` on an authenticated browser, reviews the exact client/device/scopes, and approves or denies it. Device codes expire after 10 minutes and polling starts at the returned interval.
+4. The device polls `POST /api/v1/oauth/token` using grant type `urn:ietf:params:oauth:grant-type:device_code`. `authorization_pending`, `slow_down`, `access_denied`, and `expired_token` are normal OAuth error responses.
+5. Access tokens last 10 minutes. Refresh tokens rotate on every successful `refresh_token` grant and expire after 30 days. Reuse of a consumed refresh token revokes its token family.
+
+Tokens are opaque bearer credentials and must be stored in the platform secure credential store. Device and token identifiers in request bodies or query strings are never authority; the Engine uses the profile, device class, client, and scopes bound to the bearer token. `GET /api/v1/devices` lists grants for the active profile, `GET /api/v1/devices/current` describes the caller, `PUT /api/v1/devices/current/capabilities` replaces negotiated capabilities, and `DELETE /api/v1/devices/{deviceId}` immediately revokes that device and all of its tokens.
+
+### Scopes and resources
+
+| Resource | Primary routes | Required scope |
+|---|---|---|
+| Discovery | `GET /.well-known/tuvima` | None |
+| Browse/home | `GET /api/v1/display/home`, `/browse`, `/shelves/{key}`, `/groups/{id}` | `library.read` |
+| Search | `GET /api/v1/display/search?q=` | `library.read` |
+| Details | `GET /api/v1/details/{entityType}/{id}` | `library.read` |
+| Artwork/media bytes | URLs returned by display/detail/manifest models; `/api/v1/stream/{assetId}` supports ranges | `artwork.read` or `playback.read` as applicable |
+| Progress | `GET/PUT /api/v1/progress/{assetId}`, `GET /recent`, `GET /journey` | `progress.read` / `progress.write` |
+| Queues | `GET /api/v1/player/state`, mutations under `/api/v1/player/queue` | `queue.read` / `queue.write` |
+| Playback session | `/api/v1/player/command`, `/heartbeat`, `/session/takeover` | `playback.write` or `progress.write` |
+| Playback decision | `GET /api/v1/playback/{assetId}/manifest` | `playback.read` |
+| Downloads | encode/offline routes under `/api/v1/playback` | `downloads.read` / `downloads.write` |
+
+Capability negotiation declares containers, video/audio codecs, subtitle formats, protocols, maximum dimensions/bitrate/channels, HDR, speed, and offline-download support. The playback manifest compares those registered capabilities with inspected source media and returns `directPlaySupported`, `recommendedDelivery`, source/alternate URLs, tracks, chapters, resume state, warnings, and a conversion reason. Clients must follow the manifest rather than independently guessing whether a file can direct-play.
 
 Most paginated GET endpoints accept `offset`/`limit` query parameters. View
 timeline and discovery endpoints use opaque/keyset `cursor` plus `limit`, and

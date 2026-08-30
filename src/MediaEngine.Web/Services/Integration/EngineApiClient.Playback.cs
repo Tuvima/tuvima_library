@@ -62,7 +62,7 @@ public sealed partial class EngineApiClient
                 }
             }
 
-            var response = await _http.GetAsync($"/playback/{assetId}/manifest?{string.Join("&", query)}", ct);
+            var response = await _http.GetAsync($"/api/v1/playback/{assetId}/manifest?{string.Join("&", query)}", ct);
             if (!response.IsSuccessStatusCode)
             {
                 await RecordHttpFailureAsync(endpoint, response, ct);
@@ -89,7 +89,7 @@ public sealed partial class EngineApiClient
         CancellationToken ct = default) =>
         GetAsync<PlayerStateDto?>(
             "GET /player/state",
-            "/player/state",
+            "/api/v1/player/state",
             () => null,
             new Dictionary<string, string?>
             {
@@ -102,35 +102,35 @@ public sealed partial class EngineApiClient
     public Task<PlayerCapabilitiesDto?> GetPlayerCapabilitiesAsync(CancellationToken ct = default) =>
         GetAsync<PlayerCapabilitiesDto?>(
             "GET /player/capabilities",
-            "/player/capabilities",
+            "/api/v1/player/capabilities",
             () => null,
             ct: ct);
 
     // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof).
     public Task<PlayerStateDto?> ReplacePlayerQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
-        PostAsync<PlayerQueueMutationDto, PlayerStateDto>("POST /player/queue/replace", "/player/queue/replace", request, ct: ct);
+        PostAsync<PlayerQueueMutationDto, PlayerStateDto>("POST /api/v1/player/queue/replace", "/api/v1/player/queue/replace", request, ct: ct);
 
     // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 2). The hand-written
     // PostPlayerMutationAsync helper this used to call is now dead code and has been removed.
     public Task<PlayerStateDto?> AddPlayerQueueItemsAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
-        PostAsync<PlayerQueueMutationDto, PlayerStateDto>("POST /player/queue/items", "/player/queue/items", request, ct: ct);
+        PostAsync<PlayerQueueMutationDto, PlayerStateDto>("POST /api/v1/player/queue/items", "/api/v1/player/queue/items", request, ct: ct);
 
     // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof).
     public Task<PlayerStateDto?> SendPlayerCommandAsync(PlayerCommandRequestDto request, CancellationToken ct = default) =>
-        PostAsync<PlayerCommandRequestDto, PlayerStateDto>("POST /player/command", "/player/command", request, ct: ct);
+        PostAsync<PlayerCommandRequestDto, PlayerStateDto>("POST /api/v1/player/command", "/api/v1/player/command", request, ct: ct);
 
     // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof).
     public Task<PlayerStateDto?> PostPlayerHeartbeatAsync(PlayerHeartbeatDto request, CancellationToken ct = default) =>
-        PostAsync<PlayerHeartbeatDto, PlayerStateDto>("POST /player/heartbeat", "/player/heartbeat", request, ct: ct);
+        PostAsync<PlayerHeartbeatDto, PlayerStateDto>("POST /api/v1/player/heartbeat", "/api/v1/player/heartbeat", request, ct: ct);
 
     public Task<PlayerStateDto?> TakeOverPlayerSessionAsync(PlayerSessionTakeoverRequestDto request, CancellationToken ct = default) =>
-        PostAsync<PlayerSessionTakeoverRequestDto, PlayerStateDto>("POST /player/session/takeover", "/player/session/takeover", request, ct: ct);
+        PostAsync<PlayerSessionTakeoverRequestDto, PlayerStateDto>("POST /api/v1/player/session/takeover", "/api/v1/player/session/takeover", request, ct: ct);
 
     // Migrated to the shared GetAsync<T> fallback-overload helper (stage 5B wave 2).
     public Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 25, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<AudiobookListenHistoryItemDto>>(
             "GET /player/audiobooks/{workId}/history",
-            $"/player/audiobooks/{workId:D}/history",
+            $"/api/v1/player/audiobooks/{workId:D}/history",
             () => [],
             new Dictionary<string, string?>
             {
@@ -143,7 +143,7 @@ public sealed partial class EngineApiClient
     public Task<IReadOnlyList<AudiobookBookmarkDto>> GetAudiobookBookmarksAsync(Guid workId, Guid? profileId = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<AudiobookBookmarkDto>>(
             "GET /player/audiobooks/{workId}/bookmarks",
-            $"/player/audiobooks/{workId:D}/bookmarks",
+            $"/api/v1/player/audiobooks/{workId:D}/bookmarks",
             () => [],
             new Dictionary<string, string?> { ["profileId"] = profileId?.ToString("D") },
             ct: ct);
@@ -153,7 +153,7 @@ public sealed partial class EngineApiClient
     public Task<AudiobookBookmarkDto?> CreateAudiobookBookmarkAsync(Guid workId, CreateAudiobookBookmarkRequestDto request, Guid? profileId = null, CancellationToken ct = default) =>
         PostAsync<CreateAudiobookBookmarkRequestDto, AudiobookBookmarkDto>(
             "POST /player/audiobooks/{workId}/bookmarks",
-            BuildEndpointPath($"/player/audiobooks/{workId:D}/bookmarks", new Dictionary<string, string?> { ["profileId"] = profileId?.ToString("D") }),
+            BuildEndpointPath($"/api/v1/player/audiobooks/{workId:D}/bookmarks", new Dictionary<string, string?> { ["profileId"] = profileId?.ToString("D") }),
             request,
             ct: ct);
 
@@ -161,14 +161,14 @@ public sealed partial class EngineApiClient
     public Task<bool> DeleteAudiobookBookmarkAsync(Guid bookmarkId, Guid? profileId = null, CancellationToken ct = default) =>
         DeleteAsync(
             "DELETE /player/audiobooks/bookmarks/{bookmarkId}",
-            BuildEndpointPath($"/player/audiobooks/bookmarks/{bookmarkId:D}", new Dictionary<string, string?> { ["profileId"] = profileId?.ToString("D") }),
+            BuildEndpointPath($"/api/v1/player/audiobooks/bookmarks/{bookmarkId:D}", new Dictionary<string, string?> { ["profileId"] = profileId?.ToString("D") }),
             ct: ct);
 
     // Migrated to the shared GetAsync<T> fallback-overload helper (stage 5B wave 2).
     public Task<IReadOnlyList<AudiobookChapterTitleOverrideDto>> GetAudiobookChapterTitleOverridesAsync(Guid workId, Guid? assetId = null, CancellationToken ct = default) =>
         GetAsync<IReadOnlyList<AudiobookChapterTitleOverrideDto>>(
             "GET /player/audiobooks/{workId}/chapter-overrides",
-            $"/player/audiobooks/{workId:D}/chapter-overrides",
+            $"/api/v1/player/audiobooks/{workId:D}/chapter-overrides",
             () => [],
             new Dictionary<string, string?> { ["assetId"] = assetId?.ToString("D") },
             ct: ct);
@@ -177,7 +177,7 @@ public sealed partial class EngineApiClient
     public Task<AudiobookChapterTitleOverrideDto?> UpsertAudiobookChapterTitleOverrideAsync(Guid workId, UpsertAudiobookChapterTitleOverrideRequestDto request, CancellationToken ct = default) =>
         PostAsync<UpsertAudiobookChapterTitleOverrideRequestDto, AudiobookChapterTitleOverrideDto>(
             "POST /player/audiobooks/{workId}/chapter-overrides",
-            $"/player/audiobooks/{workId:D}/chapter-overrides",
+            $"/api/v1/player/audiobooks/{workId:D}/chapter-overrides",
             request,
             ct: ct);
 
@@ -185,7 +185,7 @@ public sealed partial class EngineApiClient
     public Task<bool> DeleteAudiobookChapterTitleOverrideAsync(Guid workId, Guid assetId, int chapterIndex, CancellationToken ct = default) =>
         DeleteAsync(
             "DELETE /player/audiobooks/{workId}/chapter-overrides/{assetId}/{chapterIndex}",
-            $"/player/audiobooks/{workId:D}/chapter-overrides/{assetId:D}/{chapterIndex}",
+            $"/api/v1/player/audiobooks/{workId:D}/chapter-overrides/{assetId:D}/{chapterIndex}",
             ct: ct);
 
     public async Task<IReadOnlyList<TextTrackDto>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default)
@@ -230,7 +230,7 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<EncodeJobDto>>("/playback/encode/jobs", ct) ?? [];
+            return await _http.GetFromJsonAsync<List<EncodeJobDto>>("/api/v1/playback/encode/jobs", ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -244,7 +244,7 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync($"/playback/encode/jobs/{jobId}/cancel", new { }, ct);
+            var response = await _http.PostAsJsonAsync($"/api/v1/playback/encode/jobs/{jobId}/cancel", new { }, ct);
             return response.IsSuccessStatusCode;
         }
         catch (OperationCanceledException) { return false; }
@@ -259,7 +259,7 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<PlaybackDiagnosticsDto>("/playback/diagnostics", ct);
+            return await _http.GetFromJsonAsync<PlaybackDiagnosticsDto>("/api/v1/playback/diagnostics", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -355,7 +355,7 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var url = $"/progress/journey?limit={limit}";
+            var url = $"/api/v1/progress/journey?limit={limit}";
             if (userId.HasValue)
                 url += $"&userId={userId.Value}";
             if (collectionId.HasValue)
@@ -412,7 +412,7 @@ public sealed partial class EngineApiClient
                 progress_pct = progressPct,
                 extended_properties = extendedProperties,
             };
-            var resp = await _http.PutAsJsonAsync($"/progress/{assetId}", body, ct);
+            var resp = await _http.PutAsJsonAsync($"/api/v1/progress/{assetId}", body, ct);
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -431,7 +431,7 @@ public sealed partial class EngineApiClient
         {
             // Use GetAsync + manual deserialization so that 404 (no progress recorded)
             // returns null cleanly without throwing HttpRequestException.
-            var resp = await _http.GetAsync($"progress/{assetId}", ct);
+            var resp = await _http.GetAsync($"/api/v1/progress/{assetId}", ct);
             if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
                 return null;
 

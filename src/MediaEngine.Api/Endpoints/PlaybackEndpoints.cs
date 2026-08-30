@@ -1,8 +1,11 @@
+using System.Security.Claims;
+using System.Text.Json;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.Networking;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Authentication;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -25,19 +28,20 @@ public static class PlaybackEndpoints
 
     public static IEndpointRouteBuilder MapPlaybackEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/playback")
+        var group = app.MapGroup("/api/v1/playback")
             .WithTags("Playback");
 
         group.MapGet("/{assetId:guid}/manifest", async (
             Guid assetId,
             string? client,
-            Guid? profileId,
             string? connectionPath,
             string? provider,
             double? bandwidthMbps,
             int? latencyMs,
             Guid? roomId,
             HttpContext httpContext,
+            ClaimsPrincipal user,
+            ClientAuthorizationService authorization,
             NetworkConnectionClassifier classifier,
             PlaybackCapabilitiesService playback,
             CancellationToken ct) =>
@@ -49,7 +53,18 @@ public static class PlaybackEndpoints
                 bandwidthMbps,
                 latencyMs,
                 roomId);
-            var manifest = await playback.BuildManifestAsync(assetId, client, profileId, ct, connection);
+            var profileId = ClaimGuid(user, TuvimaClaimTypes.ActiveProfileId);
+            ClientCapabilitiesDto? capabilities = null;
+            if (ClaimGuid(user, TuvimaClaimTypes.DeviceId) is { } deviceId)
+            {
+                var device = await authorization.GetDeviceAsync(deviceId, ct);
+                if (device is not null)
+                    capabilities = JsonSerializer.Deserialize<ClientCapabilitiesDto>(device.CapabilitiesJson);
+            }
+            var trustedClient = user.FindFirstValue(TuvimaClaimTypes.ClientId) ?? client;
+            var manifest = await playback.BuildManifestAsync(assetId, trustedClient, profileId, ct, connection, capabilities);
+            if (manifest?.DirectStreamUrl is { } streamUrl)
+                manifest = manifest with { DirectStreamUrl = "/api/v1" + streamUrl };
             return manifest is null
                 ? ApiErrors.NotFound($"Asset '{assetId}' not found.")
                 : Results.Ok(manifest);
@@ -58,7 +73,7 @@ public static class PlaybackEndpoints
         .WithSummary("Return the centralized playback manifest for an asset and client profile.")
         .Produces<PlaybackManifestDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.PlaybackRead);
 
         group.MapPost("/{assetId:guid}/encode", async (
             Guid assetId,
@@ -75,7 +90,7 @@ public static class PlaybackEndpoints
         .WithSummary("Queue or schedule a managed encode/offline variant job.")
         .Produces<EncodeJobDto>(StatusCodes.Status202Accepted)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.DownloadsWrite);
 
         group.MapGet("/encode/jobs", async (
             PlaybackCapabilitiesService playback,
@@ -87,7 +102,7 @@ public static class PlaybackEndpoints
         .WithName("ListEncodeJobs")
         .WithSummary("List recent encode jobs.")
         .Produces<IReadOnlyList<EncodeJobDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.DownloadsRead);
 
         group.MapPost("/encode/jobs/{jobId:guid}/cancel", async (
             Guid jobId,
@@ -100,7 +115,7 @@ public static class PlaybackEndpoints
         .WithName("CancelEncodeJob")
         .WithSummary("Cancel a queued, scheduled, or running encode job.")
         .Produces(StatusCodes.Status204NoContent)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.DownloadsWrite);
 
         group.MapGet("/diagnostics", async (
             PlaybackCapabilitiesService playback,
@@ -112,7 +127,7 @@ public static class PlaybackEndpoints
         .WithName("GetPlaybackDiagnostics")
         .WithSummary("Report playback, inspection, and encode readiness.")
         .Produces<PlaybackDiagnosticsDto>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.PlaybackRead);
 
         group.MapGet("/{assetId:guid}/offline/{variantId:guid}", async (
             Guid assetId,
@@ -141,9 +156,12 @@ public static class PlaybackEndpoints
         .WithSummary("Download a prepared offline variant with HTTP range support.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status206PartialContent)
-        .RequireAnyRole()
+        .RequireClientScope(ClientApiScopes.DownloadsRead)
         .RequireRateLimiting("streaming");
 
         return app;
     }
+
+    private static Guid? ClaimGuid(ClaimsPrincipal user, string type) =>
+        Guid.TryParse(user.FindFirstValue(type), out var value) ? value : null;
 }

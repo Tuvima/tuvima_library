@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -14,7 +16,7 @@ public static class PlayerEndpoints
 {
     public static IEndpointRouteBuilder MapPlayerEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/player")
+        var group = app.MapGroup("/api/v1/player")
             .WithTags("Player");
 
         group.MapGet("/capabilities", (PlayerService player) =>
@@ -22,31 +24,34 @@ public static class PlayerEndpoints
         .WithName("GetPlayerCapabilities")
         .WithSummary("Return capabilities for Engine-backed player clients.")
         .Produces<PlayerCapabilitiesDto>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.PlaybackRead);
 
         group.MapGet("/state", async (
             Guid? profileId,
             string? deviceId,
             string? client,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
-            var state = await player.GetStateAsync(profileId, deviceId, client, ct);
+            var identity = Bind(user, profileId, deviceId, client);
+            var state = await player.GetStateAsync(identity.ProfileId, identity.DeviceId, identity.Client, ct);
             return Results.Ok(state);
         })
         .WithName("GetPlayerState")
         .WithSummary("Return the current player session state and queue.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.QueueRead);
 
         group.MapPost("/queue/replace", async (
             PlayerQueueMutationDto request,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
             try
             {
-                return Results.Ok(await player.ReplaceQueueAsync(request, ct));
+                return Results.Ok(await player.ReplaceQueueAsync(Bind(user, request), ct));
             }
             catch (PlayerStateConflictException ex)
             {
@@ -61,17 +66,18 @@ public static class PlayerEndpoints
         .WithSummary("Replace the queue and start playback from the requested item.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status409Conflict)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.QueueWrite);
 
         group.MapPost("/queue/items", async (
             PlayerQueueMutationDto request,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
             try
             {
                 var insertNext = string.Equals(request.Mode, PlayerQueueMutationModes.AddNext, StringComparison.OrdinalIgnoreCase);
-                return Results.Ok(await player.AddQueueItemsAsync(request, insertNext, ct));
+                return Results.Ok(await player.AddQueueItemsAsync(Bind(user, request), insertNext, ct));
             }
             catch (PlayerStateConflictException ex)
             {
@@ -86,16 +92,17 @@ public static class PlayerEndpoints
         .WithSummary("Add works to the current queue at the end or next slot.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status409Conflict)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.QueueWrite);
 
         group.MapMethods("/queue/order", ["PUT", "POST"], async (
             PlayerQueueMutationDto request,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
             try
             {
-                return Results.Ok(await player.ReorderQueueAsync(request, ct));
+                return Results.Ok(await player.ReorderQueueAsync(Bind(user, request), ct));
             }
             catch (PlayerStateConflictException ex)
             {
@@ -106,7 +113,7 @@ public static class PlayerEndpoints
         .WithSummary("Persist a new queue order.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status409Conflict)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.QueueWrite);
 
         group.MapDelete("/queue/items/{queueItemId:guid}", async (
             Guid queueItemId,
@@ -115,6 +122,7 @@ public static class PlayerEndpoints
             string? client,
             long? expectedStateVersion,
             bool? force,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
@@ -128,7 +136,7 @@ public static class PlayerEndpoints
                     ExpectedStateVersion = expectedStateVersion,
                     Force = force.GetValueOrDefault(),
                 };
-                return Results.Ok(await player.RemoveQueueItemAsync(queueItemId, request, ct));
+                return Results.Ok(await player.RemoveQueueItemAsync(queueItemId, Bind(user, request), ct));
             }
             catch (PlayerStateConflictException ex)
             {
@@ -139,7 +147,7 @@ public static class PlayerEndpoints
         .WithSummary("Remove one queue item.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status409Conflict)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.QueueWrite);
 
         group.MapDelete("/queue", async (
             Guid? profileId,
@@ -147,6 +155,7 @@ public static class PlayerEndpoints
             string? client,
             long? expectedStateVersion,
             bool? force,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
@@ -160,7 +169,7 @@ public static class PlayerEndpoints
                     ExpectedStateVersion = expectedStateVersion,
                     Force = force.GetValueOrDefault(),
                 };
-                return Results.Ok(await player.ClearQueueAsync(request, ct));
+                return Results.Ok(await player.ClearQueueAsync(Bind(user, request), ct));
             }
             catch (PlayerStateConflictException ex)
             {
@@ -171,42 +180,45 @@ public static class PlayerEndpoints
         .WithSummary("Clear the queue and stop playback.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status409Conflict)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.QueueWrite);
 
         group.MapPost("/command", async (
             PlayerCommandRequestDto request,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
-            var state = await player.ApplyCommandAsync(request, ct);
+            var state = await player.ApplyCommandAsync(Bind(user, request), ct);
             return Results.Ok(state);
         })
         .WithName("SendPlayerCommand")
         .WithSummary("Send a playback command such as play, pause, next, seek, volume, speed, shuffle, or repeat.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.PlaybackWrite);
 
         group.MapPost("/heartbeat", async (
             PlayerHeartbeatDto request,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
-            var state = await player.HeartbeatAsync(request, ct);
+            var state = await player.HeartbeatAsync(Bind(user, request), ct);
             return Results.Ok(state);
         })
         .WithName("PostPlayerHeartbeat")
         .WithSummary("Update active player timing and persist exact resume progress.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ProgressWrite);
 
         group.MapPost("/session/takeover", async (
             PlayerSessionTakeoverRequestDto request,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
             try
             {
-                return Results.Ok(await player.TakeoverAsync(request, ct));
+                return Results.Ok(await player.TakeoverAsync(Bind(user, request), ct));
             }
             catch (PlayerSessionConflictException ex)
             {
@@ -217,44 +229,49 @@ public static class PlayerEndpoints
         .WithSummary("Take control of a stale or explicitly forced player session from another client.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status409Conflict)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.PlaybackWrite);
 
         group.MapGet("/audiobooks/{workId:guid}/history", async (
             Guid workId,
             Guid? profileId,
             int? limit,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
             // A caller-supplied limit is clamped to PagedRequest.MaxLimit; when absent, null is
             // preserved so the service falls back to the profile's configured history limit.
             var clampedLimit = limit.HasValue ? PagedRequest.From(null, limit).Limit : (int?)null;
-            var history = await player.GetAudiobookHistoryAsync(profileId, workId, clampedLimit, ct);
+            var identity = Bind(user, profileId, null, null);
+            var history = await player.GetAudiobookHistoryAsync(identity.ProfileId, workId, clampedLimit, ct);
             return Results.Ok(history);
         })
         .WithName("GetAudiobookListenHistory")
         .WithSummary("Return recent qualified audiobook listen checkpoints for resume recovery.")
         .Produces<IReadOnlyList<AudiobookListenHistoryItemDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ProgressRead);
 
         group.MapGet("/audiobooks/{workId:guid}/bookmarks", async (
             Guid workId,
             Guid? profileId,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
-            var bookmarks = await player.GetAudiobookBookmarksAsync(profileId, workId, ct);
+            var identity = Bind(user, profileId, null, null);
+            var bookmarks = await player.GetAudiobookBookmarksAsync(identity.ProfileId, workId, ct);
             return Results.Ok(bookmarks);
         })
         .WithName("GetAudiobookBookmarks")
         .WithSummary("Return saved audiobook playback bookmarks for a work.")
         .Produces<IReadOnlyList<AudiobookBookmarkDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ProgressRead);
 
         group.MapPost("/audiobooks/{workId:guid}/bookmarks", async (
             Guid workId,
             Guid? profileId,
             CreateAudiobookBookmarkRequestDto request,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
@@ -263,29 +280,32 @@ public static class PlayerEndpoints
                 return ApiErrors.BadRequest("An asset id is required for an audiobook bookmark.");
             }
 
-            var bookmark = await player.CreateAudiobookBookmarkAsync(profileId, workId, request, ct);
+                var identity = Bind(user, profileId, null, null);
+                var bookmark = await player.CreateAudiobookBookmarkAsync(identity.ProfileId, workId, request, ct);
             return Results.Created($"/player/audiobooks/{workId:D}/bookmarks/{bookmark.Id:D}", bookmark);
         })
         .WithName("CreateAudiobookBookmark")
         .WithSummary("Save the current audiobook playback position as a bookmark.")
         .Produces<AudiobookBookmarkDto>(StatusCodes.Status201Created)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ProgressWrite);
 
         group.MapDelete("/audiobooks/bookmarks/{bookmarkId:guid}", async (
             Guid bookmarkId,
             Guid? profileId,
+            ClaimsPrincipal user,
             PlayerService player,
             CancellationToken ct) =>
         {
-            var deleted = await player.DeleteAudiobookBookmarkAsync(profileId, bookmarkId, ct);
+            var identity = Bind(user, profileId, null, null);
+            var deleted = await player.DeleteAudiobookBookmarkAsync(identity.ProfileId, bookmarkId, ct);
             return deleted ? Results.NoContent() : ApiErrors.NotFound($"Audiobook bookmark '{bookmarkId}' not found.");
         })
         .WithName("DeleteAudiobookBookmark")
         .WithSummary("Delete one saved audiobook bookmark.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ProgressWrite);
 
         group.MapGet("/audiobooks/{workId:guid}/chapter-overrides", async (
             Guid workId,
@@ -299,7 +319,7 @@ public static class PlayerEndpoints
         .WithName("GetAudiobookChapterTitleOverrides")
         .WithSummary("Return display-only audiobook chapter title overrides.")
         .Produces<IReadOnlyList<AudiobookChapterTitleOverrideDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         group.MapPost("/audiobooks/{workId:guid}/chapter-overrides", async (
             Guid workId,
@@ -326,7 +346,7 @@ public static class PlayerEndpoints
         .Produces<AudiobookChapterTitleOverrideDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ProgressWrite);
 
         group.MapDelete("/audiobooks/{workId:guid}/chapter-overrides/{assetId:guid}/{chapterIndex:int}", async (
             Guid workId,
@@ -344,8 +364,43 @@ public static class PlayerEndpoints
         .WithSummary("Delete one display-only audiobook chapter title override.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.ProgressWrite);
 
         return app;
+    }
+
+    private static (Guid? ProfileId, string? DeviceId, string? Client) Bind(
+        ClaimsPrincipal user, Guid? profileId, string? deviceId, string? client)
+    {
+        var trustedProfile = Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.ActiveProfileId), out var parsedProfile)
+            ? parsedProfile
+            : profileId;
+        var trustedDevice = user.FindFirstValue(TuvimaClaimTypes.DeviceId) ?? deviceId;
+        var trustedClient = user.FindFirstValue(TuvimaClaimTypes.ClientId) ?? client;
+        return (trustedProfile, trustedDevice, trustedClient);
+    }
+
+    private static PlayerQueueMutationDto Bind(ClaimsPrincipal user, PlayerQueueMutationDto request)
+    {
+        var identity = Bind(user, request.ProfileId, request.DeviceId, request.Client);
+        return request with { ProfileId = identity.ProfileId, DeviceId = identity.DeviceId, Client = identity.Client };
+    }
+
+    private static PlayerCommandRequestDto Bind(ClaimsPrincipal user, PlayerCommandRequestDto request)
+    {
+        var identity = Bind(user, request.ProfileId, request.DeviceId, request.Client);
+        return request with { ProfileId = identity.ProfileId, DeviceId = identity.DeviceId, Client = identity.Client };
+    }
+
+    private static PlayerHeartbeatDto Bind(ClaimsPrincipal user, PlayerHeartbeatDto request)
+    {
+        var identity = Bind(user, request.ProfileId, request.DeviceId, request.Client);
+        return request with { ProfileId = identity.ProfileId, DeviceId = identity.DeviceId, Client = identity.Client };
+    }
+
+    private static PlayerSessionTakeoverRequestDto Bind(ClaimsPrincipal user, PlayerSessionTakeoverRequestDto request)
+    {
+        var identity = Bind(user, request.ProfileId, request.DeviceId, request.Client);
+        return request with { ProfileId = identity.ProfileId, DeviceId = identity.DeviceId, Client = identity.Client };
     }
 }

@@ -18,7 +18,7 @@ public sealed class PlayerEndpointRouteTests
         Assert.Contains("services.AddSingleton<AudiobookChapterTitleOverrideRepository>();", playbackRegistrations, StringComparison.Ordinal);
         Assert.Contains("services.AddSingleton<AudiobookChapterNamingService>();", playbackRegistrations, StringComparison.Ordinal);
         Assert.Contains("services.AddSingleton<PlayerService>();", playbackRegistrations, StringComparison.Ordinal);
-        Assert.Contains("app.MapGroup(\"/player\")", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("app.MapGroup(\"/api/v1/player\")", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/state\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/capabilities\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/queue/replace\"", endpointSource, StringComparison.Ordinal);
@@ -37,7 +37,8 @@ public sealed class PlayerEndpointRouteTests
         Assert.Contains("group.MapGet(\"/audiobooks/{workId:guid}/chapter-overrides\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/audiobooks/{workId:guid}/chapter-overrides\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapDelete(\"/audiobooks/{workId:guid}/chapter-overrides/{assetId:guid}/{chapterIndex:int}\"", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("RequireAnyRole()", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("RequireClientScope(ClientApiScopes.QueueWrite)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("user.FindFirstValue(TuvimaClaimTypes.DeviceId)", endpointSource, StringComparison.Ordinal);
         Assert.DoesNotContain("IDatabaseConnection", endpointSource, StringComparison.Ordinal);
         Assert.DoesNotContain("MapGroup(\"/playback\")", endpointSource, StringComparison.Ordinal);
     }

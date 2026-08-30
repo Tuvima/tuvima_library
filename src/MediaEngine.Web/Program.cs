@@ -27,6 +27,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Security.Claims;
 using MediaEngine.Contracts.Authentication;
+using MediaEngine.Web.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpContextAccessor();
@@ -303,6 +304,7 @@ builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient)
 builder.Services.AddHttpClient("EngineArtwork", ConfigureEngineClient);
 builder.Services.AddHttpClient("EngineIdentity", ConfigureEngineClient)
     .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
+builder.Services.AddHttpClient("ClientApiProxy", client => client.BaseAddress = new Uri(apiBase));
 builder.Services.AddHealthChecks()
     .AddCheck<DashboardEngineHealthCheck>("engine_liveness", tags: ["readiness"]);
 
@@ -417,6 +419,7 @@ app.MapMethods("/engine-image/{**enginePath}", [HttpMethods.Get, HttpMethods.Hea
 app.MapViewMediaProxy();
 
 app.MapDashboardAuthenticationEndpoints(ssoEnabled);
+app.MapClientApiEdge();
 
 if (ssoEnabled)
 {
