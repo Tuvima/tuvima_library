@@ -109,4 +109,36 @@ public sealed class FileHashCacheRepository : IFileHashCacheRepository
 
         return Task.CompletedTask;
     }
+
+    public Task MoveAsync(
+        string sourceAbsolutePath,
+        string destinationAbsolutePath,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(sourceAbsolutePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationAbsolutePath);
+
+        var source = Path.GetFullPath(sourceAbsolutePath);
+        var destination = Path.GetFullPath(destinationAbsolutePath);
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute("""
+                INSERT OR REPLACE INTO file_hash_cache
+                    (absolute_path, size_bytes, mtime_utc, sha256, cached_at)
+                SELECT @destination, size_bytes, mtime_utc, sha256, cached_at
+                FROM file_hash_cache
+                WHERE absolute_path = @source COLLATE NOCASE;
+
+                DELETE FROM file_hash_cache
+                WHERE absolute_path = @source COLLATE NOCASE
+                  AND absolute_path != @destination COLLATE BINARY;
+                """, new
+            {
+                source,
+                destination,
+            }, tx);
+        }, ct);
+    }
 }

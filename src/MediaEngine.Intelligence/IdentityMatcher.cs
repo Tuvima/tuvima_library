@@ -42,6 +42,13 @@ namespace MediaEngine.Intelligence;
 /// </summary>
 public sealed class IdentityMatcher : IIdentityMatcher
 {
+    private static readonly HashSet<string> NonIdentityFuzzyFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "description",
+        "synopsis",
+        "biography",
+        "comment",
+    };
     private const string TitleKey = MetadataFieldConstants.Title;
     private const double TitleWeight = 0.5;      // title gets 50 % of total influence
 
@@ -117,6 +124,7 @@ public sealed class IdentityMatcher : IIdentityMatcher
         bool hasTitleField = commonKeys.Contains(TitleKey, StringComparer.OrdinalIgnoreCase);
         var  otherKeys     = commonKeys
             .Where(k => !string.Equals(k, TitleKey, StringComparison.OrdinalIgnoreCase))
+            .Where(k => !NonIdentityFuzzyFields.Contains(k))
             .ToList();
 
         double totalWeight = 0.0;

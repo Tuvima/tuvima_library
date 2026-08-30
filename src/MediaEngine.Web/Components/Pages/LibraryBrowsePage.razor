@@ -127,40 +127,12 @@ else
     private bool _scanStarting;
     private bool _canScan;
     private DiscoveryPageViewModel _page = new() { Key = "home" };
+    private IReadOnlyList<MediaTileShelfViewModel> _visibleShelves = [];
+    private IReadOnlyList<DiscoveryHeroViewModel> _homeHeroCandidates = [];
 
-    private IReadOnlyList<MediaTileShelfViewModel> VisibleShelves => _page.Shelves
-        .Select(shelf => new MediaTileShelfViewModel
-        {
-            Key = shelf.Key,
-            Title = shelf.Title,
-            Subtitle = shelf.Subtitle,
-            Items = shelf.Items,
-            SeeAllRoute = shelf.SeeAllRoute,
-        })
-        .Where(shelf => shelf.Items.Count > 0)
-        .ToList();
+    private IReadOnlyList<MediaTileShelfViewModel> VisibleShelves => _visibleShelves;
 
-    private IReadOnlyList<DiscoveryHeroViewModel> HomeHeroCandidates
-    {
-        get
-        {
-            var explicitHeroes = _page.Spotlights.Count > 0
-                ? _page.Spotlights
-                : _page.Hero is null ? [] : [_page.Hero];
-            var heroes = explicitHeroes.Take(5).ToList();
-            if (heroes.Count > 0)
-            {
-                return heroes;
-            }
-
-            return VisibleShelves
-                .SelectMany(shelf => shelf.Items)
-                .DistinctBy(item => item.Id)
-                .Take(5)
-                .Select(HeroFromTile)
-                .ToList();
-        }
-    }
+    private IReadOnlyList<DiscoveryHeroViewModel> HomeHeroCandidates => _homeHeroCandidates;
 
     private bool IsEmpty =>
         _page.Hero is null
@@ -229,6 +201,7 @@ else
                 {
                     var activeProfile = await Orchestrator.GetActiveProfileAsync();
                     _page = await MediaTiles.BuildHomeAsync(activeProfile?.Id);
+                    UpdatePresentationCaches();
                     if (IsEmpty)
                     {
                         _canScan = await CanStartScanAsync();
@@ -248,6 +221,7 @@ else
                             EmptyTitle = "Your home screen is waiting for its first story.",
                             EmptySubtitle = "Once media lands in the library, home becomes the personalized view across everything you own."
                         };
+                        UpdatePresentationCaches();
                     }
 
                     _canScan = await CanStartScanAsync();
@@ -264,6 +238,35 @@ else
         finally
         {
             _loadInProgress = false;
+        }
+    }
+
+    private void UpdatePresentationCaches()
+    {
+        _visibleShelves = _page.Shelves
+            .Where(shelf => shelf.Items.Count > 0)
+            .Select(shelf => new MediaTileShelfViewModel
+            {
+                Key = shelf.Key,
+                Title = shelf.Title,
+                Subtitle = shelf.Subtitle,
+                Items = shelf.Items,
+                SeeAllRoute = shelf.SeeAllRoute,
+            })
+            .ToList();
+
+        var explicitHeroes = _page.Spotlights.Count > 0
+            ? _page.Spotlights
+            : _page.Hero is null ? [] : [_page.Hero];
+        _homeHeroCandidates = explicitHeroes.Take(5).ToList();
+        if (_homeHeroCandidates.Count == 0)
+        {
+            _homeHeroCandidates = _visibleShelves
+                .SelectMany(shelf => shelf.Items)
+                .DistinctBy(item => item.Id)
+                .Take(5)
+                .Select(HeroFromTile)
+                .ToList();
         }
     }
 

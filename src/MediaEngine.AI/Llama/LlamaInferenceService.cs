@@ -175,27 +175,14 @@ public sealed class LlamaInferenceService : ILlamaInferenceService, IAsyncDispos
             return new(InferenceOutcomeStatus.Success, parsed, null, stopwatch.Elapsed);
         }
 
-        _logger.LogWarning("JSON parse failed for {Role}; retrying with request-local sampling settings", role);
-        var retryOptions = firstOptions with
-        {
-            Temperature = Math.Min(firstOptions.Temperature + 0.2, 0.5),
-        };
-        var retry = await InferWithOutcomeAsync(role, prompt, gbnfGrammar, retryOptions, ct)
-            .ConfigureAwait(false);
-        if (!retry.IsSuccess)
-        {
-            return ConvertFailure<T>(retry, stopwatch.Elapsed, 2);
-        }
-
-        parsed = TryParseJson<T>(retry.Value);
-        return parsed is not null
-            ? new(InferenceOutcomeStatus.Success, parsed, null, stopwatch.Elapsed, 2)
-            : new(
-                InferenceOutcomeStatus.InvalidResponse,
-                null,
-                "The model did not return valid JSON after two attempts.",
-                stopwatch.Elapsed,
-                2);
+        _logger.LogWarning(
+            "JSON parse failed for {Role}; returning an invalid-response outcome without another full inference",
+            role);
+        return new(
+            InferenceOutcomeStatus.InvalidResponse,
+            null,
+            "The model did not return valid JSON.",
+            stopwatch.Elapsed);
     }
 
     private InferenceRequestOptions CreateDefaultOptions(AiModelRole role)

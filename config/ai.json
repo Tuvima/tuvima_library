@@ -6,6 +6,8 @@
   "idle_unload_seconds": 300,
   "inference_timeout_seconds": 60,
   "max_concurrent_inferences": 1,
+  "reserved_cpu_cores": 2,
+  "background_quiet_seconds": 10,
   "minimum_free_disk_mb": 2048,
   "features": {
     "smart_labeling": true,

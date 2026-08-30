@@ -114,30 +114,33 @@
 
     private string RootClass => $"app-timeline app-timeline--art-{TimelineArtworkSizePx}";
 
-    private IReadOnlyList<IGrouping<int, MediaTileViewModel>> Groups => Items
-        .GroupBy(item => item.SortYear)
-        .OrderBy(group => group.Key == 0 ? int.MaxValue : group.Key)
-        .ToList();
+    private IReadOnlyList<IGrouping<int, MediaTileViewModel>> _groups = [];
+    private HashSet<int> _availableYears = [];
+    private IReadOnlyList<TimelineDecade> _decades = [];
+    private bool _hasUnknownYear;
 
-    private HashSet<int> AvailableYears => Groups
-        .Where(group => group.Key > 0)
-        .Select(group => group.Key)
-        .ToHashSet();
-
-    private IReadOnlyList<TimelineDecade> Decades => AvailableYears
-        .GroupBy(year => year / 10 * 10)
-        .OrderBy(group => group.Key)
-        .Select(group => new TimelineDecade(group.Key, Enumerable.Range(group.Key, 10).ToList()))
-        .ToList();
-
-    private bool HasUnknownYear => Groups.Any(group => group.Key == 0);
+    private IReadOnlyList<IGrouping<int, MediaTileViewModel>> Groups => _groups;
+    private HashSet<int> AvailableYears => _availableYears;
+    private IReadOnlyList<TimelineDecade> Decades => _decades;
+    private bool HasUnknownYear => _hasUnknownYear;
 
     protected override void OnParametersSet()
     {
-        var years = Groups.Select(group => group.Key).ToHashSet();
+        _groups = Items
+            .GroupBy(item => item.SortYear)
+            .OrderBy(group => group.Key == 0 ? int.MaxValue : group.Key)
+            .ToList();
+        var years = _groups.Select(group => group.Key).ToHashSet();
+        _availableYears = years.Where(year => year > 0).ToHashSet();
+        _decades = _availableYears
+            .GroupBy(year => year / 10 * 10)
+            .OrderBy(group => group.Key)
+            .Select(group => new TimelineDecade(group.Key, Enumerable.Range(group.Key, 10).ToList()))
+            .ToList();
+        _hasUnknownYear = years.Contains(0);
         if (!_selectedYear.HasValue || !years.Contains(_selectedYear.Value))
         {
-            _selectedYear = Groups.FirstOrDefault()?.Key;
+            _selectedYear = _groups.FirstOrDefault()?.Key;
         }
     }
 

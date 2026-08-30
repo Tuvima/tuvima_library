@@ -14,6 +14,20 @@ tags:
 
 The Dashboard is organized around discovery and media use, not a separate media management workspace. Home, Read, Watch, Listen, and Search are where users find and experience media. Detail pages and media rows/cards launch inline editing. Review Queue is the exception workflow for blocked or uncertain items. Settings/Admin is for configuration and system operations.
 
+## Rendering and live-update performance
+
+The Dashboard uses interactive server rendering without static prerender, so page
+initializers and Engine requests run once per navigation. Engine HTTP clients are
+factory-managed and share pooled primary handlers.
+
+SignalR state changes are coalesced into short render windows, while terminal
+events flush immediately. Browse surfaces reload only when their query-defining
+parameters change, and per-item ingestion events are aggregated into one debounced
+refresh. Components must cache derived LINQ projections in `OnParametersSet`
+rather than rebuilding lists from expression-bodied properties during each render.
+Wrapping grids stay explicitly paged and use `content-visibility` containment;
+do not apply single-column `Virtualize` to responsive variable-width flex layouts.
+
 ## Global shell
 
 `src/MediaEngine.Web/Shared/MainLayout.razor` is the app-wide shell. It coordinates:

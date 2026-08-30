@@ -25,7 +25,7 @@ public sealed class DisplayComposerService
 
     public async Task<DisplayPageDto> BuildHomeAsync(bool includeCatalog = true, Guid? profileId = null, CancellationToken ct = default, int shelfLimit = 18)
     {
-        var worksTask = _readService.LoadWorksAsync(ct);
+        var worksTask = _readService.LoadHomeWorksAsync(ct);
         var journeyTask = _readService.LoadJourneyAsync(null, ct);
         var homeCollectionsTask = _readService.LoadHomeCollectionsAsync(profileId, ct);
         await Task.WhenAll(worksTask, journeyTask, homeCollectionsTask);

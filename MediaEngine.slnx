@@ -31,5 +31,6 @@
     <Project Path="tests/MediaEngine.Api.Tests/MediaEngine.Api.Tests.csproj" />
     <Project Path="tests/MediaEngine.Contracts.Tests/MediaEngine.Contracts.Tests.csproj" />
     <Project Path="tests/MediaEngine.Web.Tests/MediaEngine.Web.Tests.csproj" />
+    <Project Path="tests/MediaEngine.Performance.Tests/MediaEngine.Performance.Tests.csproj" />
   </Folder>
 </Solution>

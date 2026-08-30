@@ -406,7 +406,7 @@ CREATE TABLE IF NOT EXISTS plugin_lore_relationships (
 );
 
 CREATE TABLE IF NOT EXISTS file_hash_cache (
-    absolute_path TEXT    NOT NULL PRIMARY KEY,
+    absolute_path TEXT COLLATE NOCASE NOT NULL PRIMARY KEY,
     size_bytes    INTEGER NOT NULL,
     mtime_utc     TEXT    NOT NULL,
     sha256        TEXT    NOT NULL,
@@ -1705,6 +1705,12 @@ CREATE INDEX IF NOT EXISTS idx_character_portraits_person
 CREATE INDEX IF NOT EXISTS idx_collection_placements_collection_id
     ON collection_placements(collection_id);
 
+CREATE INDEX IF NOT EXISTS idx_collection_items_collection_sort
+    ON collection_items(collection_id, sort_order);
+
+CREATE INDEX IF NOT EXISTS idx_collection_items_work
+    ON collection_items(work_id);
+
 CREATE INDEX IF NOT EXISTS idx_collection_placements_location
     ON collection_placements(location);
 
@@ -1806,6 +1812,9 @@ CREATE INDEX IF NOT EXISTS idx_field_changes_field ON entity_field_changes(entit
 CREATE INDEX IF NOT EXISTS idx_file_hash_cache_sha256
     ON file_hash_cache(sha256);
 
+CREATE UNIQUE INDEX IF NOT EXISTS ux_file_hash_cache_path_nocase
+    ON file_hash_cache(absolute_path COLLATE NOCASE);
+
 CREATE INDEX IF NOT EXISTS idx_identity_jobs_entity_id ON identity_jobs (entity_id);
 
 CREATE INDEX IF NOT EXISTS idx_identity_jobs_ingestion_run_id ON identity_jobs (ingestion_run_id);
@@ -1858,6 +1867,9 @@ CREATE INDEX IF NOT EXISTS idx_media_assets_content_hash
 
 CREATE INDEX IF NOT EXISTS idx_media_assets_file_path_root
     ON media_assets (file_path_root COLLATE NOCASE);
+
+CREATE INDEX IF NOT EXISTS idx_media_assets_status
+    ON media_assets(status);
 
 CREATE INDEX IF NOT EXISTS idx_media_assets_presented
     ON media_assets(presented_at) WHERE presented_at IS NOT NULL;
@@ -1941,6 +1953,9 @@ CREATE INDEX IF NOT EXISTS idx_person_media_links_person
 
 CREATE INDEX IF NOT EXISTS idx_persons_name
     ON persons (name);
+
+CREATE INDEX IF NOT EXISTS idx_persons_name_nocase
+    ON persons (name COLLATE NOCASE);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_persons_wikidata_qid
     ON persons (wikidata_qid) WHERE wikidata_qid IS NOT NULL;
@@ -2055,6 +2070,12 @@ CREATE INDEX IF NOT EXISTS idx_works_media_type
 
 CREATE INDEX IF NOT EXISTS idx_works_ownership_media_type
     ON works(ownership, media_type);
+
+CREATE INDEX IF NOT EXISTS idx_works_curator_state
+    ON works(curator_state) WHERE curator_state IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_works_catalog_media_type
+    ON works(is_catalog_only, media_type);
 
 CREATE INDEX IF NOT EXISTS idx_works_parent_key
     ON works(media_type, parent_key) WHERE parent_key IS NOT NULL;

@@ -113,13 +113,16 @@ internal sealed class LlamaSharpExecutionBackend : ILlamaExecutionBackend
             {
                 ContextSize = (uint)definition.ContextLength,
                 GpuLayerCount = gpuLayers,
+                Threads = _settings.ResolveInferenceThreads(role),
+                BatchThreads = _settings.ResolveInferenceThreads(role),
             };
 
             _logger.LogInformation(
-                "Loading LLamaSharp model for {Role}: {Path} (gpu_layers={GpuLayers})",
+                "Loading LLamaSharp model for {Role}: {Path} (gpu_layers={GpuLayers}, threads={Threads})",
                 role,
                 modelPath,
-                gpuLayers);
+                gpuLayers,
+                modelParams.Threads);
             var weights = LLamaWeights.LoadFromFile(modelParams);
             var entry = (weights, modelParams);
             _loadedModels[role] = entry;

@@ -30,21 +30,25 @@ public static class LibraryEndpoints
             ILibraryOverviewReadService overviewReadService,
             CancellationToken ct) =>
         {
-            // 1. Four-state counts (Identified, InReview, Provisional, Rejected) + trigger breakdown
-            var fourState = await libraryItemRepo.GetFourStateCountsAsync(ct: ct);
+            // These aggregates are independent and each owns its SQLite connection.
+            // Running them together removes avoidable serial latency from the dashboard.
+            var fourStateTask = libraryItemRepo.GetFourStateCountsAsync(ct: ct);
+            var projectionTask = libraryItemRepo.GetProjectionSummaryAsync(ct);
+            var mediaTypeCountsTask = libraryItemRepo.GetOwnedMediaTypeCountsAsync(ct);
+            var overviewTask = overviewReadService.GetOverviewAggregatesAsync(ct);
+            await Task.WhenAll(fourStateTask, projectionTask, mediaTypeCountsTask, overviewTask);
 
-            // 2. Shared projection summary
-            var projection = await libraryItemRepo.GetProjectionSummaryAsync(ct);
-
-            // 3. Admin overview media type counts should reflect owned media assets,
+            var fourState = await fourStateTask;
+            var projection = await projectionTask;
+            // Admin overview media type counts should reflect owned media assets,
             // not catalogue-only works discovered during enrichment.
-            var mediaTypeCounts = await libraryItemRepo.GetOwnedMediaTypeCountsAsync(ct);
+            var mediaTypeCounts = await mediaTypeCountsTask;
             var ownedTotal = mediaTypeCounts.Values.Sum();
 
             // 4. Review-ready count from the shared libraryItem projection
             var reviewTotal = fourState.InReview;
 
-            var overview = await overviewReadService.GetOverviewAggregatesAsync(ct);
+            var overview = await overviewTask;
 
             var dto = new LibraryOverviewDto
             {

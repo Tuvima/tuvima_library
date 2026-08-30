@@ -80,6 +80,7 @@ public sealed class PlaybackCapabilitiesService
         var mediaType = await ResolveMediaTypeAsync(asset, extension, ct);
         var warnings = new List<string>();
         connection = NormalizeConnection(connection);
+        var sourceHash = BuildSourceHash(asset);
 
         if (!File.Exists(asset.FilePathRoot))
         {
@@ -92,7 +93,20 @@ public sealed class PlaybackCapabilitiesService
         {
             try
             {
-                probe = await _ffmpeg.ProbeAsync(asset.FilePathRoot, ct);
+                var cachedMetadata = await _playbackState.GetInspectionMetadataAsync(assetId, sourceHash, ct);
+                if (!string.IsNullOrWhiteSpace(cachedMetadata))
+                {
+                    try
+                    {
+                        probe = JsonSerializer.Deserialize<MediaProbeResult>(cachedMetadata);
+                    }
+                    catch (JsonException)
+                    {
+                        // Older cache rows may contain MediaInfo text. Re-probe once and replace them.
+                    }
+                }
+
+                probe ??= await _ffmpeg.ProbeAsync(asset.FilePathRoot, ct);
             }
             catch (Exception ex)
             {
@@ -121,7 +135,6 @@ public sealed class PlaybackCapabilitiesService
             }
         }
 
-        var sourceHash = BuildSourceHash(asset);
         if (File.Exists(asset.FilePathRoot))
         {
             var info = new FileInfo(asset.FilePathRoot);
@@ -131,7 +144,7 @@ public sealed class PlaybackCapabilitiesService
                 info.Length,
                 mediaInfo?.Duration > 0 ? mediaInfo.Duration : probe?.Duration.TotalSeconds,
                 mediaInfo?.Format ?? extension.TrimStart('.').ToLowerInvariant(),
-                mediaInfo is not null ? mediaInfo.Text : probe is null ? null : JsonSerializer.Serialize(probe),
+                probe is null ? mediaInfo?.Text : JsonSerializer.Serialize(probe),
                 ct);
         }
 

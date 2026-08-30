@@ -26,6 +26,7 @@ public sealed class VibeBatchService : BackgroundService
     private readonly ICanonicalValueArrayRepository _canonicalArrays;
     private readonly IAiFeaturePersistenceRepository _featurePersistence;
     private readonly ILibraryItemRepository _libraryItems;
+    private readonly BackgroundAiAdmissionController _admission;
     private readonly ILogger<VibeBatchService> _logger;
 
     public VibeBatchService(
@@ -37,6 +38,7 @@ public sealed class VibeBatchService : BackgroundService
         ICanonicalValueArrayRepository canonicalArrays,
         IAiFeaturePersistenceRepository featurePersistence,
         ILibraryItemRepository libraryItems,
+        BackgroundAiAdmissionController admission,
         ILogger<VibeBatchService> logger)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -47,6 +49,7 @@ public sealed class VibeBatchService : BackgroundService
         ArgumentNullException.ThrowIfNull(canonicalArrays);
         ArgumentNullException.ThrowIfNull(featurePersistence);
         ArgumentNullException.ThrowIfNull(libraryItems);
+        ArgumentNullException.ThrowIfNull(admission);
         ArgumentNullException.ThrowIfNull(logger);
 
         _settings     = settings;
@@ -57,6 +60,7 @@ public sealed class VibeBatchService : BackgroundService
         _canonicalArrays = canonicalArrays;
         _featurePersistence = featurePersistence;
         _libraryItems = libraryItems;
+        _admission = admission;
         _logger       = logger;
     }
 
@@ -141,6 +145,12 @@ public sealed class VibeBatchService : BackgroundService
             if (state is null && arrays.GetValueOrDefault("vibe")?.Count > 0)
                 continue;
 
+            using var admission = _admission.TryAcquire(
+                MediaEngine.Domain.Enums.AiModelRole.TextQuality,
+                ct);
+            if (admission is null)
+                return;
+
             try
             {
                 var tags = await _tagger.TagAsync(
@@ -148,7 +158,7 @@ public sealed class VibeBatchService : BackgroundService
                     description.Value,
                     genres,
                     mediaType?.Value ?? "books",
-                    ct);
+                    admission.Token);
 
                 var result = await _featurePersistence.ReplaceAiFeatureAsync(
                     new AiFeatureWriteRequest(
@@ -176,6 +186,11 @@ public sealed class VibeBatchService : BackgroundService
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
                 throw;
+            }
+            catch (OperationCanceledException) when (admission.WasPreempted)
+            {
+                _logger.LogInformation("VibeBatchService: yielding to interactive traffic");
+                return;
             }
             catch (Exception ex)
             {

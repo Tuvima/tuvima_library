@@ -46,33 +46,12 @@
     [Parameter] public bool PreserveOrder { get; set; }
     [Parameter] public MediaEngine.Domain.Models.ArtworkPalette? Palette { get; set; }
 
-    private string? StackStyle => Palette?.CssVariableStyle;
+    private IReadOnlyList<ArtworkStackItem> _visibleArtwork = [];
+    private string _layoutClass = "artwork-stack--empty";
+    private string? _stackStyle;
 
-    private IReadOnlyList<ArtworkStackItem> VisibleArtwork
-    {
-        get
-        {
-            var maxVisible = Math.Clamp(MaxVisible ?? DefaultVisibleCount, 1, 7);
-            var artwork = Items
-                .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
-                .Select(item => new ArtworkStackItem
-                {
-                    Id = item.Id,
-                    Title = item.Title,
-                    ImageUrl = item.ImageUrl,
-                    MediaType = item.MediaType,
-                    Shape = item.Shape,
-                    Position = item.Position,
-                });
-
-            if (!PreserveOrder)
-            {
-                artwork = artwork.OrderBy(item => StableHash($"{Seed}|{item.Id}|{item.ImageUrl}"));
-            }
-
-            return artwork.Take(maxVisible).ToList();
-        }
-    }
+    private string? StackStyle => _stackStyle;
+    private IReadOnlyList<ArtworkStackItem> VisibleArtwork => _visibleArtwork;
 
     private int DefaultVisibleCount => Variant switch
     {
@@ -86,22 +65,50 @@
 
     private string VariantClass => $"artwork-stack--{Variant.ToString().ToLowerInvariant()}";
 
-    private string LayoutClass
+    private string LayoutClass => _layoutClass;
+
+    protected override void OnParametersSet()
     {
-        get
+        _stackStyle = Palette?.CssVariableStyle;
+        var maxVisible = Math.Clamp(MaxVisible ?? DefaultVisibleCount, 1, 7);
+        IEnumerable<ArtworkStackItem> artwork = Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+            .Select(item => new ArtworkStackItem
+            {
+                Id = item.Id,
+                Title = item.Title,
+                ImageUrl = item.ImageUrl,
+                MediaType = item.MediaType,
+                Shape = item.Shape,
+                Position = item.Position,
+            });
+
+        if (!PreserveOrder)
         {
-            if (VisibleArtwork.Count == 0)
-                return "artwork-stack--empty";
-
-            var distinctShapes = VisibleArtwork.Select(item => item.Shape).Distinct().ToList();
-            if (PreferShapeBalancedLayout && distinctShapes.Count == 1 && distinctShapes[0] == ArtworkShape.Square)
-                return "artwork-stack--all-square";
-
-            if (PreferShapeBalancedLayout && distinctShapes.Count == 1 && distinctShapes[0] == ArtworkShape.Portrait)
-                return "artwork-stack--all-portrait";
-
-            return "artwork-stack--mixed";
+            artwork = artwork.OrderBy(item => StableHash($"{Seed}|{item.Id}|{item.ImageUrl}"));
         }
+
+        _visibleArtwork = artwork.Take(maxVisible).ToList();
+        if (_visibleArtwork.Count == 0)
+        {
+            _layoutClass = "artwork-stack--empty";
+            return;
+        }
+
+        var distinctShapes = _visibleArtwork.Select(item => item.Shape).Distinct().ToList();
+        if (PreferShapeBalancedLayout && distinctShapes.Count == 1 && distinctShapes[0] == ArtworkShape.Square)
+        {
+            _layoutClass = "artwork-stack--all-square";
+            return;
+        }
+
+        if (PreferShapeBalancedLayout && distinctShapes.Count == 1 && distinctShapes[0] == ArtworkShape.Portrait)
+        {
+            _layoutClass = "artwork-stack--all-portrait";
+            return;
+        }
+
+        _layoutClass = "artwork-stack--mixed";
     }
 
     private string SlotStyle(int index, ArtworkShape shape)
@@ -294,185 +301,3 @@
 
     private sealed record StackSlot(string Width, string Left, string Top, string Rotate, string Scale, int Z);
 }
-
-<style>
-    .artwork-stack {
-        position: relative;
-        width: 100%;
-        height: 100%;
-        min-height: 10rem;
-        overflow: hidden;
-        border-radius: inherit;
-        isolation: isolate;
-        pointer-events: none;
-    }
-
-    .artwork-stack__stage {
-        position: absolute;
-        inset: 0;
-        border-radius: inherit;
-        background:
-            radial-gradient(circle at 35% 40%, var(--art-bg-glow, rgba(245, 158, 80, .18)), transparent 44%),
-            radial-gradient(circle at 70% 50%, var(--art-bg-glow-secondary, rgba(124, 92, 255, .18)), transparent 48%),
-            linear-gradient(135deg, var(--art-bg-base-dark, rgba(3, 7, 14, .92)), var(--art-bg-base, rgba(12, 17, 29, .74)) 54%, var(--art-bg-base-dark, rgba(3, 7, 13, .96)));
-    }
-
-    .artwork-stack__stage::before {
-        content: "";
-        position: absolute;
-        inset: 8%;
-        z-index: 0;
-        background:
-            radial-gradient(circle at 35% 40%, var(--art-bg-glow, rgba(245, 158, 80, .22)), transparent 45%),
-            radial-gradient(circle at 70% 50%, var(--art-bg-glow-secondary, rgba(124, 92, 255, .20)), transparent 48%),
-            radial-gradient(circle at 55% 70%, rgba(45, 212, 191, .12), transparent 44%);
-        filter: blur(44px);
-        opacity: .9;
-    }
-
-    .artwork-stack__stage::after {
-        content: "";
-        position: absolute;
-        inset: 0;
-        z-index: 1;
-        background:
-            linear-gradient(90deg, rgba(2, 6, 16, .72), transparent 38%, rgba(2, 6, 16, .28)),
-            linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(2, 6, 16, .34));
-        pointer-events: none;
-    }
-
-    .artwork-stack__item {
-        --artwork-radius: clamp(.55rem, 1.2vw, .9rem);
-        --artwork-ratio: 2 / 3;
-        position: absolute;
-        left: var(--left);
-        top: var(--top);
-        width: var(--artwork-width);
-        aspect-ratio: var(--artwork-ratio);
-        overflow: hidden;
-        border-radius: var(--artwork-radius);
-        background: rgba(255, 255, 255, .04);
-        border: 1px solid rgba(255, 255, 255, .13);
-        border-color: var(--art-bg-border, rgba(255, 255, 255, .13));
-        box-shadow:
-            0 24px 70px var(--art-bg-shadow, rgba(0, 0, 0, .45)),
-            0 10px 26px rgba(0, 0, 0, .28),
-            0 0 0 1px rgba(255, 255, 255, .08);
-        transform: translate(-50%, -50%) rotate(var(--rotate)) scale(var(--scale));
-        transform-origin: center center;
-        z-index: var(--z);
-    }
-
-    .artwork-stack__item[data-shape="square"] {
-        --artwork-ratio: 1 / 1;
-    }
-
-    .artwork-stack__item[data-shape="portrait"] {
-        --artwork-ratio: 2 / 3;
-    }
-
-    .artwork-stack__item[data-shape="wide"] {
-        --artwork-ratio: 16 / 9;
-    }
-
-    .artwork-stack__item img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
-
-    .artwork-stack__position {
-        position: absolute;
-        left: .42rem;
-        bottom: .42rem;
-        z-index: 2;
-        min-width: 1.45rem;
-        height: 1.45rem;
-        padding: 0 .38rem;
-        border-radius: 999px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        font-family: var(--font-ui);
-        font-size: .68rem;
-        font-weight: 600;
-        line-height: 1;
-        color: rgba(248, 250, 252, .96);
-        background: rgba(2, 6, 16, .72);
-        border: 1px solid rgba(255, 255, 255, .16);
-        box-shadow: 0 8px 18px rgba(0, 0, 0, .34);
-        backdrop-filter: blur(10px);
-    }
-
-    .artwork-stack__placeholder {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        z-index: 2;
-        display: grid;
-        place-items: center;
-        width: min(42%, 12rem);
-        aspect-ratio: 1 / 1;
-        color: rgba(226, 232, 240, .38);
-        border: 1px solid rgba(255, 255, 255, .12);
-        border-radius: 1rem;
-        background: rgba(255, 255, 255, .04);
-        box-shadow: 0 24px 70px rgba(0, 0, 0, .34);
-        transform: translate(-50%, -50%);
-    }
-
-    .artwork-stack__placeholder ::deep .mud-icon-root {
-        font-size: clamp(2.2rem, 7vw, 4.2rem);
-    }
-
-    .artwork-stack--compact .artwork-stack__item {
-        --artwork-radius: .55rem;
-    }
-
-    .artwork-stack--card .artwork-stack__item {
-        --artwork-radius: .62rem;
-    }
-
-    .artwork-stack--seriesstrip .artwork-stack__item {
-        --artwork-radius: clamp(.5rem, .7vw, .72rem);
-    }
-
-    .artwork-stack--hero .artwork-stack__item {
-        --artwork-radius: clamp(.75rem, 1.1vw, 1rem);
-        top: calc(var(--top) - 5%);
-        width: calc(var(--artwork-width) * 1.72);
-    }
-
-    .artwork-stack--hero {
-        min-height: clamp(46rem, 84vh, 64rem);
-        overflow: visible;
-    }
-
-    .artwork-stack--hero .artwork-stack__stage {
-        background: transparent;
-        overflow: visible;
-    }
-
-    .artwork-stack--hero .artwork-stack__stage::before,
-    .artwork-stack--hero .artwork-stack__stage::after {
-        display: none;
-    }
-
-    .artwork-stack--card .artwork-stack__item,
-    .artwork-stack--compact .artwork-stack__item,
-    .artwork-stack--seriesstrip .artwork-stack__item {
-        left: min(96%, calc(var(--left) + 18%));
-    }
-
-    @@media (max-width: 720px) {
-        .artwork-stack__item:nth-of-type(n + 4) {
-            display: none;
-        }
-
-        .artwork-stack__item {
-            width: calc(var(--artwork-width) * 1.18);
-            border-radius: .7rem;
-        }
-    }
-</style>

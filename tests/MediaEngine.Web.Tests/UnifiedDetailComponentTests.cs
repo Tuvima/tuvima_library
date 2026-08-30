@@ -1754,7 +1754,8 @@ public sealed class UnifiedDetailComponentTests
         var app = ReadSource("src/MediaEngine.Web/Components/App.razor");
         var reader = ReadSource("src/MediaEngine.Web/Components/Pages/EpubReader.razor");
 
-        Assert.Contains("<HeadOutlet @rendermode=\"InteractiveServer\" />", app);
+        Assert.Contains("<HeadOutlet @rendermode=\"new InteractiveServerRenderMode(prerender: false)\" />", app);
+        Assert.Contains("<Routes @rendermode=\"new InteractiveServerRenderMode(prerender: false)\" />", app);
         Assert.Contains("<PageTitle>", reader);
     }
 

@@ -215,7 +215,7 @@ public sealed class AiRuntimeSafetyTests
     }
 
     [Fact]
-    public async Task JsonRetry_UsesRequestLocalTemperatureWithoutMutatingConfiguration()
+    public async Task InvalidJson_DoesNotTriggerAnotherFullInference()
     {
         using var directory = new TemporaryDirectory();
         var settings = CreateSettings(directory.Path);
@@ -223,9 +223,7 @@ public sealed class AiRuntimeSafetyTests
         var inventory = CreateInventory(settings);
         inventory.SetState(AiModelRole.TextFast, AiModelState.Ready);
         await using var lifecycle = CreateLifecycle(settings, inventory);
-        var backend = new ScriptedBackend(
-            new Script("not-json"),
-            new Script("{\"name\":\"Dune\"}"));
+        var backend = new ScriptedBackend(new Script("not-json"));
         await using var inference = new LlamaInferenceService(
             settings,
             lifecycle,
@@ -238,9 +236,9 @@ public sealed class AiRuntimeSafetyTests
             "prompt",
             "root ::= object");
 
-        Assert.True(outcome.IsSuccess);
-        Assert.Equal("Dune", outcome.Value!.Name);
-        Assert.Equal([0.1, 0.3], backend.Temperatures, new DoubleComparer(0.0001));
+        Assert.Equal(InferenceOutcomeStatus.InvalidResponse, outcome.Status);
+        Assert.Null(outcome.Value);
+        Assert.Equal([0.1], backend.Temperatures, new DoubleComparer(0.0001));
         Assert.Equal(0.1, settings.Models.TextFast.Temperature);
     }
 
@@ -341,6 +339,19 @@ public sealed class AiRuntimeSafetyTests
             if (sha256 is not null)
                 definition.Sha256 = sha256;
         }
+    }
+
+    [Fact]
+    public void InferenceThreads_AlwaysLeaveAProportionalCpuReserve()
+    {
+        var settings = CreateSettings();
+        settings.ReservedCpuCores = 2;
+        settings.Models.TextFast.Threads = int.MaxValue;
+
+        var resolved = settings.ResolveInferenceThreads(AiModelRole.TextFast);
+        var expectedReserve = Math.Max(2, (int)Math.Ceiling(Environment.ProcessorCount * 0.25));
+
+        Assert.InRange(resolved, 1, Math.Max(1, Environment.ProcessorCount - expectedReserve));
     }
 
     private static ModelLifecycleManager CreateLifecycle(AiSettings settings, ModelInventory inventory) =>

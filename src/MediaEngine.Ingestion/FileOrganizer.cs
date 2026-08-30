@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
@@ -68,6 +69,7 @@ public sealed class FileOrganizer : IFileOrganizer
     private static readonly TimeSpan InitialRetryDelay = TimeSpan.FromMilliseconds(500);
 
     private readonly ILogger<FileOrganizer> _logger;
+    private readonly IFileHashCacheRepository? _hashCache;
 
     // Characters that are illegal in file/directory names on Windows and most POSIX systems.
     private static readonly char[] InvalidPathChars =
@@ -76,9 +78,10 @@ public sealed class FileOrganizer : IFileOrganizer
             .Distinct()
             .ToArray();
 
-    public FileOrganizer(ILogger<FileOrganizer> logger)
+    public FileOrganizer(ILogger<FileOrganizer> logger, IFileHashCacheRepository? hashCache = null)
     {
         _logger = logger;
+        _hashCache = hashCache;
     }
 
     // Matches an optional leading space followed by ({Token}) — used for conditional groups.
@@ -260,6 +263,13 @@ public sealed class FileOrganizer : IFileOrganizer
             try
             {
                 File.Move(sourcePath, finalDest);
+                if (_hashCache is not null)
+                {
+                    await _hashCache.MoveAsync(
+                        Path.GetFullPath(sourcePath),
+                        Path.GetFullPath(finalDest),
+                        ct).ConfigureAwait(false);
+                }
                 _logger.LogInformation("Moved {Source} → {Destination}", sourcePath, finalDest);
                 return true;
             }

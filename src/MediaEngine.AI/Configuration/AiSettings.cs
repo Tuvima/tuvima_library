@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.AI.Configuration;
 
@@ -27,9 +28,26 @@ public sealed class AiSettings
     [JsonPropertyName("max_concurrent_inferences")]
     public int MaxConcurrentInferences { get; set; } = 1;
 
+    /// <summary>Logical CPU cores that local inference must leave available to the Engine and OS.</summary>
+    [JsonPropertyName("reserved_cpu_cores")]
+    public int ReservedCpuCores { get; set; } = 2;
+
+    /// <summary>Seconds without user-facing Engine traffic before background inference may start.</summary>
+    [JsonPropertyName("background_quiet_seconds")]
+    public int BackgroundQuietSeconds { get; set; } = 10;
+
     /// <summary>Free disk space retained after a model download completes.</summary>
     [JsonPropertyName("minimum_free_disk_mb")]
     public int MinimumFreeDiskMB { get; set; } = 1024;
+
+    public int ResolveInferenceThreads(AiModelRole role)
+    {
+        var configured = Math.Max(1, Models.GetByRole(role).Threads);
+        var proportionalReserve = Math.Max(2, (int)Math.Ceiling(Environment.ProcessorCount * 0.25));
+        var reserve = Math.Max(ReservedCpuCores, proportionalReserve);
+        var available = Math.Max(1, Environment.ProcessorCount - reserve);
+        return Math.Min(configured, available);
+    }
 
     /// <summary>The single text resource profile selected for this machine.</summary>
     private string _resourceProfile = AiResourceProfileNames.Standard;

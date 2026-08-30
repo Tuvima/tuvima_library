@@ -4,6 +4,8 @@ namespace MediaEngine.Api.Services.Display;
 
 public sealed class DisplayProjectionReadService : IDisplayProjectionReadService
 {
+    private const int HomeProjectionLimit = 1_000;
+    private static readonly TimeSpan ProjectionCacheDuration = TimeSpan.FromSeconds(30);
     private readonly DisplayWorkProjectionReader _works;
     private readonly DisplayJourneyProjectionReader _journey;
     private readonly DisplayFavoriteProjectionReader _favorites;
@@ -31,15 +33,42 @@ public sealed class DisplayProjectionReadService : IDisplayProjectionReadService
             return cached;
 
         var rows = await _works.LoadAsync(ct);
-        _cache.Set(cacheKey, rows, TimeSpan.FromSeconds(10));
+        _cache.Set(cacheKey, rows, ProjectionCacheDuration);
         return rows;
     }
 
-    public Task<IReadOnlyList<DisplayJourneyRow>> LoadJourneyAsync(string? lane, CancellationToken ct) =>
-        _journey.LoadAsync(lane, ct);
+    public async Task<IReadOnlyList<DisplayWorkRow>> LoadHomeWorksAsync(CancellationToken ct)
+    {
+        const string cacheKey = "display:works:home";
+        if (_cache.TryGetValue(cacheKey, out IReadOnlyList<DisplayWorkRow>? cached) && cached is not null)
+            return cached;
 
-    public Task<IReadOnlySet<Guid>> LoadFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct) =>
-        _favorites.LoadAsync(profileId, ct);
+        var rows = await _works.LoadAsync(ct, HomeProjectionLimit);
+        _cache.Set(cacheKey, rows, ProjectionCacheDuration);
+        return rows;
+    }
+
+    public async Task<IReadOnlyList<DisplayJourneyRow>> LoadJourneyAsync(string? lane, CancellationToken ct)
+    {
+        var cacheKey = $"display:journey:{lane ?? "all"}";
+        if (_cache.TryGetValue(cacheKey, out IReadOnlyList<DisplayJourneyRow>? cached) && cached is not null)
+            return cached;
+
+        var rows = await _journey.LoadAsync(lane, ct);
+        _cache.Set(cacheKey, rows, ProjectionCacheDuration);
+        return rows;
+    }
+
+    public async Task<IReadOnlySet<Guid>> LoadFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct)
+    {
+        var cacheKey = $"display:favorites:{profileId?.ToString("N") ?? "shared"}";
+        if (_cache.TryGetValue(cacheKey, out IReadOnlySet<Guid>? cached) && cached is not null)
+            return cached;
+
+        var rows = await _favorites.LoadAsync(profileId, ct);
+        _cache.Set(cacheKey, rows, ProjectionCacheDuration);
+        return rows;
+    }
 
     public async Task<IReadOnlyList<DisplayHomeCollectionRow>> LoadHomeCollectionsAsync(Guid? profileId, CancellationToken ct)
     {
@@ -48,7 +77,7 @@ public sealed class DisplayProjectionReadService : IDisplayProjectionReadService
             return cached;
 
         var rows = await _homeCollections.LoadAsync(profileId, ct);
-        _cache.Set(cacheKey, rows, TimeSpan.FromSeconds(10));
+        _cache.Set(cacheKey, rows, ProjectionCacheDuration);
         return rows;
     }
 }

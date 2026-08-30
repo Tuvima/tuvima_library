@@ -394,6 +394,28 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_media_assets_presented
                 ON media_assets(presented_at) WHERE presented_at IS NOT NULL;
 
+            CREATE INDEX IF NOT EXISTS idx_media_assets_file_path_root
+                ON media_assets(file_path_root COLLATE NOCASE);
+
+            CREATE INDEX IF NOT EXISTS idx_media_assets_status
+                ON media_assets(status);
+
+            DELETE FROM file_hash_cache
+            WHERE rowid NOT IN (
+                SELECT MAX(rowid)
+                FROM file_hash_cache
+                GROUP BY absolute_path COLLATE NOCASE
+            );
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_file_hash_cache_path_nocase
+                ON file_hash_cache(absolute_path COLLATE NOCASE);
+
+            CREATE INDEX IF NOT EXISTS idx_collection_items_collection_sort
+                ON collection_items(collection_id, sort_order);
+
+            CREATE INDEX IF NOT EXISTS idx_collection_items_work
+                ON collection_items(work_id);
+
             CREATE INDEX IF NOT EXISTS idx_works_collection_ordinal_sort
                 ON works(collection_id, ordinal_sort);
 
@@ -417,6 +439,15 @@ internal sealed class SchemaMigrator
 
             CREATE INDEX IF NOT EXISTS idx_person_media_links_asset_role_person
                 ON person_media_links(media_asset_id, role, person_id);
+
+            CREATE INDEX IF NOT EXISTS idx_persons_name_nocase
+                ON persons(name COLLATE NOCASE);
+
+            CREATE INDEX IF NOT EXISTS idx_works_curator_state
+                ON works(curator_state) WHERE curator_state IS NOT NULL;
+
+            CREATE INDEX IF NOT EXISTS idx_works_catalog_media_type
+                ON works(is_catalog_only, media_type);
 
             CREATE INDEX IF NOT EXISTS idx_ingestion_log_run_created
                 ON ingestion_log(ingestion_run_id, created_at);

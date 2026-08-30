@@ -1,5 +1,6 @@
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
+using MediaEngine.Processors.Processors;
 
 namespace MediaEngine.Processors;
 
@@ -29,6 +30,14 @@ namespace MediaEngine.Processors;
 /// </summary>
 public sealed class MediaProcessorRouter : IProcessorRouter, IDisposable
 {
+    private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp3", ".m4a", ".m4b", ".flac", ".ogg", ".wav", ".aac",
+    };
+    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".mp4", ".m4v", ".mkv", ".webm", ".avi", ".mov", ".wmv", ".ts", ".mpeg", ".mpg", ".m2ts",
+    };
     private readonly SemaphoreSlim _semaphore;
     private readonly List<IMediaProcessor> _processors = [];
     // Cached sorted view; rebuilt lazily when _dirty is true.
@@ -70,6 +79,14 @@ public sealed class MediaProcessorRouter : IProcessorRouter, IDisposable
 
         IMediaProcessor[] sorted = GetSorted();
 
+        // Known extensions are unambiguous enough to route without opening the
+        // same file once per registered processor. The selected processor still
+        // validates magic bytes in ProcessAsync and reports corrupt containers.
+        var extension = Path.GetExtension(filePath);
+        var extensionMatch = sorted.FirstOrDefault(processor => ExtensionMatches(processor, extension));
+        if (extensionMatch is not null)
+            return extensionMatch;
+
         // Walk from highest to lowest priority.
         // Skip the last entry (generic fallback, int.MinValue) during the
         // specific-match pass — it is tried unconditionally below.
@@ -89,6 +106,16 @@ public sealed class MediaProcessorRouter : IProcessorRouter, IDisposable
 
         return fallback;
     }
+
+    private static bool ExtensionMatches(IMediaProcessor processor, string extension) => processor switch
+    {
+        EpubProcessor => extension.Equals(".epub", StringComparison.OrdinalIgnoreCase),
+        PdfProcessor => extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase),
+        ComicProcessor => extension is ".cbz" or ".cbr" or ".CBZ" or ".CBR",
+        AudioProcessor => AudioExtensions.Contains(extension),
+        VideoProcessor => VideoExtensions.Contains(extension),
+        _ => false,
+    };
 
     /// <inheritdoc/>
     public async Task<ProcessorResult> ProcessAsync(string filePath, CancellationToken ct = default)

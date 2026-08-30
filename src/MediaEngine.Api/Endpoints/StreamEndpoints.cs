@@ -9,7 +9,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Helpers;
-using SkiaSharp;
+using Microsoft.Net.Http.Headers;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -117,7 +117,6 @@ public static class StreamEndpoints
             Guid variantId,
             string? size,
             IEntityAssetRepository entityAssetRepo,
-            AssetPathService assetPathService,
             IHttpClientFactory httpFactory,
             CancellationToken ct) =>
         {
@@ -130,11 +129,6 @@ public static class StreamEndpoints
             if (hasRequestedSize && normalizedSize is null)
             {
                 return ApiErrors.BadRequest("Artwork size must be one of 's', 'm', or 'l'.");
-            }
-
-            if (normalizedSize is not null)
-            {
-                await EnsureArtworkRenditionsAsync(variant, entityAssetRepo, assetPathService, ct);
             }
 
             var renditionPath = ResolveArtworkPath(variant, normalizedSize);
@@ -477,33 +471,6 @@ public static class StreamEndpoints
         };
     }
 
-    private static async Task EnsureArtworkRenditionsAsync(
-        EntityAsset asset,
-        IEntityAssetRepository entityAssetRepo,
-        AssetPathService assetPathService,
-        CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(asset.LocalImagePath)
-            || !File.Exists(asset.LocalImagePath)
-            || !ArtworkVariantHelper.ShouldGenerateRenditions(asset.AssetTypeValue))
-        {
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(asset.LocalImagePathSmall)
-            && File.Exists(asset.LocalImagePathSmall)
-            && !string.IsNullOrWhiteSpace(asset.LocalImagePathMedium)
-            && File.Exists(asset.LocalImagePathMedium)
-            && !string.IsNullOrWhiteSpace(asset.LocalImagePathLarge)
-            && File.Exists(asset.LocalImagePathLarge))
-        {
-            return;
-        }
-
-        ArtworkVariantHelper.StampMetadataAndRenditions(asset, assetPathService);
-        await entityAssetRepo.UpsertAsync(asset, ct);
-    }
-
     private static string? NormalizeArtworkSize(string? size)
     {
         var normalized = (size ?? string.Empty).Trim().ToLowerInvariant();
@@ -532,50 +499,73 @@ public static class StreamEndpoints
             return null;
         }
 
-        var normalizedImage = TryNormalizeArtworkBytes(path);
-        if (normalizedImage is null)
+        if (!HasRecognizedImageSignature(path))
         {
             return CreateArtworkPlaceholderResult();
         }
 
-        return Results.File(
-            normalizedImage.Value.Bytes,
-            normalizedImage.Value.ContentType,
-            Path.GetFileName(path));
+        return new CacheableArtworkFileResult(path, GetArtworkContentType(path));
     }
 
-    private static ArtworkFile? TryNormalizeArtworkBytes(string path)
+    private static bool HasRecognizedImageSignature(string path)
     {
         try
         {
-            using var bitmap = SKBitmap.Decode(path);
-            if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
-            {
-                return null;
-            }
-
-            var isPng = string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase);
-            using var image = SKImage.FromBitmap(bitmap);
-            using var data = image.Encode(isPng ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg, isPng ? 100 : 88);
-            if (data is null || data.Size <= 0)
-            {
-                return null;
-            }
-
-            return new ArtworkFile(
-                data.ToArray(),
-                isPng ? "image/png" : "image/jpeg");
+            Span<byte> header = stackalloc byte[12];
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite | FileShare.Delete,
+                header.Length,
+                FileOptions.SequentialScan);
+            var read = stream.Read(header);
+            return read >= 2 && header[0] == 0xFF && header[1] == 0xD8
+                || read >= 8 && header[..8].SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A })
+                || read >= 6 && (header[..6].SequenceEqual("GIF87a"u8) || header[..6].SequenceEqual("GIF89a"u8))
+                || read >= 12 && header[..4].SequenceEqual("RIFF"u8) && header[8..12].SequenceEqual("WEBP"u8)
+                || read >= 2 && header[0] == (byte)'B' && header[1] == (byte)'M';
         }
         catch
         {
-            return null;
+            return false;
         }
     }
+
+    private static string GetArtworkContentType(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() switch
+        {
+            ".png" => "image/png",
+            ".gif" => "image/gif",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            _ => "image/jpeg",
+        };
 
     private static IResult CreateArtworkPlaceholderResult() =>
         Results.Text(ArtworkPlaceholderSvg, "image/svg+xml");
 
-    private readonly record struct ArtworkFile(byte[] Bytes, string ContentType);
+    private sealed class CacheableArtworkFileResult(string path, string contentType) : IResult
+    {
+        public Task ExecuteAsync(HttpContext httpContext)
+        {
+            var file = new FileInfo(path);
+            var modified = new DateTimeOffset(file.LastWriteTimeUtc, TimeSpan.Zero);
+            var tag = new EntityTagHeaderValue($"\"{file.Length:x}-{file.LastWriteTimeUtc.Ticks:x}\"");
+            httpContext.Response.GetTypedHeaders().CacheControl = new CacheControlHeaderValue
+            {
+                Public = true,
+                MaxAge = TimeSpan.FromDays(1),
+            };
+            return Results.File(
+                    path,
+                    contentType,
+                    lastModified: modified,
+                    entityTag: tag,
+                    enableRangeProcessing: false)
+                .ExecuteAsync(httpContext);
+        }
+    }
 
     /// <summary>
     /// Parses the RFC 7233 Range header value "bytes=start-end".

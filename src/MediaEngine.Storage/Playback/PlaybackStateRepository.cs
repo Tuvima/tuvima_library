@@ -51,6 +51,23 @@ public sealed class PlaybackStateRepository
         return Task.CompletedTask;
     }
 
+    public Task<string?> GetInspectionMetadataAsync(
+        Guid assetId,
+        string sourceHash,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var metadata = conn.QueryFirstOrDefault<string?>("""
+            SELECT metadata_json
+            FROM playback_inspection_cache
+            WHERE asset_id = @assetId
+              AND source_hash = @sourceHash
+            LIMIT 1;
+            """, new { assetId, sourceHash });
+        return Task.FromResult(metadata);
+    }
+
     public Task<IReadOnlyList<OfflineVariantDto>> ListOfflineVariantsAsync(Guid assetId, string sourceHash, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

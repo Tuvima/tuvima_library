@@ -581,6 +581,9 @@
         ActiveTableItems.Where(item => item.IsFavorite).Select(item => item.EntityId).ToHashSet();
     private Guid? _requestedTrackId;
     private Guid? _lastAutoPlayedTrackId;
+    private CancellationTokenSource? _mediaAddedReloadCts;
+    private int _pendingMediaAddedCount;
+    private string? _lastParameterQueryKey;
 
     protected override void OnInitialized()
     {
@@ -606,6 +609,11 @@
         }
 
         ReadUrlState();
+        var queryKey = BuildCurrentQueryKey();
+        if (string.Equals(queryKey, _lastParameterQueryKey, StringComparison.Ordinal))
+            return;
+
+        _lastParameterQueryKey = queryKey;
         await LoadBrowseContentAsync();
     }
 
@@ -622,6 +630,7 @@
             ReadUrlState();
             await InvokeAsync(async () =>
             {
+                _lastParameterQueryKey = BuildCurrentQueryKey();
                 await LoadBrowseContentAsync();
                 StateHasChanged();
             });
@@ -731,13 +740,47 @@
 
     private void OnMediaAdded(MediaAddedEvent ev)
     {
-        _ = InvokeAsync(async () =>
+        Interlocked.Increment(ref _pendingMediaAddedCount);
+        _mediaAddedReloadCts?.Cancel();
+        _mediaAddedReloadCts?.Dispose();
+        _mediaAddedReloadCts = new CancellationTokenSource();
+        var token = _mediaAddedReloadCts.Token;
+
+        _ = DebounceMediaAddedReloadAsync(ev.Title, token);
+    }
+
+    private async Task DebounceMediaAddedReloadAsync(string latestTitle, CancellationToken token)
+    {
+        try
         {
-            Snackbar.Add($"Added to library: {ev.Title}", Severity.Success);
+            await Task.Delay(TimeSpan.FromMilliseconds(750), token);
+            await InvokeAsync(async () =>
+            {
+                var count = Interlocked.Exchange(ref _pendingMediaAddedCount, 0);
+                Snackbar.Add(
+                    count > 1 ? $"Added {count} items to the library" : $"Added to library: {latestTitle}",
+                    Severity.Success);
             await LoadBrowseContentAsync();
             StateHasChanged();
-        });
+            });
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
+
+    private string BuildCurrentQueryKey() => string.Join('|',
+        Preset.Title,
+        _activeTabId,
+        _grouping,
+        _searchText,
+        string.Join(',', _selectedGenres.Order()),
+        string.Join(',', _selectedCreators.Order()),
+        string.Join(',', _selectedYears.Order()),
+        _status,
+        _sortBy,
+        _layout,
+        _activeProfileId?.ToString("N") ?? string.Empty);
 
     private async Task<bool> LoadDisplayCardsAsync(bool append)
     {
@@ -2122,6 +2165,8 @@
         Nav.LocationChanged -= OnLocationChanged;
         StateContainer.MediaAddedReceived -= OnMediaAdded;
         Playback.Changed -= OnPlaybackChanged;
+        _mediaAddedReloadCts?.Cancel();
+        _mediaAddedReloadCts?.Dispose();
     }
 
     private static int GetSelectedIndex(IEnumerable<string> keys, string activeKey)

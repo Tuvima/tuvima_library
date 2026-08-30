@@ -299,6 +299,18 @@
     private bool _hoverRegistered;
     private int _hoverImageIndex;
     private ElementReference _cardRef;
+    private IReadOnlyList<string> _hoverIdentityParts = [];
+    private IReadOnlyList<ArtworkStackItem> _groupCollageItems = [];
+    private IReadOnlyList<string> _hoverImageCandidates = [];
+    private IReadOnlyList<string> _previewImages = [];
+    private IReadOnlyList<ArtworkStackItem> _collectionArtworkStackItems = [];
+    private IReadOnlyList<MediaTileMediaCountViewModel> _collectionMediaCounts = [];
+    private IReadOnlyList<string> _displayChips = [];
+    private IReadOnlyList<string> _rawHoverFacts = [];
+    private IReadOnlyList<string> _compactHoverFacts = [];
+    private IReadOnlyList<string> _displayHoverFacts = [];
+    private string? _displaySummary;
+    private string _hoverMetaDisplay = string.Empty;
     private ElementReference CardElement => _cardRef;
 
     private MediaTileHoverMode EffectiveHoverMode => HoverMode ?? Item.HoverMode;
@@ -319,7 +331,7 @@
         && !UsesGlowOnlyHover
         && Item.Shape != MediaTileShape.Portrait;
 
-    private IReadOnlyList<string> HoverIdentityParts => BuildHoverIdentityParts();
+    private IReadOnlyList<string> HoverIdentityParts => _hoverIdentityParts;
 
     private IReadOnlyList<string> BuildHoverIdentityParts()
     {
@@ -572,12 +584,7 @@
 
     private bool ShowHoverSeriesStack => !ShowGroupCollage && UsesOrderedSeriesStack && CollectionArtworkStackItems.Count > 0;
 
-    private IReadOnlyList<ArtworkStackItem> GroupCollageItems => CollectionArtworkStackItems
-        .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
-        .DistinctBy(item => item.Id)
-        .DistinctBy(item => item.ImageUrl, StringComparer.OrdinalIgnoreCase)
-        .Take(4)
-        .ToList();
+    private IReadOnlyList<ArtworkStackItem> GroupCollageItems => _groupCollageItems;
 
     private bool ShowGroupCollage =>
         Item.IsCollection
@@ -643,16 +650,7 @@
 
     private bool HasArtworkSurface => ShowCollectionBanner || !string.IsNullOrWhiteSpace(CardImageUrl) || ShowPreviewStack;
 
-    private IReadOnlyList<string> HoverImageCandidates => new[]
-        {
-            Item.HoverImageUrl,
-            Item.TileImageUrl,
-            PreviewImages.FirstOrDefault(),
-        }
-        .Where(value => !string.IsNullOrWhiteSpace(value))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .Cast<string>()
-        .ToList();
+    private IReadOnlyList<string> HoverImageCandidates => _hoverImageCandidates;
 
     private string? ActiveHoverImageUrl => HoverImageCandidates.Skip(_hoverImageIndex).FirstOrDefault();
 
@@ -672,29 +670,9 @@
 
     private string ProgressLabel => Item.ProgressLabel ?? ProgressPercentLabel;
 
-    private IReadOnlyList<string> PreviewImages => Item.PreviewImages
-        .Where(image => !string.IsNullOrWhiteSpace(image))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .Take(5)
-        .ToList();
+    private IReadOnlyList<string> PreviewImages => _previewImages;
 
-    private IReadOnlyList<ArtworkStackItem> CollectionArtworkStackItems =>
-        Item.ArtworkStackItems.Count > 0
-            ? Item.ArtworkStackItems
-            : CollectionStackPreviewImages.Select((image, index) => new ArtworkStackItem
-            {
-                Id = $"{Item.Id:D}:{index}",
-                Title = Item.Title,
-                ImageUrl = image,
-                MediaType = Item.MediaKind,
-                Shape = ArtworkShape.Portrait,
-                Position = null,
-            }).ToList();
-
-    private IReadOnlyList<string> CollectionStackPreviewImages => PreviewImages
-        .Where(IsCollectionStackImage)
-        .Take(4)
-        .ToList();
+    private IReadOnlyList<ArtworkStackItem> CollectionArtworkStackItems => _collectionArtworkStackItems;
 
     private bool IsCollectionStackImage(string image)
     {
@@ -712,10 +690,7 @@
 
     private string CollectionStackSeed => Item.CollectionId?.ToString("D") ?? Item.Id.ToString("D");
 
-    private IReadOnlyList<MediaTileMediaCountViewModel> CollectionMediaCounts => Item.MediaCounts
-        .Where(count => count.Count > 0)
-        .Take(4)
-        .ToList();
+    private IReadOnlyList<MediaTileMediaCountViewModel> CollectionMediaCounts => _collectionMediaCounts;
 
     private bool ShowCollectionMediaIcon =>
         UsesOrderedSeriesStack
@@ -739,13 +714,9 @@
         }
     }
 
-    private IReadOnlyList<string> DisplayChips => (Item.VibeTags.Count > 0 ? Item.VibeTags : Item.Genres)
-        .Where(chip => !string.IsNullOrWhiteSpace(chip))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .Take(3)
-        .ToList();
+    private IReadOnlyList<string> DisplayChips => _displayChips;
 
-    private string? DisplaySummary => NormalizeHoverDescription(Item.Description);
+    private string? DisplaySummary => _displaySummary;
 
     private static string? NormalizeHoverDescription(string? description)
     {
@@ -853,24 +824,15 @@
         && !string.IsNullOrWhiteSpace(DisplaySubtitle)
         && !CompactHoverFacts.Any(fact => string.Equals(fact, DisplaySubtitle, StringComparison.OrdinalIgnoreCase));
 
-    private IReadOnlyList<string> RawHoverFacts => Item.HoverFacts
-        .Where(fact => !string.IsNullOrWhiteSpace(fact))
-        .Distinct(StringComparer.OrdinalIgnoreCase)
-        .ToList();
+    private IReadOnlyList<string> RawHoverFacts => _rawHoverFacts;
 
-    private IReadOnlyList<string> CompactHoverFacts => RawHoverFacts
-        .Where(fact => !DuplicatesHoverSubtitle(fact))
-        .Take(5)
-        .ToList();
+    private IReadOnlyList<string> CompactHoverFacts => _compactHoverFacts;
 
     private string? RatingFact => CompactHoverFacts.FirstOrDefault(IsRatingFact);
 
     private string RatingFactDisplay => FormatRatingFactForDisplay(RatingFact);
 
-    private IReadOnlyList<string> DisplayHoverFacts => CompactHoverFacts
-        .Where(fact => !IsRatingFact(fact))
-        .Take(4)
-        .ToList();
+    private IReadOnlyList<string> DisplayHoverFacts => _displayHoverFacts;
 
     private bool UseCompactHover => EffectiveHoverMode == MediaTileHoverMode.Preview && CompactHoverFacts.Count > 0 && !SupportsRichGroupHover;
 
@@ -959,30 +921,29 @@
 
     private string DisplaySubtitle => Item.Subtitle ?? Item.Creator ?? string.Empty;
 
-    private string HoverMetaDisplay
+    private string HoverMetaDisplay => _hoverMetaDisplay;
+
+    private string BuildHoverMetaDisplay()
     {
-        get
+        if (string.IsNullOrWhiteSpace(Item.MetaText))
         {
-            if (string.IsNullOrWhiteSpace(Item.MetaText))
-            {
-                return string.Empty;
-            }
-
-            var parts = Item.MetaText.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
-            if (parts.Count > 0 && string.Equals(parts[0], MediaKindLabel, StringComparison.OrdinalIgnoreCase))
-            {
-                parts.RemoveAt(0);
-            }
-
-            parts = parts
-                .Where(part => !string.Equals(part, DisplaySubtitle, StringComparison.OrdinalIgnoreCase))
-                .Where(part => !DuplicatesHoverSubtitle(part))
-                .Where(part => !RawHoverFacts.Any(fact => string.Equals(fact, part, StringComparison.OrdinalIgnoreCase)))
-                .Where(part => !CompactHoverFacts.Any(fact => string.Equals(fact, part, StringComparison.OrdinalIgnoreCase)))
-                .ToList();
-
-            return string.Join(" / ", parts);
+            return string.Empty;
         }
+
+        var parts = Item.MetaText.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+        if (parts.Count > 0 && string.Equals(parts[0], MediaKindLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            parts.RemoveAt(0);
+        }
+
+        parts = parts
+            .Where(part => !string.Equals(part, DisplaySubtitle, StringComparison.OrdinalIgnoreCase))
+            .Where(part => !DuplicatesHoverSubtitle(part))
+            .Where(part => !RawHoverFacts.Any(fact => string.Equals(fact, part, StringComparison.OrdinalIgnoreCase)))
+            .Where(part => !CompactHoverFacts.Any(fact => string.Equals(fact, part, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
+        return string.Join(" / ", parts);
     }
 
     private bool ShowMetaRow => !string.IsNullOrWhiteSpace(HoverMetaDisplay);
@@ -1019,7 +980,57 @@
         return string.Join(' ', new string(chars).Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
-    protected override void OnParametersSet() => _hoverImageIndex = 0;
+    protected override void OnParametersSet()
+    {
+        _hoverImageIndex = 0;
+        _previewImages = Item.PreviewImages
+            .Where(image => !string.IsNullOrWhiteSpace(image))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(5)
+            .ToList();
+
+        var collectionStackPreviewImages = _previewImages
+            .Where(IsCollectionStackImage)
+            .Take(4)
+            .ToList();
+        _collectionArtworkStackItems = Item.ArtworkStackItems.Count > 0
+            ? Item.ArtworkStackItems
+            : collectionStackPreviewImages.Select((image, index) => new ArtworkStackItem
+            {
+                Id = $"{Item.Id:D}:{index}",
+                Title = Item.Title,
+                ImageUrl = image,
+                MediaType = Item.MediaKind,
+                Shape = ArtworkShape.Portrait,
+                Position = null,
+            }).ToList();
+        _groupCollageItems = _collectionArtworkStackItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+            .DistinctBy(item => item.Id)
+            .DistinctBy(item => item.ImageUrl, StringComparer.OrdinalIgnoreCase)
+            .Take(4)
+            .ToList();
+        _hoverImageCandidates = new[] { Item.HoverImageUrl, Item.TileImageUrl, _previewImages.FirstOrDefault() }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Cast<string>()
+            .ToList();
+        _collectionMediaCounts = Item.MediaCounts.Where(count => count.Count > 0).Take(4).ToList();
+        _displayChips = (Item.VibeTags.Count > 0 ? Item.VibeTags : Item.Genres)
+            .Where(chip => !string.IsNullOrWhiteSpace(chip))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+        _displaySummary = NormalizeHoverDescription(Item.Description);
+        _rawHoverFacts = Item.HoverFacts
+            .Where(fact => !string.IsNullOrWhiteSpace(fact))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        _compactHoverFacts = _rawHoverFacts.Where(fact => !DuplicatesHoverSubtitle(fact)).Take(5).ToList();
+        _displayHoverFacts = _compactHoverFacts.Where(fact => !IsRatingFact(fact)).Take(4).ToList();
+        _hoverMetaDisplay = BuildHoverMetaDisplay();
+        _hoverIdentityParts = BuildHoverIdentityParts();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

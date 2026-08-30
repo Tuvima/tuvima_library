@@ -77,6 +77,14 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
             return Task.CompletedTask;
         }
 
+        // Validate TagLib support before copying a potentially very large video.
+        // Unsupported or malformed containers should be a cheap no-op, not a full-file backup.
+        using (var probe = CreateTagFileOrSkip(filePath))
+        {
+            if (probe is null)
+                return Task.CompletedTask;
+        }
+
         WithBackup(
             filePath,
             () =>
@@ -84,10 +92,6 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
             using var file = CreateTagFileOrSkip(filePath);
             if (file is null)
             {
-                var skipBackupPath = filePath + BackupSuffix;
-                if (File.Exists(skipBackupPath))
-                    File.Delete(skipBackupPath);
-
                 return;
             }
 

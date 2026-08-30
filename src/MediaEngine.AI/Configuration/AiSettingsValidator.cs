@@ -50,6 +50,16 @@ public static partial class AiSettingsValidator
             Add("max_concurrent_inferences", "Must be 1 while the runtime supports one resident model.");
         }
 
+        if (settings.ReservedCpuCores < 1)
+        {
+            Add("reserved_cpu_cores", "Must reserve at least one core.");
+        }
+
+        if (settings.BackgroundQuietSeconds is < 1 or > 300)
+        {
+            Add("background_quiet_seconds", "Must be between 1 and 300 seconds.");
+        }
+
         if (settings.MinimumFreeDiskMB < 256)
         {
             Add("minimum_free_disk_mb", "Must retain at least 256 MB.");

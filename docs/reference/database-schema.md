@@ -123,6 +123,14 @@ Links works to collections (Series to Universe relationships).
 | `work_id` | BLOB | FK -> `works.id` |
 | `sort_order` | INTEGER | Position within the collection |
 
+**Indices:** `collection_id + sort_order` for ordered paging and
+`work_id` for reverse lookup and cascade enforcement.
+
+Path lookups use case-insensitive indexes that match Windows filesystem semantics:
+`media_assets.file_path_root`, `file_hash_cache.absolute_path`, and `persons.name`
+all have `COLLATE NOCASE` index coverage. The hash-cache path is also unique under
+that collation, and its entry is moved transactionally when an organized file moves.
+
 ### collection_work_links
 
 Many-to-many cross-links between works and collections for works that span multiple Series.

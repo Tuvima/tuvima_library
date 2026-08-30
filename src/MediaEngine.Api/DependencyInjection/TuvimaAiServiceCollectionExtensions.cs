@@ -54,6 +54,8 @@ public static class TuvimaAiServiceCollectionExtensions
         services.AddSingleton<IDescriptionIntelligenceService, DescriptionIntelligenceService>();
         services.AddSingleton(gpuDetector);
         services.AddSingleton<ResourceMonitorService>();
+        services.AddSingleton<InteractiveRequestTracker>();
+        services.AddSingleton<BackgroundAiAdmissionController>();
         services.AddSingleton<HardwareBenchmarkService>();
         return services;
     }

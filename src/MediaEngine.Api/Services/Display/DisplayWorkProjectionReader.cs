@@ -1,4 +1,6 @@
 using Dapper;
+using System.Diagnostics;
+using MediaEngine.Api.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
@@ -7,14 +9,19 @@ namespace MediaEngine.Api.Services.Display;
 public sealed class DisplayWorkProjectionReader
 {
     private readonly IDatabaseConnection _db;
+    private readonly ILogger<DisplayWorkProjectionReader>? _logger;
 
-    public DisplayWorkProjectionReader(IDatabaseConnection db)
+    public DisplayWorkProjectionReader(
+        IDatabaseConnection db,
+        ILogger<DisplayWorkProjectionReader>? logger = null)
     {
         _db = db;
+        _logger = logger;
     }
 
-    public async Task<IReadOnlyList<DisplayWorkRow>> LoadAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<DisplayWorkRow>> LoadAsync(CancellationToken ct, int limit = int.MaxValue)
     {
+        var startedAt = Stopwatch.GetTimestamp();
         using var conn = _db.CreateConnection();
         var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
@@ -345,10 +352,11 @@ public sealed class DisplayWorkProjectionReader
                 (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'artwork_accent_hex' LIMIT 1) AS AccentColor
             FROM ranked_assets
             WHERE AssetRank = 1
-            ORDER BY CreatedAt DESC;
+            ORDER BY CreatedAt DESC
+            LIMIT @limit;
             """;
 
-        var rows = (await conn.QueryAsync<DisplayWorkRow>(new CommandDefinition(sql, cancellationToken: ct))).ToList();
+        var rows = (await conn.QueryAsync<DisplayWorkRow>(new CommandDefinition(sql, new { limit }, cancellationToken: ct))).ToList();
         var pseudonymNames = conn.Query<string>(new CommandDefinition(
                 "SELECT name FROM persons WHERE is_pseudonym = 1 AND NULLIF(TRIM(name), '') IS NOT NULL;",
                 cancellationToken: ct))
@@ -368,6 +376,29 @@ public sealed class DisplayWorkProjectionReader
             row.RootBannerUrl = DisplayArtworkUrlResolver.Resolve(row.RootBannerUrl, row.AssetId, "banner", row.RootBannerState);
             row.RootBackgroundUrl = DisplayArtworkUrlResolver.Resolve(row.RootBackgroundUrl, row.AssetId, "background", row.RootBackgroundState);
             row.RootLogoUrl = DisplayArtworkUrlResolver.Resolve(row.RootLogoUrl, row.AssetId, "logo", row.RootLogoState);
+        }
+
+        var elapsed = Stopwatch.GetElapsedTime(startedAt);
+        PerformanceMetrics.DatabaseReadDurationMs.Record(
+            elapsed.TotalMilliseconds,
+            new KeyValuePair<string, object?>("operation", "display.works"));
+        if (elapsed >= TimeSpan.FromSeconds(1))
+        {
+            _logger?.LogWarning(
+                "Database read {Operation} took {ElapsedMs} ms with limit {Limit}, returned {ItemCount}",
+                "display.works",
+                elapsed.TotalMilliseconds,
+                limit,
+                rows.Count);
+        }
+        else
+        {
+            _logger?.LogDebug(
+                "Database read {Operation} took {ElapsedMs} ms with limit {Limit}, returned {ItemCount}",
+                "display.works",
+                elapsed.TotalMilliseconds,
+                limit,
+                rows.Count);
         }
 
         return rows;

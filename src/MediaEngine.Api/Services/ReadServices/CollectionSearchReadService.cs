@@ -1,13 +1,28 @@
 using Dapper;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Search;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
 
-public sealed class CollectionSearchReadService(IDatabaseConnection db) : ICollectionSearchReadService
+public sealed class CollectionSearchReadService : ICollectionSearchReadService
 {
+    private readonly IDatabaseConnection _db;
+    private readonly ISearchIndexRepository? _searchIndex;
+
+    public CollectionSearchReadService(IDatabaseConnection db)
+        : this(db, null)
+    {
+    }
+
+    public CollectionSearchReadService(IDatabaseConnection db, ISearchIndexRepository? searchIndex)
+    {
+        _db = db;
+        _searchIndex = searchIndex;
+    }
+
     public async Task<List<SearchResultDto>> SearchAsync(string? query, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(query) || query.Trim().Length < 2)
@@ -17,6 +32,37 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
 
         var trimmed = query.Trim();
         var like = $"%{trimmed}%";
+        IReadOnlyList<Guid>? matchedWorkIds = null;
+        if (_searchIndex is not null)
+        {
+            matchedWorkIds = await _searchIndex.SearchAsync(trimmed, 80, ct).ConfigureAwait(false);
+            if (matchedWorkIds.Count == 0)
+                return [];
+        }
+
+        var searchPredicate = matchedWorkIds is not null
+            ? "w.id IN @workIds"
+            : """
+              (c.display_name LIKE @like COLLATE NOCASE
+                   OR EXISTS (
+                       SELECT 1
+                       FROM canonical_values cv
+                       WHERE cv.entity_id IN (ma.id, w.id, w.collection_id)
+                         AND cv.value LIKE @like COLLATE NOCASE
+                   )
+                   OR EXISTS (
+                       SELECT 1
+                       FROM canonical_value_arrays cva
+                       WHERE cva.entity_id IN (ma.id, w.id)
+                         AND cva.value LIKE @like COLLATE NOCASE
+                   )
+                   OR EXISTS (
+                       SELECT 1
+                       FROM primary_person_media_credits credit
+                       WHERE credit.media_asset_id = ma.id
+                         AND credit.person_name LIKE @like COLLATE NOCASE
+                   ))
+              """;
         var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
         var displayYearSql = MediaDateSql.DisplayOriginalYear(
@@ -25,7 +71,7 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
             "ma.id",
             "w.media_type");
 
-        using var conn = db.CreateConnection();
+        using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<CollectionSearchRow>(new CommandDefinition($"""
             WITH matched AS (
                 SELECT
@@ -157,27 +203,7 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                 WHERE w.work_kind != 'parent'
                   AND {visibleWorkPredicate}
                   AND {visibleAssetPredicate}
-                  AND (
-                      c.display_name LIKE @like COLLATE NOCASE
-                      OR EXISTS (
-                          SELECT 1
-                          FROM canonical_values cv
-                          WHERE cv.entity_id IN (ma.id, w.id, w.collection_id)
-                            AND cv.value LIKE @like COLLATE NOCASE
-                      )
-                      OR EXISTS (
-                          SELECT 1
-                          FROM canonical_value_arrays cva
-                          WHERE cva.entity_id IN (ma.id, w.id)
-                            AND cva.value LIKE @like COLLATE NOCASE
-                      )
-                      OR EXISTS (
-                          SELECT 1
-                          FROM primary_person_media_credits credit
-                          WHERE credit.media_asset_id = ma.id
-                            AND credit.person_name LIKE @like COLLATE NOCASE
-                      )
-                  )
+                  AND {searchPredicate}
             )
             SELECT WorkId,
                    CollectionId,
@@ -198,7 +224,7 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
             WHERE RowNumber = 1
             ORDER BY Title COLLATE NOCASE
             LIMIT 20;
-            """, new { like }, cancellationToken: ct))).ToList();
+            """, new { like, workIds = matchedWorkIds }, cancellationToken: ct))).ToList();
 
         return rows.Select(row => new SearchResultDto
         {

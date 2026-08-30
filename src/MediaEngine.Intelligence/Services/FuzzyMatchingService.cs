@@ -2,6 +2,8 @@ using System.Text.RegularExpressions;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 
+using System.Buffers;
+
 namespace MediaEngine.Intelligence.Services;
 
 /// <summary>
@@ -291,8 +293,9 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
         if (a.Length == 0 && b.Length == 0) return 1.0;
         if (a.Length == 0 || b.Length == 0) return 0.0;
 
-        var aLower = a.ToLowerInvariant();
-        var bLower = b.ToLowerInvariant();
+        const int maxComparableLength = 512;
+        var aLower = (a.Length > maxComparableLength ? a[..maxComparableLength] : a).ToLowerInvariant();
+        var bLower = (b.Length > maxComparableLength ? b[..maxComparableLength] : b).ToLowerInvariant();
 
         int distance = LevenshteinDistance(aLower, bLower);
         int maxLen   = Math.Max(aLower.Length, bLower.Length);
@@ -304,23 +307,42 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     /// </summary>
     private static int LevenshteinDistance(string a, string b)
     {
-        var matrix = new int[a.Length + 1, b.Length + 1];
-
-        for (int i = 0; i <= a.Length; i++) matrix[i, 0] = i;
-        for (int j = 0; j <= b.Length; j++) matrix[0, j] = j;
-
-        for (int i = 1; i <= a.Length; i++)
+        // Keep only the previous and current rows. The former full matrix could
+        // allocate tens of megabytes for a single accidental free-text comparison.
+        if (b.Length > a.Length)
         {
-            for (int j = 1; j <= b.Length; j++)
-            {
-                int cost = a[i - 1] == b[j - 1] ? 0 : 1;
-                matrix[i, j] = Math.Min(
-                    Math.Min(matrix[i - 1, j] + 1, matrix[i, j - 1] + 1),
-                    matrix[i - 1, j - 1] + cost);
-            }
+            (a, b) = (b, a);
         }
 
-        return matrix[a.Length, b.Length];
+        var pool = ArrayPool<int>.Shared;
+        var previous = pool.Rent(b.Length + 1);
+        var current = pool.Rent(b.Length + 1);
+        try
+        {
+            for (var j = 0; j <= b.Length; j++)
+                previous[j] = j;
+
+            for (var i = 1; i <= a.Length; i++)
+            {
+                current[0] = i;
+                for (var j = 1; j <= b.Length; j++)
+                {
+                    var cost = a[i - 1] == b[j - 1] ? 0 : 1;
+                    current[j] = Math.Min(
+                        Math.Min(previous[j] + 1, current[j - 1] + 1),
+                        previous[j - 1] + cost);
+                }
+
+                (previous, current) = (current, previous);
+            }
+
+            return previous[b.Length];
+        }
+        finally
+        {
+            pool.Return(previous);
+            pool.Return(current);
+        }
     }
 
     /// <summary>

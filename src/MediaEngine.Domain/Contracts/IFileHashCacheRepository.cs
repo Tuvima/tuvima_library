@@ -38,4 +38,8 @@ public interface IFileHashCacheRepository
     /// a file disappears from disk so stale entries don't accumulate.
     /// </summary>
     Task DeleteAsync(string absolutePath, CancellationToken ct = default);
+
+    /// <summary>Moves an existing cache entry without re-reading the file payload.</summary>
+    Task MoveAsync(string sourceAbsolutePath, string destinationAbsolutePath, CancellationToken ct = default) =>
+        Task.CompletedTask;
 }

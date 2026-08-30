@@ -28,3 +28,51 @@ Large-list read paths should emit debug timing logs with operation name, elapsed
 
 Performance tests should use generated temp SQLite data or in-memory fixtures. They must not depend on the user's real database, watch folder, media files, local AI models, or network.
 
+## Implemented performance controls
+
+The August 2026 remediation pass established the first repeatable baseline and
+added `tests/MediaEngine.Performance.Tests`. Its generated SQLite fixture verifies
+indexed collection paging at 100,000 works without touching user data. Runtime
+measurements are exposed through the `Tuvima.Library.Performance` meter, including
+interactive request duration, active interactive work, database read duration,
+and background-AI admission, deferral, and preemption counts.
+
+The triggering live baseline was a background series-alignment run loading the
+1.17 GB Qwen model on CPU. Engine memory reached roughly 2.65 GB, Home latency
+rose from about 47 ms to 4.6 seconds, and one detail request ended as HTTP 499
+after 254 seconds. With the AI batch idle, comparable TV and book details took
+about 270 ms and 250 ms. Background local AI is therefore opportunistic: it is
+blocked until onboarding completes, waits for an interactive quiet period and
+resource admission, reserves CPU cores, and is cancelled for retry when a
+user-facing request arrives. Invalid generated JSON does not trigger an immediate
+second full inference.
+
+Other enforced hot-path rules are:
+
+- Artwork GETs stream stored renditions directly with ETag, Last-Modified, and
+  public cache headers. They do not decode/re-encode or write renditions.
+- Dashboard live events are coalesced; browse parameters are dirty-checked and
+  media-added refreshes are debounced. Terminal events still flush immediately.
+- Blazor prerendering is disabled because the Dashboard is an interactive server
+  application and duplicate initialization doubled Engine reads. Engine clients
+  use `IHttpClientFactory` handler pooling.
+- Detail repository reads are database-only. `ffprobe` results are persisted by
+  source fingerprint for playback decisions, and ffmpeg output pipes are drained
+  concurrently.
+- Home uses a 1,000-work recent projection cap and a 30-second projection cache;
+  display responses also receive a short output cache and Brotli/Gzip compression.
+- Complex card, artwork-stack, Home-shelf, and timeline projections are computed
+  once per parameter change. Direct browse grids use browser-native render
+  containment for off-screen cards because variable-width flex grids cannot use
+  Blazor `Virtualize` without breaking layout and scroll semantics.
+- Known file extensions route directly to one processor; moved files retain their
+  path-keyed hash cache entry; unsupported video containers are rejected before
+  any backup copy.
+
+Microsoft.Data.Sqlite executes its asynchronous command methods synchronously.
+Consequently, a repository-wide mechanical conversion from Dapper synchronous
+calls to `*Async` calls is not a performance fix for this provider. Prefer bounded
+queries, batching, indexes, fewer statements, and short-held connections; only
+write-lock waiting and genuinely asynchronous file/network operations should be
+awaited.
+

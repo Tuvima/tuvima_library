@@ -4,6 +4,8 @@ public interface IDisplayProjectionReadService
 {
     Task<IReadOnlyList<DisplayWorkRow>> LoadWorksAsync(CancellationToken ct);
 
+    Task<IReadOnlyList<DisplayWorkRow>> LoadHomeWorksAsync(CancellationToken ct) => LoadWorksAsync(ct);
+
     Task<IReadOnlyList<DisplayJourneyRow>> LoadJourneyAsync(
         string? lane,
         CancellationToken ct);

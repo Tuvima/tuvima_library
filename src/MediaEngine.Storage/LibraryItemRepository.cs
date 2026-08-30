@@ -15,19 +15,11 @@ namespace MediaEngine.Storage;
 public sealed class LibraryItemRepository : ILibraryItemRepository
 {
     private readonly IDatabaseConnection _db;
-    private readonly IFFmpegService _ffmpeg;
 
     public LibraryItemRepository(IDatabaseConnection db)
-        : this(db, NoOpFfmpegService.Instance)
-    {
-    }
-
-    public LibraryItemRepository(IDatabaseConnection db, IFFmpegService ffmpeg)
     {
         ArgumentNullException.ThrowIfNull(db);
-        ArgumentNullException.ThrowIfNull(ffmpeg);
         _db = db;
-        _ffmpeg = ffmpeg;
     }
 
     public Task<LibraryItemsPage> GetPageAsync(LibraryItemQuery query, CancellationToken ct = default)
@@ -475,15 +467,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         if (projection is null && canonicalValues.Count == 0)
             return null;
 
-        async Task<MediaProbeResult?> ProbeAsync()
-        {
-            if (!_ffmpeg.IsAvailable || string.IsNullOrWhiteSpace(maRow.FilePath) || !File.Exists(maRow.FilePath))
-                return null;
-
-            return await _ffmpeg.ProbeAsync(maRow.FilePath, ct);
-        }
-
-        var playbackSummary = await BuildPlaybackSummaryAsync(Canonical, ProbeAsync, ct);
+        // Detail reads must remain database-only. File inspection belongs to ingestion or the
+        // playback inspection cache; starting ffprobe here made a normal page request wait on disk.
+        var playbackSummary = BuildPlaybackSummary(Canonical, ct);
 
         Guid? reviewItemId = rqRow == default ? null : rqRow.Id;
         var universeQid = Canonical("fictional_universe_qid")
@@ -1727,9 +1713,8 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
     private static DateTimeOffset? ParseDateTimeOffset(string? value) =>
         DateTimeOffset.TryParse(value, out var parsed) ? parsed : null;
 
-    private async Task<PlaybackTechnicalSummary?> BuildPlaybackSummaryAsync(
+    private static PlaybackTechnicalSummary? BuildPlaybackSummary(
         Func<string, string?> canonical,
-        Func<Task<MediaProbeResult?>> probeFactory,
         CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -1742,23 +1727,6 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
 
         int? width = ParseNullableInt(canonical("video_width"));
         int? height = ParseNullableInt(canonical("video_height"));
-
-        MediaProbeResult? probe = null;
-        if (width is null || height is null || string.IsNullOrWhiteSpace(videoCodec)
-            || string.IsNullOrWhiteSpace(audioCodec) || string.IsNullOrWhiteSpace(audioChannels)
-            || subtitleLanguages.Count == 0)
-        {
-            probe = await probeFactory();
-        }
-
-        width ??= probe?.Width;
-        height ??= probe?.Height;
-        videoCodec ??= probe?.VideoCodec;
-        audioLanguage ??= probe?.AudioLanguage;
-        audioCodec ??= probe?.AudioCodec;
-        audioChannels ??= probe?.Channels?.ToString();
-        if (subtitleLanguages.Count == 0 && probe?.SubtitleLanguages.Count > 0)
-            subtitleLanguages = probe.SubtitleLanguages.ToList();
 
         var audioLanguages = SplitValues(audioLanguage);
         var summary = new PlaybackTechnicalSummary
@@ -1948,20 +1916,4 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         public int CompletedWithArt { get; set; }
     }
 
-    private sealed class NoOpFfmpegService : IFFmpegService
-    {
-        public static NoOpFfmpegService Instance { get; } = new();
-
-        public string? FfmpegPath => null;
-        public string? FfprobePath => null;
-        public bool IsAvailable => false;
-        public HardwareCapabilities HardwareCapabilities { get; } = new();
-
-        public Task<MediaProbeResult?> ProbeAsync(string filePath, CancellationToken ct = default) =>
-            Task.FromResult<MediaProbeResult?>(null);
-
-        public Task<(int ExitCode, string Output, string Error)> RunAsync(
-            string arguments, CancellationToken ct = default) =>
-            throw new InvalidOperationException("FFmpeg is not available in this repository context.");
-    }
 }

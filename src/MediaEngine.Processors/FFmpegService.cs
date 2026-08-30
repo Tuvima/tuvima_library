@@ -178,11 +178,13 @@ public sealed class FFmpegService : IFFmpegService
         using var process = new Process { StartInfo = psi };
         process.Start();
 
-        var stdout = await process.StandardOutput.ReadToEndAsync(ct).ConfigureAwait(false);
-        var stderr = await process.StandardError.ReadToEndAsync(ct).ConfigureAwait(false);
-        await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        // Drain both redirected pipes concurrently. Reading them serially can deadlock when
+        // ffmpeg fills stderr while the caller is still waiting for stdout to complete.
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
+        var stderrTask = process.StandardError.ReadToEndAsync(ct);
+        await Task.WhenAll(stdoutTask, stderrTask, process.WaitForExitAsync(ct)).ConfigureAwait(false);
 
-        return (process.ExitCode, stdout, stderr);
+        return (process.ExitCode, await stdoutTask, await stderrTask);
     }
 
     private static MediaProbeResult? ParseProbeJson(string json, string filePath)

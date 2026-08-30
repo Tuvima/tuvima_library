@@ -371,6 +371,7 @@ public sealed class CollectionsHubTests
     public void TuvimaArtworkStack_IsGenericSeededAndShapeAware()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\TuvimaArtworkStack.razor"));
+        var styles = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\TuvimaArtworkStack.razor.css"));
         var modelSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Models\ViewDTOs\ArtworkStackModels.cs"));
 
         Assert.Contains("public sealed class ArtworkStackItem", modelSource, StringComparison.Ordinal);
@@ -382,23 +383,24 @@ public sealed class CollectionsHubTests
         Assert.Contains("Palette?.CssVariableStyle", source, StringComparison.Ordinal);
         Assert.Contains("OrderBy(item => StableHash", source, StringComparison.Ordinal);
         Assert.Contains("data-shape=\"@ShapeValue(slot.item.Shape)\"", source, StringComparison.Ordinal);
-        Assert.Contains("--artwork-ratio: 1 / 1", source, StringComparison.Ordinal);
-        Assert.Contains("--artwork-ratio: 2 / 3", source, StringComparison.Ordinal);
-        Assert.Contains("--artwork-ratio: 16 / 9", source, StringComparison.Ordinal);
+        Assert.Contains("--artwork-ratio: 1 / 1", styles, StringComparison.Ordinal);
+        Assert.Contains("--artwork-ratio: 2 / 3", styles, StringComparison.Ordinal);
+        Assert.Contains("--artwork-ratio: 16 / 9", styles, StringComparison.Ordinal);
         Assert.Contains("--left", source, StringComparison.Ordinal);
         Assert.Contains("--top", source, StringComparison.Ordinal);
-        Assert.Contains("translate(-50%, -50%)", source, StringComparison.Ordinal);
-        Assert.Contains("calc(var(--left) + 18%)", source, StringComparison.Ordinal);
-        Assert.Contains("width: calc(var(--artwork-width) * 1.72)", source, StringComparison.Ordinal);
-        Assert.Contains("top: calc(var(--top) - 5%)", source, StringComparison.Ordinal);
-        Assert.Contains("min-height: clamp(46rem, 84vh, 64rem)", source, StringComparison.Ordinal);
-        Assert.Contains("overflow: visible", source, StringComparison.Ordinal);
-        Assert.Contains(".artwork-stack--hero .artwork-stack__stage", source, StringComparison.Ordinal);
-        Assert.Contains("background: transparent", source, StringComparison.Ordinal);
+        Assert.Contains("translate(-50%, -50%)", styles, StringComparison.Ordinal);
+        Assert.Contains("calc(var(--left) + 18%)", styles, StringComparison.Ordinal);
+        Assert.Contains("width: calc(var(--artwork-width) * 1.72)", styles, StringComparison.Ordinal);
+        Assert.Contains("top: calc(var(--top) - 5%)", styles, StringComparison.Ordinal);
+        Assert.Contains("min-height: clamp(46rem, 84vh, 64rem)", styles, StringComparison.Ordinal);
+        Assert.Contains("overflow: visible", styles, StringComparison.Ordinal);
+        Assert.Contains(".artwork-stack--hero .artwork-stack__stage", styles, StringComparison.Ordinal);
+        Assert.Contains("background: transparent", styles, StringComparison.Ordinal);
         Assert.Contains("artwork-stack--all-square", source, StringComparison.Ordinal);
         Assert.Contains("artwork-stack--all-portrait", source, StringComparison.Ordinal);
         Assert.Contains("artwork-stack--mixed", source, StringComparison.Ordinal);
-        Assert.Contains("nth-of-type(n + 4)", source, StringComparison.Ordinal);
+        Assert.Contains("nth-of-type(n + 4)", styles, StringComparison.Ordinal);
+        Assert.DoesNotContain("<style", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("FeaturedCover", source, StringComparison.Ordinal);
         Assert.DoesNotContain("PrimaryCover", source, StringComparison.Ordinal);
         Assert.DoesNotContain("BestCover", source, StringComparison.Ordinal);

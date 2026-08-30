@@ -15,8 +15,12 @@ namespace MediaEngine.Web.Services.Integration;
 /// <c>StateHasChanged()</c>.
 /// </para>
 /// </summary>
-public sealed class UniverseStateContainer
+public sealed class UniverseStateContainer : IDisposable
 {
+    private static readonly TimeSpan LiveNotificationThrottle = TimeSpan.FromMilliseconds(250);
+    private readonly object _notificationLock = new();
+    private CancellationTokenSource? _notificationCts;
+    private bool _pendingSnapshotRefresh;
     private List<CollectionViewModel>         _collections                       = [];
     private CollectionViewModel?              _selected;
     private UniverseViewModel?         _universe;
@@ -204,7 +208,8 @@ public sealed class UniverseStateContainer
                 "sync", summary));
         }
 
-        NotifyStateChanged(requiresSnapshotRefresh: string.Equals(ev.Stage, "Complete", StringComparison.OrdinalIgnoreCase));
+        var complete = string.Equals(ev.Stage, "Complete", StringComparison.OrdinalIgnoreCase);
+        NotifyStateChanged(requiresSnapshotRefresh: complete, throttle: !complete);
     }
 
     /// <summary>
@@ -215,7 +220,7 @@ public sealed class UniverseStateContainer
     {
         _ingestionItemProgress[ev.LogEntryId] = new LiveIngestionItemProgress(ev, DateTimeOffset.UtcNow);
         PruneIngestionItemProgress();
-        NotifyStateChanged(requiresSnapshotRefresh: false);
+        NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
 
     /// <summary>
@@ -236,7 +241,7 @@ public sealed class UniverseStateContainer
                 $"{ev.FilesProcessed} of {ev.FilesTotal} files processed"));
         }
 
-        NotifyStateChanged(requiresSnapshotRefresh: ev.IsComplete);
+        NotifyStateChanged(requiresSnapshotRefresh: ev.IsComplete, throttle: !ev.IsComplete);
     }
 
     /// <summary>
@@ -255,7 +260,7 @@ public sealed class UniverseStateContainer
             $"{ev.CurrentStep}: {ev.WorkTitle}",
             $"{ev.ProcessedCount} of {ev.TotalCount} in Stage 3"));
 
-        NotifyStateChanged(requiresSnapshotRefresh: false);
+        NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
 
     public void PushModelDownloadProgress(ModelDownloadProgressEvent ev)
@@ -265,7 +270,7 @@ public sealed class UniverseStateContainer
         else
             _modelDownloadActivity[ev.Role] = new LiveModelDownloadProgress(ev, DateTimeOffset.UtcNow);
 
-        NotifyStateChanged(requiresSnapshotRefresh: false);
+        NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
 
     public void PushModelStateChanged(ModelStateChangedEvent ev)
@@ -273,7 +278,7 @@ public sealed class UniverseStateContainer
         if (!ev.NewState.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
             _modelDownloadActivity.Remove(ev.Role);
 
-        NotifyStateChanged(requiresSnapshotRefresh: false);
+        NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
 
     public void PushMediaOperationChanged(MediaOperationChangedEvent ev)
@@ -283,7 +288,7 @@ public sealed class UniverseStateContainer
         else
             _mediaOperationActivity.Remove(ev.Id);
 
-        NotifyStateChanged(requiresSnapshotRefresh: false);
+        NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
 
     public void SetMediaOperationActivity(IEnumerable<MediaOperationChangedEvent> operations)
@@ -292,7 +297,7 @@ public sealed class UniverseStateContainer
         foreach (var operation in operations.Where(operation => IsActiveOperationStatus(operation.Status)))
             _mediaOperationActivity[operation.Id] = operation;
 
-        NotifyStateChanged(requiresSnapshotRefresh: false);
+        NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
 
     /// <summary>
@@ -381,7 +386,7 @@ public sealed class UniverseStateContainer
             LastError = provider.LastError,
         }).ToList();
 
-        NotifyStateChanged(requiresSnapshotRefresh: false);
+        NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
 
     /// <summary>
@@ -421,10 +426,71 @@ public sealed class UniverseStateContainer
         NotifyStateChanged();
     }
 
-    private void NotifyStateChanged(bool requiresSnapshotRefresh = true)
+    private void NotifyStateChanged(bool requiresSnapshotRefresh = true, bool throttle = false)
     {
-        _lastStateChangeRequiresSnapshotRefresh = requiresSnapshotRefresh;
-        OnStateChanged?.Invoke();
+        if (!throttle)
+        {
+            lock (_notificationLock)
+            {
+                requiresSnapshotRefresh |= _pendingSnapshotRefresh;
+                _pendingSnapshotRefresh = false;
+                _notificationCts?.Cancel();
+                _notificationCts?.Dispose();
+                _notificationCts = null;
+            }
+
+            _lastStateChangeRequiresSnapshotRefresh = requiresSnapshotRefresh;
+            OnStateChanged?.Invoke();
+            return;
+        }
+
+        lock (_notificationLock)
+        {
+            _pendingSnapshotRefresh |= requiresSnapshotRefresh;
+            // Consumers inspect this flag synchronously after accepting a live event.
+            // Keep it current even when the actual render notification is coalesced.
+            _lastStateChangeRequiresSnapshotRefresh = _pendingSnapshotRefresh;
+            if (_notificationCts is not null)
+                return;
+
+            _notificationCts = new CancellationTokenSource();
+            _ = FlushNotificationAsync(_notificationCts);
+        }
+    }
+
+    private async Task FlushNotificationAsync(CancellationTokenSource source)
+    {
+        try
+        {
+            await Task.Delay(LiveNotificationThrottle, source.Token).ConfigureAwait(false);
+            bool requiresSnapshotRefresh;
+            lock (_notificationLock)
+            {
+                if (!ReferenceEquals(_notificationCts, source))
+                    return;
+
+                requiresSnapshotRefresh = _pendingSnapshotRefresh;
+                _pendingSnapshotRefresh = false;
+                _notificationCts = null;
+            }
+
+            source.Dispose();
+            _lastStateChangeRequiresSnapshotRefresh = requiresSnapshotRefresh;
+            OnStateChanged?.Invoke();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_notificationLock)
+        {
+            _notificationCts?.Cancel();
+            _notificationCts?.Dispose();
+            _notificationCts = null;
+        }
     }
 
     private void PruneIngestionItemProgress()

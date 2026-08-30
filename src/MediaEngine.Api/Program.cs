@@ -23,10 +23,24 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.ResponseCompression;
 using Serilog;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddMemoryCache();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
+builder.Services.AddOutputCache(options =>
+{
+    options.AddPolicy("display-read", policy => policy
+        .Expire(TimeSpan.FromSeconds(5))
+        .SetVaryByQuery("*")
+        .Tag("display"));
+});
 ConfigurationManager config = builder.Configuration;
 string configDirectory =
     Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
@@ -350,13 +364,16 @@ app.UseExceptionHandler(errorApp =>
         await context.Response.WriteAsJsonAsync(problem);
     });
 });
+app.UseResponseCompression();
 app.UseCors("BlazorWasm");
 // SECURITY: rate limiting must run before authentication so credential floods are
 // rejected before the first-party session or API-key stores are consulted.
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseOutputCache();
 app.UseMiddleware<IntercomTokenAuthenticationMiddleware>();
+app.UseMiddleware<InteractiveRequestTrackingMiddleware>();
 
 app.MapHealthChecks("/health").RequireAuthorization(AuthPolicies.Administrator);
 app.MapHealthChecks("/health/live", new HealthCheckOptions

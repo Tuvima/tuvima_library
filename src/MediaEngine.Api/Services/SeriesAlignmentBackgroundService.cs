@@ -26,6 +26,7 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
     private readonly ICanonicalValueRepository _canonicals;
     private readonly IAiFeaturePersistenceRepository _featurePersistence;
     private readonly ILibraryItemRepository _libraryItems;
+    private readonly BackgroundAiAdmissionController _admission;
     private readonly ILogger<SeriesAlignmentBackgroundService> _logger;
 
     public SeriesAlignmentBackgroundService(
@@ -36,6 +37,7 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
         ICanonicalValueRepository canonicals,
         IAiFeaturePersistenceRepository featurePersistence,
         ILibraryItemRepository libraryItems,
+        BackgroundAiAdmissionController admission,
         ILogger<SeriesAlignmentBackgroundService> logger)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -45,6 +47,7 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
         ArgumentNullException.ThrowIfNull(canonicals);
         ArgumentNullException.ThrowIfNull(featurePersistence);
         ArgumentNullException.ThrowIfNull(libraryItems);
+        ArgumentNullException.ThrowIfNull(admission);
         ArgumentNullException.ThrowIfNull(logger);
 
         _settings = settings;
@@ -54,6 +57,7 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
         _canonicals = canonicals;
         _featurePersistence = featurePersistence;
         _libraryItems = libraryItems;
+        _admission = admission;
         _logger = logger;
     }
 
@@ -146,6 +150,12 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                 if (state?.IsCurrent(inputFingerprint) == true || state?.CanAttempt(DateTimeOffset.UtcNow) == false)
                     continue;
 
+                using var admission = _admission.TryAcquire(
+                    MediaEngine.Domain.Enums.AiModelRole.TextQuality,
+                    ct);
+                if (admission is null)
+                    return;
+
                 attempted++;
                 try
                 {
@@ -153,7 +163,7 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                         workTitle,
                         seriesName,
                         siblingTitles,
-                        ct);
+                        admission.Token);
                     if (inference is null)
                         continue;
 
@@ -183,6 +193,13 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {
                     throw;
+                }
+                catch (OperationCanceledException) when (admission.WasPreempted)
+                {
+                    _logger.LogInformation(
+                        "SeriesAlignmentService: yielding entity {Id} to interactive traffic",
+                        entityId);
+                    return;
                 }
                 catch (Exception ex)
                 {

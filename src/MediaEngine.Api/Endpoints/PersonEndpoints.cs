@@ -510,8 +510,10 @@ public static class PersonEndpoints
                     roles: p.Roles,
                     wikidata_qid: p.WikidataQid,
                     headshot_url: ApiImageUrls.BuildPersonHeadshotUrl(p.Id, p.LocalHeadshotPath, p.HeadshotUrl),
-                    has_local_headshot: !string.IsNullOrEmpty(p.LocalHeadshotPath)
-                                         && File.Exists(p.LocalHeadshotPath),
+                    // Presence is persisted with the person. Avoid up to 500 synchronous
+                    // filesystem stats (especially costly on network storage) in one list request;
+                    // the headshot endpoint handles a stale/missing path and remote fallback.
+                    has_local_headshot: !string.IsNullOrWhiteSpace(p.LocalHeadshotPath),
                     is_pseudonym: p.IsPseudonym,
                     is_group: p.IsGroup,
                     biography: p.Biography,

@@ -92,6 +92,34 @@ public sealed class StreamEndpointArtworkTests
         }
     }
 
+    [Fact]
+    public async Task CreateLocalArtworkResult_StreamsFileWithValidatorsAndPublicCacheHeaders()
+    {
+        var path = CreateTempImagePath();
+        try
+        {
+            var result = Assert.IsAssignableFrom<IResult>(InvokeCreateLocalArtworkResult(path));
+            var context = new DefaultHttpContext
+            {
+                RequestServices = new ServiceCollection().AddLogging().BuildServiceProvider(),
+            };
+            await using var responseBody = new MemoryStream();
+            context.Response.Body = responseBody;
+
+            await result.ExecuteAsync(context);
+
+            Assert.Equal("image/jpeg", context.Response.ContentType);
+            Assert.False(string.IsNullOrWhiteSpace(context.Response.Headers.ETag));
+            Assert.False(string.IsNullOrWhiteSpace(context.Response.Headers.LastModified));
+            Assert.Contains("public", context.Response.Headers.CacheControl.ToString(), StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(await File.ReadAllBytesAsync(path), responseBody.ToArray());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static string? InvokeResolveArtworkPath(EntityAsset asset, string? size)
     {
         var method = typeof(StreamEndpoints).GetMethod(

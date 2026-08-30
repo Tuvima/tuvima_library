@@ -20,7 +20,8 @@ public interface ILlamaInferenceService : ITextInferenceService
 
     /// <summary>
     /// Run inference and parse the result as JSON.
-    /// Retries once with higher temperature if parsing fails.
+    /// Returns null when the constrained response cannot be parsed. Callers may
+    /// schedule a later retry through their durable failure/backoff policy.
     /// </summary>
     new Task<T?> InferJsonAsync<T>(
         AiModelRole role,

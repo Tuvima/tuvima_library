@@ -7,6 +7,15 @@
     overflow: visible;
 }
 
+/* Flex/grid virtualization is unreliable when card widths and artwork ratios vary.
+   Browser-native render containment skips layout and paint for off-screen cards
+   without changing the semantic DOM or the existing responsive geometry. */
+.media-tile-grid ::deep .media-tile,
+.media-tile-grid ::deep .media-group-tile {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 360px;
+}
+
 .media-tile-grid--size-96 { --media-grid-tile-size: 96px; --media-grid-group-width: 328px; --media-grid-group-height: 171px; }
 .media-tile-grid--size-104 { --media-grid-tile-size: 104px; --media-grid-group-width: 352px; --media-grid-group-height: 183px; }
 .media-tile-grid--size-112 { --media-grid-tile-size: 112px; --media-grid-group-width: 376px; --media-grid-group-height: 196px; }

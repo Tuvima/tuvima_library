@@ -43,6 +43,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
     private readonly IReadOnlyList<IExternalMetadataProvider> _providers;
     private readonly IRecursiveIdentityService _identityService;
     private readonly IMetadataHarvestingService _harvesting;
+    private readonly BackgroundAiAdmissionController _admission;
     private readonly ILogger<DescriptionIntelligenceBatchService> _logger;
 
     public DescriptionIntelligenceBatchService(
@@ -63,6 +64,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         IEnumerable<IExternalMetadataProvider> providers,
         IRecursiveIdentityService identityService,
         IMetadataHarvestingService harvesting,
+        BackgroundAiAdmissionController admission,
         ILogger<DescriptionIntelligenceBatchService> logger)
     {
         ArgumentNullException.ThrowIfNull(settings);
@@ -82,6 +84,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(identityService);
         ArgumentNullException.ThrowIfNull(harvesting);
+        ArgumentNullException.ThrowIfNull(admission);
         ArgumentNullException.ThrowIfNull(logger);
 
         _settings     = settings;
@@ -101,6 +104,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         _providers = providers.ToList();
         _identityService = identityService;
         _harvesting = harvesting;
+        _admission = admission;
         _logger       = logger;
     }
 
@@ -229,7 +233,13 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                     || featureState?.CanAttempt(DateTimeOffset.UtcNow) == false)
                     continue;
 
-                var diResult = await descIntel.AnalyzeAsync(entityId, mediaCategory, ct)
+                using var admission = _admission.TryAcquire(
+                    MediaEngine.Domain.Enums.AiModelRole.TextScholar,
+                    ct);
+                if (admission is null)
+                    return;
+
+                var diResult = await descIntel.AnalyzeAsync(entityId, mediaCategory, admission.Token)
                     .ConfigureAwait(false);
 
                 if (diResult is not null)
@@ -451,6 +461,13 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                 }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                _logger.LogInformation(
+                    "[DESCRIPTION-INTEL-BATCH] Yielding entity {EntityId} to interactive traffic",
+                    entityId);
+                return;
+            }
             catch (Exception ex)
             {
                 if (inputFingerprint is not null)

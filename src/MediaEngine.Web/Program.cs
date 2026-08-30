@@ -19,6 +19,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Net;
 using System.Globalization;
@@ -62,6 +63,12 @@ builder.Services.Configure<RequestLocalizationOptions>(opts =>
 // ── MudBlazor ─────────────────────────────────────────────────────────────────
 builder.Services.AddMudServices();
 builder.Services.AddMemoryCache();
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+});
 
 // ── Theming ───────────────────────────────────────────────────────────────────
 // Singleton: dark-mode-only theme shared across all connections.
@@ -266,54 +273,24 @@ builder.Services.AddSingleton(new DashboardServiceCredentialProviderOptions(conf
 builder.Services.AddSingleton<DashboardServiceCredentialProvider>();
 builder.Services.AddScoped<DashboardSessionAccessor>();
 builder.Services.AddTransient<DashboardEngineAuthenticationHandler>();
+builder.Services.AddTransient<ViewProfileAssertionHandler>(services => new ViewProfileAssertionHandler(
+    services.GetRequiredService<IActiveProfileAccessor>(),
+    services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken()));
 builder.Services.AddScoped<DashboardIdentityClient>();
 builder.Services.AddSingleton(new ViewMediaGrantService(mediaGrantKey, mediaGrantLifetime));
-builder.Services.AddScoped<IEngineApiClient>(services =>
-{
-    var serviceToken = services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken();
-    var authenticationHandler = ActivatorUtilities.CreateInstance<DashboardEngineAuthenticationHandler>(services);
-    authenticationHandler.InnerHandler = new HttpClientHandler();
-    var assertionHandler = new ViewProfileAssertionHandler(
-        services.GetRequiredService<IActiveProfileAccessor>(),
-        serviceToken)
-    {
-        InnerHandler = authenticationHandler,
-    };
-    var client = new HttpClient(assertionHandler);
-    ConfigureEngineClient(services, client);
-    return ActivatorUtilities.CreateInstance<EngineApiClient>(services, client);
-});
+builder.Services.AddHttpClient<EngineApiClient>(ConfigureEngineClient)
+    .AddHttpMessageHandler<ViewProfileAssertionHandler>()
+    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
+builder.Services.AddScoped<IEngineApiClient>(services => services.GetRequiredService<EngineApiClient>());
 builder.Services.AddScoped<EngineApiFailureState>();
-builder.Services.AddScoped<IViewMediaEngineClient>(services =>
-{
-    var serviceToken = services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken();
-    var authenticationHandler = ActivatorUtilities.CreateInstance<DashboardEngineAuthenticationHandler>(services);
-    authenticationHandler.InnerHandler = new HttpClientHandler();
-    var assertionHandler = new ViewProfileAssertionHandler(
-        services.GetRequiredService<IActiveProfileAccessor>(),
-        serviceToken)
-    {
-        InnerHandler = authenticationHandler,
-    };
-    var client = new HttpClient(assertionHandler);
-    ConfigureEngineClient(services, client);
-    return new ViewMediaEngineClient(client);
-});
-builder.Services.AddScoped<ICollectionPersonalMediaClient>(services =>
-{
-    var serviceToken = services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken();
-    var authenticationHandler = ActivatorUtilities.CreateInstance<DashboardEngineAuthenticationHandler>(services);
-    authenticationHandler.InnerHandler = new HttpClientHandler();
-    var assertionHandler = new ViewProfileAssertionHandler(
-        services.GetRequiredService<IActiveProfileAccessor>(),
-        serviceToken)
-    {
-        InnerHandler = authenticationHandler,
-    };
-    var client = new HttpClient(assertionHandler);
-    ConfigureEngineClient(services, client);
-    return ActivatorUtilities.CreateInstance<CollectionPersonalMediaClient>(services, client);
-});
+builder.Services.AddHttpClient<ViewMediaEngineClient>(ConfigureEngineClient)
+    .AddHttpMessageHandler<ViewProfileAssertionHandler>()
+    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
+builder.Services.AddScoped<IViewMediaEngineClient>(services => services.GetRequiredService<ViewMediaEngineClient>());
+builder.Services.AddHttpClient<CollectionPersonalMediaClient>(ConfigureEngineClient)
+    .AddHttpMessageHandler<ViewProfileAssertionHandler>()
+    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
+builder.Services.AddScoped<ICollectionPersonalMediaClient>(services => services.GetRequiredService<CollectionPersonalMediaClient>());
 
 // Named "EngineApi" client — same base address and API key as the scoped client above.
 // Used by ad-hoc pages (e.g. the Enrichment Tester) that need direct HttpClient access
@@ -366,6 +343,7 @@ var app = builder.Build();
 // redirection, authentication, and URL generation. Only loopback plus the
 // explicitly configured proxy addresses/networks are trusted.
 app.UseForwardedHeaders();
+app.UseResponseCompression();
 
 if (!app.Environment.IsDevelopment())
 {

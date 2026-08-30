@@ -18,6 +18,8 @@
     "idle_unload_seconds": { "type": "integer", "minimum": 1 },
     "inference_timeout_seconds": { "type": "integer", "minimum": 1 },
     "max_concurrent_inferences": { "const": 1 },
+    "reserved_cpu_cores": { "type": "integer", "minimum": 1 },
+    "background_quiet_seconds": { "type": "integer", "minimum": 1, "maximum": 300 },
     "minimum_free_disk_mb": { "type": "integer", "minimum": 256 },
     "enrichment_batch_size": { "type": "integer", "minimum": 1, "maximum": 50 },
     "features": {
