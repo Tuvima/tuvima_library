@@ -5624,6 +5624,12 @@ MediaEngine.Contracts.System.MediaEngine.Contracts.System.BackupArchiveDto
 
 MediaEngine.Contracts.System.MediaEngine.Contracts.System.CreateBackupRequest
 
+MediaEngine.Contracts.System.MediaEngine.Contracts.System.RestoreValidationResultDto
+  Valid: System.Boolean | nullability=not-null | accessors=get,init
+  FileName: System.String | nullability=not-null | accessors=get,init
+  ValidatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  Message: System.String | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.System.MediaEngine.Contracts.System.ScheduleRestoreRequest
   FileName: System.String | nullability=not-null | accessors=get,init
 

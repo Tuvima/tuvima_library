@@ -18,15 +18,23 @@ not_in_nav: |
   /architecture/display-api.md
   /architecture/js-interop.md
   /architecture/localization.md
+  /architecture/network-and-remote-access.md
   /architecture/openapi-migration.md
+  /architecture/playback.md
   /architecture/project-boundaries.md
+  /architecture/provider-onboarding.md
   /architecture/storage-policy-adr.md
   /architecture/storage-policy-review.md
+  /architecture/view-personal-media.md
   /design-system/README.md
   /design-system/SKILL.md
   /design-system/visual-qa-checklist.md
   /proposals/wikidata-recon-library-improvements.md
+  /guides/remote-access.md
+  /guides/using-plugins.md
   /reference/display-api.md
+  /reference/secondary-title-text.md
+  /reference/sequence-dataset-gap-report-2026-07-15.md
   /ui/ui-consistency-audit.md
   /design-system/ui_kits/dashboard/README.md
 
@@ -92,14 +100,20 @@ nav:
       - Attributions: reference/attributions.md
   - Getting Started:
       - Getting Started: tutorials/getting-started.md
+      - Installation:
+          - Docker Compose: install/docker.md
+          - Unraid: install/unraid.md
+          - Synology DSM: install/synology.md
+          - QNAP: install/qnap.md
+          - TrueNAS SCALE: install/truenas-scale.md
       - Your First Library: tutorials/first-library.md
       - Add Media: guides/adding-media.md
       - Troubleshooting: guides/troubleshooting.md
   - Use Tuvima:
       - Resolve Review Items: guides/resolving-reviews.md
       - Configure Providers: guides/configuring-providers.md
+      - Operations and Recovery: guides/operations-and-recovery.md
       - Language Setup: guides/language-setup.md
-      - Use Plugins: guides/using-plugins.md
       - Understand Universes and Shelves: explanation/how-universes-work.md
       - Understand Ingestion: explanation/how-ingestion-works.md
       - Understand Library Operations: library-operations.md

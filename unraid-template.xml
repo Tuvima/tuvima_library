@@ -20,7 +20,11 @@
     Drop your books, audiobooks, comics, movies, and TV episodes into the Watch
     Folder — Tuvima automatically fingerprints, identifies, enriches with
     metadata, and organises everything into a beautiful browser dashboard.
-    No subscriptions, no accounts, nothing leaves your home network.
+    The Dashboard is published on port 5016; the internal Engine is not exposed.
+    The container reports healthy only after both services are live. Before the
+    first start, make sure every mapped folder is accessible to the configured
+    UID and GID. Metadata providers are optional and may contact their configured
+    services when enabled.
   </Overview>
 
   <Category>MediaApp:</Category>
@@ -40,23 +44,13 @@
           Required="true"
           Mask="false">5016</Config>
 
-  <Config Name="Engine API Port"
-          Target="61495"
-          Default="61495"
-          Mode="tcp"
-          Description="Engine API. Used internally by the Dashboard; also available for external tools (e.g. custom mobile apps)."
-          Type="Port"
-          Display="advanced"
-          Required="true"
-          Mask="false">61495</Config>
-
   <!-- ── Volume mappings ────────────────────────────────────────────────── -->
 
   <Config Name="Watch Folder"
           Target="/watch"
           Default="/mnt/user/media/tuvima-watch"
           Mode="rw"
-          Description="Drop new media files here. Tuvima picks them up automatically and moves them to the Library Root once identified."
+          Description="Drop new catalogue media here. The configured UID/GID needs read access; managed organization also needs write access. Tuvima never deletes user-owned originals outside a managed workflow."
           Type="Path"
           Display="always"
           Required="true"
@@ -66,7 +60,7 @@
           Target="/library"
           Default="/mnt/user/media/tuvima-library"
           Mode="rw"
-          Description="Where Tuvima stores your organised media collection. Uses the folder template: {Category}/{Author}/{Title}/"
+          Description="Managed catalogue destination. The configured UID/GID needs read/write access. Mount existing read-only libraries separately in Settings instead of pointing this managed path at them."
           Type="Path"
           Display="always"
           Required="true"
@@ -92,7 +86,97 @@
           Required="true"
           Mask="false">/mnt/user/appdata/tuvima/db</Config>
 
+  <Config Name="Models Folder"
+          Target="/models"
+          Default="/mnt/user/appdata/tuvima/models"
+          Mode="rw"
+          Description="Persistent Local AI model files. Allow several gigabytes and keep this outside the container image."
+          Type="Path"
+          Display="always"
+          Required="true"
+          Mask="false">/mnt/user/appdata/tuvima/models</Config>
+
+  <Config Name="Artwork and Cache Folder"
+          Target="/artwork-cache"
+          Default="/mnt/user/appdata/tuvima/artwork-cache"
+          Mode="rw"
+          Description="Managed artwork, thumbnails, generated cache, and logs. Safe to place on fast appdata storage."
+          Type="Path"
+          Display="always"
+          Required="true"
+          Mask="false">/mnt/user/appdata/tuvima/artwork-cache</Config>
+
+  <Config Name="Backup Folder"
+          Target="/backups"
+          Default="/mnt/user/appdata/tuvima/backups"
+          Mode="rw"
+          Description="Tuvima backup archives and restore staging. Copy important archives to another device as part of your backup policy."
+          Type="Path"
+          Display="always"
+          Required="true"
+          Mask="false">/mnt/user/appdata/tuvima/backups</Config>
+
+  <Config Name="Transcode Folder"
+          Target="/transcode"
+          Default="/mnt/user/appdata/tuvima/transcode"
+          Mode="rw"
+          Description="Prepared playback variants and temporary transcode work. Prefer fast storage with enough free space for active jobs."
+          Type="Path"
+          Display="always"
+          Required="true"
+          Mask="false">/mnt/user/appdata/tuvima/transcode</Config>
+
   <!-- ── Environment variables ──────────────────────────────────────────── -->
+
+  <Config Name="User ID (UID)"
+          Target="TUVIMA_UID"
+          Default="99"
+          Mode=""
+          Description="Numeric owner used inside the container. Unraid normally uses 99 (nobody). It must be able to read the Watch Folder and write every managed/appdata mapping."
+          Type="Variable"
+          Display="always"
+          Required="true"
+          Mask="false">99</Config>
+
+  <Config Name="Group ID (GID)"
+          Target="TUVIMA_GID"
+          Default="100"
+          Mode=""
+          Description="Numeric group used inside the container. Unraid normally uses 100 (users). Match the group permissions on every mapped folder."
+          Type="Variable"
+          Display="always"
+          Required="true"
+          Mask="false">100</Config>
+
+  <Config Name="File Creation Mask"
+          Target="TUVIMA_UMASK"
+          Default="0002"
+          Mode=""
+          Description="Octal mask for newly created files. 0002 keeps files writable by the configured group."
+          Type="Variable"
+          Display="advanced"
+          Required="true"
+          Mask="false">0002</Config>
+
+  <Config Name="Timezone"
+          Target="TZ"
+          Default="Etc/UTC"
+          Mode=""
+          Description="IANA timezone used for schedules and displayed local times, for example America/Chicago or Europe/London."
+          Type="Variable"
+          Display="always"
+          Required="true"
+          Mask="false">Etc/UTC</Config>
+
+  <Config Name="Container Network Mode"
+          Target="TUVIMA_CONTAINER_NETWORK_MODE"
+          Default="bridge"
+          Mode=""
+          Description="Explains bridge-network limitations to Tuvima. Keep bridge unless the deployment guide explicitly says otherwise."
+          Type="Variable"
+          Display="advanced"
+          Required="true"
+          Mask="false">bridge</Config>
 
   <Config Name="Extra CORS Origins"
           Target="TUVIMA_CORS_ORIGINS"

@@ -123,7 +123,7 @@ Music is intentionally conservative. The page calls out that music should preser
 
 ## Universal Incoming
 
-Media Management's **Incoming** section lists unassigned intake folders by
+**Settings → Import Folders** lists unassigned intake folders by
 stable ID, path, purpose, default handling, and health. Files arriving there
 retain that source identity while Tuvima classifies them. Routing selects a
 destination only when exactly one library accepts incoming-folder intake and

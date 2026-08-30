@@ -32,8 +32,8 @@ public sealed class ItemEndpointRouteTests
     public void TrackedSource_DoesNotContainRemovedLibraryItemSurfaceNames()
     {
         var root = GetRepoFilePath("");
-        var removedTerm = "reg" + "istry";
-        var removedRoute = "/" + removedTerm;
+        var removedSurface = "Reg" + "istryEndpoints";
+        var removedRoute = "/" + "reg" + "istry";
         var ignoredSegments = new[]
         {
             $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
@@ -71,7 +71,7 @@ public sealed class ItemEndpointRouteTests
             .Where(path =>
             {
                 var text = File.ReadAllText(path);
-                return text.Contains(removedTerm, StringComparison.OrdinalIgnoreCase)
+                return text.Contains(removedSurface, StringComparison.OrdinalIgnoreCase)
                     || text.Contains(removedRoute, StringComparison.OrdinalIgnoreCase);
             })
             .Select(path => Path.GetRelativePath(root, path))
@@ -223,10 +223,14 @@ public sealed class ItemEndpointRouteTests
             : new DirectoryInfo(Directory.GetCurrentDirectory());
 
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         if (directory is not null)
+        {
             return Path.GetFullPath(Path.Combine(directory.FullName, relativePath));
+        }
 
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
     }

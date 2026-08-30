@@ -15,8 +15,8 @@
             <AppButton Label="@($"{filter.Label}  {filter.Count}")" Size="AppControlSize.Compact" ButtonStyle="@(filter.Key == _filter ? AppButtonStyle.Filled : AppButtonStyle.Text)" Tone="@(filter.Key == _filter ? AppUiTone.Primary : AppUiTone.Neutral)" OnClick="@(() => _filter = filter.Key)" />
         }
     </div>
-    @if (_loading && _items.Count == 0) { <AppProgressBar Indeterminate="true" /> }
-    else if (!string.IsNullOrWhiteSpace(_error) && _items.Count == 0) { <AppAlert Tone="AppUiTone.Warning">@_error</AppAlert> }
+    @if (_loading && _items.Count == 0) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading review queue" Message="Checking for items that need a decision." /> }
+    else if (!string.IsNullOrWhiteSpace(_error) && _items.Count == 0) { <AppPageState Kind="AppPageStateKind.Error" Icon="@Icons.Material.Outlined.CloudOff" Title="Review queue is unavailable" Message="@_error" /> }
     else if (_items.Count == 0) { <AppEmptyState Title="Nothing needs review" Message="Tuvima has no unresolved items waiting for you." /> }
     else
     {

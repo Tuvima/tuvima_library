@@ -21,6 +21,13 @@ services:
     ports:
       - "5016:5016"    # Dashboard — open this in your browser
 
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:61495/health/live >/dev/null && curl --fail --silent http://127.0.0.1:5016/health/live >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+
     volumes:
       # ── EDIT THESE PATHS to match your NAS/server layout ─────────────────
       # Watch folder: drop new media files here and the Engine picks them up.
@@ -56,6 +63,10 @@ services:
       TUVIMA_UID: "1000"
       TUVIMA_GID: "1000"
       TUVIMA_UMASK: "0002"
+
+      # IANA timezone used for local timestamps and schedules.
+      # Examples: America/Chicago, Europe/London, Australia/Sydney.
+      TZ: "Etc/UTC"
 
       # Replace with your server's actual LAN IP so external devices can
       # reach the Dashboard.  localhost works only from the same machine.

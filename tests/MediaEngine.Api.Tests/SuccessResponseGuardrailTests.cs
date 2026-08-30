@@ -172,7 +172,7 @@ public sealed partial class SuccessResponseGuardrailTests
             }
         }
 
-        Assert.Equal(445, routeCount);
+        Assert.Equal(446, routeCount);
         Assert.True(
             missingSuccessMetadata.Count == 0,
             "Routes missing explicit 2xx Produces metadata: " + string.Join(", ", missingSuccessMetadata));

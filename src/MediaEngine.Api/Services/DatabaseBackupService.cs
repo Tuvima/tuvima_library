@@ -111,26 +111,7 @@ public sealed class DatabaseBackupService
         Directory.CreateDirectory(stagingDirectory);
         try
         {
-            using var archive = ZipFile.OpenRead(archivePath);
-            var databaseEntry = archive.GetEntry("database/library.db")
-                ?? throw new InvalidOperationException("The backup does not contain database/library.db.");
-            var stagedDatabase = Path.Combine(stagingDirectory, "library.db");
-            databaseEntry.ExtractToFile(stagedDatabase);
-            SqliteBackupTarget.Verify(stagedDatabase);
-
-            var stagedConfig = Path.Combine(stagingDirectory, "config");
-            foreach (var entry in archive.Entries.Where(entry => entry.FullName.StartsWith("config/", StringComparison.Ordinal)))
-            {
-                if (string.IsNullOrEmpty(entry.Name))
-                {
-                    continue;
-                }
-
-                var relative = entry.FullName["config/".Length..].Replace('/', Path.DirectorySeparatorChar);
-                var destination = SafeChildPath(stagedConfig, relative);
-                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                entry.ExtractToFile(destination);
-            }
+            ValidateAndStageArchive(archivePath, stagingDirectory);
 
             var markerPath = Path.Combine(_configDirectory, PendingRestoreFileName);
             if (File.Exists(markerPath))
@@ -165,7 +146,9 @@ public sealed class DatabaseBackupService
         CancellationToken ct)
     {
         if (!originalFileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidDataException("Tuvima backups must be ZIP archives.");
+        }
 
         Directory.CreateDirectory(_backupDirectory);
         var operationId = Guid.NewGuid();
@@ -183,10 +166,17 @@ public sealed class DatabaseBackupService
                 while (true)
                 {
                     var read = await upload.ReadAsync(buffer, ct).ConfigureAwait(false);
-                    if (read == 0) break;
+                    if (read == 0)
+                    {
+                        break;
+                    }
+
                     total += read;
                     if (total > MaxSetupUploadBytes)
+                    {
                         throw new InvalidDataException("The backup exceeds the 2 GB setup upload limit.");
+                    }
+
                     await destination.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                 }
                 await destination.FlushAsync(ct).ConfigureAwait(false);
@@ -201,8 +191,35 @@ public sealed class DatabaseBackupService
         }
         catch
         {
-            if (File.Exists(archivePath)) File.Delete(archivePath);
+            if (File.Exists(archivePath))
+            {
+                File.Delete(archivePath);
+            }
+
             throw;
+        }
+    }
+
+    public RestoreValidationResultDto ValidateRestore(string fileName)
+    {
+        var archivePath = ResolveArchive(fileName);
+        var stagingDirectory = Path.Combine(_backupDirectory, $".restore-drill-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(stagingDirectory);
+        try
+        {
+            ValidateAndStageArchive(archivePath, stagingDirectory);
+            return new RestoreValidationResultDto(
+                true,
+                Path.GetFileName(archivePath),
+                DateTimeOffset.UtcNow,
+                "Restore test passed. The database and non-secret configuration can be staged; no restore was scheduled.");
+        }
+        finally
+        {
+            if (Directory.Exists(stagingDirectory))
+            {
+                Directory.Delete(stagingDirectory, recursive: true);
+            }
         }
     }
 
@@ -211,7 +228,10 @@ public sealed class DatabaseBackupService
         var operation = onboarding.GetRestoreOperation(operationId)
             ?? throw new FileNotFoundException("The inspected backup operation was not found.");
         if (!string.Equals(operation.Status, "inspected", StringComparison.Ordinal))
+        {
             throw new InvalidOperationException("The backup operation is no longer awaiting confirmation.");
+        }
+
         var fileName = Path.GetFileName(operation.ArchivePath);
         var result = ScheduleRestore(fileName);
         onboarding.MarkRestoreScheduled(operationId);
@@ -222,7 +242,9 @@ public sealed class DatabaseBackupService
     {
         using var archive = ZipFile.OpenRead(archivePath);
         if (archive.Entries.Count == 0 || archive.Entries.Count > MaxArchiveEntries)
+        {
             throw new InvalidDataException("The backup contains an unsupported number of entries.");
+        }
 
         long uncompressed = 0;
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -232,14 +254,25 @@ public sealed class DatabaseBackupService
             if (normalized.StartsWith("/", StringComparison.Ordinal)
                 || normalized.Contains("../", StringComparison.Ordinal)
                 || !seen.Add(normalized))
+            {
                 throw new InvalidDataException("The backup contains an unsafe or duplicate entry path.");
+            }
+
             if (IsForbiddenRestoreEntry(normalized))
+            {
                 throw new InvalidDataException($"The backup contains forbidden host secret material: {normalized}");
+            }
+
             checked { uncompressed += entry.Length; }
             if (uncompressed > MaxUncompressedBytes)
+            {
                 throw new InvalidDataException("The expanded backup exceeds the 16 GB safety limit.");
+            }
+
             if (entry.CompressedLength > 0 && entry.Length / Math.Max(1, entry.CompressedLength) > 250)
+            {
                 throw new InvalidDataException("The backup contains an unsafe compression ratio.");
+            }
         }
 
         var manifestEntry = archive.GetEntry("manifest.json")
@@ -247,7 +280,9 @@ public sealed class DatabaseBackupService
         var databaseEntry = archive.GetEntry("database/library.db")
             ?? throw new InvalidDataException("The backup does not contain database/library.db.");
         if (manifestEntry.Length > 1024 * 1024)
+        {
             throw new InvalidDataException("The backup manifest is unexpectedly large.");
+        }
 
         string manifestVersion;
         string databaseEpoch;
@@ -257,15 +292,26 @@ public sealed class DatabaseBackupService
             var root = document.RootElement;
             manifestVersion = root.TryGetProperty("schema_version", out var version) ? version.GetString() ?? "unknown" : "unknown";
             databaseEpoch = root.TryGetProperty("database_epoch", out var epoch) ? epoch.GetString() ?? "unknown" : "unknown";
-            if (root.TryGetProperty("created_at", out var created) && created.TryGetDateTimeOffset(out var parsed)) createdAt = parsed;
+            if (root.TryGetProperty("created_at", out var created) && created.TryGetDateTimeOffset(out var parsed))
+            {
+                createdAt = parsed;
+            }
+
             if (root.TryGetProperty("includes_secrets", out var includesSecrets) && includesSecrets.ValueKind == JsonValueKind.True)
+            {
                 throw new InvalidDataException("Backups containing secrets cannot be restored during setup.");
+            }
         }
         if (!string.Equals(manifestVersion, "1.0", StringComparison.Ordinal)
             && !string.Equals(manifestVersion, "2.0", StringComparison.Ordinal))
+        {
             throw new InvalidDataException($"Backup manifest version '{manifestVersion}' is unsupported.");
+        }
+
         if (!string.Equals(databaseEpoch, "guid-blob-v3-view-storage", StringComparison.Ordinal))
+        {
             throw new InvalidDataException($"Backup database epoch '{databaseEpoch}' is unsupported.");
+        }
 
         var verifyPath = Path.Combine(Path.GetDirectoryName(archivePath)!, $".verify-{operationId:N}.db");
         try
@@ -275,7 +321,10 @@ public sealed class DatabaseBackupService
         }
         finally
         {
-            if (File.Exists(verifyPath)) File.Delete(verifyPath);
+            if (File.Exists(verifyPath))
+            {
+                File.Delete(verifyPath);
+            }
         }
 
         var configCount = archive.Entries.Count(entry => entry.FullName.StartsWith("config/", StringComparison.Ordinal));
@@ -376,6 +425,41 @@ public sealed class DatabaseBackupService
                     && !relative.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(relative, PendingRestoreFileName, StringComparison.OrdinalIgnoreCase);
             });
+
+    private static void ValidateAndStageArchive(string archivePath, string stagingDirectory)
+    {
+        using var archive = ZipFile.OpenRead(archivePath);
+        if (archive.Entries.Count > MaxArchiveEntries)
+        {
+            throw new InvalidDataException($"The backup contains more than {MaxArchiveEntries:N0} entries.");
+        }
+
+        var uncompressedBytes = archive.Entries.Sum(entry => entry.Length);
+        if (uncompressedBytes > MaxUncompressedBytes)
+        {
+            throw new InvalidDataException("The backup expands beyond the 16 GB restore limit.");
+        }
+
+        var databaseEntry = archive.GetEntry("database/library.db")
+            ?? throw new InvalidOperationException("The backup does not contain database/library.db.");
+        var stagedDatabase = Path.Combine(stagingDirectory, "library.db");
+        databaseEntry.ExtractToFile(stagedDatabase);
+        SqliteBackupTarget.Verify(stagedDatabase);
+
+        var stagedConfig = Path.Combine(stagingDirectory, "config");
+        foreach (var entry in archive.Entries.Where(entry => entry.FullName.StartsWith("config/", StringComparison.Ordinal)))
+        {
+            if (string.IsNullOrEmpty(entry.Name))
+            {
+                continue;
+            }
+
+            var relative = entry.FullName["config/".Length..].Replace('/', Path.DirectorySeparatorChar);
+            var destination = SafeChildPath(stagedConfig, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            entry.ExtractToFile(destination);
+        }
+    }
 
     private static string ResolveBackupDirectory(string fullConfigDirectory, string? configuredDirectory) =>
         string.IsNullOrWhiteSpace(configuredDirectory)

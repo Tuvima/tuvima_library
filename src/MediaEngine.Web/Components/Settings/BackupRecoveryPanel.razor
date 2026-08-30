@@ -12,10 +12,9 @@
 
     @if (_loading)
     {
-        <div class="backup-panel__loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
-            <span>Loading backups...</span>
-        </div>
+        <AppPageState Kind="AppPageStateKind.Loading"
+                      Title="Loading recovery points"
+                      Message="Checking backup storage and recent recovery points." />
     }
     else
     {
@@ -35,6 +34,14 @@
                 </div>
             }
         </AppPanel>
+
+        @if (_lastValidation is not null)
+        {
+            <AppAlert Tone="AppUiTone.Success" Class="backup-validation-result">
+                <strong>Restore test passed</strong>
+                <span>@_lastValidation.Message Tested @_lastValidation.ValidatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt").</span>
+            </AppAlert>
+        }
 
         <div class="backup-actions-grid">
             <AppPanel Elevation="0" Class="tl-card backup-action-card">
@@ -59,7 +66,8 @@
                                 <div class="backup-list__identity"><strong>@backup.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</strong><small>@FormatBytes(backup.SizeBytes)</small></div>
                                 <div class="backup-list__actions">
                                     <AppButton Label="Download" ButtonStyle="AppButtonStyle.Text" StartIcon="@Icons.Material.Outlined.Download" Disabled="@_busy" OnClick="@(() => DownloadAsync(backup))" />
-                                    <AppButton Label="Restore" ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Warning" StartIcon="@Icons.Material.Outlined.Restore" Disabled="@_busy" OnClick="@(() => RestoreAsync(backup))" />
+                                    <AppButton Label="Test restore" ButtonStyle="AppButtonStyle.Text" StartIcon="@Icons.Material.Outlined.FactCheck" Disabled="@_busy" OnClick="@(() => ValidateAsync(backup))" />
+                                    <AppButton Label="Restore" ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Warning" StartIcon="@Icons.Material.Outlined.Restore" Disabled="@_busy" OnClick="@(() => OpenRestoreDialog(backup))" />
                                 </div>
                             </div>
                         }
@@ -88,12 +96,45 @@
     }
 </div>
 
+<AppDialog @bind-Visible="_restoreDialogOpen"
+           Title="Schedule restore"
+           Icon="@Icons.Material.Outlined.Restore"
+           Size="Small"
+           OnClose="CloseRestoreDialog">
+    <ChildContent>
+        <AppAlert Tone="AppUiTone.Warning">
+            The selected recovery point will be validated and staged. Restart the Engine to apply it; the current library is retained as a safety copy.
+        </AppAlert>
+        @if (_selectedRestore is not null)
+        {
+            <dl class="backup-restore-confirmation">
+                <div><dt>Recovery point</dt><dd>@_selectedRestore.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</dd></div>
+                <div><dt>Archive size</dt><dd>@FormatBytes(_selectedRestore.SizeBytes)</dd></div>
+            </dl>
+        }
+    </ChildContent>
+    <FooterContent>
+        <AppActionBar Align="AppHorizontalAlignment.End">
+            <AppButton Label="Cancel" Disabled="@_busy" OnClick="CloseRestoreDialog" />
+            <AppButton Label="Validate and schedule"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Warning"
+                       Loading="@_busy"
+                       Disabled="@(_busy || _selectedRestore is null)"
+                       OnClick="ConfirmRestoreAsync" />
+        </AppActionBar>
+    </FooterContent>
+</AppDialog>
+
 @code {
     private IReadOnlyList<BackupArchiveDto> _backups = [];
     private bool _loading = true;
     private bool _busy;
     private bool _restartRequired;
     private string? _notice;
+    private RestoreValidationResultDto? _lastValidation;
+    private bool _restoreDialogOpen;
+    private BackupArchiveDto? _selectedRestore;
     private BackupArchiveDto? LatestBackup => _backups.OrderByDescending(item => item.CreatedAt).FirstOrDefault();
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -140,19 +181,47 @@
         _busy = false;
     }
 
-    private async Task RestoreAsync(BackupArchiveDto backup)
+    private async Task ValidateAsync(BackupArchiveDto backup)
     {
-        var confirmed = await JS.InvokeAsync<bool>(
-            "confirm",
-            "Schedule this recovery point? The current library will be preserved as a safety copy, and the Engine must be restarted to apply it.");
-        if (!confirmed) return;
+        _busy = true;
+        _lastValidation = await ApiClient.ValidateRestoreAsync(backup.FileName);
+        _busy = false;
+
+        if (_lastValidation?.Valid == true)
+        {
+            Snackbar.Add("Restore test passed. No restore was scheduled.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("The restore test failed. Do not rely on this recovery point.", Severity.Error);
+        }
+    }
+
+    private void OpenRestoreDialog(BackupArchiveDto backup)
+    {
+        _selectedRestore = backup;
+        _restoreDialogOpen = true;
+    }
+
+    private void CloseRestoreDialog()
+    {
+        if (_busy) return;
+        _restoreDialogOpen = false;
+        _selectedRestore = null;
+    }
+
+    private async Task ConfirmRestoreAsync()
+    {
+        if (_selectedRestore is null) return;
 
         _busy = true;
-        var result = await ApiClient.ScheduleRestoreAsync(backup.FileName);
+        var result = await ApiClient.ScheduleRestoreAsync(_selectedRestore.FileName);
         if (result?.Scheduled == true)
         {
             _notice = result.Message;
             _restartRequired = result.RestartRequired;
+            _restoreDialogOpen = false;
+            _selectedRestore = null;
             Snackbar.Add(
                 result.RestartRequired
                     ? "Restore scheduled. Restart the Engine when ready."

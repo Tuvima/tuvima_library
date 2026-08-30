@@ -57,7 +57,7 @@ public sealed class Phase6SettingsAdminHardeningTests
 
         Assert.Contains("All libraries", source, StringComparison.Ordinal);
         Assert.Contains("Personal Space", source, StringComparison.Ordinal);
-        Assert.Contains("Incoming folders", source, StringComparison.Ordinal);
+        Assert.Contains("Import folders", source, StringComparison.Ordinal);
         Assert.Contains("Choose a media area", source, StringComparison.Ordinal);
         Assert.Contains("new(\"all\", \"All\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"read\", \"Read\"", source, StringComparison.Ordinal);

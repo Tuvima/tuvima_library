@@ -92,6 +92,31 @@ public sealed class Wave5AccessibilityGuardrailTests
         Assert.Contains("aria-label=\"Close artwork preview\"", source);
     }
 
+    [Fact]
+    public void SettingsSurfaces_UseSharedControlsAndAnnouncedPageStates()
+    {
+        var settingsRoot = Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components", "Settings");
+        var sources = Directory.EnumerateFiles(settingsRoot, "*.razor", SearchOption.TopDirectoryOnly)
+            .ToDictionary(path => Path.GetFileName(path)!, File.ReadAllText, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var (fileName, source) in sources)
+        {
+            Assert.DoesNotMatch(
+                new System.Text.RegularExpressions.Regex(
+                    @"<\s*(button|select|input)(?:\s|>)",
+                    System.Text.RegularExpressions.RegexOptions.IgnoreCase),
+                source);
+        }
+
+        Assert.Contains("AppPageStateKind.Loading", sources["OverviewTab.razor"]);
+        Assert.Contains("AppPageStateKind.Error", sources["OverviewTab.razor"]);
+        Assert.Contains("AppPageStateKind.Loading", sources["BackupRecoveryPanel.razor"]);
+        Assert.Contains("AppPageStateKind.Error", sources["IngestionTasksTab.razor"]);
+        Assert.Contains("AppPageStateKind.Empty", sources["LibrariesTab.razor"]);
+        Assert.Contains("<AppDialog", sources["BackupRecoveryPanel.razor"]);
+        Assert.DoesNotContain("InvokeAsync<bool>(\n            \"confirm\"", sources["BackupRecoveryPanel.razor"], StringComparison.Ordinal);
+    }
+
     private static string Read(string relativePath) =>
         File.ReadAllText(Path.Combine(RepoRoot, relativePath));
 }

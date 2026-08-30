@@ -1,0 +1,30 @@
+---
+title: "Install on QNAP"
+summary: "Deploy Tuvima as a Docker Compose application in QNAP Container Station."
+audience: "administrator"
+category: "installation"
+product_area: "deployment"
+---
+
+# Install on QNAP
+
+QNAP Container Station can create an application from Docker Compose YAML. Use an application instead of creating the container field by field so the deployment remains reproducible.
+
+## Prepare storage
+
+Create persistent folders under a share such as `/share/Container/tuvima` for `config`, `db`, `models`, `artwork-cache`, `backups`, and `transcode`. Choose separate media share paths for `/watch` and `/library`.
+
+Use an administrator SSH session and `id USERNAME` to find a numeric UID/GID with the required share permissions. Put those values in `TUVIMA_UID` and `TUVIMA_GID`, and set `TZ` to the NAS timezone.
+
+## Create the application
+
+1. Open **Container Station → Create → Create Application**.
+2. Name the application `tuvima`.
+3. Paste the repository's `docker-compose.yml` after replacing every host path with a real `/share/...` path.
+4. Validate the YAML, then create the application.
+5. Wait for `tuvima-library` to report healthy.
+6. Open the container logs, copy `[Tuvima Setup] Claim token`, and complete `http://NAS-IP:5016/setup`.
+
+Publish only host port `5016`. Keep the Engine on container loopback. If Container Station reports a permission error, repair the share ACL or ownership for the configured numeric identity; do not enable privileged mode.
+
+See QNAP's official [Container Station application guidance](https://docs.qnap.com/operating-system/qne-network/1.0.x/en-us/container-creation-1A95801A.html) for the current YAML editor workflow.

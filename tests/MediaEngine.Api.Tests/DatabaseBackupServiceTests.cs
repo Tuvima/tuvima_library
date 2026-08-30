@@ -129,6 +129,26 @@ public sealed class DatabaseBackupServiceTests : IDisposable
         Assert.NotEmpty(Directory.GetFiles(_root, "restore.db.pre-restore-*.bak"));
     }
 
+    [Fact]
+    public async Task ValidateRestore_VerifiesArchiveWithoutSchedulingRestore()
+    {
+        var config = Path.Combine(_root, "validate-config");
+        var dbPath = Path.Combine(_root, "validate.db");
+        Directory.CreateDirectory(config);
+        File.WriteAllText(Path.Combine(config, "core.json"), "{}");
+
+        using var database = CreateDatabase(dbPath);
+        var service = new DatabaseBackupService(database, config);
+        var archivePath = await service.CreateAsync(CancellationToken.None);
+
+        var result = service.ValidateRestore(Path.GetFileName(archivePath));
+
+        Assert.True(result.Valid);
+        Assert.Contains("no restore was scheduled", result.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.False(File.Exists(Path.Combine(config, ".restore-pending.json")));
+        Assert.Empty(Directory.EnumerateDirectories(Path.GetDirectoryName(archivePath)!, ".restore-drill-*"));
+    }
+
     private static DatabaseConnection CreateDatabase(string path)
     {
         var database = new DatabaseConnection(path);

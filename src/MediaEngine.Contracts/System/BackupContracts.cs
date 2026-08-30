@@ -13,6 +13,12 @@ public sealed record CreateBackupRequest;
 public sealed record ScheduleRestoreRequest(
     [property: JsonPropertyName("file_name")] string FileName);
 
+public sealed record RestoreValidationResultDto(
+    [property: JsonPropertyName("valid")] bool Valid,
+    [property: JsonPropertyName("file_name")] string FileName,
+    [property: JsonPropertyName("validated_at")] DateTimeOffset ValidatedAt,
+    [property: JsonPropertyName("message")] string Message);
+
 public sealed record ScheduleRestoreResultDto(
     [property: JsonPropertyName("scheduled")] bool Scheduled,
     [property: JsonPropertyName("restart_required")] bool RestartRequired,

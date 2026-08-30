@@ -9,7 +9,9 @@
 <div class="tl-page users-page">
     @if (_loading)
     {
-        <AppProgressBar Indeterminate="true" Class="users-page__progress" />
+        <AppPageState Kind="AppPageStateKind.Loading"
+                      Title="Loading users and access"
+                      Message="Checking profiles, roles, personal spaces, and sign-in state." />
     }
     else
     {
@@ -129,6 +131,14 @@
                                      Description="Review how remote and local connections are protected."
                                      Href="/settings/access/session-policy"
                                      ActionLabel="View" />
+            <SettingsAdvancedLinkRow Title="Active sessions & password"
+                                     Description="Review signed-in devices, revoke sessions, or change your administrator password."
+                                     Href="/account/security"
+                                     ActionLabel="Manage" />
+            <SettingsAdvancedLinkRow Title="Password recovery"
+                                     Description="Use a saved one-time recovery code from the sign-in screen. Host administrators can use the documented interactive recovery command if every code is lost."
+                                     Href="/auth/login"
+                                     ActionLabel="Open sign in" />
         </SettingsSectionPanel>
     }
 </div>

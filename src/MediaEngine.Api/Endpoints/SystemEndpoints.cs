@@ -154,6 +154,37 @@ public static class SystemEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
+        app.MapPost("/system/backups/validate", (ScheduleRestoreRequest request, DatabaseBackupService backups) =>
+        {
+            try
+            {
+                return (IResult)Results.Ok(backups.ValidateRestore(request.FileName));
+            }
+            catch (ArgumentException ex)
+            {
+                return (IResult)ApiErrors.BadRequest(ex.Message);
+            }
+            catch (FileNotFoundException)
+            {
+                return (IResult)ApiErrors.NotFound("Backup archive was not found.");
+            }
+            catch (InvalidDataException ex)
+            {
+                return (IResult)ApiErrors.BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return (IResult)ApiErrors.BadRequest(ex.Message);
+            }
+        })
+        .WithTags("System")
+        .WithName("ValidateBackupRestore")
+        .WithSummary("Runs a non-destructive restore drill against a backup archive.")
+        .Produces<RestoreValidationResultDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAdmin();
+
         app.MapPost("/system/backups/restore", (ScheduleRestoreRequest request, DatabaseBackupService backups) =>
         {
             try

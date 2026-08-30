@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=653; api=0; web-client=87
+# scopes: contracts=654; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6730,6 +6730,13 @@
 [contracts] MediaEngine.Contracts.System.CreateBackupRequest
   kind=class | converter=default | number-handling=default | unmapped=default
   sample={}
+
+[contracts] MediaEngine.Contracts.System.RestoreValidationResultDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Valid: System.Boolean | json=valid | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FileName: System.String | json=file_name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ValidatedAt: System.DateTimeOffset | json=validated_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Message: System.String | json=message | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.System.ScheduleRestoreRequest
   kind=class | converter=default | number-handling=default | unmapped=default

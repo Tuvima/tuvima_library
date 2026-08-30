@@ -5,6 +5,17 @@ namespace MediaEngine.Api.Tests;
 public sealed class SettingsEndpointRouteTests
 {
     [Fact]
+    public void SystemEndpoints_ExposeNonDestructiveRestoreValidation()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\SystemEndpoints.cs"));
+
+        Assert.Contains("MapPost(\"/system/backups/validate\"", source, StringComparison.Ordinal);
+        Assert.Contains("backups.ValidateRestore(request.FileName)", source, StringComparison.Ordinal);
+        Assert.Contains("WithName(\"ValidateBackupRestore\")", source, StringComparison.Ordinal);
+        Assert.Contains("RequireAdmin()", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OrganizationTemplatePreview_IsReadOnlyEndpointBesideExplicitSave()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\SettingsEndpoints.cs"));

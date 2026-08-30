@@ -115,6 +115,8 @@ public static class SettingsNav
             [SettingsSection.Network] = Complete(),
             [SettingsSection.Server] = Complete(),
             [SettingsSection.LocalAi] = Complete(),
+            [SettingsSection.Delivery] = Complete(),
+            [SettingsSection.Access] = Complete(),
         };
 
     private static LaunchFeatureEvidence Complete() => new(true, true, true, true, true);
@@ -145,8 +147,8 @@ public static class SettingsNav
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed", Status: SettingsStatusKind.Live),
         new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, [], "sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Network, "administration", "network", Icons.Material.Outlined.WifiTethering, "Network & Remote Access", true, null, [], "json+runtime", Status: SettingsStatusKind.Live),
-        new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Partial),
-        new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, [], Status: SettingsStatusKind.Partial),
+        new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.Server, "administration", "backup-recovery", Icons.Material.Outlined.Backup, "Backup & Recovery", true, null, [], Status: SettingsStatusKind.Live),
 
         new(SettingsSection.LocalAi, "advanced", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, [], Status: SettingsStatusKind.Live),

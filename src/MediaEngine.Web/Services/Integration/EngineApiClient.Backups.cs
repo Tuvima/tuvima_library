@@ -44,4 +44,11 @@ public sealed partial class EngineApiClient
             "/system/backups/restore",
             new ScheduleRestoreRequest(fileName),
             ct: ct);
+
+    public Task<RestoreValidationResultDto?> ValidateRestoreAsync(string fileName, CancellationToken ct = default) =>
+        PostAsync<ScheduleRestoreRequest, RestoreValidationResultDto>(
+            "POST /system/backups/validate",
+            "/system/backups/validate",
+            new ScheduleRestoreRequest(fileName),
+            ct: ct);
 }

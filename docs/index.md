@@ -36,10 +36,11 @@ Tuvima Library is a private, local-first story library. It watches your folders,
 
 ### Install and launch
 
-Run the Engine and Dashboard locally, configure governed sources, and begin
-catalogued intake or a View Personal Space.
+Install with Docker or a supported NAS container manager, claim the server,
+configure governed sources, and begin catalogued intake or a View Personal Space.
 
 [Open Getting Started](tutorials/getting-started.md)
+[Docker](install/docker.md) · [Unraid](install/unraid.md) · [Synology](install/synology.md) · [QNAP](install/qnap.md) · [TrueNAS SCALE](install/truenas-scale.md)
 
 <div class="tl-meta">
   <span class="tl-pill">Tutorial</span>
@@ -103,6 +104,7 @@ Tuvima is Early Access. Check what is live, partial, planned, or intentionally n
 
 ### Configure Tuvima
 
+- [Operations and Recovery](guides/operations-and-recovery.md)
 - [Configure Metadata Providers](guides/configuring-providers.md)
 - [Language Setup](guides/language-setup.md)
 - [Supported Media Types](reference/media-types.md)

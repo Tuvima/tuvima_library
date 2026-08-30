@@ -19,7 +19,7 @@
     {
         <AppPageState Kind="AppPageStateKind.Unavailable"
                       Icon="@Icons.Material.Outlined.DesktopAccessDisabled"
-                      Title="Media Management is unavailable"
+                      Title="Library settings are unavailable"
                       Message="Use a desktop or tablet to manage library storage and intake." />
     }
     else if (_loading)
@@ -63,6 +63,11 @@
         else if (!string.IsNullOrWhiteSpace(_loadError))
         {
             <AppAlert Tone="AppUiTone.Warning">@_loadError</AppAlert>
+        }
+
+        @if (section == "incoming" || activeLibrary is not null)
+        {
+            <ServerPathGuidance ImportFolders="@(section == "incoming")" />
         }
 
         @if (section == "overview")
@@ -307,7 +312,7 @@
     private RenderFragment IncomingSurface(bool readOnly) => @<div class="media-management__incoming">
         <AppCard Class="media-management-card">
             <div class="media-management-card__heading">
-                <div><h3>Incoming folders</h3><p>Shared intake locations are unassigned. Tuvima receives each file, determines its destination, then applies that library's policy.</p></div>
+                <div><h3>Import folders</h3><p>Shared intake locations are unassigned. Tuvima receives each file, determines its destination, then applies that library's policy.</p></div>
                 <AppButton Label="Add import folder" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled"
                            Tone="AppUiTone.Primary" Disabled="@(readOnly || _engineUnavailable)" OnClick="AddIncomingSourceAsync" />
             </div>
@@ -316,7 +321,7 @@
                 {
                     <details class="media-management-source media-management-source--incoming" @key="source.Id">
                         <summary>
-                            <span class="media-management-table__identity"><MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" /><strong>@(string.IsNullOrWhiteSpace(source.Path) ? "New incoming folder" : source.Path)</strong></span>
+                            <span class="media-management-table__identity"><MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" /><strong>@(string.IsNullOrWhiteSpace(source.Path) ? "New import folder" : source.Path)</strong></span>
                             <span>@TitleCase(source.Purpose)</span>
                             <span>@IncomingSourceSummary(source)</span>
                             <AppStatusBadge Text="@PathStatus(source.Path)" Tone="@PathTone(source.Path)" />
@@ -326,7 +331,7 @@
                         <div class="media-management-source__path">
                             <MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" />
                             <AppTextField Value="@source.Path" ValueChanged="@((string? value) => source.Path = value ?? string.Empty)"
-                                          Label="Path" Placeholder="C:\\Tuvima\\Incoming" ReadOnly="@(readOnly || _engineUnavailable)" />
+                                          Label="Engine path" Placeholder="/watch" ReadOnly="@(readOnly || _engineUnavailable)" />
                             <AppIconButton Icon="@Icons.Material.Outlined.FolderOpen" Tooltip="Browse" AriaLabel="Browse incoming folder"
                                            Disabled="@(readOnly || _engineUnavailable)" OnClick="@(() => BrowseIncomingAsync(source))" />
                             <AppStatusBadge Text="@PathStatus(source.Path)" Tone="@PathTone(source.Path)" />
@@ -702,7 +707,7 @@
 
             _configuration = saved;
             _baseline = JsonSerializer.Serialize(saved);
-            Snackbar.Add("Media Management settings saved.", Severity.Success);
+            Snackbar.Add("Library and import folder settings saved.", Severity.Success);
         }
         finally
         {
@@ -739,7 +744,7 @@
             if (library.Sources.Any(source => source.Role == "primary_destination")
                 && library.GetPrimaryDestination() is null) return $"{library.Name} needs an explicit primary destination.";
         }
-        if (_configuration.IncomingSources.Any(source => string.IsNullOrWhiteSpace(source.Path))) return "Incoming folder paths cannot be empty.";
+        if (_configuration.IncomingSources.Any(source => string.IsNullOrWhiteSpace(source.Path))) return "Import folder paths cannot be empty.";
         return null;
     }
 

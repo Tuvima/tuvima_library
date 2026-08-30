@@ -123,13 +123,14 @@ View personal media does not use those providers.
 
 ## Docker Alternative
 
-Docker support exists for local/containerized runs:
+For a container installation, follow the complete [Docker Compose guide](../install/docker.md):
 
 ```bash
-docker compose up
+docker compose pull
+docker compose up -d
 ```
 
-Edit the host volume paths in `docker-compose.yml` before starting. Mount each configured source and incoming location at the path recorded in `libraries.json`; `/config`, `/db`, and `/models` persist independently. The Dashboard is exposed at `http://localhost:5016` and the Engine at `http://localhost:61495` by default.
+Edit every host volume path, UID/GID, and timezone in `docker-compose.yml` before starting. The Dashboard is available at `http://localhost:5016`. The Engine remains on container loopback and is intentionally not published to the host.
 
 ## Stopping Tuvima
 

@@ -27,7 +27,7 @@
                        Size="Size.Small"
                        Color="Color.Primary"
                        StartIcon="@Icons.Material.Outlined.PlayArrow"
-                       Disabled="@(_startingIngestion || _currentRun.IsActive)"
+                       Disabled="@(_loading || _startingIngestion || _currentRun.IsActive)"
                        OnClick="StartIngestionAsync">
                 New ingestion
             </AppButton>
@@ -36,16 +36,19 @@
 
     @if (_loading)
     {
-        <AppPanel Elevation="0" Class="tl-card admin-overview-loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
-            <MudText Typo="Typo.body2">Loading overview...</MudText>
-        </AppPanel>
+        <AppPageState Kind="AppPageStateKind.Loading"
+                      Title="Loading system overview"
+                      Message="Checking library, readiness, backup, playback, and activity state." />
     }
     else if (!string.IsNullOrWhiteSpace(_error))
     {
-        <AppAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">@_error</AppAlert>
+        <AppPageState Kind="AppPageStateKind.Error"
+                      Icon="@Icons.Material.Outlined.CloudOff"
+                      Title="System overview is unavailable"
+                      Message="@_error" />
     }
-
+    else
+    {
     <AppPanel Elevation="0" Class="tl-card admin-library-summary">
         <div class="admin-overview-card__header">
             <div>
@@ -125,11 +128,11 @@
                 {
                     @foreach (var check in _readiness.Checks)
                     {
-                        <div class="admin-system-status__row" role="listitem">
+                        <a class="admin-system-status__row" role="listitem" href="@ReadinessRoute(check.Category)">
                             <span class="admin-system-status__icon"><MudIcon Icon="@ReadinessIcon(check.Category)" /></span>
                             <span><strong>@ReadinessLabel(check.Name)</strong><small>@check.Description</small></span>
                             <AppStatusBadge Text="@ReadinessStatus(check.Status)" Tone="@ReadinessTone(check.Status)" />
-                        </div>
+                        </a>
                     }
                 }
                 <a class="admin-system-status__row" role="listitem" href="/settings/ingestion">
@@ -138,11 +141,14 @@
                     <AppStatusBadge Text="@(_currentRun.IsActive ? "Processing" : _currentRun.Failed > 0 ? "Needs attention" : "Idle")"
                                     Tone="@(_currentRun.Failed > 0 ? AppUiTone.Warning : _currentRun.IsActive ? AppUiTone.Primary : AppUiTone.Neutral)" />
                 </a>
-                <a class="admin-system-status__row" role="listitem" href="/settings/delivery">
-                    <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.PlayCircle" /></span>
-                    <span><strong>Playback &amp; delivery</strong><small>@(_activeTranscodes > 0 ? $"{DisplayFormat.FormatCount(_activeTranscodes)} active transcode job{(_activeTranscodes == 1 ? "" : "s")}" : "No active transcodes")</small></span>
-                    <AppStatusBadge Text="@(_activeTranscodes > 0 ? "Active" : "Idle")" Tone="@(_activeTranscodes > 0 ? AppUiTone.Primary : AppUiTone.Neutral)" />
-                </a>
+                @if (SettingsNav.IsVisible(SettingsSection.Delivery, "Administrator"))
+                {
+                    <a class="admin-system-status__row" role="listitem" href="/settings/delivery">
+                        <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.PlayCircle" /></span>
+                        <span><strong>Playback &amp; delivery</strong><small>@(_activeTranscodes > 0 ? $"{DisplayFormat.FormatCount(_activeTranscodes)} active transcode job{(_activeTranscodes == 1 ? "" : "s")}" : "No active transcodes")</small></span>
+                        <AppStatusBadge Text="@(_activeTranscodes > 0 ? "Active" : "Idle")" Tone="@(_activeTranscodes > 0 ? AppUiTone.Primary : AppUiTone.Neutral)" />
+                    </a>
+                }
                 <a class="admin-system-status__row" role="listitem" href="/settings/metadata/providers">
                     <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Hub" /></span>
                     <span><strong>Metadata providers</strong><small>Provider status and issues</small></span>
@@ -151,7 +157,7 @@
                 <a class="admin-system-status__row" role="listitem" href="/settings/backup-recovery">
                     <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.CloudDone" /></span>
                     <span><strong>Backup</strong><small>@BackupStatusDetail</small></span>
-                    <AppStatusBadge Text="@(_backups.Count > 0 ? "Available" : "No backup")" Tone="AppUiTone.Neutral" />
+                    <AppStatusBadge Text="@(_backups.Count > 0 ? "Available" : "No backup")" Tone="@(_backups.Count > 0 ? AppUiTone.Success : AppUiTone.Warning)" />
                 </a>
             </div>
         </AppPanel>
@@ -186,6 +192,7 @@
             </div>
         }
     </AppPanel>
+    }
 </div>
 
 @code {
@@ -341,6 +348,17 @@
         _ => Icons.Material.Outlined.MonitorHeart,
     };
 
+    private static string ReadinessRoute(string category) => category.ToLowerInvariant() switch
+    {
+        "models" => "/settings/ai/models",
+        "providers" => "/settings/metadata/providers",
+        "workers" => "/settings/ingestion",
+        "storage" => "/settings/libraries",
+        "configuration" => "/settings/libraries",
+        "database" => "/settings/backup-recovery",
+        _ => "/settings/system",
+    };
+
     private async Task StartIngestionAsync()
     {
         _startingIngestion = true;
@@ -348,6 +366,10 @@
         {
             await Orchestrator.TriggerRescanAsync();
             await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"A new ingestion could not start: {ex.Message}";
         }
         finally
         {

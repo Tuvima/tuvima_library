@@ -16,7 +16,10 @@
     }
     else if (!string.IsNullOrWhiteSpace(Dashboard.Error))
     {
-        <AppAlert Tone="AppUiTone.Warning">@Dashboard.Error</AppAlert>
+        <AppPageState Kind="AppPageStateKind.Error"
+                      Icon="@Icons.Material.Outlined.CloudOff"
+                      Title="Media processing status is unavailable"
+                      Message="@Dashboard.Error" />
     }
     else
     {
@@ -37,7 +40,8 @@
             <h3>Latest scan results</h3>
             @if (LatestBatch is null)
             {
-                <p class="ingestion-operations__muted">No completed scan has been reported.</p>
+                <AppEmptyState Title="No completed scan"
+                               Message="Start a scan when your library or import folders are ready." />
             }
             else
             {
@@ -55,7 +59,8 @@
             <div class="ingestion-operations__heading"><h3>Recent activity</h3><AppButton Href="/settings/activity" Label="View activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" /></div>
             @if (Dashboard.RecentActivity.Count == 0)
             {
-                <p class="ingestion-operations__muted">No recent media processing activity.</p>
+                <AppEmptyState Title="No recent media processing activity"
+                               Message="Completed scans and enrichment work will appear here." />
             }
             else
             {

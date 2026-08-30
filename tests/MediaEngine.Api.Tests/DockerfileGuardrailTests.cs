@@ -112,7 +112,9 @@ public sealed class DockerfileGuardrailTests
         {
             var line = rawLine.Trim();
             if (!line.StartsWith("COPY ", StringComparison.Ordinal) || line.Contains("--from=", StringComparison.Ordinal))
+            {
                 continue;
+            }
 
             var tokens = System.Text.RegularExpressions.Regex.Matches(line, "\\\"[^\\\"]+\\\"|\\S+")
                 .Select(match => match.Value.Trim('"'))
@@ -191,6 +193,48 @@ public sealed class DockerfileGuardrailTests
     }
 
     [Fact]
+    public void DeploymentDefinitions_KeepDashboardOnlyAndExposeTheSamePersistentContract()
+    {
+        var repoRoot = FindRepoRoot();
+        var compose = File.ReadAllText(Path.Combine(repoRoot, "docker-compose.yml"));
+        var unraid = File.ReadAllText(Path.Combine(repoRoot, "unraid-template.xml"));
+
+        Assert.Contains("TZ: \"Etc/UTC\"", compose);
+        Assert.Contains("healthcheck:", compose);
+        Assert.DoesNotContain("61495:61495", compose);
+        Assert.DoesNotContain("Name=\"Engine API Port\"", unraid);
+        Assert.Contains("Target=\"5016\"", unraid);
+
+        foreach (var path in new[] { "/config", "/db", "/models", "/artwork-cache", "/backups", "/transcode" })
+        {
+            Assert.Contains(path, compose);
+            Assert.Contains($"Target=\"{path}\"", unraid);
+        }
+
+        foreach (var variable in new[] { "TUVIMA_UID", "TUVIMA_GID", "TUVIMA_UMASK", "TZ", "TUVIMA_CONTAINER_NETWORK_MODE" })
+        {
+            Assert.Contains(variable, compose);
+            Assert.Contains($"Target=\"{variable}\"", unraid);
+        }
+    }
+
+    [Fact]
+    public void PublishWorkflow_EmitsImmutableTagsSbomSignaturesAndProvenance()
+    {
+        var repoRoot = FindRepoRoot();
+        var workflow = File.ReadAllText(Path.Combine(repoRoot, ".github", "workflows", "docker-publish.yml"));
+
+        Assert.Contains("type=sha,format=long", workflow);
+        Assert.Contains("sbom: true", workflow);
+        Assert.Contains("provenance: mode=max", workflow);
+        Assert.Contains("sigstore/cosign-installer", workflow);
+        Assert.Contains("cosign sign --yes", workflow);
+        Assert.Contains("actions/attest-build-provenance", workflow);
+        Assert.Contains("attestations: write", workflow);
+        Assert.Contains("id-token: write", workflow);
+    }
+
+    [Fact]
     public void ContainerDefaults_FormAValidSecretFreeConfigurationDirectory()
     {
         var repoRoot = FindRepoRoot();
@@ -234,7 +278,10 @@ public sealed class DockerfileGuardrailTests
         }
         finally
         {
-            if (Directory.Exists(temporaryConfig)) Directory.Delete(temporaryConfig, recursive: true);
+            if (Directory.Exists(temporaryConfig))
+            {
+                Directory.Delete(temporaryConfig, recursive: true);
+            }
         }
     }
 

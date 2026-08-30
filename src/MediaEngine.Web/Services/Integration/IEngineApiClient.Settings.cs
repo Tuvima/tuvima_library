@@ -20,6 +20,8 @@ public partial interface IEngineApiClient
 
     Task<byte[]?> DownloadBackupAsync(string fileName, CancellationToken ct = default);
 
+    Task<RestoreValidationResultDto?> ValidateRestoreAsync(string fileName, CancellationToken ct = default);
+
     Task<ScheduleRestoreResultDto?> ScheduleRestoreAsync(string fileName, CancellationToken ct = default);
 
     Task<IReadOnlyList<PluginSummaryResponse>> GetPluginsAsync(CancellationToken ct = default);
