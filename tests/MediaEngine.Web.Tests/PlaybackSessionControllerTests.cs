@@ -10,6 +10,52 @@ namespace MediaEngine.Web.Tests;
 public sealed class PlaybackSessionControllerTests
 {
     [Fact]
+    public async Task PendingTransportCommands_CoalesceStateAndKeepDistinctUserActions()
+    {
+        var service = new PlaybackSessionController(null!, null!);
+        var dispatched = new List<PlaybackTransportCommand>();
+        service.TransportCommandRequested += command =>
+        {
+            dispatched.Add(command);
+            return Task.CompletedTask;
+        };
+
+        service.SetTransportHostNotReady();
+        await service.RequestTransportCommandAsync(new("seek", 10));
+        await service.RequestTransportCommandAsync(new("seek", 20));
+        await service.RequestTransportCommandAsync(new("set-volume", .25));
+        await service.RequestTransportCommandAsync(new("set-volume", .75));
+        await service.RequestTransportCommandAsync(new("toggle-play"));
+        await service.RequestTransportCommandAsync(new("toggle-play"));
+
+        await service.SetTransportHostReadyAsync();
+
+        Assert.Equal(4, dispatched.Count);
+        Assert.Single(dispatched, command => command.Action == "seek" && command.Value == 20);
+        Assert.Single(dispatched, command => command.Action == "set-volume" && command.Value == .75);
+        Assert.Equal(2, dispatched.Count(command => command.Action == "toggle-play"));
+        Assert.Equal(dispatched.Count, dispatched.Select(command => command.RequestId).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task TransportCommand_WithSameRequestId_IsNotDispatchedTwice()
+    {
+        var service = new PlaybackSessionController(null!, null!);
+        var dispatchCount = 0;
+        service.TransportCommandRequested += _ =>
+        {
+            dispatchCount++;
+            return Task.CompletedTask;
+        };
+        var reconnectReplay = new PlaybackTransportCommand("pause", RequestId: 9001);
+
+        await service.RequestTransportCommandAsync(reconnectReplay);
+        await service.RequestTransportCommandAsync(reconnectReplay);
+
+        Assert.Equal(1, dispatchCount);
+    }
+
+    [Fact]
     public void CreateSnapshot_RoundTripsQueueHistoryAndTransportState()
     {
         var service = new PlaybackSessionController(null!, null!);

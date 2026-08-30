@@ -243,9 +243,16 @@ Guided import from existing media managers:
 
 ### PWA
 
-- Web app manifest + service worker for installable experience
-- Offline-cached shell (the app loads without the Engine; content requires the Engine)
-- Push notifications for new content via Intercom bridge to the browser Push API
+- The Dashboard ships a web app manifest, branded icons, theme metadata, and a
+  pass-through service worker so supported browsers can install it.
+- The installed launch scope is reconnect-capable, not offline-capable. Catalogue,
+  identity, settings, and playback remain live Engine-backed state; the service
+  worker intentionally does not cache application or media responses.
+- The Blazor circuit and Engine Intercom connection expose distinct reconnecting
+  and disconnected states. Listen playback snapshots remain browser-local across
+  reconnection, and transport request IDs prevent replayed commands from executing
+  twice.
+- Push notifications are not part of the current install scope.
 
 ---
 

@@ -227,12 +227,20 @@ public static class DashboardAuthenticationEndpoints
         <html lang="en">
         <head>
           <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width">
+          <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+          <meta name="theme-color" content="#0B1020">
+          <meta name="description" content="Sign in to your local Tuvima Library.">
+          <meta name="mobile-web-app-capable" content="yes">
+          <meta name="apple-mobile-web-app-capable" content="yes">
+          <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+          <meta name="apple-mobile-web-app-title" content="Tuvima Library">
+          <link rel="manifest" href="/manifest.webmanifest">
+          <link rel="apple-touch-icon" sizes="192x192" href="/icons/tuvima-192.png">
           <title>Tuvima Library</title>
           <style>
             :root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
             * { box-sizing: border-box; }
-            body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 1.25rem; background: radial-gradient(circle at 15% 5%, #281849 0, #100b1c 38%, #08060d 75%); color: #f8f6ff; }
+            body { margin: 0; min-height: 100dvh; display: grid; place-items: center; padding: max(1.25rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right)) max(1.25rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left)); background: radial-gradient(circle at 15% 5%, #281849 0, #100b1c 38%, #08060d 75%); color: #f8f6ff; }
             main { width: min(34rem, 100%); padding: clamp(1.5rem, 5vw, 2.5rem); background: rgba(22, 16, 33, .96); border: 1px solid #58427d; border-radius: 1.25rem; box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, .55); }
             h1, h2, p { margin-top: 0; }
             h1 { margin-bottom: .75rem; color: #ffffff; font-size: clamp(1.8rem, 5vw, 2.35rem); line-height: 1.1; letter-spacing: -.025em; }
@@ -253,16 +261,16 @@ public static class DashboardAuthenticationEndpoints
             button:focus-visible, .button:focus-visible, summary:focus-visible, a:focus-visible { outline: .2rem solid rgba(181, 150, 255, .75); outline-offset: .15rem; }
             a { color: #c6aaff; }
             details { margin: 1.25rem 0; }
-            summary { cursor: pointer; }
+            summary { min-height: 3rem; display: flex; align-items: center; cursor: pointer; touch-action: manipulation; }
             table { width: 100%; border-collapse: collapse; }
             td, th { padding: .65rem; border-bottom: 1px solid #392b4c; text-align: left; }
             pre, .notice { padding: 1rem; border: 1px solid #44345c; border-radius: .7rem; background: #0d0914; color: #ece5f7; }
             pre { white-space: pre-wrap; }
             code { color: #d2bcff; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-            @media (max-width: 35rem) { body { align-items: start; padding: .75rem; } main { margin-top: .75rem; padding: 1.35rem; border-radius: 1rem; } }
+            @media (max-width: 40rem) { body { align-items: start; padding: max(.75rem, env(safe-area-inset-top)) max(.75rem, env(safe-area-inset-right)) max(.75rem, env(safe-area-inset-bottom)) max(.75rem, env(safe-area-inset-left)); } main { margin-top: .75rem; padding: 1.35rem; border-radius: 1rem; } }
           </style>
         </head>
-        <body><main>{{body}}</main></body>
+        <body><main>{{body}}</main><script>if ('serviceWorker' in navigator) window.addEventListener('load', function () { navigator.serviceWorker.register('/service-worker.js', { scope: '/' }); });</script></body>
         </html>
         """;
     private static string H(string? value) => WebUtility.HtmlEncode(value ?? string.Empty);

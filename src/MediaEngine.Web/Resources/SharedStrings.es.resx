@@ -164,6 +164,9 @@
   <data name="TopBar_LiveUpdatesOffline" xml:space="preserve">
     <value>Actualizaciones en vivo desconectadas</value>
   </data>
+  <data name="TopBar_LiveUpdatesReconnecting" xml:space="preserve">
+    <value>Reconectando las actualizaciones en vivo…</value>
+  </data>
   <!-- Command Palette -->
   <data name="CmdPalette_Placeholder" xml:space="preserve">
     <value>Buscar series, navegar...</value>

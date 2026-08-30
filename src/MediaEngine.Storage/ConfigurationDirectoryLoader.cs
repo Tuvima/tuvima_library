@@ -729,7 +729,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             {
                 AppBarStyle     = "compact",
                 LogoVariant     = "icon",
-                IntentDockItems = ["Collections", "Watch", "Read", "Listen"],
+                IntentDockItems = ["Home", "Read", "Watch", "Listen", "View", "Collections"],
                 IntentDockStyle = "normal",
             },
             Pages = new UIPageSettings

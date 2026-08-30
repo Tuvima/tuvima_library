@@ -56,7 +56,7 @@
         color: rgba(255,255,255,0.9);
     }
 
-    @@media (max-width: 680px) {
+    @media (max-width: 640px) {
         .smb-shell {
             min-width: 0;
             padding: 24px 18px 18px;

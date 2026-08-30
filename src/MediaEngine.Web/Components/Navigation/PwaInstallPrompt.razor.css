@@ -1,0 +1,76 @@
+.pwa-install-prompt {
+    position: fixed;
+    z-index: var(--tl-z-toast, 1800);
+    right: max(1rem, var(--tl-safe-area-right));
+    bottom: max(1rem, var(--tl-safe-area-bottom));
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: .75rem;
+    width: min(31rem, calc(100vw - 2rem));
+    padding: .8rem;
+    border: 1px solid var(--tl-accent-primary-border);
+    border-radius: var(--tl-radius-lg, 12px);
+    color: var(--tl-text-primary);
+    background: color-mix(in srgb, var(--tl-bg-surface-raised) 96%, transparent);
+    box-shadow: var(--tl-shadow-xl);
+    backdrop-filter: blur(18px);
+}
+
+.pwa-install-prompt__icon {
+    color: var(--tl-accent-primary);
+}
+
+.pwa-install-prompt__copy {
+    display: grid;
+    gap: .15rem;
+    min-width: 0;
+}
+
+.pwa-install-prompt__copy span {
+    color: var(--tl-text-muted);
+    font-size: .78rem;
+    line-height: 1.35;
+}
+
+.pwa-install-prompt__install,
+.pwa-install-prompt__dismiss {
+    min-width: var(--tl-touch-target-min);
+    min-height: var(--tl-touch-target-min);
+    border: 0;
+    border-radius: var(--tl-radius-md, 8px);
+    color: var(--tl-text-primary);
+    cursor: pointer;
+}
+
+.pwa-install-prompt__install {
+    padding-inline: 1rem;
+    background: var(--tl-accent-primary);
+    font-weight: 800;
+}
+
+.pwa-install-prompt__dismiss {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    background: transparent;
+}
+
+@media (max-width: 840px) {
+    .pwa-install-prompt {
+        right: max(.5rem, var(--tl-safe-area-right));
+        bottom: calc(var(--tl-bottom-dock-height) + max(.5rem, var(--tl-safe-area-bottom)));
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        width: calc(100vw - max(1rem, var(--tl-safe-area-left) + var(--tl-safe-area-right)));
+    }
+
+    .pwa-install-prompt__install {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .pwa-install-prompt__dismiss {
+        grid-column: 3;
+        grid-row: 1;
+    }
+}

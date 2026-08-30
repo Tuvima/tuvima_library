@@ -441,7 +441,7 @@
     }
 
 
-    @@media (max-width: 1024px) {
+    @media (max-width: 1024px) {
         .vmt-media-cell {
             gap: 10px;
         }
@@ -453,7 +453,7 @@
     }
 
 
-    @@media (max-width: 768px) {
+    @media (max-width: 840px) {
         .vmt-table-wrap {
             border-radius: 12px;
             border: none;
@@ -524,7 +524,7 @@
     }
 
 
-    @@media (max-width: 480px) {
+    @media (max-width: 480px) {
         .vmt-row {
             padding: 6px 8px;
         }

@@ -712,7 +712,7 @@
     background: linear-gradient(to top, var(--art-bg-base-dark, #080c12) 0%, color-mix(in srgb, var(--art-bg-base-dark, #080c12) 92%, transparent) 70%, transparent 100%);
 }
 
-@media (max-width: 760px), (hover: none) {
+@media (max-width: 840px), (hover: none), (pointer: coarse) {
     .media-tile.is-portrait {
         --media-tile-media-height: clamp(240px, 64vw, 320px);
     }
@@ -729,7 +729,7 @@
 
 /* Desktop previews expand the flex item itself, so the shelf reflows instead of
    drawing a fixed panel over neighboring cards. */
-@media (min-width: 761px) and (hover: hover) {
+@media (min-width: 841px) and (hover: hover) and (pointer: fine) {
     .media-tile.is-portrait:not(.is-collection-card) .media-tile-image,
     .media-tile.is-portrait:not(.is-collection-card) .media-tile-image.is-contained {
         padding: 0;
@@ -1261,7 +1261,7 @@
     -webkit-line-clamp: 3;
 }
 
-@media (min-width: 761px) and (hover: hover) {
+@media (min-width: 841px) and (hover: hover) and (pointer: fine) {
     .media-tile-hover-panel.is-inline-expanded.is-cover-led:not(.is-collection-hover) {
         display: grid;
         grid-template-columns: minmax(0, 1.14fr) minmax(170px, 0.86fr);

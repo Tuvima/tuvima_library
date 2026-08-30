@@ -2276,7 +2276,7 @@
     overflow: visible;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 840px) {
     .listen-page {
         grid-template-columns: minmax(220px, 236px) minmax(0, 1fr);
     }
@@ -2291,7 +2291,7 @@
     }
 }
 
-@media (min-width: 861px) and (max-width: 960px) {
+@media (min-width: 841px) and (max-width: 960px) {
     .listen-page {
         grid-template-columns: minmax(220px, 248px) minmax(0, 1fr);
     }
@@ -2361,7 +2361,7 @@
     }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .listen-page {
         grid-template-columns: minmax(188px, 208px) minmax(0, 1fr);
     }

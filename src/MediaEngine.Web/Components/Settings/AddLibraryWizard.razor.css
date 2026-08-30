@@ -68,7 +68,7 @@
     .add-library-wizard__folder-health { justify-content: flex-end; }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .add-library-wizard__steps { display: flex; overflow-x: auto; }
     .add-library-wizard__steps li { flex: 0 0 150px; }
     .add-library-wizard__stage { min-height: 0; padding: var(--tl-space-4); }

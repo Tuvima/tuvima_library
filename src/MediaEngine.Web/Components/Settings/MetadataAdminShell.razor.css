@@ -37,7 +37,7 @@
     max-width: 750px;
 }
 
-@container metadata-module (max-width: 760px) {
+@container metadata-module (max-width: 840px) {
     .metadata-module ::deep .sidebar-page-header {
         align-items: stretch;
     }

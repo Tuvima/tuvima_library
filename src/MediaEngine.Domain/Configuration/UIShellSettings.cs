@@ -31,7 +31,7 @@ public sealed class UIShellSettings
     /// Automotive restricts this to <c>["Collections", "Listen"]</c>.
     /// </summary>
     [JsonPropertyName("intent_dock_items")]
-    public List<string> IntentDockItems { get; set; } = ["Collections", "Watch", "Read", "Listen"];
+    public List<string> IntentDockItems { get; set; } = ["Home", "Read", "Watch", "Listen", "View", "Collections"];
 
     /// <summary>
     /// Intent Dock sizing: <c>normal</c> (standard) or <c>oversized</c> (TV/automotive).

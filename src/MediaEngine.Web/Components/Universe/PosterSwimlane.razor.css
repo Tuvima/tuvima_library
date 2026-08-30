@@ -4,7 +4,7 @@
     }
 
 
-    @@media (max-width: 768px) {
+    @media (max-width: 840px) {
         .swimlane-section {
             padding-left: 0;
         }
@@ -97,7 +97,7 @@
     }
 
 
-    @@media (hover: none) {
+    @media (hover: none), (pointer: coarse) {
         .swimlane-arrow {
             display: none;
         }

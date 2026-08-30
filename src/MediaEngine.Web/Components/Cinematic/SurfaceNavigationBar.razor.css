@@ -35,7 +35,7 @@
     color: rgba(248, 250, 252, 0.98);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .surface-navigation-bar {
         padding-inline: 1rem;
     }

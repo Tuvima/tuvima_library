@@ -164,6 +164,9 @@
   <data name="TopBar_LiveUpdatesOffline" xml:space="preserve">
     <value>Live updates offline</value>
   </data>
+  <data name="TopBar_LiveUpdatesReconnecting" xml:space="preserve">
+    <value>Live updates reconnecting…</value>
+  </data>
   <!-- Command Palette -->
   <data name="CmdPalette_Placeholder" xml:space="preserve">
     <value>Search collections, navigate...</value>

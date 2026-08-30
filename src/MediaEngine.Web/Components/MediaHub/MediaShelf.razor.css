@@ -104,7 +104,7 @@
     --media-tile-hover-panel-width: clamp(220px, 17vw, 250px);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .media-hub-shelf {
         padding-inline: 18px;
     }

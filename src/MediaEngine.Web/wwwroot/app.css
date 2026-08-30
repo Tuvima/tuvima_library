@@ -330,7 +330,7 @@ body {
 
 
 /* -- Mobile overflow safety net ------------------------------------------- */
-@media (max-width: 768px) {
+@media (max-width: 840px) {
     .mud-main-content {
         overflow-x: hidden;
     }
@@ -1890,7 +1890,7 @@ code,
     border-radius: var(--app-radius-sm) !important;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 840px) {
     :root {
         --app-section-padding: 16px;
         --app-card-padding: 16px;
@@ -3025,7 +3025,7 @@ textarea.tl-textarea,
     }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .layout-shell__appbar .mud-toolbar {
         grid-template-columns: auto minmax(0, 1fr) auto !important;
         column-gap: 0.5rem !important;
@@ -5097,6 +5097,55 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .app-menu-divider {
     margin: 0.16rem 0.28rem !important;
     border-color: var(--tl-menu-divider) !important;
+}
+
+/* Shared touch, safe-area, and coarse-pointer contract. */
+@media (hover: none), (pointer: coarse) {
+    button,
+    [role="button"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    .mud-icon-button,
+    .mud-button-root {
+        min-width: var(--tl-touch-target-min) !important;
+        min-height: var(--tl-touch-target-min) !important;
+        touch-action: manipulation;
+    }
+
+    .media-tile-hover-panel,
+    .media-group-tile__hover-overlay,
+    .swimlane-scroll-button,
+    .swimlane-nav-arrow {
+        display: none !important;
+    }
+
+    .media-tile,
+    .media-group-tile,
+    .layout-shell__intent-dock-link {
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+    }
+}
+
+.mud-dialog-container {
+    box-sizing: border-box;
+    padding:
+        max(.5rem, var(--tl-safe-area-top))
+        max(.5rem, var(--tl-safe-area-right))
+        max(.5rem, var(--tl-safe-area-bottom))
+        max(.5rem, var(--tl-safe-area-left));
+}
+
+.mud-dialog,
+.app-dialog-shell {
+    max-height: calc(100dvh - var(--tl-safe-area-top) - var(--tl-safe-area-bottom) - 1rem) !important;
+}
+
+@media (max-width: 640px) {
+    .mud-dialog-container {
+        padding: var(--tl-safe-area-top) var(--tl-safe-area-right) var(--tl-safe-area-bottom) var(--tl-safe-area-left);
+    }
 }
 
 .app-overflow-menu__popover .app-menu-item {

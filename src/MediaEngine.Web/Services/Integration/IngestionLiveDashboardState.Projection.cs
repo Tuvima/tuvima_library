@@ -1049,7 +1049,7 @@ public sealed partial class IngestionLiveDashboardState
     public static IngestionLiveMode ResolveLiveMode(EngineConnectionState state) => state switch
     {
         EngineConnectionState.Online => IngestionLiveMode.Live,
-        EngineConnectionState.Checking or EngineConnectionState.LiveUpdatesDisconnected => IngestionLiveMode.Reconnecting,
+        EngineConnectionState.Checking or EngineConnectionState.Reconnecting or EngineConnectionState.LiveUpdatesDisconnected => IngestionLiveMode.Reconnecting,
         _ => IngestionLiveMode.Polling,
     };
 

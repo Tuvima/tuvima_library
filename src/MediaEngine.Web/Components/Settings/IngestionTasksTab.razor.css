@@ -20,7 +20,7 @@
 .ingestion-operations__advanced > summary { padding: 14px 16px; color: var(--tl-text-primary); font-weight: 700; cursor: pointer; }
 .ingestion-operations__advanced[open] > summary { border-bottom: 1px solid var(--tl-border-subtle); }
 .ingestion-operations__advanced ::deep .library-update { padding: var(--tl-space-4); }
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .ingestion-operations__heading { align-items: stretch; flex-direction: column; }
     .ingestion-operations__metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .ingestion-operations__metrics > div:nth-child(3) { border-top: 1px solid var(--tl-border-subtle); border-left: 0; }

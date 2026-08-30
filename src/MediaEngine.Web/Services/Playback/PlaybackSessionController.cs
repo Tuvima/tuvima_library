@@ -20,6 +20,8 @@ public sealed class PlaybackSessionController
     private readonly List<AudiobookBookmarkDto> _audiobookBookmarks = [];
     private readonly List<PlaybackTransportCommand> _pendingTransportCommands = [];
     private readonly Guid _sessionId = Guid.NewGuid();
+    private long _nextTransportRequestId;
+    private long _lastDispatchedTransportRequestId;
     private PlaybackClientContext _clientContext = PlaybackClientContext.WebDefault;
     private DateTimeOffset _lastHeartbeatAt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastTransportUiNotificationAt = DateTimeOffset.MinValue;
@@ -893,13 +895,14 @@ public sealed class PlaybackSessionController
 
     public async Task RequestTransportCommandAsync(PlaybackTransportCommand command)
     {
+        command = EnsureTransportRequestId(command);
         if (!_transportHostReady || TransportCommandRequested is null)
         {
             QueuePendingTransportCommand(command);
             return;
         }
 
-        await TransportCommandRequested.Invoke(command);
+        await DispatchTransportCommandAsync(command);
     }
 
     public async Task SetTransportHostReadyAsync()
@@ -914,7 +917,7 @@ public sealed class PlaybackSessionController
         _pendingTransportCommands.Clear();
         foreach (var command in commands)
         {
-            await TransportCommandRequested.Invoke(command);
+            await DispatchTransportCommandAsync(command);
         }
     }
 
@@ -925,9 +928,9 @@ public sealed class PlaybackSessionController
 
     private void QueuePendingTransportCommand(PlaybackTransportCommand command)
     {
-        if (string.Equals(command.Action, "start", StringComparison.OrdinalIgnoreCase))
+        if (IsCoalescibleTransportAction(command.Action))
         {
-            _pendingTransportCommands.RemoveAll(item => string.Equals(item.Action, "start", StringComparison.OrdinalIgnoreCase));
+            _pendingTransportCommands.RemoveAll(item => string.Equals(item.Action, command.Action, StringComparison.OrdinalIgnoreCase));
         }
 
         if (_pendingTransportCommands.Count >= _clientSettings.PendingTransportCommandLimit)
@@ -937,6 +940,34 @@ public sealed class PlaybackSessionController
 
         _pendingTransportCommands.Add(command);
     }
+
+    private PlaybackTransportCommand EnsureTransportRequestId(PlaybackTransportCommand command) =>
+        command.RequestId.HasValue
+            ? command
+            : command with { RequestId = Interlocked.Increment(ref _nextTransportRequestId) };
+
+    private async Task DispatchTransportCommandAsync(PlaybackTransportCommand command)
+    {
+        if (TransportCommandRequested is null)
+        {
+            QueuePendingTransportCommand(command);
+            return;
+        }
+
+        if (command.RequestId is { } requestId && requestId <= Interlocked.Read(ref _lastDispatchedTransportRequestId))
+            return;
+
+        await TransportCommandRequested.Invoke(command);
+
+        if (command.RequestId is { } completedRequestId)
+            Interlocked.Exchange(ref _lastDispatchedTransportRequestId, completedRequestId);
+    }
+
+    private static bool IsCoalescibleTransportAction(string action) => action.ToLowerInvariant() switch
+    {
+        "start" or "pause" or "seek" or "set-volume" or "set-speed" => true,
+        _ => false,
+    };
 
     private PlaybackTransportCommand CreateStartCommand() => new(
         "start",

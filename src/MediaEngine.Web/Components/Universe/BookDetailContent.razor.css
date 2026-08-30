@@ -668,12 +668,12 @@
     }
 
 
-    @@media (min-width: 901px) {
+    @media (min-width: 961px) {
         .book-mobile-only { display: none !important; }
     }
 
 
-    @@media (max-width: 900px) {
+    @media (max-width: 960px) {
         .book-desktop-only { display: none !important; }
 
         .book-detail-main-outer      { padding: 0 20px; }

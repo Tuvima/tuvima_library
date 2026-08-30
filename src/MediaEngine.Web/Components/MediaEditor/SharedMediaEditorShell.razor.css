@@ -2130,7 +2130,7 @@
     100% { background-position: -120% 0; }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .sme-match-searching__status {
         align-items: flex-start;
         flex-wrap: wrap;
@@ -7829,7 +7829,7 @@
     }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .sme-artwork-editor-heading {
         align-items: stretch;
         flex-direction: column;
@@ -8078,7 +8078,7 @@
     }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .sme-match-summary-body {
         grid-template-columns: auto minmax(0, 1fr);
     }
@@ -8966,7 +8966,7 @@
     }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .sme-match-result-hero,
     .sme-match-selected-detail {
         grid-template-columns: minmax(0, 1fr);

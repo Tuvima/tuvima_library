@@ -25,6 +25,7 @@ public enum EngineConnectionState
     Offline = 3,
     LiveUpdatesDisconnected = 4,
     Degraded = 5,
+    Reconnecting = 6,
 }
 
 /// <summary>
@@ -1428,7 +1429,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         _hubConnection.Reconnecting += ex =>
         {
             _logger.LogWarning("Intercom reconnecting: {Message}", ex?.Message);
-            SetEngineConnectionState(EngineConnectionState.LiveUpdatesDisconnected);
+            SetEngineConnectionState(EngineConnectionState.Reconnecting);
             return Task.CompletedTask;
         };
         _hubConnection.Reconnected += connectionId =>

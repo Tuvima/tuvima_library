@@ -167,7 +167,7 @@
     left: min(96%, calc(var(--left) + 18%));
 }
 
-@@media (max-width: 720px) {
+@media (max-width: 640px) {
     .artwork-stack__item:nth-of-type(n + 4) {
         display: none;
     }
@@ -178,4 +178,3 @@
     }
 }
 </style>
-

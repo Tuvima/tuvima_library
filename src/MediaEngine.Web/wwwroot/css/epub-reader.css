@@ -86,8 +86,8 @@
     line-height: var(--reader-line-height);
     user-select: none;
     -webkit-user-select: none;
-    --reader-chrome-top: 56px;
-    --reader-chrome-bottom: 72px;
+    --reader-chrome-top: calc(56px + env(safe-area-inset-top, 0px));
+    --reader-chrome-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
 }
 
 /* ── Content container (CSS multi-column pagination) ───────────────────────── */
@@ -233,11 +233,11 @@
     bottom: 0;
     left: 0;
     right: 0;
-    height: 72px;
+    height: calc(72px + env(safe-area-inset-bottom, 0px));
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 8px 24px 16px;
+    padding: 8px max(24px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px));
     background: var(--reader-chrome-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
@@ -852,7 +852,7 @@
 
 /* ── Mobile responsive ─────────────────────────────────────────────────────── */
 
-@media (max-width: 768px) {
+@media (max-width: 840px) {
     :root {
         --reader-margin-h: 20px;
         --reader-margin-v: 16px;
@@ -869,8 +869,8 @@
     }
 
     .reader-bottom-bar {
-        padding: 8px 16px 20px;
-        height: 80px;
+        padding: 8px max(16px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+        height: calc(80px + env(safe-area-inset-bottom, 0px));
     }
 
     .reader-drawer {

@@ -48,6 +48,7 @@
     private ShellActivitySnapshot Snapshot => Activity.Current;
     private bool ShowConnectionProblem => ConnectionState is EngineConnectionState.Offline
         or EngineConnectionState.Degraded
+        or EngineConnectionState.Reconnecting
         or EngineConnectionState.LiveUpdatesDisconnected;
 
     private string ButtonClass => ShowConnectionProblem
@@ -85,6 +86,8 @@
                 return "Engine unavailable";
             if (ConnectionState == EngineConnectionState.Degraded)
                 return "Engine degraded";
+            if (ConnectionState == EngineConnectionState.Reconnecting)
+                return "Reconnecting live updates";
             if (ConnectionState == EngineConnectionState.LiveUpdatesDisconnected)
                 return "Live updates disconnected";
             if (!Snapshot.IsBusy)

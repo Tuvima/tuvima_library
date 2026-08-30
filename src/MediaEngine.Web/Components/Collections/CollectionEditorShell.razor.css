@@ -553,7 +553,7 @@
     .collection-editor-artwork-grid { grid-template-columns: 1fr; }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .collection-editor-workspace { height: calc(100dvh - 16px); min-height: calc(100dvh - 16px); max-height: calc(100dvh - 16px); }
     .collection-editor-header { min-height: auto; align-items: flex-start; padding: 16px; }
     .collection-editor-header-icon { display: none; }

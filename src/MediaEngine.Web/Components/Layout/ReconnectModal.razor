@@ -1,22 +1,26 @@
 ﻿<script type="module" src="@Assets["Components/Layout/ReconnectModal.razor.js"]"></script>
 
-<dialog id="components-reconnect-modal" data-nosnippet>
-    <div class="components-reconnect-container">
+<dialog id="components-reconnect-modal"
+        aria-labelledby="components-reconnect-title"
+        aria-describedby="components-reconnect-status"
+        data-nosnippet>
+    <div class="components-reconnect-container" aria-live="assertive">
+        <h2 id="components-reconnect-title">Connection to Tuvima Library</h2>
         <div class="components-rejoining-animation" aria-hidden="true">
             <div></div>
             <div></div>
         </div>
-        <p class="components-reconnect-first-attempt-visible">
-            Rejoining the server...
+        <p id="components-reconnect-status" class="components-reconnect-first-attempt-visible">
+            Connection lost. Reconnecting to your Library Engine&hellip;
         </p>
         <p class="components-reconnect-repeated-attempt-visible">
-            Rejoin failed... trying again in <span id="components-seconds-to-next-attempt"></span> seconds.
+            Still disconnected. Retrying in <span id="components-seconds-to-next-attempt"></span> seconds.
         </p>
         <p class="components-reconnect-failed-visible">
-            Failed to rejoin.<br />Please retry or reload the page.
+            The Library Engine is still unreachable. Playback state is saved in this browser.
         </p>
         <AppNativeButton id="components-reconnect-button" Class="components-reconnect-failed-visible">
-            Retry
+            Retry connection
         </AppNativeButton>
         <p class="components-pause-visible">
             The session has been paused by the server.

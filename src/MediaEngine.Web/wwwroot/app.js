@@ -77,38 +77,103 @@ window.unregisterCtrlK = function () {
 
 // -- Device Context ---------------------------------------------------------
 
+window.tuvimaResponsive = (function () {
+    var validDeviceClasses = ['web', 'mobile', 'television', 'automotive'];
+    var observer = null;
+    var observerTimer = null;
+    var lastObservedClass = null;
+
+    function readBreakpoint(name, fallback) {
+        var value = window.getComputedStyle(document.documentElement)
+            .getPropertyValue('--tl-breakpoint-' + name)
+            .trim();
+        var parsed = Number(value);
+        return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+    }
+
+    function classifyViewport() {
+        return window.innerWidth <= readBreakpoint('navigation', 840) ? 'mobile' : 'web';
+    }
+
+    function isValid(value) {
+        return !!value && validDeviceClasses.indexOf(value.toLowerCase()) !== -1;
+    }
+
+    function persist(deviceClass, source) {
+        localStorage.setItem('device_class', deviceClass);
+        localStorage.setItem('device_class_source', source);
+    }
+
+    function resolve() {
+        var params = new URLSearchParams(window.location.search);
+        var urlDevice = params.get('device');
+        if (isValid(urlDevice)) {
+            var explicitDevice = urlDevice.toLowerCase();
+            persist(explicitDevice, 'explicit');
+            return explicitDevice;
+        }
+
+        var stored = localStorage.getItem('device_class');
+        var source = localStorage.getItem('device_class_source');
+        if (isValid(stored)) {
+            stored = stored.toLowerCase();
+            if (source === 'explicit' || stored === 'television' || stored === 'automotive') {
+                return stored;
+            }
+        }
+
+        var detected = classifyViewport();
+        persist(detected, 'auto');
+        return detected;
+    }
+
+    function register(dotNetRef) {
+        unregister();
+        observer = dotNetRef;
+        lastObservedClass = resolve();
+        window.addEventListener('resize', onResize, { passive: true });
+    }
+
+    function onResize() {
+        window.clearTimeout(observerTimer);
+        observerTimer = window.setTimeout(function () {
+            if (!observer || localStorage.getItem('device_class_source') === 'explicit') return;
+            var next = classifyViewport();
+            if (next === lastObservedClass) return;
+            lastObservedClass = next;
+            persist(next, 'auto');
+            observer.invokeMethodAsync('HandleViewportDeviceClassChanged', next);
+        }, 160);
+    }
+
+    function unregister() {
+        window.removeEventListener('resize', onResize);
+        window.clearTimeout(observerTimer);
+        observerTimer = null;
+        observer = null;
+    }
+
+    return {
+        resolveDeviceClass: resolve,
+        registerDeviceClassObserver: register,
+        unregisterDeviceClassObserver: unregister,
+        navigationBreakpoint: function () { return readBreakpoint('navigation', 840); }
+    };
+})();
+
 /**
  * Detects the active device class for this browser session.
  * Priority:
  *   1. URL query parameter ?device=  (explicit override, highest priority)
- *   2. localStorage persisted device class
- *   3. Auto-detect: viewport =768px + touch ? "mobile", else "web"
+ *   2. Explicitly persisted device class
+ *   3. Viewport fallback using the canonical navigation breakpoint
  *
  * Television and automotive must be explicitly selected (URL param or UI toggle).
  *
  * @returns {string} Device class: "web", "mobile", "television", or "automotive".
  */
 window.detectDeviceClass = function () {
-    // 1. URL parameter override
-    var params = new URLSearchParams(window.location.search);
-    var urlDevice = params.get('device');
-    if (urlDevice && ['web', 'mobile', 'television', 'automotive'].indexOf(urlDevice.toLowerCase()) !== -1) {
-        var normalised = urlDevice.toLowerCase();
-        localStorage.setItem('device_class', normalised);
-        return normalised;
-    }
-
-    // 2. Persisted in localStorage
-    var stored = localStorage.getItem('device_class');
-    if (stored && ['web', 'mobile', 'television', 'automotive'].indexOf(stored) !== -1) {
-        return stored;
-    }
-
-    // 3. Auto-detect: mobile if narrow viewport + touch
-    var isMobile = window.innerWidth <= 768 && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-    var detected = isMobile ? 'mobile' : 'web';
-    localStorage.setItem('device_class', detected);
-    return detected;
+    return window.tuvimaResponsive.resolveDeviceClass();
 };
 
 /**
@@ -120,8 +185,68 @@ window.detectDeviceClass = function () {
 window.setDeviceClass = function (deviceClass) {
     if (deviceClass && ['web', 'mobile', 'television', 'automotive'].indexOf(deviceClass.toLowerCase()) !== -1) {
         localStorage.setItem('device_class', deviceClass.toLowerCase());
+        localStorage.setItem('device_class_source', 'explicit');
     }
 };
+
+// -- Installable web app ----------------------------------------------------
+
+window.tuvimaPwa = (function () {
+    var deferredPrompt = null;
+    var observer = null;
+
+    function isStandalone() {
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+
+    function isIos() {
+        return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
+    }
+
+    function currentState() {
+        if (isStandalone()) return 'installed';
+        if (deferredPrompt) return 'available';
+        if (isIos()) return 'ios';
+        return 'unavailable';
+    }
+
+    function notify() {
+        if (observer) observer.invokeMethodAsync('HandleInstallStateChanged', currentState());
+    }
+
+    window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        deferredPrompt = event;
+        notify();
+    });
+
+    window.addEventListener('appinstalled', function () {
+        deferredPrompt = null;
+        notify();
+    });
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+            navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+                .catch(function (error) { console.debug('PWA registration failed.', error); });
+        });
+    }
+
+    return {
+        register: function (dotNetRef) {
+            observer = dotNetRef;
+            return currentState();
+        },
+        unregister: function () { observer = null; },
+        install: async function () {
+            if (!deferredPrompt) return currentState();
+            await deferredPrompt.prompt();
+            var choice = await deferredPrompt.userChoice;
+            if (choice.outcome === 'accepted') deferredPrompt = null;
+            return currentState();
+        }
+    };
+})();
 
 // -- Swimlane Scroll Arrows -----------------------------------------------
 
@@ -834,7 +959,8 @@ window.showMediaTileHover = function (cardEl) {
     cardEl.classList.add('is-hover-active');
     panel.classList.add('is-inline-expanded');
     var useGridOverlay = !!cardEl.closest('.media-tile-grid')
-        && (!window.matchMedia || window.matchMedia('(min-width: 761px) and (hover: hover)').matches);
+        && window.innerWidth > window.tuvimaResponsive.navigationBreakpoint()
+        && (!window.matchMedia || window.matchMedia('(hover: hover) and (pointer: fine)').matches);
 
     if (useGridOverlay) {
         cardEl.classList.add('is-grid-overlay-anchor');

@@ -1,0 +1,75 @@
+@namespace MediaEngine.Web.Components.Navigation
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@if (_state is "available" or "ios")
+{
+    <aside class="pwa-install-prompt" role="status" aria-live="polite">
+        <MudIcon Icon="@Icons.Material.Outlined.InstallMobile" class="pwa-install-prompt__icon" />
+        <div class="pwa-install-prompt__copy">
+            <strong>Install Tuvima Library</strong>
+            <span>@InstallMessage</span>
+        </div>
+        @if (_state == "available")
+        {
+            <AppNativeButton Type="button"
+                             Class="pwa-install-prompt__install"
+                             AriaLabel="Install Tuvima Library"
+                             OnClick="InstallAsync">
+                Install
+            </AppNativeButton>
+        }
+        <AppNativeButton Type="button"
+                         Class="pwa-install-prompt__dismiss"
+                         AriaLabel="Dismiss install prompt"
+                         OnClick="Dismiss">
+            <MudIcon Icon="@Icons.Material.Outlined.Close" />
+        </AppNativeButton>
+    </aside>
+}
+
+@code {
+    private DotNetObjectReference<PwaInstallPrompt>? _selfReference;
+    private string _state = "unavailable";
+
+    private string InstallMessage => _state == "ios"
+        ? "In Safari, open Share and choose Add to Home Screen."
+        : "Launch it like an app; a connection to your Library Engine is still required.";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        _selfReference = DotNetObjectReference.Create(this);
+        _state = await JS.InvokeAsync<string>("tuvimaPwa.register", _selfReference);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task HandleInstallStateChanged(string state)
+    {
+        _state = state;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task InstallAsync(MouseEventArgs _)
+    {
+        _state = await JS.InvokeAsync<string>("tuvimaPwa.install");
+    }
+
+    private void Dismiss(MouseEventArgs _) => _state = "dismissed";
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("tuvimaPwa.unregister");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _selfReference?.Dispose();
+    }
+}

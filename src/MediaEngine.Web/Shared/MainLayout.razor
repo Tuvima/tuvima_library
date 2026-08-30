@@ -109,9 +109,18 @@
 
     @if (ShouldShowEngineStatusBanner)
     {
-        <div class="layout-shell__engine-banner">
+        <div class="layout-shell__engine-banner" role="status" aria-live="polite">
             <MudIcon Icon="@GetEngineStatusIcon()" Size="Size.Small" />
             <span>@GetEngineStatusBannerText()</span>
+            @if (Orchestrator.EngineConnectionState == EngineConnectionState.LiveUpdatesDisconnected)
+            {
+                <AppNativeButton Type="button"
+                                 Class="layout-shell__engine-banner-retry"
+                                 AriaLabel="Retry live updates"
+                                 OnClick="RetryLiveUpdatesAsync">
+                    Retry
+                </AppNativeButton>
+            }
         </div>
     }
 
@@ -121,8 +130,25 @@
         </MudContainer>
     </MudMainContent>
 </MudLayout>
+
+@if (DeviceContext.Settings.Shell.DockVisible)
+{
+    <nav class="@IntentDockClass" aria-label="Primary mobile navigation">
+        @foreach (var link in IntentDockLinks)
+        {
+            <a href="@link.Path"
+               @key="link.Path"
+               class="@GetIntentDockLinkClass(link.Path)"
+               aria-current="@(IsNavActive(link.Path) ? "page" : null)">
+                <MudIcon Icon="@link.Icon" />
+                <span>@L[link.LabelKey]</span>
+            </a>
+        }
+    </nav>
+}
 </AppCssElement>
 
+<PwaInstallPrompt />
 <ListenNowPlayingBar />
 <VideoPlaybackHost />
 
@@ -142,7 +168,7 @@
     private List<ProfileViewModel> _profiles = [];
     private DotNetObjectReference<MainLayout>? _dotNetRef;
 
-    private readonly record struct ShellNavLink(string Path, string LabelKey);
+    private readonly record struct ShellNavLink(string Path, string LabelKey, string Icon = "");
 
     private static readonly ShellNavLink[] _navLinks =
     [
@@ -152,6 +178,17 @@
         new("/view", "Nav_View"),
         new("/collections", "Nav_Collections"),
     ];
+
+    private static readonly IReadOnlyDictionary<string, ShellNavLink> _intentDockCatalog =
+        new Dictionary<string, ShellNavLink>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Home"] = new("/", "Nav_Home", Icons.Material.Outlined.Home),
+            ["Read"] = new("/read", "Nav_Read", Icons.Material.Outlined.MenuBook),
+            ["Watch"] = new("/watch", "Nav_Watch", Icons.Material.Outlined.LiveTv),
+            ["Listen"] = new("/listen", "Nav_Listen", Icons.Material.Outlined.Headphones),
+            ["View"] = new("/view", "Nav_View", Icons.Material.Outlined.PhotoLibrary),
+            ["Collections"] = new("/collections", "Nav_Collections", Icons.Material.Outlined.CollectionsBookmark),
+        };
 
     private bool IsDetailShell => IsDetailPath(_currentPath);
     private bool IsCinematicShell => IsDetailShell || string.Equals(_currentPath, "/", StringComparison.Ordinal);
@@ -165,6 +202,18 @@
     private string MainContainerClass => IsCinematicShell ? "px-0 py-0" : "py-6 px-0";
     private bool CanViewReview => SettingsNav.IsVisible(SettingsSection.Review, _profileRole);
     private bool CanViewSystemActivity => SettingsNav.IsVisible(SettingsSection.ActivityLogs, _profileRole);
+    private IReadOnlyList<ShellNavLink> IntentDockLinks => DeviceContext.Settings.Shell.IntentDockItems
+        .Select(item => _intentDockCatalog.TryGetValue(item, out var link) ? link : (ShellNavLink?)null)
+        .Where(link => link.HasValue)
+        .Select(link => link!.Value)
+        .DistinctBy(link => link.Path, StringComparer.OrdinalIgnoreCase)
+        .ToArray();
+    private string IntentDockClass => string.Join(' ', new[]
+    {
+        "layout-shell__intent-dock",
+        $"layout-shell__intent-dock--{NormalizeCssToken(DeviceContext.Settings.Shell.IntentDockStyle)}",
+        DeviceContext.IsTelevision || DeviceContext.IsAutomotive ? "is-device-profile-dock" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
@@ -187,9 +236,11 @@
         var detectedDevice = await JS.InvokeAsync<string>("detectDeviceClass");
         await DeviceContext.InitialiseAsync(detectedDevice);
 
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("tuvimaResponsive.registerDeviceClassObserver", _dotNetRef);
+
         if (!DeviceContext.IsFeatureDisabled("command_palette"))
         {
-            _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("registerCtrlK", _dotNetRef);
         }
 
@@ -211,6 +262,15 @@
     [JSInvokable]
     public void OpenPalette() => _searchOverlay?.Open();
 
+    [JSInvokable]
+    public async Task HandleViewportDeviceClassChanged(string deviceClass)
+    {
+        if (DeviceContext.IsTelevision || DeviceContext.IsAutomotive)
+            return;
+
+        await DeviceContext.SwitchDeviceAsync(deviceClass, _activeProfileId?.ToString());
+    }
+
     private void CloseOpenShellMenus(MouseEventArgs _) => _accountMenuVersion++;
 
     private void OnDeviceContextChanged()
@@ -228,6 +288,11 @@
 
     private void OpenSearch() => _searchOverlay?.Open();
 
+    private async Task RetryLiveUpdatesAsync(MouseEventArgs _)
+    {
+        await Orchestrator.StartSignalRAsync();
+    }
+
     private async Task RestoreSearchFocusAsync()
     {
         if (_searchButton is not null)
@@ -238,6 +303,10 @@
         IsNavActive(path)
             ? "layout-shell__nav-link layout-shell__nav-link--active"
             : "layout-shell__nav-link";
+
+    private string GetIntentDockLinkClass(string path) => IsNavActive(path)
+        ? "layout-shell__intent-dock-link is-active"
+        : "layout-shell__intent-dock-link";
 
     private void SyncLocationState()
     {
@@ -372,6 +441,7 @@
         try
         {
             await JS.InvokeVoidAsync("unregisterCtrlK");
+            await JS.InvokeVoidAsync("tuvimaResponsive.unregisterDeviceClassObserver");
         }
         catch (JSDisconnectedException)
         {
@@ -399,12 +469,14 @@
     private bool ShouldShowEngineStatusBanner =>
         Orchestrator.EngineConnectionState is EngineConnectionState.Offline
             or EngineConnectionState.Degraded
+            or EngineConnectionState.Reconnecting
             or EngineConnectionState.LiveUpdatesDisconnected;
 
     private string GetEngineStatusBannerText() => Orchestrator.EngineConnectionState switch
     {
         EngineConnectionState.Offline => L["TopBar_EngineUnavailable"],
         EngineConnectionState.Degraded => L["TopBar_EngineDegradedBanner"],
+        EngineConnectionState.Reconnecting => L["TopBar_LiveUpdatesReconnecting"],
         EngineConnectionState.LiveUpdatesDisconnected => L["TopBar_LiveUpdatesOffline"],
         _ => _engineStatusSummary,
     };
@@ -415,6 +487,7 @@
         {
             EngineConnectionState.Offline => BuildEngineStatusSummary(null),
             EngineConnectionState.Degraded => L["TopBar_EngineDegradedSummary"],
+            EngineConnectionState.Reconnecting => L["TopBar_LiveUpdatesReconnecting"],
             EngineConnectionState.LiveUpdatesDisconnected => $"{L["TopBar_EngineOnline"]} - {L["TopBar_LiveUpdatesOffline"]}",
             EngineConnectionState.Online => $"{L["TopBar_EngineOnline"]} - {L["TopBar_LiveUpdatesConnected"]}",
             _ => _engineStatusSummary,
@@ -435,6 +508,12 @@
 
     private static bool IsDetailPath(string path)
         => path.StartsWith("/details/", StringComparison.OrdinalIgnoreCase);
+
+    private static string NormalizeCssToken(string? value) => string.IsNullOrWhiteSpace(value)
+        ? "normal"
+        : new string(value.Trim().ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) ? character : '-')
+            .ToArray());
 
     private static string GetAvatarInitial(string displayName)
     {

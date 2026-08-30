@@ -164,6 +164,9 @@
   <data name="TopBar_LiveUpdatesOffline" xml:space="preserve">
     <value>Mises à jour en direct hors ligne</value>
   </data>
+  <data name="TopBar_LiveUpdatesReconnecting" xml:space="preserve">
+    <value>Reconnexion des mises à jour en direct…</value>
+  </data>
   <!-- Command Palette -->
   <data name="CmdPalette_Placeholder" xml:space="preserve">
     <value>Rechercher des séries, naviguer...</value>

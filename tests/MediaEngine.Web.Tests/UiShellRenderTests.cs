@@ -78,7 +78,9 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.Equal("/images/library.svg", cut.Find(".layout-shell__brand-lockup").GetAttribute("src"));
             Assert.Empty(cut.FindAll(".layout-shell__mobile-menu"));
             Assert.Contains("Body content", cut.Markup);
-            Assert.DoesNotContain("Home", cut.Markup);
+            Assert.Equal(6, cut.FindAll(".layout-shell__intent-dock-link").Count);
+            Assert.Contains(cut.FindAll(".layout-shell__intent-dock-link"),
+                link => string.Equals(link.GetAttribute("href"), "/", StringComparison.Ordinal));
             Assert.DoesNotContain("Search your library", cut.Markup);
             Assert.Empty(cut.FindAll(".layout-shell__search-shell"));
             Assert.Single(cut.FindAll(".layout-shell__search-action"));
@@ -850,8 +852,8 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.Contains("listen-player-shell--listen-route", hostSource, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-player-shell--listen-route {", hostCss, StringComparison.Ordinal);
         Assert.Contains("position: fixed", hostCss, StringComparison.Ordinal);
-        Assert.Contains("inset-inline: 16px", hostCss, StringComparison.Ordinal);
-        Assert.Contains("bottom: 16px", hostCss, StringComparison.Ordinal);
+        Assert.Contains("inset-inline: max(16px, var(--tl-safe-area-left))", hostCss, StringComparison.Ordinal);
+        Assert.Contains("bottom: max(16px, var(--tl-safe-area-bottom))", hostCss, StringComparison.Ordinal);
         Assert.Contains("border-radius: var(--playback-player-radius)", hostCss, StringComparison.Ordinal);
     }
 

@@ -46,7 +46,7 @@
     width: 12rem;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .media-hub {
         padding-bottom: 42px;
     }

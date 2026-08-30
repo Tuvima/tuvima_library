@@ -11,4 +11,4 @@
 .view-viewer__content aside dl div { display: grid; gap: .15rem; }
 .view-viewer__content aside dt { color: rgba(226,232,240,.58); font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .view-viewer__content aside dd { overflow-wrap: anywhere; margin: 0; }
-@media (max-width: 760px) { .view-viewer__bar { align-items: start; flex-direction: column; } .view-viewer__actions { width: 100%; overflow-x: auto; } .view-viewer__content { flex-direction: column; } .view-viewer__content aside { width: 100%; border-left: 0; border-top: 1px solid rgba(148,163,184,.16); } }
+@media (max-width: 840px) { .view-viewer__bar { align-items: start; flex-direction: column; } .view-viewer__actions { width: 100%; overflow-x: auto; } .view-viewer__content { flex-direction: column; } .view-viewer__content aside { width: 100%; border-left: 0; border-top: 1px solid rgba(148,163,184,.16); } }

@@ -8,6 +8,22 @@
 :root {
     color-scheme: dark;
 
+    /*
+       Canonical responsive thresholds. CSS media queries repeat the pixel
+       literals because custom properties are not valid in media conditions;
+       JavaScript reads these unitless values instead of defining thresholds.
+    */
+    --tl-breakpoint-compact: 640;
+    --tl-breakpoint-navigation: 840;
+    --tl-breakpoint-content: 960;
+    --tl-breakpoint-wide: 1180;
+    --tl-safe-area-top: env(safe-area-inset-top, 0px);
+    --tl-safe-area-right: env(safe-area-inset-right, 0px);
+    --tl-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+    --tl-safe-area-left: env(safe-area-inset-left, 0px);
+    --tl-touch-target-min: 48px;
+    --tl-bottom-dock-height: 0px;
+
     --tl-accent-primary: #8B5CF6;
     --tl-accent-primary-hover: #9F78FF;
     --tl-accent-primary-active: #7652D6;
@@ -218,4 +234,10 @@
     --tl-gradient-warning: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
     --tl-gradient-info: linear-gradient(135deg, #38BDF8 0%, #0284C7 100%);
     --tl-gradient-surface: linear-gradient(180deg, var(--tl-bg-surface-raised) 0%, var(--tl-bg-surface) 100%);
+}
+
+@media (max-width: 840px) {
+    :root {
+        --tl-bottom-dock-height: calc(3.65rem + var(--tl-safe-area-bottom));
+    }
 }

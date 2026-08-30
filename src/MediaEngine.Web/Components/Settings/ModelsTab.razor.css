@@ -37,7 +37,7 @@
     }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 840px) {
     .models-grid {
         grid-template-columns: 1fr;
     }
