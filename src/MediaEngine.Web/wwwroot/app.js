@@ -1881,6 +1881,14 @@ window.listenPlayback = (function () {
             }
             return shouldShow;
         },
+        selectAudioTrack: function (element, selectedIndex) {
+            if (!element || !element.audioTracks || element.audioTracks.length === 0) return false;
+            var index = Math.max(0, Math.min(element.audioTracks.length - 1, selectedIndex || 0));
+            for (var trackIndex = 0; trackIndex < element.audioTracks.length; trackIndex++) {
+                element.audioTracks[trackIndex].enabled = trackIndex === index;
+            }
+            return true;
+        },
         toggleFullscreen: async function (element) {
             if (!element) return false;
             try {

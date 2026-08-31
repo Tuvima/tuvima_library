@@ -411,6 +411,14 @@ app.MapMethods("/engine-stream/{assetId:guid}", [HttpMethods.Get, HttpMethods.He
     .WithName("ProxyEngineMediaStream")
     .WithSummary("Proxies Engine media bytes through the Dashboard origin for browser media playback.");
 
+app.MapMethods(
+        "/engine-hls/{grant}/{packageId:guid}/{**resourcePath}",
+        [HttpMethods.Get, HttpMethods.Head],
+        ProxyEngineHlsAsync)
+    .WithName("ProxyEngineAdaptiveHls")
+    .WithSummary("Proxies one signed adaptive HLS package through the Dashboard origin.")
+    .AllowAnonymous();
+
 app.MapMethods("/engine-image/{**enginePath}", [HttpMethods.Get, HttpMethods.Head], ProxyEngineImageAsync)
     .WithName("ProxyEngineImage")
     .WithSummary("Proxies authenticated Engine artwork through the Dashboard origin.")
@@ -461,6 +469,33 @@ static async Task ProxyEngineStreamAsync(
     }
 
     await response.Content.CopyToAsync(ctx.Response.Body, ct);
+}
+
+static async Task ProxyEngineHlsAsync(
+    string grant,
+    Guid packageId,
+    string? resourcePath,
+    HttpContext ctx,
+    IHttpClientFactory httpFactory,
+    CancellationToken ct)
+{
+    var normalizedPath = (resourcePath ?? string.Empty).Replace('\\', '/').TrimStart('/');
+    if (string.IsNullOrWhiteSpace(normalizedPath)
+        || normalizedPath.Split('/').Any(segment => segment is ".." or "." || string.IsNullOrWhiteSpace(segment)))
+    {
+        ctx.Response.StatusCode = StatusCodes.Status404NotFound;
+        return;
+    }
+
+    var client = httpFactory.CreateClient("EngineApi");
+    using var request = new HttpRequestMessage(
+        HttpMethods.IsHead(ctx.Request.Method) ? HttpMethod.Head : HttpMethod.Get,
+        $"/stream/hls/{Uri.EscapeDataString(grant)}/{packageId:D}/{normalizedPath}");
+    using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
+    ctx.Response.StatusCode = (int)response.StatusCode;
+    CopyResponseHeaders(response, ctx.Response);
+    if (!HttpMethods.IsHead(ctx.Request.Method))
+        await response.Content.CopyToAsync(ctx.Response.Body, ct);
 }
 
 static async Task ProxyEngineImageAsync(

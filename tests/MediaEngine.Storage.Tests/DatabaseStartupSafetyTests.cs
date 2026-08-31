@@ -270,6 +270,8 @@ public sealed class DatabaseStartupSafetyTests
             ("local_item_search_keys", "item_id"),
             ("offline_variants", "id"),
             ("offline_variants", "asset_id"),
+            ("adaptive_hls_packages", "id"),
+            ("adaptive_hls_packages", "asset_id"),
             ("onboarding_restore_operations", "id"),
             ("onboarding_sessions", "id"),
             ("onboarding_workflows", "administrator_profile_id"),

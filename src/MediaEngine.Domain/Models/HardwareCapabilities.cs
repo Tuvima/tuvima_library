@@ -22,4 +22,10 @@ public sealed record HardwareCapabilities
 
     /// <summary>Human-readable description of the detected accelerator, or null.</summary>
     public string? DetectedAccelerator { get; init; }
+
+    public bool HasHlsMuxer { get; init; }
+    public bool HasH264Encoder { get; init; }
+    public bool HasAacEncoder { get; init; }
+    public bool HasWebVttEncoder { get; init; }
+    public bool AdaptiveHlsReady => HasHlsMuxer && HasH264Encoder && HasAacEncoder;
 }

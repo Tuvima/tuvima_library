@@ -42,14 +42,16 @@ Tokens are opaque bearer credentials and must be stored in the platform secure c
 | Browse/home | `GET /api/v1/display/home`, `/browse`, `/shelves/{key}`, `/groups/{id}` | `library.read` |
 | Search | `GET /api/v1/display/search?q=` | `library.read` |
 | Details | `GET /api/v1/details/{entityType}/{id}` | `library.read` |
-| Artwork/media bytes | URLs returned by display/detail/manifest models; `/api/v1/stream/{assetId}` supports ranges | `artwork.read` or `playback.read` as applicable |
+| Artwork/media bytes | URLs returned by display/detail/manifest models; `/api/v1/stream/{assetId}` supports ranges and signed `/api/v1/stream/hls/...` paths serve adaptive packages | `artwork.read` or `playback.read` as applicable |
 | Progress | `GET/PUT /api/v1/progress/{assetId}`, `GET /recent`, `GET /journey` | `progress.read` / `progress.write` |
 | Queues | `GET /api/v1/player/state`, mutations under `/api/v1/player/queue` | `queue.read` / `queue.write` |
 | Playback session | `/api/v1/player/command`, `/heartbeat`, `/session/takeover` | `playback.write` or `progress.write` |
 | Playback decision | `GET /api/v1/playback/{assetId}/manifest` | `playback.read` |
 | Downloads | encode/offline routes under `/api/v1/playback` | `downloads.read` / `downloads.write` |
 
-Capability negotiation declares containers, video/audio codecs, subtitle formats, protocols, maximum dimensions/bitrate/channels, HDR, speed, and offline-download support. The playback manifest compares those registered capabilities with inspected source media and returns `directPlaySupported`, `recommendedDelivery`, source/alternate URLs, tracks, chapters, resume state, warnings, and a conversion reason. Clients must follow the manifest rather than independently guessing whether a file can direct-play.
+Capability negotiation declares containers, video/audio codecs, subtitle formats, protocols, maximum dimensions/bitrate/channels, HDR, speed, and offline-download support. The playback manifest compares those registered capabilities with inspected source media and returns `directPlaySupported`, `recommendedDelivery`, source/alternate URLs, tracks, chapters, resume state, warnings, and a conversion reason. For HLS it also returns `hlsStatus`, `hlsUrl`, and `hlsExpiresAt`. `preparing` means the client should retry the manifest; `ready` supplies the playable path. Clients must follow the manifest rather than independently guessing whether a file can direct-play.
+
+The HLS URL is a bearer capability scoped to one asset, package, and expiration time. It is intentionally usable by native HLS media stacks that cannot attach application authorization headers to every segment request. Clients must not log, persist, or share it. Expired or modified paths return `403`; missing and traversal-rejected package resources return `404`. Relative URIs in the master and media playlists preserve the same signed path for variant, alternate-audio, caption, and segment requests.
 
 Most paginated GET endpoints accept `offset`/`limit` query parameters. View
 timeline and discovery endpoints use opaque/keyset `cursor` plus `limit`, and

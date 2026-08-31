@@ -854,6 +854,24 @@ AI-generated per-user taste vectors, updated by the Taste Profiling feature.
 
 ## Activity
 
+### adaptive_hls_packages
+
+Lifecycle index for prepared adaptive playback packages. Media bytes remain on disk under the configured variant cache; SQLite stores only package identity, state, size, and reclamation metadata.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | BLOB | Package UUID, primary key. |
+| `asset_id` | BLOB | Owning media asset; cascade-deleted with the asset. |
+| `source_hash` | TEXT | Source fingerprint that invalidates a package when the media changes. |
+| `profile_key` | TEXT | Adaptive packaging profile identity. |
+| `status` | TEXT | `preparing`, `ready`, `failed`, or `deleting`. |
+| `root_path` | TEXT | Managed package directory below the HLS variant cache. |
+| `total_bytes` | INTEGER | Completed package size used for bounded LRU cleanup. |
+| `created_at`, `last_accessed`, `completed_at` | TEXT | Lifecycle and eviction timestamps. |
+| `last_error` | TEXT | Most recent package preparation failure. |
+
+The unique key is `(asset_id, source_hash, profile_key)`. Cleanup scans the `(status, last_accessed)` index.
+
 ### system_activity
 
 Rolling log of Engine actions. Pruned automatically per `config/maintenance.json`.

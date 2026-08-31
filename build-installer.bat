@@ -26,6 +26,30 @@ if "%ISCC%"=="" (
 :: Output directories
 set "ENGINE_OUT=dist\win\engine"
 set "DASHBOARD_OUT=dist\win\dashboard"
+set "FFMPEG_SOURCE=tools\ffmpeg"
+
+if not exist "%FFMPEG_SOURCE%\ffmpeg.exe" (
+    echo ERROR: Packaged FFmpeg is missing: %FFMPEG_SOURCE%\ffmpeg.exe
+    exit /b 1
+)
+if not exist "%FFMPEG_SOURCE%\ffprobe.exe" (
+    echo ERROR: Packaged FFprobe is missing: %FFMPEG_SOURCE%\ffprobe.exe
+    exit /b 1
+)
+"%FFMPEG_SOURCE%\ffmpeg.exe" -hide_banner -version >nul 2>&1 || exit /b 1
+"%FFMPEG_SOURCE%\ffprobe.exe" -hide_banner -version >nul 2>&1 || exit /b 1
+powershell -NoProfile -Command "if ((Get-FileHash -Algorithm SHA256 -LiteralPath '%FFMPEG_SOURCE%\ffmpeg.exe').Hash -ne '989A60089B9B1A98896A5BD99EE793AB6841724E1B2441D5EF3E5D17DB0B0938') { exit 1 }" || (
+    echo ERROR: Packaged FFmpeg checksum does not match the approved release.
+    exit /b 1
+)
+powershell -NoProfile -Command "if ((Get-FileHash -Algorithm SHA256 -LiteralPath '%FFMPEG_SOURCE%\ffprobe.exe').Hash -ne '001D80FDDF67BC303E91C6B8ECCDF53AF29A5F87ECF3837056B391CC3DD3F7B4') { exit 1 }" || (
+    echo ERROR: Packaged FFprobe checksum does not match the approved release.
+    exit /b 1
+)
+"%FFMPEG_SOURCE%\ffmpeg.exe" -hide_banner -encoders 2>&1 | findstr /c:"libx264" >nul || exit /b 1
+"%FFMPEG_SOURCE%\ffmpeg.exe" -hide_banner -encoders 2>&1 | findstr /c:" aac " >nul || exit /b 1
+"%FFMPEG_SOURCE%\ffmpeg.exe" -hide_banner -encoders 2>&1 | findstr /c:" webvtt " >nul || exit /b 1
+"%FFMPEG_SOURCE%\ffmpeg.exe" -hide_banner -muxers 2>&1 | findstr /c:" hls " >nul || exit /b 1
 
 echo.
 echo ── Cleaning previous build output ──────────────────────────────────────

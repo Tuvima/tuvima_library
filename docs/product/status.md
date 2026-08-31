@@ -40,6 +40,7 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 | Settings > Providers | Live | Provider catalogue/status/config, credential state, health, tests, and pipeline priority are backed where the Engine exposes them. |
 | Settings > Local AI | Live | Model inventory, download/cancel/load/unload, hardware profile, benchmark, resources, feature flags, vocabulary, and schedules are connected where endpoints exist. |
 | Playback and reader preferences | Live | Personal playback, reading, subtitle, resume, audiobook chapter cleanup, audiobook history/bookmarks, chapter display-title overrides, and progress preferences persist through the playback settings and player APIs. |
+| Adaptive video delivery | Live | Incompatible or remote video sources can be prepared as source-aware HLS with bitrate variants, alternate audio, WebVTT captions, seek/resume support, expiring package-scoped access, bounded storage cleanup, and optional hardware encoding. Compatible sources remain direct play. |
 | Plugins | Partial | Plugin list, enable/disable, settings JSON, dynamic manifests, health, jobs, and approved-catalog lookup are available. |
 | Users and access | Partial | Profiles and API keys are Engine-backed. Network exposure is managed separately under Network & Remote Access. Broader account/session policy remains in progress. |
 

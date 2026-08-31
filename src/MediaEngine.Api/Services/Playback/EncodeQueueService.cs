@@ -108,7 +108,7 @@ public sealed class EncodeQueueService : BackgroundService
         var profile = SanitizeSegment(job.ProfileKey);
         var extension = job.ProfileKey.Equals("audio-mobile", StringComparison.OrdinalIgnoreCase)
             ? ".m4a"
-            : job.ProfileKey.Equals("tv-direct-hls", StringComparison.OrdinalIgnoreCase)
+            : job.ProfileKey.Equals("tv-adaptive-hls", StringComparison.OrdinalIgnoreCase)
                 ? ".m3u8"
                 : ".mp4";
 
@@ -132,7 +132,7 @@ public sealed class EncodeQueueService : BackgroundService
             "mobile-small" => $"-y -i {input} -map 0:v:0? -map 0:a:0? -c:v libx264 -preset veryfast -crf 29 -vf scale=-2:540 -c:a aac -b:a 128k -movflags +faststart {output}",
             "mobile-standard" => $"-y -i {input} -map 0:v:0? -map 0:a:0? -c:v libx264 -preset veryfast -crf 26 -vf scale=-2:720 -c:a aac -b:a 160k -movflags +faststart {output}",
             "audio-mobile" => $"-y -i {input} -vn -c:a aac -b:a 96k {output}",
-            "tv-direct-hls" => $"-y -i {input} -map 0:v:0? -map 0:a:0? -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 192k -f hls -hls_time 6 -hls_playlist_type vod {output}",
+            "tv-adaptive-hls" => $"-y -i {input} -map 0:v:0? -map 0:a:0? -c:v libx264 -preset veryfast -crf 23 -c:a aac -b:a 192k -f hls -hls_time 6 -hls_playlist_type vod {output}",
             _ => $"-y -i {input} -map 0:v:0? -map 0:a:0? -c:v libx264 -preset veryfast -crf 26 -vf scale=-2:720 -c:a aac -b:a 160k -movflags +faststart {output}",
         };
     }
@@ -142,7 +142,7 @@ public sealed class EncodeQueueService : BackgroundService
         "mobile-small" => new("Mobile small", "mp4", "h264", "aac", null, 540, null),
         "mobile-standard" => new("Mobile standard", "mp4", "h264", "aac", null, 720, null),
         "audio-mobile" => new("Audio mobile", "m4a", null, "aac", null, null, 96),
-        "tv-direct-hls" => new("TV HLS fallback", "hls", "h264", "aac", null, null, null),
+        "tv-adaptive-hls" => new("TV adaptive HLS", "hls", "h264", "aac", null, null, null),
         _ => new(profileKey, Path.GetExtension(outputPath).TrimStart('.'), "h264", "aac", null, null, null),
     };
 

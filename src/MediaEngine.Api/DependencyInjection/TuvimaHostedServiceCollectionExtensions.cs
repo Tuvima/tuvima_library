@@ -20,6 +20,7 @@ public static class TuvimaHostedServiceCollectionExtensions
         services.AddHostedService<AiUnavailableQuarantineRecoveryHostedService>();
 
         services.AddHostedService<EncodeQueueService>();
+        services.AddHostedService(provider => provider.GetRequiredService<AdaptiveHlsCleanupService>());
         services.AddHostedService<FolderHealthService>();
         services.AddHostedService(sp => sp.GetRequiredService<MetadataHarvestingService>());
         services.AddHostedService(sp => sp.GetRequiredService<DeferredEnrichmentService>());

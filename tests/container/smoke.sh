@@ -95,6 +95,10 @@ docker exec --user 10001:10001 "$CONTAINER" sh -ec '
     test -x /usr/bin/ffprobe
     ffmpeg -version >/dev/null
     ffprobe -version >/dev/null
+    ffmpeg -hide_banner -encoders 2>&1 | grep -q "libx264"
+    ffmpeg -hide_banner -encoders 2>&1 | grep -q " aac "
+    ffmpeg -hide_banner -encoders 2>&1 | grep -q " webvtt "
+    ffmpeg -hide_banner -muxers 2>&1 | grep -q " hls "
     test ! -e /config/backups/tuvima-backup-20260819-230724.zip
     test -z "$(find /config/secrets -type f -print -quit)"
     test -z "$(find /config -name "*.bak" -print -quit)"
@@ -113,6 +117,7 @@ docker exec --user 10001:10001 "$CONTAINER" sh -ec '
     grep -q "llama_cpu.*true" /tmp/ready.json
     curl --fail --silent http://127.0.0.1:61495/playback/diagnostics > /tmp/playback.json
     grep -q "ffmpegAvailable.*true" /tmp/playback.json
+    grep -q "adaptiveHlsReady.*true" /tmp/playback.json
 '
 
 docker exec --user 10001:10001 "$CONTAINER" sh -ec '

@@ -152,6 +152,27 @@ public static class SettingsEndpoints
             settings.DefaultMobileProfile = string.IsNullOrWhiteSpace(settings.DefaultMobileProfile)
                 ? settings.QualityProfiles.FirstOrDefault()?.Name ?? "mobile-small"
                 : settings.DefaultMobileProfile.Trim();
+            settings.AdaptiveHls.ProfileName = string.IsNullOrWhiteSpace(settings.AdaptiveHls.ProfileName)
+                ? "tv-adaptive-hls"
+                : settings.AdaptiveHls.ProfileName.Trim().ToLowerInvariant();
+            settings.AdaptiveHls.SegmentSeconds = Math.Clamp(settings.AdaptiveHls.SegmentSeconds, 2, 12);
+            settings.AdaptiveHls.AccessLifetimeMinutes = Math.Clamp(settings.AdaptiveHls.AccessLifetimeMinutes, 15, 720);
+            settings.AdaptiveHls.PreparationWaitSeconds = Math.Clamp(settings.AdaptiveHls.PreparationWaitSeconds, 1, 60);
+            settings.AdaptiveHls.CleanupIntervalMinutes = Math.Clamp(settings.AdaptiveHls.CleanupIntervalMinutes, 1, 1440);
+            settings.AdaptiveHls.Renditions = settings.AdaptiveHls.Renditions
+                .Where(rendition => rendition.Height is >= 144 and <= 4320
+                    && rendition.VideoBitrateKbps is >= 100 and <= 100_000)
+                .OrderByDescending(rendition => rendition.Height)
+                .GroupBy(rendition => rendition.Height)
+                .Select(group => group.First())
+                .Take(8)
+                .ToList();
+            foreach (var rendition in settings.AdaptiveHls.Renditions)
+            {
+                rendition.Name = string.IsNullOrWhiteSpace(rendition.Name) ? $"{rendition.Height}p" : rendition.Name.Trim();
+                rendition.MaxRateKbps = Math.Max(rendition.VideoBitrateKbps, rendition.MaxRateKbps);
+                rendition.BufferSizeKbps = Math.Max(rendition.MaxRateKbps, rendition.BufferSizeKbps);
+            }
 
             configLoader.SaveTranscoding(settings);
             return Results.Ok(SettingsContractMapper.ToContract(settings));

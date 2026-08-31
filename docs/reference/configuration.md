@@ -384,6 +384,30 @@ This file is the authoritative configuration for all Wikidata-related behaviour.
 
 ---
 
+## config/transcoding.json
+
+Controls FFmpeg discovery, adaptive playback packages, offline variants, concurrency, and cache retention.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `ffmpeg_binary_path` / `ffprobe_binary_path` | string | `""` | Explicit executable paths. Empty uses the packaged `tools/ffmpeg` binaries and then `PATH`. An explicit missing path fails capability detection instead of silently falling back. |
+| `hardware_acceleration` | string | `"auto"` | `auto`, `nvenc`, `quicksync`, `vaapi`, `cpu`, or `none`. Auto probes usable hardware encoders; CPU/none select `libx264`. |
+| `max_concurrent_transcodes` | int | `1` | Shared upper bound for adaptive package preparation. Clamped to 1-8. |
+| `shadow_storage_limit_gb` | int | `500` | Maximum prepared-variant storage. Cleanup evicts least-recently-used ready packages when this bound is exceeded. |
+| `variant_cache_path` | string | `".data/variants"` | Absolute path or path relative to `library_root`. Adaptive packages live below its `hls/` directory. |
+| `variant_retention_days` | int | `30` | Packages not accessed within this period are reclaimed. |
+| `cleanup_lru_enabled` | bool | `true` | Enables retention, failed-package, staging, and storage-bound cleanup. |
+| `adaptive_hls.profile_name` | string | `"tv-adaptive-hls"` | Human-readable cache profile prefix. The Engine automatically fingerprints the full adaptive profile, so segment or ladder changes prepare a new package. |
+| `adaptive_hls.segment_seconds` | int | `6` | Target HLS segment duration and keyframe alignment interval. |
+| `adaptive_hls.access_lifetime_minutes` | int | `240` | Lifetime of one package-scoped signed playback path. Clamped to 15-720 minutes. |
+| `adaptive_hls.preparation_wait_seconds` | int | `20` | Maximum manifest-request wait before returning `hlsStatus: preparing`. |
+| `adaptive_hls.cleanup_interval_minutes` | int | `15` | Background reclamation interval. |
+| `adaptive_hls.renditions[]` | object[] | 1080p/720p/480p | Ordered H.264 ladder. Each item has `name`, `height`, `video_bitrate_kbps`, `max_rate_kbps`, and `buffer_size_kbps`; renditions above the source height are omitted. |
+
+The Engine health and `/playback/diagnostics` responses report the HLS muxer, H.264, AAC, WebVTT, and preferred hardware encoder capabilities. A missing required video/audio capability makes adaptive delivery unavailable but does not disable compatible direct play.
+
+---
+
 ## config/ui/
 
 UI settings are layered: global defaults -> device profile -> user profile -> resolved effective settings.

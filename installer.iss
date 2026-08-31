@@ -42,6 +42,9 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 [Files]
 Source: "dist\win\engine\*";                DestDir: "{app}\engine";                      Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\win\dashboard\*";             DestDir: "{app}\dashboard";                   Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "tools\ffmpeg\ffmpeg.exe";           DestDir: "{app}\engine\tools\ffmpeg";         Flags: ignoreversion
+Source: "tools\ffmpeg\ffprobe.exe";          DestDir: "{app}\engine\tools\ffmpeg";         Flags: ignoreversion
+Source: "tools\ffmpeg\LICENSE*";              DestDir: "{app}\licenses\ffmpeg";             Flags: ignoreversion skipifsourcedoesntexist
 Source: "config\*";                          DestDir: "{commonappdata}\Tuvima\config";       Flags: ignoreversion recursesubdirs createallsubdirs onlyifdoesntexist
 
 [Dirs]

@@ -75,6 +75,8 @@ public sealed class MediaRuntimeHealthCheck(IFFmpegService ffmpeg) : IHealthChec
                     .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
                     .FirstOrDefault();
                 if (version.ExitCode != 0) failures.Add("FFmpeg version probe returned a non-zero exit code.");
+                if (!ffmpeg.HardwareCapabilities.AdaptiveHlsReady)
+                    failures.Add("FFmpeg lacks an HLS muxer, H.264 encoder, or AAC encoder required for adaptive delivery.");
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

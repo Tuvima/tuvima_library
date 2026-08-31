@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=664; api=0; web-client=87
+# scopes: contracts=666; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4513,11 +4513,16 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   FFmpegAvailable: System.Boolean | json=fFmpegAvailable | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   FFmpegVersion: System.String | json=fFmpegVersion | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HlsMuxerAvailable: System.Boolean | json=hlsMuxerAvailable | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  H264EncoderAvailable: System.Boolean | json=h264EncoderAvailable | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AacEncoderAvailable: System.Boolean | json=aacEncoderAvailable | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  WebVttEncoderAvailable: System.Boolean | json=webVttEncoderAvailable | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PreferredHardwareEncoder: System.String | json=preferredHardwareEncoder | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MediaInfoAvailable: System.Boolean | json=mediaInfoAvailable | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MediaInfoVersion: System.String | json=mediaInfoVersion | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ActiveJobs: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.EncodeJobDto> | json=activeJobs | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Warnings: System.Collections.Generic.IReadOnlyList<System.String> | json=warnings | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"fFmpegAvailable":true,"fFmpegVersion":"sample","mediaInfoAvailable":true,"mediaInfoVersion":"sample","activeJobs":[],"warnings":[]}
+  sample={"fFmpegAvailable":true,"fFmpegVersion":"sample","hlsMuxerAvailable":true,"h264EncoderAvailable":true,"aacEncoderAvailable":true,"webVttEncoderAvailable":true,"preferredHardwareEncoder":"sample","mediaInfoAvailable":true,"mediaInfoVersion":"sample","activeJobs":[],"warnings":[]}
 
 [contracts] MediaEngine.Contracts.Playback.PlaybackGeneralSettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4543,6 +4548,8 @@
   DirectPlaySupported: System.Boolean | json=directPlaySupported | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DirectStreamUrl: System.String | json=directStreamUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   HlsUrl: System.String | json=hlsUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HlsStatus: System.String | json=hlsStatus | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HlsExpiresAt: System.DateTimeOffset? | json=hlsExpiresAt | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Profile: MediaEngine.Contracts.Playback.PlaybackProfileDto | json=profile | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AudioTracks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackTrackDto> | json=audioTracks | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SubtitleTracks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackSubtitleTrackDto> | json=subtitleTracks | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -4555,7 +4562,7 @@
   ConversionReason: System.String | json=conversionReason | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SourceBitrateKbps: System.Int32? | json=sourceBitrateKbps | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Connection: MediaEngine.Contracts.Playback.PlaybackConnectionContextDto | json=connection | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"assetId":"11111111-2222-3333-4444-555555555555","client":"sample","mediaType":"sample","sourceExtension":"sample","recommendedDelivery":"sample","directPlaySupported":true,"directStreamUrl":"sample","hlsUrl":"sample","profile":null,"audioTracks":[],"subtitleTracks":[],"chapters":[],"offlineVariants":[],"resume":null,"segments":[],"technical":null,"warnings":[],"conversionReason":"sample","sourceBitrateKbps":7,"connection":null}
+  sample={"assetId":"11111111-2222-3333-4444-555555555555","client":"sample","mediaType":"sample","sourceExtension":"sample","recommendedDelivery":"sample","directPlaySupported":true,"directStreamUrl":"sample","hlsUrl":"sample","hlsStatus":"sample","hlsExpiresAt":"2025-01-02T03:04:05+00:00","profile":null,"audioTracks":[],"subtitleTracks":[],"chapters":[],"offlineVariants":[],"resume":null,"segments":[],"technical":null,"warnings":[],"conversionReason":"sample","sourceBitrateKbps":7,"connection":null}
 
 [contracts] MediaEngine.Contracts.Playback.PlaybackProfileDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5890,6 +5897,16 @@
   HintFields: System.Collections.Generic.List<System.String> | json=hint_fields | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"when":"sample","provider":"sample","max_attempts":7,"hint_fields":[]}
 
+[contracts] MediaEngine.Contracts.Settings.AdaptiveHlsSettings
+  kind=class | converter=default | number-handling=default | unmapped=default
+  ProfileName: System.String | json=profile_name | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SegmentSeconds: System.Int32 | json=segment_seconds | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AccessLifetimeMinutes: System.Int32 | json=access_lifetime_minutes | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PreparationWaitSeconds: System.Int32 | json=preparation_wait_seconds | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CleanupIntervalMinutes: System.Int32 | json=cleanup_interval_minutes | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Renditions: System.Collections.Generic.List<MediaEngine.Contracts.Settings.HlsRenditionProfile> | json=renditions | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"profile_name":"sample","segment_seconds":7,"access_lifetime_minutes":7,"preparation_wait_seconds":7,"cleanup_interval_minutes":7,"renditions":[]}
+
 [contracts] MediaEngine.Contracts.Settings.AuthSettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Mode: System.String | json=mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -5926,6 +5943,15 @@
   Transform: System.String | json=transform | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   TransformArgs: System.String | json=transform_args | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"claim_key":"sample","json_path":"sample","confidence":7,"transform":"sample","transform_args":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.HlsRenditionProfile
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Name: System.String | json=name | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Height: System.Int32 | json=height | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  VideoBitrateKbps: System.Int32 | json=video_bitrate_kbps | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MaxRateKbps: System.Int32 | json=max_rate_kbps | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BufferSizeKbps: System.Int32 | json=buffer_size_kbps | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"name":"sample","height":7,"video_bitrate_kbps":7,"max_rate_kbps":7,"buffer_size_kbps":7}
 
 [contracts] MediaEngine.Contracts.Settings.HydrationSettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6577,7 +6603,8 @@
   VariantRetentionDays: System.Int32 | json=variant_retention_days | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CleanupLruEnabled: System.Boolean | json=cleanup_lru_enabled | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DefaultMobileProfile: System.String | json=default_mobile_profile | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"ffmpeg_binary_path":"sample","ffprobe_binary_path":"sample","hardware_acceleration":"sample","max_concurrent_transcodes":7,"shadow_storage_limit_gb":7,"quality_profiles":[],"scheduled_encodes_enabled":true,"maintenance_window":"sample","variant_cache_path":"sample","variant_retention_days":7,"cleanup_lru_enabled":true,"default_mobile_profile":"sample"}
+  AdaptiveHls: MediaEngine.Contracts.Settings.AdaptiveHlsSettings | json=adaptive_hls | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"ffmpeg_binary_path":"sample","ffprobe_binary_path":"sample","hardware_acceleration":"sample","max_concurrent_transcodes":7,"shadow_storage_limit_gb":7,"quality_profiles":[],"scheduled_encodes_enabled":true,"maintenance_window":"sample","variant_cache_path":"sample","variant_retention_days":7,"cleanup_lru_enabled":true,"default_mobile_profile":"sample","adaptive_hls":null}
 
 [contracts] MediaEngine.Contracts.Settings.UIDeviceConstraintsContract
   kind=class | converter=default | number-handling=default | unmapped=default

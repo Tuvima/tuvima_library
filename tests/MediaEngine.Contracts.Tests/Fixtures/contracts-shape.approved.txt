@@ -3757,6 +3757,11 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackDeliveryMo
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackDiagnosticsDto
   FFmpegAvailable: System.Boolean | nullability=not-null | accessors=get,init
   FFmpegVersion: System.String | nullability=nullable | accessors=get,init
+  HlsMuxerAvailable: System.Boolean | nullability=not-null | accessors=get,init
+  H264EncoderAvailable: System.Boolean | nullability=not-null | accessors=get,init
+  AacEncoderAvailable: System.Boolean | nullability=not-null | accessors=get,init
+  WebVttEncoderAvailable: System.Boolean | nullability=not-null | accessors=get,init
+  PreferredHardwareEncoder: System.String | nullability=nullable | accessors=get,init
   MediaInfoAvailable: System.Boolean | nullability=not-null | accessors=get,init
   MediaInfoVersion: System.String | nullability=nullable | accessors=get,init
   ActiveJobs: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.EncodeJobDto> | nullability=not-null | accessors=get,init
@@ -3783,6 +3788,8 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackManifestDt
   DirectPlaySupported: System.Boolean | nullability=not-null | accessors=get,init
   DirectStreamUrl: System.String | nullability=nullable | accessors=get,init
   HlsUrl: System.String | nullability=nullable | accessors=get,init
+  HlsStatus: System.String | nullability=nullable | accessors=get,init
+  HlsExpiresAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
   Profile: MediaEngine.Contracts.Playback.PlaybackProfileDto | nullability=not-null | accessors=get,init
   AudioTracks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackTrackDto> | nullability=not-null | accessors=get,init
   SubtitleTracks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackSubtitleTrackDto> | nullability=not-null | accessors=get,init
@@ -4932,6 +4939,14 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.AcceptedProviderTr
   MaxAttempts: System.Int32 | nullability=not-null | accessors=get,set
   HintFields: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
 
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.AdaptiveHlsSettings
+  ProfileName: System.String | nullability=not-null | accessors=get,set
+  SegmentSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  AccessLifetimeMinutes: System.Int32 | nullability=not-null | accessors=get,set
+  PreparationWaitSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  CleanupIntervalMinutes: System.Int32 | nullability=not-null | accessors=get,set
+  Renditions: System.Collections.Generic.List<MediaEngine.Contracts.Settings.HlsRenditionProfile> | nullability=not-null | accessors=get,set
+
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.AuthSettingsDto
   Mode: System.String | nullability=not-null | accessors=get,init
   LocalhostBypass: System.Boolean | nullability=not-null | accessors=get,init
@@ -4960,6 +4975,13 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.FieldMappingDto
   Confidence: System.Double | nullability=not-null | accessors=get,set
   Transform: System.String | nullability=nullable | accessors=get,set
   TransformArgs: System.String | nullability=nullable | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.HlsRenditionProfile
+  Name: System.String | nullability=not-null | accessors=get,set
+  Height: System.Int32 | nullability=not-null | accessors=get,set
+  VideoBitrateKbps: System.Int32 | nullability=not-null | accessors=get,set
+  MaxRateKbps: System.Int32 | nullability=not-null | accessors=get,set
+  BufferSizeKbps: System.Int32 | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.HydrationSettingsDto
   MaxConcurrentRetailProviderJobs: System.Int32 | nullability=not-null | accessors=get,set
@@ -5503,6 +5525,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.TranscodingSetting
   VariantRetentionDays: System.Int32 | nullability=not-null | accessors=get,set
   CleanupLruEnabled: System.Boolean | nullability=not-null | accessors=get,set
   DefaultMobileProfile: System.String | nullability=not-null | accessors=get,set
+  AdaptiveHls: MediaEngine.Contracts.Settings.AdaptiveHlsSettings | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.UIDeviceConstraintsContract
   FeaturesDisabled: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set

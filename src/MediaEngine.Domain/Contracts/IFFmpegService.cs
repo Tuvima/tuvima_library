@@ -36,4 +36,13 @@ public interface IFFmpegService
     /// </summary>
     Task<(int ExitCode, string Output, string Error)> RunAsync(
         string arguments, CancellationToken ct = default);
+
+    Task<(int ExitCode, string Output, string Error)> RunAsync(
+        IReadOnlyList<string> arguments, CancellationToken ct = default) =>
+        RunAsync(
+            string.Join(' ', arguments.Select(argument =>
+                argument.Any(char.IsWhiteSpace) || argument.Contains('"')
+                    ? $"\"{argument.Replace("\"", "\\\"")}\""
+                    : argument)),
+            ct);
 }

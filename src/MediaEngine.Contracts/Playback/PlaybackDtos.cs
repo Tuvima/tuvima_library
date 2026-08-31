@@ -10,6 +10,8 @@ public sealed record PlaybackManifestDto
     public bool DirectPlaySupported { get; init; }
     public string? DirectStreamUrl { get; init; }
     public string? HlsUrl { get; init; }
+    public string? HlsStatus { get; init; }
+    public DateTimeOffset? HlsExpiresAt { get; init; }
     public PlaybackProfileDto Profile { get; init; } = new();
     public IReadOnlyList<PlaybackTrackDto> AudioTracks { get; init; } = [];
     public IReadOnlyList<PlaybackSubtitleTrackDto> SubtitleTracks { get; init; } = [];
@@ -456,6 +458,11 @@ public sealed record PlaybackDiagnosticsDto
 {
     public bool FFmpegAvailable { get; init; }
     public string? FFmpegVersion { get; init; }
+    public bool HlsMuxerAvailable { get; init; }
+    public bool H264EncoderAvailable { get; init; }
+    public bool AacEncoderAvailable { get; init; }
+    public bool WebVttEncoderAvailable { get; init; }
+    public string? PreferredHardwareEncoder { get; init; }
     public bool MediaInfoAvailable { get; init; }
     public string? MediaInfoVersion { get; init; }
     public IReadOnlyList<EncodeJobDto> ActiveJobs { get; init; } = [];

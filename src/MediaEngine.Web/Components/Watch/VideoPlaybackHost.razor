@@ -188,6 +188,20 @@
                             </PlaybackSheetRow>
                         </PlaybackSheetList>
                         break;
+                    case "audio-track":
+                        <PlaybackSheetList>
+                            @for (var index = 0; index < AudioTracks.Count; index++)
+                            {
+                                var trackIndex = index;
+                                var track = AudioTracks[index];
+                                <PlaybackSheetRow OnClick="@(() => SelectAudioTrackAsync(trackIndex))"
+                                                  IsActive="@track.IsDefault"
+                                                  AriaLabel="@($"Select {AudioTrackLabel(track, trackIndex)}")">
+                                    <span class="playback-sheet-row__copy"><strong>@AudioTrackLabel(track, trackIndex)</strong><span>@track.Codec</span></span>
+                                </PlaybackSheetRow>
+                            }
+                        </PlaybackSheetList>
+                        break;
                     case "quality":
                         <PlaybackSheetList>
                             <PlaybackSheetRow IsButton="false" IsActive="true">
@@ -281,6 +295,7 @@
         (Playback.CurrentManifest?.SubtitleTracks ?? [])
             .Where(track => !string.IsNullOrWhiteSpace(track.DeliveryUrl))
             .ToList();
+    private IReadOnlyList<PlaybackTrackDto> AudioTracks => Playback.CurrentManifest?.AudioTracks ?? [];
     private IReadOnlyList<PlaybackChapterDto> VideoChapters => Playback.CurrentItem?.Chapters ?? [];
     private IReadOnlyList<PlaybackControlDefinition> VideoToolControls =>
         PlaybackControlCatalog.BuildToolStrip(
@@ -292,7 +307,7 @@
                 HasChapters: VideoChapters.Count > 0,
                 HasQueue: Playback.CurrentIndex < Playback.Queue.Count - 1,
                 HasCaptions: SubtitleTracks.Count > 0,
-                HasAudioTracks: false,
+                HasAudioTracks: AudioTracks.Count > 1,
                 HasQualityOptions: true));
     private string VideoToolTitle => _activeToolSheet switch
     {
@@ -694,6 +709,19 @@
 
     private Task ToggleCaptionsAsync()
         => JS.InvokeVoidAsync("listenPlayback.toggleCaptions", _videoRef).AsTask();
+
+    private async Task SelectAudioTrackAsync(int index)
+    {
+        await JS.InvokeVoidAsync("listenPlayback.selectAudioTrack", _videoRef, index);
+        CloseToolSheet();
+    }
+
+    private static string AudioTrackLabel(PlaybackTrackDto track, int index) =>
+        StringHelpers.FirstNonBlankOr(
+            $"Audio {index + 1}",
+            track.DisplayName,
+            track.Language?.ToUpperInvariant(),
+            $"Audio {index + 1}");
 
     private Task ToggleFullscreenAsync()
         => JS.InvokeVoidAsync("listenPlayback.toggleFullscreen", _videoRef).AsTask();

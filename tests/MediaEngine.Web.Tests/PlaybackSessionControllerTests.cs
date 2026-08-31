@@ -359,6 +359,34 @@ public sealed class PlaybackSessionControllerTests
     }
 
     [Fact]
+    public async Task PlayVideoAsync_UsesSignedHlsUrlWhenManifestRequiresAdaptiveDelivery()
+    {
+        var service = new PlaybackSessionController(null!, null!);
+        PlaybackTransportCommand? command = null;
+        service.TransportCommandRequested += next =>
+        {
+            command = next;
+            return Task.CompletedTask;
+        };
+        var packageId = Guid.NewGuid();
+        var video = CreateVideoItem("Inception", "/stream/source") with
+        {
+            Manifest = new PlaybackManifestDto
+            {
+                RecommendedDelivery = PlaybackDeliveryModes.Hls,
+                DirectPlaySupported = false,
+                DirectStreamUrl = "/stream/source",
+                HlsUrl = $"/stream/hls/grant/{packageId:D}/master.m3u8",
+            },
+        };
+
+        await service.PlayVideoAsync(video, "Inception");
+
+        Assert.Equal($"/engine-hls/grant/{packageId:D}/master.m3u8", command?.StreamUrl);
+        Assert.Equal($"/engine-hls/grant/{packageId:D}/master.m3u8", service.CurrentBrowserStreamUrl);
+    }
+
+    [Fact]
     public async Task AddQueueItemAsync_Video_ReplacesMusicQueueInsteadOfAppending()
     {
         var service = new PlaybackSessionController(null!, null!);

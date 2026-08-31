@@ -79,6 +79,15 @@ public sealed class FFmpegService : IFFmpegService
         return await RunProcessAsync(FfmpegPath!, arguments, ct).ConfigureAwait(false);
     }
 
+    public async Task<(int ExitCode, string Output, string Error)> RunAsync(
+        IReadOnlyList<string> arguments, CancellationToken ct = default)
+    {
+        if (!IsAvailable)
+            throw new InvalidOperationException("FFmpeg is not available. Check tools/ffmpeg/ or system PATH.");
+
+        return await RunProcessAsync(FfmpegPath!, arguments, ct).ConfigureAwait(false);
+    }
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private static string? ResolveBinary(string name, string? configuredPath)
@@ -118,13 +127,11 @@ public sealed class FFmpegService : IFFmpegService
 
     private HardwareCapabilities DetectHardware(string mode)
     {
-        if (string.Equals(mode, "none", StringComparison.OrdinalIgnoreCase))
-            return new HardwareCapabilities();
-
         try
         {
+            mode = mode.Trim().ToLowerInvariant();
             // Query available encoders synchronously at startup.
-            var psi = new ProcessStartInfo(FfmpegPath!, "-encoders -v quiet")
+            var psi = new ProcessStartInfo(FfmpegPath!, "-hide_banner -encoders")
             {
                 RedirectStandardOutput = true,
                 RedirectStandardError  = true,
@@ -135,15 +142,25 @@ public sealed class FFmpegService : IFFmpegService
             if (p is null) return new HardwareCapabilities();
             var output = p.StandardOutput.ReadToEnd();
             p.WaitForExit(10_000);
+            var muxers = QueryCapabilityOutput("-hide_banner -muxers");
 
-            bool hasNvenc     = output.Contains("h264_nvenc",     StringComparison.OrdinalIgnoreCase);
-            bool hasQsv       = output.Contains("h264_qsv",       StringComparison.OrdinalIgnoreCase);
-            bool hasVaapi     = output.Contains("h264_vaapi",     StringComparison.OrdinalIgnoreCase);
+            bool hasNvenc     = ListsCapability(output, "h264_nvenc");
+            bool hasQsv       = ListsCapability(output, "h264_qsv");
+            bool hasVaapi     = ListsCapability(output, "h264_vaapi");
+            bool hasLibx264   = ListsCapability(output, "libx264");
+            bool hasAac       = ListsCapability(output, "aac");
+            bool hasWebVtt    = ListsCapability(output, "webvtt");
+            bool hasHls       = ListsCapability(muxers, "hls");
+
+            hasNvenc = hasNvenc && ProbeEncoder("h264_nvenc");
+            hasQsv = hasQsv && ProbeEncoder("h264_qsv");
+            hasVaapi = hasVaapi && ProbeEncoder("h264_vaapi");
 
             // If mode is "auto", pick best; if mode is explicit, honour it.
-            bool useNvenc  = hasNvenc  && (mode is "auto" or "nvenc");
-            bool useQsv    = hasQsv    && (mode is "auto" or "quicksync") && !useNvenc;
-            bool useVaapi  = hasVaapi  && (mode is "auto" or "vaapi")     && !useNvenc && !useQsv;
+            bool softwareOnly = mode is "none" or "cpu";
+            bool useNvenc  = !softwareOnly && hasNvenc && (mode is "auto" or "nvenc");
+            bool useQsv    = !softwareOnly && hasQsv && (mode is "auto" or "quicksync") && !useNvenc;
+            bool useVaapi  = !softwareOnly && hasVaapi && (mode is "auto" or "vaapi") && !useNvenc && !useQsv;
 
             string encoder    = useNvenc ? "h264_nvenc" : useQsv ? "h264_qsv" : useVaapi ? "h264_vaapi" : "libx264";
             string? accelName = useNvenc ? "NVIDIA NVENC" : useQsv ? "Intel Quick Sync" : useVaapi ? "VAAPI" : null;
@@ -155,6 +172,10 @@ public sealed class FFmpegService : IFFmpegService
                 HasVaapi            = hasVaapi,
                 PreferredEncoder    = encoder,
                 DetectedAccelerator = accelName,
+                HasHlsMuxer         = hasHls,
+                HasH264Encoder      = hasLibx264 || hasNvenc || hasQsv || hasVaapi,
+                HasAacEncoder       = hasAac,
+                HasWebVttEncoder    = hasWebVtt,
             };
         }
         catch (Exception ex)
@@ -183,6 +204,46 @@ public sealed class FFmpegService : IFFmpegService
         var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
         var stderrTask = process.StandardError.ReadToEndAsync(ct);
         await Task.WhenAll(stdoutTask, stderrTask, process.WaitForExitAsync(ct)).ConfigureAwait(false);
+
+        return (process.ExitCode, await stdoutTask, await stderrTask);
+    }
+
+    private static bool ListsCapability(string output, string name) => output
+        .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+        .Select(line => line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+        .Any(parts => parts.Length >= 2 && string.Equals(parts[1], name, StringComparison.OrdinalIgnoreCase));
+
+    private static async Task<(int ExitCode, string Output, string Error)> RunProcessAsync(
+        string binary, IReadOnlyList<string> arguments, CancellationToken ct)
+    {
+        var psi = new ProcessStartInfo(binary)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        foreach (var argument in arguments) psi.ArgumentList.Add(argument);
+
+        using var process = new Process { StartInfo = psi };
+        process.Start();
+        var stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
+        var stderrTask = process.StandardError.ReadToEndAsync(ct);
+        try
+        {
+            await Task.WhenAll(stdoutTask, stderrTask, process.WaitForExitAsync(ct)).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            try
+            {
+                if (!process.HasExited) process.Kill(entireProcessTree: true);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            throw;
+        }
 
         return (process.ExitCode, await stdoutTask, await stderrTask);
     }
@@ -367,6 +428,54 @@ public sealed class FFmpegService : IFFmpegService
         catch
         {
             return null;
+        }
+    }
+
+    private string QueryCapabilityOutput(string arguments)
+    {
+        var psi = new ProcessStartInfo(FfmpegPath!, arguments)
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+        using var process = Process.Start(psi);
+        if (process is null) return string.Empty;
+        var output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit(10_000);
+        return output;
+    }
+
+    private bool ProbeEncoder(string encoder)
+    {
+        try
+        {
+            var psi = new ProcessStartInfo(FfmpegPath!)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            foreach (var argument in new[]
+                     {
+                         "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "color=size=64x64:rate=1",
+                         "-frames:v", "1", "-c:v", encoder, "-f", "null", "-",
+                     })
+            {
+                psi.ArgumentList.Add(argument);
+            }
+
+            using var process = Process.Start(psi);
+            if (process is null) return false;
+            _ = process.StandardOutput.ReadToEnd();
+            _ = process.StandardError.ReadToEnd();
+            return process.WaitForExit(10_000) && process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
         }
     }
 

@@ -81,21 +81,45 @@ RUN case "$TARGETARCH" in \
 
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+ARG TARGETARCH
 WORKDIR /app
 
 # FFmpeg/FFprobe provide probing, thumbnails and transcodes. libfontconfig and
 # libgomp are required by the bundled SkiaSharp and LLamaSharp CPU runtimes.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
+      ca-certificates \
       curl \
-      ffmpeg \
       gosu \
       libfontconfig1 \
       libgomp1 \
+      xz-utils \
  && rm -rf /var/lib/apt/lists/*
 
+# Use the same immutable GPL build family as the Windows installer. Checksums
+# are published on the upstream GitHub release and recorded in tools/ffmpeg/README.md.
+RUN case "$TARGETARCH" in \
+      amd64) ffmpeg_platform="linux64"; ffmpeg_sha="be5f44d1062386b2a9b4ed75fa1af03873e2bbc1ae82842ef4d479c8e05a76de" ;; \
+      arm64) ffmpeg_platform="linuxarm64"; ffmpeg_sha="1cb67f7fd3de30bf2ae28b7ab9727dc3a84f1aeef9f791b309023f9d7ac0aff5" ;; \
+      *) echo "Unsupported FFmpeg architecture: $TARGETARCH" >&2; exit 1 ;; \
+    esac \
+ && ffmpeg_archive="ffmpeg-n9.0.1-11-ge47273f4d9-${ffmpeg_platform}-gpl-9.0.tar.xz" \
+ && ffmpeg_url="https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-08-28-17-08/${ffmpeg_archive}" \
+ && curl --fail --location --retry 3 "$ffmpeg_url" --output /tmp/tuvima-ffmpeg.tar.xz \
+ && echo "$ffmpeg_sha  /tmp/tuvima-ffmpeg.tar.xz" | sha256sum --check --strict \
+ && mkdir -p /tmp/tuvima-ffmpeg-extract /usr/share/licenses/tuvima-ffmpeg \
+ && tar -xJf /tmp/tuvima-ffmpeg.tar.xz -C /tmp/tuvima-ffmpeg-extract \
+ && install -m 0755 "$(find /tmp/tuvima-ffmpeg-extract -type f -path '*/bin/ffmpeg' -print -quit)" /usr/bin/ffmpeg \
+ && install -m 0755 "$(find /tmp/tuvima-ffmpeg-extract -type f -path '*/bin/ffprobe' -print -quit)" /usr/bin/ffprobe \
+ && install -m 0644 "$(find /tmp/tuvima-ffmpeg-extract -type f -name 'LICENSE.txt' -print -quit)" /usr/share/licenses/tuvima-ffmpeg/LICENSE.txt \
+ && rm -rf /tmp/tuvima-ffmpeg.tar.xz /tmp/tuvima-ffmpeg-extract
+
 RUN ffmpeg -version >/dev/null \
- && ffprobe -version >/dev/null
+ && ffprobe -version >/dev/null \
+ && ffmpeg -hide_banner -encoders 2>&1 | grep -q 'libx264' \
+ && ffmpeg -hide_banner -encoders 2>&1 | grep -q ' aac ' \
+ && ffmpeg -hide_banner -encoders 2>&1 | grep -q ' webvtt ' \
+ && ffmpeg -hide_banner -muxers 2>&1 | grep -q ' hls '
 
 # Copy published output from build stage.
 COPY --from=build /app/engine    ./engine

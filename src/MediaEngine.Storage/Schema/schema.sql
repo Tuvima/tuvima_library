@@ -939,6 +939,21 @@ CREATE TABLE IF NOT EXISTS offline_variants (
     UNIQUE(asset_id, profile_key, source_hash)
 );
 
+CREATE TABLE IF NOT EXISTS adaptive_hls_packages (
+    id              BLOB NOT NULL PRIMARY KEY,
+    asset_id        BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    source_hash     TEXT NOT NULL,
+    profile_key     TEXT NOT NULL,
+    status          TEXT NOT NULL CHECK(status IN ('preparing', 'ready', 'failed', 'deleting')),
+    root_path       TEXT NOT NULL,
+    total_bytes     INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL,
+    last_accessed   TEXT NOT NULL,
+    completed_at    TEXT,
+    last_error      TEXT,
+    UNIQUE(asset_id, source_hash, profile_key)
+);
+
 CREATE TABLE IF NOT EXISTS pending_person_signals (
     id          BLOB NOT NULL PRIMARY KEY,
     entity_id   BLOB NOT NULL,
@@ -1996,6 +2011,9 @@ CREATE INDEX IF NOT EXISTS idx_metadata_claims_current_lookup
 
 CREATE INDEX IF NOT EXISTS idx_offline_variants_asset
     ON offline_variants(asset_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_adaptive_hls_packages_eviction
+    ON adaptive_hls_packages(status, last_accessed);
 
 CREATE INDEX IF NOT EXISTS idx_pending_person_signals_name_role
     ON pending_person_signals (name, role);

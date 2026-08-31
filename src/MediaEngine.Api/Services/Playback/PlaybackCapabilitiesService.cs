@@ -36,6 +36,8 @@ public sealed class PlaybackCapabilitiesService
     private readonly AudiobookChapterTitleOverrideRepository _chapterTitleOverrides;
     private readonly IMediaTypeExtensionCatalog _extensionCatalog;
     private readonly IConfigurationLoader _configuration;
+    private readonly AdaptiveHlsService _adaptiveHls;
+    private readonly HlsAccessGrantService _hlsGrants;
     private readonly ILogger<PlaybackCapabilitiesService> _logger;
 
     public PlaybackCapabilitiesService(
@@ -48,6 +50,8 @@ public sealed class PlaybackCapabilitiesService
         AudiobookChapterTitleOverrideRepository chapterTitleOverrides,
         IMediaTypeExtensionCatalog extensionCatalog,
         IConfigurationLoader configuration,
+        AdaptiveHlsService adaptiveHls,
+        HlsAccessGrantService hlsGrants,
         ILogger<PlaybackCapabilitiesService> logger)
     {
         _assets = assets;
@@ -59,6 +63,8 @@ public sealed class PlaybackCapabilitiesService
         _chapterTitleOverrides = chapterTitleOverrides;
         _extensionCatalog = extensionCatalog;
         _configuration = configuration;
+        _adaptiveHls = adaptiveHls;
+        _hlsGrants = hlsGrants;
         _logger = logger;
     }
 
@@ -176,9 +182,38 @@ public sealed class PlaybackCapabilitiesService
             warnings.Add(networkReason);
         }
 
-        if (recommendedDelivery == PlaybackDeliveryModes.Hls)
+        var audioTracks = BuildAudioTracks(mediaInfo, probe);
+        string? hlsUrl = null;
+        string? hlsStatus = null;
+        DateTimeOffset? hlsExpiresAt = null;
+        if (recommendedDelivery == PlaybackDeliveryModes.Hls && File.Exists(asset.FilePathRoot))
         {
-            warnings.Add("HLS generation is planned for this profile but no generated HLS variant is available yet.");
+            if (!_ffmpeg.HardwareCapabilities.AdaptiveHlsReady)
+            {
+                hlsStatus = "unavailable";
+                warnings.Add("Adaptive delivery is unavailable because FFmpeg lacks a required HLS, H.264, or AAC capability.");
+            }
+            else
+            {
+                var preparation = await _adaptiveHls.EnsurePackageAsync(assetId, sourceHash, audioTracks, ct);
+                hlsStatus = preparation.Status;
+                if (preparation.Status == "ready")
+                {
+                    var grant = _hlsGrants.Create(assetId, preparation.PackageId);
+                    hlsExpiresAt = grant.ExpiresAt;
+                    hlsUrl = $"/stream/hls/{Uri.EscapeDataString(grant.Value)}/{preparation.PackageId:D}/master.m3u8";
+                }
+                else if (preparation.Status == "preparing")
+                {
+                    warnings.Add("Adaptive playback is being prepared. Retry playback when preparation completes.");
+                }
+                else
+                {
+                    warnings.Add(string.IsNullOrWhiteSpace(preparation.Error)
+                        ? "Adaptive playback preparation failed."
+                        : $"Adaptive playback preparation failed: {preparation.Error}");
+                }
+            }
         }
 
         var resume = NormalizeResumePosition(await LoadResumeAsync(assetId, ct), durationSeconds);
@@ -192,9 +227,11 @@ public sealed class PlaybackCapabilitiesService
             RecommendedDelivery = recommendedDelivery,
             DirectPlaySupported = directPlay,
             DirectStreamUrl = File.Exists(asset.FilePathRoot) ? $"/stream/{assetId}" : null,
-            HlsUrl = null,
+            HlsUrl = hlsUrl,
+            HlsStatus = hlsStatus,
+            HlsExpiresAt = hlsExpiresAt,
             Profile = profile,
-            AudioTracks = BuildAudioTracks(mediaInfo, probe),
+            AudioTracks = audioTracks,
             SubtitleTracks = await BuildSubtitleTracksAsync(assetId, mediaInfo, probe, ct),
             Chapters = chapters,
             OfflineVariants = variants,
@@ -352,12 +389,19 @@ public sealed class PlaybackCapabilitiesService
             {
                 warnings.Add($"FFmpeg was located but its version probe failed: {ex.Message}");
             }
+            if (!_ffmpeg.HardwareCapabilities.AdaptiveHlsReady)
+                warnings.Add("FFmpeg is present but does not provide every HLS, H.264, and AAC capability required for adaptive delivery.");
         }
 
         return new PlaybackDiagnosticsDto
         {
             FFmpegAvailable = _ffmpeg.IsAvailable,
             FFmpegVersion = ffmpegVersion,
+            HlsMuxerAvailable = _ffmpeg.HardwareCapabilities.HasHlsMuxer,
+            H264EncoderAvailable = _ffmpeg.HardwareCapabilities.HasH264Encoder,
+            AacEncoderAvailable = _ffmpeg.HardwareCapabilities.HasAacEncoder,
+            WebVttEncoderAvailable = _ffmpeg.HardwareCapabilities.HasWebVttEncoder,
+            PreferredHardwareEncoder = _ffmpeg.HardwareCapabilities.PreferredEncoder,
             MediaInfoAvailable = TryGetMediaInfoVersion(out var mediaInfoVersion),
             MediaInfoVersion = mediaInfoVersion,
             ActiveJobs = activeJobs,

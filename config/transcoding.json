@@ -16,10 +16,23 @@
   "cleanup_lru_enabled": true,
   "default_mobile_profile": "mobile-small",
 
+  "adaptive_hls": {
+    "profile_name": "tv-adaptive-hls",
+    "segment_seconds": 6,
+    "access_lifetime_minutes": 240,
+    "preparation_wait_seconds": 20,
+    "cleanup_interval_minutes": 15,
+    "renditions": [
+      { "name": "1080p", "height": 1080, "video_bitrate_kbps": 6000, "max_rate_kbps": 6600, "buffer_size_kbps": 12000 },
+      { "name": "720p", "height": 720, "video_bitrate_kbps": 3000, "max_rate_kbps": 3300, "buffer_size_kbps": 6000 },
+      { "name": "480p", "height": 480, "video_bitrate_kbps": 1400, "max_rate_kbps": 1540, "buffer_size_kbps": 2800 }
+    ]
+  },
+
   "quality_profiles": [
     { "name": "mobile-small", "resolution": "540p", "codec": "h264", "audio_codec": "aac", "container": "mp4", "bitrate": "1M", "size_guidance": "400-700 MB for a typical 2-hour movie" },
     { "name": "mobile-standard", "resolution": "720p", "codec": "h264", "audio_codec": "aac", "container": "mp4", "bitrate": "2M", "size_guidance": "Offline-friendly quality" },
-    { "name": "tv-direct-hls", "resolution": "source", "codec": "h264", "audio_codec": "aac", "container": "hls", "bitrate": "source", "size_guidance": "High-quality TV fallback" },
+    { "name": "tv-adaptive-hls", "resolution": "adaptive", "codec": "h264", "audio_codec": "aac", "container": "hls", "bitrate": "adaptive", "size_guidance": "Source-aware HLS ladder for compatible native players" },
     { "name": "audio-mobile", "resolution": "audio", "codec": "none", "audio_codec": "aac", "container": "m4a", "bitrate": "96k", "size_guidance": "Lower bitrate audiobook/music option" }
   ]
 }

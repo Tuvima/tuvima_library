@@ -97,7 +97,7 @@ public sealed class PlaybackSessionController
             : null;
 
     public string? CurrentStreamUrl => CurrentItem?.StreamUrl;
-    public string? CurrentBrowserStreamUrl => ToDashboardDirectStreamUrl(CurrentStreamUrl) ?? CurrentStreamUrl;
+    public string? CurrentBrowserStreamUrl => ToDashboardPlaybackUrl(CurrentStreamUrl) ?? CurrentStreamUrl;
     public PlaybackManifestDto? CurrentManifest => CurrentItem?.Manifest;
     public bool IsAudiobookMode => string.Equals(Experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase);
     public bool IsMusicMode => string.Equals(Experience, PlayerExperienceModes.Music, StringComparison.OrdinalIgnoreCase);
@@ -1497,6 +1497,19 @@ public sealed class PlaybackSessionController
         }
 
         var item = _queue[index];
+        if (MediaKindClassifier.IsVideo(item.MediaType) && item.Manifest is not null)
+        {
+            var manifestStream = SelectManifestStream(item.Manifest);
+            if (string.IsNullOrWhiteSpace(manifestStream))
+            {
+                MarkCurrentFailed("The Engine has not finished preparing a compatible video stream.");
+                return;
+            }
+
+            _queue[index] = item with { StreamUrl = NormalizeStreamUrl(manifestStream) };
+            return;
+        }
+
         if (!string.IsNullOrWhiteSpace(item.StreamUrl))
         {
             var normalizedStreamUrl = NormalizeStreamUrl(item.StreamUrl);
@@ -1508,7 +1521,7 @@ public sealed class PlaybackSessionController
 
             if (MediaKindClassifier.IsMusic(item.MediaType)
                 || (MediaKindClassifier.IsAudiobook(item.MediaType) && item.Chapters.Count > 0)
-                || (MediaKindClassifier.IsVideo(item.MediaType) && item.Manifest is not null))
+                || MediaKindClassifier.IsVideo(item.MediaType))
             {
                 return;
             }
@@ -1539,7 +1552,8 @@ public sealed class PlaybackSessionController
             profileId,
             ct,
             ToConnectionContext());
-        var streamUrl = manifest?.DirectStreamUrl ?? item.StreamUrl;
+        var streamUrl = manifest is null ? null : SelectManifestStream(manifest);
+        streamUrl ??= manifest is null ? item.StreamUrl : null;
         if (string.IsNullOrWhiteSpace(streamUrl))
         {
             MarkCurrentFailed("The Engine did not return a playable stream for this item.");
@@ -1578,6 +1592,11 @@ public sealed class PlaybackSessionController
 
     private static ListenQueueItem BootstrapDirectStream(ListenQueueItem item)
     {
+        if (MediaKindClassifier.IsVideo(item.MediaType) && item.Manifest is not null)
+        {
+            return item with { StreamUrl = SelectManifestStream(item.Manifest) };
+        }
+
         if (!string.IsNullOrWhiteSpace(item.StreamUrl) || !item.AssetId.HasValue)
         {
             return item;
@@ -1585,6 +1604,13 @@ public sealed class PlaybackSessionController
 
         return item with { StreamUrl = $"/stream/{item.AssetId.Value:D}" };
     }
+
+    private static string? SelectManifestStream(PlaybackManifestDto manifest) => manifest.RecommendedDelivery switch
+    {
+        PlaybackDeliveryModes.Hls => manifest.HlsUrl,
+        PlaybackDeliveryModes.DirectStream => manifest.DirectStreamUrl,
+        _ => manifest.DirectPlaySupported ? manifest.DirectStreamUrl : null,
+    };
 
     private string? NormalizeStreamUrl(string? streamUrl)
     {
@@ -1598,7 +1624,7 @@ public sealed class PlaybackSessionController
             : _apiClient.ToAbsoluteEngineUrl(streamUrl);
     }
 
-    private static string? ToDashboardDirectStreamUrl(string? streamUrl)
+    private static string? ToDashboardPlaybackUrl(string? streamUrl)
     {
         if (string.IsNullOrWhiteSpace(streamUrl))
         {
@@ -1615,12 +1641,21 @@ public sealed class PlaybackSessionController
             candidate = "/" + candidate;
         }
 
+        if (candidate.StartsWith("/api/v1/stream/", StringComparison.OrdinalIgnoreCase))
+        {
+            candidate = candidate["/api/v1".Length..];
+        }
+
         if (!candidate.StartsWith("/stream/", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
 
         var remainder = candidate["/stream/".Length..];
+        if (remainder.StartsWith("hls/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "/engine-hls/" + remainder["hls/".Length..];
+        }
         var pathEnd = remainder.IndexOfAny(['?', '#']);
         var path = (pathEnd >= 0 ? remainder[..pathEnd] : remainder).TrimEnd('/');
         return Guid.TryParse(path, out var assetId)

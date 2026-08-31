@@ -52,6 +52,18 @@ The Engine has explicit Android and iOS playback capability profiles. Native cli
 - offline downloads
 - resume/progress conflict handling across devices
 
-## Video Preparation
+## Adaptive Video Delivery
 
-Video uses the shared `Playback*` contracts where the concepts overlap, but Watch playback behavior is not changed by the Listen refactor. Keep future video transport, subtitle, audio-track, and fullscreen concerns behind a video/native transport host rather than adding them to Listen-specific classes.
+The playback manifest keeps direct play when the negotiated client profile supports the source. Otherwise, the Engine creates a source-aware HLS VOD package under the configured variant cache. A package contains independent H.264 video renditions, AAC alternate-audio playlists, managed and embedded WebVTT caption playlists, and a master manifest. Rendition heights never upscale the source.
+
+Packages become visible only after every playlist reference has been validated and the staging directory has been moved into place. The package row records its source hash, profile, size, completion state, and last access. A background cleanup service removes abandoned staging directories, expired/failed packages, and least-recently-used packages above the storage limit while leaving active readers alone.
+
+The manifest returns a short-lived signed path scoped to one asset and one package. Native players request the master, variant playlists, and segments through that same path. The Dashboard exposes the path through `/engine-hls/`; the Engine rejects expired, modified, cross-package, and traversal attempts. HLS playlists use VOD timelines and aligned independent segments, so a native HLS client can seek immediately after preparation. Resume remains the shared persisted playback position applied by `PlaybackSessionController`.
+
+The persistent video host owns video transport, captions, audio-track selection, seeking, and fullscreen. It follows `recommendedDelivery` from the manifest and must not fall back to an incompatible direct source when HLS preparation is pending or failed.
+
+## FFmpeg and Hardware Profiles
+
+Windows installers bundle the checksum-pinned FFmpeg build described in `tools/ffmpeg/README.md`. Container builds verify the HLS muxer plus H.264, AAC, and WebVTT encoders. Engine readiness reports these capabilities separately.
+
+`hardware_acceleration` accepts `auto`, `nvenc`, `quicksync`, `vaapi`, `cpu`, or `none`. Auto mode probes hardware encoders and falls back to `libx264`; explicit software modes still report and use normal HLS capabilities. A failed hardware encode is retried once with `libx264`.

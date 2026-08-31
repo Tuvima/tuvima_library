@@ -9,10 +9,35 @@ internal sealed class SchemaMigrator
     {
         EnsureIdentitySchema(conn);
         EnsureOnboardingSchema(conn);
+        EnsureAdaptiveDeliverySchema(conn);
         EnsureCurrentColumns(conn);
         EnsureCurrentIndexes(conn);
         SeedMetadataProviders(conn);
         SeedDefaultProfile(conn);
+    }
+
+    private static void EnsureAdaptiveDeliverySchema(SqliteConnection conn)
+    {
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            CREATE TABLE IF NOT EXISTS adaptive_hls_packages (
+                id BLOB NOT NULL PRIMARY KEY,
+                asset_id BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+                source_hash TEXT NOT NULL,
+                profile_key TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('preparing', 'ready', 'failed', 'deleting')),
+                root_path TEXT NOT NULL,
+                total_bytes INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                last_accessed TEXT NOT NULL,
+                completed_at TEXT,
+                last_error TEXT,
+                UNIQUE(asset_id, source_hash, profile_key)
+            );
+            CREATE INDEX IF NOT EXISTS idx_adaptive_hls_packages_eviction
+                ON adaptive_hls_packages(status, last_accessed);
+            """;
+        cmd.ExecuteNonQuery();
     }
 
     private static void EnsureOnboardingSchema(SqliteConnection conn)
