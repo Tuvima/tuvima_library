@@ -1,0 +1,70 @@
+$ErrorActionPreference = 'Stop'
+
+$repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$clientRoot = Join-Path $repoRoot 'clients'
+$required = @(
+    'android/core/src/main/java/com/tuvima/library/core/TuvimaClient.kt',
+    'android/core/src/main/java/com/tuvima/library/core/SecureTokenStore.kt',
+    'android/tv/src/main/java/com/tuvima/library/tv/PlaybackActivity.kt',
+    'android/mobile/src/main/java/com/tuvima/library/mobile/TuvimaMediaLibraryService.kt',
+    'android/mobile/src/main/java/com/tuvima/library/mobile/OfflineDownloadWorker.kt',
+    'apple/Shared/TuvimaAPIClient.swift',
+    'apple/Shared/KeychainTokenStore.swift',
+    'apple/iOS/PlaybackCoordinator.swift',
+    'apple/iOS/CarPlaySceneDelegate.swift',
+    'roku/components/MainScene.brs'
+)
+
+foreach ($relative in $required) {
+    if (-not (Test-Path -LiteralPath (Join-Path $clientRoot $relative) -PathType Leaf)) {
+        throw "Native-client source is missing $relative."
+    }
+}
+
+$sourceFiles = Get-ChildItem -LiteralPath $clientRoot -Recurse -File |
+    Where-Object Extension -In @('.kt', '.swift', '.brs', '.xml', '.yml', '.kts')
+$combined = ($sourceFiles | ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }) -join "`n"
+
+foreach ($forbidden in @('X-Tuvima-Service-Key', 'localhost:61495', 'http://localhost:61495', 'outputPath')) {
+    if ($combined.Contains($forbidden, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Native clients contain forbidden Engine-boundary text '$forbidden'."
+    }
+}
+
+foreach ($requiredText in @(
+    '/.well-known/tuvima',
+    '/api/v1/oauth/device_authorization',
+    '/api/v1/oauth/token',
+    '/api/v1/display/home',
+    '/api/v1/display/search',
+    '/api/v1/details/',
+    '/api/v1/playback/',
+    '/api/v1/player/heartbeat',
+    'authorization_pending',
+    'refresh_token'
+)) {
+    if (-not $combined.Contains($requiredText, [StringComparison]::Ordinal)) {
+        throw "Native clients are missing required API v1 behavior '$requiredText'."
+    }
+}
+
+$carPlay = Get-Content -LiteralPath (Join-Path $clientRoot 'apple/iOS/CarPlaySceneDelegate.swift') -Raw
+$androidAuto = Get-Content -LiteralPath (Join-Path $clientRoot 'android/mobile/src/main/java/com/tuvima/library/mobile/TuvimaMediaLibraryService.kt') -Raw
+foreach ($forbiddenAutomotive in @('lane: "watch"', 'lane: "read"', 'admin', 'settings')) {
+    if ($carPlay.Contains($forbiddenAutomotive, [StringComparison]::OrdinalIgnoreCase) -or
+        $androidAuto.Contains($forbiddenAutomotive, [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Automotive client contains out-of-scope surface '$forbiddenAutomotive'."
+    }
+}
+
+if (-not $carPlay.Contains('lane: "listen"', [StringComparison]::Ordinal) -or
+    -not $androidAuto.Contains('api.browse("listen"', [StringComparison]::Ordinal)) {
+    throw 'Automotive clients must expose only the Listen lane.'
+}
+
+if (-not $carPlay.Contains('("Queue", "Queue")', [StringComparison]::Ordinal) -or
+    -not $androidAuto.Contains('"queue" to "Queue"', [StringComparison]::Ordinal)) {
+    throw 'Automotive clients must expose the profile Listen queue.'
+}
+
+Write-Host 'Native-client source boundary gate passed.' -ForegroundColor Green

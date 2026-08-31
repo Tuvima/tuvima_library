@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MainScene" extends="Scene">
+    <interface><field id="launchContentId" type="string" onChange="onLaunchContent" /></interface>
+    <children>
+        <Rectangle width="1920" height="1080" color="#09080D" />
+        <Label id="brand" translation="[80,48]" text="TUVIMA LIBRARY" color="#F6F2FF" height="56" width="800" />
+
+        <Group id="serverGroup" visible="false">
+            <Label translation="[160,230]" text="Connect to your Tuvima Dashboard" color="#F6F2FF" width="1300" height="60" />
+            <Keyboard id="serverKeyboard" translation="[160,320]" width="1100" height="420" text="https://" />
+            <Button id="connectButton" translation="[160,790]" text="Connect" minWidth="260" />
+        </Group>
+
+        <Group id="pairingGroup" visible="false">
+            <Label translation="[160,270]" text="PAIR THIS ROKU" color="#F6F2FF" width="1000" height="70" />
+            <Label id="verificationUri" translation="[160,390]" color="#CFC3F8" width="1500" height="60" />
+            <Label id="userCode" translation="[160,500]" color="#FFFFFF" width="1000" height="110" />
+            <Label translation="[160,660]" text="Waiting for approval…" color="#CFC3F8" width="1000" height="60" />
+        </Group>
+
+        <Group id="libraryGroup" visible="false">
+            <LayoutGroup translation="[80,120]" layoutDirection="horiz" itemSpacings="[18]">
+                <Button id="homeButton" text="Home" />
+                <Button id="watchButton" text="Watch" />
+                <Button id="readButton" text="Read" />
+                <Button id="listenButton" text="Listen" />
+                <Button id="searchButton" text="Search" />
+            </LayoutGroup>
+            <RowList id="libraryRows" translation="[80,220]" itemSize="[1760,330]" rowItemSize="[[260,300]]" rowItemSpacing="[[24,0]]" numRows="2" showRowLabel="true" />
+            <Label id="detailTitle" translation="[80,900]" color="#FFFFFF" width="1760" height="50" />
+            <Label id="detailText" translation="[80,958]" color="#CFC3F8" width="1760" height="70" numLines="2" wrap="true" />
+        </Group>
+
+        <Group id="searchGroup" visible="false">
+            <Label translation="[160,190]" text="Search your library" color="#F6F2FF" width="1200" height="60" />
+            <Keyboard id="searchKeyboard" translation="[160,280]" width="1100" height="420" />
+            <Button id="submitSearchButton" translation="[160,750]" text="Search" minWidth="260" />
+        </Group>
+
+        <Video id="video" width="1920" height="1080" visible="false" enableUI="true" />
+        <Label id="status" translation="[80,1010]" color="#FFCC80" width="1760" height="44" />
+        <Timer id="pairingTimer" duration="5" repeat="true" />
+        <Timer id="heartbeatTimer" duration="15" repeat="true" />
+        <ApiTask id="api" />
+    </children>
+    <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+</component>

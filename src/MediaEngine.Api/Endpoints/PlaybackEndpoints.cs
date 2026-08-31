@@ -54,15 +54,16 @@ public static class PlaybackEndpoints
                 latencyMs,
                 roomId);
             var profileId = ClaimGuid(user, TuvimaClaimTypes.ActiveProfileId);
+            var deviceId = ClaimGuid(user, TuvimaClaimTypes.DeviceId);
             ClientCapabilitiesDto? capabilities = null;
-            if (ClaimGuid(user, TuvimaClaimTypes.DeviceId) is { } deviceId)
+            if (deviceId is { } pairedDeviceId)
             {
-                var device = await authorization.GetDeviceAsync(deviceId, ct);
+                var device = await authorization.GetDeviceAsync(pairedDeviceId, ct);
                 if (device is not null)
                     capabilities = JsonSerializer.Deserialize<ClientCapabilitiesDto>(device.CapabilitiesJson);
             }
             var trustedClient = user.FindFirstValue(TuvimaClaimTypes.ClientId) ?? client;
-            var manifest = await playback.BuildManifestAsync(assetId, trustedClient, profileId, ct, connection, capabilities);
+            var manifest = await playback.BuildManifestAsync(assetId, trustedClient, profileId, ct, connection, capabilities, deviceId);
             if (manifest?.DirectStreamUrl is { } streamUrl)
                 manifest = manifest with { DirectStreamUrl = "/api/v1" + streamUrl };
             return manifest is null
@@ -78,10 +79,19 @@ public static class PlaybackEndpoints
         group.MapPost("/{assetId:guid}/encode", async (
             Guid assetId,
             QueueEncodeRequestDto request,
+            ClaimsPrincipal user,
             PlaybackCapabilitiesService playback,
             CancellationToken ct) =>
         {
-            var job = await playback.QueueEncodeAsync(assetId, request, ct);
+            if (!TryGetNativeOwner(user, out var profileId, out var deviceId))
+                return ApiErrors.Forbidden("A paired profile and device are required for offline downloads.");
+
+            var job = await playback.QueueEncodeAsync(
+                assetId,
+                request,
+                profileId,
+                deviceId,
+                ct);
             return job is null
                 ? ApiErrors.NotFound($"Asset '{assetId}' not found.")
                 : Results.Accepted($"/playback/encode/jobs/{job.Id}", job);
@@ -89,32 +99,53 @@ public static class PlaybackEndpoints
         .WithName("QueueEncodeJob")
         .WithSummary("Queue or schedule a managed encode/offline variant job.")
         .Produces<EncodeJobDto>(StatusCodes.Status202Accepted)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireClientScope(ClientApiScopes.DownloadsWrite);
 
         group.MapGet("/encode/jobs", async (
+            ClaimsPrincipal user,
             PlaybackCapabilitiesService playback,
             CancellationToken ct) =>
         {
-            var jobs = await playback.ListEncodeJobsAsync(ct);
+            if (!TryGetNativeOwner(user, out var profileId, out var deviceId))
+                return ApiErrors.Forbidden("A paired profile and device are required for offline downloads.");
+
+            var jobs = await playback.ListEncodeJobsAsync(
+                profileId,
+                deviceId,
+                ct);
             return Results.Ok(jobs);
         })
         .WithName("ListEncodeJobs")
         .WithSummary("List recent encode jobs.")
         .Produces<IReadOnlyList<EncodeJobDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireClientScope(ClientApiScopes.DownloadsRead);
 
         group.MapPost("/encode/jobs/{jobId:guid}/cancel", async (
             Guid jobId,
+            ClaimsPrincipal user,
             PlaybackCapabilitiesService playback,
             CancellationToken ct) =>
         {
-            await playback.CancelEncodeJobAsync(jobId, ct);
-            return Results.NoContent();
+            if (!TryGetNativeOwner(user, out var profileId, out var deviceId))
+                return ApiErrors.Forbidden("A paired profile and device are required for offline downloads.");
+
+            var cancelled = await playback.CancelEncodeJobAsync(
+                jobId,
+                profileId,
+                deviceId,
+                ct);
+            return cancelled
+                ? Results.NoContent()
+                : ApiErrors.NotFound("Encode job not found or no longer cancellable.");
         })
         .WithName("CancelEncodeJob")
         .WithSummary("Cancel a queued, scheduled, or running encode job.")
         .Produces(StatusCodes.Status204NoContent)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireClientScope(ClientApiScopes.DownloadsWrite);
 
         group.MapGet("/diagnostics", async (
@@ -132,10 +163,14 @@ public static class PlaybackEndpoints
         group.MapGet("/{assetId:guid}/offline/{variantId:guid}", async (
             Guid assetId,
             Guid variantId,
+            ClaimsPrincipal user,
             PlaybackCapabilitiesService playback,
             CancellationToken ct) =>
         {
-            var variant = await playback.GetOfflineVariantFileAsync(assetId, variantId, ct);
+            if (!TryGetNativeOwner(user, out var profileId, out var deviceId))
+                return ApiErrors.Forbidden("A paired profile and device are required for offline downloads.");
+
+            var variant = await playback.GetOfflineVariantFileAsync(assetId, variantId, profileId, deviceId, ct);
             if (variant is null)
             {
                 return ApiErrors.NotFound("Offline variant not found.");
@@ -156,6 +191,7 @@ public static class PlaybackEndpoints
         .WithSummary("Download a prepared offline variant with HTTP range support.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status206PartialContent)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireClientScope(ClientApiScopes.DownloadsRead)
         .RequireRateLimiting("streaming");
 
@@ -164,4 +200,11 @@ public static class PlaybackEndpoints
 
     private static Guid? ClaimGuid(ClaimsPrincipal user, string type) =>
         Guid.TryParse(user.FindFirstValue(type), out var value) ? value : null;
+
+    private static bool TryGetNativeOwner(ClaimsPrincipal user, out Guid profileId, out Guid deviceId)
+    {
+        profileId = ClaimGuid(user, TuvimaClaimTypes.ActiveProfileId) ?? Guid.Empty;
+        deviceId = ClaimGuid(user, TuvimaClaimTypes.DeviceId) ?? Guid.Empty;
+        return profileId != Guid.Empty && deviceId != Guid.Empty;
+    }
 }

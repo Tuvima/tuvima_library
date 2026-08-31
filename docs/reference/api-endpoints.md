@@ -53,6 +53,12 @@ Capability negotiation declares containers, video/audio codecs, subtitle formats
 
 The HLS URL is a bearer capability scoped to one asset, package, and expiration time. It is intentionally usable by native HLS media stacks that cannot attach application authorization headers to every segment request. Clients must not log, persist, or share it. Expired or modified paths return `403`; missing and traversal-rejected package resources return `404`. Relative URIs in the master and media playlists preserve the same signed path for variant, alternate-audio, caption, and segment requests.
 
+Offline encode jobs created by paired clients are owned by the authenticated
+profile and device. Job listing and cancellation use those trusted token claims;
+one client cannot enumerate, cancel, discover, or download another device's
+work. Public JSON never includes the Engine's local output path. Clients
+download only the API v1 URL exposed by their ready offline-variant model.
+
 Most paginated GET endpoints accept `offset`/`limit` query parameters. View
 timeline and discovery endpoints use opaque/keyset `cursor` plus `limit`, and
 Manual Gallery membership uses position/item keysets. Limits are clamped

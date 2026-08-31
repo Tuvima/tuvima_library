@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.Tuvima" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:colorAccent">#8E6CFF</item>
+        <item name="android:navigationBarColor">#09080D</item>
+    </style>
+</resources>

@@ -1,0 +1,8 @@
+{
+  "device_code": "fixture-device-code",
+  "user_code": "TVMA-1234",
+  "verification_uri": "https://library.example/pair",
+  "verification_uri_complete": "https://library.example/pair?code=TVMA-1234",
+  "expires_in": 600,
+  "interval": 5
+}

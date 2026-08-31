@@ -1,0 +1,11 @@
+{
+  "product": "Tuvima Library",
+  "server_id": "11111111-1111-1111-1111-111111111111",
+  "server_name": "Contract fixture",
+  "api_base_url": "https://library.example/api/v1",
+  "supported_api_versions": ["1"],
+  "device_authorization_endpoint": "/api/v1/oauth/device_authorization",
+  "token_endpoint": "/api/v1/oauth/token",
+  "verification_uri": "/pair",
+  "capabilities": ["browse", "search", "details", "artwork", "progress", "queues", "downloads", "playback"]
+}

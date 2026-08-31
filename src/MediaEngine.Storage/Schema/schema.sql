@@ -173,6 +173,8 @@ CREATE TABLE IF NOT EXISTS editions (
 CREATE TABLE IF NOT EXISTS encode_jobs (
     id             BLOB NOT NULL PRIMARY KEY,
     asset_id       BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    owner_profile_id BLOB,
+    owner_device_id  BLOB,
     profile_key    TEXT NOT NULL,
     source_hash    TEXT NOT NULL,
     status         TEXT NOT NULL,
@@ -922,6 +924,8 @@ CREATE TABLE IF NOT EXISTS narrative_roots (
 CREATE TABLE IF NOT EXISTS offline_variants (
     id            BLOB NOT NULL PRIMARY KEY,
     asset_id      BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    owner_profile_id BLOB,
+    owner_device_id  BLOB,
     profile_key   TEXT NOT NULL,
     source_hash   TEXT NOT NULL,
     display_name  TEXT NOT NULL,
@@ -935,8 +939,7 @@ CREATE TABLE IF NOT EXISTS offline_variants (
     height        INTEGER,
     bitrate_kbps  INTEGER,
     created_at    TEXT NOT NULL,
-    expires_at    TEXT,
-    UNIQUE(asset_id, profile_key, source_hash)
+    expires_at    TEXT
 );
 
 CREATE TABLE IF NOT EXISTS adaptive_hls_packages (
@@ -1828,6 +1831,12 @@ CREATE INDEX IF NOT EXISTS idx_editions_work_id
 
 CREATE INDEX IF NOT EXISTS idx_encode_jobs_status_schedule
     ON encode_jobs(status, scheduled_for, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_encode_jobs_native_owner
+    ON encode_jobs(owner_profile_id, owner_device_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_offline_variants_native_owner
+    ON offline_variants(asset_id, owner_profile_id, owner_device_id, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_entity_assets_entity
     ON entity_assets(entity_id, entity_type);

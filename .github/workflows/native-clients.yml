@@ -1,0 +1,88 @@
+name: Native clients
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "clients/**"
+      - "src/MediaEngine.Api/Endpoints/ClientAuthorizationEndpoints.cs"
+      - "src/MediaEngine.Api/Endpoints/DisplayEndpoints.cs"
+      - "src/MediaEngine.Api/Endpoints/DetailEndpoints.cs"
+      - "src/MediaEngine.Api/Endpoints/PlaybackEndpoints.cs"
+      - "src/MediaEngine.Api/Endpoints/PlayerEndpoints.cs"
+      - "src/MediaEngine.Api/Endpoints/ProgressEndpoints.cs"
+      - "src/MediaEngine.Contracts/Authentication/**"
+      - "src/MediaEngine.Contracts/Display/**"
+      - "src/MediaEngine.Contracts/Details/**"
+      - "src/MediaEngine.Contracts/Playback/**"
+      - "tests/fixtures/native-client-v1/**"
+      - "tests/native/**"
+      - ".github/workflows/native-clients.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "clients/**"
+      - "src/MediaEngine.Api/Endpoints/**"
+      - "src/MediaEngine.Contracts/**"
+      - "tests/fixtures/native-client-v1/**"
+      - "tests/native/**"
+      - ".github/workflows/native-clients.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: API v1 conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.2xx"
+      - run: dotnet restore tests/MediaEngine.Api.Tests/MediaEngine.Api.Tests.csproj
+      - run: >-
+          dotnet test tests/MediaEngine.Api.Tests/MediaEngine.Api.Tests.csproj --no-restore
+          --filter "FullyQualifiedName~NativeClientContractFixtureTests|FullyQualifiedName~ClientApiV1GuardrailTests|FullyQualifiedName~ClientAuthorizationServiceFlowTests|FullyQualifiedName~PlaybackStateRepositoryTests"
+      - name: Roku static contract gate
+        shell: pwsh
+        run: ./tests/native/Test-RokuClient.ps1
+      - name: Native source boundary gate
+        shell: pwsh
+        run: ./tests/native/Test-NativeClientSources.ps1
+
+  android:
+    name: Android TV, mobile, and Auto
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+      - name: Build Android applications
+        working-directory: clients/android
+        run: gradle :core:testDebugUnitTest :tv:assembleDebug :mobile:assembleDebug
+
+  apple:
+    name: iOS and CarPlay
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        working-directory: clients/apple
+        run: xcodegen generate
+      - name: Build for iOS Simulator
+        working-directory: clients/apple
+        run: >-
+          xcodebuild -project TuvimaApple.xcodeproj -scheme Tuvima
+          -sdk iphonesimulator -destination 'generic/platform=iOS Simulator'
+          CODE_SIGNING_ALLOWED=NO build

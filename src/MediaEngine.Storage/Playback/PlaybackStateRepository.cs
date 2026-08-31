@@ -68,7 +68,12 @@ public sealed class PlaybackStateRepository
         return Task.FromResult(metadata);
     }
 
-    public Task<IReadOnlyList<OfflineVariantDto>> ListOfflineVariantsAsync(Guid assetId, string sourceHash, CancellationToken ct = default)
+    public Task<IReadOnlyList<OfflineVariantDto>> ListOfflineVariantsAsync(
+        Guid assetId,
+        string sourceHash,
+        Guid? ownerProfileId = null,
+        Guid? ownerDeviceId = null,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
@@ -92,14 +97,21 @@ public sealed class PlaybackStateRepository
             FROM offline_variants
             WHERE asset_id = @assetId
               AND source_hash = @sourceHash
+              AND (@ownerProfileId IS NULL OR owner_profile_id = @ownerProfileId)
+              AND (@ownerDeviceId IS NULL OR owner_device_id = @ownerDeviceId)
             ORDER BY created_at DESC;
             """,
-            new { assetId, sourceHash }).AsList();
+            new { assetId, sourceHash, ownerProfileId, ownerDeviceId }).AsList();
 
         return Task.FromResult<IReadOnlyList<OfflineVariantDto>>(rows.Select(ToDto).ToList());
     }
 
-    public Task<OfflineVariantFile?> GetOfflineVariantFileAsync(Guid assetId, Guid variantId, CancellationToken ct = default)
+    public Task<OfflineVariantFile?> GetOfflineVariantFileAsync(
+        Guid assetId,
+        Guid variantId,
+        Guid? ownerProfileId = null,
+        Guid? ownerDeviceId = null,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
@@ -110,14 +122,23 @@ public sealed class PlaybackStateRepository
             FROM offline_variants
             WHERE id = @variantId
               AND asset_id = @assetId
+              AND (@ownerProfileId IS NULL OR owner_profile_id = @ownerProfileId)
+              AND (@ownerDeviceId IS NULL OR owner_device_id = @ownerDeviceId)
             LIMIT 1;
             """,
-            new { assetId, variantId });
+            new { assetId, variantId, ownerProfileId, ownerDeviceId });
 
         return Task.FromResult(row);
     }
 
-    public Task<EncodeJobDto> QueueEncodeJobAsync(Guid assetId, string profileKey, string sourceHash, DateTimeOffset? scheduledFor, CancellationToken ct = default)
+    public Task<EncodeJobDto> QueueEncodeJobAsync(
+        Guid assetId,
+        string profileKey,
+        string sourceHash,
+        DateTimeOffset? scheduledFor,
+        Guid? ownerProfileId = null,
+        Guid? ownerDeviceId = null,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
@@ -125,6 +146,8 @@ public sealed class PlaybackStateRepository
         var existing = conn.QueryFirstOrDefault<EncodeJobRow>("""
             SELECT id AS Id,
                    asset_id AS AssetId,
+                   owner_profile_id AS OwnerProfileId,
+                   owner_device_id AS OwnerDeviceId,
                    profile_key AS ProfileKey,
                    status AS Status,
                    created_at AS CreatedAt,
@@ -137,14 +160,16 @@ public sealed class PlaybackStateRepository
                    last_error AS LastError,
                    retry_count AS RetryCount
             FROM encode_jobs
-            WHERE asset_id = @assetId
-              AND profile_key = @profileKey
-              AND source_hash = @sourceHash
-              AND status IN ('queued', 'scheduled', 'running', 'complete')
+             WHERE asset_id = @assetId
+               AND profile_key = @profileKey
+               AND source_hash = @sourceHash
+               AND (@ownerProfileId IS NULL OR owner_profile_id = @ownerProfileId)
+               AND (@ownerDeviceId IS NULL OR owner_device_id = @ownerDeviceId)
+               AND status IN ('queued', 'scheduled', 'running', 'complete')
             ORDER BY created_at DESC
             LIMIT 1;
             """,
-            new { assetId, profileKey, sourceHash });
+            new { assetId, profileKey, sourceHash, ownerProfileId, ownerDeviceId });
 
         if (existing is not null)
         {
@@ -159,14 +184,16 @@ public sealed class PlaybackStateRepository
 
         conn.Execute("""
             INSERT INTO encode_jobs
-                (id, asset_id, profile_key, source_hash, status, created_at, scheduled_for, progress_pct)
+                (id, asset_id, owner_profile_id, owner_device_id, profile_key, source_hash, status, created_at, scheduled_for, progress_pct)
             VALUES
-                (@id, @assetId, @profileKey, @sourceHash, @status, @createdAt, @scheduledFor, 0);
+                (@id, @assetId, @ownerProfileId, @ownerDeviceId, @profileKey, @sourceHash, @status, @createdAt, @scheduledFor, 0);
             """,
             new
             {
                 id,
                 assetId,
+                ownerProfileId,
+                ownerDeviceId,
                 profileKey,
                 sourceHash,
                 status,
@@ -185,7 +212,10 @@ public sealed class PlaybackStateRepository
         });
     }
 
-    public Task<IReadOnlyList<EncodeJobDto>> ListEncodeJobsAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<EncodeJobDto>> ListEncodeJobsAsync(
+        Guid? ownerProfileId = null,
+        Guid? ownerDeviceId = null,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
@@ -204,9 +234,11 @@ public sealed class PlaybackStateRepository
                    last_error AS LastError,
                    retry_count AS RetryCount
             FROM encode_jobs
+            WHERE (@ownerProfileId IS NULL OR owner_profile_id = @ownerProfileId)
+              AND (@ownerDeviceId IS NULL OR owner_device_id = @ownerDeviceId)
             ORDER BY created_at DESC
             LIMIT 200;
-            """).AsList();
+            """, new { ownerProfileId, ownerDeviceId }).AsList();
 
         return Task.FromResult<IReadOnlyList<EncodeJobDto>>(rows.Select(ToDto).ToList());
     }
@@ -238,24 +270,32 @@ public sealed class PlaybackStateRepository
         return Task.FromResult<IReadOnlyList<EncodeJobDto>>(rows.Select(ToDto).ToList());
     }
 
-    public Task CancelEncodeJobAsync(Guid jobId, CancellationToken ct = default)
+    public Task<bool> CancelEncodeJobAsync(
+        Guid jobId,
+        Guid? ownerProfileId = null,
+        Guid? ownerDeviceId = null,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        conn.Execute("""
+        var affected = conn.Execute("""
             UPDATE encode_jobs
             SET status = 'cancelled',
                 completed_at = @completedAt
             WHERE id = @jobId
+              AND (@ownerProfileId IS NULL OR owner_profile_id = @ownerProfileId)
+              AND (@ownerDeviceId IS NULL OR owner_device_id = @ownerDeviceId)
               AND status IN ('queued', 'scheduled', 'running');
             """,
             new
             {
                 jobId,
+                ownerProfileId,
+                ownerDeviceId,
                 completedAt = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
             });
 
-        return Task.CompletedTask;
+        return Task.FromResult(affected > 0);
     }
 
     public Task<LeasedEncodeJob?> LeaseNextEncodeJobAsync(CancellationToken ct = default)
@@ -265,6 +305,8 @@ public sealed class PlaybackStateRepository
         var row = conn.QueryFirstOrDefault<LeasedEncodeJobRow>("""
             SELECT id AS Id,
                    asset_id AS AssetId,
+                   owner_profile_id AS OwnerProfileId,
+                   owner_device_id AS OwnerDeviceId,
                    profile_key AS ProfileKey,
                    source_hash AS SourceHash
             FROM encode_jobs
@@ -296,7 +338,7 @@ public sealed class PlaybackStateRepository
 
         return Task.FromResult(changed == 0
             ? null
-            : new LeasedEncodeJob(row.Id, row.AssetId, row.ProfileKey, row.SourceHash));
+            : new LeasedEncodeJob(row.Id, row.AssetId, row.OwnerProfileId, row.OwnerDeviceId, row.ProfileKey, row.SourceHash));
     }
 
     public Task CompleteEncodeJobAsync(
@@ -319,24 +361,11 @@ public sealed class PlaybackStateRepository
         using var conn = _db.CreateConnection();
         conn.Execute("""
             INSERT INTO offline_variants
-                (id, asset_id, profile_key, source_hash, display_name, status, output_path, file_size,
+                (id, asset_id, owner_profile_id, owner_device_id, profile_key, source_hash, display_name, status, output_path, file_size,
                  container, video_codec, audio_codec, width, height, bitrate_kbps, created_at)
             VALUES
-                (@id, @assetId, @profileKey, @sourceHash, @displayName, 'ready', @outputPath, @fileSize,
-                 @container, @videoCodec, @audioCodec, @width, @height, @bitrateKbps, @createdAt)
-            ON CONFLICT(asset_id, profile_key, source_hash) DO UPDATE SET
-                id = excluded.id,
-                display_name = excluded.display_name,
-                status = excluded.status,
-                output_path = excluded.output_path,
-                file_size = excluded.file_size,
-                container = excluded.container,
-                video_codec = excluded.video_codec,
-                audio_codec = excluded.audio_codec,
-                width = excluded.width,
-                height = excluded.height,
-                bitrate_kbps = excluded.bitrate_kbps,
-                created_at = excluded.created_at;
+                (@id, @assetId, @ownerProfileId, @ownerDeviceId, @profileKey, @sourceHash, @displayName, 'ready', @outputPath, @fileSize,
+                 @container, @videoCodec, @audioCodec, @width, @height, @bitrateKbps, @createdAt);
 
             UPDATE encode_jobs
             SET status = 'complete',
@@ -351,6 +380,8 @@ public sealed class PlaybackStateRepository
             {
                 id = variantId,
                 assetId = job.AssetId,
+                ownerProfileId = job.OwnerProfileId,
+                ownerDeviceId = job.OwnerDeviceId,
                 profileKey = job.ProfileKey,
                 sourceHash = job.SourceHash,
                 displayName,
@@ -401,7 +432,7 @@ public sealed class PlaybackStateRepository
             DisplayName = row.DisplayName,
             Status = row.Status,
             DownloadUrl = string.Equals(row.Status, OfflineVariantStatuses.Ready, StringComparison.OrdinalIgnoreCase)
-                ? $"/playback/{row.AssetId}/offline/{row.Id}"
+                ? $"/api/v1/playback/{row.AssetId}/offline/{row.Id}"
                 : null,
             FileSizeBytes = row.FileSizeBytes,
             Container = row.Container,
@@ -427,7 +458,10 @@ public sealed class PlaybackStateRepository
         StartedAt = ParseDate(row.StartedAt),
         CompletedAt = ParseDate(row.CompletedAt),
         ProgressPct = row.ProgressPct,
-        OutputPath = row.OutputPath,
+        // Keep the established API v1 field while never exposing the Engine's
+        // local filesystem path. Download access is represented by the scoped
+        // OfflineVariantDto URL instead.
+        OutputPath = null,
         OutputBytes = row.OutputBytes,
         LastError = row.LastError,
         RetryCount = row.RetryCount,
@@ -479,6 +513,8 @@ public sealed class PlaybackStateRepository
     {
         public Guid Id { get; set; }
         public Guid AssetId { get; set; }
+        public Guid? OwnerProfileId { get; set; }
+        public Guid? OwnerDeviceId { get; set; }
         public string ProfileKey { get; set; } = string.Empty;
         public string SourceHash { get; set; } = string.Empty;
     }
@@ -486,4 +522,10 @@ public sealed class PlaybackStateRepository
 
 public sealed record OfflineVariantFile(string? OutputPath, string Status, long? FileSizeBytes);
 
-public sealed record LeasedEncodeJob(Guid Id, Guid AssetId, string ProfileKey, string SourceHash);
+public sealed record LeasedEncodeJob(
+    Guid Id,
+    Guid AssetId,
+    Guid? OwnerProfileId,
+    Guid? OwnerDeviceId,
+    string ProfileKey,
+    string SourceHash);

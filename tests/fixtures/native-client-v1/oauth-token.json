@@ -1,0 +1,9 @@
+{
+  "access_token": "fixture-access-token",
+  "token_type": "Bearer",
+  "expires_in": 600,
+  "refresh_token": "fixture-refresh-token",
+  "scope": "library.read artwork.read progress.read progress.write playback.read playback.write",
+  "device_id": "22222222-2222-2222-2222-222222222222",
+  "profile_id": "33333333-3333-3333-3333-333333333333"
+}

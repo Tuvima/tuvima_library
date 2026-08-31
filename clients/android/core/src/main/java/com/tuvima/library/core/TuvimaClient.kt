@@ -1,0 +1,386 @@
+package com.tuvima.library.core
+
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.InetAddress
+import java.net.URI
+import java.net.URLEncoder
+import java.net.URL
+import java.nio.charset.StandardCharsets
+import java.io.File
+import java.io.FileOutputStream
+
+class TuvimaClient(
+    serverAddress: String,
+    private val clientId: String,
+    private val clientName: String,
+    private val clientVersion: String,
+    private val deviceName: String,
+    private val deviceClass: String,
+    private val capabilities: ClientCapabilities,
+    private val tokenStore: SecureTokenStore,
+) {
+    val serverOrigin: String = normalizeOrigin(serverAddress)
+    private val refreshMutex = Mutex()
+    private var token: ClientToken? = tokenStore.load()?.takeIf { it.first == serverOrigin }?.second
+    private var discovery: Discovery? = null
+
+    suspend fun discover(): Discovery {
+        val json = requestJson("GET", "/.well-known/tuvima", authenticated = false)
+        val value = Discovery(
+            serverName = json.optString("server_name", "Tuvima Library"),
+            apiBaseUrl = json.getString("api_base_url"),
+            deviceAuthorizationEndpoint = json.getString("device_authorization_endpoint"),
+            tokenEndpoint = json.getString("token_endpoint"),
+            verificationUri = json.getString("verification_uri"),
+            supportedApiVersions = json.optJSONArray("supported_api_versions")?.strings().orEmpty(),
+            capabilities = json.optJSONArray("capabilities")?.strings().orEmpty().toSet(),
+        )
+        require("1" in value.supportedApiVersions) { "This server does not advertise API v1." }
+        discovery = value
+        return value
+    }
+
+    suspend fun beginPairing(scopes: String): PairingSession {
+        val endpoints = discovery ?: discover()
+        val body = JSONObject()
+            .put("client_id", clientId)
+            .put("client_name", clientName)
+            .put("client_version", clientVersion)
+            .put("device_name", deviceName)
+            .put("device_class", deviceClass)
+            .put("scope", scopes)
+            .put("capabilities", capabilities.toJson())
+        val json = requestJson("POST", endpoints.deviceAuthorizationEndpoint, body, authenticated = false)
+        return PairingSession(
+            deviceCode = json.getString("device_code"),
+            userCode = json.getString("user_code"),
+            verificationUri = json.getString("verification_uri"),
+            verificationUriComplete = json.getString("verification_uri_complete"),
+            expiresInSeconds = json.getInt("expires_in"),
+            pollingIntervalSeconds = json.getInt("interval"),
+        )
+    }
+
+    suspend fun pollPairing(session: PairingSession): PairingPollResult {
+        val endpoint = (discovery ?: discover()).tokenEndpoint
+        return try {
+            val json = requestJson(
+                "POST",
+                endpoint,
+                JSONObject()
+                    .put("grant_type", DEVICE_GRANT)
+                    .put("client_id", clientId)
+                    .put("device_code", session.deviceCode),
+                authenticated = false,
+            )
+            PairingPollResult.Authorized(acceptToken(json))
+        } catch (error: TuvimaHttpException) {
+            val json = runCatching { JSONObject(error.responseBody) }.getOrDefault(JSONObject())
+            val code = json.optString("error", "request_failed")
+            if (code == "authorization_pending" || code == "slow_down") {
+                PairingPollResult.Pending(json.optInt("interval", session.pollingIntervalSeconds))
+            } else {
+                PairingPollResult.Failed(code, json.optionalString("error_description"))
+            }
+        }
+    }
+
+    suspend fun home(): DisplayPage = parseDisplayPage(requestJson("GET", "/api/v1/display/home"))
+
+    suspend fun continuePage(lane: String): DisplayPage =
+        parseDisplayPage(requestJson("GET", "/api/v1/display/continue?lane=${encode(lane)}"))
+
+    suspend fun browse(lane: String, mediaType: String? = null, query: String? = null): DisplayPage {
+        val parameters = buildList {
+            add("lane=${encode(lane)}")
+            mediaType?.let { add("mediaType=${encode(it)}") }
+            query?.takeIf(String::isNotBlank)?.let { add("q=${encode(it)}") }
+        }
+        return parseDisplayPage(requestJson("GET", "/api/v1/display/browse?${parameters.joinToString("&")}"))
+    }
+
+    suspend fun search(query: String): JSONObject =
+        requestJson("GET", "/api/v1/display/search?q=${encode(query)}")
+
+    suspend fun details(entityType: String, id: String): JSONObject =
+        requestJson("GET", "/api/v1/details/${encode(entityType)}/${encode(id)}")
+
+    suspend fun playbackManifest(assetId: String, connectionPath: String): PlaybackManifest {
+        val json = requestJson(
+            "GET",
+            "/api/v1/playback/${encode(assetId)}/manifest?connectionPath=${encode(connectionPath)}",
+        )
+        val resume = json.optJSONObject("resume")
+        return PlaybackManifest(
+            assetId = json.getString("assetId"),
+            recommendedDelivery = json.getString("recommendedDelivery"),
+            directPlaySupported = json.optBoolean("directPlaySupported"),
+            directStreamUrl = absolute(json.optionalString("directStreamUrl")),
+            hlsUrl = absolute(json.optionalString("hlsUrl")),
+            hlsStatus = json.optionalString("hlsStatus"),
+            hlsExpiresAt = json.optionalString("hlsExpiresAt"),
+            resumeSeconds = resume?.optDouble("positionSeconds")?.takeUnless(Double::isNaN),
+            durationSeconds = resume?.optDouble("durationSeconds")?.takeUnless(Double::isNaN),
+            offlineVariants = json.optJSONArray("offlineVariants")?.objects { variant ->
+                OfflineVariant(
+                    id = variant.getString("id"),
+                    assetId = variant.getString("assetId"),
+                    status = variant.getString("status"),
+                    downloadUrl = absolute(variant.optionalString("downloadUrl")),
+                    fileSizeBytes = variant.optLong("fileSizeBytes").takeIf { it > 0 },
+                )
+            }.orEmpty(),
+            warnings = json.optJSONArray("warnings")?.strings().orEmpty(),
+        )
+    }
+
+    suspend fun heartbeat(payload: JSONObject): JSONObject =
+        requestJson("POST", "/api/v1/player/heartbeat", payload)
+
+    suspend fun playerState(): JSONObject = requestJson("GET", "/api/v1/player/state")
+
+    suspend fun replaceQueue(payload: JSONObject): JSONObject =
+        requestJson("POST", "/api/v1/player/queue/replace", payload)
+
+    suspend fun requestOfflineVariant(assetId: String, profileKey: String = "mobile-standard"): JSONObject =
+        requestJson(
+            "POST",
+            "/api/v1/playback/${encode(assetId)}/encode",
+            JSONObject().put("profileKey", profileKey),
+        )
+
+    suspend fun encodeJobs(): JSONArray = requestArray("GET", "/api/v1/playback/encode/jobs")
+
+    suspend fun authenticatedBytes(path: String): ByteArray = withContext(Dispatchers.IO) {
+        val connection = openConnection(path, "GET", authenticatedToken())
+        try {
+            checkResponse(connection)
+            connection.inputStream.use { it.readBytes() }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    suspend fun currentAccessToken(): String = authenticatedToken()
+
+    fun isPaired(): Boolean = token != null
+
+    suspend fun downloadToFile(path: String, destination: File, onProgress: (Long, Long?) -> Unit = { _, _ -> }) =
+        withContext(Dispatchers.IO) {
+            destination.parentFile?.mkdirs()
+            val existing = destination.takeIf(File::exists)?.length() ?: 0L
+            var connection = openConnection(path, "GET", authenticatedToken()).apply {
+                if (existing > 0) setRequestProperty("Range", "bytes=$existing-")
+            }
+            try {
+                if (connection.responseCode == HttpURLConnection.HTTP_UNAUTHORIZED) {
+                    connection.disconnect()
+                    connection = openConnection(path, "GET", refreshToken(force = true)).apply {
+                        if (existing > 0) setRequestProperty("Range", "bytes=$existing-")
+                    }
+                }
+                checkResponse(connection)
+                val append = existing > 0 && connection.responseCode == HttpURLConnection.HTTP_PARTIAL
+                val initial = if (append) existing else 0L
+                val total = connection.getHeaderField("Content-Range")
+                    ?.substringAfterLast('/')?.toLongOrNull()
+                    ?: connection.contentLengthLong.takeIf { it >= 0 }?.plus(initial)
+                FileOutputStream(destination, append).use { output ->
+                    connection.inputStream.use { input ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        var copied = initial
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            copied += count
+                            onProgress(copied, total)
+                        }
+                    }
+                }
+            } finally {
+                connection.disconnect()
+            }
+        }
+
+    fun signOut() {
+        token = null
+        tokenStore.clear()
+    }
+
+    private suspend fun requestJson(
+        method: String,
+        path: String,
+        body: JSONObject? = null,
+        authenticated: Boolean = true,
+    ): JSONObject = JSONObject(requestText(method, path, body, authenticated))
+
+    private suspend fun requestArray(method: String, path: String): JSONArray =
+        JSONArray(requestText(method, path, null, authenticated = true))
+
+    private suspend fun requestText(
+        method: String,
+        path: String,
+        body: JSONObject?,
+        authenticated: Boolean,
+    ): String = withContext(Dispatchers.IO) {
+        val credential = if (authenticated) authenticatedToken() else null
+        var connection = openConnection(path, method, credential, body)
+        try {
+            if (connection.responseCode == HttpURLConnection.HTTP_UNAUTHORIZED && authenticated) {
+                connection.disconnect()
+                connection = openConnection(path, method, refreshToken(force = true), body)
+            }
+            checkResponse(connection)
+            connection.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private suspend fun authenticatedToken(): String {
+        val current = token ?: error("This device is not paired.")
+        return if (current.expiresSoon()) refreshToken() else current.accessToken
+    }
+
+    private suspend fun refreshToken(force: Boolean = false): String = refreshMutex.withLock {
+        val current = token ?: error("This device is not paired.")
+        if (!force && !current.expiresSoon()) return@withLock current.accessToken
+        val endpoint = (discovery ?: discover()).tokenEndpoint
+        val json = requestJson(
+            "POST",
+            endpoint,
+            JSONObject()
+                .put("grant_type", "refresh_token")
+                .put("client_id", clientId)
+                .put("refresh_token", current.refreshToken),
+            authenticated = false,
+        )
+        acceptToken(json).accessToken
+    }
+
+    private fun acceptToken(json: JSONObject): ClientToken {
+        val value = ClientToken(
+            accessToken = json.getString("access_token"),
+            refreshToken = json.getString("refresh_token"),
+            expiresAtEpochSeconds = System.currentTimeMillis() / 1000 + json.getLong("expires_in"),
+            scope = json.getString("scope"),
+            deviceId = json.getString("device_id"),
+            profileId = json.getString("profile_id"),
+        )
+        token = value
+        tokenStore.save(serverOrigin, value)
+        return value
+    }
+
+    private fun openConnection(
+        path: String,
+        method: String,
+        bearer: String?,
+        body: JSONObject? = null,
+    ): HttpURLConnection = (URL(absolute(path) ?: error("A request path is required.")).openConnection() as HttpURLConnection).apply {
+        requestMethod = method
+        connectTimeout = 15_000
+        readTimeout = 30_000
+        setRequestProperty("Accept", "application/json")
+        bearer?.let { setRequestProperty("Authorization", "Bearer $it") }
+        if (body != null) {
+            doOutput = true
+            setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+        }
+    }
+
+    private fun checkResponse(connection: HttpURLConnection) {
+        if (connection.responseCode in 200..299) return
+        val body = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+        throw TuvimaHttpException(connection.responseCode, body)
+    }
+
+    private fun parseDisplayPage(json: JSONObject): DisplayPage = DisplayPage(
+        key = json.optString("key"),
+        title = json.optString("title", "Tuvima Library"),
+        subtitle = json.optionalString("subtitle"),
+        shelves = json.optJSONArray("shelves")?.objects(::parseShelf).orEmpty(),
+    )
+
+    private fun parseShelf(json: JSONObject): DisplayShelf = DisplayShelf(
+        key = json.optString("key"),
+        title = json.optString("title"),
+        subtitle = json.optionalString("subtitle"),
+        items = json.optJSONArray("items")?.objects(::parseCard).orEmpty(),
+        seeAllRoute = json.optionalString("seeAllRoute"),
+    )
+
+    private fun parseCard(json: JSONObject): DisplayCard {
+        val artwork = json.optJSONObject("artwork") ?: JSONObject()
+        val progress = json.optJSONObject("progress")
+        return DisplayCard(
+            id = json.optString("id"),
+            workId = json.optionalString("workId"),
+            assetId = json.optionalString("assetId"),
+            collectionId = json.optionalString("collectionId"),
+            mediaType = json.optString("mediaType"),
+            title = json.optString("title"),
+            subtitle = json.optionalString("subtitle"),
+            facts = json.optJSONArray("facts")?.strings().orEmpty(),
+            description = json.optionalString("description"),
+            artworkUrl = absolute(
+                artwork.optionalString("backgroundLargeUrl")
+                    ?: artwork.optionalString("coverLargeUrl")
+                    ?: artwork.optionalString("squareLargeUrl")
+                    ?: artwork.optionalString("backgroundUrl")
+                    ?: artwork.optionalString("coverUrl")
+                    ?: artwork.optionalString("squareUrl"),
+            ),
+            actions = json.optJSONArray("actions")?.objects { action ->
+                DisplayAction(
+                    type = action.optString("type"),
+                    label = action.optString("label"),
+                    workId = action.optionalString("workId"),
+                    assetId = action.optionalString("assetId"),
+                    collectionId = action.optionalString("collectionId"),
+                    webUrl = action.optionalString("webUrl"),
+                )
+            }.orEmpty(),
+            progressPercent = progress?.optDouble("percent")?.takeUnless(Double::isNaN),
+        )
+    }
+
+    private fun absolute(path: String?): String? {
+        if (path.isNullOrBlank()) return null
+        val uri = URI(path)
+        return if (uri.isAbsolute) uri.toString() else URI(serverOrigin).resolve(path).toString()
+    }
+
+    private companion object {
+        const val DEVICE_GRANT = "urn:ietf:params:oauth:grant-type:device_code"
+
+        fun normalizeOrigin(address: String): String {
+            val withScheme = address.trim().let { if (it.contains("://")) it else "https://$it" }
+            val uri = URI(withScheme)
+            val localHttp = uri.scheme == "http" && runCatching {
+                uri.host.endsWith(".local", ignoreCase = true) || InetAddress.getByName(uri.host).let {
+                    it.isLoopbackAddress || it.isSiteLocalAddress || it.isLinkLocalAddress
+                }
+            }.getOrDefault(false)
+            require(uri.scheme == "https" || localHttp) {
+                "Remote Tuvima connections require HTTPS; HTTP is accepted only on the local network."
+            }
+            require(!uri.host.isNullOrBlank()) { "Enter a valid Tuvima Dashboard address." }
+            return URI(uri.scheme, null, uri.host, uri.port, null, null, null).toString().trimEnd('/')
+        }
+
+        fun encode(value: String): String = URLEncoder.encode(value, StandardCharsets.UTF_8.toString())
+    }
+}
+
+private fun <T> JSONArray.objects(mapper: (JSONObject) -> T): List<T> = buildList {
+    for (index in 0 until length()) optJSONObject(index)?.let { add(mapper(it)) }
+}

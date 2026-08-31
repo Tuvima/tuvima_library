@@ -74,7 +74,8 @@ public sealed class PlaybackCapabilitiesService
         Guid? profileId = null,
         CancellationToken ct = default,
         PlaybackConnectionContextDto? connection = null,
-        ClientCapabilitiesDto? negotiatedCapabilities = null)
+        ClientCapabilitiesDto? negotiatedCapabilities = null,
+        Guid? deviceId = null)
     {
         var asset = await _assets.FindByIdAsync(assetId, ct);
         if (asset is null)
@@ -164,7 +165,7 @@ public sealed class PlaybackCapabilitiesService
             ? null
             : GetConversionReason(extension, profile, mediaInfo, probe);
 
-        var variants = await _playbackState.ListOfflineVariantsAsync(assetId, sourceHash, ct);
+        var variants = await _playbackState.ListOfflineVariantsAsync(assetId, sourceHash, profileId, deviceId, ct);
         var chapters = await BuildChaptersAsync(assetId, mediaInfo, probe, profileId, ct);
         var durationSeconds = ResolveManifestDurationSeconds(chapters, mediaInfo, probe);
         var sourceBitrateKbps = CalculateSourceBitrateKbps(asset.FilePathRoot, durationSeconds);
@@ -346,7 +347,12 @@ public sealed class PlaybackCapabilitiesService
         return false;
     }
 
-    public async Task<EncodeJobDto?> QueueEncodeAsync(Guid assetId, QueueEncodeRequestDto request, CancellationToken ct = default)
+    public async Task<EncodeJobDto?> QueueEncodeAsync(
+        Guid assetId,
+        QueueEncodeRequestDto request,
+        Guid? ownerProfileId = null,
+        Guid? ownerDeviceId = null,
+        CancellationToken ct = default)
     {
         var asset = await _assets.FindByIdAsync(assetId, ct);
         if (asset is null)
@@ -358,14 +364,28 @@ public sealed class PlaybackCapabilitiesService
             ? "mobile-standard"
             : request.ProfileKey.Trim().ToLowerInvariant();
 
-        return await _playbackState.QueueEncodeJobAsync(assetId, profileKey, BuildSourceHash(asset), request.ScheduledFor, ct);
+        return await _playbackState.QueueEncodeJobAsync(
+            assetId,
+            profileKey,
+            BuildSourceHash(asset),
+            request.ScheduledFor,
+            ownerProfileId,
+            ownerDeviceId,
+            ct);
     }
 
-    public Task<IReadOnlyList<EncodeJobDto>> ListEncodeJobsAsync(CancellationToken ct = default) =>
-        _playbackState.ListEncodeJobsAsync(ct);
+    public Task<IReadOnlyList<EncodeJobDto>> ListEncodeJobsAsync(
+        Guid? ownerProfileId = null,
+        Guid? ownerDeviceId = null,
+        CancellationToken ct = default) =>
+        _playbackState.ListEncodeJobsAsync(ownerProfileId, ownerDeviceId, ct);
 
-    public Task CancelEncodeJobAsync(Guid jobId, CancellationToken ct = default) =>
-        _playbackState.CancelEncodeJobAsync(jobId, ct);
+    public Task<bool> CancelEncodeJobAsync(
+        Guid jobId,
+        Guid? ownerProfileId = null,
+        Guid? ownerDeviceId = null,
+        CancellationToken ct = default) =>
+        _playbackState.CancelEncodeJobAsync(jobId, ownerProfileId, ownerDeviceId, ct);
 
     public async Task<PlaybackDiagnosticsDto> GetDiagnosticsAsync(CancellationToken ct = default)
     {
@@ -409,8 +429,13 @@ public sealed class PlaybackCapabilitiesService
         };
     }
 
-    public Task<OfflineVariantFile?> GetOfflineVariantFileAsync(Guid assetId, Guid variantId, CancellationToken ct = default) =>
-        _playbackState.GetOfflineVariantFileAsync(assetId, variantId, ct);
+    public Task<OfflineVariantFile?> GetOfflineVariantFileAsync(
+        Guid assetId,
+        Guid variantId,
+        Guid? ownerProfileId = null,
+        Guid? ownerDeviceId = null,
+        CancellationToken ct = default) =>
+        _playbackState.GetOfflineVariantFileAsync(assetId, variantId, ownerProfileId, ownerDeviceId, ct);
 
     private async Task<string> ResolveMediaTypeAsync(MediaAsset asset, string extension, CancellationToken ct)
     {

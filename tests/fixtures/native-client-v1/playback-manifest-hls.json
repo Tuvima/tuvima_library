@@ -1,0 +1,32 @@
+{
+  "assetId": "44444444-4444-4444-4444-444444444444",
+  "client": "android-tv",
+  "mediaType": "Movies",
+  "sourceExtension": ".mkv",
+  "recommendedDelivery": "hls",
+  "directPlaySupported": false,
+  "directStreamUrl": null,
+  "hlsUrl": "/api/v1/stream/hls/fixture/master.m3u8?grant=redacted",
+  "hlsStatus": "ready",
+  "hlsExpiresAt": "2030-01-01T00:10:00Z",
+  "profile": {
+    "key": "android-tv",
+    "displayName": "Android TV",
+    "preferredDelivery": "hls",
+    "maxWidth": 3840,
+    "maxHeight": 2160,
+    "supportsPlaybackSpeed": false,
+    "supportsOfflineDownloads": false
+  },
+  "audioTracks": [],
+  "subtitleTracks": [],
+  "chapters": [],
+  "offlineVariants": [],
+  "resume": { "positionSeconds": 120.5, "durationSeconds": 5400.0, "completed": false },
+  "segments": [],
+  "technical": {},
+  "warnings": [],
+  "conversionReason": "Source container is not supported by the client.",
+  "sourceBitrateKbps": 12000,
+  "connection": { "path": "local", "provider": null, "bandwidthMbps": 500.0, "latencyMs": 2, "roomId": null }
+}

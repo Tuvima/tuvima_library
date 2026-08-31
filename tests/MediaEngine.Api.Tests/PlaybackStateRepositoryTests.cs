@@ -1,7 +1,9 @@
 using Dapper;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Playback;
 using Microsoft.Data.Sqlite;
+using System.Text.Json;
 
 namespace MediaEngine.Api.Tests;
 
@@ -38,6 +40,79 @@ public sealed class PlaybackStateRepositoryTests : IDisposable
             new { assetId });
 
         Assert.Equal("blob", storageType);
+    }
+
+    [Fact]
+    public async Task NativeEncodeJobs_AreScopedToTheirProfileAndDevice()
+    {
+        var assetId = await CreateAssetAsync();
+        var repository = new PlaybackStateRepository(_db);
+        var firstProfile = Guid.NewGuid();
+        var firstDevice = Guid.NewGuid();
+        var secondProfile = Guid.NewGuid();
+        var secondDevice = Guid.NewGuid();
+
+        var first = await repository.QueueEncodeJobAsync(
+            assetId,
+            "mobile-standard",
+            "same-source",
+            null,
+            firstProfile,
+            firstDevice);
+        var second = await repository.QueueEncodeJobAsync(
+            assetId,
+            "mobile-standard",
+            "same-source",
+            null,
+            secondProfile,
+            secondDevice);
+
+        Assert.NotEqual(first.Id, second.Id);
+        Assert.Equal([first.Id], (await repository.ListEncodeJobsAsync(firstProfile, firstDevice)).Select(job => job.Id));
+        Assert.Equal([second.Id], (await repository.ListEncodeJobsAsync(secondProfile, secondDevice)).Select(job => job.Id));
+        Assert.False(await repository.CancelEncodeJobAsync(first.Id, secondProfile, secondDevice));
+        Assert.True(await repository.CancelEncodeJobAsync(first.Id, firstProfile, firstDevice));
+    }
+
+    [Fact]
+    public async Task NativeOfflineVariants_AreScopedToTheJobProfileAndDevice()
+    {
+        var assetId = await CreateAssetAsync();
+        var repository = new PlaybackStateRepository(_db);
+        var firstProfile = Guid.NewGuid();
+        var firstDevice = Guid.NewGuid();
+        var secondProfile = Guid.NewGuid();
+        var secondDevice = Guid.NewGuid();
+
+        await repository.QueueEncodeJobAsync(assetId, "mobile-standard", "same-source", null, firstProfile, firstDevice);
+        await repository.QueueEncodeJobAsync(assetId, "mobile-standard", "same-source", null, secondProfile, secondDevice);
+
+        var firstLease = Assert.IsType<LeasedEncodeJob>(await repository.LeaseNextEncodeJobAsync());
+        await repository.CompleteEncodeJobAsync(firstLease, _dbPath + ".first.media", "First", "mp4", "h264", "aac", 1280, 720, 2500);
+        var secondLease = Assert.IsType<LeasedEncodeJob>(await repository.LeaseNextEncodeJobAsync());
+        await repository.CompleteEncodeJobAsync(secondLease, _dbPath + ".second.media", "Second", "mp4", "h264", "aac", 1280, 720, 2500);
+
+        var first = Assert.Single(await repository.ListOfflineVariantsAsync(assetId, "same-source", firstProfile, firstDevice));
+        var second = Assert.Single(await repository.ListOfflineVariantsAsync(assetId, "same-source", secondProfile, secondDevice));
+        Assert.NotEqual(first.Id, second.Id);
+        Assert.StartsWith("/api/v1/playback/", first.DownloadUrl, StringComparison.Ordinal);
+        Assert.Null(await repository.GetOfflineVariantFileAsync(assetId, first.Id, secondProfile, secondDevice));
+        Assert.NotNull(await repository.GetOfflineVariantFileAsync(assetId, first.Id, firstProfile, firstDevice));
+    }
+
+    [Fact]
+    public async Task EncodeJobWireContract_PreservesFieldWithoutExposingServerOutputPath()
+    {
+        var assetId = await CreateAssetAsync();
+        var repository = new PlaybackStateRepository(_db);
+        var job = await repository.QueueEncodeJobAsync(assetId, "mobile-standard", "source", null);
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync("UPDATE encode_jobs SET output_path = @path WHERE id = @id", new { path = @"C:\server\private\download.mp4", id = job.Id });
+        var returned = Assert.Single(await repository.ListEncodeJobsAsync());
+        var json = JsonSerializer.Serialize(returned, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.Contains("\"outputPath\":null", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("server", json, StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<Guid> CreateAssetAsync()
