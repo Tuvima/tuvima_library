@@ -65,6 +65,8 @@ public sealed class DurablePipelineTests : IDisposable
     private readonly IMediaEntityChainFactory _chainFactory;
     private readonly IIngestionBatchRepository _batchRepo;
     private readonly IIdentityJobRepository _identityJobRepo;
+    private readonly IMediaOperationRepository _operationRepo;
+    private readonly IMediaOperationTracker _operationTracker;
     private readonly IScoringEngine _scorer;
     private readonly AssetPathService _assetPaths;
 
@@ -102,6 +104,12 @@ public sealed class DurablePipelineTests : IDisposable
         _chainFactory = new MediaEntityChainFactory(db, new HierarchyResolver(_workRepo));
         _batchRepo = new IngestionBatchRepository(db);
         _identityJobRepo = new IdentityJobRepository(db);
+        _operationRepo = new MediaOperationRepository(db);
+        _operationTracker = new MediaOperationTracker(
+            _operationRepo,
+            new MediaOperationEventRepository(db),
+            _publisher,
+            NullLogger<MediaOperationTracker>.Instance);
 
         _scorer = new PriorityCascadeEngine(new StubConfigurationLoader(), NullLogger<PriorityCascadeEngine>.Instance);
     }
@@ -246,6 +254,14 @@ public sealed class DurablePipelineTests : IDisposable
         // run, and the pipeline must complete without throwing an exception.
         var filePath = Path.Combine(_watchDir, "corrupt.epub");
         File.WriteAllBytes(filePath, []);
+        _processors.SetNextResult(new ProcessorResult
+        {
+            FilePath = filePath,
+            DetectedType = MediaType.Books,
+            Claims = [],
+            IsCorrupt = true,
+            CorruptReason = "File is not a valid EPUB archive.",
+        });
 
         // The primary assertion: this must not throw.
         var exception = await Record.ExceptionAsync(() => RunPipelineAsync());
@@ -258,6 +274,12 @@ public sealed class DurablePipelineTests : IDisposable
         var failedJobs = conn.ExecuteScalar<int>(
             "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Queued','Ready','ReadyWithoutUniverse','Failed','RetailNoMatch','QidNoMatch');");
         Assert.Equal(0, failedJobs);
+
+        var operation = await _operationRepo.GetLatestBySourcePathAsync(filePath);
+        Assert.NotNull(operation);
+        Assert.Equal(MediaOperationStatus.NoResult, operation!.Status);
+        Assert.Equal(MediaOperationStage.NoResult, operation.Stage);
+        Assert.Contains("Corrupt media file", operation.MissingReason, StringComparison.Ordinal);
     }
 
     // ── Test 4: Batch counter increments after processing ────────────────
@@ -1098,6 +1120,8 @@ public sealed class DurablePipelineTests : IDisposable
             new OrganizeStageDependencies(null),
             new WriteBackStageDependencies(_entityAssetRepo, _assetPaths, _workRepo, null),
             new IdentityJobStageDependencies(new IdentityPipelineSignal()),
+            operationTracker: _operationTracker,
+            operationRepository: _operationRepo,
             libraryFolderResolver: new LibraryFolderResolver(new OptionsMonitorStub<IngestionOptions>(options)));
 
     private static StageOutcomeFactory CreateOutcomeFactory() =>

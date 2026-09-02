@@ -268,6 +268,10 @@ public sealed partial class IngestionEngine
                 await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
                 await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
             }
+            await NoResultOperationAsync(
+                durableOperation,
+                $"Corrupt media file: {result.CorruptReason ?? "processor rejected the file"}",
+                ct).ConfigureAwait(false);
             context.Complete();
             return;
         }

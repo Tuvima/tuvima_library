@@ -89,6 +89,20 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void SetupPreflight_UsesCanonicalStorageResolversForEmptyDataRoot()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\SetupPreflightService.cs"));
+
+        Assert.Contains("new AssetPathService(", source, StringComparison.Ordinal);
+        Assert.Contains("core.DataRoot).DataRoot", source, StringComparison.Ordinal);
+        Assert.Contains("TuvimaDataPathResolver.ResolveDatabasePath(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "Probe(\"artwork\", \"Artwork and generated data\", core.DataRoot",
+            source,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DevHarnessReset_RecreatesConfiguredSourceFoldersAfterWipe()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevHarnessResetService.cs"));
