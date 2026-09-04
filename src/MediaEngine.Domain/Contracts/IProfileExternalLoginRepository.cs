@@ -8,6 +8,7 @@ public interface IProfileExternalLoginRepository
 
     Task<ProfileExternalLogin?> GetByProviderSubjectAsync(
         string provider,
+        string issuer,
         string subject,
         CancellationToken ct = default);
 

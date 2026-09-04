@@ -313,6 +313,7 @@ public sealed partial class EngineApiClient
     public async Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
         Guid profileId,
         string provider,
+        string issuer,
         string subject,
         string? email = null,
         string? displayName = null,
@@ -323,6 +324,7 @@ public sealed partial class EngineApiClient
             var body = new LinkProfileExternalLoginRequest
             {
                 Provider = provider,
+                Issuer = issuer,
                 Subject = subject,
                 Email = email,
                 DisplayName = displayName,
@@ -372,6 +374,7 @@ public sealed partial class EngineApiClient
         login.Id,
         login.ProfileId,
         login.Provider,
+        login.Issuer,
         login.Subject,
         login.Email,
         login.DisplayName,

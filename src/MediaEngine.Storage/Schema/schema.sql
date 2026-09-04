@@ -1205,12 +1205,13 @@ CREATE TABLE IF NOT EXISTS profile_external_logins (
     id            BLOB NOT NULL PRIMARY KEY,
     profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     provider      TEXT NOT NULL,
+    issuer        TEXT NOT NULL,
     subject       TEXT NOT NULL,
     email         TEXT,
     display_name  TEXT,
     linked_at     TEXT NOT NULL,
     last_login_at TEXT,
-    UNIQUE(provider, subject)
+    UNIQUE(provider, issuer, subject)
 );
 
 CREATE TABLE IF NOT EXISTS profiles (

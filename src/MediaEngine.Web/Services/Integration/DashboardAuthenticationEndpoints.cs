@@ -10,7 +10,9 @@ namespace MediaEngine.Web.Services.Integration;
 
 public static class DashboardAuthenticationEndpoints
 {
-    public static WebApplication MapDashboardAuthenticationEndpoints(this WebApplication app, bool oidcEnabled)
+    public static WebApplication MapDashboardAuthenticationEndpoints(
+        this WebApplication app,
+        IReadOnlyList<RegisteredExternalAuthProvider> externalProviders)
     {
         app.MapGet("/auth/login", async (HttpContext context, DashboardIdentityClient identity, IAntiforgery antiforgery, string? returnUrl) =>
         {
@@ -30,7 +32,7 @@ public static class DashboardAuthenticationEndpoints
             return Results.Content(
                 LoginPage(
                     tokens.RequestToken ?? string.Empty,
-                    oidcEnabled,
+                    externalProviders,
                     SafeReturnUrl(returnUrl)),
                 "text/html",
                 Encoding.UTF8);
@@ -189,9 +191,13 @@ public static class DashboardAuthenticationEndpoints
 
     private static string LoginPage(
         string token,
-        bool oidcEnabled,
+        IReadOnlyList<RegisteredExternalAuthProvider> externalProviders,
         string returnUrl)
     {
+        var externalButtons = string.Join(
+            string.Empty,
+            externalProviders.Select(provider =>
+                $"<p><a class=\"button\" href=\"/auth/external/{Uri.EscapeDataString(provider.Id)}?returnUrl={Uri.EscapeDataString(returnUrl)}\">Continue with {H(provider.DisplayName)}</a></p>"));
         var form = $"""
               <p class="eyebrow">Tuvima Library</p>
               <h1>Sign in to Tuvima Library</h1>
@@ -204,7 +210,7 @@ public static class DashboardAuthenticationEndpoints
               <p class="supporting">No recovery code? Run <code>tuvima-admin auth reset-password</code> with administrator privileges on the computer running Tuvima Library.</p>
               </details>
               <details><summary>Sign in with a profile PIN</summary><form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}"><label>Profile ID<input name="profileId" required></label><label>PIN<input type="password" inputmode="numeric" name="pin" required></label><button>Unlock profile</button></form></details>
-              {(oidcEnabled ? "<p><a class=\"button\" href=\"/auth/oidc?returnUrl=" + Uri.EscapeDataString(returnUrl) + "\">Continue with OpenID Connect</a></p>" : string.Empty)}
+              {externalButtons}
               """;
 
         return Shell(form);

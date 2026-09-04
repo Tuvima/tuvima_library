@@ -117,6 +117,19 @@ internal sealed class SchemaMigrator
 
     private static void EnsureIdentitySchema(SqliteConnection conn)
     {
+        using var legacyExternalLogin = conn.CreateCommand();
+        legacyExternalLogin.CommandText = """
+            SELECT CASE
+                WHEN EXISTS (SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'profile_external_logins')
+                 AND NOT EXISTS (SELECT 1 FROM pragma_table_info('profile_external_logins') WHERE name = 'issuer')
+                THEN 1 ELSE 0 END;
+            """;
+        if (Convert.ToInt32(legacyExternalLogin.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) > 0)
+        {
+            throw new InvalidOperationException(
+                "Unsupported pre-beta external-login schema was found. Reset the disposable development database and link external identities again using issuer-aware provider configuration.");
+        }
+
         using var legacyPin = conn.CreateCommand();
         legacyPin.CommandText = "SELECT COUNT(1) FROM pragma_table_info('profiles') WHERE name = 'pin_hash';";
         if (Convert.ToInt32(legacyPin.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture) > 0)

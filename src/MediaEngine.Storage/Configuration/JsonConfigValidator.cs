@@ -9,6 +9,7 @@ namespace MediaEngine.Storage.Configuration;
 public static class JsonConfigValidator
 {
     private static readonly Regex HexColorRegex = new("^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$", RegexOptions.Compiled);
+    private static readonly Regex AuthProviderIdRegex = new("^[a-z][a-z0-9-]{1,39}$", RegexOptions.Compiled);
 
     public static IReadOnlyList<string> Validate<T>(T config, string relativePath)
         where T : class
@@ -155,10 +156,67 @@ public static class JsonConfigValidator
             errors.Add("time_format must be one of system, 12h, 24h.");
         }
 
+        ValidateAuthentication(core.Auth, errors);
+
         AddPositive(errors, core.Pipeline.LeaseSizes.Retail, "pipeline.lease_sizes.retail");
         AddPositive(errors, core.Pipeline.LeaseSizes.Wikidata, "pipeline.lease_sizes.wikidata");
         AddPositive(errors, core.Pipeline.LeaseSizes.Hydration, "pipeline.lease_sizes.hydration");
         AddPositive(errors, core.Pipeline.BatchGate.TimeoutSeconds, "pipeline.batch_gate.timeout_seconds");
+    }
+
+    private static void ValidateAuthentication(AuthSettings auth, List<string> errors)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (var index = 0; index < auth.ExternalProviders.Count; index++)
+        {
+            var provider = auth.ExternalProviders[index];
+            var prefix = $"auth.external_providers[{index}]";
+            if (!AuthProviderIdRegex.IsMatch(provider.Id))
+            {
+                errors.Add($"{prefix}.id must contain 2 to 40 lowercase letters, numbers, or hyphens and begin with a letter.");
+            }
+            else if (!ids.Add(provider.Id))
+            {
+                errors.Add($"{prefix}.id must be unique.");
+            }
+
+            if (!Allowed(provider.Kind, ExternalAuthProviderKinds.OpenIdConnect, ExternalAuthProviderKinds.OAuth))
+            {
+                errors.Add($"{prefix}.kind must be oidc or oauth.");
+            }
+
+            AddRequired(errors, provider.DisplayName, $"{prefix}.display_name");
+            if (!provider.Enabled)
+            {
+                continue;
+            }
+
+            AddRequired(errors, provider.ClientId, $"{prefix}.client_id");
+            if (provider.Kind.Equals(ExternalAuthProviderKinds.OpenIdConnect, StringComparison.OrdinalIgnoreCase))
+            {
+                AddHttpsUri(errors, provider.Authority, $"{prefix}.authority");
+                if (!provider.Scopes.Contains("openid", StringComparer.Ordinal))
+                {
+                    errors.Add($"{prefix}.scopes must contain openid for an OIDC provider.");
+                }
+            }
+            else
+            {
+                AddHttpsUri(errors, provider.Issuer, $"{prefix}.issuer");
+                AddHttpsUri(errors, provider.AuthorizationEndpoint, $"{prefix}.authorization_endpoint");
+                AddHttpsUri(errors, provider.TokenEndpoint, $"{prefix}.token_endpoint");
+                AddHttpsUri(errors, provider.UserInformationEndpoint, $"{prefix}.user_information_endpoint");
+                AddRequired(errors, provider.IdClaim, $"{prefix}.id_claim");
+            }
+        }
+    }
+
+    private static void AddHttpsUri(List<string> errors, string value, string field)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
+        {
+            errors.Add($"{field} must be an absolute HTTPS URL.");
+        }
     }
 
     private static void ValidateLibraries(LibrariesConfiguration config, List<string> errors)

@@ -30,13 +30,7 @@
     "mode": "Local",
     "localhost_bypass": false,
     "require_https_remote": false,
-    "oidc": {
-      "enabled": false,
-      "authority": "",
-      "client_id": "",
-      "display_name": "OpenID Connect",
-      "scopes": [ "openid", "profile", "email" ]
-    }
+    "external_providers": []
   },
   "pipeline": {
     "lease_sizes": {

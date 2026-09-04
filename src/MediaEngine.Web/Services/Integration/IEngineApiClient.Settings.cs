@@ -118,6 +118,7 @@ public partial interface IEngineApiClient
     Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
         Guid profileId,
         string provider,
+        string issuer,
         string subject,
         string? email = null,
         string? displayName = null,

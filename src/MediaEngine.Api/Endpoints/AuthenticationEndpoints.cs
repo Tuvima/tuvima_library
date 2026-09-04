@@ -50,7 +50,7 @@ public static class AuthenticationEndpoints
         {
             try
             {
-                var linked = await externalLogins.ResolveAsync(request.Provider, request.Subject, ct).ConfigureAwait(false);
+                var linked = await externalLogins.ResolveAsync(request.Provider, request.Issuer, request.Subject, ct).ConfigureAwait(false);
                 if (linked is null)
                 {
                     return Results.Unauthorized();

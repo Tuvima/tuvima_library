@@ -7,6 +7,80 @@ namespace MediaEngine.Storage.Tests;
 public sealed class ConfigurationDirectoryLoaderValidationTests
 {
     [Fact]
+    public void CoreAuthentication_AllowsMultipleProtocolSpecificProviders()
+    {
+        var core = new CoreConfiguration
+        {
+            Auth = new AuthSettings
+            {
+                ExternalProviders =
+                [
+                    new ExternalAuthProviderSettings
+                    {
+                        Id = "google",
+                        Kind = ExternalAuthProviderKinds.OpenIdConnect,
+                        Enabled = true,
+                        DisplayName = "Google",
+                        Authority = "https://accounts.google.com",
+                        ClientId = "client-id",
+                        Scopes = ["openid", "profile", "email"],
+                    },
+                    new ExternalAuthProviderSettings
+                    {
+                        Id = "github",
+                        Kind = ExternalAuthProviderKinds.OAuth,
+                        Enabled = true,
+                        DisplayName = "GitHub",
+                        Issuer = "https://github.com",
+                        ClientId = "client-id",
+                        Scopes = ["read:user", "user:email"],
+                        AuthorizationEndpoint = "https://github.com/login/oauth/authorize",
+                        TokenEndpoint = "https://github.com/login/oauth/access_token",
+                        UserInformationEndpoint = "https://api.github.com/user",
+                    },
+                ],
+            },
+        };
+
+        var errors = JsonConfigValidator.Validate(core, "core.json");
+
+        Assert.DoesNotContain(errors, error => error.StartsWith("auth.", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void CoreAuthentication_RejectsDuplicateIdsAndInsecureEndpoints()
+    {
+        var core = new CoreConfiguration
+        {
+            Auth = new AuthSettings
+            {
+                ExternalProviders =
+                [
+                    new ExternalAuthProviderSettings
+                    {
+                        Id = "github",
+                        Kind = ExternalAuthProviderKinds.OAuth,
+                        Enabled = true,
+                        DisplayName = "GitHub",
+                        Issuer = "http://github.com",
+                        ClientId = "client-id",
+                        AuthorizationEndpoint = "http://github.com/login/oauth/authorize",
+                        TokenEndpoint = "https://github.com/login/oauth/access_token",
+                        UserInformationEndpoint = "https://api.github.com/user",
+                    },
+                    new ExternalAuthProviderSettings { Id = "github", DisplayName = "Duplicate" },
+                ],
+            },
+        };
+
+        var errors = JsonConfigValidator.Validate(core, "core.json");
+
+        Assert.Contains(errors, error => error.Contains("id must be unique", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("issuer must be an absolute HTTPS URL", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("authorization_endpoint must be an absolute HTTPS URL", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void ValidCoreJson_LoadsSuccessfully()
     {
         using var temp = TempConfig.Create();

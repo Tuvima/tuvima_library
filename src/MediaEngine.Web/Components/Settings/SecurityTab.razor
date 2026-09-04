@@ -31,13 +31,25 @@
             {
                 <dl class="security-settings__facts">
                     <div><dt>Authentication mode</dt><dd>@FriendlyMode(_authSettings.Mode)</dd></div>
-                    <div><dt>External sign-in</dt><dd>@(_authSettings.OidcEnabled ? "Enabled" : "Disabled")</dd></div>
-                    <div><dt>Provider</dt><dd>@ValueOrNotConfigured(_authSettings.OidcDisplayName)</dd></div>
-                    <div><dt>Authority</dt><dd>@ValueOrNotConfigured(_authSettings.OidcAuthority)</dd></div>
-                    <div><dt>Client ID</dt><dd>@ValueOrNotConfigured(_authSettings.OidcClientId)</dd></div>
+                    <div><dt>External sign-in</dt><dd>@(_authSettings.ExternalProviders.Any(provider => provider.Enabled) ? "Enabled" : "Disabled")</dd></div>
                 </dl>
+                @foreach (var provider in _authSettings.ExternalProviders)
+                {
+                    <h3 class="mt-5">@provider.DisplayName</h3>
+                    <dl class="security-settings__facts">
+                        <div><dt>Status</dt><dd>@(provider.Enabled ? "Enabled" : "Disabled")</dd></div>
+                        <div><dt>Protocol</dt><dd>@FriendlyProviderKind(provider.Kind)</dd></div>
+                        <div><dt>Issuer</dt><dd>@ValueOrNotConfigured(provider.Issuer)</dd></div>
+                        @if (!string.IsNullOrWhiteSpace(provider.Authority))
+                        {
+                            <div><dt>Authority</dt><dd>@provider.Authority</dd></div>
+                        }
+                        <div><dt>Client ID</dt><dd>@ValueOrNotConfigured(provider.ClientId)</dd></div>
+                        <div><dt>Callback path</dt><dd><code>@provider.CallbackPath</code></dd></div>
+                    </dl>
+                }
                 <AppAlert Tone="AppUiTone.Info" Class="mt-4">
-                    Authentication is configured by the Engine. Linked external identities are managed from each profile on Users &amp; Access.
+                    Authentication is configured by the Engine. Provider secrets stay in the server's private authentication secret file and are never returned here.
                 </AppAlert>
             }
         }
@@ -72,6 +84,13 @@
         "DisabledLocalOnly" => "Local access only",
         "Optional" => "Optional sign-in",
         "Required" => "Sign-in required",
+        _ => value,
+    };
+
+    private static string FriendlyProviderKind(string value) => value switch
+    {
+        "oidc" => "OpenID Connect",
+        "oauth" => "OAuth 2.0",
         _ => value,
     };
 }

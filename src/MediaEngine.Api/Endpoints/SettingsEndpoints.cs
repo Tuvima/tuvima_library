@@ -111,15 +111,22 @@ public static class SettingsEndpoints
                 Mode = auth.Mode,
                 LocalhostBypass = auth.LocalhostBypass,
                 RequireHttpsRemote = auth.RequireHttpsRemote,
-                OidcEnabled = auth.Oidc.Enabled,
-                OidcDisplayName = auth.Oidc.DisplayName,
-                OidcAuthority = auth.Oidc.Authority,
-                OidcClientId = auth.Oidc.ClientId,
-                OidcScopes = auth.Oidc.Scopes,
+                ExternalProviders = auth.ExternalProviders.Select(provider => new MediaEngine.Contracts.Settings.ExternalAuthProviderDto
+                {
+                    Id = provider.Id,
+                    Kind = provider.Kind,
+                    Enabled = provider.Enabled,
+                    DisplayName = provider.DisplayName,
+                    Issuer = provider.Issuer,
+                    Authority = provider.Authority,
+                    ClientId = provider.ClientId,
+                    Scopes = provider.Scopes,
+                    CallbackPath = $"/signin-tuvima-{provider.Id}",
+                }).ToList(),
             });
         })
         .WithName("GetAuthSettings")
-        .WithSummary("Returns user sign-in and SSO/OIDC configuration.")
+        .WithSummary("Returns user sign-in and external provider configuration without secrets.")
         .Produces<AuthSettingsDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 

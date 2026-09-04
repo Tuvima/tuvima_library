@@ -21,8 +21,25 @@ public sealed class DashboardConfigurationReader
         _configDirectory = string.IsNullOrWhiteSpace(configDirectory) ? "config" : configDirectory;
     }
 
-    public DashboardCoreConfiguration LoadCore() =>
-        LoadJson<DashboardCoreConfiguration>("core.json") ?? new();
+    public DashboardCoreConfiguration LoadCore()
+    {
+        var core = LoadJson<DashboardCoreConfiguration>("core.json") ?? new();
+        var secrets = LoadJson<DashboardAuthProviderSecrets>(Path.Combine(".secrets", "auth-providers.json"));
+        if (secrets is null)
+        {
+            return core;
+        }
+
+        foreach (var provider in core.Auth.ExternalProviders)
+        {
+            if (secrets.Providers.TryGetValue(provider.Id, out var secret))
+            {
+                provider.ClientSecret = secret.ClientSecret;
+            }
+        }
+
+        return core;
+    }
 
     public PaletteConfiguration LoadPalette() =>
         LoadJson<PaletteConfiguration>(Path.Combine("ui", "palette.json")) ?? new();
@@ -54,32 +71,18 @@ public sealed class DashboardConfigurationReader
 public sealed class DashboardCoreConfiguration
 {
     [JsonPropertyName("auth")]
-    public DashboardAuthSettings Auth { get; set; } = new();
+    public AuthSettings Auth { get; set; } = new();
 }
 
-public sealed class DashboardAuthSettings
+public sealed class DashboardAuthProviderSecrets
 {
-    [JsonPropertyName("mode")]
-    public string Mode { get; set; } = "Local";
-
-    [JsonPropertyName("oidc")]
-    public DashboardOidcSettings Oidc { get; set; } = new();
+    [JsonPropertyName("providers")]
+    public Dictionary<string, DashboardAuthProviderSecret> Providers { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
 }
 
-public sealed class DashboardOidcSettings
+public sealed class DashboardAuthProviderSecret
 {
-    [JsonPropertyName("enabled")]
-    public bool Enabled { get; set; }
-
-    [JsonPropertyName("authority")]
-    public string Authority { get; set; } = string.Empty;
-
-    [JsonPropertyName("client_id")]
-    public string ClientId { get; set; } = string.Empty;
-
     [JsonPropertyName("client_secret")]
-    public string? ClientSecret { get; set; }
-
-    [JsonPropertyName("scopes")]
-    public List<string> Scopes { get; set; } = ["openid", "profile", "email"];
+    public string ClientSecret { get; set; } = string.Empty;
 }

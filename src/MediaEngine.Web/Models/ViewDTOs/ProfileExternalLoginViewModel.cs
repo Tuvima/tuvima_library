@@ -6,6 +6,7 @@ public sealed record ProfileExternalLoginViewModel(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("profile_id")] Guid ProfileId,
     [property: JsonPropertyName("provider")] string Provider,
+    [property: JsonPropertyName("issuer")] string Issuer,
     [property: JsonPropertyName("subject")] string Subject,
     [property: JsonPropertyName("email")] string? Email,
     [property: JsonPropertyName("display_name")] string? DisplayName,

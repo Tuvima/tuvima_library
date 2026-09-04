@@ -385,6 +385,7 @@
                             <div class="users-linked-account__identity">
                                 @(login.Email ?? login.DisplayName ?? login.Subject)
                             </div>
+                            <div class="users-linked-account__identity">@login.Issuer</div>
                         </div>
                         <AppIconButton Icon="@Icons.Material.Outlined.LinkOff"
                                        Tooltip="Unlink account"
@@ -403,6 +404,9 @@
             <AppTextField @bind-Value="_newLoginProvider"
                           Label="Provider"
                           Placeholder="oidc, google, microsoft, authentik" />
+            <AppTextField @bind-Value="_newLoginIssuer"
+                          Label="Issuer"
+                          Placeholder="https://accounts.example.com" />
             <AppTextField @bind-Value="_newLoginSubject"
                           Label="Subject"
                           Placeholder="Stable user ID from the identity provider" />
@@ -416,7 +420,7 @@
             <AppButton Label="@(_linkingExternalLogin ? "Linking…" : "Link account")"
                        ButtonStyle="AppButtonStyle.Filled"
                        Tone="AppUiTone.Primary"
-                       Disabled="@(_selectedUser is null || string.IsNullOrWhiteSpace(_newLoginProvider) || string.IsNullOrWhiteSpace(_newLoginSubject) || _linkingExternalLogin)"
+                       Disabled="@(_selectedUser is null || string.IsNullOrWhiteSpace(_newLoginProvider) || string.IsNullOrWhiteSpace(_newLoginIssuer) || string.IsNullOrWhiteSpace(_newLoginSubject) || _linkingExternalLogin)"
                        OnClick="@LinkExternalLoginAsync" />
         </AppActionBar>
     </FooterContent>
@@ -446,6 +450,7 @@
     private UserRow? _selectedUser;
     private List<ProfileExternalLoginViewModel> _externalLogins = [];
     private string _newLoginProvider = string.Empty;
+    private string _newLoginIssuer = string.Empty;
     private string _newLoginSubject = string.Empty;
     private string? _newLoginEmail;
     private string? _newLoginDisplayName;
@@ -728,6 +733,7 @@
     {
         if (_selectedUser is null
             || string.IsNullOrWhiteSpace(_newLoginProvider)
+            || string.IsNullOrWhiteSpace(_newLoginIssuer)
             || string.IsNullOrWhiteSpace(_newLoginSubject))
             return;
 
@@ -735,6 +741,7 @@
         var login = await Orchestrator.LinkProfileExternalLoginAsync(
             _selectedUser.Id,
             _newLoginProvider,
+            _newLoginIssuer,
             _newLoginSubject,
             _newLoginEmail,
             _newLoginDisplayName);
@@ -770,6 +777,7 @@
     private void ResetExternalLoginForm()
     {
         _newLoginProvider = string.Empty;
+        _newLoginIssuer = string.Empty;
         _newLoginSubject = string.Empty;
         _newLoginEmail = null;
         _newLoginDisplayName = null;

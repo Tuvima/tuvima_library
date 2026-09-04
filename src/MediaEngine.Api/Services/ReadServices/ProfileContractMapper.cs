@@ -26,6 +26,7 @@ internal static class ProfileContractMapper
         Id = login.Id,
         ProfileId = login.ProfileId,
         Provider = login.Provider,
+        Issuer = login.Issuer,
         Subject = login.Subject,
         Email = login.Email,
         DisplayName = login.DisplayName,

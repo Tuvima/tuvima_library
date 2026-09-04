@@ -261,6 +261,9 @@ public sealed class ProfileExternalLoginDto
     [JsonPropertyName("provider")]
     public string Provider { get; init; } = string.Empty;
 
+    [JsonPropertyName("issuer")]
+    public string Issuer { get; init; } = string.Empty;
+
     [JsonPropertyName("subject")]
     public string Subject { get; init; } = string.Empty;
 
@@ -281,6 +284,9 @@ public sealed class LinkProfileExternalLoginRequest
 {
     [JsonPropertyName("provider")]
     public string Provider { get; init; } = string.Empty;
+
+    [JsonPropertyName("issuer")]
+    public string Issuer { get; init; } = string.Empty;
 
     [JsonPropertyName("subject")]
     public string Subject { get; init; } = string.Empty;

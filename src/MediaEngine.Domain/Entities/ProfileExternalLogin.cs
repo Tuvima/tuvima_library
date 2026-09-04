@@ -11,6 +11,9 @@ public sealed class ProfileExternalLogin
 
     public string Provider { get; set; } = string.Empty;
 
+    /// <summary>Canonical identity issuer. Combined with subject to form the immutable external identity key.</summary>
+    public string Issuer { get; set; } = string.Empty;
+
     public string Subject { get; set; } = string.Empty;
 
     public string? Email { get; set; }

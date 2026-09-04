@@ -29,6 +29,7 @@ public sealed class LocalLoginRequest
 public sealed class ExternalSessionRequest
 {
     [JsonPropertyName("provider")] public string Provider { get; init; } = string.Empty;
+    [JsonPropertyName("issuer")] public string Issuer { get; init; } = string.Empty;
     [JsonPropertyName("subject")] public string Subject { get; init; } = string.Empty;
     [JsonPropertyName("device_id")] public string DeviceId { get; init; } = string.Empty;
     [JsonPropertyName("device_name")] public string DeviceName { get; init; } = string.Empty;

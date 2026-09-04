@@ -13,7 +13,6 @@ using MediaEngine.Web.Services.Integration.Clients;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -25,8 +24,6 @@ using System.Net;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using System.Security.Claims;
-using MediaEngine.Contracts.Authentication;
 using MediaEngine.Web.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -109,10 +106,13 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 var authSettings = dashboardConfig.LoadCore().Auth;
-var ssoEnabled =
-    authSettings.Oidc.Enabled &&
-    (string.Equals(authSettings.Mode, "Oidc", StringComparison.OrdinalIgnoreCase) ||
-     string.Equals(authSettings.Mode, "Hybrid", StringComparison.OrdinalIgnoreCase));
+var externalSignInAllowed =
+    !string.Equals(authSettings.Mode, "Local", StringComparison.OrdinalIgnoreCase) &&
+    !string.Equals(authSettings.Mode, "DisabledLocalOnly", StringComparison.OrdinalIgnoreCase);
+var configuredExternalProviders = externalSignInAllowed
+    ? authSettings.ExternalProviders.Where(provider => provider.Enabled).ToArray()
+    : [];
+var ssoEnabled = configuredExternalProviders.Length > 0;
 builder.Services.AddSingleton(new DashboardAuthUiOptions(ssoEnabled));
 builder.Services.AddScoped<DashboardCookieEvents>();
 var authentication = builder.Services
@@ -137,67 +137,7 @@ var authentication = builder.Services
         options.EventsType = typeof(DashboardCookieEvents);
     });
 
-if (ssoEnabled)
-{
-    authentication.AddOpenIdConnect(options =>
-        {
-            options.Authority = authSettings.Oidc.Authority;
-            options.ClientId = authSettings.Oidc.ClientId;
-            if (!string.IsNullOrWhiteSpace(authSettings.Oidc.ClientSecret))
-                options.ClientSecret = authSettings.Oidc.ClientSecret;
-
-            options.ResponseType = "code";
-            options.SaveTokens = false;
-            options.GetClaimsFromUserInfoEndpoint = true;
-            options.MapInboundClaims = false;
-
-            options.Scope.Clear();
-            foreach (var scope in authSettings.Oidc.Scopes.Where(scope => !string.IsNullOrWhiteSpace(scope)))
-                options.Scope.Add(scope);
-
-            options.Events.OnTokenValidated = async context =>
-            {
-                var subject = context.Principal?.FindFirstValue("sub")
-                    ?? context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
-                if (string.IsNullOrWhiteSpace(subject))
-                {
-                    context.Fail("The identity provider did not return a subject identifier.");
-                    return;
-                }
-
-                var deviceId = context.Request.Cookies["Tuvima.Device"];
-                if (!Guid.TryParse(deviceId, out _))
-                {
-                    deviceId = Guid.NewGuid().ToString("D");
-                    context.Response.Cookies.Append("Tuvima.Device", deviceId, new CookieOptions
-                    {
-                        HttpOnly = true, IsEssential = true, SameSite = SameSiteMode.Lax,
-                        Secure = context.Request.IsHttps, Expires = DateTimeOffset.UtcNow.AddYears(2),
-                    });
-                }
-
-                var issued = await context.HttpContext.RequestServices
-                    .GetRequiredService<DashboardIdentityClient>()
-                    .CreateExternalSessionAsync(new ExternalSessionRequest
-                    {
-                        Provider = authSettings.Oidc.Authority.Trim(), Subject = subject,
-                        DeviceId = deviceId!, DeviceName = context.Request.Headers.UserAgent.ToString(),
-                        Client = "Tuvima Dashboard OIDC",
-                    }, context.HttpContext.RequestAborted)
-                    .ConfigureAwait(false);
-                if (issued is null)
-                {
-                    context.Fail("This external identity is not linked to a Tuvima profile.");
-                    return;
-                }
-
-                context.Principal = DashboardPrincipalFactory.Create(issued);
-                context.Properties ??= new Microsoft.AspNetCore.Authentication.AuthenticationProperties();
-                context.Properties.IsPersistent = true;
-                context.Properties.ExpiresUtc = issued.ExpiresAt;
-            };
-        });
-}
+var registeredExternalProviders = authentication.AddTuvimaExternalProviders(configuredExternalProviders);
 
 builder.Services.AddAuthorization(options =>
 {
@@ -426,20 +366,30 @@ app.MapMethods("/engine-image/{**enginePath}", [HttpMethods.Get, HttpMethods.Hea
 
 app.MapViewMediaProxy();
 
-app.MapDashboardAuthenticationEndpoints(ssoEnabled);
+app.MapDashboardAuthenticationEndpoints(registeredExternalProviders);
 app.MapClientApiEdge();
 
-if (ssoEnabled)
+if (registeredExternalProviders.Count > 0)
 {
-    app.MapGet("/auth/oidc", (string? returnUrl) =>
-        Results.Challenge(
-            new Microsoft.AspNetCore.Authentication.AuthenticationProperties
+    app.MapGet("/auth/external/{providerId}", (string providerId, string? returnUrl) =>
+        {
+            var provider = registeredExternalProviders.FirstOrDefault(
+                candidate => candidate.Id.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            if (provider is null)
             {
-                RedirectUri = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl,
-            },
-            [OpenIdConnectDefaults.AuthenticationScheme]))
-        .AllowAnonymous();
+                return Results.NotFound();
+            }
 
+            var safeReturnUrl = !string.IsNullOrWhiteSpace(returnUrl)
+                && returnUrl.StartsWith('/')
+                && !returnUrl.StartsWith("//", StringComparison.Ordinal)
+                    ? returnUrl
+                    : "/";
+            return Results.Challenge(
+                new Microsoft.AspNetCore.Authentication.AuthenticationProperties { RedirectUri = safeReturnUrl },
+                [provider.AuthenticationScheme]);
+        })
+        .AllowAnonymous();
 }
 
 app.MapStaticAssets().AllowAnonymous();

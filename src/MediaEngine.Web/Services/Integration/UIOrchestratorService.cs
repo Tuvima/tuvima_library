@@ -380,11 +380,12 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
         Guid profileId,
         string provider,
+        string issuer,
         string subject,
         string? email = null,
         string? displayName = null,
         CancellationToken ct = default)
-        => _api.LinkProfileExternalLoginAsync(profileId, provider, subject, email, displayName, ct);
+        => _api.LinkProfileExternalLoginAsync(profileId, provider, issuer, subject, email, displayName, ct);
 
     /// <summary>Unlinks an external SSO/OAuth account from a profile.</summary>
     public Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default)

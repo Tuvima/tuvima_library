@@ -6,11 +6,12 @@ public interface IProfileExternalLoginService
 {
     Task<IReadOnlyList<ProfileExternalLogin>> GetByProfileAsync(Guid profileId, CancellationToken ct = default);
 
-    Task<ProfileExternalLogin?> ResolveAsync(string provider, string subject, CancellationToken ct = default);
+    Task<ProfileExternalLogin?> ResolveAsync(string provider, string issuer, string subject, CancellationToken ct = default);
 
     Task<ProfileExternalLogin> LinkAsync(
         Guid profileId,
         string provider,
+        string issuer,
         string subject,
         string? email,
         string? displayName,

@@ -48,6 +48,7 @@ public sealed class RepositoryTests : IDisposable
             Id = Guid.NewGuid(),
             ProfileId = Profile.SeedProfileId,
             Provider = "oidc",
+            Issuer = "https://identity.example",
             Subject = $"subject-{Guid.NewGuid():N}",
             Email = "owner@example.com",
             DisplayName = "Owner",
@@ -57,20 +58,36 @@ public sealed class RepositoryTests : IDisposable
         await repo.InsertAsync(login);
 
         var byProfile = await repo.GetByProfileAsync(Profile.SeedProfileId);
-        var bySubject = await repo.GetByProviderSubjectAsync(login.Provider, login.Subject);
+        var bySubject = await repo.GetByProviderSubjectAsync(login.Provider, login.Issuer, login.Subject);
 
         Assert.Contains(byProfile, item => item.Id == login.Id);
         Assert.NotNull(bySubject);
         Assert.Equal(login.Email, bySubject.Email);
 
+        var otherIssuer = new ProfileExternalLogin
+        {
+            Id = Guid.NewGuid(),
+            ProfileId = Profile.SeedProfileId,
+            Provider = login.Provider,
+            Issuer = "https://other-identity.example",
+            Subject = login.Subject,
+            DisplayName = "Other issuer",
+            LinkedAt = DateTimeOffset.UtcNow,
+        };
+        await repo.InsertAsync(otherIssuer);
+        Assert.Equal(
+            otherIssuer.Id,
+            (await repo.GetByProviderSubjectAsync(otherIssuer.Provider, otherIssuer.Issuer, otherIssuer.Subject))?.Id);
+
         var lastLoginAt = DateTimeOffset.UtcNow.AddMinutes(1);
         Assert.True(await repo.TouchLastLoginAsync(login.Id, lastLoginAt));
 
-        var touched = await repo.GetByProviderSubjectAsync(login.Provider, login.Subject);
+        var touched = await repo.GetByProviderSubjectAsync(login.Provider, login.Issuer, login.Subject);
         Assert.NotNull(touched?.LastLoginAt);
 
         Assert.True(await repo.DeleteAsync(login.Id));
-        Assert.Null(await repo.GetByProviderSubjectAsync(login.Provider, login.Subject));
+        Assert.Null(await repo.GetByProviderSubjectAsync(login.Provider, login.Issuer, login.Subject));
+        Assert.NotNull(await repo.GetByProviderSubjectAsync(otherIssuer.Provider, otherIssuer.Issuer, otherIssuer.Subject));
     }
 
     [Fact]

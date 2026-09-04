@@ -74,6 +74,19 @@ directory, while Immich and Grafana provide server-side administrator commands.
 Tuvima uses the command model so resetting access requires operating-system or
 container administration rather than mere access to the Dashboard URL.
 
+## Accounts, Profiles, and External Authentication
+
+The target separation of sign-in accounts from in-library profiles, including
+household profile grants, passwordless local accounts, passkeys, email recovery,
+multi-provider OIDC/OAuth, and administrator elevation, is defined in the
+[Account, Profile, and Authentication Plan](account-profile-authentication-plan.md).
+
+The current provider-capable boundary accepts multiple provider registrations.
+OIDC and OAuth providers use separate handlers, and verified external identities
+are keyed by provider ID, canonical issuer, and immutable subject rather than by
+email. Provider setup is documented in
+[Configure External Authentication](../guides/external-authentication.md).
+
 ## Role-Based Authorization
 
 Each API key carries one of three roles:

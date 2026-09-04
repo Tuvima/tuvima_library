@@ -13,20 +13,38 @@ public sealed class AuthSettingsDto
     [JsonPropertyName("require_https_remote")]
     public bool RequireHttpsRemote { get; init; }
 
-    [JsonPropertyName("oidc_enabled")]
-    public bool OidcEnabled { get; init; }
+    [JsonPropertyName("external_providers")]
+    public List<ExternalAuthProviderDto> ExternalProviders { get; init; } = [];
+}
 
-    [JsonPropertyName("oidc_display_name")]
-    public string OidcDisplayName { get; init; } = "OpenID Connect";
+public sealed class ExternalAuthProviderDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = string.Empty;
 
-    [JsonPropertyName("oidc_authority")]
-    public string OidcAuthority { get; init; } = string.Empty;
+    [JsonPropertyName("kind")]
+    public string Kind { get; init; } = string.Empty;
 
-    [JsonPropertyName("oidc_client_id")]
-    public string OidcClientId { get; init; } = string.Empty;
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; init; }
 
-    [JsonPropertyName("oidc_scopes")]
-    public List<string> OidcScopes { get; init; } = [];
+    [JsonPropertyName("display_name")]
+    public string DisplayName { get; init; } = string.Empty;
+
+    [JsonPropertyName("issuer")]
+    public string Issuer { get; init; } = string.Empty;
+
+    [JsonPropertyName("authority")]
+    public string Authority { get; init; } = string.Empty;
+
+    [JsonPropertyName("client_id")]
+    public string ClientId { get; init; } = string.Empty;
+
+    [JsonPropertyName("scopes")]
+    public List<string> Scopes { get; init; } = [];
+
+    [JsonPropertyName("callback_path")]
+    public string CallbackPath { get; init; } = string.Empty;
 }
 
 public sealed record ServerGeneralSettingsDto(

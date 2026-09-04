@@ -24,6 +24,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
             SELECT id AS Id,
                    profile_id AS ProfileId,
                    provider AS Provider,
+                   issuer AS Issuer,
                    subject AS Subject,
                    email AS Email,
                    display_name AS DisplayName,
@@ -39,6 +40,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
 
     public Task<ProfileExternalLogin?> GetByProviderSubjectAsync(
         string provider,
+        string issuer,
         string subject,
         CancellationToken ct = default)
     {
@@ -49,6 +51,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
             SELECT id AS Id,
                    profile_id AS ProfileId,
                    provider AS Provider,
+                   issuer AS Issuer,
                    subject AS Subject,
                    email AS Email,
                    display_name AS DisplayName,
@@ -56,9 +59,10 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
                    last_login_at AS LastLoginAt
             FROM profile_external_logins
             WHERE provider = @provider
+              AND issuer = @issuer
               AND subject = @subject
             LIMIT 1;
-            """, new { provider, subject });
+            """, new { provider, issuer, subject });
 
         return Task.FromResult(row is null ? null : MapRow(row));
     }
@@ -71,14 +75,15 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
         using var conn = _db.CreateConnection();
         conn.Execute("""
             INSERT INTO profile_external_logins
-                (id, profile_id, provider, subject, email, display_name, linked_at, last_login_at)
+                (id, profile_id, provider, issuer, subject, email, display_name, linked_at, last_login_at)
             VALUES
-                (@id, @profileId, @provider, @subject, @email, @displayName, @linkedAt, @lastLoginAt);
+                (@id, @profileId, @provider, @issuer, @subject, @email, @displayName, @linkedAt, @lastLoginAt);
             """, new
         {
             id = login.Id,
             profileId = login.ProfileId,
             provider = login.Provider,
+            issuer = login.Issuer,
             subject = login.Subject,
             email = login.Email,
             displayName = login.DisplayName,
@@ -117,6 +122,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
         public Guid Id { get; set; }
         public Guid ProfileId { get; set; }
         public string Provider { get; set; } = string.Empty;
+        public string Issuer { get; set; } = string.Empty;
         public string Subject { get; set; } = string.Empty;
         public string? Email { get; set; }
         public string? DisplayName { get; set; }
@@ -129,6 +135,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
         Id = row.Id,
         ProfileId = row.ProfileId,
         Provider = row.Provider,
+        Issuer = row.Issuer,
         Subject = row.Subject,
         Email = row.Email,
         DisplayName = row.DisplayName,

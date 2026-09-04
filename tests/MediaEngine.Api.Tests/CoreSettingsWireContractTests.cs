@@ -204,11 +204,20 @@ public sealed class CoreSettingsWireContractTests
             Mode = "Required",
             LocalhostBypass = false,
             RequireHttpsRemote = true,
-            OidcEnabled = true,
-            OidcDisplayName = "Company Login",
-            OidcAuthority = "https://identity.example",
-            OidcClientId = "tuvima",
-            OidcScopes = ["openid", "profile"],
+            ExternalProviders =
+            [
+                new ExternalAuthProviderDto
+                {
+                    Id = "company",
+                    Kind = "oidc",
+                    Enabled = true,
+                    DisplayName = "Company Login",
+                    Authority = "https://identity.example",
+                    ClientId = "tuvima",
+                    Scopes = ["openid", "profile"],
+                    CallbackPath = "/signin-tuvima-company",
+                },
+            ],
         }, JsonOptions);
         var pathJson = JsonSerializer.Serialize(new PathTestResultDto(@"D:\Media", true, true, false), JsonOptions);
         var systemJson = JsonSerializer.Serialize(new SystemStatusResponse
@@ -219,7 +228,8 @@ public sealed class CoreSettingsWireContractTests
         }, JsonOptions);
 
         Assert.Contains("\"localhost_bypass\":false", authJson, StringComparison.Ordinal);
-        Assert.Contains("\"oidc_scopes\":[\"openid\",\"profile\"]", authJson, StringComparison.Ordinal);
+        Assert.Contains("\"external_providers\":[", authJson, StringComparison.Ordinal);
+        Assert.Contains("\"callback_path\":\"/signin-tuvima-company\"", authJson, StringComparison.Ordinal);
         Assert.Contains("\"has_write\":false", pathJson, StringComparison.Ordinal);
         Assert.Contains("\"language\":\"de\"", systemJson, StringComparison.Ordinal);
     }

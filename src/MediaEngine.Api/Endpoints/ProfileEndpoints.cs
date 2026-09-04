@@ -430,6 +430,7 @@ public static class ProfileEndpoints
                 var login = await loginService.LinkAsync(
                     id,
                     request.Provider,
+                    request.Issuer,
                     request.Subject,
                     request.Email,
                     request.DisplayName,
