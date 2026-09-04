@@ -204,6 +204,7 @@
 
 @code {
     [Parameter] public bool Embedded { get; set; }
+    [Parameter] public string? SetupSession { get; set; }
     [Parameter] public EventCallback LibraryCreated { get; set; }
     [Parameter] public EventCallback Cancelled { get; set; }
     private sealed record LibraryTypeOption(string Key, string Label, string PluralLabel, string Area, string MediaType, string Icon, string Accent, string Description);
@@ -264,7 +265,9 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _configuration = await Orchestrator.GetLibrariesAsync();
+        _configuration = Embedded
+            ? await ApiClient.GetSetupLibrariesAsync(SetupSession)
+            : await Orchestrator.GetLibrariesAsync();
         _loadError = _configuration is null ? ApiClient.LastError : null;
         _loading = false;
     }
@@ -299,6 +302,7 @@
         {
             { component => component.SelectionMode, mode },
             { component => component.HelpText, $"Choose a folder on the Tuvima server to add to the {_draft.Name} library." },
+            { component => component.SetupSession, SetupSession },
         };
         var dialog = await DialogService.ShowAsync<ServerFolderPicker>(string.Empty, parameters, new DialogOptions
         {
@@ -334,12 +338,15 @@
     private async Task ChangeSourceModeAsync(LibrarySourceDto source, string? value)
     {
         var managed = value == "managed_by_tuvima";
-        var validation = await ApiClient.ValidateServerFolderAsync(new ValidateServerFolderRequest
+        var request = new ValidateServerFolderRequest
         {
             ManualPath = source.Path,
             SelectionMode = managed ? ServerFolderSelectionModes.ManagedLibrary : ServerFolderSelectionModes.ExistingLibrary,
             CurrentSourceId = source.Id,
-        });
+        };
+        var validation = Embedded
+            ? await ApiClient.ValidateSetupServerFolderAsync(request, SetupSession)
+            : await ApiClient.ValidateServerFolderAsync(request);
         if (validation is null || !validation.CanSelect)
         {
             Snackbar.Add(validation?.Issues.FirstOrDefault()?.Message ?? ApiClient.LastError ?? "This folder does not meet the selected mode's access requirements.", Severity.Error);
@@ -418,7 +425,7 @@
         try
         {
             _configuration.Libraries.Add(_draft);
-            var saved = await Orchestrator.UpdateLibrariesAsync(new UpdateLibrariesRequest
+            var request = new UpdateLibrariesRequest
             {
                 SchemaVersion = _configuration.SchemaVersion,
                 StorageLocations = _configuration.StorageLocations,
@@ -426,7 +433,10 @@
                 Libraries = _configuration.Libraries,
                 IncomingSources = _configuration.IncomingSources,
                 PersonalLibraryPolicy = _configuration.PersonalLibraryPolicy,
-            });
+            };
+            var saved = Embedded
+                ? await ApiClient.UpdateSetupLibrariesAsync(request, SetupSession)
+                : await Orchestrator.UpdateLibrariesAsync(request);
             if (saved is null)
             {
                 _configuration.Libraries.Remove(_draft);

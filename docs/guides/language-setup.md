@@ -114,7 +114,7 @@ Each provider has a language strategy that controls which language is used when 
 
 The three strategies are:
 
-**Source** - always query in English. These are providers whose catalogues are English-only or whose English data is significantly more complete. Examples: Open Library and MusicBrainz.
+**Source** - always query in English. These are providers whose catalogues are English-only or whose English data is significantly more complete. MusicBrainz uses this strategy.
 
 **Localized** - query in your metadata language. These providers have strong international catalogues and will return better results in your language. Examples: TMDB, Apple API.
 

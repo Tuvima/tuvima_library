@@ -24,6 +24,26 @@ public sealed class DashboardFirstRunExperienceTests
     }
 
     [Fact]
+    public void SetupWizard_IsReversibleFocusedAndProtectsCredentialEntry()
+    {
+        var setup = Read("src/MediaEngine.Web/Components/Pages/SetupPage.razor");
+        var workflow = Read("src/MediaEngine.Contracts/Setup/SetupContracts.cs");
+        var overview = Read("src/MediaEngine.Web/Components/Settings/OverviewTab.razor");
+
+        Assert.Contains("Confirm password", setup, StringComparison.Ordinal);
+        Assert.Contains("Download .txt", setup, StringComparison.Ordinal);
+        Assert.Contains("CopyRecoveryCodesAsync", setup, StringComparison.Ordinal);
+        Assert.Contains("Save storage locations", setup, StringComparison.Ordinal);
+        Assert.Contains("CanNavigateTo(step)", setup, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Back\"", setup, StringComparison.Ordinal);
+        Assert.Contains("Fanart.tv", setup, StringComparison.Ordinal);
+        Assert.DoesNotContain("case \"local-ai\"", setup, StringComparison.Ordinal);
+        Assert.DoesNotContain("case \"access\"", setup, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"local-ai\", \"access\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("Continue optional setup", overview, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PasswordRecovery_OffersEmailRecoveryCodesAndElevatedHostCommand()
     {
         var dashboard = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");

@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using MediaEngine.Contracts.Setup;
+using MediaEngine.Contracts.Settings;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -19,6 +20,25 @@ public sealed partial class EngineApiClient
 
     public Task<SetupMediaLocationsDto?> ValidateSetupMediaLocationsAsync(string? setupSession, CancellationToken ct = default) =>
         SetupSendAsync<SetupMediaLocationsDto>(HttpMethod.Post, "/setup/v1/media-locations/validate", JsonContent.Create(new { }), setupSession, ct);
+
+    public Task<LibrariesConfigurationDto?> GetSetupLibrariesAsync(string? setupSession, CancellationToken ct = default) =>
+        SetupSendAsync<LibrariesConfigurationDto>(HttpMethod.Get, "/setup/v1/libraries", null, setupSession, ct);
+
+    public Task<LibrariesConfigurationDto?> UpdateSetupLibrariesAsync(UpdateLibrariesRequest request, string? setupSession, CancellationToken ct = default) =>
+        SetupSendAsync<LibrariesConfigurationDto>(HttpMethod.Put, "/setup/v1/libraries", JsonContent.Create(request), setupSession, ct);
+
+    public async Task<IReadOnlyList<ServerStorageLocationDto>> GetSetupServerFolderRootsAsync(string? setupSession, CancellationToken ct = default) =>
+        await SetupSendAsync<List<ServerStorageLocationDto>>(HttpMethod.Get, "/setup/v1/server-folders/roots", null, setupSession, ct) ?? [];
+
+    public Task<BrowseServerFoldersResultDto?> BrowseSetupServerFoldersAsync(BrowseServerFoldersRequest request, string? setupSession, CancellationToken ct = default) =>
+        SetupSendAsync<BrowseServerFoldersResultDto>(HttpMethod.Post, "/setup/v1/server-folders/browse", JsonContent.Create(request), setupSession, ct);
+
+    public Task<ServerFolderValidationResultDto?> ValidateSetupServerFolderAsync(ValidateServerFolderRequest request, string? setupSession, CancellationToken ct = default) =>
+        SetupSendAsync<ServerFolderValidationResultDto>(HttpMethod.Post, "/setup/v1/server-folders/validate", JsonContent.Create(request), setupSession, ct);
+
+    public Task<ProviderCredentialOperationResultDto?> SaveSetupProviderCredentialsAsync(string name, ProviderCredentialWriteRequest request, string? setupSession, CancellationToken ct = default) =>
+        SetupSendAsync<ProviderCredentialOperationResultDto>(HttpMethod.Put,
+            $"/setup/v1/providers/{Uri.EscapeDataString(name)}/credentials", JsonContent.Create(request), setupSession, ct);
 
     public Task<SetupStatusDto?> DecideSetupStepAsync(string stepKey, string status, string? detail, string? setupSession, CancellationToken ct = default) =>
         SetupSendAsync<SetupStatusDto>(HttpMethod.Post, $"/setup/v1/steps/{Uri.EscapeDataString(stepKey)}",

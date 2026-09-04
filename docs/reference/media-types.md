@@ -14,7 +14,7 @@ tags:
 
 Six media types are supported today. Each type has a processor path, supported file extensions, and configured providers. Ambiguous formats such as PDF, MP3, M4A, MP4, MKV, AVI, and WEBM are resolved through configured library folder context, metadata, filename patterns, heuristics, and Local AI where available.
 
-Provider stages are strict: Stage 1 provider metadata uses active configured providers (MusicBrainz then Apple for music, Apple for books/audiobooks, TMDB for movies/TV, Comic Vine for comics); Stage 2 Wikidata only runs from safe Stage 1 bridge IDs; Stage 3 enrichment adds universe data, Fanart.tv artwork, lyrics, subtitles, people, and relationships. Open Library config is retained but disabled by default.
+Provider stages are strict: Stage 1 provider metadata uses active configured providers (MusicBrainz then Apple for music, Apple for books/audiobooks, TMDB for movies/TV, Comic Vine for comics); Stage 2 Wikidata only runs from safe Stage 1 bridge IDs; Stage 3 enrichment adds universe data, Fanart.tv artwork, lyrics, subtitles, people, and relationships.
 
 ---
 
@@ -48,8 +48,7 @@ Provider stages are strict: Stage 1 provider metadata uses active configured pro
 Provider order during Stage 1:
 
 1. Apple API - ISBN lookup and title search, cover art and ratings
-2. Open Library - disabled config retained, not active by default
-3. Wikidata - Stage 2, QID resolution via ISBN or Apple bridge IDs
+2. Wikidata - Stage 2, QID resolution via ISBN or Apple bridge IDs
 
 ### Ambiguity resolution
 

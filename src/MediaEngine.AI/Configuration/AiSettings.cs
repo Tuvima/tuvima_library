@@ -516,22 +516,22 @@ public sealed class AiRoleRequirement
 public sealed class AiFeatureFlags
 {
     [JsonPropertyName("smart_labeling")]
-    public bool SmartLabeling { get; set; } = true;
+    public bool SmartLabeling { get; set; }
 
     [JsonPropertyName("type_logic")]
-    public bool TypeLogic { get; set; } = true;
+    public bool TypeLogic { get; set; }
 
     [JsonPropertyName("series_alignment")]
-    public bool SeriesAlignment { get; set; } = true;
+    public bool SeriesAlignment { get; set; }
 
     [JsonPropertyName("vibe_tags")]
-    public bool VibeTags { get; set; } = true;
+    public bool VibeTags { get; set; }
 
     [JsonPropertyName("tldr")]
-    public bool Tldr { get; set; } = true;
+    public bool Tldr { get; set; }
 
     [JsonPropertyName("description_intelligence")]
-    public bool DescriptionIntelligence { get; set; } = true;
+    public bool DescriptionIntelligence { get; set; }
 }
 
 /// <summary>Per-category controlled vocabulary for vibe tagging.</summary>

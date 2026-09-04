@@ -205,6 +205,7 @@
 </AppHostedDialog>
 
 @code {
+    [Parameter] public string? SetupSession { get; set; }
     [CascadingParameter] private IMudDialogInstance DialogInstance { get; set; } = null!;
     [Parameter] public string Title { get; set; } = "Select Folder";
     [Parameter] public string HelpText { get; set; } = "Choose a folder on the Tuvima server.";
@@ -235,19 +236,24 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _locations = (await ApiClient.GetServerFolderRootsAsync(_lifetime.Token)).ToList();
+        _locations = (string.IsNullOrWhiteSpace(SetupSession)
+            ? await ApiClient.GetServerFolderRootsAsync(_lifetime.Token)
+            : await ApiClient.GetSetupServerFolderRootsAsync(SetupSession, _lifetime.Token)).ToList();
         _loadingRoots = false;
         var first = VisibleLocations.FirstOrDefault();
         if (first is null) return;
 
         if (!string.IsNullOrWhiteSpace(InitialPath))
         {
-            var initial = await ApiClient.ValidateServerFolderAsync(new ValidateServerFolderRequest
+            var request = new ValidateServerFolderRequest
             {
                 ManualPath = InitialPath,
                 SelectionMode = SelectionMode,
                 CurrentSourceId = CurrentSourceId,
-            }, _lifetime.Token);
+            };
+            var initial = string.IsNullOrWhiteSpace(SetupSession)
+                ? await ApiClient.ValidateServerFolderAsync(request, _lifetime.Token)
+                : await ApiClient.ValidateSetupServerFolderAsync(request, SetupSession, _lifetime.Token);
             if (initial is not null)
             {
                 first = VisibleLocations.FirstOrDefault(location =>
@@ -273,12 +279,15 @@
         if (_activeLocation is null) return;
         _loadingBrowse = true;
         _error = null;
-        _browse = await ApiClient.BrowseServerFoldersAsync(new BrowseServerFoldersRequest
+        var request = new BrowseServerFoldersRequest
         {
             StorageLocationId = _activeLocation.Id,
             RelativePath = relativePath,
             Search = _search,
-        }, _lifetime.Token);
+        };
+        _browse = string.IsNullOrWhiteSpace(SetupSession)
+            ? await ApiClient.BrowseServerFoldersAsync(request, _lifetime.Token)
+            : await ApiClient.BrowseSetupServerFoldersAsync(request, SetupSession, _lifetime.Token);
         _loadingBrowse = false;
         if (_browse is null)
         {
@@ -313,13 +322,16 @@
         if (_activeLocation is null) return;
         _validating = true;
         _error = null;
-        _validation = await ApiClient.ValidateServerFolderAsync(new ValidateServerFolderRequest
+        var request = new ValidateServerFolderRequest
         {
             StorageLocationId = _activeLocation.Id,
             RelativePath = _selectedRelativePath,
             SelectionMode = SelectionMode,
             CurrentSourceId = CurrentSourceId,
-        }, _lifetime.Token);
+        };
+        _validation = string.IsNullOrWhiteSpace(SetupSession)
+            ? await ApiClient.ValidateServerFolderAsync(request, _lifetime.Token)
+            : await ApiClient.ValidateSetupServerFolderAsync(request, SetupSession, _lifetime.Token);
         _validating = false;
         if (_validation is null) _error = "The selected server folder could not be validated.";
     }
@@ -328,12 +340,15 @@
     {
         _validating = true;
         _error = null;
-        _validation = await ApiClient.ValidateServerFolderAsync(new ValidateServerFolderRequest
+        var request = new ValidateServerFolderRequest
         {
             ManualPath = _manualPath,
             SelectionMode = SelectionMode,
             CurrentSourceId = CurrentSourceId,
-        }, _lifetime.Token);
+        };
+        _validation = string.IsNullOrWhiteSpace(SetupSession)
+            ? await ApiClient.ValidateServerFolderAsync(request, _lifetime.Token)
+            : await ApiClient.ValidateSetupServerFolderAsync(request, SetupSession, _lifetime.Token);
         _validating = false;
         if (_validation is null)
         {

@@ -16,7 +16,6 @@ public sealed class SetupPreflightService(
     public async Task<SetupPreflightDto> RunAsync(CancellationToken ct)
     {
         var core = configuration.LoadCore();
-        var ai = configuration.LoadAi<MediaEngine.AI.Configuration.AiSettings>();
         var configPath = Path.GetFullPath(configuration.ConfigDirectoryPath);
         var managedDataPath = new AssetPathService(
             core.LibraryRoot,
@@ -26,10 +25,12 @@ public sealed class SetupPreflightService(
         {
             ProbeFile("database", "Database", ResolveDatabasePath(configPath), "TUVIMA_DB_PATH or platform default"),
             Probe("config", "Configuration", configPath, "TUVIMA_CONFIG_DIR or application configuration", requireWrite: true),
-            Probe("models", "Local AI models", Environment.GetEnvironmentVariable("TUVIMA_MODELS_DIR") ?? ai?.ModelsDirectory ?? "/models", "TUVIMA_MODELS_DIR or ai.json", requireWrite: true),
             Probe("artwork", "Artwork and generated data", managedDataPath, "core.json data_root or library_root/.data", requireWrite: true),
             Probe("backups", "Backups", Environment.GetEnvironmentVariable("TUVIMA_BACKUP_DIR") ?? Path.Combine(configPath, "backups"), "TUVIMA_BACKUP_DIR or config/backups", requireWrite: true),
         };
+        checks.AddRange(configuration.LoadLibraries().StorageLocations.Select(location =>
+            Probe($"storage-{location.Id}", location.Label, location.Path,
+                "Editable setup storage location", requireWrite: location.AllowWrite)));
 
         var databaseHealthy = true;
         try
@@ -77,9 +78,9 @@ public sealed class SetupPreflightService(
 
     private static SetupPathCheckDto Probe(string key, string label, string rawPath, string source, bool requireWrite)
     {
-        var path = Path.GetFullPath(rawPath);
         try
         {
+            var path = Path.GetFullPath(rawPath);
             Directory.CreateDirectory(path);
             var readable = Directory.Exists(path);
             var writable = false;
@@ -100,6 +101,7 @@ public sealed class SetupPreflightService(
         }
         catch (Exception ex)
         {
+            var path = string.IsNullOrWhiteSpace(rawPath) ? "Not configured" : rawPath;
             return new SetupPathCheckDto(key, label, path, source, "blocked", false, false, null,
                 $"{ex.GetType().Name}: the path could not be prepared.");
         }

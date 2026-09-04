@@ -323,13 +323,13 @@ public sealed class ServerStorageLocationDto
     public string Id { get; init; } = string.Empty;
 
     [JsonPropertyName("label")]
-    public string Label { get; init; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
 
     [JsonPropertyName("path")]
-    public string Path { get; init; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
 
     [JsonPropertyName("allow_write")]
-    public bool AllowWrite { get; init; }
+    public bool AllowWrite { get; set; }
 
     [JsonPropertyName("available_bytes")]
     public long? AvailableBytes { get; init; }

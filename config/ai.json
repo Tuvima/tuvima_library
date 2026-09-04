@@ -10,12 +10,12 @@
   "background_quiet_seconds": 10,
   "minimum_free_disk_mb": 2048,
   "features": {
-    "smart_labeling": true,
-    "type_logic": true,
-    "series_alignment": true,
-    "vibe_tags": true,
-    "tldr": true,
-    "description_intelligence": true
+    "smart_labeling": false,
+    "type_logic": false,
+    "series_alignment": false,
+    "vibe_tags": false,
+    "tldr": false,
+    "description_intelligence": false
   },
   "vibe_vocabulary": {
     "books": [ "page-turner", "slow-burn", "meditative", "dark", "uplifting", "haunting", "heartwarming", "atmospheric", "cozy", "gritty", "lyrical", "philosophical", "whimsical", "witty", "epic", "intimate", "cerebral" ],

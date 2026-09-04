@@ -37,16 +37,13 @@ public sealed class OnboardingRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task CompletionRequiresEveryRequiredCapabilityButAllowsOptionalDeferrals()
+    public async Task CompletionRequiresCoreSetupAndAllowsProviderDeferral()
     {
         Assert.True(await _repository.TryBeginAsync(
             "session-hash", Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(1), CancellationToken.None));
         await _repository.SetStepAsync("preflight", "passed", null, null, null, CancellationToken.None);
         await _repository.SetStepAsync("administrator", "passed", null, null, null, CancellationToken.None);
         await _repository.SetStepAsync("providers", "deferred", null, "/setup?step=providers", null, CancellationToken.None);
-        await _repository.SetStepAsync("local-ai", "deferred", null, "/setup?step=local-ai", null, CancellationToken.None);
-        await _repository.SetStepAsync("access", "deferred", null, "/setup?step=access", null, CancellationToken.None);
-
         Assert.False(await _repository.CompleteAsync(CancellationToken.None));
 
         await _repository.SetStepAsync("media-locations", "passed", null, null, null, CancellationToken.None);

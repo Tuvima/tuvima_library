@@ -70,7 +70,6 @@ The active Stage 1 provider matrix is:
 | Apple | Books, audiobooks, and music artwork/retail enrichment |
 | TMDB | Movies and TV |
 | Comic Vine | Comics |
-| Open Library | Disabled config retained, not active runtime input |
 | MusicBrainz | Music identity lookup before Apple enrichment |
 | Fanart.tv | Stage 3 artwork only, not Stage 1 identity |
 | LRCLIB / OpenSubtitles | Lyrics/subtitles/text tracks, not identity |

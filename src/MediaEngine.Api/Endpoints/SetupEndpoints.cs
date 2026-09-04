@@ -2,10 +2,14 @@ using System.Security.Claims;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Settings;
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Contracts.Setup;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Storage;
+using MediaEngine.Storage.Configuration;
 using Microsoft.AspNetCore.Mvc;
 
 namespace MediaEngine.Api.Endpoints;
@@ -86,24 +90,76 @@ public static class SetupEndpoints
             return Results.Ok(new SetupMediaLocationsDto(passed, sources.Count, readable, detail));
         }).Produces<SetupMediaLocationsDto>();
 
+        group.MapGet("/libraries", async (
+            HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
+            IConfigurationLoader configuration, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            return Results.Ok(SettingsContractMapper.ToContract(configuration.LoadLibraries()));
+        }).Produces<LibrariesConfigurationDto>();
+
+        group.MapPut("/libraries", async (
+            UpdateLibrariesRequest request, HttpContext context, ClaimsPrincipal user,
+            SetupSessionService sessions, IConfigurationLoader configuration, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            var config = SettingsContractMapper.ToStorage(request);
+            var error = SettingsEndpoints.ValidateViewStorage(config)
+                ?? SettingsEndpoints.ValidateConfiguredPaths(config);
+            if (error is not null) return ApiErrors.BadRequest(error);
+            var validationErrors = JsonConfigValidator.Validate(config, "libraries.json");
+            if (validationErrors.Count > 0) return ApiErrors.BadRequest(string.Join(" ", validationErrors));
+            configuration.SaveLibraries(config);
+            return Results.Ok(SettingsContractMapper.ToContract(config));
+        }).Produces<LibrariesConfigurationDto>()
+          .ProducesProblem(StatusCodes.Status400BadRequest);
+
+        group.MapGet("/server-folders/roots", async (
+            HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
+            ServerFolderBrowserService service, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            return Results.Ok(service.GetStorageLocations());
+        }).Produces<IReadOnlyList<ServerStorageLocationDto>>();
+
+        group.MapPost("/server-folders/browse", async (
+            BrowseServerFoldersRequest request, HttpContext context, ClaimsPrincipal user,
+            SetupSessionService sessions, ServerFolderBrowserService service, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            try { return Results.Ok(service.Browse(request)); }
+            catch (ServerFolderAccessException exception) { return ApiErrors.BadRequest(exception.Message); }
+        }).Produces<BrowseServerFoldersResultDto>();
+
+        group.MapPost("/server-folders/validate", async (
+            ValidateServerFolderRequest request, HttpContext context, ClaimsPrincipal user,
+            SetupSessionService sessions, ServerFolderBrowserService service, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            try { return Results.Ok(service.Validate(request)); }
+            catch (ServerFolderAccessException exception) { return ApiErrors.BadRequest(exception.Message); }
+        }).Produces<ServerFolderValidationResultDto>();
+
+        group.MapPut("/providers/{name}/credentials", async (
+            string name, ProviderCredentialWriteRequest request,
+            HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
+            ProviderCredentialService credentials, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            return Results.Ok(await credentials.SaveAsync(name, request.Credentials, ct).ConfigureAwait(false));
+        }).Produces<ProviderCredentialOperationResultDto>();
+
         group.MapPost("/steps/{stepKey}", async (
             string stepKey, SetupStepDecisionRequest request, HttpContext context, ClaimsPrincipal user,
-            SetupSessionService sessions, OnboardingRepository onboarding, IConfigurationLoader configuration,
+            SetupSessionService sessions, OnboardingRepository onboarding,
             CancellationToken ct) =>
         {
             if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
-            if (stepKey is not ("providers" or "local-ai" or "access"))
+            if (stepKey != "providers")
                 return ApiErrors.BadRequest("This setup step has a dedicated server-side validator.");
             if (request.Status is not ("passed" or "deferred"))
                 return ApiErrors.BadRequest("Optional setup steps may be passed or deferred.");
 
-            if (stepKey == "access" && request.Status == "deferred")
-            {
-                var network = configuration.LoadNetwork();
-                network.Remote.Enabled = false;
-                network.Remote.ConnectionMode = MediaEngine.Domain.Configuration.NetworkConnectionModes.LocalOnly;
-                configuration.SaveNetwork(network);
-            }
             await onboarding.SetStepAsync(stepKey, request.Status,
                 request.Detail ?? (request.Status == "deferred" ? "Deferred during first-run setup." : "Configured during first-run setup."),
                 request.Status == "deferred" ? $"/setup?step={stepKey}" : null, null, ct).ConfigureAwait(false);
@@ -188,7 +244,7 @@ public static class SetupEndpoints
     private static SetupReadinessDto BuildReadiness(OnboardingWorkflowRecord workflow)
     {
         var required = new HashSet<string>(["preflight", "administrator", "media-locations"], StringComparer.Ordinal);
-        var capabilities = workflow.Steps.Where(step => step.Key != "claim").Select(step => new SetupCapabilityDto(
+        var capabilities = workflow.Steps.Select(step => new SetupCapabilityDto(
             step.Key,
             step.Key.Replace('-', ' '),
             step.Status,

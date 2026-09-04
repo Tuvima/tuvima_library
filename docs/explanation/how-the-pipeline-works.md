@@ -64,7 +64,7 @@ Staging is a safety mechanism, not a user-facing "ready" signal.
 
 ## Stage 1: Retail matching
 
-Retail/catalog matching is the first identity stage. The Engine queries active providers in the order declared by `config/pipelines.json`: Apple for books and audiobooks, TMDB for movies and TV, Comic Vine for comics, and for music MusicBrainz first for identity followed by Apple for artwork and retail enrichment. Open Library is retained but disabled by default; Fanart.tv is reserved for slower Stage 3 artwork, and LRCLIB/OpenSubtitles are text-track providers rather than identity sources.
+Retail/catalog matching is the first identity stage. The Engine queries active providers in the order declared by `config/pipelines.json`: Apple for books and audiobooks, TMDB for movies and TV, Comic Vine for comics, and for music MusicBrainz first for identity followed by Apple for artwork and retail enrichment. Fanart.tv is reserved for slower Stage 3 artwork, and LRCLIB/OpenSubtitles are text-track providers rather than identity sources.
 
 Retail does three important jobs:
 

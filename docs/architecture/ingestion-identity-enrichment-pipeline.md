@@ -134,7 +134,6 @@ Provider roles:
 | Apple | Stage 1 | Books, audiobooks, music where configured | Retail title, creator, cover, descriptions, ISBN/ASIN/store IDs; for music, enriches an accepted MusicBrainz identity or supplies configured fallback identity and normalized reconciliation hints. |
 | TMDB | Stage 1 | Movies, TV | TMDB/IMDB/TVDB bridge IDs, posters, backdrops, cast/crew seeds, episode still seeds. |
 | Comic Vine | Stage 1 | Comics | Series, issue, volume, cover, publisher, issue metadata. |
-| Open Library | Disabled by default | Books | Not part of the current normal Stage 1 matrix unless explicitly enabled. |
 | MusicBrainz | Stage 1 | Music | Primary music identity provider; configured direct recording-ID and ISRC lookups precede album-scoped and high-confidence recording-only searches. Recording identity may be retained without inventing a release identity, and one configured post-retail reconciliation pass can attach corroborated recording/release identifiers. |
 | Fanart.tv | Stage 3 only | Movies, TV, music | Rich artwork after identity is known. It is not the Stage 1 identity gate. |
 | LRCLIB | Text-track enrichment | Music | Lyrics/timed lyrics where configured. |
@@ -220,7 +219,7 @@ Wikipedia/Wikidata-derived text is shown.
 
 | Media type | Stage 1 provider gate | Stage 2 bridge | Quick hydration | Stage 3 enrichment |
 | --- | --- | --- | --- | --- |
-| Books | Apple Books or configured book retail; Open Library disabled unless enabled. | ISBN/ASIN/store IDs to Wikidata work/edition QID. | Title, author, description, cover, shelf/series. | Authors, pseudonyms, fictional universe, series/franchise links, characters/locations when available. |
+| Books | Apple Books. | ISBN/ASIN/store IDs to Wikidata work/edition QID. | Title, author, description, cover, shelf/series. | Authors, pseudonyms, fictional universe, series/franchise links, characters/locations when available. |
 | Audiobooks | Apple or audiobook retail evidence plus local audio tags. | ISBN/ASIN/store IDs to work or audiobook edition QID, pivoted to canonical work when needed. | Title, author, narrator, duration, cover, audiobook shelf. | Narrator/person detail, pseudonyms, source-work/universe links, lyrics/transcript-adjacent data when configured. |
 | Movies | TMDB identity. | TMDB/IMDB IDs to film QID. | Title, year, description, poster/backdrop, collection. | Cast/crew, characters, franchise/universe roots, Fanart.tv rich artwork, subtitles. |
 | TV | TMDB show/season/episode identity. | TMDB/IMDB/TVDB IDs to show/episode QIDs. | Show/season/episode metadata, poster/still, TV shelf. | Cast/crew, episode stills, season art, show universe/franchise graph, subtitles. |

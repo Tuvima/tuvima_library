@@ -2,7 +2,7 @@
 @attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
 @layout MediaEngine.Web.Shared.SetupWizardLayout
 @using MediaEngine.Contracts.Setup
-@using MediaEngine.Contracts.Ai
+@using MediaEngine.Contracts.Settings
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
 @inject IEngineApiClient ApiClient
@@ -10,6 +10,7 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <PageTitle>Set up Tuvima Library</PageTitle>
 
@@ -37,8 +38,10 @@
             {
                 var state = StepState(step);
                 <li class="@StepClass(step)" aria-current="@(step == CurrentStep ? "step" : null)">
-                    <span>@(state is "passed" or "deferred" ? "✓" : (Array.IndexOf(SetupWorkflow.StepKeys, step) + 1).ToString())</span>
-                    <small>@Friendly(step)</small>
+                    <AppNativeButton Type="button" Disabled="@(!CanNavigateTo(step))" OnClick="@(() => GoToStep(step))">
+                        <span>@(state is "passed" or "deferred" ? "✓" : (Array.IndexOf(SetupWorkflow.StepKeys, step) + 1).ToString())</span>
+                        <small>@Friendly(step)</small>
+                    </AppNativeButton>
                 </li>
             }
         </ol>
@@ -58,15 +61,19 @@
                 case "providers":
                     @ProvidersStage()
                     break;
-                case "local-ai":
-                    @LocalAiStage()
-                    break;
-                case "access":
-                    @AccessStage()
-                    break;
                 default:
                     @ReadinessStage()
                     break;
+            }
+            @if (CurrentIndex > 0)
+            {
+                <footer class="setup-stage__footer">
+                    <AppButton Label="Back" StartIcon="@Icons.Material.Outlined.ArrowBack" OnClick="GoBack" />
+                    @if (CurrentStep != WorkflowStep)
+                    {
+                        <AppButton Label="Return to current step" EndIcon="@Icons.Material.Outlined.ArrowForward" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="ReturnToCurrentStep" />
+                    }
+                </footer>
             }
         </section>
     }
@@ -78,14 +85,18 @@
     private SetupPreflightDto? _preflight;
     private SetupBackupInspectionDto? _backup;
     private SetupMediaLocationsDto? _media;
+    private LibrariesConfigurationDto? _setupLibraries;
     private SetupReadinessDto? _readiness;
-    private HardwareProfileDto? _hardware;
     private string? _setupSession;
     private string _email = string.Empty;
     private string _password = string.Empty;
+    private string _passwordConfirmation = string.Empty;
     private string _displayName = "Administrator";
     private IReadOnlyList<string> _recoveryCodes = [];
     private IReadOnlyList<(string Name, bool Success, string Detail)> _providerResults = [];
+    private IReadOnlyList<ProviderCatalogueDto> _providerCatalogue = [];
+    private readonly Dictionary<string, Dictionary<string, string>> _providerCredentials = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ProviderCredentialOperationResultDto> _providerCredentialResults = new(StringComparer.OrdinalIgnoreCase);
     private bool _providerTestCompleted;
     private string? _sampleScanDetail;
     private bool _loading = true;
@@ -93,19 +104,30 @@
     private bool _showRestore;
     private bool _showLibraryWizard;
     private bool _authenticated;
+    private string? _selectedStep;
+    private string? _busyProvider;
 
-    private string CurrentStep => NormalizeStep(_status?.CurrentStep);
+    private string WorkflowStep => NormalizeStep(_status?.CurrentStep);
+    private string CurrentStep => _selectedStep ?? WorkflowStep;
     private int CurrentIndex => Math.Max(0, Array.IndexOf(SetupWorkflow.StepKeys, CurrentStep));
     private int ProgressPercent => (int)Math.Round(((CurrentIndex + 1d) / SetupWorkflow.StepKeys.Length) * 100d);
+    private bool PasswordsMatch => string.Equals(_password, _passwordConfirmation, StringComparison.Ordinal);
+    private string RecoveryCodesText => $"Tuvima Library administrator recovery codes{Environment.NewLine}Created: {DateTimeOffset.Now:g}{Environment.NewLine}{Environment.NewLine}{string.Join(Environment.NewLine, _recoveryCodes)}{Environment.NewLine}";
+    private string RecoveryCodesDownloadUri => $"data:text/plain;charset=utf-8,{Uri.EscapeDataString(RecoveryCodesText)}";
+    private IReadOnlyList<ProviderCatalogueDto> KeyedProviders => _providerCatalogue
+        .Where(provider => provider.Enabled && provider.RequiresKey && provider.Onboarding is not null)
+        .OrderBy(provider => provider.Onboarding!.Classification == "recommended" ? 0 : 1)
+        .ThenBy(provider => provider.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
+    private IReadOnlyList<ProviderCatalogueDto> BuiltInProviders => _providerCatalogue
+        .Where(provider => provider.Enabled && !provider.RequiresKey && provider.Onboarding is not null)
+        .OrderBy(provider => provider.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
     private string PageTitleText => CurrentStep == "preflight" ? "Welcome to your library" : Friendly(CurrentStep);
     private string PageSubtitle => CurrentStep switch
     {
         "preflight" => "Start fresh or recover a backup, then verify the storage and tools visible to this server.",
         "administrator" => "Create the first authenticated administrator and household profile.",
         "media-locations" => "Connect read-only sources separately from storage Tuvima may manage.",
-        "providers" => "Test open metadata services and decide which keyed services to connect later.",
-        "local-ai" => "Measure this machine and choose how much local intelligence to enable.",
-        "access" => "Keep Tuvima at home by default or prepare a secure away-from-home path.",
+        "providers" => "Connect the metadata services that make each media lane useful.",
         _ => "Review what passed, what was deferred, and anything that still needs repair.",
     };
 
@@ -146,10 +168,13 @@
             Navigation.NavigateTo("/auth/login?returnUrl=%2Fsetup", forceLoad: true);
             return;
         }
+        if (CurrentStep == "preflight" && _setupLibraries is null)
+            _setupLibraries = await ApiClient.GetSetupLibrariesAsync(_setupSession);
         StateHasChanged();
         if (CurrentStep == "providers" && !_providerTestCompleted && !_busy)
         {
-            await TestProvidersAsync();
+            await LoadProvidersAsync();
+            _providerTestCompleted = true;
         }
     }
 
@@ -172,12 +197,26 @@
         }
         else
         {
-            <div class="setup-choice-grid"><AppNativeButton Type="button" Class="setup-choice" OnClick="RunPreflightAsync"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /><strong>Start fresh</strong><small>Use the paths and defaults already visible to this installation.</small></AppNativeButton><AppNativeButton Type="button" Class="setup-choice" OnClick="@(() => _showRestore = true)"><MudIcon Icon="@Icons.Material.Outlined.Restore" /><strong>Restore backup</strong><small>Recover a catalogue and non-secret configuration from a ZIP file.</small></AppNativeButton></div>
+            <div class="setup-choice-grid"><AppNativeButton Type="button" Class="setup-choice" OnClick="RunPreflightAsync"><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /><strong>Start fresh</strong><small>Validate this installation and use the editable storage locations below.</small></AppNativeButton><AppNativeButton Type="button" Class="setup-choice" OnClick="@(() => _showRestore = true)"><MudIcon Icon="@Icons.Material.Outlined.Restore" /><strong>Restore backup</strong><small>Recover a catalogue and non-secret configuration from a ZIP file.</small></AppNativeButton></div>
+        }
+        @if (_setupLibraries is not null)
+        {
+            <div class="setup-storage-editor">
+                <div><h3>Server storage locations</h3><p>These are the host folders Tuvima may browse or manage. In Docker, each path must also be mounted into the container.</p></div>
+                @foreach (var location in _setupLibraries.StorageLocations)
+                {
+                    <div class="setup-storage-row">
+                        <AppTextField Label="@location.Label" Value="@location.Path" ValueChanged="@((string? value) => location.Path = value?.Trim() ?? string.Empty)" />
+                        <AppStatusBadge Text="@(location.AllowWrite ? "Writable" : "Read only")" Tone="@(location.AllowWrite ? AppUiTone.Success : AppUiTone.Neutral)" />
+                    </div>
+                }
+                <div class="setup-actions"><AppButton Label="Save storage locations" StartIcon="@Icons.Material.Outlined.Save" Loading="@_busy" OnClick="SaveStorageLocationsAsync" /></div>
+            </div>
         }
         @if (_preflight is not null)
         {
             <AppAlert Tone="@(_preflight.Passed ? AppUiTone.Success : AppUiTone.Error)">@_preflight.ContainerExplanation</AppAlert>
-            <div class="setup-checks">@foreach (var check in _preflight.Checks) { <article><AppStatusBadge Text="@Friendly(check.Status)" Tone="@(check.Status == "passed" ? AppUiTone.Success : AppUiTone.Error)" /><div><strong>@check.Label</strong><code>@check.Path</code><small>@check.Detail</small></div></article> }</div>
+            <div class="setup-checks">@foreach (var check in _preflight.Checks) { <article><AppStatusBadge Text="@Friendly(check.Status)" Tone="@(check.Status == "passed" ? AppUiTone.Success : AppUiTone.Error)" /><div><strong>@check.Label</strong><code>@check.Path</code><small>@check.Detail @if (check.Key is "database" or "config") { <span> This startup-owned location is changed with the server environment or container volume, then a restart.</span> }</small></div></article> }</div>
             <div class="setup-runtime">@_preflight.RuntimeIdentifier · @_preflight.ProcessArchitecture · FFmpeg: @_preflight.FfmpegStatus</div>
             <div class="setup-actions setup-actions--end"><AppButton Label="Continue" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(!_preflight.Passed)" OnClick="ReloadAsync" /></div>
         }
@@ -189,18 +228,20 @@
         {
             <AppAlert Tone="AppUiTone.Warning">Save these one-time recovery codes somewhere private. They will not be shown again.</AppAlert>
             <div class="setup-recovery-codes">
-                @foreach (var recoveryCode in _recoveryCodes)
-                {
-                    <code>@recoveryCode</code>
-                }
+                <AppTextarea Value="@RecoveryCodesText" ReadOnly="true" Lines="@(_recoveryCodes.Count + 2)" Class="setup-recovery-text" />
+                <div class="setup-actions"><AppButton Label="Copy all" StartIcon="@Icons.Material.Outlined.ContentCopy" OnClick="CopyRecoveryCodesAsync" /><a class="setup-download-button" href="@RecoveryCodesDownloadUri" download="tuvima-administrator-recovery-codes.txt"><span class="mud-icon-root mud-svg-icon mud-icon-size-medium">↓</span> Download .txt</a></div>
             </div>
             <div class="setup-actions setup-actions--end"><AppButton Label="I saved the codes — sign in" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="SignIn" /></div>
         }
+        else if (_status?.AdministratorConfigured == true)
+        {
+            <AppAlert Tone="AppUiTone.Success">The first administrator account and household profile are configured.</AppAlert>
+        }
         else
         {
-            <div class="setup-form-grid"><AppTextField Label="Display name" Value="@_displayName" ValueChanged="@((string? value) => _displayName = value ?? string.Empty)" /><AppTextField Label="Email" Value="@_email" ValueChanged="@((string? value) => _email = value ?? string.Empty)" /><AppTextField Label="Password" InputType="InputType.Password" Value="@_password" ValueChanged="@((string? value) => _password = value ?? string.Empty)" /></div>
+            <div class="setup-form-grid"><AppTextField Label="Display name" Value="@_displayName" ValueChanged="@((string? value) => _displayName = value ?? string.Empty)" /><AppTextField Label="Email" Value="@_email" ValueChanged="@((string? value) => _email = value ?? string.Empty)" /><AppTextField Label="Password" InputType="InputType.Password" Value="@_password" ValueChanged="@((string? value) => _password = value ?? string.Empty)" /><AppTextField Label="Confirm password" InputType="InputType.Password" Value="@_passwordConfirmation" ValueChanged="@((string? value) => _passwordConfirmation = value ?? string.Empty)" Error="@(!string.IsNullOrEmpty(_passwordConfirmation) && !PasswordsMatch)" ErrorText="Passwords do not match." /></div>
             <small>Use at least 8 characters. This password remains on your Tuvima server.</small>
-            <div class="setup-actions setup-actions--end"><AppButton Label="Create administrator" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" Disabled="@(_busy || string.IsNullOrWhiteSpace(_email) || _password.Length < 8)" OnClick="CreateAdministratorAsync" /></div>
+            <div class="setup-actions setup-actions--end"><AppButton Label="Create administrator" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" Disabled="@(_busy || string.IsNullOrWhiteSpace(_email) || _password.Length < 8 || !PasswordsMatch)" OnClick="CreateAdministratorAsync" /></div>
         }
     </text>;
 
@@ -208,7 +249,7 @@
         <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.FolderOpen" /><div><h2 id="setup-stage-title">Media locations</h2><p>Existing libraries remain read-only unless you explicitly choose managed writable storage.</p></div></div>
         @if (_showLibraryWizard)
         {
-            <AddLibraryWizard Embedded="true" LibraryCreated="LibraryCreatedAsync" Cancelled="@(() => _showLibraryWizard = false)" />
+            <AddLibraryWizard Embedded="true" SetupSession="@_setupSession" LibraryCreated="LibraryCreatedAsync" Cancelled="@(() => _showLibraryWizard = false)" />
         }
         else
         {
@@ -218,24 +259,39 @@
     </text>;
 
     private RenderFragment ProvidersStage() => @<text>
-        <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.CloudSync" /><div><h2 id="setup-stage-title">Metadata providers</h2><p>Open providers are tested automatically. Keyed services can be configured later without blocking your library.</p></div></div>
-        @if (_providerResults.Count > 0) { <div class="setup-checks">@foreach (var result in _providerResults) { <article><AppStatusBadge Text="@(result.Success ? "Passed" : "Deferred")" Tone="@(result.Success ? AppUiTone.Success : AppUiTone.Warning)" /><div><strong>@result.Name</strong><small>@result.Detail</small></div></article> }</div> }
-        <p><a href="/settings/metadata/providers">Open provider settings</a> to follow signup links, enter credentials, and validate keyed services.</p>
-        <div class="setup-actions"><AppButton Label="Defer provider setup" OnClick="@(() => DecideStepAsync("providers", "deferred", "Keyed provider setup deferred; open providers remain available."))" />@if (_providerTestCompleted) { <AppButton Label="Continue" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="SaveProviderResultAsync" /> } else { <AppButton Label="Test open providers" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" OnClick="TestProvidersAsync" /> }</div>
-    </text>;
-
-    private RenderFragment LocalAiStage() => @<text>
-        <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.Memory" /><div><h2 id="setup-stage-title">Local AI</h2><p>Local models can improve matching and descriptions without sending your library text to a hosted AI service.</p></div></div>
-        @if (_hardware is not null) { <dl class="setup-facts"><div><dt>RAM</dt><dd>@FormatMb(_hardware.AvailableRamMb)</dd></div><div><dt>Backend</dt><dd>@_hardware.Backend</dd></div><div><dt>Recommended tier</dt><dd>@Friendly(_hardware.Tier)</dd></div><div><dt>Throughput</dt><dd>@(_hardware.TokensPerSecond?.ToString("F1") ?? "Not measured") tok/s</dd></div></dl> }
-        <AppAlert Tone="AppUiTone.Info">Essential uses the least disk and RAM. Standard enables the recommended text features. Advanced is offered only when the benchmark qualifies this machine.</AppAlert>
-        <div class="setup-actions"><AppButton Label="Defer local AI" OnClick="@(() => DecideStepAsync("local-ai", "deferred", "Local AI deferred; core library features remain available."))" /><AppButton Label="Run benchmark" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" OnClick="BenchmarkAsync" /></div>
-    </text>;
-
-    private RenderFragment AccessStage() => @<text>
-        <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.Home" /><div><h2 id="setup-stage-title">Access</h2><p>Home-only is the safest default. Tailscale or an HTTPS reverse proxy can be configured later.</p></div></div>
-        <div class="setup-choice-grid"><article class="setup-choice is-selected"><MudIcon Icon="@Icons.Material.Outlined.Home" /><strong>Home only — default</strong><small>No router configuration or public exposure.</small></article><a class="setup-choice" href="/settings/network/remote"><MudIcon Icon="@Icons.Material.Outlined.VpnLock" /><strong>Use away from home</strong><small>Review Tailscale and HTTPS reverse-proxy guidance.</small></a></div>
-        <details class="setup-advanced"><summary>Advanced network details</summary><p>NIC binding, ports, trusted proxies, PCP, NAT-PMP, and UPnP remain in Network Advanced settings.</p></details>
-        <div class="setup-actions setup-actions--end"><AppButton Label="Keep home-only" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="@(() => DecideStepAsync("access", "deferred", "Home-only access retained by default."))" /></div>
+        <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.CloudSync" /><div><h2 id="setup-stage-title">Metadata providers</h2><p>Set up the services that need an API key. Built-in providers work without an account.</p></div></div>
+        <AppAlert Tone="AppUiTone.Info">Apple API, Wikidata, MusicBrainz, and other open services need no credentials. TVDB identifiers are resolved through available metadata and used by Fanart.tv; Tuvima does not currently require a separate TVDB account.</AppAlert>
+        @if (_providerCatalogue.Count == 0)
+        {
+            <AppButton Label="Load providers" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" OnClick="LoadProvidersAsync" />
+        }
+        else
+        {
+            <div class="setup-provider-grid">
+                @foreach (var provider in KeyedProviders)
+                {
+                    <article class="setup-provider-card">
+                        <div class="setup-provider-card__heading"><div><strong>@provider.DisplayName</strong><small>@ProviderPurpose(provider)</small></div><AppStatusBadge Text="@ProviderStatus(provider)" Tone="@ProviderTone(provider)" /></div>
+                        @if (provider.Onboarding?.SignupUrl is { Length: > 0 } signupUrl)
+                        {
+                            <a href="@signupUrl" target="_blank" rel="noopener noreferrer">Create or open provider account <span aria-hidden="true">↗</span></a>
+                        }
+                        @foreach (var field in provider.Onboarding?.Credentials ?? [])
+                        {
+                            <AppTextField Label="@field.Label" InputType="InputType.Password" Value="@CredentialValue(provider.Name, field.Key)" ValueChanged="@(value => SetCredential(provider.Name, field.Key, value))" HelpText="@field.FormatHint" />
+                        }
+                        <AppButton Label="Save and verify" Size="AppControlSize.Compact" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@(_busyProvider == provider.Name)" Disabled="@(!CanSaveProvider(provider))" OnClick="@(() => SaveProviderCredentialsAsync(provider))" />
+                        @if (_providerCredentialResults.TryGetValue(provider.Name, out var credentialResult))
+                        {
+                            <small class="@(credentialResult.Success ? "setup-provider-success" : "setup-provider-error")">@credentialResult.Message</small>
+                        }
+                    </article>
+                }
+            </div>
+            <div class="setup-builtins"><strong>Ready without signup</strong><span>@string.Join(" · ", BuiltInProviders.Select(provider => provider.DisplayName))</span></div>
+        }
+        @if (_providerResults.Count > 0) { <div class="setup-checks">@foreach (var result in _providerResults) { <article><AppStatusBadge Text="@(result.Success ? "Passed" : "Unavailable")" Tone="@(result.Success ? AppUiTone.Success : AppUiTone.Warning)" /><div><strong>@result.Name</strong><small>@result.Detail</small></div></article> }</div> }
+        <div class="setup-actions setup-actions--end"><AppButton Label="Finish provider setup later" OnClick="@(() => DecideStepAsync("providers", "deferred", "Provider credential setup deferred; built-in providers remain available."))" /><AppButton Label="Continue" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" OnClick="SaveProviderResultAsync" /></div>
     </text>;
 
     private RenderFragment ReadinessStage() => @<text>
@@ -250,23 +306,53 @@
     </text>;
 
     private async Task RunPreflightAsync() { _busy = true; _preflight = await ApiClient.RunSetupPreflightAsync(_setupSession); _busy = false; if (_preflight is null) Snackbar.Add("Preflight could not run.", Severity.Error); }
+    private async Task SaveStorageLocationsAsync()
+    {
+        if (_setupLibraries is null) return;
+        _busy = true;
+        var saved = await ApiClient.UpdateSetupLibrariesAsync(new UpdateLibrariesRequest
+        {
+            SchemaVersion = _setupLibraries.SchemaVersion,
+            StorageLocations = _setupLibraries.StorageLocations,
+            ViewStorage = _setupLibraries.ViewStorage,
+            Libraries = _setupLibraries.Libraries,
+            IncomingSources = _setupLibraries.IncomingSources,
+            PersonalLibraryPolicy = _setupLibraries.PersonalLibraryPolicy,
+        }, _setupSession);
+        _busy = false;
+        if (saved is null) { Snackbar.Add("Storage locations could not be saved. Check that every path is absolute and visible to the server.", Severity.Error); return; }
+        _setupLibraries = saved;
+        Snackbar.Add("Storage locations saved.", Severity.Success);
+        await RunPreflightAsync();
+    }
     private async Task UploadBackupAsync(InputFileChangeEventArgs args) { _busy = true; try { await using var stream = args.File.OpenReadStream(2L * 1024 * 1024 * 1024); _backup = await ApiClient.UploadSetupBackupAsync(stream, args.File.Name, _setupSession ?? string.Empty); if (_backup is null) Snackbar.Add("The backup failed validation.", Severity.Error); } finally { _busy = false; } }
     private async Task ConfirmRestoreAsync() { if (_backup is null || _setupSession is null) return; _busy = true; var result = await ApiClient.ConfirmSetupRestoreAsync(_backup.OperationId, _setupSession); _busy = false; if (result is null) Snackbar.Add("The restore could not be scheduled.", Severity.Error); else Snackbar.Add("Restore scheduled. Tuvima is restarting.", Severity.Info); }
-    private async Task CreateAdministratorAsync() { if (_setupSession is null) return; _busy = true; var result = await ApiClient.CreateSetupAdministratorAsync(new SetupAdministratorRequest { Email = _email, Password = _password, DisplayName = _displayName, DeviceId = Guid.NewGuid().ToString("D"), DeviceName = "Setup browser" }, _setupSession); _busy = false; if (result is null) Snackbar.Add("The administrator could not be created.", Severity.Error); else if (result.RecoveryCodes.Count > 0) _recoveryCodes = result.RecoveryCodes; else SignIn(); }
+    private async Task CreateAdministratorAsync() { if (_setupSession is null || !PasswordsMatch) { Snackbar.Add("Enter the same password twice.", Severity.Error); return; } _busy = true; var result = await ApiClient.CreateSetupAdministratorAsync(new SetupAdministratorRequest { Email = _email, Password = _password, DisplayName = _displayName, DeviceId = Guid.NewGuid().ToString("D"), DeviceName = "Setup browser" }, _setupSession); _busy = false; if (result is null) Snackbar.Add("The administrator could not be created.", Severity.Error); else if (result.RecoveryCodes.Count > 0) _recoveryCodes = result.RecoveryCodes; else SignIn(); }
+    private async Task CopyRecoveryCodesAsync() { await JS.InvokeVoidAsync("navigator.clipboard.writeText", RecoveryCodesText); Snackbar.Add("Recovery codes copied.", Severity.Success); }
     private void SignIn() => Navigation.NavigateTo("/auth/login?returnUrl=%2Fsetup", forceLoad: true);
     private async Task ValidateMediaAsync() { _busy = true; _media = await ApiClient.ValidateSetupMediaLocationsAsync(_setupSession); _busy = false; if (_media?.Passed == true) await ReloadAsync(); }
     private async Task LibraryCreatedAsync() { _showLibraryWizard = false; await ValidateMediaAsync(); }
-    private async Task TestProvidersAsync() { _busy = true; var catalogue = await ApiClient.GetProviderCatalogueAsync(); var tests = new List<(string, bool, string)>(); foreach (var provider in catalogue.Where(provider => provider.Enabled && !provider.RequiresKey)) { var result = await ApiClient.TestProviderAsync(provider.Name); tests.Add((provider.DisplayName, result?.Success == true, result?.Message ?? "No response from provider.")); } _providerResults = tests; _providerTestCompleted = true; _busy = false; }
-    private Task SaveProviderResultAsync() => DecideStepAsync("providers", _providerResults.Count > 0 && _providerResults.All(test => test.Success) ? "passed" : "deferred", $"Tested {_providerResults.Count} open providers; {_providerResults.Count(test => test.Success)} passed. Keyed providers may be configured later.");
-    private async Task BenchmarkAsync() { _busy = true; var result = await ApiClient.RunBenchmarkAsync(); _hardware = result.Value; _busy = false; if (result.Succeeded) await DecideStepAsync("local-ai", "passed", $"Hardware benchmark completed; recommended tier: {_hardware?.Tier ?? "standard"}."); else Snackbar.Add(result.Problem?.Detail ?? "The benchmark could not complete; local AI can be deferred.", Severity.Warning); }
-    private async Task DecideStepAsync(string step, string status, string detail) { _status = await ApiClient.DecideSetupStepAsync(step, status, detail, _setupSession); if (_status is null) Snackbar.Add("The setup choice could not be saved.", Severity.Error); }
+    private async Task LoadProvidersAsync() { _busy = true; _providerCatalogue = await ApiClient.GetProviderCatalogueAsync(); foreach (var provider in KeyedProviders) _providerCredentials.TryAdd(provider.Name, new(StringComparer.OrdinalIgnoreCase)); _busy = false; }
+    private async Task TestProvidersAsync() { await LoadProvidersAsync(); _busy = true; var tests = new List<(string, bool, string)>(); foreach (var provider in BuiltInProviders) { var result = await ApiClient.TestProviderAsync(provider.Name); tests.Add((provider.DisplayName, result?.Success == true, result?.Message ?? "No response from provider.")); } _providerResults = tests; _providerTestCompleted = true; _busy = false; }
+    private string CredentialValue(string provider, string key) => _providerCredentials.TryGetValue(provider, out var values) && values.TryGetValue(key, out var value) ? value : string.Empty;
+    private void SetCredential(string provider, string key, string? value) { if (!_providerCredentials.TryGetValue(provider, out var values)) _providerCredentials[provider] = values = new(StringComparer.OrdinalIgnoreCase); values[key] = value ?? string.Empty; }
+    private bool CanSaveProvider(ProviderCatalogueDto provider) => provider.Onboarding?.Credentials.Where(field => field.Required).All(field => !string.IsNullOrWhiteSpace(CredentialValue(provider.Name, field.Key))) == true;
+    private async Task SaveProviderCredentialsAsync(ProviderCatalogueDto provider) { _busyProvider = provider.Name; var result = await ApiClient.SaveSetupProviderCredentialsAsync(provider.Name, new ProviderCredentialWriteRequest { Credentials = new Dictionary<string, string>(_providerCredentials.GetValueOrDefault(provider.Name) ?? [], StringComparer.OrdinalIgnoreCase) }, _setupSession); _busyProvider = null; if (result is null) Snackbar.Add($"{provider.DisplayName} could not be configured.", Severity.Error); else { _providerCredentialResults[provider.Name] = result; Snackbar.Add(result.Message, result.Success ? Severity.Success : Severity.Error); } }
+    private static string ProviderPurpose(ProviderCatalogueDto provider) => provider.Onboarding?.SupportedLanes.Count > 0 ? $"Improves {string.Join(", ", provider.Onboarding.SupportedLanes.Select(Friendly))}." : "Optional metadata enrichment.";
+    private string ProviderStatus(ProviderCatalogueDto provider) => _providerCredentialResults.TryGetValue(provider.Name, out var result) ? (result.Success ? "Connected" : "Needs attention") : provider.Onboarding?.Credentials.All(field => field.Configured) == true ? "Configured" : provider.Onboarding?.Classification == "recommended" ? "Recommended" : "Optional";
+    private AppUiTone ProviderTone(ProviderCatalogueDto provider) => _providerCredentialResults.TryGetValue(provider.Name, out var result) ? (result.Success ? AppUiTone.Success : AppUiTone.Error) : provider.Onboarding?.Credentials.All(field => field.Configured) == true ? AppUiTone.Success : AppUiTone.Warning;
+    private Task SaveProviderResultAsync() => DecideStepAsync("providers", "passed", $"Provider setup reviewed; {_providerCredentialResults.Count(result => result.Value.Success)} keyed provider(s) connected. Built-in providers require no credentials.");
+    private async Task DecideStepAsync(string step, string status, string detail) { _status = await ApiClient.DecideSetupStepAsync(step, status, detail, _setupSession); _selectedStep = null; if (_status is null) Snackbar.Add("The setup choice could not be saved.", Severity.Error); }
     private async Task LoadReadinessAsync() { _busy = true; _readiness = await ApiClient.GetSetupReadinessAsync(_setupSession); _busy = false; }
     private async Task SampleScanAsync() { _busy = true; var result = await ApiClient.TriggerScanAsync(); _busy = false; _sampleScanDetail = result is null ? "The dry-run scan could not start. Use the media-location repair link to check the configured source." : $"Dry run found {result.TotalCount} pending file operation{(result.TotalCount == 1 ? string.Empty : "s")}. No files were changed."; }
     private async Task CompleteAsync() { _busy = true; var result = await ApiClient.CompleteSetupAsync(_setupSession); _busy = false; if (result?.State == "complete") { try { await Storage.DeleteAsync(SetupSessionKey); } catch { _setupSession = null; } Navigation.NavigateTo(_authenticated ? "/" : "/auth/login", forceLoad: true); } else Snackbar.Add("Required setup checks are still blocked.", Severity.Error); }
     private string StepState(string key) => _status?.Steps.FirstOrDefault(step => step.Key == key)?.Status ?? "not_started";
     private string StepClass(string key) => key == CurrentStep ? "is-current" : StepState(key) is "passed" or "deferred" ? "is-complete" : string.Empty;
+    private bool CanNavigateTo(string key) => Array.IndexOf(SetupWorkflow.StepKeys, key) <= Array.IndexOf(SetupWorkflow.StepKeys, WorkflowStep) || StepState(key) is "passed" or "deferred";
+    private void GoToStep(string key) { if (CanNavigateTo(key)) _selectedStep = key; }
+    private void GoBack() { var index = Math.Max(0, CurrentIndex - 1); _selectedStep = SetupWorkflow.StepKeys[index]; }
+    private void ReturnToCurrentStep() => _selectedStep = null;
     private static string NormalizeStep(string? step) => SetupWorkflow.StepKeys.Contains(step, StringComparer.Ordinal) ? step! : "preflight";
     private static string Friendly(string value) => string.Join(' ', value.Replace('_', '-').Split('-', StringSplitOptions.RemoveEmptyEntries).Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
-    private static string FormatMb(long value) => value >= 1024 ? $"{value / 1024d:F1} GB" : $"{value:N0} MB";
     private static AppUiTone StatusTone(string status) => status switch { "passed" => AppUiTone.Success, "blocked" => AppUiTone.Error, "deferred" => AppUiTone.Warning, _ => AppUiTone.Neutral };
 }

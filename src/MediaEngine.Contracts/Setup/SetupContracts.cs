@@ -8,7 +8,7 @@ public static class SetupWorkflow
     public static readonly string[] StepKeys =
     [
         "preflight", "administrator", "media-locations",
-        "providers", "local-ai", "access", "readiness",
+        "providers", "readiness",
     ];
 }
 

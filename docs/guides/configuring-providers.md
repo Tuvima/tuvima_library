@@ -42,7 +42,7 @@ These providers require no account, no sign-up, and no configuration. They are a
 | **MusicBrainz** | Music recording, release, release-group, and artist identity |
 | **LRCLIB** | Lyrics and timed lyrics for music |
 
-These providers are enabled by default where their config marks them active. Open Library config is retained for future or explicit use, but it is disabled in the normal runtime setup.
+These built-in providers are enabled by default where their config marks them active and do not require credential setup.
 
 ---
 
@@ -86,7 +86,7 @@ When you save provider settings from the Dashboard, mutable provider settings ar
 
 ## Retail lookup inputs by media type
 
-Retail lookup is Stage 1. It searches the configured provider chain, then scores returned candidates against local file evidence. Open Library config exists, but it is disabled in the normal runtime path. Music uses a bounded, configuration-driven chain: MusicBrainz tries identifiers and staged text searches first; Apple can supply fallback identity; and an accepted Apple fallback schedules one configured MusicBrainz reconciliation attempt using Apple-normalized hints.
+Retail lookup is Stage 1. It searches the configured provider chain, then scores returned candidates against local file evidence. Books use Apple as their retail catalogue source. Music uses a bounded, configuration-driven chain: MusicBrainz tries identifiers and staged text searches first; Apple can supply fallback identity; and an accepted Apple fallback schedules one configured MusicBrainz reconciliation attempt using Apple-normalized hints.
 
 | Media type | Active retail provider | Lookup inputs sent to provider | Candidate scoring metrics | Bridge IDs produced for Wikidata |
 |---|---|---|---|---|

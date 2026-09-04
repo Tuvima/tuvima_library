@@ -13,7 +13,7 @@
       "note": "Only explicit provider-native movie or TV promotional taglines"
     },
     "subtitle": {
-      "priority": ["open_library", "apple_api", "wikidata_reconciliation"],
+      "priority": ["apple_api", "wikidata_reconciliation"],
       "note": "Semantic book, audiobook edition, or comic subtitle; never marketing tagline or description text"
     },
     "biography": {

@@ -326,7 +326,6 @@ One JSON file per metadata provider. All provider files are self-contained - add
 | File | Provider | Stage | Language Strategy |
 |---|---|---|---|
 | `apple_api.json` | Apple API (books, audiobooks, music enrichment) | Stage 1 provider metadata and primary artwork; for music, configured after MusicBrainz as enrichment | `localized` |
-| `open_library.json` | Open Library | Disabled by default | `source` |
 | `comicvine.json` | Comic Vine (comics) | Stage 1 provider metadata and primary artwork | `source` |
 | `musicbrainz.json` | MusicBrainz | Stage 1 music identity; also available to slower enrichment where configured | `source` |
 | `tmdb.json` | TMDB (movies, TV) | Stage 1 provider metadata and primary artwork | `localized` |

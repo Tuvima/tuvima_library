@@ -21,8 +21,8 @@ public sealed class Phase7AiConfigurationTests
 
         Assert.NotNull(roundTrip);
         Assert.Equal(AiResourceProfileNames.Standard, roundTrip.ResourceProfile);
-        Assert.True(roundTrip.Features.SmartLabeling);
-        Assert.True(roundTrip.Features.TypeLogic);
+        Assert.False(roundTrip.Features.SmartLabeling);
+        Assert.False(roundTrip.Features.TypeLogic);
         Assert.False(string.IsNullOrWhiteSpace(roundTrip.Scheduling.DescriptionIntelligenceCron));
         Assert.DoesNotContain("\"models\"", json, StringComparison.Ordinal);
         Assert.DoesNotContain("hardware_profile", json, StringComparison.Ordinal);

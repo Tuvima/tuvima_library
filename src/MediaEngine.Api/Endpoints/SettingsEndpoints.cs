@@ -1441,7 +1441,7 @@ public static class SettingsEndpoints
         };
     }
 
-    private static string? ValidateConfiguredPaths(LibrariesConfiguration config)
+    internal static string? ValidateConfiguredPaths(LibrariesConfiguration config)
     {
         foreach (var path in config.Libraries.SelectMany(library => library.Sources).Select(source => source.Path)
                      .Concat(config.IncomingSources.Select(source => source.Path)))
@@ -1456,7 +1456,7 @@ public static class SettingsEndpoints
         return null;
     }
 
-    private static string? ValidateViewStorage(LibrariesConfiguration config)
+    internal static string? ValidateViewStorage(LibrariesConfiguration config)
     {
         if (!string.Equals(config.SchemaVersion, "5.0", StringComparison.Ordinal))
             return "libraries.json must use schema_version 5.0.";

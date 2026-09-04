@@ -18,7 +18,7 @@ public sealed class SmartLabelerTests
     // ── Helpers ──────────────────────────────────────────────────────────────
 
     private static SmartLabeler Build(StubLlamaInferenceService stub) =>
-        new(stub, new AiSettings(), NullLogger<SmartLabeler>.Instance);
+        new(stub, new AiSettings { Features = new AiFeatureFlags { SmartLabeling = true } }, NullLogger<SmartLabeler>.Instance);
 
     // ── Valid result ──────────────────────────────────────────────────────────
 

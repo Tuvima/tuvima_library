@@ -40,7 +40,6 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 | Provider | Media Types | What it contributes |
 |---|---|---|
 | Apple API | Books, Audiobooks, Music | Cover art (up to 3000x3000 via the 9999 trick), description, rating, Apple Books/Apple Music IDs; for music it enriches after MusicBrainz identity |
-| Open Library | Books | Disabled by default; retained config for ISBN/book lookup |
 | MusicBrainz | Music | Primary music identity lookup for recording, release, release-group, artist, and ISRC evidence |
 | LRCLIB | Music | Lyrics and timed lyrics; text-track enrichment, not identity |
 | Wikidata / Wikidata Reconciliation | All | QID, all structured properties, Wikipedia descriptions, person headshots (P18, persons only) |

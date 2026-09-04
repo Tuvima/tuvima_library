@@ -27,7 +27,7 @@ public sealed class PipelineConfigurationTests
 
         var expectedRetailFallbacks = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Books"] = ["apple_api", "open_library"],
+            ["Books"] = ["apple_api"],
             ["Audiobooks"] = ["apple_api"],
             ["Music"] = ["apple_api"],
             ["Movies"] = ["tmdb"],
@@ -50,11 +50,9 @@ public sealed class PipelineConfigurationTests
     }
 
     [Fact]
-    public void BooksPipeline_UsesEnabledOpenLibraryAsRankedIdentityFallback()
+    public void BooksPipeline_UsesAppleAsItsOnlyRetailIdentityProvider()
     {
         using var pipelines = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "pipelines.json")));
-        using var openLibrary = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "open_library.json")));
-
         var providers = pipelines.RootElement
             .GetProperty("Books")
             .GetProperty("providers")
@@ -63,8 +61,8 @@ public sealed class PipelineConfigurationTests
             .Select(element => element.GetProperty("name").GetString()!)
             .ToArray();
 
-        Assert.Equal(["apple_api", "open_library"], providers);
-        Assert.True(openLibrary.RootElement.GetProperty("enabled").GetBoolean());
+        Assert.Equal(["apple_api"], providers);
+        Assert.False(File.Exists(Path.Combine(Path.GetDirectoryName(FindRepoFile("config", "pipelines.json"))!, "providers", "open_library.json")));
     }
 
     [Fact]

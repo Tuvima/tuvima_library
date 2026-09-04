@@ -105,8 +105,6 @@ internal sealed class SchemaMigrator
                 (1, 'administrator', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                 (1, 'media-locations', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                 (1, 'providers', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-                (1, 'local-ai', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-                (1, 'access', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                 (1, 'readiness', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
             """;
             cmd.ExecuteNonQuery();

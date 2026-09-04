@@ -44,7 +44,14 @@ public sealed class ModelAutoDownloadService : BackgroundService
                 return;
             }
 
-            await DownloadIfNeededAsync(AiModelRole.TextQuality, stoppingToken).ConfigureAwait(false);
+            if (!AnyTextFeatureEnabled(_settings.Features) && !_settings.AudioPackEnabled)
+            {
+                _logger.LogInformation("Automatic AI downloads are disabled because every local AI feature is off");
+                return;
+            }
+
+            if (AnyTextFeatureEnabled(_settings.Features))
+                await DownloadIfNeededAsync(AiModelRole.TextQuality, stoppingToken).ConfigureAwait(false);
             if (_settings.AudioPackEnabled)
                 await DownloadIfNeededAsync(AiModelRole.Audio, stoppingToken).ConfigureAwait(false);
         }
@@ -57,6 +64,10 @@ public sealed class ModelAutoDownloadService : BackgroundService
             _logger.LogError(ex, "Automatic AI model download failed");
         }
     }
+
+    private static bool AnyTextFeatureEnabled(AiFeatureFlags features) =>
+        features.SmartLabeling || features.TypeLogic || features.SeriesAlignment
+        || features.VibeTags || features.Tldr || features.DescriptionIntelligence;
 
     private async Task DownloadIfNeededAsync(AiModelRole role, CancellationToken ct)
     {

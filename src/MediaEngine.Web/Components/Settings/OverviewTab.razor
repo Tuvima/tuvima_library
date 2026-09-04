@@ -6,9 +6,18 @@
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
 @inject UniverseStateContainer StateContainer
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="tl-page admin-overview-page">
+    @if (_reminderLoaded && !_optionalSetupReminderDismissed)
+    {
+        <section class="admin-optional-setup" aria-label="Optional setup reminder">
+            <MudIcon Icon="@Icons.Material.Outlined.TipsAndUpdates" aria-hidden="true" />
+            <div><strong>Continue optional setup when you are ready</strong><p>Local AI starts disabled, and remote access stays home-only. Neither is required to use your library.</p><div class="admin-card-actions"><AppButton Href="/settings/ai" Label="Set up Local AI" Size="AppControlSize.Compact" /><AppButton Href="/settings/network/remote" Label="Set up remote access" Size="AppControlSize.Compact" /></div></div>
+            <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Dismiss reminder" AriaLabel="Dismiss optional setup reminder" OnClick="DismissOptionalSetupReminderAsync" />
+        </section>
+    }
     <div class="admin-overview-toolbar">
         <div>
             <MudText Typo="Typo.caption" Class="admin-overview-muted">Last updated @FormatClock(_lastUpdated)</MudText>
@@ -182,6 +191,8 @@
 
     private bool _loading = true;
     private bool _startingIngestion;
+    private bool _reminderLoaded;
+    private bool _optionalSetupReminderDismissed;
     private string? _error;
     private DateTimeOffset? _lastUpdated;
 
@@ -252,6 +263,22 @@
     {
         StateContainer.OnStateChanged += OnRealtimeStateChanged;
         await LoadAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try { _optionalSetupReminderDismissed = string.Equals(await JS.InvokeAsync<string?>("localStorage.getItem", "tuvima.optional-setup-reminder.dismissed.v1"), "true", StringComparison.Ordinal); }
+        catch { _optionalSetupReminderDismissed = false; }
+        _reminderLoaded = true;
+        StateHasChanged();
+    }
+
+    private async Task DismissOptionalSetupReminderAsync()
+    {
+        _optionalSetupReminderDismissed = true;
+        try { await JS.InvokeVoidAsync("localStorage.setItem", "tuvima.optional-setup-reminder.dismissed.v1", "true"); }
+        catch (JSException) { _optionalSetupReminderDismissed = true; }
     }
 
     public void Dispose()

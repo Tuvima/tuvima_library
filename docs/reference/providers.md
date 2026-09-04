@@ -39,7 +39,6 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 | TMDB | Movies, TV | API key query parameter | 500ms throttle, max 1 concurrent | Localized (user language) | Active (requires key) |
 | MusicBrainz | Music | None | 1 request/sec, max 1 concurrent | Source (English only) | Active music identity |
 | Comic Vine | Comics | API key | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
-| Open Library | Books | None | 500ms | Source (English only) | Disabled (config kept) |
 | Fanart.tv | Movies, TV, Music | API key | Configured provider throttle | ID lookup | Stage 8 deep artwork only |
 | LRCLIB | Music | None | Configured provider throttle | Source | Text-track provider |
 | OpenSubtitles | Movies, TV | API key | Configured provider throttle | Source | Text-track provider, disabled by default |
@@ -48,7 +47,7 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 
 ## Query Parameters - What We Send
 
-Provider search is defined in `config/providers/*.json`, with grouped worker paths for TV and for Apple-led music chains when Apple is configured first. Most providers accept one primary search term, but Apple and Open Library title searches include creator text through `query_template` when available. The returned candidates are still validated afterward by `RetailMatchScoringService`.
+Provider search is defined in `config/providers/*.json`, with grouped worker paths for TV and for Apple-led music chains when Apple is configured first. Most providers accept one primary search term; Apple title searches include creator text through `query_template` when available. The returned candidates are still validated afterward by `RetailMatchScoringService`.
 
 API credentials are config-file data. Base provider definitions live in `config/providers/*.json`; optional secret overlays live in `config/secrets/{provider}.json` and are applied by `ConfigurationDirectoryLoader` on `LoadProvider` and `LoadAllProviders`. A blank `http_client.api_key` in the base provider file does not mean the effective runtime key is missing if a matching secrets file exists.
 
@@ -117,15 +116,6 @@ without inventing an issue ID. Stage 4 can then roll up to a clearly scoped
 series/run Wikidata QID using `wikidata_qid_scope = series` and
 `qid_resolution_method = comic_series_rollup`.
 
-#### Open Library (Disabled)
-
-| Strategy | Priority | Required Fields | URL Pattern | Media Types |
-|---|---|---|---|---|
-| ISBN Search | 1 | `isbn` | `/search.json?isbn={isbn}&limit=3&fields=...` | Books |
-| Title Search | 2 | `title` | `/search.json?q={title} {author}&limit={limit}&fields=...` | Books |
-
-**Notes:** Title search combines `{title} {author}` when author is available. ISBN search returns up to 3 results. Returns first_sentence as description (lower quality than dedicated description APIs). Currently disabled but config preserved for future use.
-
 #### Fanart.tv (Stage 8 Only)
 
 Fanart.tv is not an identity provider. It runs after identity is established and uses bridge IDs to fetch additional artwork such as backgrounds, logos, banners, thumbnails, clear art, disc art, and square art.
@@ -165,7 +155,6 @@ Each provider's config defines a `field_mappings` array that maps JSON response 
 | **TMDB** | Movies, TV | Title, year, cover, description, short description, rating, original language, genre, network. Claim confidence is usually 0.80 to 0.90. | `tmdb_id`. |
 | **Comic Vine** | Comics | Candidate title for matching, `issue_title`, `issue_description`, `issue_source_url`, series, issue number, creator credits, cover, year, series position, volume sequence facts. Claim confidence is usually 0.70 to 1.00. | `comic_vine_id`, `comic_vine_volume_id`. |
 | **MusicBrainz** | Music | Title, artist/author, album, year, track count, MusicBrainz IDs, ISRC. | MusicBrainz artist/work/release/recording/release-group IDs when present. |
-| **Open Library** | Disabled by default | Title, author, year, cover, description, publisher, language, ISBN if re-enabled. | `isbn` / Open Library identifiers when present. |
 
 Numbers in provider JSON represent confidence values assigned to extracted claims when the provider is enabled.
 
@@ -176,11 +165,10 @@ The `ValueTransformCatalog` applies transformations during extraction:
 | Transform | Purpose | Used By |
 |---|---|---|
 | `regex_replace` | Strip image size suffixes from cover URLs | Apple API |
-| `strip_html` | Clean HTML tags from descriptions | Apple API, Comic Vine, Open Library |
+| `strip_html` | Clean HTML tags from descriptions | Apple API, Comic Vine |
 | `to_string` | Convert numeric values such as IDs and ratings to strings | Apple API, TMDB, Comic Vine |
-| `url_template` | Construct full image URLs from partial paths | TMDB, MusicBrainz, Open Library |
+| `url_template` | Construct full image URLs from partial paths | TMDB, MusicBrainz |
 | `first_n_chars(4)` | Extract 4-digit year from date strings | Apple API, TMDB, MusicBrainz, Comic Vine |
-| `prefer_isbn13` | Select ISBN-13 from array of ISBN formats | Open Library |
 | `array_join` | Join array elements into comma-separated strings | Apple API, TMDB, MusicBrainz |
 
 ---

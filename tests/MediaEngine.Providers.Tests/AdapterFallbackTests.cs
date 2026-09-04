@@ -180,50 +180,6 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
-    public async Task OpenLibrary_IsbnSearch_DoesNotMixEditionScopedClaims()
-    {
-        var config = LoadExampleConfig("open_library");
-        const string response = """
-            {
-              "docs": [
-                {
-                  "title": "It",
-                  "author_name": ["Stephen King"],
-                  "first_publish_year": 1986,
-                  "cover_i": 8569284,
-                  "isbn": ["9784167148072", "9781501142970"],
-                  "publisher": ["A mismatched edition publisher"],
-                  "language": ["pol", "eng"],
-                  "first_sentence": ["A mismatched Polish-edition description"]
-                }
-              ]
-            }
-            """;
-        var adapter = new ConfigDrivenAdapter(
-            config,
-            BuildFactory(config.Name, new RoutingStubHttpMessageHandler(_ => JsonResponse(response))),
-            NullLogger<ConfigDrivenAdapter>.Instance,
-            NullProviderHealthMonitor.Instance);
-
-        var claims = await adapter.FetchAsync(new ProviderLookupRequest
-        {
-            EntityId = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset,
-            MediaType = MediaType.Books,
-            Title = "It",
-            Author = "Stephen King",
-            Isbn = "9781501142970",
-            FileLanguage = "en",
-            BaseUrl = "https://openlibrary.org",
-        });
-
-        Assert.Contains(claims, claim => claim.Key == "isbn" && claim.Value == "9781501142970");
-        Assert.DoesNotContain(claims, claim => claim.Key == "isbn" && claim.Value == "9784167148072");
-        Assert.DoesNotContain(claims, claim => claim.Key is "language" or "description" or "publisher");
-        Assert.Contains(claims, claim => claim.Key == "title" && claim.Value == "It");
-    }
-
-    [Fact]
     public async Task AppleBooks_FetchAsync_DerivativeUsResults_UsesConfiguredGbFallback()
     {
         var config = LoadExampleConfig("apple_api");

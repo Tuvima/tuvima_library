@@ -152,7 +152,6 @@ public sealed class Phase6SettingsAdminHardeningTests
             "lrclib.png",
             "musicbrainz.svg",
             "opensubtitles.png",
-            "open_library.png",
             "tmdb.svg",
             "wikidata_reconciliation.svg",
         };
@@ -172,7 +171,6 @@ public sealed class Phase6SettingsAdminHardeningTests
             "lrclib.json",
             "musicbrainz.json",
             "opensubtitles.json",
-            "open_library.json",
             "tmdb.json",
             "wikidata_reconciliation.json",
         };

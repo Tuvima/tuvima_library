@@ -2,12 +2,11 @@
   "Books": {
     "strategy": "Cascade",
     "providers": [
-      { "rank": 1, "name": "apple_api", "purpose": "identity" },
-      { "rank": 2, "name": "open_library", "purpose": "identity" }
+      { "rank": 1, "name": "apple_api", "purpose": "identity" }
     ],
     "field_priorities": {
-      "cover": ["apple_api", "open_library"],
-      "description": ["wikidata_reconciliation", "apple_api", "open_library"],
+      "cover": ["apple_api"],
+      "description": ["wikidata_reconciliation", "apple_api"],
       "rating": ["apple_api"]
     }
   },

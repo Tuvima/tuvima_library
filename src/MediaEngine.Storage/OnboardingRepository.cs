@@ -38,8 +38,8 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
             FROM onboarding_steps WHERE workflow_version = @version
             ORDER BY CASE step_key
                 WHEN 'preflight' THEN 1 WHEN 'administrator' THEN 2
-                WHEN 'media-locations' THEN 3 WHEN 'providers' THEN 4 WHEN 'local-ai' THEN 5
-                WHEN 'access' THEN 6 WHEN 'readiness' THEN 7 ELSE 99 END;
+                WHEN 'media-locations' THEN 3 WHEN 'providers' THEN 4
+                WHEN 'readiness' THEN 5 ELSE 99 END;
             """, new { version = CurrentVersion }).AsList();
         return new OnboardingWorkflowRecord(
             workflow.WorkflowVersion, workflow.State, workflow.CurrentStep,
@@ -134,7 +134,7 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
                   AND (
                     (step_key IN ('preflight','administrator','media-locations') AND status <> 'passed')
                     OR
-                    (step_key IN ('providers','local-ai','access') AND status NOT IN ('passed','deferred'))
+                    (step_key = 'providers' AND status NOT IN ('passed','deferred'))
                   );
                 """, new { version = CurrentVersion }, transaction);
             if (blocking > 0) return false;
@@ -190,8 +190,8 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
             WHERE workflow_version = @version AND status NOT IN ('passed','deferred')
             ORDER BY CASE step_key
                 WHEN 'preflight' THEN 1 WHEN 'administrator' THEN 2
-                WHEN 'media-locations' THEN 3 WHEN 'providers' THEN 4 WHEN 'local-ai' THEN 5
-                WHEN 'access' THEN 6 WHEN 'readiness' THEN 7 ELSE 99 END LIMIT 1;
+                WHEN 'media-locations' THEN 3 WHEN 'providers' THEN 4
+                WHEN 'readiness' THEN 5 ELSE 99 END LIMIT 1;
             """, new { version = CurrentVersion }, transaction) ?? "readiness";
 
     private static DateTimeOffset? Parse(string? value) =>
