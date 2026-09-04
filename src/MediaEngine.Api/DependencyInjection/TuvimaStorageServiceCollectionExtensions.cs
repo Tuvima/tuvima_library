@@ -1,4 +1,5 @@
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Libraries;
 using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Api.Services.Playback;
@@ -68,11 +69,15 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<IProviderConfigurationRepository, ProviderConfigurationRepository>();
         services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
         services.AddSingleton<IProfileRepository, ProfileRepository>();
+        services.AddSingleton<IAccountRepository, AccountRepository>();
         services.AddSingleton<IIdentityRepository, IdentityRepository>();
         services.AddSingleton<IClientAuthorizationRepository, ClientAuthorizationRepository>();
         services.AddSingleton<OnboardingRepository>();
         services.AddSingleton<OnboardingActivationGate>();
         services.AddSingleton<IPasswordHasher<ProfileCredential>, PasswordHasher<ProfileCredential>>();
+        services.AddSingleton<IPasswordHasher<AccountCredential>, PasswordHasher<AccountCredential>>();
+        services.AddIdentityCore<Account>().AddUserStore<AccountPasskeyStore>();
+        services.AddScoped<IPasskeyHandler<Account>, PasskeyHandler<Account>>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IFirstPartyIdentityService, FirstPartyIdentityService>();
         services.AddSingleton<SetupClaimService>();
@@ -82,8 +87,8 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<IProfileSequencePreferencesRepository, ProfileSequencePreferencesRepository>();
         services.AddSingleton<ITasteProfileRepository, TasteProfileRepository>();
         services.AddSingleton<IProfileService, ProfileService>();
-        services.AddSingleton<IProfileExternalLoginRepository, ProfileExternalLoginRepository>();
-        services.AddSingleton<IProfileExternalLoginService, ProfileExternalLoginService>();
+        services.AddSingleton<IAccountExternalLoginRepository, AccountExternalLoginRepository>();
+        services.AddSingleton<IAccountExternalLoginService, AccountExternalLoginService>();
 
         services.AddSingleton<IMetadataClaimRepository, MetadataClaimRepository>();
         services.AddSingleton<ICanonicalValueRepository, CanonicalValueRepository>();

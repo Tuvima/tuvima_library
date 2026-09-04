@@ -1,3 +1,4 @@
+using System.Net.Mail;
 using System.Security.Cryptography;
 using System.Text;
 using MediaEngine.Domain.Aggregates;
@@ -11,8 +12,10 @@ namespace MediaEngine.Identity;
 
 public sealed class FirstPartyIdentityService(
     IIdentityRepository identities,
+    IAccountRepository accounts,
     IProfileRepository profiles,
-    IPasswordHasher<ProfileCredential> passwordHasher,
+    IPasswordHasher<AccountCredential> accountPasswordHasher,
+    IPasswordHasher<ProfileCredential> profileSecretHasher,
     TimeProvider timeProvider) : IFirstPartyIdentityService, IHostAdministratorRecoveryService
 {
     private const int MaxFailedAttempts = 5;
@@ -21,112 +24,102 @@ public sealed class FirstPartyIdentityService(
     private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(14);
     private static readonly TimeSpan RecoveryLifetime = TimeSpan.FromDays(365);
+    private static readonly TimeSpan PasswordResetLifetime = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan ElevationLifetime = TimeSpan.FromMinutes(30);
 
-    public Task<bool> IsAdministratorConfiguredAsync(CancellationToken ct = default) =>
-        identities.HasAdministratorPasswordAsync(ct);
+    public Task<bool> IsAdministratorConfiguredAsync(CancellationToken ct = default) => identities.HasAdministratorPasswordAsync(ct);
 
-    public async Task<SessionIssueResult> BootstrapAdministratorAsync(
-        string username,
-        string password,
-        string displayName,
-        string deviceId,
-        string deviceName,
-        string client,
-        CancellationToken ct = default)
+    public async Task<SessionIssueResult> BootstrapAdministratorAsync(string email, string password, string displayName, string deviceId, string deviceName, string client, CancellationToken ct = default)
     {
         if (await identities.HasAdministratorPasswordAsync(ct).ConfigureAwait(false))
-        {
             throw new InvalidOperationException("The administrator has already been configured.");
-        }
 
         ValidatePassword(password);
-        var normalizedUsername = NormalizeUsername(username);
-        var administrator = await profiles.GetByIdAsync(Profile.SeedProfileId, ct).ConfigureAwait(false)
+        var normalizedEmail = NormalizeEmail(email);
+        var profile = await profiles.GetByIdAsync(Profile.SeedProfileId, ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The seeded administrator profile is unavailable.");
-
-        administrator.DisplayName = string.IsNullOrWhiteSpace(displayName) ? "Administrator" : displayName.Trim();
-        administrator.Role = ProfileRole.Administrator;
-        if (!await profiles.UpdateAsync(administrator, ct).ConfigureAwait(false))
-        {
+        profile.DisplayName = string.IsNullOrWhiteSpace(displayName) ? "Administrator" : displayName.Trim();
+        profile.Role = ProfileRole.Administrator;
+        if (!await profiles.UpdateAsync(profile, ct).ConfigureAwait(false))
             throw new InvalidOperationException("The administrator profile could not be updated.");
-        }
 
-        var credential = NewCredential(administrator.Id, ProfileCredentialKind.Password, normalizedUsername, password);
-        await identities.UpsertCredentialAsync(credential, ct).ConfigureAwait(false);
-        var codes = await ReplaceRecoveryCodesAsync(administrator.Id, ct).ConfigureAwait(false);
-        var issued = await IssueSessionAsync(administrator, administrator, credential.SecurityStamp, "Password", deviceId, deviceName, client, ct).ConfigureAwait(false);
-        await AuditAsync(administrator.Id, issued.Session.Id, "administrator_bootstrap", true, null, ct).ConfigureAwait(false);
+        var now = UtcNow;
+        var account = new Account { Id=Account.SeedAccountId, Email=email.Trim(), NormalizedEmail=normalizedEmail, IsEnabled=true, CreatedAt=now, UpdatedAt=now };
+        await accounts.InsertAsync(account, ct).ConfigureAwait(false);
+        await accounts.GrantProfileAsync(new AccountProfileGrant { AccountId=account.Id, ProfileId=profile.Id, IsDefault=true, GrantedAt=now }, ct).ConfigureAwait(false);
+        var credential = NewAccountCredential(account.Id, password);
+        await identities.UpsertAccountCredentialAsync(credential, ct).ConfigureAwait(false);
+        var codes = await ReplaceRecoveryCodesAsync(account.Id, ct).ConfigureAwait(false);
+        var issued = await IssueSessionAsync(account, profile, credential.SecurityStamp, "Password", deviceId, deviceName, client, ct).ConfigureAwait(false);
+        await AuditAsync(account.Id, profile.Id, issued.Session.Id, "administrator_bootstrap", true, null, ct).ConfigureAwait(false);
         return issued with { RecoveryCodes = codes };
     }
 
-    public async Task<AuthenticationAttemptResult> AuthenticatePasswordAsync(
-        string username,
-        string password,
-        string deviceId,
-        string deviceName,
-        string client,
-        CancellationToken ct = default)
+    public async Task<AuthenticationAttemptResult> AuthenticatePasswordAsync(string email, string password, string deviceId, string deviceName, string client, CancellationToken ct = default)
     {
-        var normalized = NormalizeUsername(username);
-        var credential = await identities.GetCredentialByUsernameAsync(normalized, ct).ConfigureAwait(false);
-        return await AuthenticateAsync(credential, password, deviceId, deviceName, client, ct).ConfigureAwait(false);
+        Account? account;
+        try { account = await accounts.GetByNormalizedEmailAsync(NormalizeEmail(email), ct).ConfigureAwait(false); }
+        catch (ArgumentException) { account = null; }
+        var credential = account is null ? null : await identities.GetAccountCredentialAsync(account.Id, AccountCredentialKind.Password, ct).ConfigureAwait(false);
+        return await AuthenticateAccountAsync(account, credential, password, deviceId, deviceName, client, ct).ConfigureAwait(false);
     }
 
-    public async Task<AuthenticationAttemptResult> AuthenticatePinAsync(
-        Guid profileId,
-        string pin,
-        string deviceId,
-        string deviceName,
-        string client,
-        CancellationToken ct = default)
+    public async Task<AuthenticationAttemptResult> AuthenticatePinAsync(Guid profileId, string pin, string deviceId, string deviceName, string client, CancellationToken ct = default)
     {
+        var accountId = await accounts.GetLocalOnlyAccountIdForProfileAsync(profileId, ct).ConfigureAwait(false);
+        var account = accountId is null ? null : await accounts.GetByIdAsync(accountId.Value, ct).ConfigureAwait(false);
         var credential = await identities.GetCredentialAsync(profileId, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
-        return await AuthenticateAsync(credential, pin, deviceId, deviceName, client, ct).ConfigureAwait(false);
+        return await AuthenticateProfileAsync(account, credential, pin, deviceId, deviceName, client, ct).ConfigureAwait(false);
     }
 
-    public async Task<SessionIssueResult> CreateExternalSessionAsync(Guid profileId, string provider, string deviceId, string deviceName, string client, CancellationToken ct = default)
+    public async Task<SessionIssueResult> CreateExternalSessionAsync(Guid accountId, string provider, string deviceId, string deviceName, string client, CancellationToken ct = default)
     {
-        var profile = await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false)
-            ?? throw new KeyNotFoundException($"Profile '{profileId}' was not found.");
-        var stamp = $"external:{provider.Trim().ToLowerInvariant()}";
-        var issued = await IssueSessionAsync(profile, profile, stamp, "Oidc", deviceId, deviceName, client, ct).ConfigureAwait(false);
-        await AuditAsync(profile.Id, issued.Session.Id, "login_oidc", true, provider, ct).ConfigureAwait(false);
+        var account = await accounts.GetByIdAsync(accountId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException($"Account '{accountId}' was not found.");
+        var profile = await GetDefaultProfileAsync(account.Id, ct).ConfigureAwait(false);
+        var issued = await IssueSessionAsync(account, profile, $"external:{provider.Trim().ToLowerInvariant()}", "Oidc", deviceId, deviceName, client, ct).ConfigureAwait(false);
+        await AuditAsync(account.Id, profile.Id, issued.Session.Id, "login_oidc", true, provider, ct).ConfigureAwait(false);
         return issued;
+    }
+
+    public async Task<SessionIssueResult> CreatePasskeySessionAsync(Guid accountId,string deviceId,string deviceName,string client,CancellationToken ct=default)
+    {
+        var account=await accounts.GetByIdAsync(accountId,ct).ConfigureAwait(false)??throw new KeyNotFoundException("Account was not found.");
+        var profile=await GetDefaultProfileAsync(accountId,ct).ConfigureAwait(false);
+        var issued=await IssueSessionAsync(account,profile,"passkey","Passkey",deviceId,deviceName,client,ct).ConfigureAwait(false);
+        await AuditAsync(account.Id,profile.Id,issued.Session.Id,"login_passkey",true,null,ct).ConfigureAwait(false);return issued;
+    }
+
+    public async Task<SessionIssueResult> AcceptInvitationAsync(string token,string password,string deviceId,string deviceName,string client,CancellationToken ct=default)
+    {
+        ValidatePassword(password);if(string.IsNullOrWhiteSpace(token))throw new UnauthorizedAccessException("The invitation is invalid or expired.");
+        var invitation=await accounts.GetActiveInvitationAsync(HashToken(token),UtcNow,ct).ConfigureAwait(false)??throw new UnauthorizedAccessException("The invitation is invalid or expired.");
+        var account=await accounts.GetByIdAsync(invitation.AccountId,ct).ConfigureAwait(false)??throw new UnauthorizedAccessException("The invitation is invalid or expired.");
+        if(account.IsLocalOnly||!account.IsEnabled||await identities.GetAccountCredentialAsync(account.Id,AccountCredentialKind.Password,ct).ConfigureAwait(false)is not null)throw new UnauthorizedAccessException("The invitation is invalid or expired.");
+        if(!await accounts.ConsumeInvitationAsync(invitation.Id,UtcNow,ct).ConfigureAwait(false))throw new UnauthorizedAccessException("The invitation is invalid or expired.");
+        var credential=NewAccountCredential(account.Id,password);await identities.UpsertAccountCredentialAsync(credential,ct).ConfigureAwait(false);
+        var profile=await GetDefaultProfileAsync(account.Id,ct).ConfigureAwait(false);var issued=await IssueSessionAsync(account,profile,credential.SecurityStamp,"Password",deviceId,deviceName,client,ct).ConfigureAwait(false);
+        await AuditAsync(account.Id,profile.Id,issued.Session.Id,"invitation_accepted",true,null,ct).ConfigureAwait(false);return issued;
     }
 
     public async Task<SessionValidationResult?> ValidateSessionAsync(string plaintextToken, bool touch = true, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(plaintextToken))
-        {
-            return null;
-        }
-
+        if (string.IsNullOrWhiteSpace(plaintextToken)) return null;
         var now = UtcNow;
         var session = await identities.GetSessionByTokenHashAsync(HashToken(plaintextToken), ct).ConfigureAwait(false);
-        if (session is null || !session.IsActive(now))
-        {
-            return null;
-        }
-
-        var profile = await profiles.GetByIdAsync(session.ProfileId, ct).ConfigureAwait(false);
+        if (session is null || !session.IsActive(now)) return null;
+        var account = await accounts.GetByIdAsync(session.AccountId, ct).ConfigureAwait(false);
         var active = await profiles.GetByIdAsync(session.ActiveProfileId, ct).ConfigureAwait(false);
-        if (profile is null || active is null)
-        {
-            return null;
-        }
+        if (account is null || !account.IsEnabled || active is null || !await accounts.HasProfileAccessAsync(account.Id, active.Id, ct).ConfigureAwait(false)) return null;
 
-        if (!session.AuthenticationMethod.Equals("Oidc", StringComparison.OrdinalIgnoreCase))
+        if (session.AuthenticationMethod.Equals("Password", StringComparison.OrdinalIgnoreCase))
         {
-            var kind = session.AuthenticationMethod.Equals("ProfilePin", StringComparison.OrdinalIgnoreCase)
-                ? ProfileCredentialKind.ProfilePin
-                : ProfileCredentialKind.Password;
-            var credential = await identities.GetCredentialAsync(session.ProfileId, kind, ct).ConfigureAwait(false);
-            if (credential is null || !CryptographicOperations.FixedTimeEquals(
-                    Encoding.UTF8.GetBytes(credential.SecurityStamp),
-                    Encoding.UTF8.GetBytes(session.SecurityStamp)))
-            {
-                return null;
-            }
+            var credential = await identities.GetAccountCredentialAsync(account.Id, AccountCredentialKind.Password, ct).ConfigureAwait(false);
+            if (!StampMatches(credential?.SecurityStamp, session.SecurityStamp)) return null;
+        }
+        else if (session.AuthenticationMethod.Equals("ProfilePin", StringComparison.OrdinalIgnoreCase))
+        {
+            var credential = await identities.GetCredentialAsync(active.Id, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
+            if (!StampMatches(credential?.SecurityStamp, session.SecurityStamp)) return null;
         }
 
         if (touch && now - session.LastSeenAt >= TimeSpan.FromMinutes(1))
@@ -134,340 +127,219 @@ public sealed class FirstPartyIdentityService(
             await identities.TouchSessionAsync(session.Id, now, ct).ConfigureAwait(false);
             session.LastSeenAt = now;
         }
-
-        return new SessionValidationResult(session, profile, active);
+        return new SessionValidationResult(session, account, active, active);
     }
 
-    public Task<IReadOnlyList<AuthSession>> GetSessionsAsync(Guid profileId, CancellationToken ct = default) =>
-        identities.GetSessionsAsync(profileId, ct);
+    public Task<IReadOnlyList<AuthSession>> GetSessionsAsync(Guid accountId, CancellationToken ct = default) => identities.GetSessionsAsync(accountId, ct);
 
     public async Task<bool> RevokeSessionAsync(Guid sessionId, string reason, CancellationToken ct = default)
     {
         var session = await identities.GetSessionByIdAsync(sessionId, ct).ConfigureAwait(false);
         var revoked = await identities.RevokeSessionAsync(sessionId, UtcNow, SanitizeReason(reason), ct).ConfigureAwait(false);
-        if (revoked)
-        {
-            await AuditAsync(session?.ProfileId, sessionId, "session_revoked", true, reason, ct).ConfigureAwait(false);
-        }
-
+        if (revoked) await AuditAsync(session?.AccountId, session?.ActiveProfileId, sessionId, "session_revoked", true, reason, ct).ConfigureAwait(false);
         return revoked;
     }
 
-    public Task<int> RevokeOtherSessionsAsync(Guid profileId, Guid currentSessionId, string reason, CancellationToken ct = default) =>
-        identities.RevokeProfileSessionsAsync(profileId, UtcNow, SanitizeReason(reason), currentSessionId, ct);
+    public Task<int> RevokeOtherSessionsAsync(Guid accountId, Guid currentSessionId, string reason, CancellationToken ct = default) =>
+        identities.RevokeAccountSessionsAsync(accountId, UtcNow, SanitizeReason(reason), currentSessionId, ct);
 
-    public async Task ChangePasswordAsync(Guid profileId, string currentPassword, string newPassword, Guid? currentSessionId = null, CancellationToken ct = default)
+    public async Task ChangePasswordAsync(Guid accountId, string currentPassword, string newPassword, Guid? currentSessionId = null, CancellationToken ct = default)
     {
         ValidatePassword(newPassword);
-        var credential = await identities.GetCredentialAsync(profileId, ProfileCredentialKind.Password, ct).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("This profile does not have a local password.");
-        if (!Verify(credential, currentPassword, out _))
-        {
-            throw new UnauthorizedAccessException("The current password is incorrect.");
-        }
-
-        credential.SecretHash = Hash(credential, newPassword);
-        credential.SecurityStamp = NewSecurityStamp();
-        credential.HashVersion = 1;
-        credential.UpdatedAt = UtcNow;
-        credential.FailedAttemptCount = 0;
-        credential.LockedUntil = null;
-        await identities.UpsertCredentialAsync(credential, ct).ConfigureAwait(false);
-        await identities.RevokeProfileSessionsAsync(profileId, UtcNow, "password_changed", currentSessionId, ct).ConfigureAwait(false);
-        await AuditAsync(profileId, currentSessionId, "password_changed", true, null, ct).ConfigureAwait(false);
+        var credential = await identities.GetAccountCredentialAsync(accountId, AccountCredentialKind.Password, ct).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("This account does not have a local password.");
+        if (!Verify(credential, currentPassword, out _)) throw new UnauthorizedAccessException("The current password is incorrect.");
+        credential.SecretHash = Hash(credential, newPassword); credential.SecurityStamp=NewSecurityStamp(); credential.UpdatedAt=UtcNow; credential.FailedAttemptCount=0; credential.LockedUntil=null;
+        await identities.UpsertAccountCredentialAsync(credential, ct).ConfigureAwait(false);
+        await identities.RevokeAccountSessionsAsync(accountId, UtcNow, "password_changed", currentSessionId, ct).ConfigureAwait(false);
+        await AuditAsync(accountId, null, currentSessionId, "password_changed", true, null, ct).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<string>> ResetPasswordWithRecoveryCodeAsync(string username, string recoveryCode, string newPassword, CancellationToken ct = default)
+    public async Task<IReadOnlyList<string>> ResetPasswordWithRecoveryCodeAsync(string email, string recoveryCode, string newPassword, CancellationToken ct = default)
     {
         ValidatePassword(newPassword);
-        var credential = await identities.GetCredentialByUsernameAsync(NormalizeUsername(username), ct).ConfigureAwait(false)
-            ?? throw new UnauthorizedAccessException("The recovery information is invalid.");
-        var code = await identities.GetActiveRecoveryCodeAsync(credential.ProfileId, HashToken(NormalizeRecoveryCode(recoveryCode)), UtcNow, ct).ConfigureAwait(false)
-            ?? throw new UnauthorizedAccessException("The recovery information is invalid.");
-        if (!await identities.ConsumeRecoveryCodeAsync(code.Id, UtcNow, ct).ConfigureAwait(false))
-        {
-            throw new UnauthorizedAccessException("The recovery information is invalid.");
-        }
+        var account = await accounts.GetByNormalizedEmailAsync(NormalizeEmail(email), ct).ConfigureAwait(false) ?? throw InvalidRecovery();
+        var credential = await identities.GetAccountCredentialAsync(account.Id, AccountCredentialKind.Password, ct).ConfigureAwait(false) ?? throw InvalidRecovery();
+        var code = await identities.GetActiveRecoveryCodeAsync(account.Id, HashToken(NormalizeRecoveryCode(recoveryCode)), UtcNow, ct).ConfigureAwait(false) ?? throw InvalidRecovery();
+        if (!await identities.ConsumeRecoveryCodeAsync(code.Id, UtcNow, ct).ConfigureAwait(false)) throw InvalidRecovery();
+        await ReplacePasswordAsync(account.Id, credential, newPassword, "password_recovered", ct).ConfigureAwait(false);
+        return await ReplaceRecoveryCodesAsync(account.Id, ct).ConfigureAwait(false);
+    }
 
-        credential.SecretHash = Hash(credential, newPassword);
-        credential.SecurityStamp = NewSecurityStamp();
-        credential.UpdatedAt = UtcNow;
-        credential.FailedAttemptCount = 0;
-        credential.LockedUntil = null;
-        await identities.UpsertCredentialAsync(credential, ct).ConfigureAwait(false);
-        await identities.RevokeProfileSessionsAsync(credential.ProfileId, UtcNow, "password_recovered", null, ct).ConfigureAwait(false);
-        var codes = await ReplaceRecoveryCodesAsync(credential.ProfileId, ct).ConfigureAwait(false);
-        await AuditAsync(credential.ProfileId, null, "password_recovered", true, null, ct).ConfigureAwait(false);
+    public async Task<string?> BeginPasswordResetAsync(string email, CancellationToken ct = default)
+    {
+        Account? account;
+        try { account=await accounts.GetByNormalizedEmailAsync(NormalizeEmail(email),ct).ConfigureAwait(false); }
+        catch(ArgumentException){ return null; }
+        if(account is null || account.IsLocalOnly || !account.IsEnabled || await identities.GetAccountCredentialAsync(account.Id,AccountCredentialKind.Password,ct).ConfigureAwait(false) is null)return null;
+        var token=RandomToken(32);var now=UtcNow;
+        await identities.InvalidatePasswordResetChallengesAsync(account.Id,ct).ConfigureAwait(false);
+        await identities.InsertPasswordResetChallengeAsync(new PasswordResetChallenge{Id=Guid.NewGuid(),AccountId=account.Id,TokenHash=HashToken(token),CreatedAt=now,ExpiresAt=now.Add(PasswordResetLifetime)},ct).ConfigureAwait(false);
+        await AuditAsync(account.Id,null,null,"password_reset_requested",true,null,ct).ConfigureAwait(false);
+        return token;
+    }
+
+    public async Task ResetPasswordWithTokenAsync(string token,string newPassword,CancellationToken ct=default)
+    {
+        ValidatePassword(newPassword);
+        if(string.IsNullOrWhiteSpace(token))throw InvalidRecovery();
+        var challenge=await identities.GetActivePasswordResetChallengeAsync(HashToken(token),UtcNow,ct).ConfigureAwait(false)??throw InvalidRecovery();
+        if(!await identities.ConsumePasswordResetChallengeAsync(challenge.Id,UtcNow,ct).ConfigureAwait(false))throw InvalidRecovery();
+        var credential=await identities.GetAccountCredentialAsync(challenge.AccountId,AccountCredentialKind.Password,ct).ConfigureAwait(false)??throw InvalidRecovery();
+        await ReplacePasswordAsync(challenge.AccountId,credential,newPassword,"password_reset",ct).ConfigureAwait(false);
+        await identities.InvalidatePasswordResetChallengesAsync(challenge.AccountId,ct).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<string>> ResetAdministratorPasswordFromHostAsync(string email, string newPassword, CancellationToken ct = default)
+    {
+        ValidatePassword(newPassword);
+        Account? account;
+        try { account = await accounts.GetByNormalizedEmailAsync(NormalizeEmail(email), ct).ConfigureAwait(false); }
+        catch (ArgumentException) { account = null; }
+        var credential = account is null ? null : await identities.GetAccountCredentialAsync(account.Id, AccountCredentialKind.Password, ct).ConfigureAwait(false);
+        var profileIds = account is null ? [] : await accounts.GetProfileIdsAsync(account.Id, ct).ConfigureAwait(false);
+        var isAdministrator = false;
+        foreach (var profileId in profileIds)
+            if ((await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false))?.Role == ProfileRole.Administrator) { isAdministrator=true; break; }
+        if (account is null || credential is null || !isAdministrator) throw new UnauthorizedAccessException("The local administrator information is invalid.");
+        await ReplacePasswordAsync(account.Id, credential, newPassword, "host_administrator_password_reset", ct).ConfigureAwait(false);
+        return await ReplaceRecoveryCodesAsync(account.Id, ct).ConfigureAwait(false);
+    }
+
+    public async Task<IReadOnlyList<string>> RegenerateRecoveryCodesAsync(Guid accountId, string currentPassword, CancellationToken ct = default)
+    {
+        var credential = await identities.GetAccountCredentialAsync(accountId, AccountCredentialKind.Password, ct).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("This account does not have a local password.");
+        if (!Verify(credential, currentPassword, out _)) throw new UnauthorizedAccessException("The current password is incorrect.");
+        var codes = await ReplaceRecoveryCodesAsync(accountId, ct).ConfigureAwait(false);
+        await AuditAsync(accountId, null, null, "recovery_codes_regenerated", true, null, ct).ConfigureAwait(false);
         return codes;
     }
 
-    public async Task<IReadOnlyList<string>> ResetAdministratorPasswordFromHostAsync(
-        string username,
-        string newPassword,
-        CancellationToken ct = default)
-    {
-        ValidatePassword(newPassword);
-        var credential = await identities.GetCredentialByUsernameAsync(
-            NormalizeUsername(username),
-            ct).ConfigureAwait(false);
-        var profile = credential is null
-            ? null
-            : await profiles.GetByIdAsync(credential.ProfileId, ct).ConfigureAwait(false);
-        if (credential is null || profile?.Role != ProfileRole.Administrator)
-        {
-            await AuditAsync(profile?.Id, null, "host_administrator_password_reset", false, "invalid_administrator", ct)
-                .ConfigureAwait(false);
-            throw new UnauthorizedAccessException("The local administrator information is invalid.");
-        }
+    public Task SetProfilePinAsync(Guid profileId, string? pin, CancellationToken ct = default) => SetProfileSecretAsync(profileId, ProfileCredentialKind.ProfilePin, pin, ct);
+    public Task SetAdministratorPinAsync(Guid profileId, string? pin, CancellationToken ct = default) => SetProfileSecretAsync(profileId, ProfileCredentialKind.AdministratorPin, pin, ct);
 
-        credential.SecretHash = Hash(credential, newPassword);
-        credential.SecurityStamp = NewSecurityStamp();
-        credential.HashVersion = 1;
-        credential.UpdatedAt = UtcNow;
-        credential.FailedAttemptCount = 0;
-        credential.LockedUntil = null;
-        await identities.UpsertCredentialAsync(credential, ct).ConfigureAwait(false);
-        await identities.RevokeProfileSessionsAsync(
-            credential.ProfileId,
-            UtcNow,
-            "host_administrator_password_reset",
-            null,
-            ct).ConfigureAwait(false);
-        var codes = await ReplaceRecoveryCodesAsync(credential.ProfileId, ct).ConfigureAwait(false);
-        await AuditAsync(
-            credential.ProfileId,
-            null,
-            "host_administrator_password_reset",
-            true,
-            null,
-            ct).ConfigureAwait(false);
-        return codes;
+    public async Task<SessionValidationResult> SwitchActiveProfileAsync(string sessionToken, Guid targetProfileId, string? pin, CancellationToken ct = default)
+    {
+        var current = await ValidateSessionAsync(sessionToken, false, ct).ConfigureAwait(false) ?? throw new UnauthorizedAccessException("The session is no longer valid.");
+        if (!await accounts.HasProfileAccessAsync(current.Account.Id, targetProfileId, ct).ConfigureAwait(false)) throw new UnauthorizedAccessException("This account cannot use that profile.");
+        var target = await profiles.GetByIdAsync(targetProfileId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException($"Profile '{targetProfileId}' was not found.");
+        var credential = await identities.GetCredentialAsync(target.Id, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
+        if (credential is not null && (string.IsNullOrEmpty(pin) || !Verify(credential, pin, out _))) throw new UnauthorizedAccessException("That profile requires its PIN.");
+        if (!await identities.UpdateActiveProfileAsync(current.Session.Id, target.Id, ct).ConfigureAwait(false)) throw new UnauthorizedAccessException("The session is no longer valid.");
+        await identities.ClearElevationGrantAsync(current.Session.Id, ct).ConfigureAwait(false);
+        current.Session.ActiveProfileId=target.Id;
+        await AuditAsync(current.Account.Id,target.Id,current.Session.Id,"active_profile_changed",true,target.Id.ToString("D"),ct).ConfigureAwait(false);
+        return new SessionValidationResult(current.Session,current.Account,target,target);
     }
 
-    public Task<IReadOnlyList<string>> RegenerateRecoveryCodesAsync(Guid profileId, CancellationToken ct = default) =>
-        ReplaceRecoveryCodesAsync(profileId, ct);
-
-    public async Task SetProfilePinAsync(Guid profileId, string? pin, CancellationToken ct = default)
+    public async Task<AdministratorElevationResult> ElevateAdministratorAsync(string sessionToken, string secret, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(pin))
-        {
-            if (await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false) is null)
-            {
-                throw new KeyNotFoundException($"Profile '{profileId}' was not found.");
-            }
-
-            await identities.DeleteCredentialAsync(profileId, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
-            await identities.RevokeProfileSessionsAsync(profileId, UtcNow, "profile_pin_removed", null, ct).ConfigureAwait(false);
-            await AuditAsync(profileId, null, "profile_pin_removed", true, null, ct).ConfigureAwait(false);
-            return;
-        }
-        ValidatePin(pin);
-        if (await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false) is null)
-        {
-            throw new KeyNotFoundException($"Profile '{profileId}' was not found.");
-        }
-
-        var existing = await identities.GetCredentialAsync(profileId, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
-        var credential = existing ?? NewCredential(profileId, ProfileCredentialKind.ProfilePin, null, pin);
-        if (existing is not null)
-        {
-            credential.SecretHash = Hash(credential, pin);
-            credential.SecurityStamp = NewSecurityStamp();
-            credential.UpdatedAt = UtcNow;
-            credential.FailedAttemptCount = 0;
-            credential.LockedUntil = null;
-        }
-        await identities.UpsertCredentialAsync(credential, ct).ConfigureAwait(false);
-        await identities.RevokeProfileSessionsAsync(profileId, UtcNow, "profile_pin_changed", null, ct).ConfigureAwait(false);
-        await AuditAsync(profileId, null, "profile_pin_changed", true, null, ct).ConfigureAwait(false);
+        var current = await ValidateSessionAsync(sessionToken, false, ct).ConfigureAwait(false);
+        if (current?.ActiveProfile.Role != ProfileRole.Administrator) return new(false,"Administrator access is required.",null);
+        var pin = await identities.GetCredentialAsync(current.ActiveProfile.Id, ProfileCredentialKind.AdministratorPin, ct).ConfigureAwait(false);
+        var password = await identities.GetAccountCredentialAsync(current.Account.Id, AccountCredentialKind.Password, ct).ConfigureAwait(false);
+        var method = pin is not null && Verify(pin,secret,out _) ? "AdministratorPin" : password is not null && Verify(password,secret,out _) ? "Password" : null;
+        if (method is null) { await AuditAsync(current.Account.Id,current.ActiveProfile.Id,current.Session.Id,"administrator_elevation",false,"invalid_secret",ct).ConfigureAwait(false); return new(false,"The PIN or password is incorrect.",null); }
+        var expires=UtcNow.Add(ElevationLifetime);
+        await identities.SetElevationGrantAsync(current.Session.Id,current.ActiveProfile.Id,method,UtcNow,expires,ct).ConfigureAwait(false);
+        await AuditAsync(current.Account.Id,current.ActiveProfile.Id,current.Session.Id,"administrator_elevation",true,method,ct).ConfigureAwait(false);
+        return new(true,null,expires);
     }
 
-    public async Task<SessionValidationResult> SwitchActiveProfileAsync(string sessionToken, Guid targetProfileId, string? secret, CancellationToken ct = default)
+    public async Task<AdministratorElevationResult> ElevateAdministratorWithPasskeyAsync(string sessionToken,CancellationToken ct=default)
     {
-        var current = await ValidateSessionAsync(sessionToken, false, ct).ConfigureAwait(false)
-            ?? throw new UnauthorizedAccessException("The session is no longer valid.");
-        var target = await profiles.GetByIdAsync(targetProfileId, ct).ConfigureAwait(false)
-            ?? throw new KeyNotFoundException($"Profile '{targetProfileId}' was not found.");
-
-        if (target.Id != current.Profile.Id)
-        {
-            var password = await identities.GetCredentialAsync(target.Id, ProfileCredentialKind.Password, ct).ConfigureAwait(false);
-            var pin = await identities.GetCredentialAsync(target.Id, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
-            var credential = password ?? pin;
-            if (credential is null || string.IsNullOrEmpty(secret) || !Verify(credential, secret, out _))
-            {
-                throw new UnauthorizedAccessException("That profile requires authentication.");
-            }
-        }
-
-        if (!await identities.UpdateActiveProfileAsync(current.Session.Id, target.Id, ct).ConfigureAwait(false))
-        {
-            throw new UnauthorizedAccessException("The session is no longer valid.");
-        }
-
-        current.Session.ActiveProfileId = target.Id;
-        await AuditAsync(current.Profile.Id, current.Session.Id, "active_profile_changed", true, target.Id.ToString("D"), ct).ConfigureAwait(false);
-        return new SessionValidationResult(current.Session, current.Profile, target);
+        var current=await ValidateSessionAsync(sessionToken,false,ct).ConfigureAwait(false);
+        if(current?.ActiveProfile.Role!=ProfileRole.Administrator)return new(false,"Administrator access is required.",null);
+        var expires=UtcNow.Add(ElevationLifetime);await identities.SetElevationGrantAsync(current.Session.Id,current.ActiveProfile.Id,"Passkey",UtcNow,expires,ct).ConfigureAwait(false);
+        await AuditAsync(current.Account.Id,current.ActiveProfile.Id,current.Session.Id,"administrator_elevation",true,"Passkey",ct).ConfigureAwait(false);return new(true,null,expires);
     }
 
-    public async Task<bool> ValidateServiceCredentialAsync(string plaintextToken, CancellationToken ct = default)
+    public async Task<DateTimeOffset?> GetAdministratorElevationAsync(string sessionToken, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(plaintextToken))
-        {
-            return false;
-        }
-
-        return await identities.GetServiceCredentialByHashAsync(HashToken(plaintextToken), ct).ConfigureAwait(false) is not null;
+        var current=await ValidateSessionAsync(sessionToken,false,ct).ConfigureAwait(false);
+        return current?.ActiveProfile.Role == ProfileRole.Administrator ? await identities.GetElevationExpiryAsync(current.Session.Id,current.ActiveProfile.Id,UtcNow,ct).ConfigureAwait(false) : null;
     }
 
-    private async Task<AuthenticationAttemptResult> AuthenticateAsync(ProfileCredential? credential, string secret, string deviceId, string deviceName, string client, CancellationToken ct)
+    public async Task ClearAdministratorElevationAsync(string sessionToken, CancellationToken ct = default)
+    { var current=await ValidateSessionAsync(sessionToken,false,ct).ConfigureAwait(false); if(current is not null) await identities.ClearElevationGrantAsync(current.Session.Id,ct).ConfigureAwait(false); }
+
+    public async Task<bool> ValidateServiceCredentialAsync(string plaintextToken, CancellationToken ct = default) =>
+        !string.IsNullOrWhiteSpace(plaintextToken) && await identities.GetServiceCredentialByHashAsync(HashToken(plaintextToken), ct).ConfigureAwait(false) is not null;
+
+    private async Task<AuthenticationAttemptResult> AuthenticateAccountAsync(Account? account, AccountCredential? credential, string secret, string deviceId, string deviceName, string client, CancellationToken ct)
     {
-        var now = UtcNow;
-        if (credential is null)
-        {
-            await AuditAsync(null, null, "login_failed", false, "unknown_credential", ct).ConfigureAwait(false);
-            return new(false, false, "Invalid credentials.", null);
-        }
-        if (credential.LockedUntil is { } lockedUntil && lockedUntil > now)
-        {
-            return new(false, true, "Too many attempts. Try again later.", null);
-        }
-
-        if (!Verify(credential, secret, out var rehashNeeded))
-        {
-            var failures = credential.FailedAttemptCount + 1;
-            DateTimeOffset? lockout = failures >= MaxFailedAttempts ? now.Add(LockoutDuration) : null;
-            await identities.UpdateCredentialAttemptAsync(credential.Id, failures, lockout, null, ct).ConfigureAwait(false);
-            await AuditAsync(credential.ProfileId, null, "login_failed", false, lockout is null ? "invalid_secret" : "locked_out", ct).ConfigureAwait(false);
-            return new(false, lockout is not null, "Invalid credentials.", null);
-        }
-
-        if (rehashNeeded)
-        {
-            credential.SecretHash = Hash(credential, secret);
-            credential.HashVersion = 1;
-            credential.UpdatedAt = now;
-            await identities.UpsertCredentialAsync(credential, ct).ConfigureAwait(false);
-        }
-        await identities.UpdateCredentialAttemptAsync(credential.Id, 0, null, now, ct).ConfigureAwait(false);
-
-        var profile = await profiles.GetByIdAsync(credential.ProfileId, ct).ConfigureAwait(false);
-        if (profile is null)
-        {
-            return new(false, false, "Invalid credentials.", null);
-        }
-
-        var method = credential.Kind.ToString();
-        var issued = await IssueSessionAsync(profile, profile, credential.SecurityStamp, method, deviceId, deviceName, client, ct).ConfigureAwait(false);
-        await AuditAsync(profile.Id, issued.Session.Id, "login_local", true, method, ct).ConfigureAwait(false);
-        return new(true, false, null, issued);
+        var now=UtcNow;
+        if(account is null || !account.IsEnabled || credential is null){await AuditAsync(account?.Id,null,null,"login_failed",false,"unknown_credential",ct).ConfigureAwait(false);return new(false,false,"Invalid credentials.",null);}
+        if(credential.LockedUntil is {} until && until>now)return new(false,true,"Too many attempts. Try again later.",null);
+        if(!Verify(credential,secret,out var rehash)){var failures=credential.FailedAttemptCount+1;DateTimeOffset? locked=failures>=MaxFailedAttempts?now.Add(LockoutDuration):null;await identities.UpdateAccountCredentialAttemptAsync(credential.Id,failures,locked,null,ct).ConfigureAwait(false);return new(false,locked is not null,"Invalid credentials.",null);}
+        if(rehash){credential.SecretHash=Hash(credential,secret);credential.UpdatedAt=now;await identities.UpsertAccountCredentialAsync(credential,ct).ConfigureAwait(false);}
+        await identities.UpdateAccountCredentialAttemptAsync(credential.Id,0,null,now,ct).ConfigureAwait(false);
+        var profile=await GetDefaultProfileAsync(account.Id,ct).ConfigureAwait(false);
+        var issued=await IssueSessionAsync(account,profile,credential.SecurityStamp,"Password",deviceId,deviceName,client,ct).ConfigureAwait(false);
+        await AuditAsync(account.Id,profile.Id,issued.Session.Id,"login_local",true,"Password",ct).ConfigureAwait(false);return new(true,false,null,issued);
     }
 
-    private async Task<SessionIssueResult> IssueSessionAsync(Profile profile, Profile activeProfile, string securityStamp, string method, string deviceId, string deviceName, string client, CancellationToken ct)
+    private async Task<AuthenticationAttemptResult> AuthenticateProfileAsync(Account? account, ProfileCredential? credential, string secret, string deviceId, string deviceName, string client, CancellationToken ct)
     {
-        var now = UtcNow;
-        var token = RandomToken(32);
-        var session = new AuthSession
-        {
-            Id = Guid.NewGuid(),
-            ProfileId = profile.Id,
-            ActiveProfileId = activeProfile.Id,
-            TokenHash = HashToken(token),
-            DeviceId = Sanitize(deviceId, 100, "unknown"),
-            DeviceName = Sanitize(deviceName, 100, "Unknown device"),
-            Client = Sanitize(client, 200, "Dashboard"),
-            AuthenticationMethod = method,
-            SecurityStamp = securityStamp,
-            CreatedAt = now,
-            LastSeenAt = now,
-            ExpiresAt = now.Add(SessionLifetime),
-        };
-        await identities.InsertSessionAsync(session, ct).ConfigureAwait(false);
-        return new(session, profile, activeProfile, token, []);
+        var now=UtcNow;
+        if(account is null || credential is null)return new(false,false,"Invalid credentials.",null);
+        if(credential.LockedUntil is {} until && until>now)return new(false,true,"Too many attempts. Try again later.",null);
+        if(!Verify(credential,secret,out var rehash)){var failures=credential.FailedAttemptCount+1;DateTimeOffset? locked=failures>=MaxFailedAttempts?now.Add(LockoutDuration):null;await identities.UpdateCredentialAttemptAsync(credential.Id,failures,locked,null,ct).ConfigureAwait(false);return new(false,locked is not null,"Invalid credentials.",null);}
+        if(rehash){credential.SecretHash=Hash(credential,secret);credential.UpdatedAt=now;await identities.UpsertCredentialAsync(credential,ct).ConfigureAwait(false);}
+        await identities.UpdateCredentialAttemptAsync(credential.Id,0,null,now,ct).ConfigureAwait(false);
+        var profile=await profiles.GetByIdAsync(credential.ProfileId,ct).ConfigureAwait(false) ?? throw new InvalidOperationException("Profile is unavailable.");
+        var issued=await IssueSessionAsync(account,profile,credential.SecurityStamp,"ProfilePin",deviceId,deviceName,client,ct).ConfigureAwait(false);return new(true,false,null,issued);
     }
 
-    private ProfileCredential NewCredential(Guid profileId, ProfileCredentialKind kind, string? normalizedUsername, string secret)
+    private async Task<Profile> GetDefaultProfileAsync(Guid accountId,CancellationToken ct)
     {
-        var now = UtcNow;
-        var credential = new ProfileCredential
-        {
-            Id = Guid.NewGuid(),
-            ProfileId = profileId,
-            Kind = kind,
-            NormalizedUsername = normalizedUsername,
-            HashScheme = "aspnet-pbkdf2-v3",
-            HashVersion = 1,
-            SecurityStamp = NewSecurityStamp(),
-            CreatedAt = now,
-            UpdatedAt = now,
-        };
-        credential.SecretHash = Hash(credential, secret);
-        return credential;
+        var id=await accounts.GetDefaultProfileIdAsync(accountId,ct).ConfigureAwait(false) ?? (await accounts.GetProfileIdsAsync(accountId,ct).ConfigureAwait(false)).FirstOrDefault();
+        return id != Guid.Empty && await profiles.GetByIdAsync(id,ct).ConfigureAwait(false) is {} profile ? profile : throw new InvalidOperationException("The account has no available profile.");
     }
 
-    private async Task<IReadOnlyList<string>> ReplaceRecoveryCodesAsync(Guid profileId, CancellationToken ct)
+    private async Task<SessionIssueResult> IssueSessionAsync(Account account,Profile profile,string stamp,string method,string deviceId,string deviceName,string client,CancellationToken ct)
     {
-        var now = UtcNow;
-        var plaintext = Enumerable.Range(0, 10).Select(_ => RecoveryCode()).ToArray();
-        var rows = plaintext.Select(code => new PasswordRecoveryCode
-        {
-            Id = Guid.NewGuid(),
-            ProfileId = profileId,
-            CodeHash = HashToken(NormalizeRecoveryCode(code)),
-            CreatedAt = now,
-            ExpiresAt = now.Add(RecoveryLifetime),
-        }).ToArray();
-        await identities.DeleteRecoveryCodesAsync(profileId, ct).ConfigureAwait(false);
-        await identities.InsertRecoveryCodesAsync(rows, ct).ConfigureAwait(false);
-        return plaintext;
+        var now=UtcNow;var token=RandomToken(32);var session=new AuthSession{Id=Guid.NewGuid(),AccountId=account.Id,ActiveProfileId=profile.Id,TokenHash=HashToken(token),DeviceId=Sanitize(deviceId,100,"unknown"),DeviceName=Sanitize(deviceName,100,"Unknown device"),Client=Sanitize(client,200,"Dashboard"),AuthenticationMethod=method,SecurityStamp=stamp,CreatedAt=now,LastSeenAt=now,ExpiresAt=now.Add(SessionLifetime)};
+        await identities.InsertSessionAsync(session,ct).ConfigureAwait(false);return new(session,account,profile,profile,token,[]);
     }
 
-    private string Hash(ProfileCredential credential, string secret) =>
-        passwordHasher.HashPassword(credential, DomainSeparated(credential.Kind, secret));
-
-    private bool Verify(ProfileCredential credential, string secret, out bool rehashNeeded)
+    private async Task SetProfileSecretAsync(Guid profileId,ProfileCredentialKind kind,string? secret,CancellationToken ct)
     {
-        var result = passwordHasher.VerifyHashedPassword(credential, credential.SecretHash, DomainSeparated(credential.Kind, secret));
-        rehashNeeded = result == PasswordVerificationResult.SuccessRehashNeeded;
-        return result is PasswordVerificationResult.Success or PasswordVerificationResult.SuccessRehashNeeded;
+        var profile=await profiles.GetByIdAsync(profileId,ct).ConfigureAwait(false) ?? throw new KeyNotFoundException($"Profile '{profileId}' was not found.");
+        if(kind==ProfileCredentialKind.AdministratorPin && profile.Role!=ProfileRole.Administrator)throw new InvalidOperationException("Only administrators can have an administrator PIN.");
+        if(string.IsNullOrWhiteSpace(secret)){await identities.DeleteCredentialAsync(profileId,kind,ct).ConfigureAwait(false);return;}
+        ValidatePin(secret);var credential=await identities.GetCredentialAsync(profileId,kind,ct).ConfigureAwait(false) ?? NewProfileCredential(profileId,kind,secret);
+        credential.SecretHash=Hash(credential,secret);credential.SecurityStamp=NewSecurityStamp();credential.UpdatedAt=UtcNow;credential.FailedAttemptCount=0;credential.LockedUntil=null;
+        await identities.UpsertCredentialAsync(credential,ct).ConfigureAwait(false);
+        if(kind==ProfileCredentialKind.ProfilePin && await accounts.GetLocalOnlyAccountIdForProfileAsync(profileId,ct).ConfigureAwait(false) is null)
+        {var now=UtcNow;var account=new Account{Id=Guid.NewGuid(),IsLocalOnly=true,IsEnabled=true,CreatedAt=now,UpdatedAt=now};await accounts.InsertAsync(account,ct).ConfigureAwait(false);await accounts.GrantProfileAsync(new AccountProfileGrant{AccountId=account.Id,ProfileId=profileId,IsDefault=true,GrantedAt=now},ct).ConfigureAwait(false);}
     }
 
-    private Task AuditAsync(Guid? profileId, Guid? sessionId, string type, bool succeeded, string? detail, CancellationToken ct) =>
-        identities.WriteAuditEventAsync(profileId, sessionId, type, succeeded, detail, UtcNow, ct);
+    private async Task ReplacePasswordAsync(Guid accountId,AccountCredential credential,string password,string reason,CancellationToken ct)
+    {credential.SecretHash=Hash(credential,password);credential.SecurityStamp=NewSecurityStamp();credential.UpdatedAt=UtcNow;credential.FailedAttemptCount=0;credential.LockedUntil=null;await identities.UpsertAccountCredentialAsync(credential,ct).ConfigureAwait(false);await identities.RevokeAccountSessionsAsync(accountId,UtcNow,reason,null,ct).ConfigureAwait(false);await AuditAsync(accountId,null,null,reason,true,null,ct).ConfigureAwait(false);}
 
-    private DateTimeOffset UtcNow => timeProvider.GetUtcNow();
-    private static string NormalizeUsername(string value) =>
-        string.IsNullOrWhiteSpace(value) ? throw new ArgumentException("Username is required.", nameof(value)) : value.Trim().Normalize().ToUpperInvariant();
-    private static string DomainSeparated(ProfileCredentialKind kind, string secret) => $"tuvima:{kind}:v1\n{secret}";
-    private static string NewSecurityStamp() => RandomToken(24);
-    private static string RandomToken(int bytes) => Convert.ToBase64String(RandomNumberGenerator.GetBytes(bytes)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
-    private static string HashToken(string value) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
-    private static string RecoveryCode()
-    {
-        var raw = Convert.ToHexString(RandomNumberGenerator.GetBytes(10));
-        return string.Join('-', Enumerable.Range(0, 4).Select(index => raw.Substring(index * 5, 5)));
-    }
-    private static string NormalizeRecoveryCode(string code) => code.Replace("-", string.Empty, StringComparison.Ordinal).Trim().ToUpperInvariant();
-    private static void ValidatePassword(string value)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(value);
-        if (value.Length is < MinimumPasswordLength or > MaximumPasswordLength)
-        {
-            throw new ArgumentException(
-                $"Password must be between {MinimumPasswordLength} and {MaximumPasswordLength} characters.");
-        }
-    }
-    private static void ValidatePin(string value)
-    {
-        if (value.Length is < 4 or > 12 || value.Any(character => !char.IsAsciiDigit(character)))
-        {
-            throw new ArgumentException("Profile PIN must contain 4 to 12 digits.");
-        }
-    }
-    private static string Sanitize(string? value, int maximumLength, string fallback)
-    {
-        var result = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-        return result.Length <= maximumLength ? result : result[..maximumLength];
-    }
-    private static string SanitizeReason(string value) => Sanitize(value, 100, "revoked");
+    private async Task<IReadOnlyList<string>> ReplaceRecoveryCodesAsync(Guid accountId,CancellationToken ct)
+    {var now=UtcNow;var plaintext=Enumerable.Range(0,10).Select(_=>RecoveryCode()).ToArray();var rows=plaintext.Select(code=>new PasswordRecoveryCode{Id=Guid.NewGuid(),AccountId=accountId,CodeHash=HashToken(NormalizeRecoveryCode(code)),CreatedAt=now,ExpiresAt=now.Add(RecoveryLifetime)}).ToArray();await identities.DeleteRecoveryCodesAsync(accountId,ct).ConfigureAwait(false);await identities.InsertRecoveryCodesAsync(rows,ct).ConfigureAwait(false);return plaintext;}
+
+    private AccountCredential NewAccountCredential(Guid accountId,string secret){var now=UtcNow;var c=new AccountCredential{Id=Guid.NewGuid(),AccountId=accountId,Kind=AccountCredentialKind.Password,SecurityStamp=NewSecurityStamp(),CreatedAt=now,UpdatedAt=now};c.SecretHash=Hash(c,secret);return c;}
+    private ProfileCredential NewProfileCredential(Guid profileId,ProfileCredentialKind kind,string secret){var now=UtcNow;var c=new ProfileCredential{Id=Guid.NewGuid(),ProfileId=profileId,Kind=kind,SecurityStamp=NewSecurityStamp(),CreatedAt=now,UpdatedAt=now};c.SecretHash=Hash(c,secret);return c;}
+    private string Hash(AccountCredential c,string secret)=>accountPasswordHasher.HashPassword(c,$"tuvima:{c.Kind}:v1\n{secret}");
+    private bool Verify(AccountCredential c,string secret,out bool rehash){var r=accountPasswordHasher.VerifyHashedPassword(c,c.SecretHash,$"tuvima:{c.Kind}:v1\n{secret}");rehash=r==PasswordVerificationResult.SuccessRehashNeeded;return r is PasswordVerificationResult.Success or PasswordVerificationResult.SuccessRehashNeeded;}
+    private string Hash(ProfileCredential c,string secret)=>profileSecretHasher.HashPassword(c,$"tuvima:{c.Kind}:v1\n{secret}");
+    private bool Verify(ProfileCredential c,string secret,out bool rehash){var r=profileSecretHasher.VerifyHashedPassword(c,c.SecretHash,$"tuvima:{c.Kind}:v1\n{secret}");rehash=r==PasswordVerificationResult.SuccessRehashNeeded;return r is PasswordVerificationResult.Success or PasswordVerificationResult.SuccessRehashNeeded;}
+    private Task AuditAsync(Guid? accountId,Guid? profileId,Guid? sessionId,string type,bool ok,string? detail,CancellationToken ct)=>identities.WriteAuditEventAsync(accountId,profileId,sessionId,type,ok,detail,UtcNow,ct);
+    private DateTimeOffset UtcNow=>timeProvider.GetUtcNow();
+    private static string NormalizeEmail(string value){if(string.IsNullOrWhiteSpace(value))throw new ArgumentException("Email is required.");try{return new MailAddress(value.Trim()).Address.ToUpperInvariant();}catch(FormatException){throw new ArgumentException("Enter a valid email address.",nameof(value));}}
+    private static bool StampMatches(string? actual,string expected)=>actual is not null&&CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(actual),Encoding.UTF8.GetBytes(expected));
+    private static string NewSecurityStamp()=>RandomToken(24);
+    private static string RandomToken(int bytes)=>Convert.ToBase64String(RandomNumberGenerator.GetBytes(bytes)).Replace('+','-').Replace('/','_').TrimEnd('=');
+    private static string HashToken(string value)=>Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+    private static string RecoveryCode(){var raw=Convert.ToHexString(RandomNumberGenerator.GetBytes(10));return string.Join('-',Enumerable.Range(0,4).Select(i=>raw.Substring(i*5,5)));}
+    private static string NormalizeRecoveryCode(string code)=>code.Replace("-",string.Empty,StringComparison.Ordinal).Trim().ToUpperInvariant();
+    private static UnauthorizedAccessException InvalidRecovery()=>new("The recovery information is invalid.");
+    private static void ValidatePassword(string value){ArgumentException.ThrowIfNullOrWhiteSpace(value);if(value.Length is < MinimumPasswordLength or > MaximumPasswordLength)throw new ArgumentException($"Password must be between {MinimumPasswordLength} and {MaximumPasswordLength} characters.");}
+    private static void ValidatePin(string value){if(value.Length is < 4 or > 12||value.Any(c=>!char.IsAsciiDigit(c)))throw new ArgumentException("PIN must contain 4 to 12 digits.");}
+    private static string Sanitize(string? value,int max,string fallback){var result=string.IsNullOrWhiteSpace(value)?fallback:value.Trim();return result.Length<=max?result:result[..max];}
+    private static string SanitizeReason(string value)=>Sanitize(value,100,"revoked");
 }

@@ -57,7 +57,7 @@ public static class SetupEndpoints
             try
             {
                 var issued = await identity.BootstrapAdministratorAsync(
-                    request.Username, request.Password, request.DisplayName,
+                    request.Email, request.Password, request.DisplayName,
                     request.DeviceId, request.DeviceName, "Tuvima Setup", ct).ConfigureAwait(false);
                 await onboarding.SetStepAsync(
                     "administrator", "passed", "Administrator account and initial profile created.",

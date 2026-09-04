@@ -89,11 +89,6 @@
                                                        AriaLabel="@($"Manage View access for {row.DisplayName}")"
                                                        Disabled="@row.Id.Equals(Guid.Empty)"
                                                        OnClick="@(() => OpenViewPolicyDialogAsync(row))" />
-                                        <AppIconButton Icon="@Icons.Material.Outlined.ManageAccounts"
-                                                       Tooltip="Manage sign-in accounts"
-                                                       AriaLabel="@($"Manage sign-in accounts for {row.DisplayName}")"
-                                                       Disabled="@row.Id.Equals(Guid.Empty)"
-                                                       OnClick="@(() => OpenExternalLoginsDialogAsync(row))" />
                                         <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                                                        Tooltip="@L["Users_DeleteProfileTooltip"].Value"
                                                        AriaLabel="@L["Users_DeleteProfileTooltip"].Value"
@@ -352,80 +347,6 @@
     </FooterContent>
 </AppDialog>
 
-<AppDialog @bind-Visible="_externalLoginsOpen"
-           Title="Sign-in accounts"
-           Icon="@Icons.Material.Outlined.ManageAccounts"
-           Size="Small"
-           Options="@_dialogOptions"
-           OnClose="@CloseExternalLoginsDialog">
-    <ChildContent>
-        @if (_selectedUser is not null)
-        {
-            <div class="users-dialog-title">@_selectedUser.DisplayName</div>
-        }
-
-        @if (_externalLoginsLoading)
-        {
-            <AppProgressBar Indeterminate="true" Class="users-page__progress" />
-        }
-        else if (_externalLogins.Count == 0)
-        {
-            <AppAlert Tone="AppUiTone.Info">
-                No SSO or OAuth accounts are linked to this profile.
-            </AppAlert>
-        }
-        else
-        {
-            <div class="users-linked-list">
-                @foreach (var login in _externalLogins)
-                {
-                    <AppCard Density="AppSurfaceDensity.Compact" Class="users-linked-account">
-                        <div class="users-linked-account__body">
-                            <div class="users-linked-account__provider">@login.Provider</div>
-                            <div class="users-linked-account__identity">
-                                @(login.Email ?? login.DisplayName ?? login.Subject)
-                            </div>
-                            <div class="users-linked-account__identity">@login.Issuer</div>
-                        </div>
-                        <AppIconButton Icon="@Icons.Material.Outlined.LinkOff"
-                                       Tooltip="Unlink account"
-                                       AriaLabel="@($"Unlink {login.Provider} account")"
-                                       Tone="AppUiTone.Error"
-                                       Size="AppControlSize.Compact"
-                                       OnClick="@(() => UnlinkExternalLoginAsync(login.Id))" />
-                    </AppCard>
-                }
-            </div>
-        }
-
-        <div class="users-dialog-divider"></div>
-        <div class="users-dialog-title">Link account manually</div>
-        <AppForm>
-            <AppTextField @bind-Value="_newLoginProvider"
-                          Label="Provider"
-                          Placeholder="oidc, google, microsoft, authentik" />
-            <AppTextField @bind-Value="_newLoginIssuer"
-                          Label="Issuer"
-                          Placeholder="https://accounts.example.com" />
-            <AppTextField @bind-Value="_newLoginSubject"
-                          Label="Subject"
-                          Placeholder="Stable user ID from the identity provider" />
-            <AppTextField @bind-Value="_newLoginEmail" Label="Email" />
-            <AppTextField @bind-Value="_newLoginDisplayName" Label="Display name" />
-        </AppForm>
-    </ChildContent>
-    <FooterContent>
-        <AppActionBar>
-            <AppButton Label="Close" OnClick="@CloseExternalLoginsDialog" />
-            <AppButton Label="@(_linkingExternalLogin ? "Linking…" : "Link account")"
-                       ButtonStyle="AppButtonStyle.Filled"
-                       Tone="AppUiTone.Primary"
-                       Disabled="@(_selectedUser is null || string.IsNullOrWhiteSpace(_newLoginProvider) || string.IsNullOrWhiteSpace(_newLoginIssuer) || string.IsNullOrWhiteSpace(_newLoginSubject) || _linkingExternalLogin)"
-                       OnClick="@LinkExternalLoginAsync" />
-        </AppActionBar>
-    </FooterContent>
-</AppDialog>
-
 @code {
     private sealed record UserRow(
         Guid Id,
@@ -444,16 +365,6 @@
     private string _newDisplayName = string.Empty;
     private string _newRole = "RestrictedProfile";
     private const string NewAvatarColor = "#7C4DFF";
-    private bool _externalLoginsOpen;
-    private bool _externalLoginsLoading;
-    private bool _linkingExternalLogin;
-    private UserRow? _selectedUser;
-    private List<ProfileExternalLoginViewModel> _externalLogins = [];
-    private string _newLoginProvider = string.Empty;
-    private string _newLoginIssuer = string.Empty;
-    private string _newLoginSubject = string.Empty;
-    private string? _newLoginEmail;
-    private string? _newLoginDisplayName;
     private bool _viewPolicyOpen;
     private bool _viewPolicyLoading;
     private bool _viewPolicySaving;
@@ -566,16 +477,6 @@
             ok ? Severity.Info : Severity.Error);
         if (ok)
             await RefreshProfilesAsync();
-    }
-
-    private async Task OpenExternalLoginsDialogAsync(UserRow row)
-    {
-        _selectedUser = row;
-        _externalLoginsOpen = true;
-        _externalLoginsLoading = true;
-        ResetExternalLoginForm();
-        _externalLogins = await Orchestrator.GetProfileExternalLoginsAsync(row.Id);
-        _externalLoginsLoading = false;
     }
 
     private async Task OpenViewPolicyDialogAsync(UserRow row)
@@ -719,68 +620,6 @@
         _viewSources = await Orchestrator.GetViewProfileSourcesAsync(_selectedViewUser.Id);
         _viewSourcesLoading = false;
         _viewSourcesUnavailable = _viewSources is null;
-    }
-
-    private void CloseExternalLoginsDialog()
-    {
-        _externalLoginsOpen = false;
-        _selectedUser = null;
-        _externalLogins = [];
-        ResetExternalLoginForm();
-    }
-
-    private async Task LinkExternalLoginAsync()
-    {
-        if (_selectedUser is null
-            || string.IsNullOrWhiteSpace(_newLoginProvider)
-            || string.IsNullOrWhiteSpace(_newLoginIssuer)
-            || string.IsNullOrWhiteSpace(_newLoginSubject))
-            return;
-
-        _linkingExternalLogin = true;
-        var login = await Orchestrator.LinkProfileExternalLoginAsync(
-            _selectedUser.Id,
-            _newLoginProvider,
-            _newLoginIssuer,
-            _newLoginSubject,
-            _newLoginEmail,
-            _newLoginDisplayName);
-        _linkingExternalLogin = false;
-
-        if (login is null)
-        {
-            Snackbar.Add("Could not link sign-in account.", Severity.Error);
-            return;
-        }
-
-        Snackbar.Add("Sign-in account linked.", Severity.Success);
-        ResetExternalLoginForm();
-        _externalLogins = await Orchestrator.GetProfileExternalLoginsAsync(_selectedUser.Id);
-    }
-
-    private async Task UnlinkExternalLoginAsync(Guid loginId)
-    {
-        if (_selectedUser is null)
-            return;
-
-        var ok = await Orchestrator.UnlinkProfileExternalLoginAsync(loginId);
-        if (!ok)
-        {
-            Snackbar.Add("Could not unlink sign-in account.", Severity.Error);
-            return;
-        }
-
-        Snackbar.Add("Sign-in account unlinked.", Severity.Info);
-        _externalLogins = await Orchestrator.GetProfileExternalLoginsAsync(_selectedUser.Id);
-    }
-
-    private void ResetExternalLoginForm()
-    {
-        _newLoginProvider = string.Empty;
-        _newLoginIssuer = string.Empty;
-        _newLoginSubject = string.Empty;
-        _newLoginEmail = null;
-        _newLoginDisplayName = null;
     }
 
     private static string SourceTypeLabel(string sourceType) => sourceType switch

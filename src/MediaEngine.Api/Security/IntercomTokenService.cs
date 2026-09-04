@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.DataProtection;
 
 namespace MediaEngine.Api.Security;
 
-public sealed record IntercomTokenPayload(Guid SessionId, Guid ProfileId, string Audience, string TokenId);
+public sealed record IntercomTokenPayload(Guid SessionId, Guid AccountId, string Audience, string TokenId);
 
 public sealed class IntercomTokenService(
     IDataProtectionProvider provider,
@@ -17,10 +17,10 @@ public sealed class IntercomTokenService(
         .CreateProtector("Tuvima.Intercom.Connection.v1")
         .ToTimeLimitedDataProtector();
 
-    public (string Token, DateTimeOffset ExpiresAt) Create(Guid sessionId, Guid profileId)
+    public (string Token, DateTimeOffset ExpiresAt) Create(Guid sessionId, Guid accountId)
     {
         var expires = DateTimeOffset.UtcNow.Add(Lifetime);
-        var payload = new IntercomTokenPayload(sessionId, profileId, "intercom", Guid.NewGuid().ToString("N"));
+        var payload = new IntercomTokenPayload(sessionId, accountId, "intercom", Guid.NewGuid().ToString("N"));
         return (_protector.Protect(JsonSerializer.Serialize(payload), expires), expires);
     }
 
@@ -39,7 +39,7 @@ public sealed class IntercomTokenService(
                 return null;
             }
 
-            if (session.ProfileId != payload.ProfileId)
+            if (session.AccountId != payload.AccountId)
             {
                 logger.LogWarning(
                     "Intercom token validation failed because session {SessionId} belongs to a different owner profile.",

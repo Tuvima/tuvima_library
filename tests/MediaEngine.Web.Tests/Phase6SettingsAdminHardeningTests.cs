@@ -210,15 +210,18 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void AccessSettings_UsesRealAuthenticationKeysAndProfileLinkedAccounts()
+    public void AccessSettings_SeparatesAccountsFromProfiles()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersAccessSettingsTab.razor");
         var users = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersTab.razor");
+        var accounts = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\AccountsAccessTab.razor");
 
         Assert.Contains("<ApiKeysTab />", source, StringComparison.Ordinal);
         Assert.Contains("Authentication", source, StringComparison.Ordinal);
-        Assert.Contains("GetProfileExternalLoginsAsync", users, StringComparison.Ordinal);
-        Assert.Contains("Sign-in accounts", users, StringComparison.Ordinal);
+        Assert.Contains("<AccountsAccessTab />", source, StringComparison.Ordinal);
+        Assert.Contains("Accounts & Profile Grants", accounts, StringComparison.Ordinal);
+        Assert.Contains("Invite a family member", accounts, StringComparison.Ordinal);
+        Assert.DoesNotContain("external-logins", users, StringComparison.Ordinal);
         Assert.DoesNotContain("Owner Administrator\", \"library:read, ingest:write", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Access Rules", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Active sessions", source, StringComparison.Ordinal);

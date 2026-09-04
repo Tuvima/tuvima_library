@@ -20,7 +20,7 @@ public sealed class DashboardFirstRunExperienceTests
     }
 
     [Fact]
-    public void AnonymousPasswordReset_RequiresRecoveryCodeOrElevatedHostCommand()
+    public void PasswordRecovery_OffersEmailRecoveryCodesAndElevatedHostCommand()
     {
         var dashboard = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");
         var client = Read("src/MediaEngine.Web/Services/Integration/DashboardIdentityClient.cs");
@@ -40,7 +40,7 @@ public sealed class DashboardFirstRunExperienceTests
         Assert.Contains("ResetAdministratorPasswordFromHostAsync", hostRecoveryContract, StringComparison.Ordinal);
         Assert.Contains("ProfileRole.Administrator", identity, StringComparison.Ordinal);
         Assert.Contains("host_administrator_password_reset", identity, StringComparison.Ordinal);
-        Assert.Contains("RevokeProfileSessionsAsync", identity, StringComparison.Ordinal);
+        Assert.Contains("RevokeAccountSessionsAsync", identity, StringComparison.Ordinal);
         Assert.Contains("ReplaceRecoveryCodesAsync", identity, StringComparison.Ordinal);
     }
 

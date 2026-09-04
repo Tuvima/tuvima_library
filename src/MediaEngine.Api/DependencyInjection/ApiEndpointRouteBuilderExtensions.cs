@@ -17,6 +17,7 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapSystemEndpoints();
         app.MapSetupEndpoints();
         app.MapAuthenticationEndpoints();
+        app.MapAccountEndpoints();
         app.MapClientAuthorizationEndpoints();
         app.MapMaintenanceEndpoints();
         app.MapAdminEndpoints();

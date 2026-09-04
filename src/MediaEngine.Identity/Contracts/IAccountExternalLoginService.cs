@@ -2,14 +2,14 @@ using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Identity.Contracts;
 
-public interface IProfileExternalLoginService
+public interface IAccountExternalLoginService
 {
-    Task<IReadOnlyList<ProfileExternalLogin>> GetByProfileAsync(Guid profileId, CancellationToken ct = default);
+    Task<IReadOnlyList<AccountExternalLogin>> GetByAccountAsync(Guid accountId, CancellationToken ct = default);
 
-    Task<ProfileExternalLogin?> ResolveAsync(string provider, string issuer, string subject, CancellationToken ct = default);
+    Task<AccountExternalLogin?> ResolveAsync(string provider, string issuer, string subject, CancellationToken ct = default);
 
-    Task<ProfileExternalLogin> LinkAsync(
-        Guid profileId,
+    Task<AccountExternalLogin> LinkAsync(
+        Guid accountId,
         string provider,
         string issuer,
         string subject,

@@ -292,75 +292,6 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<List<ProfileExternalLoginViewModel>> GetProfileExternalLoginsAsync(
-        Guid profileId,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var raw = await _http.GetFromJsonAsync<List<ProfileExternalLoginDto>>(
-                $"/profiles/{profileId}/external-logins", ct);
-            return raw?.Select(MapProfileExternalLogin).ToList() ?? [];
-        }
-        catch (OperationCanceledException) { return []; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /profiles/{ProfileId}/external-logins failed", profileId);
-            return [];
-        }
-    }
-
-    public async Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
-        Guid profileId,
-        string provider,
-        string issuer,
-        string subject,
-        string? email = null,
-        string? displayName = null,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var body = new LinkProfileExternalLoginRequest
-            {
-                Provider = provider,
-                Issuer = issuer,
-                Subject = subject,
-                Email = email,
-                DisplayName = displayName,
-            };
-            var resp = await _http.PostAsJsonAsync($"/profiles/{profileId}/external-logins", body, ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                return null;
-            }
-
-            var login = await resp.Content.ReadFromJsonAsync<ProfileExternalLoginDto>(ct);
-            return login is null ? null : MapProfileExternalLogin(login);
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /profiles/{ProfileId}/external-logins failed", profileId);
-            return null;
-        }
-    }
-
-    public async Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default)
-    {
-        try
-        {
-            var resp = await _http.DeleteAsync($"/profiles/external-logins/{loginId}", ct);
-            return resp.IsSuccessStatusCode;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "DELETE /profiles/external-logins/{LoginId} failed", loginId);
-            return false;
-        }
-    }
-
     private ProfileViewModel MapProfile(ProfileResponseDto profile) => new(
         profile.Id,
         profile.DisplayName,
@@ -369,17 +300,6 @@ public sealed partial class EngineApiClient
         profile.CreatedAt,
         profile.NavigationConfig,
         NormalizeOptionalUrl(profile.AvatarImageUrl));
-
-    private static ProfileExternalLoginViewModel MapProfileExternalLogin(ProfileExternalLoginDto login) => new(
-        login.Id,
-        login.ProfileId,
-        login.Provider,
-        login.Issuer,
-        login.Subject,
-        login.Email,
-        login.DisplayName,
-        login.LinkedAt,
-        login.LastLoginAt);
 
     private ProfileOverviewViewModel MapProfileOverview(ProfileOverviewResponseDto overview) => new()
     {

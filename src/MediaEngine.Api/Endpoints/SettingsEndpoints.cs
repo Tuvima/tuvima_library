@@ -111,6 +111,11 @@ public static class SettingsEndpoints
                 Mode = auth.Mode,
                 LocalhostBypass = auth.LocalhostBypass,
                 RequireHttpsRemote = auth.RequireHttpsRemote,
+                PasswordReset = new MediaEngine.Contracts.Settings.PasswordResetDeliveryDto
+                {
+                    Mode=auth.PasswordReset.Mode,PublicBaseUrl=auth.PasswordReset.PublicBaseUrl,SmtpHost=auth.PasswordReset.SmtpHost,SmtpPort=auth.PasswordReset.SmtpPort,FromAddress=auth.PasswordReset.FromAddress,
+                    Configured=auth.PasswordReset.Mode.Equals("Smtp",StringComparison.OrdinalIgnoreCase)&&!string.IsNullOrWhiteSpace(auth.PasswordReset.SmtpHost)&&!string.IsNullOrWhiteSpace(auth.PasswordReset.FromAddress)&&!string.IsNullOrWhiteSpace(auth.PasswordReset.PublicBaseUrl),
+                },
                 ExternalProviders = auth.ExternalProviders.Select(provider => new MediaEngine.Contracts.Settings.ExternalAuthProviderDto
                 {
                     Id = provider.Id,

@@ -25,18 +25,15 @@ public sealed class DashboardConfigurationReader
     {
         var core = LoadJson<DashboardCoreConfiguration>("core.json") ?? new();
         var secrets = LoadJson<DashboardAuthProviderSecrets>(Path.Combine(".secrets", "auth-providers.json"));
-        if (secrets is null)
+        if (secrets is not null)
         {
-            return core;
-        }
-
-        foreach (var provider in core.Auth.ExternalProviders)
-        {
-            if (secrets.Providers.TryGetValue(provider.Id, out var secret))
+            foreach (var provider in core.Auth.ExternalProviders)
             {
-                provider.ClientSecret = secret.ClientSecret;
+                if (secrets.Providers.TryGetValue(provider.Id, out var secret)) provider.ClientSecret = secret.ClientSecret;
             }
         }
+        var emailSecrets = LoadJson<DashboardEmailSecrets>(Path.Combine(".secrets", "email.json"));
+        if (emailSecrets is not null) core.Auth.PasswordReset.Password = emailSecrets.SmtpPassword;
 
         return core;
     }
@@ -66,6 +63,12 @@ public sealed class DashboardConfigurationReader
             throw new InvalidOperationException($"Dashboard configuration file '{path}' is invalid at {ex.Path ?? "$"}. Fix the JSON shape or restore the .bak file.", ex);
         }
     }
+}
+
+public sealed class DashboardEmailSecrets
+{
+    [JsonPropertyName("smtp_password")]
+    public string SmtpPassword { get; set; } = string.Empty;
 }
 
 public sealed class DashboardCoreConfiguration

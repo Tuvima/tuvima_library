@@ -14,11 +14,11 @@ public sealed class ResetAdministratorPasswordCommandTests
             recovery,
             console);
 
-        var exitCode = await command.ExecuteAsync("administrator");
+        var exitCode = await command.ExecuteAsync("administrator@example.com");
 
         Assert.Equal(3, exitCode);
         Assert.Equal(0, console.SecretReadCount);
-        Assert.Null(recovery.Username);
+        Assert.Null(recovery.Email);
         Assert.Contains(console.Errors, message => message.Contains("elevated", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -32,10 +32,10 @@ public sealed class ResetAdministratorPasswordCommandTests
             recovery,
             console);
 
-        var exitCode = await command.ExecuteAsync("administrator");
+        var exitCode = await command.ExecuteAsync("administrator@example.com");
 
         Assert.Equal(2, exitCode);
-        Assert.Null(recovery.Username);
+        Assert.Null(recovery.Email);
         Assert.Contains(console.Errors, message => message.Contains("do not match", StringComparison.OrdinalIgnoreCase));
     }
 
@@ -52,10 +52,10 @@ public sealed class ResetAdministratorPasswordCommandTests
             recovery,
             console);
 
-        var exitCode = await command.ExecuteAsync("administrator");
+        var exitCode = await command.ExecuteAsync("administrator@example.com");
 
         Assert.Equal(0, exitCode);
-        Assert.Equal("administrator", recovery.Username);
+        Assert.Equal("administrator@example.com", recovery.Email);
         Assert.Equal("new password", recovery.Password);
         Assert.Contains(console.Output, message => message.Contains("Every existing session has been revoked", StringComparison.Ordinal));
         Assert.Contains("alpha-bravo", console.Output);
@@ -77,16 +77,16 @@ public sealed class ResetAdministratorPasswordCommandTests
 
     private sealed class RecordingRecoveryService : IHostAdministratorRecoveryService
     {
-        public string? Username { get; private set; }
+        public string? Email { get; private set; }
         public string? Password { get; private set; }
         public IReadOnlyList<string> RecoveryCodes { get; init; } = [];
 
         public Task<IReadOnlyList<string>> ResetAdministratorPasswordFromHostAsync(
-            string username,
+            string email,
             string newPassword,
             CancellationToken ct = default)
         {
-            Username = username;
+            Email = email;
             Password = newPassword;
             return Task.FromResult(RecoveryCodes);
         }

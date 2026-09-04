@@ -32,7 +32,16 @@
                 <dl class="security-settings__facts">
                     <div><dt>Authentication mode</dt><dd>@FriendlyMode(_authSettings.Mode)</dd></div>
                     <div><dt>External sign-in</dt><dd>@(_authSettings.ExternalProviders.Any(provider => provider.Enabled) ? "Enabled" : "Disabled")</dd></div>
+                    <div><dt>Email password reset</dt><dd>@(_authSettings.PasswordReset.Configured ? "SMTP configured" : "Recovery codes and host reset")</dd></div>
                 </dl>
+                @if (_authSettings.PasswordReset.Configured)
+                {
+                    <dl class="security-settings__facts">
+                        <div><dt>Public URL</dt><dd>@_authSettings.PasswordReset.PublicBaseUrl</dd></div>
+                        <div><dt>SMTP server</dt><dd>@_authSettings.PasswordReset.SmtpHost:@_authSettings.PasswordReset.SmtpPort</dd></div>
+                        <div><dt>From</dt><dd>@_authSettings.PasswordReset.FromAddress</dd></div>
+                    </dl>
+                }
                 @foreach (var provider in _authSettings.ExternalProviders)
                 {
                     <h3 class="mt-5">@provider.DisplayName</h3>

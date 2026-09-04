@@ -97,6 +97,8 @@ public static partial class ExternalAuthenticationRegistration
                     provider,
                     issuer,
                     subject,
+                    context.Principal?.FindFirstValue(ClaimTypes.Email),
+                    context.Principal?.FindFirstValue(ClaimTypes.Name),
                     "OIDC").ConfigureAwait(false);
                 if (issued is null)
                 {
@@ -166,6 +168,8 @@ public static partial class ExternalAuthenticationRegistration
                     provider,
                     provider.Issuer,
                     subject,
+                    context.Principal?.FindFirstValue(ClaimTypes.Email),
+                    context.Principal?.FindFirstValue(ClaimTypes.Name),
                     "OAuth").ConfigureAwait(false);
                 if (issued is null)
                 {
@@ -185,6 +189,8 @@ public static partial class ExternalAuthenticationRegistration
         ExternalAuthProviderSettings provider,
         string issuer,
         string subject,
+        string? email,
+        string? displayName,
         string protocol)
     {
         var deviceId = context.Request.Cookies["Tuvima.Device"];
@@ -201,9 +207,8 @@ public static partial class ExternalAuthenticationRegistration
             });
         }
 
-        return await context.RequestServices
-            .GetRequiredService<DashboardIdentityClient>()
-            .CreateExternalSessionAsync(new ExternalSessionRequest
+        var identity=context.RequestServices.GetRequiredService<DashboardIdentityClient>();
+        var request=new ExternalSessionRequest
             {
                 Provider = provider.Id,
                 Issuer = NormalizeIssuer(issuer),
@@ -211,8 +216,12 @@ public static partial class ExternalAuthenticationRegistration
                 DeviceId = deviceId!,
                 DeviceName = context.Request.Headers.UserAgent.ToString(),
                 Client = $"Tuvima Dashboard {protocol}",
-            }, context.RequestAborted)
-            .ConfigureAwait(false);
+            };
+        var issued=await identity.CreateExternalSessionAsync(request,context.RequestAborted).ConfigureAwait(false);
+        if(issued is not null)return issued;
+        if(context.User.Identity?.IsAuthenticated!=true)return null;
+        var linked=await identity.LinkExternalLoginAsync(new LinkAccountExternalLoginRequest{Provider=provider.Id,Issuer=NormalizeIssuer(issuer),Subject=subject.Trim(),Email=email,DisplayName=displayName},context.RequestAborted).ConfigureAwait(false);
+        return linked is null?null:await identity.CreateExternalSessionAsync(request,context.RequestAborted).ConfigureAwait(false);
     }
 
     private static void Validate(ExternalAuthProviderSettings provider, HashSet<string> ids)

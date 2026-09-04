@@ -55,17 +55,20 @@ public static class TuvimaAdminApplication
 
         using var database = new DatabaseConnection(fullDatabasePath);
         var identities = new IdentityRepository(database);
+        var accounts = new AccountRepository(database);
         var profiles = new ProfileRepository(database);
         IHostAdministratorRecoveryService recovery = new FirstPartyIdentityService(
             identities,
+            accounts,
             profiles,
+            new PasswordHasher<AccountCredential>(),
             new PasswordHasher<ProfileCredential>(),
             TimeProvider.System);
         var command = new ResetAdministratorPasswordCommand(
             authorizer,
             recovery,
             console);
-        return await command.ExecuteAsync(options.Username, ct).ConfigureAwait(false);
+        return await command.ExecuteAsync(options.Email, ct).ConfigureAwait(false);
     }
 
     private static void WriteHelp(IAdminConsole console)
@@ -73,7 +76,7 @@ public static class TuvimaAdminApplication
         console.WriteLine("Tuvima Library host administration");
         console.WriteLine(string.Empty);
         console.WriteLine("Usage:");
-        console.WriteLine("  tuvima-admin auth reset-password [--username <name>] [--config-dir <path>]");
+        console.WriteLine("  tuvima-admin auth reset-password [--email <address>] [--config-dir <path>]");
         console.WriteLine(string.Empty);
         console.WriteLine("The command requires elevated host privileges and prompts securely for the new password.");
         console.WriteLine("It revokes every session and rotates all recovery codes for the administrator.");
@@ -81,7 +84,7 @@ public static class TuvimaAdminApplication
 
     private sealed record AdminCommandOptions(
         bool ShowHelp,
-        string? Username,
+        string? Email,
         string? ConfigDirectory)
     {
         public static bool TryParse(
@@ -105,13 +108,13 @@ public static class TuvimaAdminApplication
                 return false;
             }
 
-            string? username = null;
+            string? email = null;
             string? configDirectory = null;
             for (var index = 2; index < args.Count; index++)
             {
                 if (args[index] is "--help" or "-h")
                 {
-                    options = new(true, username, configDirectory);
+                    options = new(true, email, configDirectory);
                     return true;
                 }
 
@@ -122,9 +125,9 @@ public static class TuvimaAdminApplication
                 }
 
                 var value = args[++index];
-                if (args[index - 1].Equals("--username", StringComparison.OrdinalIgnoreCase))
+                if (args[index - 1].Equals("--email", StringComparison.OrdinalIgnoreCase))
                 {
-                    username = value;
+                    email = value;
                 }
                 else if (args[index - 1].Equals("--config-dir", StringComparison.OrdinalIgnoreCase))
                 {
@@ -137,7 +140,7 @@ public static class TuvimaAdminApplication
                 }
             }
 
-            options = new(false, username, configDirectory);
+            options = new(false, email, configDirectory);
             return true;
         }
     }

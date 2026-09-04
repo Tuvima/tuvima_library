@@ -18,6 +18,7 @@ public static class TuvimaAuthDefaults
 
 public static class TuvimaClaimTypes
 {
+    public const string AccountId = "tuvima:account_id";
     public const string ProfileId = "tuvima:profile_id";
     public const string ActiveProfileId = "tuvima:active_profile_id";
     public const string SessionId = "tuvima:session_id";
@@ -35,6 +36,7 @@ public static class AuthPolicies
 {
     public const string Authenticated = "authenticated_user";
     public const string Administrator = "administrator";
+    public const string AdministratorRole = "administrator_role";
     public const string StandardOrAdministrator = "standard_or_administrator";
     public const string DashboardService = "dashboard_service";
     public const string DashboardInteractive = "dashboard_interactive";
@@ -139,10 +141,11 @@ public sealed class TuvimaAuthenticationHandler(
 
     private static void AddSessionClaims(List<Claim> claims, SessionValidationResult result)
     {
-        claims.Add(new Claim(ClaimTypes.NameIdentifier, result.Profile.Id.ToString("D")));
+        claims.Add(new Claim(ClaimTypes.NameIdentifier, result.Account.Id.ToString("D")));
         claims.Add(new Claim(ClaimTypes.Name, result.ActiveProfile.DisplayName));
         claims.Add(new Claim(ClaimTypes.Role, result.ActiveProfile.Role.ToString()));
-        claims.Add(new Claim(TuvimaClaimTypes.ProfileId, result.Profile.Id.ToString("D")));
+        claims.Add(new Claim(TuvimaClaimTypes.AccountId, result.Account.Id.ToString("D")));
+        claims.Add(new Claim(TuvimaClaimTypes.ProfileId, result.ActiveProfile.Id.ToString("D")));
         claims.Add(new Claim(TuvimaClaimTypes.ActiveProfileId, result.ActiveProfile.Id.ToString("D")));
         claims.Add(new Claim(TuvimaClaimTypes.SessionId, result.Session.Id.ToString("D")));
         claims.Add(new Claim(TuvimaClaimTypes.DeviceId, result.Session.DeviceId));

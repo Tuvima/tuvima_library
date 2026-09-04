@@ -8,6 +8,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 public enum SettingsSection
 {
     Overview,
+    Account,
     Playback,
     Privacy,
 
@@ -118,6 +119,7 @@ public static class SettingsNav
         new Dictionary<SettingsSection, LaunchFeatureEvidence>
         {
             [SettingsSection.Overview] = Complete(),
+            [SettingsSection.Account] = Complete(),
             [SettingsSection.Playback] = Complete(),
             [SettingsSection.AdminOverview] = Complete(),
             [SettingsSection.Libraries] = Complete(),
@@ -150,6 +152,7 @@ public static class SettingsNav
     public static readonly SettingsItemDef[] AllItems =
     [
         new(SettingsSection.Overview, "personal", "profile", Icons.Material.Outlined.Person, "Profile", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
+        new(SettingsSection.Account, "personal", "account", Icons.Material.Outlined.ManageAccounts, "Account & Security", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Playback, "personal", "playback", Icons.Material.Outlined.PlayCircleOutline, "Playback & Reading", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Privacy, "personal", "privacy", Icons.Material.Outlined.Lock, "Privacy & Data", false, null, [], "unavailable", Placeholder: true),
 
@@ -175,7 +178,7 @@ public static class SettingsNav
     public static readonly SettingsTreeGroupDef[] TreeGroups =
     [
         new("personal", "Personal", Icons.Material.Outlined.Person, false, false, SettingsSection.Overview,
-            [SettingsSection.Overview, SettingsSection.Playback, SettingsSection.Privacy]),
+            [SettingsSection.Overview, SettingsSection.Account, SettingsSection.Playback, SettingsSection.Privacy]),
         new("administration", "Administration", Icons.Material.Outlined.AdminPanelSettings, true, false, SettingsSection.AdminOverview,
             [
                 SettingsSection.AdminOverview,
@@ -198,6 +201,7 @@ public static class SettingsNav
         new Dictionary<SettingsSection, IReadOnlyList<SettingsSubsectionDef>>
         {
             [SettingsSection.Overview] = [],
+            [SettingsSection.Account] = [],
             [SettingsSection.Playback] = [],
             [SettingsSection.Privacy] =
             [
@@ -257,6 +261,7 @@ public static class SettingsNav
             ],
             [SettingsSection.Access] =
             [
+                new("accounts", "Accounts & Profile Grants", Icons.Material.Outlined.ManageAccounts),
                 new("authentication", "Authentication", Icons.Material.Outlined.AdminPanelSettings),
                 new("api-keys", "Guest API Keys", Icons.Material.Outlined.Key),
                 new("session-policy", "Session Policy", Icons.Material.Outlined.Policy),

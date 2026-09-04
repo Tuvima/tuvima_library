@@ -85,7 +85,7 @@
     private HardwareProfileDto? _hardware;
     private string? _setupSession;
     private string _claimToken = string.Empty;
-    private string _username = string.Empty;
+    private string _email = string.Empty;
     private string _password = string.Empty;
     private string _displayName = "Administrator";
     private IReadOnlyList<string> _recoveryCodes = [];
@@ -199,9 +199,9 @@
         }
         else
         {
-            <div class="setup-form-grid"><AppTextField Label="Display name" Value="@_displayName" ValueChanged="@((string? value) => _displayName = value ?? string.Empty)" /><AppTextField Label="Username" Value="@_username" ValueChanged="@((string? value) => _username = value ?? string.Empty)" /><AppTextField Label="Password" InputType="InputType.Password" Value="@_password" ValueChanged="@((string? value) => _password = value ?? string.Empty)" /></div>
+            <div class="setup-form-grid"><AppTextField Label="Display name" Value="@_displayName" ValueChanged="@((string? value) => _displayName = value ?? string.Empty)" /><AppTextField Label="Email" Value="@_email" ValueChanged="@((string? value) => _email = value ?? string.Empty)" /><AppTextField Label="Password" InputType="InputType.Password" Value="@_password" ValueChanged="@((string? value) => _password = value ?? string.Empty)" /></div>
             <small>Use at least 8 characters. This password remains on your Tuvima server.</small>
-            <div class="setup-actions setup-actions--end"><AppButton Label="Create administrator" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" Disabled="@(_busy || string.IsNullOrWhiteSpace(_username) || _password.Length < 8)" OnClick="CreateAdministratorAsync" /></div>
+            <div class="setup-actions setup-actions--end"><AppButton Label="Create administrator" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" Disabled="@(_busy || string.IsNullOrWhiteSpace(_email) || _password.Length < 8)" OnClick="CreateAdministratorAsync" /></div>
         }
     </text>;
 
@@ -264,7 +264,7 @@
     private async Task RunPreflightAsync() { _busy = true; _preflight = await ApiClient.RunSetupPreflightAsync(_setupSession); _busy = false; if (_preflight is null) Snackbar.Add("Preflight could not run.", Severity.Error); }
     private async Task UploadBackupAsync(InputFileChangeEventArgs args) { _busy = true; try { await using var stream = args.File.OpenReadStream(2L * 1024 * 1024 * 1024); _backup = await ApiClient.UploadSetupBackupAsync(stream, args.File.Name, _setupSession ?? string.Empty); if (_backup is null) Snackbar.Add("The backup failed validation.", Severity.Error); } finally { _busy = false; } }
     private async Task ConfirmRestoreAsync() { if (_backup is null || _setupSession is null) return; _busy = true; var result = await ApiClient.ConfirmSetupRestoreAsync(_backup.OperationId, _setupSession); _busy = false; if (result is null) Snackbar.Add("The restore could not be scheduled.", Severity.Error); else Snackbar.Add("Restore scheduled. Tuvima is restarting.", Severity.Info); }
-    private async Task CreateAdministratorAsync() { if (_setupSession is null) return; _busy = true; var result = await ApiClient.CreateSetupAdministratorAsync(new SetupAdministratorRequest { Username = _username, Password = _password, DisplayName = _displayName, DeviceId = Guid.NewGuid().ToString("D"), DeviceName = "Setup browser" }, _setupSession); _busy = false; if (result is null) Snackbar.Add("The administrator could not be created.", Severity.Error); else if (result.RecoveryCodes.Count > 0) _recoveryCodes = result.RecoveryCodes; else SignIn(); }
+    private async Task CreateAdministratorAsync() { if (_setupSession is null) return; _busy = true; var result = await ApiClient.CreateSetupAdministratorAsync(new SetupAdministratorRequest { Email = _email, Password = _password, DisplayName = _displayName, DeviceId = Guid.NewGuid().ToString("D"), DeviceName = "Setup browser" }, _setupSession); _busy = false; if (result is null) Snackbar.Add("The administrator could not be created.", Severity.Error); else if (result.RecoveryCodes.Count > 0) _recoveryCodes = result.RecoveryCodes; else SignIn(); }
     private void SignIn() => Navigation.NavigateTo("/auth/login?returnUrl=%2Fsetup", forceLoad: true);
     private async Task ValidateMediaAsync() { _busy = true; _media = await ApiClient.ValidateSetupMediaLocationsAsync(_setupSession); _busy = false; if (_media?.Passed == true) await ReloadAsync(); }
     private async Task LibraryCreatedAsync() { _showLibraryWizard = false; await ValidateMediaAsync(); }

@@ -4,33 +4,33 @@ using MediaEngine.Identity.Contracts;
 
 namespace MediaEngine.Identity;
 
-public sealed class ProfileExternalLoginService : IProfileExternalLoginService
+public sealed class AccountExternalLoginService : IAccountExternalLoginService
 {
-    private readonly IProfileExternalLoginRepository _loginRepository;
-    private readonly IProfileRepository _profileRepository;
+    private readonly IAccountExternalLoginRepository _loginRepository;
+    private readonly IAccountRepository _accountRepository;
 
-    public ProfileExternalLoginService(
-        IProfileExternalLoginRepository loginRepository,
-        IProfileRepository profileRepository)
+    public AccountExternalLoginService(
+        IAccountExternalLoginRepository loginRepository,
+        IAccountRepository accountRepository)
     {
         ArgumentNullException.ThrowIfNull(loginRepository);
-        ArgumentNullException.ThrowIfNull(profileRepository);
+        ArgumentNullException.ThrowIfNull(accountRepository);
 
         _loginRepository = loginRepository;
-        _profileRepository = profileRepository;
+        _accountRepository = accountRepository;
     }
 
-    public Task<IReadOnlyList<ProfileExternalLogin>> GetByProfileAsync(Guid profileId, CancellationToken ct = default) =>
-        _loginRepository.GetByProfileAsync(profileId, ct);
+    public Task<IReadOnlyList<AccountExternalLogin>> GetByAccountAsync(Guid accountId, CancellationToken ct = default) =>
+        _loginRepository.GetByAccountAsync(accountId, ct);
 
-    public Task<ProfileExternalLogin?> ResolveAsync(string provider, string issuer, string subject, CancellationToken ct = default)
+    public Task<AccountExternalLogin?> ResolveAsync(string provider, string issuer, string subject, CancellationToken ct = default)
     {
         ValidateIdentity(provider, issuer, subject);
         return _loginRepository.GetByProviderSubjectAsync(provider.Trim(), NormalizeIssuer(issuer), subject.Trim(), ct);
     }
 
-    public async Task<ProfileExternalLogin> LinkAsync(
-        Guid profileId,
+    public async Task<AccountExternalLogin> LinkAsync(
+        Guid accountId,
         string provider,
         string issuer,
         string subject,
@@ -40,9 +40,9 @@ public sealed class ProfileExternalLoginService : IProfileExternalLoginService
     {
         ValidateIdentity(provider, issuer, subject);
 
-        var profile = await _profileRepository.GetByIdAsync(profileId, ct).ConfigureAwait(false);
-        if (profile is null)
-            throw new InvalidOperationException($"Profile '{profileId}' was not found.");
+        var account = await _accountRepository.GetByIdAsync(accountId, ct).ConfigureAwait(false);
+        if (account is null)
+            throw new InvalidOperationException($"Account '{accountId}' was not found.");
 
         var normalizedProvider = provider.Trim();
         var normalizedIssuer = NormalizeIssuer(issuer);
@@ -53,10 +53,10 @@ public sealed class ProfileExternalLoginService : IProfileExternalLoginService
         if (existing is not null)
             throw new InvalidOperationException("That external sign-in account is already linked.");
 
-        var login = new ProfileExternalLogin
+        var login = new AccountExternalLogin
         {
             Id = Guid.NewGuid(),
-            ProfileId = profileId,
+            AccountId = accountId,
             Provider = normalizedProvider,
             Issuer = normalizedIssuer,
             Subject = normalizedSubject,

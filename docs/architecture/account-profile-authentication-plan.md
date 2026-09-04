@@ -109,10 +109,11 @@ Email delivery is an optional server adapter:
 - a transactional provider adapter added later; or
 - no email, with recovery codes and host recovery clearly shown instead.
 
-Tuvima does not run an unauthenticated local mail relay. Settings includes a
-send-test action and reports delivery readiness. A deployment is not required to
-use email-shaped usernames merely to support local accounts; email is required
-only for accounts that choose email/password sign-in or email recovery.
+Tuvima does not run an unauthenticated local mail relay. Account Security
+includes a send-test action and Authentication Settings reports delivery
+readiness. A deployment is not required to use email-shaped usernames merely
+to support local accounts; email is required only for accounts that choose
+email/password sign-in or email recovery.
 
 ## Administrator elevation
 
@@ -122,10 +123,10 @@ similar to `sudo`.
 
 An administrator profile may configure a distinct administrative PIN and one or
 more passkeys. Elevation can be satisfied by that PIN, a passkey/platform
-authenticator such as Windows Hello, the account password, or a freshly
-reauthenticated external provider when trustworthy `auth_time` and assurance
-claims are available. A normal profile-selection PIN is not automatically an
-administrator PIN.
+authenticator such as Windows Hello, or the account password. External-provider
+sign-in establishes the account session but does not elevate administrator
+rights, because provider assurance and recent-authentication semantics vary. A
+normal profile-selection PIN is not automatically an administrator PIN.
 
 Elevation grants are bound to session, device, account, and active profile. They
 expire after 30 minutes by default, are never extended merely by browsing, are
@@ -151,22 +152,22 @@ even within the normal elevation window.
    `auth.external_providers`, load secrets from `.secrets`, register one handler
    per provider, expose provider-safe settings, and bind identities by provider,
    issuer, and subject.
-2. **Account cutover** — introduce accounts and account/profile grants; move
+2. **Account cutover (implemented)** — introduce accounts and account/profile grants; move
    passwords, external identities, recovery codes, and sessions from profiles to
    accounts. This is a destructive pre-beta schema cutover with no legacy shim.
-3. **Household and remote flows** — make setup collect account email separately
+3. **Household and remote flows (implemented)** — make setup collect account email separately
    from the first profile name; add invitation acceptance, profile picker, and
    administrator-created local-only accounts.
-4. **Account/Profile settings split** — replace manual subject-ID linking with
+4. **Account/Profile settings split (implemented)** — replace manual subject-ID linking with
    authorization-driven Connect/Disconnect actions and add account/session UI.
-5. **Recovery delivery** — add hashed email reset challenges, SMTP adapter,
+5. **Recovery delivery (implemented)** — add hashed email reset challenges, SMTP adapter,
    readiness/test UI, generic responses, throttling, and audit events.
-6. **Passkeys** — add WebAuthn registration/authentication, credential inventory,
+6. **Passkeys (implemented)** — add WebAuthn registration/authentication, credential inventory,
    recovery handling, and platform-authenticator UI.
-7. **Administrator elevation** — add administrator PIN/passkey enrollment,
+7. **Administrator elevation (implemented)** — add administrator PIN/passkey enrollment,
    elevation grants, protected policies/endpoints, prompts, timeout display, and
    audit coverage.
-8. **Hardening** — test duplicate emails, provider/tenant collisions, invitation
+8. **Hardening (implemented)** — test duplicate emails, provider/tenant collisions, invitation
    theft, callback state/nonce/PKCE, unlinking the final authenticator, session
    invalidation, reverse-proxy origin handling, and elevation expiry.
 

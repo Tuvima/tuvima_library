@@ -1,0 +1,107 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Authentication
+@inject DashboardIdentityClient Identity
+@inject UIOrchestratorService Orchestrator
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<SettingsSectionPanel Title="Accounts & Profile Grants"
+                      Description="Accounts sign in; profiles hold each person’s library identity and preferences. Invite remote family members to only the profiles you choose."
+                      Icon="@Icons.Material.Outlined.ManageAccounts">
+    @if (_loading)
+    {
+        <AppProgressBar Indeterminate="true" />
+    }
+    else
+    {
+        <AppTable>
+            <thead><tr><th>Account</th><th>Type</th><th>Profile grants</th><th>Status</th></tr></thead>
+            <tbody>
+            @foreach (var account in _accounts)
+            {
+                <tr>
+                    <td>@(account.Email ?? "Local profile access")</td>
+                    <td>@(account.IsLocalOnly ? "Local only" : "Remote capable")</td>
+                    <td>
+                        @foreach (var profileId in account.ProfileIds)
+                        {
+                            <div>
+                                @ProfileName(profileId) @(account.DefaultProfileId == profileId ? "(default)" : null)
+                                @if (account.ProfileIds.Count > 1)
+                                {
+                                    <AppButton Label="Remove" ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Error" Disabled="@_busy" OnClick="@(async () => await RevokeAsync(account.Id, profileId))" />
+                                }
+                            </div>
+                        }
+                    </td>
+                    <td>@(account.IsEnabled ? "Enabled" : "Disabled")</td>
+                </tr>
+            }
+            </tbody>
+        </AppTable>
+        <h3>Grant a profile</h3>
+        <AppSelect Label="Account" @bind-Value="_selectedAccountId" Options="@AccountOptions" />
+        <AppSelect Label="Profile" @bind-Value="_selectedProfileId" Options="@ProfileOptions" />
+        <AppButton Label="Grant profile" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(_busy || !CanGrant)" OnClick="GrantAsync" />
+        <h3>Create local-only access</h3>
+        <p>This creates a passwordless local account for the selected profile. It cannot start a new remote session.</p>
+        <AppSelect Label="Profile" @bind-Value="_localProfileId" Options="@ProfileOptions" />
+        <AppButton Label="Create local access" ButtonStyle="AppButtonStyle.Outlined" Disabled="@(_busy || !Guid.TryParse(_localProfileId, out _))" OnClick="CreateLocalAsync" />
+        <h3>Invite a family member</h3>
+        <p>The invitation expires after seven days and grants the selected profile. Additional profiles can be granted above.</p>
+        <AppTextField Label="Email" @bind-Value="_email" />
+        <AppSelect Label="Initial profile" @bind-Value="_invitationProfileId" Options="@ProfileOptions" />
+        <AppButton Label="Create invitation" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(_busy || string.IsNullOrWhiteSpace(_email) || !Guid.TryParse(_invitationProfileId, out _))" OnClick="CreateInvitationAsync" />
+        @if (!string.IsNullOrWhiteSpace(_invitationUrl))
+        {
+            <AppAlert Tone="AppUiTone.Success">Share this one-time invitation securely: @_invitationUrl</AppAlert>
+        }
+    }
+</SettingsSectionPanel>
+
+@code {
+    private List<AccountResponse> _accounts=[];
+    private List<ProfileViewModel> _profiles=[];
+    private string _email=string.Empty;
+    private string? _selectedAccountId;
+    private string? _selectedProfileId;
+    private string? _localProfileId;
+    private string? _invitationProfileId;
+    private string? _invitationUrl;
+    private bool _loading=true;
+    private bool _busy;
+    private IReadOnlyList<AppSelectOption> AccountOptions=>_accounts.Select(a=>new AppSelectOption(a.Id.ToString("D"),a.Email??$"Local · {ProfileName(a.DefaultProfileId)}")).ToList();
+    private IReadOnlyList<AppSelectOption> ProfileOptions=>_profiles.Select(p=>new AppSelectOption(p.Id.ToString("D"),p.DisplayName)).ToList();
+    private bool CanGrant=>Guid.TryParse(_selectedAccountId,out var accountId)&&Guid.TryParse(_selectedProfileId,out var profileId)&&_accounts.Any(a=>a.Id==accountId&&!a.ProfileIds.Contains(profileId));
+    protected override async Task OnInitializedAsync()
+    {
+        _accounts=await Identity.GetAccountsAsync();_profiles=await Orchestrator.GetProfilesAsync();
+        _selectedAccountId=_accounts.FirstOrDefault()?.Id.ToString("D");_selectedProfileId=_profiles.FirstOrDefault()?.Id.ToString("D");
+        _localProfileId=_selectedProfileId;_invitationProfileId=_selectedProfileId;_loading=false;
+    }
+    private string ProfileName(Guid? id)=>id is{} value?_profiles.FirstOrDefault(p=>p.Id==value)?.DisplayName??value.ToString("D"):"No profile";
+    private async Task GrantAsync()
+    {
+        if(!Guid.TryParse(_selectedAccountId,out var accountId)||!Guid.TryParse(_selectedProfileId,out var profileId))return;_busy=true;
+        var updated=await Identity.GrantProfileAsync(accountId,profileId);_busy=false;if(updated is null){Snackbar.Add("The profile grant could not be added.",Severity.Error);return;}
+        await RefreshAccountsAsync();Snackbar.Add("Profile granted.",Severity.Success);
+    }
+    private async Task RevokeAsync(Guid accountId,Guid profileId)
+    {
+        _busy=true;var updated=await Identity.RevokeProfileAsync(accountId,profileId);_busy=false;if(updated is null){Snackbar.Add("The profile grant could not be removed.",Severity.Error);return;}
+        await RefreshAccountsAsync();Snackbar.Add("Profile grant removed. That account's sessions were signed out.",Severity.Success);
+    }
+    private async Task CreateLocalAsync()
+    {
+        if(!Guid.TryParse(_localProfileId,out var profileId))return;_busy=true;var created=await Identity.CreateAccountAsync(new CreateAccountRequest{ProfileIds=[profileId],DefaultProfileId=profileId});_busy=false;
+        if(created is null){Snackbar.Add("Local access could not be created.",Severity.Error);return;}await RefreshAccountsAsync();Snackbar.Add("Local-only access created.",Severity.Success);
+    }
+    private async Task CreateInvitationAsync()
+    {
+        if(!Guid.TryParse(_invitationProfileId,out var profileId))return;_busy=true;
+        var invitation=await Identity.CreateInvitationAsync(new CreateAccountInvitationRequest{Email=_email,ProfileIds=[profileId],DefaultProfileId=profileId});_busy=false;
+        if(invitation is null){Snackbar.Add("The invitation could not be created.",Severity.Error);return;}
+        _invitationUrl=new Uri(new Uri(Navigation.BaseUri),$"auth/invite?token={Uri.EscapeDataString(invitation.Token)}").ToString();_accounts=await Identity.GetAccountsAsync();Snackbar.Add("Invitation created.",Severity.Success);
+    }
+    private async Task RefreshAccountsAsync(){_accounts=await Identity.GetAccountsAsync();_selectedAccountId=_accounts.FirstOrDefault()?.Id.ToString("D");}
+}

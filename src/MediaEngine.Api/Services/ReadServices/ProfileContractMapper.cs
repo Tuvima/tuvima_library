@@ -1,3 +1,4 @@
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Profiles;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
@@ -21,10 +22,10 @@ internal static class ProfileContractMapper
             : $"/profiles/{profile.Id:D}/avatar",
     };
 
-    internal static ProfileExternalLoginDto ToResponse(ProfileExternalLogin login) => new()
+    internal static AccountExternalLoginDto ToResponse(AccountExternalLogin login) => new()
     {
         Id = login.Id,
-        ProfileId = login.ProfileId,
+        AccountId = login.AccountId,
         Provider = login.Provider,
         Issuer = login.Issuer,
         Subject = login.Subject,

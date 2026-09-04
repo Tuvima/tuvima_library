@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
@@ -9,6 +10,7 @@ using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
@@ -37,17 +39,24 @@ public static class ProfileEndpoints
         var group = app.MapGroup("/profiles").WithTags("Profiles");
 
         group.MapGet("/", async (
+            ClaimsPrincipal user,
             IProfileService svc,
+            IAccountRepository accounts,
             CancellationToken ct) =>
         {
             var profiles = await svc.GetAllProfilesAsync(ct);
+            if (Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.AccountId), out var accountId))
+            {
+                var allowed = (await accounts.GetProfileIdsAsync(accountId, ct)).ToHashSet();
+                profiles = profiles.Where(profile => allowed.Contains(profile.Id)).ToList();
+            }
             var dtos = profiles.Select(ProfileContractMapper.ToResponse).ToList();
             return Results.Ok(dtos);
         })
         .WithName("ListProfiles")
         .WithSummary("List all user profiles.")
         .Produces<List<ProfileResponseDto>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAnyRole();
 
         group.MapGet("/{id:guid}", async (
             Guid id,
@@ -371,30 +380,11 @@ public static class ProfileEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
-        group.MapGet("/{id:guid}/external-logins", async (
-            Guid id,
-            IProfileService profileService,
-            IProfileExternalLoginService loginService,
-            CancellationToken ct) =>
-        {
-            var profile = await profileService.GetProfileAsync(id, ct);
-            if (profile is null)
-            {
-                return ApiErrors.NotFound($"Profile '{id}' not found.");
-            }
-
-            var logins = await loginService.GetByProfileAsync(id, ct);
-            return Results.Ok(logins.Select(ProfileContractMapper.ToResponse).ToList());
-        })
-        .WithName("ListProfileExternalLogins")
-        .WithSummary("List SSO/OAuth sign-in accounts linked to a profile.")
-        .Produces<List<ProfileExternalLoginDto>>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
-
         group.MapPost("/", async (
             CreateProfileRequest request,
+            ClaimsPrincipal user,
             IProfileService svc,
+            IAccountRepository accounts,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.DisplayName))
@@ -411,50 +401,31 @@ public static class ProfileEndpoints
             var profile = await svc.CreateProfileAsync(
                 request.DisplayName, role, request.AvatarColor, ct);
 
+            var now = DateTimeOffset.UtcNow;
+            var localAccount = new Account
+            {
+                Id = Guid.NewGuid(), IsLocalOnly = true, IsEnabled = true,
+                CreatedAt = now, UpdatedAt = now,
+            };
+            await accounts.InsertAsync(localAccount, ct);
+            await accounts.GrantProfileAsync(new AccountProfileGrant
+            {
+                AccountId = localAccount.Id, ProfileId = profile.Id, IsDefault = true, GrantedAt = now,
+            }, ct);
+            if (Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.AccountId), out var creatorAccountId))
+            {
+                await accounts.GrantProfileAsync(new AccountProfileGrant
+                {
+                    AccountId = creatorAccountId, ProfileId = profile.Id, IsDefault = false, GrantedAt = now,
+                }, ct);
+            }
+
             return Results.Ok(ProfileContractMapper.ToResponse(profile));
         })
         .WithName("CreateProfile")
         .WithSummary("Create a new user profile.")
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
-
-        group.MapPost("/{id:guid}/external-logins", async (
-            Guid id,
-            LinkProfileExternalLoginRequest request,
-            IProfileExternalLoginService loginService,
-            CancellationToken ct) =>
-        {
-            try
-            {
-                var login = await loginService.LinkAsync(
-                    id,
-                    request.Provider,
-                    request.Issuer,
-                    request.Subject,
-                    request.Email,
-                    request.DisplayName,
-                    ct);
-
-                return Results.Ok(ProfileContractMapper.ToResponse(login));
-            }
-            catch (ArgumentException ex)
-            {
-                return ApiErrors.BadRequest(ex.Message);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                    ? ApiErrors.NotFound(ex.Message)
-                    : ApiErrors.Conflict(ex.Message);
-            }
-        })
-        .WithName("LinkProfileExternalLogin")
-        .WithSummary("Link an external SSO/OAuth account to a local profile.")
-        .Produces<ProfileExternalLoginDto>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAdmin();
 
         group.MapMethods("/{id:guid}", ["PUT"], async (
@@ -515,22 +486,6 @@ public static class ProfileEndpoints
         .WithSummary("Delete a profile. Cannot delete the seed Owner profile or the last Administrator.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
-
-        group.MapDelete("/external-logins/{loginId:guid}", async (
-            Guid loginId,
-            IProfileExternalLoginService loginService,
-            CancellationToken ct) =>
-        {
-            var deleted = await loginService.UnlinkAsync(loginId, ct);
-            return deleted
-                ? Results.NoContent()
-                : ApiErrors.NotFound($"External login '{loginId}' not found.");
-        })
-        .WithName("UnlinkProfileExternalLogin")
-        .WithSummary("Unlink an external SSO/OAuth account from its local profile.")
-        .Produces(StatusCodes.Status204NoContent)
-        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         return app;

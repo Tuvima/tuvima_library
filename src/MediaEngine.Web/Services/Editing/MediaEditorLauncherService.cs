@@ -1,4 +1,5 @@
 using MediaEngine.Web.Components.MediaEditor;
+using MediaEngine.Web.Services.Integration;
 using MudBlazor;
 
 namespace MediaEngine.Web.Services.Editing;
@@ -6,10 +7,12 @@ namespace MediaEngine.Web.Services.Editing;
 public sealed class MediaEditorLauncherService
 {
     private readonly IDialogService _dialogService;
+    private readonly AdministratorElevationNavigationService? _elevation;
 
-    public MediaEditorLauncherService(IDialogService dialogService)
+    public MediaEditorLauncherService(IDialogService dialogService, AdministratorElevationNavigationService? elevation = null)
     {
         _dialogService = dialogService;
+        _elevation = elevation;
     }
 
     public async Task<bool> OpenAsync(MediaEditorLaunchRequest request)
@@ -17,6 +20,9 @@ public sealed class MediaEditorLauncherService
         ArgumentNullException.ThrowIfNull(request);
 
         if (request.EntityIds.Count == 0)
+            return false;
+
+        if (_elevation is not null && !await _elevation.EnsureElevatedAsync())
             return false;
 
         if (request.Mode == SharedMediaEditorMode.Batch && request.EntityIds.Count <= 1)

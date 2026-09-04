@@ -5,24 +5,24 @@ using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
 
-public sealed class ProfileExternalLoginRepository : IProfileExternalLoginRepository
+public sealed class AccountExternalLoginRepository : IAccountExternalLoginRepository
 {
     private readonly IDatabaseConnection _db;
 
-    public ProfileExternalLoginRepository(IDatabaseConnection db)
+    public AccountExternalLoginRepository(IDatabaseConnection db)
     {
         ArgumentNullException.ThrowIfNull(db);
         _db = db;
     }
 
-    public Task<IReadOnlyList<ProfileExternalLogin>> GetByProfileAsync(Guid profileId, CancellationToken ct = default)
+    public Task<IReadOnlyList<AccountExternalLogin>> GetByAccountAsync(Guid accountId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var rows = conn.Query<ProfileExternalLoginRow>("""
+        var rows = conn.Query<AccountExternalLoginRow>("""
             SELECT id AS Id,
-                   profile_id AS ProfileId,
+                   account_id AS AccountId,
                    provider AS Provider,
                    issuer AS Issuer,
                    subject AS Subject,
@@ -30,15 +30,15 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
                    display_name AS DisplayName,
                    linked_at AS LinkedAt,
                    last_login_at AS LastLoginAt
-            FROM profile_external_logins
-            WHERE profile_id = @profileId
+            FROM account_external_logins
+            WHERE account_id = @accountId
             ORDER BY linked_at ASC;
-            """, new { profileId }).AsList();
+            """, new { accountId }).AsList();
 
-        return Task.FromResult<IReadOnlyList<ProfileExternalLogin>>(rows.Select(MapRow).ToList());
+        return Task.FromResult<IReadOnlyList<AccountExternalLogin>>(rows.Select(MapRow).ToList());
     }
 
-    public Task<ProfileExternalLogin?> GetByProviderSubjectAsync(
+    public Task<AccountExternalLogin?> GetByProviderSubjectAsync(
         string provider,
         string issuer,
         string subject,
@@ -47,9 +47,9 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var row = conn.QueryFirstOrDefault<ProfileExternalLoginRow>("""
+        var row = conn.QueryFirstOrDefault<AccountExternalLoginRow>("""
             SELECT id AS Id,
-                   profile_id AS ProfileId,
+                   account_id AS AccountId,
                    provider AS Provider,
                    issuer AS Issuer,
                    subject AS Subject,
@@ -57,7 +57,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
                    display_name AS DisplayName,
                    linked_at AS LinkedAt,
                    last_login_at AS LastLoginAt
-            FROM profile_external_logins
+            FROM account_external_logins
             WHERE provider = @provider
               AND issuer = @issuer
               AND subject = @subject
@@ -67,21 +67,21 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
         return Task.FromResult(row is null ? null : MapRow(row));
     }
 
-    public Task InsertAsync(ProfileExternalLogin login, CancellationToken ct = default)
+    public Task InsertAsync(AccountExternalLogin login, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(login);
 
         using var conn = _db.CreateConnection();
         conn.Execute("""
-            INSERT INTO profile_external_logins
-                (id, profile_id, provider, issuer, subject, email, display_name, linked_at, last_login_at)
+            INSERT INTO account_external_logins
+                (id, account_id, provider, issuer, subject, email, display_name, linked_at, last_login_at)
             VALUES
-                (@id, @profileId, @provider, @issuer, @subject, @email, @displayName, @linkedAt, @lastLoginAt);
+                (@id, @accountId, @provider, @issuer, @subject, @email, @displayName, @linkedAt, @lastLoginAt);
             """, new
         {
             id = login.Id,
-            profileId = login.ProfileId,
+            accountId = login.AccountId,
             provider = login.Provider,
             issuer = login.Issuer,
             subject = login.Subject,
@@ -99,7 +99,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var rows = conn.Execute("DELETE FROM profile_external_logins WHERE id = @id;", new { id });
+        var rows = conn.Execute("DELETE FROM account_external_logins WHERE id = @id;", new { id });
         return Task.FromResult(rows > 0);
     }
 
@@ -109,7 +109,7 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
 
         using var conn = _db.CreateConnection();
         var rows = conn.Execute("""
-            UPDATE profile_external_logins
+            UPDATE account_external_logins
             SET last_login_at = @lastLoginAt
             WHERE id = @id;
             """, new { id, lastLoginAt = lastLoginAt.ToString("O") });
@@ -117,10 +117,10 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
         return Task.FromResult(rows > 0);
     }
 
-    private sealed class ProfileExternalLoginRow
+    private sealed class AccountExternalLoginRow
     {
         public Guid Id { get; set; }
-        public Guid ProfileId { get; set; }
+        public Guid AccountId { get; set; }
         public string Provider { get; set; } = string.Empty;
         public string Issuer { get; set; } = string.Empty;
         public string Subject { get; set; } = string.Empty;
@@ -130,10 +130,10 @@ public sealed class ProfileExternalLoginRepository : IProfileExternalLoginReposi
         public string? LastLoginAt { get; set; }
     }
 
-    private static ProfileExternalLogin MapRow(ProfileExternalLoginRow row) => new()
+    private static AccountExternalLogin MapRow(AccountExternalLoginRow row) => new()
     {
         Id = row.Id,
-        ProfileId = row.ProfileId,
+        AccountId = row.AccountId,
         Provider = row.Provider,
         Issuer = row.Issuer,
         Subject = row.Subject,

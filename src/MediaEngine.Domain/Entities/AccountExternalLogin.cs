@@ -1,13 +1,13 @@
 namespace MediaEngine.Domain.Entities;
 
 /// <summary>
-/// External sign-in account bound to a local Tuvima profile.
+/// External sign-in identity bound to a Tuvima account.
 /// </summary>
-public sealed class ProfileExternalLogin
+public sealed class AccountExternalLogin
 {
     public Guid Id { get; set; }
 
-    public Guid ProfileId { get; set; }
+    public Guid AccountId { get; set; }
 
     public string Provider { get; set; } = string.Empty;
 

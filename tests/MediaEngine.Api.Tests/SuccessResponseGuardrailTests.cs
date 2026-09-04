@@ -15,6 +15,8 @@ public sealed partial class SuccessResponseGuardrailTests
         "AddCollectionItem",
         "CancelEncodeJob",
         "CancelMediaOperation",
+        "ClearAdministratorElevation",
+        "CompletePasswordReset",
         "DeleteAudiobookBookmark",
         "DeleteAudiobookChapterTitleOverride",
         "DeleteBookmark",
@@ -22,6 +24,7 @@ public sealed partial class SuccessResponseGuardrailTests
         "DeleteCollectionArtwork",
         "DeleteHighlight",
         "DeleteMediaType",
+        "DeletePasskey",
         "DeleteProfile",
         "DeleteViewProfileSource",
         "DeleteProvider",
@@ -55,12 +58,14 @@ public sealed partial class SuccessResponseGuardrailTests
         "StartAiModelDownload",
         "StreamAsset",
         "SetDetailDefaultSequence",
+        "SetAdministratorPin",
         "SetProfilePin",
         "DecideDevicePairing",
         "UpdateClientCapabilities",
         "ChangePassword",
         "PutSearchResultsCache",
-        "UnlinkProfileExternalLogin",
+        "RegisterPasskey",
+        "UnlinkAccountExternalLogin",
         "UpdateHighlight",
         "UpdateReadingStatistics",
         "UpdateCollection",
@@ -175,7 +180,7 @@ public sealed partial class SuccessResponseGuardrailTests
             }
         }
 
-        Assert.Equal(454, routeCount);
+        Assert.Equal(476, routeCount);
         Assert.True(
             missingSuccessMetadata.Count == 0,
             "Routes missing explicit 2xx Produces metadata: " + string.Join(", ", missingSuccessMetadata));

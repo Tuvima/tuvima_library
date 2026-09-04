@@ -2,8 +2,8 @@ namespace MediaEngine.Domain.Entities;
 
 public enum ProfileCredentialKind
 {
-    Password = 0,
-    ProfilePin = 1,
+    ProfilePin = 0,
+    AdministratorPin = 1,
 }
 
 /// <summary>A versioned first-party credential belonging to one local profile.</summary>
@@ -12,7 +12,6 @@ public sealed class ProfileCredential
     public Guid Id { get; set; }
     public Guid ProfileId { get; set; }
     public ProfileCredentialKind Kind { get; set; }
-    public string? NormalizedUsername { get; set; }
     public string SecretHash { get; set; } = string.Empty;
     public string HashScheme { get; set; } = "aspnet-pbkdf2-v3";
     public int HashVersion { get; set; } = 1;

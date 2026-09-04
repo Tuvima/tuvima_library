@@ -291,6 +291,8 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AuthPolicies.Authenticated, policy => policy.RequireAuthenticatedUser());
     options.AddPolicy(AuthPolicies.Administrator, policy =>
+        policy.RequireAuthenticatedUser().RequireRole(MediaEngine.Domain.AppRoles.Administrator).AddRequirements(new AdministratorElevationRequirement()));
+    options.AddPolicy(AuthPolicies.AdministratorRole, policy =>
         policy.RequireAuthenticatedUser().RequireRole(MediaEngine.Domain.AppRoles.Administrator));
     options.AddPolicy(AuthPolicies.StandardOrAdministrator, policy =>
         policy.RequireAuthenticatedUser().RequireRole(
@@ -307,6 +309,7 @@ builder.Services.AddAuthorization(options =>
         .RequireAuthenticatedUser()
         .Build();
 });
+builder.Services.AddScoped<IAuthorizationHandler, AdministratorElevationHandler>();
 builder.Services.AddTuvimaPlayback();
 builder.Services.AddTuvimaNetworking();
 builder.Services.AddMediaEngineIngestion(config, configLoader);

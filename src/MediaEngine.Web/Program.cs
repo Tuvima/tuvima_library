@@ -23,6 +23,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using System.Net;
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Security.Claims;
 using System.Text;
 using MediaEngine.Web.Endpoints;
 
@@ -106,6 +107,8 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 });
 
 var authSettings = dashboardConfig.LoadCore().Auth;
+builder.Services.AddSingleton(authSettings.PasswordReset);
+builder.Services.AddSingleton<PasswordResetEmailSender>();
 var externalSignInAllowed =
     !string.Equals(authSettings.Mode, "Local", StringComparison.OrdinalIgnoreCase) &&
     !string.Equals(authSettings.Mode, "DisabledLocalOnly", StringComparison.OrdinalIgnoreCase);
@@ -218,6 +221,7 @@ builder.Services.AddTransient<ViewProfileAssertionHandler>(services => new ViewP
     services.GetRequiredService<IActiveProfileAccessor>(),
     services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken()));
 builder.Services.AddScoped<DashboardIdentityClient>();
+builder.Services.AddScoped<AdministratorElevationNavigationService>();
 builder.Services.AddSingleton(new ViewMediaGrantService(mediaGrantKey, mediaGrantLifetime));
 builder.Services.AddHttpClient<EngineApiClient>(ConfigureEngineClient)
     .AddHttpMessageHandler<ViewProfileAssertionHandler>()
@@ -308,6 +312,21 @@ app.Use(async (context, next) =>
 app.UseHttpsRedirection();
 app.UseRequestLocalization();
 app.UseAuthentication();
+app.Use(async (context,next)=>
+{
+    if(context.Request.Path.StartsWithSegments("/settings")
+       && context.User.IsInRole(MediaEngine.Domain.AppRoles.Administrator)
+       && Guid.TryParse(context.User.FindFirstValue("tuvima:session_id"),out _))
+    {
+        var elevation=await context.RequestServices.GetRequiredService<DashboardIdentityClient>().GetElevationAsync(context.RequestAborted).ConfigureAwait(false);
+        if(elevation?.Elevated!=true)
+        {
+            var target=context.Request.PathBase+context.Request.Path+context.Request.QueryString;
+            context.Response.Redirect($"/account/elevate?returnUrl={Uri.EscapeDataString(target)}");return;
+        }
+    }
+    await next().ConfigureAwait(false);
+});
 app.UseAuthorization();
 app.UseAntiforgery();
 

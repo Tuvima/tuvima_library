@@ -15,6 +15,19 @@ public sealed class AuthSettingsDto
 
     [JsonPropertyName("external_providers")]
     public List<ExternalAuthProviderDto> ExternalProviders { get; init; } = [];
+
+    [JsonPropertyName("password_reset")]
+    public PasswordResetDeliveryDto PasswordReset { get; init; } = new();
+}
+
+public sealed class PasswordResetDeliveryDto
+{
+    [JsonPropertyName("mode")] public string Mode { get; init; } = "Disabled";
+    [JsonPropertyName("public_base_url")] public string PublicBaseUrl { get; init; } = string.Empty;
+    [JsonPropertyName("smtp_host")] public string SmtpHost { get; init; } = string.Empty;
+    [JsonPropertyName("smtp_port")] public int SmtpPort { get; init; }
+    [JsonPropertyName("from_address")] public string FromAddress { get; init; } = string.Empty;
+    [JsonPropertyName("configured")] public bool Configured { get; init; }
 }
 
 public sealed class ExternalAuthProviderDto

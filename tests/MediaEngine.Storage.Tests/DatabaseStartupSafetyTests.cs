@@ -302,9 +302,23 @@ public sealed class DatabaseStartupSafetyTests
             ("audiobook_listen_history", "profile_id"),
             ("audiobook_listen_history", "work_id"),
             ("audiobook_listen_history", "asset_id"),
+            ("accounts", "id"),
+            ("account_profile_grants", "account_id"),
+            ("account_profile_grants", "profile_id"),
+            ("account_invitations", "id"),
+            ("account_invitations", "account_id"),
+            ("account_passkeys", "account_id"),
+            ("account_external_logins", "id"),
+            ("account_external_logins", "account_id"),
+            ("account_credentials", "id"),
+            ("account_credentials", "account_id"),
             ("auth_sessions", "id"),
-            ("auth_sessions", "profile_id"),
+            ("auth_sessions", "account_id"),
             ("auth_sessions", "active_profile_id"),
+            ("administrator_elevation_grants", "session_id"),
+            ("administrator_elevation_grants", "profile_id"),
+            ("password_reset_challenges", "id"),
+            ("password_reset_challenges", "account_id"),
             ("audiobook_bookmarks", "id"),
             ("audiobook_bookmarks", "profile_id"),
             ("audiobook_bookmarks", "work_id"),
@@ -315,8 +329,6 @@ public sealed class DatabaseStartupSafetyTests
             ("playback_segments", "asset_id"),
             ("profile_credentials", "id"),
             ("profile_credentials", "profile_id"),
-            ("profile_external_logins", "id"),
-            ("profile_external_logins", "profile_id"),
             ("profile_person_preferences", "person_id"),
             ("profile_person_preferences", "profile_id"),
             ("profile_sequence_preferences", "profile_id"),
@@ -329,7 +341,7 @@ public sealed class DatabaseStartupSafetyTests
             ("reader_statistics", "id"),
             ("reader_statistics", "asset_id"),
             ("password_recovery_codes", "id"),
-            ("password_recovery_codes", "profile_id"),
+            ("password_recovery_codes", "account_id"),
             ("retail_match_candidates", "provider_id"),
             ("search_results_cache", "entity_id"),
             ("series_manifest_hydrations", "collection_id"),
@@ -337,6 +349,7 @@ public sealed class DatabaseStartupSafetyTests
             ("series_manifest_items", "collection_id"),
             ("series_manifest_items", "linked_work_id"),
             ("service_credentials", "id"),
+            ("identity_audit_events", "account_id"),
             ("identity_audit_events", "profile_id"),
             ("identity_audit_events", "session_id"),
             ("text_tracks", "id"),
@@ -360,7 +373,7 @@ public sealed class DatabaseStartupSafetyTests
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
         var actualGuidColumns = DeclaredBlobColumns(conn)
-            .Where(value => value != "audio_fingerprints.fingerprint")
+            .Where(value => value is not "audio_fingerprints.fingerprint" and not "account_passkeys.credential_id")
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
 

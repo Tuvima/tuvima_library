@@ -38,21 +38,22 @@ public sealed class DashboardCookieEvents(DashboardIdentityClient identity) : Co
 public static class DashboardPrincipalFactory
 {
     public static ClaimsPrincipal Create(AuthSessionResponse response) =>
-        CreateCore(response.SessionId, response.ProfileId, response.ActiveProfileId, response.DisplayName,
+        CreateCore(response.SessionId, response.AccountId, response.ActiveProfileId, response.DisplayName,
             response.Role, response.AuthenticationMethod, response.SessionToken);
 
     public static ClaimsPrincipal Create(SessionValidationResponse response, string token) =>
-        CreateCore(response.SessionId, response.ProfileId, response.ActiveProfileId, response.DisplayName,
+        CreateCore(response.SessionId, response.AccountId, response.ActiveProfileId, response.DisplayName,
             response.Role, response.AuthenticationMethod, token);
 
-    private static ClaimsPrincipal CreateCore(Guid sessionId, Guid profileId, Guid activeProfileId, string name, string role, string method, string token)
+    private static ClaimsPrincipal CreateCore(Guid sessionId, Guid accountId, Guid activeProfileId, string name, string role, string method, string token)
     {
         var claims = new[]
         {
-            new Claim(ClaimTypes.NameIdentifier, profileId.ToString("D")),
+            new Claim(ClaimTypes.NameIdentifier, accountId.ToString("D")),
             new Claim(ClaimTypes.Name, name),
             new Claim(ClaimTypes.Role, role),
-            new Claim("tuvima:profile_id", profileId.ToString("D")),
+            new Claim("tuvima:account_id", accountId.ToString("D")),
+            new Claim("tuvima:profile_id", activeProfileId.ToString("D")),
             new Claim("tuvima:active_profile_id", activeProfileId.ToString("D")),
             new Claim("tuvima:session_id", sessionId.ToString("D")),
             new Claim("tuvima:authentication_method", method),

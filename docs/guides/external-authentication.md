@@ -92,7 +92,9 @@ explicitly does not support it.
 
 ## Private secrets
 
-Create `config/.secrets/auth-providers.json` on the server:
+Copy `config/examples/auth-providers.secrets.example.json` to
+`config/.secrets/auth-providers.json` on the server, then replace only the
+secrets for configured providers:
 
 ```json
 {
@@ -115,14 +117,21 @@ supports a public authorization-code client with PKCE.
 ## Identity linking
 
 An external login succeeds only after the verified provider identity has been
-linked to a local Tuvima identity. Tuvima keys that link by provider ID, issuer,
+linked to a Tuvima account. Tuvima keys that link by provider ID, issuer,
 and immutable subject. It does not use an email-address match to link accounts.
 This prevents an email reassignment or an unverified provider email from taking
 over an existing library account.
 
-Manual subject linking remains a temporary pre-account-cutover administrator
-surface. It will be removed when the Account Security connect flow and remote
-invitation acceptance are implemented.
+Sign in with an existing account, open **Account & Security**, and choose the
+configured provider's **Link** action. Tuvima links the immutable identity only
+after that provider completes its own validated callback. Administrators never
+type provider subject identifiers manually. The same page can disconnect a
+provider, but Tuvima refuses to remove the account's final usable authenticator.
+
+For a new remote family member, first create a targeted invitation under
+**Users & Access → Accounts & Profile Grants**. After the invitation is accepted,
+the family member can connect their preferred external provider from Account
+Security.
 
 ## Reverse proxies
 

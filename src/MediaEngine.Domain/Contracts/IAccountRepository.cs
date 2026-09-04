@@ -1,0 +1,21 @@
+using MediaEngine.Domain.Entities;
+
+namespace MediaEngine.Domain.Contracts;
+
+public interface IAccountRepository
+{
+    Task<Account?> GetByIdAsync(Guid id, CancellationToken ct = default);
+    Task<Account?> GetByNormalizedEmailAsync(string normalizedEmail, CancellationToken ct = default);
+    Task<IReadOnlyList<Account>> GetAllAsync(CancellationToken ct = default);
+    Task InsertAsync(Account account, CancellationToken ct = default);
+    Task<bool> UpdateAsync(Account account, CancellationToken ct = default);
+    Task GrantProfileAsync(AccountProfileGrant grant, CancellationToken ct = default);
+    Task<bool> RevokeProfileAsync(Guid accountId, Guid profileId, CancellationToken ct = default);
+    Task<bool> HasProfileAccessAsync(Guid accountId, Guid profileId, CancellationToken ct = default);
+    Task<IReadOnlyList<Guid>> GetProfileIdsAsync(Guid accountId, CancellationToken ct = default);
+    Task<Guid?> GetDefaultProfileIdAsync(Guid accountId, CancellationToken ct = default);
+    Task<Guid?> GetLocalOnlyAccountIdForProfileAsync(Guid profileId, CancellationToken ct = default);
+    Task InsertInvitationAsync(AccountInvitation invitation, CancellationToken ct = default);
+    Task<AccountInvitation?> GetActiveInvitationAsync(string tokenHash, DateTimeOffset now, CancellationToken ct = default);
+    Task<bool> ConsumeInvitationAsync(Guid invitationId, DateTimeOffset consumedAt, CancellationToken ct = default);
+}

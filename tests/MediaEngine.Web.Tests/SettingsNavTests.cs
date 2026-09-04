@@ -270,7 +270,7 @@ public sealed class SettingsNavTests
             .Select(item => item.Label)
             .ToArray();
 
-        Assert.Equal(["Profile", "Playback & Reading"], userLabels);
+        Assert.Equal(["Profile", "Account & Security", "Playback & Reading"], userLabels);
 
         var adminLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "administration"), "Administrator")
             .Select(item => item.Label)

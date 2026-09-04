@@ -40,13 +40,22 @@ public sealed class RepositoryTests : IDisposable
     // ════════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public async Task ProfileExternalLogin_InsertFindTouchAndDelete()
+    public async Task AccountExternalLogin_InsertFindTouchAndDelete()
     {
-        var repo = new ProfileExternalLoginRepository(_db);
-        var login = new ProfileExternalLogin
+        var repo = new AccountExternalLoginRepository(_db);
+        var accountRepo = new AccountRepository(_db);
+        await accountRepo.InsertAsync(new Account
+        {
+            Id = Account.SeedAccountId,
+            Email = "owner@example.com",
+            NormalizedEmail = "OWNER@EXAMPLE.COM",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        var login = new AccountExternalLogin
         {
             Id = Guid.NewGuid(),
-            ProfileId = Profile.SeedProfileId,
+            AccountId = Account.SeedAccountId,
             Provider = "oidc",
             Issuer = "https://identity.example",
             Subject = $"subject-{Guid.NewGuid():N}",
@@ -57,17 +66,17 @@ public sealed class RepositoryTests : IDisposable
 
         await repo.InsertAsync(login);
 
-        var byProfile = await repo.GetByProfileAsync(Profile.SeedProfileId);
+        var byAccount = await repo.GetByAccountAsync(Account.SeedAccountId);
         var bySubject = await repo.GetByProviderSubjectAsync(login.Provider, login.Issuer, login.Subject);
 
-        Assert.Contains(byProfile, item => item.Id == login.Id);
+        Assert.Contains(byAccount, item => item.Id == login.Id);
         Assert.NotNull(bySubject);
         Assert.Equal(login.Email, bySubject.Email);
 
-        var otherIssuer = new ProfileExternalLogin
+        var otherIssuer = new AccountExternalLogin
         {
             Id = Guid.NewGuid(),
-            ProfileId = Profile.SeedProfileId,
+            AccountId = Account.SeedAccountId,
             Provider = login.Provider,
             Issuer = "https://other-identity.example",
             Subject = login.Subject,
@@ -78,6 +87,19 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal(
             otherIssuer.Id,
             (await repo.GetByProviderSubjectAsync(otherIssuer.Provider, otherIssuer.Issuer, otherIssuer.Subject))?.Id);
+
+        var secondAccount = new Account
+        {
+            Id = Guid.NewGuid(), Email = "other@example.com", NormalizedEmail = "OTHER@EXAMPLE.COM",
+            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+        };
+        await accountRepo.InsertAsync(secondAccount);
+        var stolenIdentity = new AccountExternalLogin
+        {
+            Id = Guid.NewGuid(), AccountId = secondAccount.Id, Provider = login.Provider,
+            Issuer = login.Issuer, Subject = login.Subject, LinkedAt = DateTimeOffset.UtcNow,
+        };
+        await Assert.ThrowsAsync<SqliteException>(() => repo.InsertAsync(stolenIdentity));
 
         var lastLoginAt = DateTimeOffset.UtcNow.AddMinutes(1);
         Assert.True(await repo.TouchLastLoginAsync(login.Id, lastLoginAt));

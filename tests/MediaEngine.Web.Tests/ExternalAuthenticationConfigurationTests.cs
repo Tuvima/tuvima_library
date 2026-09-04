@@ -2,6 +2,9 @@ using MediaEngine.Domain.Configuration;
 using MediaEngine.Web.Services.Configuration;
 using MediaEngine.Web.Services.Integration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
 namespace MediaEngine.Web.Tests;
 
@@ -98,5 +101,16 @@ public sealed class ExternalAuthenticationConfigurationTests
                 Assert.Equal("Tuvima.External.github", github.AuthenticationScheme);
                 Assert.Equal("/signin-tuvima-github", github.CallbackPath);
             });
+
+        using var provider = services.BuildServiceProvider();
+        var oidc = provider.GetRequiredService<IOptionsMonitor<OpenIdConnectOptions>>()
+            .Get("Tuvima.External.google");
+        var oauth = provider.GetRequiredService<IOptionsMonitor<OAuthOptions>>()
+            .Get("Tuvima.External.github");
+        Assert.True(oidc.UsePkce);
+        Assert.True(oidc.ProtocolValidator.RequireNonce);
+        Assert.True(oauth.UsePkce);
+        Assert.Equal("/signin-tuvima-google", oidc.CallbackPath);
+        Assert.Equal("/signin-tuvima-github", oauth.CallbackPath);
     }
 }

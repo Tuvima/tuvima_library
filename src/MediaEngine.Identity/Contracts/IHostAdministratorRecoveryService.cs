@@ -7,7 +7,7 @@ namespace MediaEngine.Identity.Contracts;
 public interface IHostAdministratorRecoveryService
 {
     Task<IReadOnlyList<string>> ResetAdministratorPasswordFromHostAsync(
-        string username,
+        string email,
         string newPassword,
         CancellationToken ct = default);
 }

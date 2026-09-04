@@ -7,17 +7,17 @@ public sealed class ResetAdministratorPasswordCommand(
     IHostAdministratorRecoveryService recovery,
     IAdminConsole console)
 {
-    public async Task<int> ExecuteAsync(string? suppliedUsername, CancellationToken ct = default)
+    public async Task<int> ExecuteAsync(string? suppliedEmail, CancellationToken ct = default)
     {
         try
         {
             authorizer.EnsureAuthorized();
-            var username = string.IsNullOrWhiteSpace(suppliedUsername)
-                ? console.ReadLine("Administrator username: ")
-                : suppliedUsername;
-            if (string.IsNullOrWhiteSpace(username))
+            var email = string.IsNullOrWhiteSpace(suppliedEmail)
+                ? console.ReadLine("Administrator email: ")
+                : suppliedEmail;
+            if (string.IsNullOrWhiteSpace(email))
             {
-                console.WriteError("Administrator username is required.");
+                console.WriteError("Administrator email is required.");
                 return 2;
             }
 
@@ -30,7 +30,7 @@ public sealed class ResetAdministratorPasswordCommand(
             }
 
             var recoveryCodes = await recovery.ResetAdministratorPasswordFromHostAsync(
-                username,
+                email,
                 password,
                 ct).ConfigureAwait(false);
 

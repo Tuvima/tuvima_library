@@ -111,22 +111,6 @@ public partial interface IEngineApiClient
 
     Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default);
 
-    /// <summary>GET /profiles/{id}/external-logins — list linked SSO/OAuth accounts.</summary>
-    Task<List<ProfileExternalLoginViewModel>> GetProfileExternalLoginsAsync(Guid profileId, CancellationToken ct = default);
-
-    /// <summary>POST /profiles/{id}/external-logins — link a sign-in account.</summary>
-    Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
-        Guid profileId,
-        string provider,
-        string issuer,
-        string subject,
-        string? email = null,
-        string? displayName = null,
-        CancellationToken ct = default);
-
-    /// <summary>DELETE /profiles/external-logins/{loginId} — unlink a sign-in account.</summary>
-    Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default);
-
     /// <summary>GET /profiles/{id}/taste — read the computed taste profile for a user.</summary>
     Task<TasteProfileBuildResponse?> GetTasteProfileAsync(Guid id, CancellationToken ct = default);
 

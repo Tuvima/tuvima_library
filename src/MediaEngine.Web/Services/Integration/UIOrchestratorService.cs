@@ -370,27 +370,6 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return deleted;
     }
 
-    /// <summary>Lists external SSO/OAuth accounts linked to a profile.</summary>
-    public Task<List<ProfileExternalLoginViewModel>> GetProfileExternalLoginsAsync(
-        Guid profileId,
-        CancellationToken ct = default)
-        => _api.GetProfileExternalLoginsAsync(profileId, ct);
-
-    /// <summary>Links an external SSO/OAuth account to a profile.</summary>
-    public Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
-        Guid profileId,
-        string provider,
-        string issuer,
-        string subject,
-        string? email = null,
-        string? displayName = null,
-        CancellationToken ct = default)
-        => _api.LinkProfileExternalLoginAsync(profileId, provider, issuer, subject, email, displayName, ct);
-
-    /// <summary>Unlinks an external SSO/OAuth account from a profile.</summary>
-    public Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default)
-        => _api.UnlinkProfileExternalLoginAsync(loginId, ct);
-
     // -- Metadata Claims ---------------------------------------------------------
 
     /// <summary>Returns claim history for a given entity (Work or Edition).</summary>

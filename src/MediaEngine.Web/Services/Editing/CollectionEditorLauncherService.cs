@@ -1,4 +1,5 @@
 using MediaEngine.Web.Components.Collections;
+using MediaEngine.Web.Services.Integration;
 using MudBlazor;
 
 namespace MediaEngine.Web.Services.Editing;
@@ -6,10 +7,12 @@ namespace MediaEngine.Web.Services.Editing;
 public sealed class CollectionEditorLauncherService
 {
     private readonly IDialogService _dialogService;
+    private readonly AdministratorElevationNavigationService? _elevation;
 
-    public CollectionEditorLauncherService(IDialogService dialogService)
+    public CollectionEditorLauncherService(IDialogService dialogService, AdministratorElevationNavigationService? elevation = null)
     {
         _dialogService = dialogService;
+        _elevation = elevation;
     }
 
     public CollectionEditorInlineSession BeginInline(CollectionEditorLaunchRequest request)
@@ -26,6 +29,9 @@ public sealed class CollectionEditorLauncherService
         ArgumentNullException.ThrowIfNull(request);
         var isManualPlaylist = request.Mode == CollectionEditorMode.ManualPlaylist;
         var isSmartPlaylist = request.Mode == CollectionEditorMode.SmartPlaylist;
+
+        if (!isManualPlaylist && !isSmartPlaylist && _elevation is not null && !await _elevation.EnsureElevatedAsync())
+            return false;
 
         if (request.EditingCollection is null && request.Mode == CollectionEditorMode.CuratedCollection)
             return await OpenGuidedSetupAsync(request);

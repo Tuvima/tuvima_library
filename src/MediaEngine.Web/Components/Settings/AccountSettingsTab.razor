@@ -1,0 +1,24 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<div class="tl-page">
+    <SettingsSectionPanel Title="Account & Security"
+                          Description="Your account proves who may sign in. Profiles separately control display name, preferences, history, and library identity."
+                          Icon="@Icons.Material.Outlined.ManageAccounts">
+        <SettingsAdvancedLinkRow Title="Email, password & recovery"
+                                 Description="Review your sign-in email, change your password, and manage recovery options."
+                                 Href="/account/security"
+                                 ActionLabel="Manage" />
+        <SettingsAdvancedLinkRow Title="Passkeys & Windows Hello"
+                                 Description="Add phishing-resistant passkeys backed by this device, Windows Hello, or a password manager."
+                                 Href="/account/security"
+                                 ActionLabel="Manage" />
+        <SettingsAdvancedLinkRow Title="Connected providers"
+                                 Description="Connect or disconnect Google, Microsoft, GitHub, Facebook, and configured OpenID Connect providers."
+                                 Href="/account/security"
+                                 ActionLabel="Manage" />
+        <SettingsAdvancedLinkRow Title="Administrator access"
+                                 Description="Confirm an administrator PIN, password, passkey, or Windows Hello for a 30-minute elevated session."
+                                 Href="/account/elevate?returnUrl=/settings/account"
+                                 ActionLabel="Unlock" />
+    </SettingsSectionPanel>
+</div>

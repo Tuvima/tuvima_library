@@ -1201,19 +1201,6 @@ CREATE TABLE IF NOT EXISTS playback_segments (
     updated_at    TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS profile_external_logins (
-    id            BLOB NOT NULL PRIMARY KEY,
-    profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    provider      TEXT NOT NULL,
-    issuer        TEXT NOT NULL,
-    subject       TEXT NOT NULL,
-    email         TEXT,
-    display_name  TEXT,
-    linked_at     TEXT NOT NULL,
-    last_login_at TEXT,
-    UNIQUE(provider, issuer, subject)
-);
-
 CREATE TABLE IF NOT EXISTS profiles (
     id           BLOB NOT NULL PRIMARY KEY,  -- UUID
     display_name TEXT NOT NULL,
@@ -1224,6 +1211,52 @@ CREATE TABLE IF NOT EXISTS profiles (
     created_at   TEXT NOT NULL
 , navigation_config TEXT);
 
+CREATE TABLE IF NOT EXISTS accounts (
+    id               BLOB NOT NULL PRIMARY KEY,
+    email            TEXT,
+    normalized_email TEXT,
+    is_local_only    INTEGER NOT NULL DEFAULT 0 CHECK (is_local_only IN (0, 1)),
+    is_enabled       INTEGER NOT NULL DEFAULT 1 CHECK (is_enabled IN (0, 1)),
+    created_at       TEXT NOT NULL,
+    updated_at       TEXT NOT NULL,
+    CHECK ((is_local_only = 1 AND email IS NULL AND normalized_email IS NULL)
+        OR (is_local_only = 0 AND email IS NOT NULL AND normalized_email IS NOT NULL))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_accounts_normalized_email
+    ON accounts(normalized_email) WHERE normalized_email IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS account_profile_grants (
+    account_id BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
+    granted_at TEXT NOT NULL,
+    PRIMARY KEY (account_id, profile_id)
+);
+
+CREATE TABLE IF NOT EXISTS account_invitations (
+    id          BLOB NOT NULL PRIMARY KEY,
+    account_id  BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    token_hash  TEXT NOT NULL UNIQUE,
+    created_at  TEXT NOT NULL,
+    expires_at  TEXT NOT NULL,
+    consumed_at TEXT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_account_profile_default
+    ON account_profile_grants(account_id) WHERE is_default = 1;
+
+CREATE TABLE IF NOT EXISTS account_external_logins (
+    id            BLOB NOT NULL PRIMARY KEY,
+    account_id    BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    provider      TEXT NOT NULL,
+    issuer        TEXT NOT NULL,
+    subject       TEXT NOT NULL,
+    email         TEXT,
+    display_name  TEXT,
+    linked_at     TEXT NOT NULL,
+    last_login_at TEXT,
+    UNIQUE(provider, issuer, subject)
+);
+
 -- Versioned first-party identity and access storage. Human credentials are
 -- salted, work-factored payloads produced by ASP.NET Core PasswordHasher.
 CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -1231,11 +1264,10 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
     applied_at   TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS profile_credentials (
+CREATE TABLE IF NOT EXISTS account_credentials (
     id                   BLOB NOT NULL PRIMARY KEY,
-    profile_id           BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    credential_kind      TEXT NOT NULL CHECK (credential_kind IN ('Password', 'ProfilePin')),
-    normalized_username  TEXT,
+    account_id           BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    credential_kind      TEXT NOT NULL CHECK (credential_kind = 'Password'),
     secret_hash          TEXT NOT NULL,
     hash_scheme          TEXT NOT NULL,
     hash_version         INTEGER NOT NULL,
@@ -1245,18 +1277,28 @@ CREATE TABLE IF NOT EXISTS profile_credentials (
     created_at           TEXT NOT NULL,
     updated_at           TEXT NOT NULL,
     last_used_at         TEXT,
-    UNIQUE(profile_id, credential_kind),
-    CHECK ((credential_kind = 'Password' AND normalized_username IS NOT NULL)
-        OR (credential_kind = 'ProfilePin' AND normalized_username IS NULL))
+    UNIQUE(account_id, credential_kind)
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS ux_profile_credentials_username
-    ON profile_credentials(normalized_username)
-    WHERE normalized_username IS NOT NULL;
+CREATE TABLE IF NOT EXISTS profile_credentials (
+    id                   BLOB NOT NULL PRIMARY KEY,
+    profile_id           BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    credential_kind      TEXT NOT NULL CHECK (credential_kind IN ('ProfilePin', 'AdministratorPin')),
+    secret_hash          TEXT NOT NULL,
+    hash_scheme          TEXT NOT NULL,
+    hash_version         INTEGER NOT NULL,
+    security_stamp       TEXT NOT NULL,
+    failed_attempt_count INTEGER NOT NULL DEFAULT 0,
+    locked_until         TEXT,
+    created_at           TEXT NOT NULL,
+    updated_at           TEXT NOT NULL,
+    last_used_at         TEXT,
+    UNIQUE(profile_id, credential_kind)
+);
 
 CREATE TABLE IF NOT EXISTS auth_sessions (
     id                    BLOB NOT NULL PRIMARY KEY,
-    profile_id            BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    account_id            BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     active_profile_id     BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     token_hash            TEXT NOT NULL UNIQUE,
     device_id             TEXT NOT NULL,
@@ -1271,8 +1313,34 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
     revoked_reason        TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_auth_sessions_profile_active
-    ON auth_sessions(profile_id, revoked_at, expires_at);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_account_active
+    ON auth_sessions(account_id, revoked_at, expires_at);
+
+CREATE TABLE IF NOT EXISTS administrator_elevation_grants (
+    session_id BLOB NOT NULL PRIMARY KEY REFERENCES auth_sessions(id) ON DELETE CASCADE,
+    profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    method     TEXT NOT NULL,
+    granted_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS account_passkeys (
+    credential_id BLOB NOT NULL PRIMARY KEY,
+    account_id    BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    name          TEXT NOT NULL,
+    data_json     TEXT NOT NULL,
+    created_at    TEXT NOT NULL,
+    last_used_at  TEXT
+);
+
+CREATE TABLE IF NOT EXISTS password_reset_challenges (
+    id         BLOB NOT NULL PRIMARY KEY,
+    account_id BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    consumed_at TEXT
+);
 
 -- Server-issued identities for Dashboard, television, mobile and future
 -- clients. Request fields and browser storage are never identity authorities.
@@ -1342,12 +1410,12 @@ CREATE INDEX IF NOT EXISTS idx_client_tokens_device_active
 
 CREATE TABLE IF NOT EXISTS password_recovery_codes (
     id          BLOB NOT NULL PRIMARY KEY,
-    profile_id  BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    account_id  BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     code_hash   TEXT NOT NULL,
     created_at  TEXT NOT NULL,
     expires_at  TEXT NOT NULL,
     consumed_at TEXT,
-    UNIQUE(profile_id, code_hash)
+    UNIQUE(account_id, code_hash)
 );
 
 CREATE TABLE IF NOT EXISTS service_credentials (
@@ -1366,6 +1434,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_service_credentials_active_purpose
 
 CREATE TABLE IF NOT EXISTS identity_audit_events (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id  BLOB REFERENCES accounts(id) ON DELETE SET NULL,
     profile_id  BLOB REFERENCES profiles(id) ON DELETE SET NULL,
     session_id  BLOB,
     event_type  TEXT NOT NULL,
@@ -2082,8 +2151,8 @@ CREATE INDEX IF NOT EXISTS idx_prc_expires ON provider_response_cache (expires_a
 
 CREATE INDEX IF NOT EXISTS idx_prc_provider ON provider_response_cache (provider_id);
 
-CREATE INDEX IF NOT EXISTS idx_profile_external_logins_profile
-    ON profile_external_logins(profile_id);
+CREATE INDEX IF NOT EXISTS idx_account_external_logins_account
+    ON account_external_logins(account_id);
 
 CREATE INDEX IF NOT EXISTS idx_qid_labels_type ON qid_labels(entity_type);
 

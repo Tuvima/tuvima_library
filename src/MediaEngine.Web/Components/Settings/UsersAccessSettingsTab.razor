@@ -6,6 +6,9 @@
              aria-label="@ActiveSectionLabel">
         @switch (ActiveSection)
         {
+            case "accounts":
+                <AccountsAccessTab />
+                break;
             case "authentication":
                 <SecurityTab Section="authentication" />
                 break;
@@ -27,6 +30,7 @@
 
     private string ActiveSection => Subsection.ToLowerInvariant() switch
     {
+        "accounts" => "accounts",
         "authentication" => "authentication",
         "api-keys" => "api-keys",
         "session-policy" => "session-policy",
@@ -35,6 +39,7 @@
 
     private string ActiveSectionLabel => ActiveSection switch
     {
+        "accounts" => "Accounts and profile grants",
         "authentication" => "Authentication",
         "api-keys" => "Guest API Keys",
         "session-policy" => "Session Policy",

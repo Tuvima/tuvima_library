@@ -97,7 +97,7 @@ public sealed class ActiveProfileSessionService : IDisposable
                 return null;
             _dashboardSession.Set(
                 _dashboardSession.SessionToken,
-                switched.ProfileId,
+                switched.AccountId,
                 switched.ActiveProfileId,
                 switched.SessionId,
                 switched.Role);
@@ -145,11 +145,11 @@ public sealed class ActiveProfileSessionService : IDisposable
         {
             var principal = (await _authenticationStateProvider.GetAuthenticationStateAsync()).User;
             var token = principal.FindFirstValue(DashboardEngineAuthenticationHandler.SessionTokenClaim);
-            var profileId = ParseGuid(principal.FindFirstValue("tuvima:profile_id"));
+            var accountId = ParseGuid(principal.FindFirstValue("tuvima:account_id"));
             var activeId = ParseGuid(principal.FindFirstValue("tuvima:active_profile_id"));
             var sessionId = ParseGuid(principal.FindFirstValue("tuvima:session_id"));
             var role = principal.FindFirstValue(ClaimTypes.Role);
-            _dashboardSession?.Set(token, profileId, activeId, sessionId, role);
+            _dashboardSession?.Set(token, accountId, activeId, sessionId, role);
 
             if (activeId is { } authenticatedActiveId)
             {

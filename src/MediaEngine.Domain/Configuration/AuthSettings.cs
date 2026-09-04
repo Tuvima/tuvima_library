@@ -15,6 +15,22 @@ public sealed class AuthSettings
 
     [JsonPropertyName("external_providers")]
     public List<ExternalAuthProviderSettings> ExternalProviders { get; set; } = [];
+
+    [JsonPropertyName("password_reset")]
+    public PasswordResetDeliverySettings PasswordReset { get; set; } = new();
+}
+
+public sealed class PasswordResetDeliverySettings
+{
+    [JsonPropertyName("mode")] public string Mode { get; set; } = "Disabled";
+    [JsonPropertyName("public_base_url")] public string PublicBaseUrl { get; set; } = string.Empty;
+    [JsonPropertyName("smtp_host")] public string SmtpHost { get; set; } = string.Empty;
+    [JsonPropertyName("smtp_port")] public int SmtpPort { get; set; } = 587;
+    [JsonPropertyName("use_start_tls")] public bool UseStartTls { get; set; } = true;
+    [JsonPropertyName("from_address")] public string FromAddress { get; set; } = string.Empty;
+    [JsonPropertyName("from_name")] public string FromName { get; set; } = "Tuvima Library";
+    [JsonPropertyName("username")] public string Username { get; set; } = string.Empty;
+    [JsonIgnore] public string Password { get; set; } = string.Empty;
 }
 
 public static class ExternalAuthProviderKinds

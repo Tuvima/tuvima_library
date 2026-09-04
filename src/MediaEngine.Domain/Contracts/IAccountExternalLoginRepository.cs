@@ -2,17 +2,17 @@ using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Domain.Contracts;
 
-public interface IProfileExternalLoginRepository
+public interface IAccountExternalLoginRepository
 {
-    Task<IReadOnlyList<ProfileExternalLogin>> GetByProfileAsync(Guid profileId, CancellationToken ct = default);
+    Task<IReadOnlyList<AccountExternalLogin>> GetByAccountAsync(Guid accountId, CancellationToken ct = default);
 
-    Task<ProfileExternalLogin?> GetByProviderSubjectAsync(
+    Task<AccountExternalLogin?> GetByProviderSubjectAsync(
         string provider,
         string issuer,
         string subject,
         CancellationToken ct = default);
 
-    Task InsertAsync(ProfileExternalLogin login, CancellationToken ct = default);
+    Task InsertAsync(AccountExternalLogin login, CancellationToken ct = default);
 
     Task<bool> DeleteAsync(Guid id, CancellationToken ct = default);
 

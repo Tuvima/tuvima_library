@@ -4,7 +4,7 @@ namespace MediaEngine.Domain.Entities;
 public sealed class AuthSession
 {
     public Guid Id { get; set; }
-    public Guid ProfileId { get; set; }
+    public Guid AccountId { get; set; }
     public Guid ActiveProfileId { get; set; }
     public string TokenHash { get; set; } = string.Empty;
     public string DeviceId { get; set; } = string.Empty;
