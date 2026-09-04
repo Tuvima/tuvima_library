@@ -4,6 +4,7 @@
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
+@inject DeviceContextService DeviceContext
 
 <div class="backup-page">
     <div class="backup-page__toolbar">
@@ -26,23 +27,28 @@
             }
             else
             {
-                <div class="backup-status__notice"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /><span>Latest recovery point was created successfully.</span></div>
                 <div class="backup-status__facts">
                     <div><small>Latest backup</small><strong>@LatestBackup.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</strong></div>
                     <div><small>Backup size</small><strong>@FormatBytes(LatestBackup.SizeBytes)</strong></div>
                     <div><small>Recovery points</small><strong>@_backups.Count</strong></div>
                 </div>
+                @if (DeviceContext.IsMobile)
+                {
+                    <p class="backup-status__mobile-note">Creating, downloading, testing, and restoring recovery points is available on desktop and tablet.</p>
+                }
             }
         </AppPanel>
 
-        @if (_lastValidation is not null)
+        @if (_lastValidation is { Valid: false })
         {
-            <AppAlert Tone="AppUiTone.Success" Class="backup-validation-result">
-                <strong>Restore test passed</strong>
+            <AppAlert Tone="AppUiTone.Error" Class="backup-validation-result">
+                <strong>Restore test failed</strong>
                 <span>@_lastValidation.Message Tested @_lastValidation.ValidatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt").</span>
             </AppAlert>
         }
 
+        @if (!DeviceContext.IsMobile)
+        {
         <div class="backup-actions-grid">
             <AppPanel Elevation="0" Class="tl-card backup-action-card">
                 <MudText Typo="Typo.h6">Create backup</MudText>
@@ -84,6 +90,7 @@
                 <p>Backup location and retention are controlled by the Engine's server configuration.</p>
             </div>
         </details>
+        }
     }
 
     @if (!string.IsNullOrWhiteSpace(_notice))

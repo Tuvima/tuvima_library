@@ -4,6 +4,7 @@
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
+@inject DeviceContextService DeviceContext
 
 <section class="tl-page playback-delivery"
          data-delivery-section="@ActiveSection"
@@ -29,10 +30,10 @@
             }
             else
             {
-                @if (_diagnostics is not null)
+                @if (_diagnostics is not null && !DeliveryChecksPassed)
                 {
-                    <AppAlert Tone="@DeliveryTone" Class="playback-delivery__health">
-                        <strong>@DeliveryHeadline</strong>
+                    <AppAlert Tone="AppUiTone.Warning" Class="playback-delivery__health">
+                        <strong>Playback delivery needs attention</strong>
                         <span>@DeliveryDetail</span>
                     </AppAlert>
                 }
@@ -44,41 +45,33 @@
                 }
 
                 <div class="playback-delivery__grid">
-                    <SettingsSectionPanel Title="Delivery settings"
-                                          Description="Set how the server prepares media for playback and offline use."
-                                          Icon="@Icons.Material.Outlined.VideoSettings">
-                        @if (_settings is null)
-                        {
-                            <AppErrorState Title="Delivery settings are unavailable"
-                                           Message="Start the Engine or retry before changing server playback defaults." />
-                        }
-                        else
-                        {
-                            <div class="playback-delivery__settings">
-                                <AppSelect T="string" @bind-Value="_defaultProfile"
-                                           Label="Prepared download quality"
-                                           Options="@ProfileOptions" />
-                                <AppSelect T="string" @bind-Value="_hardwarePreference"
-                                           Label="Hardware acceleration"
-                                           Options="@HardwareOptions" />
-                                <AppNumericField @bind-Value="_maxConcurrentJobs"
-                                                 Label="Maximum active encodes"
-                                                 Min="1"
-                                                 Max="4" />
-                            </div>
-                            <div class="playback-delivery__save">
-                                <AppButton Label="@(_saving ? "Saving…" : "Save changes")"
-                                           StartIcon="@Icons.Material.Outlined.Save"
-                                           ButtonStyle="AppButtonStyle.Filled"
-                                           Tone="AppUiTone.Primary"
-                                           Disabled="@_saving"
-                                           OnClick="@SaveOverviewAsync" />
-                            </div>
-                        }
-                    </SettingsSectionPanel>
+                    @if (!DeviceContext.IsMobile)
+                    {
+                        <SettingsSectionPanel Title="Delivery settings"
+                                              Description="Set how the server prepares media for playback and offline use."
+                                              Icon="@Icons.Material.Outlined.VideoSettings">
+                            @if (_settings is null)
+                            {
+                                <AppErrorState Title="Delivery settings are unavailable"
+                                               Message="Start the Engine or retry before changing server playback defaults." />
+                            }
+                            else
+                            {
+                                <div class="playback-delivery__settings">
+                                    <AppSelect T="string" @bind-Value="_defaultProfile" Label="Prepared download quality" Options="@ProfileOptions" />
+                                    <AppSelect T="string" @bind-Value="_hardwarePreference" Label="Hardware acceleration" Options="@HardwareOptions" />
+                                    <AppNumericField @bind-Value="_maxConcurrentJobs" Label="Maximum active encodes" Min="1" Max="4" />
+                                </div>
+                                <div class="playback-delivery__save">
+                                    <AppButton Label="@(_saving ? "Saving…" : "Save changes")" StartIcon="@Icons.Material.Outlined.Save"
+                                               ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@_saving" OnClick="@SaveOverviewAsync" />
+                                </div>
+                            }
+                        </SettingsSectionPanel>
+                    }
 
                     <SettingsSectionPanel Title="Current status"
-                                          Description="Live facts reported by the playback Engine."
+                                          Description="Current facts reported by the playback service."
                                           Icon="@Icons.Material.Outlined.MonitorHeart">
                         @if (_diagnostics is null)
                         {
@@ -108,6 +101,8 @@
                     </SettingsSectionPanel>
                 </div>
 
+                @if (!DeviceContext.IsMobile)
+                {
                 <SettingsSectionPanel Title="Advanced"
                                       Description="Scheduling, storage, job history, and technical checks."
                                       Icon="@Icons.Material.Outlined.Tune">
@@ -127,6 +122,7 @@
                                              Description="Inspect playback tools and Engine warnings."
                                              Href="/settings/delivery/diagnostics" />
                 </SettingsSectionPanel>
+                }
             }
             break;
     }
@@ -197,18 +193,12 @@
         _overviewLoaded = true;
     }
 
-    private AppUiTone DeliveryTone => DeliveryChecksPassed ? AppUiTone.Success : AppUiTone.Warning;
-
     private bool DeliveryChecksPassed =>
         _diagnostics is { FFmpegAvailable: true, MediaInfoAvailable: true }
         && _diagnostics.Warnings.Count == 0;
 
-    private string DeliveryHeadline => DeliveryChecksPassed
-        ? "Playback tools are ready"
-        : "Playback delivery needs attention";
-
     private string DeliveryDetail => DeliveryChecksPassed
-        ? "The required media tools are available and the Engine reported no warnings."
+        ? string.Empty
         : _diagnostics!.Warnings.FirstOrDefault()
           ?? "One or more required media tools are unavailable.";
 

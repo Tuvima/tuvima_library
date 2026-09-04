@@ -36,23 +36,26 @@
     else
     {
         <AppActionBar Align="AppHorizontalAlignment.End" Class="media-management__actions">
-            <AppStatusBadge Text="@(_engineUnavailable ? "Engine unavailable" : "Live")"
-                            Tone="@(_engineUnavailable ? AppUiTone.Error : AppUiTone.Success)" />
-            @if (section == "overview")
+            @if (section == "overview" && !readOnly)
             {
                 <AppButton Label="Add import folder"
                            StartIcon="@Icons.Material.Outlined.MoveToInbox"
                            ButtonStyle="AppButtonStyle.Outlined"
-                           Disabled="@(readOnly || _engineUnavailable)"
+                           Disabled="@_engineUnavailable"
                            Href="/settings/import-folders" />
                 <AppButton Label="Add library"
                            StartIcon="@Icons.Material.Outlined.CreateNewFolder"
                            ButtonStyle="AppButtonStyle.Filled"
                            Tone="AppUiTone.Primary"
-                           Disabled="@(readOnly || _engineUnavailable)"
+                           Disabled="@_engineUnavailable"
                            Href="/settings/libraries/new" />
             }
         </AppActionBar>
+
+        @if (readOnly)
+        {
+            <p class="media-management__mobile-note">Library storage and intake are read-only on mobile. Use a desktop or tablet to add folders or change library configuration.</p>
+        }
 
         @if (_engineUnavailable)
         {

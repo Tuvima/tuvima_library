@@ -118,7 +118,8 @@
                 }
                 else
                 {
-                    <AppEmptyState Title="No activity yet"
+                    <AppEmptyState Class="app-page-state--compact"
+                                   Title="No activity yet"
                                    Message="Start watching, reading, or listening and your progress will appear here." />
                 }
             </AppPanel>
@@ -163,7 +164,8 @@
                 }
                 @if (genres.Count == 0 || !HasQualifiedTasteData)
                 {
-                    <AppEmptyState Title="Not enough activity yet"
+                    <AppEmptyState Class="app-page-state--compact"
+                                   Title="Not enough activity yet"
                                    Message="Your most-used genres will appear after you spend more time with your library." />
                 }
                 else

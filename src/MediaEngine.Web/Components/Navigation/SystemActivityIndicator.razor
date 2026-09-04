@@ -5,61 +5,39 @@
 @inject PlaybackSessionController Playback
 @inject NavigationManager Nav
 
+@if (Snapshot.IsBusy)
+{
 <span class="system-activity-indicator-shell">
     <MudTooltip Text="@TooltipText" Placement="Placement.Bottom">
         <AppNativeButton Type="button"
                          Class="@ButtonClass"
                          AriaLabel="@AriaLabel"
                          OnClick="HandleClick">
-            @if (ShowConnectionProblem)
-            {
-                <MudIcon Icon="@ConnectionIcon" Class="system-activity-indicator__idle-icon" />
-            }
-            else if (Snapshot.IsBusy)
-            {
-                <span class="system-activity-indicator__ring" aria-hidden="true">
-                    @if (Snapshot.Primary?.ProgressPercent is { } progress)
-                    {
-                        <MudProgressCircular Value="@progress" Size="Size.Small" />
-                    }
-                    else
-                    {
-                        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
-                    }
-                </span>
-                <MudIcon Icon="@PrimaryIcon" Class="system-activity-indicator__center-icon" />
-                @if (Snapshot.ActiveCount > 1)
+            <span class="system-activity-indicator__ring" aria-hidden="true">
+                @if (Snapshot.Primary?.ProgressPercent is { } progress)
                 {
-                    <span class="system-activity-indicator__count" aria-hidden="true">@CountLabel</span>
+                    <MudProgressCircular Value="@progress" Size="Size.Small" />
                 }
-            }
-            else
+                else
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                }
+            </span>
+            <MudIcon Icon="@PrimaryIcon" Class="system-activity-indicator__center-icon" />
+            @if (Snapshot.ActiveCount > 1)
             {
-                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Class="system-activity-indicator__idle-icon" />
+                <span class="system-activity-indicator__count" aria-hidden="true">@CountLabel</span>
             }
         </AppNativeButton>
     </MudTooltip>
 </span>
+}
 
 @code {
-    [Parameter] public EngineConnectionState ConnectionState { get; set; }
     [Parameter] public bool CanOpenSystemActivity { get; set; }
 
     private ShellActivitySnapshot Snapshot => Activity.Current;
-    private bool ShowConnectionProblem => ConnectionState is EngineConnectionState.Offline
-        or EngineConnectionState.Degraded
-        or EngineConnectionState.Reconnecting
-        or EngineConnectionState.LiveUpdatesDisconnected;
-
-    private string ButtonClass => ShowConnectionProblem
-        ? "system-activity-indicator is-warning"
-        : Snapshot.IsBusy
-            ? "system-activity-indicator is-active"
-            : "system-activity-indicator is-idle";
-
-    private string ConnectionIcon => ConnectionState == EngineConnectionState.Offline
-        ? Icons.Material.Outlined.CloudOff
-        : Icons.Material.Outlined.WarningAmber;
+    private string ButtonClass => "system-activity-indicator is-active";
 
     private string PrimaryIcon => Snapshot.Primary?.Kind switch
     {
@@ -72,27 +50,12 @@
 
     private string CountLabel => Snapshot.ActiveCount > 9 ? "9+" : Snapshot.ActiveCount.ToString();
 
-    private string AriaLabel => ShowConnectionProblem
-        ? TooltipText
-        : Snapshot.IsBusy
-            ? $"{Snapshot.ActiveCount} active system {Pluralize("action", Snapshot.ActiveCount)}. {TooltipText}"
-            : "System idle";
+    private string AriaLabel => $"{Snapshot.ActiveCount} active system {Pluralize("action", Snapshot.ActiveCount)}. {TooltipText}";
 
     private string TooltipText
     {
         get
         {
-            if (ConnectionState == EngineConnectionState.Offline)
-                return "Engine unavailable";
-            if (ConnectionState == EngineConnectionState.Degraded)
-                return "Engine degraded";
-            if (ConnectionState == EngineConnectionState.Reconnecting)
-                return "Reconnecting live updates";
-            if (ConnectionState == EngineConnectionState.LiveUpdatesDisconnected)
-                return "Live updates disconnected";
-            if (!Snapshot.IsBusy)
-                return "System idle";
-
             return string.Join(" • ", Snapshot.Items.Take(3).Select(FormatActivity));
         }
     }
@@ -103,9 +66,6 @@
 
     private async Task HandleClick()
     {
-        if (ShowConnectionProblem)
-            return;
-
         if (Snapshot.Primary?.Kind == ShellActivityKind.Playback && Playback.HasQueue)
         {
             await Playback.DispatchAsync(new PlaybackCommand(PlaybackCommandKind.TogglePanel));

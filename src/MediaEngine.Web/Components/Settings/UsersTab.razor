@@ -5,6 +5,7 @@
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IStringLocalizer<SharedStrings> L
+@inject DeviceContextService DeviceContext
 
 <div class="tl-page users-page">
     @if (_loading)
@@ -33,6 +34,8 @@
         <SettingsSectionPanel Title="Profiles"
                               Description="Manage the people who can use this Tuvima Library."
                               Icon="@Icons.Material.Outlined.Group">
+            @if (!DeviceContext.IsMobile)
+            {
             <AppActionBar Align="AppHorizontalAlignment.End" Class="users-page__actions">
                 <AppButton Label="@L["Users_NewProfile"].Value"
                            StartIcon="@Icons.Material.Filled.PersonAdd"
@@ -40,6 +43,7 @@
                            Tone="AppUiTone.Primary"
                            OnClick="@OpenCreateDialog" />
             </AppActionBar>
+            }
 
             @if (_allRows.Count == 0)
             {
@@ -54,7 +58,10 @@
                                 <th>Profile</th>
                                 <th>@L["Users_ColRole"]</th>
                                 <th>Created</th>
-                                <th class="users-table__actions">@L["Users_ColActions"]</th>
+                                @if (!DeviceContext.IsMobile)
+                                {
+                                    <th class="users-table__actions">@L["Users_ColActions"]</th>
+                                }
                             </tr>
                         </thead>
                         <tbody>
@@ -74,6 +81,8 @@
                                     </td>
                                     <td><AppChip Text="@row.Role" Tone="@RoleTone(row.Role)" /></td>
                                     <td><span class="users-table__muted">@row.Created</span></td>
+                                    @if (!DeviceContext.IsMobile)
+                                    {
                                     <td class="users-table__actions">
                                         <AppIconButton Icon="@Icons.Material.Outlined.PhotoLibrary"
                                                        Tooltip="Manage View access"
@@ -92,6 +101,7 @@
                                                        Disabled="@row.IsSeed"
                                                        OnClick="@(() => DeleteProfileAsync(row))" />
                                     </td>
+                                    }
                                 </tr>
                             }
                         </tbody>
@@ -100,12 +110,11 @@
             }
         </SettingsSectionPanel>
 
+        @if (!DeviceContext.IsMobile)
+        {
         <SettingsSectionPanel Title="View administration"
                               Description="View keeps each profile's personal media separate from the catalogued library."
                               Icon="@Icons.Material.Outlined.PhotoLibrary">
-            <AppAlert Tone="AppUiTone.Info">
-                Folder sources and connected devices are managed as real personal-library sources. Face grouping and other local analysis use the existing Local AI settings; there are no separate or simulated View AI controls.
-            </AppAlert>
             <SettingsAdvancedLinkRow Title="Folders and sources"
                                      Description="Attach or review server-visible folders for each profile's Personal Space."
                                      Href="/settings/access"
@@ -140,6 +149,7 @@
                                      Href="/auth/login"
                                      ActionLabel="Open sign in" />
         </SettingsSectionPanel>
+        }
     }
 </div>
 

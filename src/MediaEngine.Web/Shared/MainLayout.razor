@@ -85,8 +85,7 @@
             </span>
 
             <span class="layout-shell__activity-slot">
-                <SystemActivityIndicator ConnectionState="@Orchestrator.EngineConnectionState"
-                                         CanOpenSystemActivity="@CanViewSystemActivity" />
+                <SystemActivityIndicator CanOpenSystemActivity="@CanViewSystemActivity" />
             </span>
 
             <span @onclick:stopPropagation="true">
@@ -160,7 +159,6 @@
     private string _avatarInitial = "?";
     private string _currentPath = "/";
     private string _displayName = "User";
-    private string _engineStatusSummary = string.Empty;
     private string _profileRole = "Profile";
     private Guid? _activeProfileId;
     private int _reviewCount;
@@ -251,7 +249,6 @@
         await LoadReviewCountAsync();
         await Orchestrator.StartSignalRAsync();
         await Activity.InitializeAsync();
-        await LoadEngineStatusAsync();
 
         Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
         Orchestrator.OnProfileChanged += OnProfileChanged;
@@ -399,20 +396,6 @@
         }
     }
 
-    private async Task LoadEngineStatusAsync()
-    {
-        try
-        {
-            var status = await Orchestrator.GetSystemStatusAsync();
-            _engineStatusSummary = BuildEngineStatusSummary(status);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to load Engine status for layout shell.");
-            _engineStatusSummary = BuildEngineStatusSummary(null);
-        }
-    }
-
     private void OnReviewCountChanged()
     {
         _reviewCount = CanViewReview ? Orchestrator.ReviewCount : 0;
@@ -454,18 +437,6 @@
         _dotNetRef?.Dispose();
     }
 
-    private string BuildEngineStatusSummary(SystemStatusViewModel? status)
-    {
-        var engineLabel = status?.IsHealthy == true
-            ? L["TopBar_EngineOnline"]
-            : L["TopBar_EngineUnavailable"];
-        var liveUpdatesLabel = Orchestrator.IsIntercomConnected
-            ? L["TopBar_LiveUpdatesConnected"]
-            : L["TopBar_LiveUpdatesOffline"];
-
-        return $"{engineLabel} - {liveUpdatesLabel}";
-    }
-
     private bool ShouldShowEngineStatusBanner =>
         Orchestrator.EngineConnectionState is EngineConnectionState.Offline
             or EngineConnectionState.Degraded
@@ -474,33 +445,23 @@
 
     private string GetEngineStatusBannerText() => Orchestrator.EngineConnectionState switch
     {
-        EngineConnectionState.Offline => L["TopBar_EngineUnavailable"],
-        EngineConnectionState.Degraded => L["TopBar_EngineDegradedBanner"],
-        EngineConnectionState.Reconnecting => L["TopBar_LiveUpdatesReconnecting"],
-        EngineConnectionState.LiveUpdatesDisconnected => L["TopBar_LiveUpdatesOffline"],
-        _ => _engineStatusSummary,
+        EngineConnectionState.Offline => L["TopBar_ServiceUnavailable"],
+        EngineConnectionState.Degraded => L["TopBar_ServiceDegradedBanner"],
+        EngineConnectionState.Reconnecting => "Reconnecting live updates…",
+        EngineConnectionState.LiveUpdatesDisconnected => "Live updates are paused.",
+        _ => string.Empty,
     };
 
     private void OnEngineConnectionStateChanged(EngineConnectionState state)
     {
-        _engineStatusSummary = state switch
-        {
-            EngineConnectionState.Offline => BuildEngineStatusSummary(null),
-            EngineConnectionState.Degraded => L["TopBar_EngineDegradedSummary"],
-            EngineConnectionState.Reconnecting => L["TopBar_LiveUpdatesReconnecting"],
-            EngineConnectionState.LiveUpdatesDisconnected => $"{L["TopBar_EngineOnline"]} - {L["TopBar_LiveUpdatesOffline"]}",
-            EngineConnectionState.Online => $"{L["TopBar_EngineOnline"]} - {L["TopBar_LiveUpdatesConnected"]}",
-            _ => _engineStatusSummary,
-        };
         InvokeAsync(StateHasChanged);
     }
 
     private void OnUniverseStateChanged() => InvokeAsync(StateHasChanged);
 
-    private string GetEngineStatusIcon() =>
-        _engineStatusSummary.Contains(L["TopBar_EngineOnline"].Value, StringComparison.OrdinalIgnoreCase)
-            ? Icons.Material.Filled.CheckCircle
-            : Icons.Material.Filled.ErrorOutline;
+    private string GetEngineStatusIcon() => Orchestrator.EngineConnectionState == EngineConnectionState.Reconnecting
+        ? Icons.Material.Outlined.Sync
+        : Icons.Material.Filled.ErrorOutline;
 
     private bool IsNavActive(string path) =>
         _currentPath.Equals(path, StringComparison.OrdinalIgnoreCase)

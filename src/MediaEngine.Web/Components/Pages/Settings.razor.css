@@ -18,6 +18,43 @@
     margin-bottom: var(--tl-space-4, 16px);
 }
 
+.settings-mobile-navigation__label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--tl-text-secondary);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.settings-mobile-navigation__control {
+    position: relative;
+}
+
+.settings-mobile-navigation__control > ::deep .mud-icon-root {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 14px;
+    width: 20px;
+    height: 20px;
+    color: var(--tl-text-secondary);
+    font-size: 20px;
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.settings-mobile-navigation__control ::deep .app-native-select {
+    width: 100%;
+    min-height: 48px;
+    padding: 0 42px;
+    color: var(--tl-text-primary);
+    border: 1px solid var(--tl-border-default);
+    border-radius: var(--tl-radius-lg);
+    background-color: var(--tl-bg-surface-raised);
+    font-size: 16px;
+    font-weight: 700;
+}
+
 .settings-shell-content ::deep .sidebar-page-header h1 {
     font-size: clamp(30px, 2vw, 32px);
     line-height: 1.18;
@@ -636,6 +673,26 @@
     border-radius: var(--tl-radius-lg);
 }
 
+.settings-page-canvas ::deep .tl-card .app-page-state--empty,
+.settings-page-canvas ::deep .app-card .app-page-state--empty,
+.settings-page-canvas ::deep .settings-section-card .app-page-state--empty {
+    min-height: 0;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 0;
+    text-align: left;
+}
+
+.settings-page-canvas ::deep .tl-card .app-page-state--empty .app-page-state__title,
+.settings-page-canvas ::deep .app-card .app-page-state--empty .app-page-state__title {
+    font-size: 15px;
+}
+
+.settings-page-canvas ::deep .tl-card .app-page-state--empty .app-page-state__message,
+.settings-page-canvas ::deep .app-card .app-page-state--empty .app-page-state__message {
+    font-size: 14px;
+}
+
 @media (max-width: 1100px) {
     .settings-page-canvas ::deep .settings-experience-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -661,6 +718,20 @@
 @media (max-width: 840px) {
     .settings-shell-content {
         padding: var(--tl-space-4, 16px);
+    }
+
+    .settings-page-canvas ::deep small,
+    .settings-page-canvas ::deep .mud-typography-caption,
+    .settings-page-canvas ::deep .settings-helper-text {
+        font-size: 14px !important;
+        line-height: 1.45 !important;
+    }
+
+    .settings-page-canvas ::deep input,
+    .settings-page-canvas ::deep textarea,
+    .settings-page-canvas ::deep select,
+    .settings-page-canvas ::deep .mud-input-slot {
+        font-size: 16px !important;
     }
 
     .settings-mobile-navigation {

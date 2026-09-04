@@ -7,7 +7,8 @@ public sealed class Phase6SettingsAdminHardeningTests
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\OverviewTab.razor");
 
-        Assert.Contains("System Status", source, StringComparison.Ordinal);
+        Assert.Contains("System exceptions", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("System Status", source, StringComparison.Ordinal);
         Assert.Contains("Recent Activity", source, StringComparison.Ordinal);
         Assert.Contains("/settings/activity", source, StringComparison.Ordinal);
         Assert.DoesNotContain("/settings/activity/events", source, StringComparison.Ordinal);
@@ -19,11 +20,12 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void SettingsShell_RendersStatusBadgesAndEngineUnavailableState()
+    public void SettingsShell_OmitsRedundantEngineBadgeAndKeepsUnavailableState()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
 
-        Assert.Contains("Status=\"@GetHeaderStatusLabel()\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetHeaderStatusLabel", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Engine online", source, StringComparison.Ordinal);
         Assert.Contains("Engine state could not be loaded", source, StringComparison.Ordinal);
         Assert.Contains("ShouldDeferForRoleResolution", source, StringComparison.Ordinal);
         Assert.Contains("SettingsNav.ResolveRoute(Section, _currentRole)", source, StringComparison.Ordinal);
@@ -240,7 +242,8 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.DoesNotContain("Plugin manifest JSON", plugins, StringComparison.Ordinal);
         Assert.DoesNotContain("_settingsJson", plugins, StringComparison.Ordinal);
         Assert.DoesNotContain("_manifestJson", plugins, StringComparison.Ordinal);
-        Assert.Contains("Local AI runs on this server", localAi, StringComparison.Ordinal);
+        Assert.Contains("_status?.IsReady != true", localAi, StringComparison.Ordinal);
+        Assert.DoesNotContain("Local AI is partially available", localAi, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath) =>

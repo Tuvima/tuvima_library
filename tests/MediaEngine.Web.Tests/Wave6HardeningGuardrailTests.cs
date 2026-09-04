@@ -28,7 +28,7 @@ public sealed class Wave6HardeningGuardrailTests
         var popup = Read("src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor");
 
         Assert.Contains("@L[\"Layout_SkipToContent\"]", layout);
-        Assert.Contains("L[\"TopBar_EngineDegradedBanner\"]", layout);
+        Assert.Contains("L[\"TopBar_ServiceDegradedBanner\"]", layout);
         Assert.Contains("@L[\"Listen_NothingPlaying\"]", popup);
         Assert.Contains("@L[\"Listen_MiniPlayerTitle\"]", popup);
         Assert.Contains("Recent listening positions", popup);

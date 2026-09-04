@@ -11,7 +11,8 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("GetAiProfileAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetResourceSnapshotAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetEnrichmentProgressAsync", source, StringComparison.Ordinal);
-        Assert.Contains("Local AI is partially available", source, StringComparison.Ordinal);
+        Assert.Contains("_status?.IsReady != true", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Local AI is partially available", source, StringComparison.Ordinal);
         Assert.Contains("MaxConcurrentInferences", source, StringComparison.Ordinal);
         Assert.Contains("MinimumFreeDiskMB", source, StringComparison.Ordinal);
         Assert.Contains("CpuPressureLabel(double pressure)", source, StringComparison.Ordinal);
@@ -95,7 +96,8 @@ public sealed class Phase7LocalAiTests
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LocalAiSettingsTab.razor");
 
-        Assert.Contains("Local AI is partially available", source, StringComparison.Ordinal);
+        Assert.Contains("DeviceContext.IsMobile", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Local AI is partially available", source, StringComparison.Ordinal);
         Assert.Contains("Enabled features", source, StringComparison.Ordinal);
         Assert.Contains("Media-type assistance", source, StringComparison.Ordinal);
         Assert.Contains("/settings/ai/models", source, StringComparison.Ordinal);

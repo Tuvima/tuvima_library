@@ -346,6 +346,16 @@
 }
 
 @media (max-width: 840px) {
+    .layout-shell__engine-banner {
+        top: auto;
+        right: max(.75rem, var(--tl-safe-area-right));
+        bottom: calc(var(--tl-bottom-dock-height) + .75rem);
+        left: max(.75rem, var(--tl-safe-area-left));
+        width: auto;
+        max-width: none;
+        transform: none;
+    }
+
     .layout-shell__intent-dock {
         display: flex;
     }

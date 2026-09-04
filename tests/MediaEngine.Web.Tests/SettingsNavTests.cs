@@ -114,6 +114,22 @@ public sealed class SettingsNavTests
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Server));
     }
 
+    [Fact]
+    public void MobileAvailability_WithholdsComplexAdministrationButKeepsMonitoringSummaries()
+    {
+        Assert.Equal(SettingsMobileAvailability.Full, SettingsNav.GetMobileAvailability(SettingsSection.Playback));
+        Assert.Equal(SettingsMobileAvailability.SummaryOnly, SettingsNav.GetMobileAvailability(SettingsSection.AdminOverview));
+        Assert.Equal(SettingsMobileAvailability.DesktopOnly, SettingsNav.GetMobileAvailability(SettingsSection.ImportFolders));
+        Assert.Equal(SettingsMobileAvailability.DesktopOnly, SettingsNav.GetMobileAvailability(SettingsSection.DevHarness));
+
+        Assert.True(SettingsNav.IsMobileRouteAvailable(SettingsSection.Network, "overview"));
+        Assert.False(SettingsNav.IsMobileRouteAvailable(SettingsSection.Network, "advanced"));
+        Assert.True(SettingsNav.IsMobileRouteAvailable(SettingsSection.Providers, "providers"));
+        Assert.False(SettingsNav.IsMobileRouteAvailable(SettingsSection.Providers, "providers", "tmdb"));
+        Assert.True(SettingsNav.IsMobileRouteAvailable(SettingsSection.ActivityLogs));
+        Assert.False(SettingsNav.IsMobileRouteAvailable(SettingsSection.ActivityLogs, "batches"));
+    }
+
     [Theory]
     [InlineData(SettingsSection.AdminOverview, "/settings/system")]
     [InlineData(SettingsSection.Playback, "/settings/playback")]

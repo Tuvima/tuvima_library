@@ -1,8 +1,8 @@
 @namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
+@inject DeviceContextService DeviceContext
 
 <div class="tl-page local-ai-settings">
-    <AppAlert Tone="AppUiTone.Info" Class="mb-3">Local AI runs on this server and is currently partial: only the launch features shown here are supported end to end.</AppAlert>
     @switch (NormalizedSubsection)
     {
         case "models":
@@ -129,16 +129,15 @@
         }
         else
         {
-            <AppAlert Tone="@OverviewTone" Class="local-ai-settings__health-banner">
-                <strong>@OverviewStatusTitle</strong>
-                <span>@OverviewStatusDescription</span>
-            </AppAlert>
+            @if (_status?.IsReady != true)
+            {
+                <AppAlert Tone="AppUiTone.Warning" Class="local-ai-settings__health-banner">
+                    <strong>@OverviewStatusTitle</strong>
+                    <span>@OverviewStatusDescription</span>
+                </AppAlert>
+            }
 
             <div class="local-ai-settings__summary-grid">
-                <AppCard Title="Runtime" Class="local-ai-settings__summary-card">
-                    <strong>@(_status?.IsReady == true ? "Running" : _status is null ? "Unavailable" : "Limited")</strong>
-                    <span>Local inference service</span>
-                </AppCard>
                 <AppCard Title="Active model" Class="local-ai-settings__summary-card">
                     <strong>@ActiveModelName()</strong>
                     <span>@(ActiveModel is null ? "No model is currently loaded" : "Primary local model")</span>
@@ -153,6 +152,8 @@
                 </AppCard>
             </div>
 
+            @if (!DeviceContext.IsMobile)
+            {
             <AppCard Title="Enabled features" Description="Choose which connected Local AI capabilities Tuvima may use.">
                 @if (_config is null)
                 {
@@ -178,23 +179,25 @@
                                Class="mt-3" Disabled="@_savingFeatures" OnClick="@SaveFeaturesAsync" />
                 }
             </AppCard>
+            }
 
+            @if (!DeviceContext.IsMobile)
+            {
             <AppCard Title="Advanced AI" Description="Technical controls stay available when you need them.">
                 <SettingsAdvancedLinkRow Title="Models & Runtime" Description="Manage model files, lifecycle actions, validation, and runtime limits." Href="/settings/ai/models" ActionLabel="Manage" />
                 <SettingsAdvancedLinkRow Title="Vocabulary" Description="Edit the controlled vocabulary used by local tagging." Href="/settings/ai/vocabulary" ActionLabel="Manage" />
                 <SettingsAdvancedLinkRow Title="Automation" Description="Review enrichment progress and edit saved schedules." Href="/settings/ai/automation" ActionLabel="Manage" />
             </AppCard>
+            }
         }
     </text>;
 
-    private AppUiTone OverviewTone => _status?.IsReady == true ? AppUiTone.Success : _status is null ? AppUiTone.Warning : AppUiTone.Info;
-
     private string OverviewStatusTitle => _status?.IsReady == true
-        ? "Local AI is partially available"
+        ? string.Empty
         : _status is null ? "Local AI status is unavailable" : "Local AI is available with limitations";
 
     private string OverviewStatusDescription => _status?.IsReady == true
-        ? "The selected model is ready. Individual launch features remain partial until their complete product paths are verified."
+        ? string.Empty
         : _status is null ? "Library browsing continues without Local AI status." : "Review models and runtime details before relying on every feature.";
 
     private string ActiveModelName()

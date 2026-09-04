@@ -5,6 +5,7 @@
 @using MediaEngine.Web.Services.Integration
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
+@inject DeviceContextService DeviceContext
 
 @if (_loading)
 {
@@ -26,18 +27,25 @@ else
         @if (NormalizedSubsection == "overview")
         {
             @OverviewSummary()
-            @InstalledPluginsPanel()
-            @if (ConfiguredPlugin is not null)
+            @if (DeviceContext.IsMobile)
             {
-                <AppCard Title="@($"Configure {ConfiguredPlugin.Name}")" Description="@ConfiguredPlugin.Description" Class="settings-plugin-configure-panel">
-                    @if (!string.IsNullOrWhiteSpace(ConfiguredPlugin.LoadError))
-                    {
-                        <AppAlert Tone="AppUiTone.Warning" Class="mb-3">@ConfiguredPlugin.LoadError</AppAlert>
-                    }
-                    @PluginSettingsPanel(ConfiguredPlugin)
-                </AppCard>
+                @MobileInstalledPluginsPanel()
             }
-            @AdvancedPluginLinks()
+            else
+            {
+                @InstalledPluginsPanel()
+                @if (ConfiguredPlugin is not null)
+                {
+                    <AppCard Title="@($"Configure {ConfiguredPlugin.Name}")" Description="@ConfiguredPlugin.Description" Class="settings-plugin-configure-panel">
+                        @if (!string.IsNullOrWhiteSpace(ConfiguredPlugin.LoadError))
+                        {
+                            <AppAlert Tone="AppUiTone.Warning" Class="mb-3">@ConfiguredPlugin.LoadError</AppAlert>
+                        }
+                        @PluginSettingsPanel(ConfiguredPlugin)
+                    </AppCard>
+                }
+                @AdvancedPluginLinks()
+            }
         }
         else if (NormalizedSubsection == "catalog")
         {
@@ -86,14 +94,20 @@ else
             <strong>@_plugins.Count</strong>
             <span>Available on this server</span>
         </AppCard>
+        @if (!DeviceContext.IsMobile)
+        {
         <AppCard Title="Enabled" Class="settings-plugin-summary__card">
             <strong>@_plugins.Count(plugin => plugin.Enabled)</strong>
             <span>Currently active</span>
         </AppCard>
+        }
+        @if (_plugins.Any(plugin => !string.IsNullOrWhiteSpace(plugin.LoadError)))
+        {
         <AppCard Title="Needs setup" Class="settings-plugin-summary__card">
             <strong>@_plugins.Count(plugin => !string.IsNullOrWhiteSpace(plugin.LoadError))</strong>
             <span>Requires administrator attention</span>
         </AppCard>
+        }
     </div>;
 
     private RenderFragment InstalledPluginsPanel() => @<AppCard Title="Installed plugins" Description="Enable extensions and open the settings each plugin actually provides.">
@@ -134,6 +148,26 @@ else
                     }
                 </tbody>
             </AppTable>
+        }
+    </AppCard>;
+
+    private RenderFragment MobileInstalledPluginsPanel() => @<AppCard Title="Installed plugins" Description="Plugin configuration is available on desktop and tablet.">
+        @if (_plugins.Count == 0)
+        {
+            <AppEmptyState Class="app-page-state--compact" Title="No installed plugins" />
+        }
+        else
+        {
+            <div class="settings-plugin-mobile-list" role="list">
+                @foreach (var plugin in _plugins)
+                {
+                    <div class="settings-plugin-mobile-row" role="listitem">
+                        <span><strong>@plugin.Name</strong><small>@plugin.Description</small></span>
+                        <AppStatusBadge Text="@(!string.IsNullOrWhiteSpace(plugin.LoadError) ? "Needs setup" : plugin.Enabled ? "Enabled" : "Disabled")"
+                                        Tone="@(!string.IsNullOrWhiteSpace(plugin.LoadError) ? AppUiTone.Warning : plugin.Enabled ? AppUiTone.Success : AppUiTone.Neutral)" />
+                    </div>
+                }
+            </div>
         }
     </AppCard>;
 

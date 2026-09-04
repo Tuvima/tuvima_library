@@ -4,12 +4,14 @@
 @inject ProviderCatalogueService CatalogueService
 @inject ISnackbar Snackbar
 @inject ILogger<MetadataSettingsPage> Logger
+@inject DeviceContextService DeviceContext
 
 <NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" />
 
 <MetadataAdminShell ActiveSubsection="@ActiveSurface">
     <SettingsSubsectionNav Section="SettingsSection.Providers"
                            ActiveSubsection="@ActiveSurface"
+                           Mobile="@DeviceContext.IsMobile"
                            AriaLabel="Metadata settings sections" />
 
     @if (_loading)
@@ -119,13 +121,9 @@
     }
 
     private RenderFragment ProvidersPage() => @<div class="metadata-experience metadata-providers-page">
-        <AppAlert Tone="AppUiTone.Info" Class="metadata-stage-callout">
-            Every configured metadata, canonical, and enrichment provider is listed once. Filter the inventory without changing the ingestion order.
-        </AppAlert>
-
         <div class="metadata-provider-toolbar">
             <div class="metadata-filter-row" aria-label="Filter providers">
-                @foreach (var filter in ProviderFilters)
+                @foreach (var filter in VisibleProviderFilters)
                 {
                     <AppChip Text="@filter.Label"
                              Icon="@filter.Icon"
@@ -141,12 +139,12 @@
                           Class="metadata-search" />
         </div>
 
-        <div class="metadata-summary-grid" aria-label="Provider summary">
-            @Metric("Total providers", _snapshot!.Providers.Count, Icons.Material.Outlined.Hub, "neutral")
-            @Metric("Connected", _snapshot.Providers.Count(provider => provider.HealthLabel is "Connected" or "Enabled"), Icons.Material.Outlined.CheckCircle, "success")
-            @Metric("Needs setup", _snapshot.Providers.Count(provider => provider.NeedsSetup), Icons.Material.Outlined.WarningAmber, "warning")
-            @Metric("Disabled", _snapshot.Providers.Count(provider => !provider.Enabled), Icons.Material.Outlined.Block, "neutral")
-        </div>
+        @if (_snapshot!.Providers.Any(provider => provider.NeedsSetup))
+        {
+            <AppAlert Tone="AppUiTone.Warning" Class="metadata-stage-callout">
+                @_snapshot.Providers.Count(provider => provider.NeedsSetup) provider(s) need setup before they can run.
+            </AppAlert>
+        }
 
         @if (FilteredProviders.Count == 0)
         {
@@ -156,7 +154,15 @@
         {
             <div class="metadata-provider-table-wrap">
                 <table class="metadata-provider-table">
-                    <thead><tr><th>Provider</th><th>Used for</th><th>Role</th><th>Status</th><th><span class="metadata-sr-only">Configure</span></th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Provider</th><th>Used for</th><th>Role</th><th>Status</th>
+                            @if (!DeviceContext.IsMobile)
+                            {
+                                <th><span class="metadata-sr-only">Configure</span></th>
+                            }
+                        </tr>
+                    </thead>
                     <tbody>
                         @foreach (var provider in FilteredProviders)
                         {
@@ -182,7 +188,12 @@
                                 </td>
                                 <td data-label="Role"><span class="metadata-role-copy">@RoleSummary(provider)</span></td>
                                 <td data-label="Status"><AppStatusBadge Text="@provider.HealthLabel" Tone="@provider.HealthTone" /></td>
-                                <td class="metadata-provider-action"><AppButton Label="Configure" Href="@ProviderRoute(provider.Key)" Size="AppControlSize.Compact" EndIcon="@Icons.Material.Outlined.ChevronRight" /></td>
+                                @if (!DeviceContext.IsMobile)
+                                {
+                                    <td class="metadata-provider-action">
+                                        <AppButton Label="Configure" Href="@ProviderRoute(provider.Key)" Size="AppControlSize.Compact" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+                                    </td>
+                                }
                             </tr>
                         }
                     </tbody>
@@ -356,8 +367,6 @@
         }
     </div>;
 
-    private RenderFragment Metric(string label, int value, string icon, string tone) => @<div class="metadata-metric @($"is-{tone}")"><MudIcon Icon="@icon" /><span><small>@label</small><strong>@value</strong></span></div>;
-
     private RenderFragment SaveBar() => @<footer class="metadata-savebar">
         <AppButton Label="Cancel" Disabled="@(!HasUnsavedChanges || _saving)" OnClick="ResetDrafts" />
         <AppButton Label="@(_saving ? "Saving…" : "Save Changes")" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary"
@@ -477,6 +486,10 @@
         new("disabled", "Disabled", Icons.Material.Outlined.Block),
     ];
 
+    private IReadOnlyList<MetadataFilterOption> VisibleProviderFilters => DeviceContext.IsMobile
+        ? ProviderFilters.Where(filter => filter.Value is "all" or "needs-setup" or "disabled").ToList()
+        : ProviderFilters;
+
     private static readonly IReadOnlyList<MetadataFilterOption> FlowFilters =
     [
         new("all", "All", Icons.Material.Outlined.Apps),
@@ -492,7 +505,7 @@
     private static string RoleSummary(MetadataProviderInventoryItem provider) => string.Join(" · ", provider.Participations.Select(item => item.RoleLabel).Distinct(StringComparer.OrdinalIgnoreCase));
     private static string ParticipationSummary(MetadataProviderInventoryItem provider) => string.Join("; ", provider.Participations.GroupBy(item => item.Stage).Select(group => $"Stage {group.Key}: {string.Join(", ", group.Select(item => MetadataSettingsStateService.MediaTypeLabel(item.MediaType)).Distinct())}"));
     private static IReadOnlyList<string> ProviderOutputs(MetadataProviderInventoryItem provider) => provider.Participations.SelectMany(item => item.Outputs).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-    private static string ConnectionCopy(MetadataProviderInventoryItem provider) => provider.NeedsSetup ? "Configuration is incomplete. Add the required credential and test again." : provider.HealthLabel switch { "Connected" => "The provider is reachable and responding.", "Disabled" => "The provider is currently disabled.", "Unavailable" => "The provider could not be reached during the last Engine check.", _ => $"Current Engine status: {provider.HealthLabel}." };
+    private static string ConnectionCopy(MetadataProviderInventoryItem provider) => provider.NeedsSetup ? "Configuration is incomplete. Add the required credential and test again." : provider.HealthLabel switch { "Connected" => "The provider is reachable and responding.", "Disabled" => "The provider is currently disabled.", "Unavailable" => "The provider could not be reached during the last availability check.", _ => $"Current provider status: {provider.HealthLabel}." };
     private static string LastCheckCopy(MetadataProviderInventoryItem provider)
     {
         var value = provider.Status?.LastSuccessAt ?? provider.Status?.LastFailureAt;

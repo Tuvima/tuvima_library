@@ -4,10 +4,12 @@
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
+@inject DeviceContextService DeviceContext
 
 <section class="network-settings" data-network-section="@ActiveSection">
     <SettingsSubsectionNav Section="SettingsSection.Network"
                            ActiveSubsection="@ActiveSection"
+                           Mobile="@DeviceContext.IsMobile"
                            AriaLabel="Network and remote access sections" />
 
     @if (_loading)

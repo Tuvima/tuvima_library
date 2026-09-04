@@ -86,7 +86,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.Single(cut.FindAll(".layout-shell__search-action"));
             Assert.Single(cut.FindAll(".top-nav-account-menu__trigger"));
             Assert.Single(cut.FindAll(".layout-shell__my-list"));
-            Assert.Single(cut.FindAll(".system-activity-indicator"));
+            Assert.Empty(cut.FindAll(".system-activity-indicator"));
             Assert.Empty(cut.FindAll(".layout-shell__review-button"));
             Assert.Empty(cut.FindAll(".layout-shell__avatar-trigger"));
         });
@@ -168,9 +168,9 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.Single(cut.FindAll(".media-section-shell"));
             Assert.Single(cut.FindAll(".media-section-shell__rail"));
             Assert.NotEmpty(cut.FindAll(".media-section-shell__rail-item"));
-            Assert.Contains("System Status", cut.Markup);
+            Assert.Contains("System exceptions", cut.Markup);
             Assert.NotEmpty(cut.FindAll(".admin-overview-card--attention"));
-            Assert.Contains("No active transcodes", cut.Markup);
+            Assert.DoesNotContain("No active transcodes", cut.Markup);
             Assert.Contains("Recent Activity", cut.Markup);
         });
     }
@@ -429,7 +429,8 @@ public sealed class UiShellRenderTests : AsyncBunitContext
 
         Assert.Contains("GetAiConfigAsync", source);
         Assert.Contains("SaveAiConfigAsync", source);
-        Assert.Contains("Local AI runs on this server", source);
+        Assert.Contains("_status?.IsReady != true", source);
+        Assert.DoesNotContain("Local AI is partially available", source);
         Assert.Single(Regex.Matches(source, "<ModelsTab />"));
         Assert.DoesNotContain("TODO: Persist AI limits", source);
     }

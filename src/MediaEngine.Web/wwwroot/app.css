@@ -1942,6 +1942,16 @@ code,
 .app-page-state__title { margin: 0; color: var(--app-text-primary); font-size: 18px; font-weight: 700; line-height: 1.35; }
 .app-page-state__message { max-width: 42rem; margin: 0; color: var(--app-text-muted); font-size: 13px; line-height: 1.5; }
 .app-page-state__actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 4px; }
+.app-page-state--compact {
+    min-height: 0;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 8px 0;
+    text-align: left;
+}
+.app-page-state--compact .app-page-state__title { font-size: 15px; }
+.app-page-state--compact .app-page-state__message { font-size: 14px; }
+.app-page-state--compact .app-page-state__actions { justify-content: flex-start; }
 
 .app-progress-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }
 .app-progress-bar__label { grid-column: 1 / -1; color: var(--app-text-muted); font-size: 12px; font-weight: 600; }

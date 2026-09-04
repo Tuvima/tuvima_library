@@ -9,33 +9,54 @@
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
+@inject IJSRuntime JS
 @implements IDisposable
 
 <PageTitle>@BrowserTitle</PageTitle>
 
 <MediaSectionShell Title="Settings"
                    NavigationGroups="@SettingsNavigationGroups">
-    <div class="settings-shell-content">
+    <div class="settings-shell-content" @ref="_contentElement">
         <nav class="settings-mobile-navigation" aria-label="Settings page selector">
-            <AppSelect Value="@SettingsNav.RouteFor(_activeSection)"
-                       ValueChanged="@OnMobilePageChanged"
-                       Label="Settings page"
-                       LeadingIcon="@Icons.Material.Outlined.Tune"
-                       Options="@MobileNavigationOptions" />
+            <label class="settings-mobile-navigation__label" for="settings-mobile-page">Settings page</label>
+            <div class="settings-mobile-navigation__control">
+                <MudIcon Icon="@Icons.Material.Outlined.Tune" aria-hidden="true" />
+                <AppNativeSelect @key="MobileNavigationValue"
+                                 id="settings-mobile-page"
+                                 Value="@MobileNavigationValue"
+                                 OnChange="@OnMobilePageChanged"
+                                 aria-label="Settings page">
+                    @foreach (var option in MobileNavigationOptions)
+                    {
+                        <option value="@option.Value" selected="@IsMobileNavigationOptionSelected(option)">@option.Label</option>
+                    }
+                </AppNativeSelect>
+            </div>
         </nav>
 
         <SidebarPageHeader Eyebrow="@GetHeroEyebrow()"
                            Title="@GetHeroTitle()"
-                           Subtitle="@GetSectionDescription(_activeSection)"
-                           Status="@GetHeaderStatusLabel()"
-                           Healthy="@(_systemStatus?.IsHealthy == true)" />
+                           Subtitle="@GetSectionDescription(_activeSection)" />
 
-        <div class="settings-page-canvas settings-admin-panel">
+        <div @key="DeviceContext.DeviceClass" class="@PageCanvasClass">
             @if (ShouldDeferForRoleResolution)
             {
                 <AppPageState Kind="AppPageStateKind.Loading"
                               Title="Checking profile permissions"
                               Class="py-8" />
+            }
+            else if (IsMobileRouteUnavailable)
+            {
+                <AppPageState Kind="AppPageStateKind.Unavailable"
+                              Icon="@Icons.Material.Outlined.DesktopWindows"
+                              Title="Use a larger screen for this setting"
+                              Message="@MobileUnavailableMessage">
+                    <Actions>
+                        <AppButton Href="@MobileFallbackRoute"
+                                   Label="Back to mobile settings"
+                                   StartIcon="@Icons.Material.Outlined.ArrowBack" />
+                    </Actions>
+                </AppPageState>
             }
             else
             {
@@ -147,6 +168,8 @@
     private bool _drawerOpen;
     private Guid _drawerEntityId;
     private string _drawerTitle = string.Empty;
+    private ElementReference _contentElement;
+    private bool _scrollToTopPending;
     private IReadOnlyList<SettingsTreeGroupDef> VisibleTreeGroups =>
         SettingsNav.FilteredTreeGroups(_currentRole).ToList();
 
@@ -175,6 +198,26 @@
         !_shellStateLoading
         && _systemStatus is null
         && SettingsNav.GetItem(_activeSection).AdminOnly;
+    private bool IsMobileRouteUnavailable =>
+        DeviceContext.IsMobile
+        && !SettingsNav.IsMobileRouteAvailable(_activeSection, _activeSubsection, Detail);
+    private string PageCanvasClass => string.Join(" ", new[]
+    {
+        "settings-page-canvas",
+        "settings-admin-panel",
+        DeviceContext.IsMobile && SettingsNav.GetMobileAvailability(_activeSection) == SettingsMobileAvailability.SummaryOnly
+            ? "settings-mobile-summary"
+            : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    private string MobileNavigationValue => IsMobileRouteUnavailable ? MobileFallbackRoute : SettingsNav.RouteFor(_activeSection);
+    private bool IsMobileNavigationOptionSelected(AppSelectOption option) =>
+        string.Equals(option.Value, MobileNavigationValue, StringComparison.OrdinalIgnoreCase);
+    private string MobileUnavailableMessage => SettingsNav.GetMobileAvailability(_activeSection) == SettingsMobileAvailability.DesktopOnly
+        ? $"{GetHeroTitle()} is intentionally withheld from mobile because it contains complex configuration or diagnostic tools. Use a desktop or tablet for this workflow."
+        : $"This part of {GetHeroTitle()} contains configuration or diagnostic tools that are safer and easier to use on a desktop or tablet. The mobile overview remains available.";
+    private string MobileFallbackRoute => SettingsNav.GetMobileAvailability(_activeSection) == SettingsMobileAvailability.DesktopOnly
+        ? SettingsNav.RouteFor(SettingsSection.AdminOverview)
+        : SettingsNav.RouteFor(_activeSection);
 
     protected override async Task OnInitializedAsync()
     {
@@ -193,17 +236,31 @@
 
         Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
         Orchestrator.OnProfileChanged += OnProfileChanged;
+        DeviceContext.OnChanged += OnDeviceContextChanged;
     }
 
     protected override void OnParametersSet()
     {
         ResolveSectionAndNormalize();
+        _scrollToTopPending = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_scrollToTopPending)
+        {
+            return;
+        }
+
+        _scrollToTopPending = false;
+        await JS.InvokeVoidAsync("scrollElementToTop", _contentElement);
     }
 
     public void Dispose()
     {
         Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
         Orchestrator.OnProfileChanged -= OnProfileChanged;
+        DeviceContext.OnChanged -= OnDeviceContextChanged;
     }
 
     public void OpenCuratorsDrawer(Guid entityId, string title)
@@ -383,8 +440,11 @@
 
     private IReadOnlyList<SettingsItemDef> GetVisibleTreeItems(SettingsTreeGroupDef group) =>
         SettingsNav.FilteredTreeItems(group, _currentRole)
+            .Where(item => !DeviceContext.IsMobile || SettingsNav.IsVisibleOnMobile(item.Value))
             .Where(IsItemEnabledByUiSettings)
             .ToList();
+
+    private void OnDeviceContextChanged() => InvokeAsync(StateHasChanged);
 
     private static MediaSectionNavigationItem BuildNavigationItem(SettingsItemDef item) =>
         new(
@@ -432,8 +492,9 @@
         builder.CloseComponent();
     };
 
-    private void OnMobilePageChanged(string? route)
+    private void OnMobilePageChanged(ChangeEventArgs args)
     {
+        var route = args.Value?.ToString();
         if (!string.IsNullOrWhiteSpace(route))
         {
             Nav.NavigateTo(route);
@@ -452,19 +513,6 @@
     private string GetSubsectionLabel() => string.IsNullOrWhiteSpace(_activeSubsection)
         ? GetHeroTitle()
         : SettingsNav.ResolveSubsection(_activeSection, _activeSubsection)?.Label ?? GetHeroTitle();
-
-    private string? GetHeaderStatusLabel()
-    {
-        if (_activeSection != SettingsSection.AdminOverview)
-            return null;
-
-        if (_shellStateLoading)
-        {
-            return "Checking engine";
-        }
-
-        return _systemStatus?.IsHealthy == true ? "Engine online" : "Engine unavailable";
-    }
 
     private string GetSectionDescription(SettingsSection section) => section switch
     {

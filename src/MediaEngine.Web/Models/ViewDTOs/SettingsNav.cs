@@ -30,6 +30,19 @@ public enum SettingsSection
     EnrichmentTester,
 }
 
+/// <summary>
+/// Declares how a settings destination should be exposed on a phone-sized or
+/// native-mobile surface. This is a product capability decision, not a CSS
+/// breakpoint: summary pages remain available for monitoring while complex
+/// administration is intentionally reserved for larger screens.
+/// </summary>
+public enum SettingsMobileAvailability
+{
+    Full,
+    SummaryOnly,
+    DesktopOnly,
+}
+
 /// <summary>A primary settings destination group.</summary>
 public sealed record SettingsGroupDef(
     string Key,
@@ -50,7 +63,8 @@ public sealed record SettingsItemDef(
     IReadOnlyList<string> Aliases,
     string Source = "mixed",
     bool Placeholder = false,
-    SettingsStatusKind Status = SettingsStatusKind.Planned);
+    SettingsStatusKind Status = SettingsStatusKind.Planned,
+    SettingsMobileAvailability MobileAvailability = SettingsMobileAvailability.Full);
 
 public sealed record LaunchFeatureEvidence(
     bool Implemented,
@@ -139,23 +153,23 @@ public static class SettingsNav
         new(SettingsSection.Playback, "personal", "playback", Icons.Material.Outlined.PlayCircleOutline, "Playback & Reading", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Privacy, "personal", "privacy", Icons.Material.Outlined.Lock, "Privacy & Data", false, null, [], "unavailable", Placeholder: true),
 
-        new(SettingsSection.AdminOverview, "administration", "system", Icons.Material.Outlined.Dashboard, "System Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live),
-        new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.VideoLibrary, "Libraries", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.ImportFolders, "administration", "import-folders", Icons.Material.Outlined.MoveToInbox, "Import Folders", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.MonitorHeart, "Ingestion", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Providers, "administration", "metadata", Icons.Material.Outlined.Storage, "Metadata", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.AdminOverview, "administration", "system", Icons.Material.Outlined.Dashboard, "System Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.VideoLibrary, "Libraries", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.ImportFolders, "administration", "import-folders", Icons.Material.Outlined.MoveToInbox, "Import Folders", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.DesktopOnly),
+        new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.MonitorHeart, "Ingestion", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.Providers, "administration", "metadata", Icons.Material.Outlined.Storage, "Metadata", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed", Status: SettingsStatusKind.Live),
         new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, [], "sqlite", Status: SettingsStatusKind.Live),
-        new(SettingsSection.Network, "administration", "network", Icons.Material.Outlined.WifiTethering, "Network & Remote Access", true, null, [], "json+runtime", Status: SettingsStatusKind.Live),
-        new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Server, "administration", "backup-recovery", Icons.Material.Outlined.Backup, "Backup & Recovery", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Network, "administration", "network", Icons.Material.Outlined.WifiTethering, "Network & Remote Access", true, null, [], "json+runtime", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.Server, "administration", "backup-recovery", Icons.Material.Outlined.Backup, "Backup & Recovery", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
 
-        new(SettingsSection.LocalAi, "advanced", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Plugins, "advanced", "plugins", Icons.Material.Outlined.Extension, "Plugins", true, null, [], "sqlite", Status: SettingsStatusKind.Partial),
-        new(SettingsSection.DevHarness, "advanced", "developer", Icons.Material.Outlined.Construction, "Developer Tools", true, null, ["dev-harness", "harness", "ingestion-harness", "test-harness"], "internal", Status: SettingsStatusKind.Partial),
-        new(SettingsSection.ProviderTester, "advanced", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal", Status: SettingsStatusKind.Experimental),
-        new(SettingsSection.EnrichmentTester, "advanced", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal", Status: SettingsStatusKind.Experimental),
+        new(SettingsSection.LocalAi, "advanced", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.Plugins, "advanced", "plugins", Icons.Material.Outlined.Extension, "Plugins", true, null, [], "sqlite", Status: SettingsStatusKind.Partial, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.DevHarness, "advanced", "developer", Icons.Material.Outlined.Construction, "Developer Tools", true, null, ["dev-harness", "harness", "ingestion-harness", "test-harness"], "internal", Status: SettingsStatusKind.Partial, MobileAvailability: SettingsMobileAvailability.DesktopOnly),
+        new(SettingsSection.ProviderTester, "advanced", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal", Status: SettingsStatusKind.Experimental, MobileAvailability: SettingsMobileAvailability.DesktopOnly),
+        new(SettingsSection.EnrichmentTester, "advanced", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal", Status: SettingsStatusKind.Experimental, MobileAvailability: SettingsMobileAvailability.DesktopOnly),
     ];
 
     public static readonly SettingsTreeGroupDef[] TreeGroups =
@@ -333,6 +347,40 @@ public static class SettingsNav
     public static SettingsItemDef GetItem(SettingsSection section) => _itemsBySection[section];
 
     public static SettingsStatusKind GetStatus(SettingsSection section) => GetItem(section).Status;
+
+    public static SettingsMobileAvailability GetMobileAvailability(SettingsSection section) =>
+        GetItem(section).MobileAvailability;
+
+    public static bool IsVisibleOnMobile(SettingsSection section) =>
+        GetMobileAvailability(section) != SettingsMobileAvailability.DesktopOnly;
+
+    public static bool IsMobileRouteAvailable(SettingsSection section, string? subsection = null, string? detail = null)
+    {
+        if (!IsVisibleOnMobile(section))
+        {
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(detail))
+        {
+            return false;
+        }
+
+        var normalized = subsection?.Trim().ToLowerInvariant() ?? string.Empty;
+        return section switch
+        {
+            SettingsSection.Libraries => string.IsNullOrWhiteSpace(normalized),
+            SettingsSection.Providers => normalized is "" or "providers",
+            SettingsSection.ActivityLogs => string.IsNullOrWhiteSpace(normalized),
+            SettingsSection.Network => normalized is "" or "overview",
+            SettingsSection.Delivery or SettingsSection.Access or SettingsSection.LocalAi or SettingsSection.Plugins =>
+                string.IsNullOrWhiteSpace(normalized),
+            _ => true,
+        };
+    }
+
+    public static bool IsMobileSubsectionAvailable(SettingsSection section, string subsection) =>
+        IsMobileRouteAvailable(section, subsection);
 
     public static SettingsGroupDef GetGroup(SettingsSection section) => _groupsByKey[GetItem(section).GroupKey];
 

@@ -1,6 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
-@using MediaEngine.Contracts.Playback
 @using MediaEngine.Contracts.System
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
@@ -62,7 +61,7 @@
                 @foreach (var media in MediaBreakdown)
                 {
                     <div class="admin-library-media">
-                        <span class="admin-library-media__label">@media.Label</span>
+                        <span class="admin-library-media__label"><MudIcon Icon="@media.Icon" aria-hidden="true" />@media.Label</span>
                         <span class="admin-library-media__count">@DisplayFormat.FormatCount(media.Count)</span>
                         <span class="admin-library-media__percent">@FormatPercent(media.Percent)</span>
                     </div>
@@ -87,46 +86,35 @@
 
     </AppPanel>
 
-    <div class="admin-overview-primary-grid">
-        <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--attention">
-            <div class="admin-overview-card__header"><MudText Typo="Typo.h6">Needs attention</MudText></div>
-
-            @if (_pendingReviewCount == 0)
+    @if (_pendingReviewCount > 0 || HasSystemExceptions)
+    {
+        <div class="admin-overview-primary-grid">
+            @if (_pendingReviewCount > 0)
             {
-                <div class="admin-empty-state admin-empty-state--success">
-                    <MudIcon Icon="@Icons.Material.Outlined.Verified" />
-                    <div>
-                        <MudText Typo="Typo.subtitle2">Review queue is clear</MudText>
-                        <MudText Typo="Typo.body2" Class="admin-overview-muted">No pending decisions need attention.</MudText>
-                    </div>
-                </div>
-            }
-            else
-            {
+                <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--attention">
+                    <div class="admin-overview-card__header"><MudText Typo="Typo.h6">Needs attention</MudText></div>
                 <div class="admin-attention-copy">
                     <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
                     <div><strong>@AttentionTitle</strong><p>These items could not be identified confidently.</p></div>
                 </div>
+                    <div class="admin-card-actions">
+                        <AppButton Href="/settings/review"
+                                   Label="Review items"
+                                   ButtonStyle="AppButtonStyle.Filled"
+                                   Tone="AppUiTone.Primary" />
+                    </div>
+                </AppPanel>
             }
 
-            <div class="admin-card-actions">
-                <AppButton Href="/settings/review"
-                           Label="Review items"
-                           ButtonStyle="AppButtonStyle.Filled"
-                           Tone="AppUiTone.Primary"
-                           Disabled="@(_pendingReviewCount == 0)" />
-            </div>
-        </AppPanel>
+            @if (HasSystemExceptions)
+            {
+                <AppPanel Elevation="0" Class="tl-card admin-overview-card">
+                    <div class="admin-overview-card__header">
+                        <MudText Typo="Typo.h6">System exceptions</MudText>
+                    </div>
 
-        <AppPanel Elevation="0" Class="tl-card admin-overview-card">
-            <div class="admin-overview-card__header">
-                <MudText Typo="Typo.h6">System Status</MudText>
-            </div>
-
-            <div class="admin-system-status" role="list" aria-label="System status">
-                @if (_readiness is not null)
-                {
-                    @foreach (var check in _readiness.Checks)
+                    <div class="admin-system-status" role="list" aria-label="System exceptions">
+                    @foreach (var check in ReadinessIssues)
                     {
                         <a class="admin-system-status__row" role="listitem" href="@ReadinessRoute(check.Category)">
                             <span class="admin-system-status__icon"><MudIcon Icon="@ReadinessIcon(check.Category)" /></span>
@@ -134,34 +122,27 @@
                             <AppStatusBadge Text="@ReadinessStatus(check.Status)" Tone="@ReadinessTone(check.Status)" />
                         </a>
                     }
-                }
-                <a class="admin-system-status__row" role="listitem" href="/settings/ingestion">
-                    <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Sync" /></span>
-                    <span><strong>Media processing</strong><small>@IngestionStatusDetail</small></span>
-                    <AppStatusBadge Text="@(_currentRun.IsActive ? "Processing" : _currentRun.Failed > 0 ? "Needs attention" : "Idle")"
-                                    Tone="@(_currentRun.Failed > 0 ? AppUiTone.Warning : _currentRun.IsActive ? AppUiTone.Primary : AppUiTone.Neutral)" />
-                </a>
-                @if (SettingsNav.IsVisible(SettingsSection.Delivery, "Administrator"))
-                {
-                    <a class="admin-system-status__row" role="listitem" href="/settings/delivery">
-                        <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.PlayCircle" /></span>
-                        <span><strong>Playback &amp; delivery</strong><small>@(_activeTranscodes > 0 ? $"{DisplayFormat.FormatCount(_activeTranscodes)} active transcode job{(_activeTranscodes == 1 ? "" : "s")}" : "No active transcodes")</small></span>
-                        <AppStatusBadge Text="@(_activeTranscodes > 0 ? "Active" : "Idle")" Tone="@(_activeTranscodes > 0 ? AppUiTone.Primary : AppUiTone.Neutral)" />
-                    </a>
-                }
-                <a class="admin-system-status__row" role="listitem" href="/settings/metadata/providers">
-                    <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Hub" /></span>
-                    <span><strong>Metadata providers</strong><small>Provider status and issues</small></span>
-                    <span class="admin-system-status__open">View</span>
-                </a>
-                <a class="admin-system-status__row" role="listitem" href="/settings/backup-recovery">
-                    <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.CloudDone" /></span>
-                    <span><strong>Backup</strong><small>@BackupStatusDetail</small></span>
-                    <AppStatusBadge Text="@(_backups.Count > 0 ? "Available" : "No backup")" Tone="@(_backups.Count > 0 ? AppUiTone.Success : AppUiTone.Warning)" />
-                </a>
-            </div>
-        </AppPanel>
-    </div>
+                    @if (_currentRun.Failed > 0)
+                    {
+                        <a class="admin-system-status__row" role="listitem" href="/settings/ingestion">
+                            <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.SyncProblem" /></span>
+                            <span><strong>Media processing</strong><small>@IngestionStatusDetail</small></span>
+                            <AppStatusBadge Text="Needs attention" Tone="AppUiTone.Warning" />
+                        </a>
+                    }
+                    @if (_backups.Count == 0)
+                    {
+                        <a class="admin-system-status__row" role="listitem" href="/settings/backup-recovery">
+                            <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Backup" /></span>
+                            <span><strong>No recovery point</strong><small>Create a backup before significant configuration changes.</small></span>
+                            <AppStatusBadge Text="Action needed" Tone="AppUiTone.Warning" />
+                        </a>
+                    }
+                    </div>
+                </AppPanel>
+            }
+        </div>
+    }
 
     <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-recent-activity">
         <div class="admin-overview-card__header">
@@ -207,26 +188,25 @@
     private LibraryOverviewDto? _overview;
     private IReadOnlyList<IngestionBatchResponse> _recentRuns = [];
     private List<ActivityEntryResponse> _recentActivity = [];
-    private List<EncodeJobDto> _encodeJobs = [];
     private IReadOnlyList<BackupArchiveDto> _backups = [];
     private StartupReadinessResponse? _readiness;
     private OverviewRun _currentRun = OverviewRun.Empty;
 
     private int _pendingReviewCount;
-    private int _activeTranscodes;
 
-    private string AttentionTitle => _pendingReviewCount == 0
-        ? "Nothing needs your attention"
-        : $"{DisplayFormat.FormatCount(_pendingReviewCount)} item{(_pendingReviewCount == 1 ? "" : "s")} need review";
+    private string AttentionTitle =>
+        $"{DisplayFormat.FormatCount(_pendingReviewCount)} item{(_pendingReviewCount == 1 ? "" : "s")} need review";
+
+    private IReadOnlyList<StartupReadinessCheckResponse> ReadinessIssues =>
+        _readiness?.Checks
+            .Where(check => !string.Equals(check.Status, "ready", StringComparison.OrdinalIgnoreCase))
+            .ToList() ?? [];
+
+    private bool HasSystemExceptions => ReadinessIssues.Count > 0 || _currentRun.Failed > 0 || _backups.Count == 0;
 
     private string IngestionStatusDetail => _currentRun.IsActive
         ? $"{DisplayFormat.FormatCount(_currentRun.Processed)} of {DisplayFormat.FormatCount(_currentRun.Total)} files processed"
         : _currentRun.IdleDetail;
-
-    private string BackupStatusDetail => _backups
-        .OrderByDescending(backup => backup.CreatedAt)
-        .Select(backup => $"Last backup {FormatRelative(backup.CreatedAt)}")
-        .FirstOrDefault() ?? "No completed backup is reported";
 
     private int _libraryTotal
     {
@@ -241,12 +221,6 @@
         }
     }
 
-    private List<EncodeJobDto> _activeEncodeJobs =>
-        _encodeJobs
-            .Where(job => IsActiveEncodeStatus(job.Status))
-            .OrderByDescending(job => job.StartedAt ?? job.CreatedAt)
-            .ToList();
-
     private IReadOnlyList<MediaBreakdownItem> MediaBreakdown
     {
         get
@@ -254,12 +228,12 @@
             var counts = _overview?.MediaTypeCounts ?? [];
             var items = new[]
             {
-                MediaItem("Books", counts),
-                MediaItem("Audiobooks", counts),
-                MediaItem("Movies", counts),
-                MediaItem("TV Episodes", counts),
-                MediaItem("Music", counts),
-                MediaItem("Comics", counts),
+                MediaItem("Books", counts, Icons.Material.Outlined.MenuBook),
+                MediaItem("Audiobooks", counts, Icons.Material.Outlined.Headphones),
+                MediaItem("Movies", counts, Icons.Material.Outlined.Movie),
+                MediaItem("TV Episodes", counts, Icons.Material.Outlined.Tv),
+                MediaItem("Music", counts, Icons.Material.Outlined.MusicNote),
+                MediaItem("Comics", counts, Icons.Material.Outlined.AutoStories),
             };
 
             var total = items.Sum(item => item.Count);
@@ -295,16 +269,14 @@
             var overviewTask = ApiClient.GetLibraryOverviewAsync();
             var runsTask = Orchestrator.GetIngestionBatchesAsync(6);
             var activityTask = Orchestrator.GetRecentActivityAsync(25);
-            var encodeTask = ApiClient.GetEncodeJobsAsync();
             var backupsTask = ApiClient.GetBackupsAsync();
             var readinessTask = ApiClient.GetStartupReadinessAsync();
 
-            await Task.WhenAll(overviewTask, runsTask, activityTask, encodeTask, backupsTask, readinessTask);
+            await Task.WhenAll(overviewTask, runsTask, activityTask, backupsTask, readinessTask);
 
             _overview = await overviewTask;
             _recentRuns = await runsTask;
             _recentActivity = await activityTask;
-            _encodeJobs = await encodeTask;
             _backups = await backupsTask;
             _readiness = await readinessTask;
 
@@ -386,8 +358,6 @@
     private void Recompute()
     {
         _pendingReviewCount = Math.Max(ReviewCount, _overview?.ReviewTotal ?? 0);
-
-        _activeTranscodes = _activeEncodeJobs.Count;
 
         _currentRun = BuildCurrentRun();
     }
@@ -474,8 +444,8 @@
         };
     }
 
-    private static MediaBreakdownItem MediaItem(string label, Dictionary<string, int> counts) =>
-        new(label, CountFor(counts, label), 0);
+    private static MediaBreakdownItem MediaItem(string label, Dictionary<string, int> counts, string icon) =>
+        new(label, CountFor(counts, label), 0, icon);
 
     private static int CountFor(Dictionary<string, int> counts, string label)
     {
@@ -544,31 +514,6 @@
         return new string(chars.ToArray()).Trim();
     }
 
-    private static string MediaIcon(string? mediaType)
-    {
-        if (string.IsNullOrWhiteSpace(mediaType))
-        {
-            return Icons.Material.Outlined.Inventory2;
-        }
-
-        return LibraryHelpers.GetMediaTypeIcon(mediaType);
-    }
-
-    private static string StatusBadgeClass(string status)
-    {
-        var normalized = status.ToLowerInvariant();
-        var tone = normalized switch
-        {
-            var s when s.Contains("fail") || s.Contains("error") => "danger",
-            var s when s.Contains("queue") => "info",
-            var s when s.Contains("process") || s.Contains("running") || s.Contains("active") => "primary",
-            var s when s.Contains("complete") || s.Contains("ready") => "success",
-            _ => "neutral",
-        };
-
-        return $"admin-status admin-status--{tone}";
-    }
-
     private static string FormatStatus(string status)
     {
         if (string.IsNullOrWhiteSpace(status))
@@ -589,11 +534,6 @@
         run.FilesTotal > 0
         && run.FilesProcessed >= run.FilesTotal
         && !run.Status.Contains("fail", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsActiveEncodeStatus(string status) =>
-        status.Equals(EncodeJobStatuses.Running, StringComparison.OrdinalIgnoreCase)
-        || status.Equals(EncodeJobStatuses.Queued, StringComparison.OrdinalIgnoreCase)
-        || status.Equals(EncodeJobStatuses.Scheduled, StringComparison.OrdinalIgnoreCase);
 
     private static string RunLibrary(IngestionBatchResponse run) =>
         StringHelpers.FirstNonBlankOr("", run.Category, ShortPath(run.SourcePath), "Library");
@@ -630,22 +570,7 @@
         return index >= 0 ? trimmed[(index + 1)..] : trimmed;
     }
 
-    private static string ShortId(Guid id) => id.ToString("N")[..8];
-
-    private static string FormatProfile(string profileKey) =>
-        string.IsNullOrWhiteSpace(profileKey) ? "media" : profileKey.Replace("-", " ");
-
-    private static string FormatEncodeTiming(EncodeJobDto job)
-    {
-        if (job.ProgressPct > 0)
-        {
-            return $"{job.ProgressPct:0}% complete";
-        }
-
-        return FormatStatus(job.Status);
-    }
-
-    private sealed record MediaBreakdownItem(string Label, int Count, double Percent)
+    private sealed record MediaBreakdownItem(string Label, int Count, double Percent, string Icon)
     {
         public string Color => Label switch
         {

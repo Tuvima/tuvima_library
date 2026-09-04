@@ -53,6 +53,12 @@
     scroll-margin-top: 96px;
 }
 
+.settings-plugin-mobile-list { display: grid; }
+.settings-plugin-mobile-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 12px; padding: 14px 0; border-top: 1px solid var(--tl-divider); }
+.settings-plugin-mobile-row:first-child { border-top: 0; }
+.settings-plugin-mobile-row span, .settings-plugin-mobile-row strong, .settings-plugin-mobile-row small { display: block; min-width: 0; }
+.settings-plugin-mobile-row small { margin-top: 3px; color: var(--tl-text-muted); font-size: 14px; line-height: 1.45; }
+
 .settings-plugin-detail-stack {
     display: grid;
     gap: 18px;

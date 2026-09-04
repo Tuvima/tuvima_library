@@ -1,13 +1,17 @@
 @namespace MediaEngine.Web.Components.Settings
+@inject DeviceContextService DeviceContext
 
 <div class="tl-page activity-page">
     @if (ActiveSubsection == "events")
     {
         <ActivityEventsLedger />
-        <details class="activity-page__advanced">
-            <summary>Maintenance &amp; retention</summary>
-            <ActivityMaintenancePanel />
-        </details>
+        @if (!DeviceContext.IsMobile)
+        {
+            <details class="activity-page__advanced">
+                <summary>Maintenance &amp; retention</summary>
+                <ActivityMaintenancePanel />
+            </details>
+        }
     }
     else if (ActiveSubsection == "batches")
     {

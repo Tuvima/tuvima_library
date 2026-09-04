@@ -31,10 +31,13 @@
         </dl>
     </SettingsSectionPanel>
 
-    <AppAlert Tone="@SummaryTone" Class="network-summary-alert">
-        <strong>@(Status?.Headline ?? "Network status is unavailable")</strong>
-        <span>@(Status?.Guidance ?? "Start the Engine to inspect network access.")</span>
-    </AppAlert>
+    @if (!NetworkIsHealthy)
+    {
+        <AppAlert Tone="AppUiTone.Warning" Class="network-summary-alert">
+            <strong>@(Status?.Headline ?? "Network status is unavailable")</strong>
+            <span>@(Status?.Guidance ?? "Start the Engine to inspect network access.")</span>
+        </AppAlert>
+    }
 </div>
 
 <NetworkTestDialog @bind-Visible="_testDialogOpen" Busy="@_testing" Result="@_testResult" />
@@ -48,10 +51,9 @@
     private bool _testing;
     private NetworkTestResultDto? _testResult;
 
-    private AppUiTone SummaryTone => Status?.LocalAccess == "healthy"
+    private bool NetworkIsHealthy => Status?.LocalAccess == "healthy"
         && (!Settings.Remote.Enabled || Status.RemoteAccess == "available")
-            ? AppUiTone.Success
-            : AppUiTone.Warning;
+        && Status.SecureConnection is not "unavailable";
 
     private string RouterSummary => Status?.MappingStatus == "active"
         ? $"{Status.RouterMethod ?? "Automatic"} · Active"

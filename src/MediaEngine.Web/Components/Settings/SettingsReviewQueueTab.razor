@@ -2,6 +2,7 @@
 @inject UIOrchestratorService Orchestrator
 @inject MediaEditorLauncherService MediaEditorLauncher
 @inject ISnackbar Snackbar
+@inject DeviceContextService DeviceContext
 @using MediaEngine.Web.Services.Editing
 
 <div class="settings-review-page">
@@ -9,6 +10,10 @@
         <div><h2>@(_items.Count == 1 ? "1 item needs review" : $"{_items.Count} items need review")</h2><p>Items Tuvima could not identify confidently.</p></div>
         <AppButton Label="Refresh" Size="AppControlSize.Compact" StartIcon="@Icons.Material.Outlined.Refresh" Disabled="@_loading" OnClick="LoadAsync" />
     </header>
+    @if (DeviceContext.IsMobile)
+    {
+        <p class="settings-review-mobile-note">Use mobile to inspect, filter, or dismiss queue items. Open Tuvima on a desktop or tablet to compare providers and edit matches.</p>
+    }
     <div class="settings-review-filters" role="group" aria-label="Filter review queue">
         @foreach (var filter in Filters)
         {
@@ -17,7 +22,7 @@
     </div>
     @if (_loading && _items.Count == 0) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading review queue" Message="Checking for items that need a decision." /> }
     else if (!string.IsNullOrWhiteSpace(_error) && _items.Count == 0) { <AppPageState Kind="AppPageStateKind.Error" Icon="@Icons.Material.Outlined.CloudOff" Title="Review queue is unavailable" Message="@_error" /> }
-    else if (_items.Count == 0) { <AppEmptyState Title="Nothing needs review" Message="Tuvima has no unresolved items waiting for you." /> }
+    else if (_items.Count == 0) { <AppEmptyState Class="app-page-state--compact" Title="Review queue is clear" /> }
     else
     {
         @if (_loading) { <AppProgressBar Indeterminate="true" Class="settings-review-refresh-bar" /> }
@@ -32,7 +37,14 @@
                     <div class="settings-review-row__reason" data-label="Why it is here"><AppStatusBadge Text="@issue.Label" Tone="@(issue.HighPriority ? AppUiTone.Error : AppUiTone.Warning)" /><span>@detail.QueueExplanation</span></div>
                     <time data-label="Waiting" datetime="@item.CreatedAt.ToString("O")">@WaitingAge(item.CreatedAt)</time>
                     <div class="settings-review-row__actions" data-label="Action">
-                        <AppButton Label="Review" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Size="AppControlSize.Compact" Disabled="@_busyIds.Contains(item.Id)" OnClick="@(() => OpenReviewEditorAsync(item))" />
+                        @if (DeviceContext.IsMobile)
+                        {
+                            <AppStatusBadge Text="Desktop required" Tone="AppUiTone.Neutral" />
+                        }
+                        else
+                        {
+                            <AppButton Label="Review" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Size="AppControlSize.Compact" Disabled="@_busyIds.Contains(item.Id)" OnClick="@(() => OpenReviewEditorAsync(item))" />
+                        }
                         <AppOverflowMenu AriaLabel="@($"More actions for {DisplayTitle(item)}")" Size="AppControlSize.Compact">
                             @if (IsWikidataReview(item.Trigger)) { <AppMenuItem Label="Keep provider match" Icon="@Icons.Material.Outlined.Link" OnClick="@(() => SkipUniverseAsync(item))" /> }
                             <AppMenuItem Label="Dismiss from review" Icon="@Icons.Material.Outlined.Close" OnClick="@(() => DismissAsync(item))" />
