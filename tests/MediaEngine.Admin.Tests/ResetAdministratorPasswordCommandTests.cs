@@ -5,6 +5,24 @@ namespace MediaEngine.Admin.Tests;
 public sealed class ResetAdministratorPasswordCommandTests
 {
     [Fact]
+    public void HostAuthorizer_AllowsAnElevatedOperatingSystemPrincipal()
+    {
+        var authorizer = new SystemHostRecoveryAuthorizer(new FixedPrivilegeProbe(true));
+
+        authorizer.EnsureAuthorized();
+    }
+
+    [Fact]
+    public void HostAuthorizer_RejectsANonElevatedOperatingSystemPrincipal()
+    {
+        var authorizer = new SystemHostRecoveryAuthorizer(new FixedPrivilegeProbe(false));
+
+        var error = Assert.Throws<UnauthorizedAccessException>(authorizer.EnsureAuthorized);
+
+        Assert.Contains("elevated", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task UnauthorizedHost_CannotReadInputOrChangeCredential()
     {
         var recovery = new RecordingRecoveryService();
@@ -73,6 +91,11 @@ public sealed class ResetAdministratorPasswordCommandTests
     {
         public void EnsureAuthorized() => throw new UnauthorizedAccessException(
             "Host recovery requires an elevated terminal.");
+    }
+
+    private sealed class FixedPrivilegeProbe(bool allowed) : IHostPrivilegeProbe
+    {
+        public bool HasAdministrativeHostAccess() => allowed;
     }
 
     private sealed class RecordingRecoveryService : IHostAdministratorRecoveryService

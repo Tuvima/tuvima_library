@@ -312,11 +312,13 @@ public static class DashboardAuthenticationEndpoints
               <label>Email<input id="signin-email" type="email" name="email" autocomplete="username" required autofocus></label>
               <label>Password<input type="password" name="password" autocomplete="current-password" required></label><button>Sign in</button></form>
               <button type="button" id="passkey-login">Sign in with a passkey</button><p id="passkey-message" class="supporting"></p>
-              <details><summary>Forgot password?</summary>
+              <details><summary>Reset password or recover administrator access</summary>
               {emailReset}
               <p class="supporting">Use one of the one-time recovery codes saved when the account was created.</p>
               <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="recover"><label>Email<input type="email" name="email" autocomplete="username" required></label><label>Recovery code<input name="recoveryCode" autocomplete="off" spellcheck="false" required></label><label>New password<input type="password" name="newPassword" minlength="8" autocomplete="new-password" required><small>Use at least 8 characters.</small></label><button>Reset with recovery code</button></form>
-              <p class="supporting">No recovery code? Run <code>tuvima-admin auth reset-password</code> with administrator privileges on the computer running Tuvima Library.</p>
+              <h2>Local administrator recovery</h2>
+              <p class="supporting">No recovery code or email access? Open an elevated terminal on the computer running Tuvima Library and run <code>tuvima-admin auth reset-password --email you@example.com</code>. From a source checkout, run <code>dotnet run --project src/MediaEngine.Admin -- auth reset-password --email you@example.com</code>.</p>
+              <p class="supporting">This recovery command is local-only: it is not an HTTP endpoint and cannot be invoked through an externally exposed Dashboard. It revokes all sessions and replaces the recovery codes.</p>
               </details>
               <details><summary>Sign in with a profile PIN</summary><form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}"><label>Profile ID<input name="profileId" required></label><label>PIN<input type="password" inputmode="numeric" name="pin" required></label><button>Unlock profile</button></form></details>
               {externalButtons}

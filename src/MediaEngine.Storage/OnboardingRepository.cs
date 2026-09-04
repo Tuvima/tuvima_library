@@ -9,7 +9,6 @@ public sealed record OnboardingWorkflowRecord(
     string CurrentStep,
     Guid? AdministratorProfileId,
     long Revision,
-    DateTimeOffset? ClaimedAt,
     DateTimeOffset? CompletedAt,
     IReadOnlyList<OnboardingStepRecord> Steps);
 
@@ -30,7 +29,7 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
         var workflow = connection.QuerySingle<WorkflowRow>("""
             SELECT workflow_version AS WorkflowVersion, state AS State,
                    current_step AS CurrentStep, administrator_profile_id AS AdministratorProfileId,
-                   revision AS Revision, claimed_at AS ClaimedAt, completed_at AS CompletedAt
+                   revision AS Revision, completed_at AS CompletedAt
             FROM onboarding_workflows WHERE workflow_version = @version;
             """, new { version = CurrentVersion });
         var steps = connection.Query<StepRow>("""
@@ -38,44 +37,40 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
                    repair_target AS RepairTarget, completed_at AS CompletedAt
             FROM onboarding_steps WHERE workflow_version = @version
             ORDER BY CASE step_key
-                WHEN 'claim' THEN 1 WHEN 'preflight' THEN 2 WHEN 'administrator' THEN 3
-                WHEN 'media-locations' THEN 4 WHEN 'providers' THEN 5 WHEN 'local-ai' THEN 6
-                WHEN 'access' THEN 7 WHEN 'readiness' THEN 8 ELSE 99 END;
+                WHEN 'preflight' THEN 1 WHEN 'administrator' THEN 2
+                WHEN 'media-locations' THEN 3 WHEN 'providers' THEN 4 WHEN 'local-ai' THEN 5
+                WHEN 'access' THEN 6 WHEN 'readiness' THEN 7 ELSE 99 END;
             """, new { version = CurrentVersion }).AsList();
         return new OnboardingWorkflowRecord(
             workflow.WorkflowVersion, workflow.State, workflow.CurrentStep,
             workflow.AdministratorProfileId, workflow.Revision,
-            Parse(workflow.ClaimedAt), Parse(workflow.CompletedAt),
+            Parse(workflow.CompletedAt),
             steps.Select(row => new OnboardingStepRecord(
                 row.StepKey, row.Status, row.Detail, row.RepairTarget, Parse(row.CompletedAt))).ToList());
     }
 
-    public async Task<bool> TryClaimAsync(string sessionTokenHash, Guid sessionId, DateTimeOffset expiresAt, CancellationToken ct)
+    public async Task<bool> TryBeginAsync(string sessionTokenHash, Guid sessionId, DateTimeOffset expiresAt, CancellationToken ct)
     {
         var now = DateTimeOffset.UtcNow.ToString("O");
         return await database.ExecuteWriteAsync((connection, transaction, _) =>
         {
-            var changed = connection.Execute("""
-                UPDATE onboarding_workflows
-                SET state = 'claimed', current_step = 'preflight', claimed_at = @now,
-                    updated_at = @now, revision = revision + 1
-                WHERE workflow_version = @version AND state = 'unclaimed';
-                """, new { now, version = CurrentVersion }, transaction);
-            if (changed == 0) return false;
-            connection.Execute("""
-                UPDATE onboarding_steps
-                SET status = 'passed', detail = 'Server claimed by the local operator.',
-                    completed_at = @now, updated_at = @now
-                WHERE workflow_version = @version AND step_key = 'claim';
-                """, new { now, version = CurrentVersion }, transaction);
+            var state = connection.QuerySingle<string>("""
+                SELECT state FROM onboarding_workflows
+                WHERE workflow_version = @version;
+                """, new { version = CurrentVersion }, transaction);
+            if (state == "complete") return false;
+
             connection.Execute("""
                 INSERT INTO onboarding_sessions
                     (id, workflow_version, token_hash, created_at, expires_at, last_used_at)
                 VALUES (@sessionId, @version, @tokenHash, @now, @expiresAt, @now);
                 """, new
             {
-                sessionId, version = CurrentVersion, tokenHash = sessionTokenHash,
-                now, expiresAt = expiresAt.ToString("O"),
+                sessionId,
+                version = CurrentVersion,
+                tokenHash = sessionTokenHash,
+                now,
+                expiresAt = expiresAt.ToString("O"),
             }, transaction);
             return true;
         }, ct).ConfigureAwait(false);
@@ -137,7 +132,7 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
                 WHERE workflow_version = @version
                   AND step_key <> 'readiness'
                   AND (
-                    (step_key IN ('claim','preflight','administrator','media-locations') AND status <> 'passed')
+                    (step_key IN ('preflight','administrator','media-locations') AND status <> 'passed')
                     OR
                     (step_key IN ('providers','local-ai','access') AND status NOT IN ('passed','deferred'))
                   );
@@ -154,27 +149,6 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
                 WHERE workflow_version = @version AND revoked_at IS NULL;
                 """, new { now, version = CurrentVersion }, transaction);
             return true;
-        }, ct).ConfigureAwait(false);
-    }
-
-    public async Task ResetAbandonedClaimAsync(CancellationToken ct)
-    {
-        var now = DateTimeOffset.UtcNow;
-        await database.ExecuteWriteAsync((connection, transaction, _) =>
-        {
-            var active = connection.ExecuteScalar<int>("""
-                SELECT COUNT(*) FROM onboarding_sessions
-                WHERE workflow_version = @version AND revoked_at IS NULL AND expires_at > @now;
-                """, new { version = CurrentVersion, now = now.ToString("O") }, transaction);
-            if (active > 0) return;
-            connection.Execute("""
-                UPDATE onboarding_workflows SET state = 'unclaimed', current_step = 'claim',
-                    claimed_at = NULL, updated_at = @now, revision = revision + 1
-                WHERE workflow_version = @version AND state IN ('claimed', 'in_progress');
-                UPDATE onboarding_steps SET status = 'not_started', detail = NULL,
-                    completed_at = NULL, updated_at = @now
-                WHERE workflow_version = @version AND step_key = 'claim';
-                """, new { version = CurrentVersion, now = now.ToString("O") }, transaction);
         }, ct).ConfigureAwait(false);
     }
 
@@ -215,9 +189,9 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
             SELECT step_key FROM onboarding_steps
             WHERE workflow_version = @version AND status NOT IN ('passed','deferred')
             ORDER BY CASE step_key
-                WHEN 'claim' THEN 1 WHEN 'preflight' THEN 2 WHEN 'administrator' THEN 3
-                WHEN 'media-locations' THEN 4 WHEN 'providers' THEN 5 WHEN 'local-ai' THEN 6
-                WHEN 'access' THEN 7 WHEN 'readiness' THEN 8 ELSE 99 END LIMIT 1;
+                WHEN 'preflight' THEN 1 WHEN 'administrator' THEN 2
+                WHEN 'media-locations' THEN 3 WHEN 'providers' THEN 4 WHEN 'local-ai' THEN 5
+                WHEN 'access' THEN 6 WHEN 'readiness' THEN 7 ELSE 99 END LIMIT 1;
             """, new { version = CurrentVersion }, transaction) ?? "readiness";
 
     private static DateTimeOffset? Parse(string? value) =>
@@ -226,11 +200,10 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
     private sealed class WorkflowRow
     {
         public int WorkflowVersion { get; init; }
-        public string State { get; init; } = "unclaimed";
-        public string CurrentStep { get; init; } = "claim";
+        public string State { get; init; } = "in_progress";
+        public string CurrentStep { get; init; } = "preflight";
         public Guid? AdministratorProfileId { get; init; }
         public long Revision { get; init; }
-        public string? ClaimedAt { get; init; }
         public string? CompletedAt { get; init; }
     }
     private sealed class StepRow

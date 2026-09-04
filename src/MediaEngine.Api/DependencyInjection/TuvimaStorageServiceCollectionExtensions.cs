@@ -80,9 +80,8 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddScoped<IPasskeyHandler<Account>, PasskeyHandler<Account>>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IFirstPartyIdentityService, FirstPartyIdentityService>();
-        services.AddSingleton<SetupClaimService>();
+        services.AddSingleton<SetupSessionService>();
         services.AddSingleton<SetupPreflightService>();
-        services.AddHostedService<SetupClaimHostedService>();
         services.AddSingleton<IProfileWorkPreferencesRepository, ProfileWorkPreferencesRepository>();
         services.AddSingleton<IProfileSequencePreferencesRepository, ProfileSequencePreferencesRepository>();
         services.AddSingleton<ITasteProfileRepository, TasteProfileRepository>();

@@ -23,7 +23,7 @@ Use an administrator SSH session and `id USERNAME` to find a numeric UID/GID wit
 3. Paste the repository's `docker-compose.yml` after replacing every host path with a real `/share/...` path.
 4. Validate the YAML, then create the application.
 5. Wait for `tuvima-library` to report healthy.
-6. Open the container logs, copy `[Tuvima Setup] Claim token`, and complete `http://NAS-IP:5016/setup`.
+6. Open `http://NAS-IP:5016/setup`, complete setup directly, and save the generated recovery codes.
 
 Publish only host port `5016`. Keep the Engine on container loopback. If Container Station reports a permission error, repair the share ACL or ownership for the configured numeric identity; do not enable privileged mode.
 

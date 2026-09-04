@@ -1,6 +1,6 @@
 ---
 title: "Operations and Recovery"
-summary: "Claim, back up, restore, upgrade, roll back, and securely expose a Tuvima installation."
+summary: "Set up, back up, restore, upgrade, roll back, and securely expose a Tuvima installation."
 audience: "administrator"
 category: "guide"
 product_area: "operations"
@@ -10,15 +10,13 @@ product_area: "operations"
 
 Use this runbook after installing Tuvima with Docker Compose or a NAS container manager. Commands assume the container name `tuvima-library`; use the equivalent log, restart, and image controls in your NAS UI.
 
-## One-time server claim
+## First-run setup
 
-An unconfigured Engine writes a one-time claim token to container stdout only:
-
-```bash
-docker logs tuvima-library 2>&1 | grep "\[Tuvima Setup\] Claim token"
-```
-
-Open `/setup` on the Dashboard, enter the latest token, and complete setup. The token is single-use and never appears in an HTTP response or structured log. Claiming creates a setup session that expires after 12 hours. A restart before claim creates a new token.
+Open `/setup` on the Dashboard. An unconfigured server begins setup directly
+without a container-log token. Create the first administrator promptly. As soon
+as that account exists, setup is protected by normal administrator
+authentication. Until then, keep the Dashboard on a trusted private network;
+the first browser that can reach setup can create the administrator.
 
 The first administrator receives one-time recovery codes. Store them in a password manager or offline recovery record. If all codes are lost, an operator with host control can run the interactive recovery command:
 
@@ -26,7 +24,10 @@ The first administrator receives one-time recovery codes. Store them in a passwo
 docker exec -it --user 0 tuvima-library /app/admin/tuvima-admin auth reset-password
 ```
 
-The command revokes that administrator's sessions and rotates recovery codes. It never accepts the password as a command-line argument.
+The command requires root inside the container, revokes that administrator's
+sessions, and rotates recovery codes. It never accepts the password as a
+command-line argument and is not exposed through the Dashboard or Engine HTTP
+API, so publishing the Dashboard does not make host recovery remotely callable.
 
 ## Back up and test recovery
 

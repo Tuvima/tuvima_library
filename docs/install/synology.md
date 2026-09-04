@@ -34,7 +34,7 @@ Choose separate media paths for `/watch` and `/library`. Give the service accoun
 5. Name the project `tuvima`, select its working directory, and upload or paste the Compose file.
 6. Build and start the project.
 
-Wait for `tuvima-library` to report healthy, then open `http://NAS-IP:5016/setup`. Find `[Tuvima Setup] Claim token` in the container log and enter it on the setup page.
+Wait for `tuvima-library` to report healthy, then open `http://NAS-IP:5016/setup`, complete setup directly, and save the generated recovery codes.
 
 Do not add a port mapping for `61495`. Use the Synology reverse proxy only for Dashboard port `5016`, and follow the trusted-proxy and TLS steps in [Operations and Recovery](../guides/operations-and-recovery.md).
 

@@ -5,7 +5,7 @@ namespace MediaEngine.Web.Services.Integration;
 public partial interface IEngineApiClient
 {
     Task<SetupStatusDto?> GetSetupStatusAsync(CancellationToken ct = default);
-    Task<SetupClaimResponse?> ClaimSetupAsync(string token, CancellationToken ct = default);
+    Task<SetupStartResponse?> BeginSetupAsync(CancellationToken ct = default);
     Task<SetupPreflightDto?> RunSetupPreflightAsync(string? setupSession, CancellationToken ct = default);
     Task<SetupAdministratorResponse?> CreateSetupAdministratorAsync(SetupAdministratorRequest request, string setupSession, CancellationToken ct = default);
     Task<SetupMediaLocationsDto?> ValidateSetupMediaLocationsAsync(string? setupSession, CancellationToken ct = default);

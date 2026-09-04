@@ -7,7 +7,7 @@ public static class SetupWorkflow
     public const int CurrentVersion = 1;
     public static readonly string[] StepKeys =
     [
-        "claim", "preflight", "administrator", "media-locations",
+        "preflight", "administrator", "media-locations",
         "providers", "local-ai", "access", "readiness",
     ];
 }
@@ -24,17 +24,12 @@ public sealed record SetupStatusDto(
     [property: JsonPropertyName("state")] string State,
     [property: JsonPropertyName("current_step")] string CurrentStep,
     [property: JsonPropertyName("revision")] long Revision,
-    [property: JsonPropertyName("requires_claim")] bool RequiresClaim,
+    [property: JsonPropertyName("requires_setup_start")] bool RequiresSetupStart,
     [property: JsonPropertyName("requires_authentication")] bool RequiresAuthentication,
     [property: JsonPropertyName("administrator_configured")] bool AdministratorConfigured,
     [property: JsonPropertyName("steps")] IReadOnlyList<SetupStepStatusDto> Steps);
 
-public sealed class SetupClaimRequest
-{
-    [JsonPropertyName("token")] public string Token { get; init; } = string.Empty;
-}
-
-public sealed record SetupClaimResponse(
+public sealed record SetupStartResponse(
     [property: JsonPropertyName("setup_session_token")] string SetupSessionToken,
     [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt,
     [property: JsonPropertyName("status")] SetupStatusDto Status);

@@ -35,7 +35,7 @@ Do not enable the Custom App **Custom User** override for this image. The contai
 4. Paste `docker-compose.yml`, replace all `/mnt/user/...` examples with the datasets created above, and set `TZ`.
 5. Save and deploy the app.
 6. Wait for the workload health state to become healthy.
-7. Read `[Tuvima Setup] Claim token` from the app logs and complete `http://TRUENAS-IP:5016/setup`.
+7. Open `http://TRUENAS-IP:5016/setup`, complete setup directly, and save the generated recovery codes.
 
 Only Dashboard port `5016` belongs in the portal or port-forwarding configuration. Do not publish Engine port `61495`.
 

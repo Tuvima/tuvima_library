@@ -5765,14 +5765,6 @@ MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupCapabilityDto
   Detail: System.String | nullability=not-null | accessors=get,init
   RepairTarget: System.String | nullability=nullable | accessors=get,init
 
-MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupClaimRequest
-  Token: System.String | nullability=not-null | accessors=get,init
-
-MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupClaimResponse
-  SetupSessionToken: System.String | nullability=not-null | accessors=get,init
-  ExpiresAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
-  Status: MediaEngine.Contracts.Setup.SetupStatusDto | nullability=not-null | accessors=get,init
-
 MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupMediaLocationsDto
   Passed: System.Boolean | nullability=not-null | accessors=get,init
   Configured: System.Int32 | nullability=not-null | accessors=get,init
@@ -5809,12 +5801,17 @@ MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupRestoreConfirmation
   RestartRequired: System.Boolean | nullability=not-null | accessors=get,init
   Message: System.String | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupStartResponse
+  SetupSessionToken: System.String | nullability=not-null | accessors=get,init
+  ExpiresAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  Status: MediaEngine.Contracts.Setup.SetupStatusDto | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupStatusDto
   WorkflowVersion: System.Int32 | nullability=not-null | accessors=get,init
   State: System.String | nullability=not-null | accessors=get,init
   CurrentStep: System.String | nullability=not-null | accessors=get,init
   Revision: System.Int64 | nullability=not-null | accessors=get,init
-  RequiresClaim: System.Boolean | nullability=not-null | accessors=get,init
+  RequiresSetupStart: System.Boolean | nullability=not-null | accessors=get,init
   RequiresAuthentication: System.Boolean | nullability=not-null | accessors=get,init
   AdministratorConfigured: System.Boolean | nullability=not-null | accessors=get,init
   Steps: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Setup.SetupStepStatusDto> | nullability=not-null | accessors=get,init

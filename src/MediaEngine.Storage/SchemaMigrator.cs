@@ -49,11 +49,10 @@ internal sealed class SchemaMigrator
             cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS onboarding_workflows (
                 workflow_version INTEGER NOT NULL PRIMARY KEY,
-                state TEXT NOT NULL CHECK (state IN ('unclaimed', 'claimed', 'in_progress', 'complete')),
+                state TEXT NOT NULL CHECK (state IN ('in_progress', 'complete')),
                 current_step TEXT NOT NULL,
                 administrator_profile_id BLOB REFERENCES profiles(id) ON DELETE SET NULL,
                 revision INTEGER NOT NULL DEFAULT 0,
-                claimed_at TEXT,
                 completed_at TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL
@@ -98,11 +97,10 @@ internal sealed class SchemaMigrator
             INSERT OR IGNORE INTO onboarding_workflows
                 (workflow_version, state, current_step, revision, created_at, updated_at)
             VALUES
-                (1, 'unclaimed', 'claim', 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                (1, 'in_progress', 'preflight', 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 
             INSERT OR IGNORE INTO onboarding_steps (workflow_version, step_key, status, updated_at)
             VALUES
-                (1, 'claim', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                 (1, 'preflight', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                 (1, 'administrator', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),
                 (1, 'media-locations', 'not_started', strftime('%Y-%m-%dT%H:%M:%fZ','now')),

@@ -58,6 +58,43 @@ administrator PIN, the account password, or a registered passkey/Windows Hello.
 The grant expires after 30 minutes, is tied to the current session and profile,
 and is cleared immediately when the active profile changes.
 
+## Local administrator recovery
+
+If the administrator cannot use email or a saved recovery code, run recovery
+from an elevated terminal on the server itself. The command is deliberately not
+available through the Dashboard or Engine HTTP API, even when remote access is
+enabled.
+
+From an installed host:
+
+```text
+tuvima-admin auth reset-password --email administrator@example.com
+```
+
+From a source checkout:
+
+```text
+dotnet run --project src/MediaEngine.Admin -- auth reset-password --email administrator@example.com
+```
+
+In the supported container image:
+
+```text
+docker exec -it --user 0 tuvima-library /app/admin/tuvima-admin auth reset-password --email administrator@example.com
+```
+
+Windows requires an elevated Administrator terminal. Linux and macOS require
+effective user ID 0; the container command explicitly runs as root. The new
+password is entered interactively so it does not enter shell history or the
+process list. A successful reset revokes all sessions, rotates the account's
+security stamp, and replaces all recovery codes.
+
+An externally reachable Dashboard does not weaken this boundary: a remote user
+cannot invoke the command unless they have separately compromised operating-
+system or container-root access. At that point they already control the server
+and its database. Full server/database reset remains a host operation and is
+never offered anonymously on the login screen.
+
 ## Optional email delivery
 
 Email is optional. A server without SMTP remains recoverable with saved recovery

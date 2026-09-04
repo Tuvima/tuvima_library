@@ -46,9 +46,6 @@
         <section class="setup-stage" aria-labelledby="setup-stage-title">
             @switch (CurrentStep)
             {
-                case "claim":
-                    @ClaimStage()
-                    break;
                 case "preflight":
                     @PreflightStage()
                     break;
@@ -76,7 +73,7 @@
 </main>
 
 @code {
-    private const string SetupSessionKey = "tuvima.setup.session.v1";
+    private const string SetupSessionKey = "tuvima.setup.session.v2";
     private SetupStatusDto? _status;
     private SetupPreflightDto? _preflight;
     private SetupBackupInspectionDto? _backup;
@@ -84,7 +81,6 @@
     private SetupReadinessDto? _readiness;
     private HardwareProfileDto? _hardware;
     private string? _setupSession;
-    private string _claimToken = string.Empty;
     private string _email = string.Empty;
     private string _password = string.Empty;
     private string _displayName = "Administrator";
@@ -101,10 +97,9 @@
     private string CurrentStep => NormalizeStep(_status?.CurrentStep);
     private int CurrentIndex => Math.Max(0, Array.IndexOf(SetupWorkflow.StepKeys, CurrentStep));
     private int ProgressPercent => (int)Math.Round(((CurrentIndex + 1d) / SetupWorkflow.StepKeys.Length) * 100d);
-    private string PageTitleText => CurrentStep == "claim" ? "Welcome to your library" : Friendly(CurrentStep);
+    private string PageTitleText => CurrentStep == "preflight" ? "Welcome to your library" : Friendly(CurrentStep);
     private string PageSubtitle => CurrentStep switch
     {
-        "claim" => "Private by default, stored on your server, and controlled by the people you choose.",
         "preflight" => "Start fresh or recover a backup, then verify the storage and tools visible to this server.",
         "administrator" => "Create the first authenticated administrator and household profile.",
         "media-locations" => "Connect read-only sources separately from storage Tuvima may manage.",
@@ -130,6 +125,16 @@
     private async Task ReloadAsync()
     {
         _status = await ApiClient.GetSetupStatusAsync();
+        if (_status?.RequiresSetupStart == true && !_authenticated && string.IsNullOrWhiteSpace(_setupSession))
+        {
+            var started = await ApiClient.BeginSetupAsync();
+            if (started is not null)
+            {
+                _setupSession = started.SetupSessionToken;
+                await Storage.SetAsync(SetupSessionKey, _setupSession);
+                _status = started.Status;
+            }
+        }
         _loading = false;
         if (_status?.State == "complete")
         {
@@ -148,15 +153,9 @@
         }
     }
 
-    private RenderFragment ClaimStage() => @<text>
-        <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.Security" /><div><h2 id="setup-stage-title">Claim this server</h2><p>The one-time claim token is printed in the Tuvima container logs. It prevents someone else on your network from silently taking control.</p></div></div>
-        <AppAlert Tone="AppUiTone.Info">Run <code>docker logs tuvima-library</code> on the server and look for <strong>[Tuvima Setup] Claim token</strong>.</AppAlert>
-        <AppTextField Label="Claim token" Value="@_claimToken" ValueChanged="@((string? value) => _claimToken = value ?? string.Empty)" Placeholder="XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX" />
-        <div class="setup-actions setup-actions--end"><AppButton Label="Claim server" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" Disabled="@(string.IsNullOrWhiteSpace(_claimToken) || _busy)" OnClick="ClaimAsync" /></div>
-    </text>;
-
     private RenderFragment PreflightStage() => @<text>
         <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.FactCheck" /><div><h2 id="setup-stage-title">Prepare this installation</h2><p>You can begin with a clean library or recover an existing Tuvima backup.</p></div></div>
+        <AppAlert Tone="AppUiTone.Info">Keep this Dashboard on your private network until the first administrator is created. An unconfigured server intentionally accepts setup without a separate claim token.</AppAlert>
         @if (_showRestore)
         {
             <div class="setup-restore">
@@ -250,17 +249,6 @@
         }
     </text>;
 
-    private async Task ClaimAsync()
-    {
-        _busy = true;
-        var result = await ApiClient.ClaimSetupAsync(_claimToken);
-        _busy = false;
-        if (result is null) { Snackbar.Add("The claim token was not accepted.", Severity.Error); return; }
-        _setupSession = result.SetupSessionToken;
-        await Storage.SetAsync(SetupSessionKey, _setupSession);
-        _status = result.Status;
-    }
-
     private async Task RunPreflightAsync() { _busy = true; _preflight = await ApiClient.RunSetupPreflightAsync(_setupSession); _busy = false; if (_preflight is null) Snackbar.Add("Preflight could not run.", Severity.Error); }
     private async Task UploadBackupAsync(InputFileChangeEventArgs args) { _busy = true; try { await using var stream = args.File.OpenReadStream(2L * 1024 * 1024 * 1024); _backup = await ApiClient.UploadSetupBackupAsync(stream, args.File.Name, _setupSession ?? string.Empty); if (_backup is null) Snackbar.Add("The backup failed validation.", Severity.Error); } finally { _busy = false; } }
     private async Task ConfirmRestoreAsync() { if (_backup is null || _setupSession is null) return; _busy = true; var result = await ApiClient.ConfirmSetupRestoreAsync(_backup.OperationId, _setupSession); _busy = false; if (result is null) Snackbar.Add("The restore could not be scheduled.", Severity.Error); else Snackbar.Add("Restore scheduled. Tuvima is restarting.", Severity.Info); }
@@ -277,7 +265,7 @@
     private async Task CompleteAsync() { _busy = true; var result = await ApiClient.CompleteSetupAsync(_setupSession); _busy = false; if (result?.State == "complete") { try { await Storage.DeleteAsync(SetupSessionKey); } catch { _setupSession = null; } Navigation.NavigateTo(_authenticated ? "/" : "/auth/login", forceLoad: true); } else Snackbar.Add("Required setup checks are still blocked.", Severity.Error); }
     private string StepState(string key) => _status?.Steps.FirstOrDefault(step => step.Key == key)?.Status ?? "not_started";
     private string StepClass(string key) => key == CurrentStep ? "is-current" : StepState(key) is "passed" or "deferred" ? "is-complete" : string.Empty;
-    private static string NormalizeStep(string? step) => SetupWorkflow.StepKeys.Contains(step, StringComparer.Ordinal) ? step! : "claim";
+    private static string NormalizeStep(string? step) => SetupWorkflow.StepKeys.Contains(step, StringComparer.Ordinal) ? step! : "preflight";
     private static string Friendly(string value) => string.Join(' ', value.Replace('_', '-').Split('-', StringSplitOptions.RemoveEmptyEntries).Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
     private static string FormatMb(long value) => value >= 1024 ? $"{value / 1024d:F1} GB" : $"{value:N0} MB";
     private static AppUiTone StatusTone(string status) => status switch { "passed" => AppUiTone.Success, "blocked" => AppUiTone.Error, "deferred" => AppUiTone.Warning, _ => AppUiTone.Neutral };

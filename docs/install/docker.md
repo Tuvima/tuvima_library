@@ -52,17 +52,14 @@ docker inspect --format '{{.State.Health.Status}}' tuvima-library
 
 First startup can remain in `starting` while configuration is seeded and the services initialize. `healthy` means both the internal Engine and Dashboard liveness checks pass.
 
-## Claim the server
+## Set up the server
 
-Open `http://SERVER-IP:5016/setup`. The first screen asks for a one-time claim token. Read it from container output:
-
-```bash
-docker logs tuvima-library 2>&1 | grep "\[Tuvima Setup\] Claim token"
-```
-
-Enter the token promptly. It is kept only in Engine memory, is single-use, and is exchanged for a setup session that expires after 12 hours. Complete the administrator step and save the recovery codes outside the server.
-
-If the container restarted before you used the token, read the new token from the latest logs. Never publish container logs or paste the token into an issue.
+Open `http://SERVER-IP:5016/setup`. An unconfigured server starts the setup
+wizard directly; no container-log claim token is required. Create the first
+administrator promptly and save the recovery codes outside the server. Once
+that account exists, continuing or reopening setup requires administrator
+authentication. Do not publish Dashboard port `5016` to the internet until the
+administrator has been created.
 
 ## Verify the supported boundary
 

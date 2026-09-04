@@ -3,18 +3,22 @@ namespace MediaEngine.Web.Tests;
 public sealed class DashboardFirstRunExperienceTests
 {
     [Fact]
-    public void FirstRunSetup_RequiresTheContainerLogClaimToken()
+    public void FirstRunSetup_StartsWithoutAContainerLogClaimToken()
     {
         var dashboard = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");
         var setup = Read("src/MediaEngine.Web/Components/Pages/SetupPage.razor");
         var engine = Read("src/MediaEngine.Api/Endpoints/AuthenticationEndpoints.cs");
-        var claims = Read("src/MediaEngine.Api/Services/SetupClaimService.cs");
+        var setupSessions = Read("src/MediaEngine.Api/Services/SetupSessionService.cs");
 
         Assert.Contains("Results.Redirect(\"/setup\")", dashboard, StringComparison.Ordinal);
-        Assert.Contains("Claim this server", setup, StringComparison.Ordinal);
-        Assert.Contains("container logs", setup, StringComparison.Ordinal);
-        Assert.Contains("X-Tuvima-Setup-Session", claims, StringComparison.Ordinal);
-        Assert.Contains("Console.Out.WriteLineAsync", claims, StringComparison.Ordinal);
+        Assert.Contains("BeginSetupAsync", setup, StringComparison.Ordinal);
+        Assert.Contains("Keep this Dashboard on your private network", setup, StringComparison.Ordinal);
+        Assert.DoesNotContain("Claim this server", setup, StringComparison.Ordinal);
+        Assert.DoesNotContain("[Tuvima Setup] Claim token", setup, StringComparison.Ordinal);
+        Assert.Contains("X-Tuvima-Setup-Session", setupSessions, StringComparison.Ordinal);
+        Assert.Contains("IsAdministratorConfiguredAsync", setupSessions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Console.Out.WriteLineAsync", setupSessions, StringComparison.Ordinal);
+        Assert.DoesNotContain("Claim token", setupSessions, StringComparison.Ordinal);
         Assert.DoesNotContain("/bootstrap/administrator", engine, StringComparison.Ordinal);
         Assert.DoesNotContain("IsLoopbackRequest", dashboard, StringComparison.Ordinal);
     }
@@ -35,6 +39,8 @@ public sealed class DashboardFirstRunExperienceTests
         Assert.DoesNotContain("local-administrator-reset", engine, StringComparison.Ordinal);
         Assert.DoesNotContain("ResetAdministratorPasswordFromHostAsync", publicIdentityContract, StringComparison.Ordinal);
         Assert.Contains("tuvima-admin auth reset-password", dashboard, StringComparison.Ordinal);
+        Assert.Contains("This recovery command is local-only", dashboard, StringComparison.Ordinal);
+        Assert.Contains("cannot be invoked through an externally exposed Dashboard", dashboard, StringComparison.Ordinal);
         Assert.Contains("Use one of the one-time recovery codes", dashboard, StringComparison.Ordinal);
         Assert.Contains("Reset with recovery code", dashboard, StringComparison.Ordinal);
         Assert.Contains("ResetAdministratorPasswordFromHostAsync", hostRecoveryContract, StringComparison.Ordinal);

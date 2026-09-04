@@ -17,24 +17,24 @@ public static class SetupEndpoints
         var group = app.MapGroup("/setup/v1").WithTags("Setup")
             .RequireAuthorization(AuthPolicies.DashboardService);
 
-        group.MapGet("/status", async (SetupClaimService claims, CancellationToken ct) =>
-            Results.Ok(await claims.GetStatusAsync(ct).ConfigureAwait(false)))
+        group.MapGet("/status", async (SetupSessionService sessions, CancellationToken ct) =>
+            Results.Ok(await sessions.GetStatusAsync(ct).ConfigureAwait(false)))
             .Produces<SetupStatusDto>();
 
-        group.MapPost("/claim", async (SetupClaimRequest request, SetupClaimService claims, CancellationToken ct) =>
+        group.MapPost("/begin", async (SetupSessionService sessions, CancellationToken ct) =>
         {
-            var result = await claims.ClaimAsync(request.Token, ct).ConfigureAwait(false);
+            var result = await sessions.BeginAsync(ct).ConfigureAwait(false);
             return result is null
-                ? ApiErrors.Problem(StatusCodes.Status403Forbidden, "Claim failed.", "The claim token is invalid, expired, or already used.")
+                ? ApiErrors.Conflict("Setup has already been secured by an administrator account.")
                 : Results.Ok(result);
-        }).Produces<SetupClaimResponse>()
+        }).Produces<SetupStartResponse>()
             .RequireRateLimiting("authentication");
 
         group.MapPost("/preflight", async (
-            HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             SetupPreflightService preflight, OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             var result = await preflight.RunAsync(ct).ConfigureAwait(false);
             await onboarding.SetStepAsync(
                 "preflight", result.Passed ? "passed" : "blocked",
@@ -45,10 +45,10 @@ public static class SetupEndpoints
 
         group.MapPost("/administrator", async (
             SetupAdministratorRequest request, HttpContext context, ClaimsPrincipal user,
-            SetupClaimService claims, IFirstPartyIdentityService identity,
+            SetupSessionService sessions, IFirstPartyIdentityService identity,
             OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             if (await identity.IsAdministratorConfiguredAsync(ct).ConfigureAwait(false))
             {
                 await onboarding.SetStepAsync("administrator", "passed", "Administrator account is configured.", null, null, ct).ConfigureAwait(false);
@@ -70,10 +70,10 @@ public static class SetupEndpoints
             .RequireRateLimiting("authentication");
 
         group.MapPost("/media-locations/validate", async (
-            HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             IConfigurationLoader configuration, OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             var libraries = configuration.LoadLibraries();
             var sources = libraries.Libraries.SelectMany(library => library.Sources).ToList();
             var readable = sources.Count(source => Directory.Exists(source.Path));
@@ -88,10 +88,10 @@ public static class SetupEndpoints
 
         group.MapPost("/steps/{stepKey}", async (
             string stepKey, SetupStepDecisionRequest request, HttpContext context, ClaimsPrincipal user,
-            SetupClaimService claims, OnboardingRepository onboarding, IConfigurationLoader configuration,
+            SetupSessionService sessions, OnboardingRepository onboarding, IConfigurationLoader configuration,
             CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             if (stepKey is not ("providers" or "local-ai" or "access"))
                 return ApiErrors.BadRequest("This setup step has a dedicated server-side validator.");
             if (request.Status is not ("passed" or "deferred"))
@@ -107,14 +107,14 @@ public static class SetupEndpoints
             await onboarding.SetStepAsync(stepKey, request.Status,
                 request.Detail ?? (request.Status == "deferred" ? "Deferred during first-run setup." : "Configured during first-run setup."),
                 request.Status == "deferred" ? $"/setup?step={stepKey}" : null, null, ct).ConfigureAwait(false);
-            return Results.Ok(await claims.GetStatusAsync(ct).ConfigureAwait(false));
+            return Results.Ok(await sessions.GetStatusAsync(ct).ConfigureAwait(false));
         }).Produces<SetupStatusDto>();
 
         group.MapPost("/restore/upload", async (
-            HttpRequest request, HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            HttpRequest request, HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             DatabaseBackupService backups, OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             if (!request.HasFormContentType) return ApiErrors.BadRequest("Upload the backup as multipart form data.");
             try
             {
@@ -133,11 +133,11 @@ public static class SetupEndpoints
             .DisableAntiforgery();
 
         group.MapPost("/restore/{operationId:guid}/confirm", async (
-            Guid operationId, HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            Guid operationId, HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             DatabaseBackupService backups, OnboardingRepository onboarding,
             IHostApplicationLifetime lifetime, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             try
             {
                 var result = backups.ConfirmUploadedRestore(operationId, onboarding);
@@ -157,20 +157,20 @@ public static class SetupEndpoints
         }).Produces<SetupRestoreConfirmationDto>();
 
         group.MapGet("/readiness", async (
-            HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             return Results.Ok(BuildReadiness(onboarding.Get()));
         }).Produces<SetupReadinessDto>();
 
         group.MapPost("/complete", async (
-            HttpContext context, ClaimsPrincipal user, SetupClaimService claims,
+            HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, claims, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             return await onboarding.CompleteAsync(ct).ConfigureAwait(false)
-                ? Results.Ok(await claims.GetStatusAsync(ct).ConfigureAwait(false))
+                ? Results.Ok(await sessions.GetStatusAsync(ct).ConfigureAwait(false))
                 : ApiErrors.Conflict("Required setup capabilities are still blocked.");
         }).Produces<SetupStatusDto>();
 
@@ -178,17 +178,17 @@ public static class SetupEndpoints
     }
 
     private static async Task<bool> AuthorizedAsync(
-        HttpContext context, ClaimsPrincipal user, SetupClaimService claims, CancellationToken ct)
+        HttpContext context, ClaimsPrincipal user, SetupSessionService sessions, CancellationToken ct)
     {
         if (user.IsInRole(MediaEngine.Domain.AppRoles.Administrator)) return true;
-        return await claims.ValidateSessionAsync(
-            context.Request.Headers[SetupClaimService.SessionHeader].ToString(), ct).ConfigureAwait(false);
+        return await sessions.ValidateSessionAsync(
+            context.Request.Headers[SetupSessionService.SessionHeader].ToString(), ct).ConfigureAwait(false);
     }
 
     private static SetupReadinessDto BuildReadiness(OnboardingWorkflowRecord workflow)
     {
-        var required = new HashSet<string>(["claim", "preflight", "administrator", "media-locations"], StringComparer.Ordinal);
-        var capabilities = workflow.Steps.Select(step => new SetupCapabilityDto(
+        var required = new HashSet<string>(["preflight", "administrator", "media-locations"], StringComparer.Ordinal);
+        var capabilities = workflow.Steps.Where(step => step.Key != "claim").Select(step => new SetupCapabilityDto(
             step.Key,
             step.Key.Replace('-', ' '),
             step.Status,

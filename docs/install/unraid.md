@@ -27,9 +27,9 @@ The configured UID/GID needs read access to the Watch Folder and read/write acce
 
 If startup reports a path is not writable, correct the share ownership or ACL. Do not solve it by enabling privileged mode; the template deliberately runs unprivileged after preparing its mounted folders.
 
-## Claim and verify
+## Set up and verify
 
-Open the Tuvima container log, copy the latest line beginning `[Tuvima Setup] Claim token`, then open `http://UNRAID-IP:5016/setup`. Complete setup and save the generated recovery codes.
+Open `http://UNRAID-IP:5016/setup`. Complete setup directly and save the generated recovery codes; no container-log claim token is required.
 
 After setup:
 

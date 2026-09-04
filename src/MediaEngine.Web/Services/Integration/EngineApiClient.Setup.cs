@@ -8,8 +8,8 @@ public sealed partial class EngineApiClient
     public Task<SetupStatusDto?> GetSetupStatusAsync(CancellationToken ct = default) =>
         SetupSendAsync<SetupStatusDto>(HttpMethod.Get, "/setup/v1/status", null, null, ct);
 
-    public Task<SetupClaimResponse?> ClaimSetupAsync(string token, CancellationToken ct = default) =>
-        SetupSendAsync<SetupClaimResponse>(HttpMethod.Post, "/setup/v1/claim", JsonContent.Create(new SetupClaimRequest { Token = token }), null, ct);
+    public Task<SetupStartResponse?> BeginSetupAsync(CancellationToken ct = default) =>
+        SetupSendAsync<SetupStartResponse>(HttpMethod.Post, "/setup/v1/begin", JsonContent.Create(new { }), null, ct);
 
     public Task<SetupPreflightDto?> RunSetupPreflightAsync(string? setupSession, CancellationToken ct = default) =>
         SetupSendAsync<SetupPreflightDto>(HttpMethod.Post, "/setup/v1/preflight", JsonContent.Create(new { }), setupSession, ct);
