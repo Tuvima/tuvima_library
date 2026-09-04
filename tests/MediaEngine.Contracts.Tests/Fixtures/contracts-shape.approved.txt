@@ -1421,6 +1421,9 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.HeroArtworkMode
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.HeroArtworkViewModel
   Url: System.String | nullability=nullable | accessors=get,init
+  SmallUrl: System.String | nullability=nullable | accessors=get,init
+  MediumUrl: System.String | nullability=nullable | accessors=get,init
+  LargeUrl: System.String | nullability=nullable | accessors=get,init
   Mode: MediaEngine.Contracts.Details.HeroArtworkMode | nullability=not-null | accessors=get,init
   HasImage: System.Boolean | nullability=not-null | accessors=get,init
   AspectRatio: System.Double? | nullability=nullable | accessors=get,init
@@ -5581,9 +5584,9 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerGeneralSetti
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerStorageLocationDto
   Id: System.String | nullability=not-null | accessors=get,init
-  Label: System.String | nullability=not-null | accessors=get,init
-  Path: System.String | nullability=not-null | accessors=get,init
-  AllowWrite: System.Boolean | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,set
+  Path: System.String | nullability=not-null | accessors=get,set
+  AllowWrite: System.Boolean | nullability=not-null | accessors=get,set
   AvailableBytes: System.Int64? | nullability=nullable | accessors=get,init
   FileSystem: System.String | nullability=nullable | accessors=get,init
 

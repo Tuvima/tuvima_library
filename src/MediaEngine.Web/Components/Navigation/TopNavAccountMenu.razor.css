@@ -28,7 +28,7 @@
     max-width: 11rem;
     overflow: hidden;
     font-size: 0.9rem;
-    font-weight: 650;
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -165,7 +165,7 @@
     margin-left: auto;
     color: #c4b5fd;
     font-size: 0.7rem;
-    font-weight: 750;
+    font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
 }

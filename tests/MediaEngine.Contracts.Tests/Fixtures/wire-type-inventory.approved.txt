@@ -1762,12 +1762,15 @@
 [contracts] MediaEngine.Contracts.Details.HeroArtworkViewModel
   kind=class | converter=default | number-handling=default | unmapped=default
   Url: System.String | json=url | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SmallUrl: System.String | json=smallUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MediumUrl: System.String | json=mediumUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LargeUrl: System.String | json=largeUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Mode: MediaEngine.Contracts.Details.HeroArtworkMode | json=mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   HasImage: System.Boolean | json=hasImage | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AspectRatio: System.Double? | json=aspectRatio | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   BackgroundPosition: System.String | json=backgroundPosition | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MobilePosition: System.String | json=mobilePosition | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"url":"sample","mode":0,"hasImage":true,"aspectRatio":7,"backgroundPosition":"sample","mobilePosition":"sample"}
+  sample={"url":"sample","smallUrl":"sample","mediumUrl":"sample","largeUrl":"sample","mode":0,"hasImage":true,"aspectRatio":7,"backgroundPosition":"sample","mobilePosition":"sample"}
 
 [contracts] MediaEngine.Contracts.Details.HeroBrandViewModel
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6677,9 +6680,9 @@
 [contracts] MediaEngine.Contracts.Settings.ServerStorageLocationDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Id: System.String | json=id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Label: System.String | json=label | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Path: System.String | json=path | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  AllowWrite: System.Boolean | json=allow_write | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Label: System.String | json=label | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Path: System.String | json=path | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AllowWrite: System.Boolean | json=allow_write | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AvailableBytes: System.Int64? | json=available_bytes | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   FileSystem: System.String | json=file_system | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"id":"sample","label":"sample","path":"sample","allow_write":true,"available_bytes":7,"file_system":"sample"}

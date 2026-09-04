@@ -2493,7 +2493,7 @@ public sealed class WorkerPipelineTests
                             """);
                     }
 
-                    if (url.Contains("image.tmdb.org/t/p/w500/episode-still.jpg", StringComparison.OrdinalIgnoreCase))
+                    if (url.Contains("image.tmdb.org/t/p/original/episode-still.jpg", StringComparison.OrdinalIgnoreCase))
                     {
                         return new HttpResponseMessage(HttpStatusCode.OK)
                         {
@@ -2512,7 +2512,7 @@ public sealed class WorkerPipelineTests
             var processed = await worker.PollAsync(CancellationToken.None);
 
             Assert.Equal(1, processed);
-            Assert.Contains(requests, url => url.Contains("image.tmdb.org/t/p/w500/episode-still.jpg", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(requests, url => url.Contains("image.tmdb.org/t/p/original/episode-still.jpg", StringComparison.OrdinalIgnoreCase));
 
             var updatedJob = await jobRepo.GetByIdAsync(jobId);
             Assert.NotNull(updatedJob);
@@ -2523,7 +2523,7 @@ public sealed class WorkerPipelineTests
             Assert.Equal("EpisodeStill", still.AssetTypeValue);
             Assert.Equal("Episode", still.OwnerScope);
             Assert.Equal("tmdb", still.SourceProvider);
-            Assert.Null(still.ImageUrl);
+            Assert.Equal("https://image.tmdb.org/t/p/original/episode-still.jpg", still.ImageUrl);
             Assert.True(File.Exists(still.LocalImagePath));
 
             Assert.Contains(canonicalRepo.Values, value =>
