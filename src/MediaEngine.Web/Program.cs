@@ -315,6 +315,7 @@ app.UseAuthentication();
 app.Use(async (context,next)=>
 {
     if(context.Request.Path.StartsWithSegments("/settings")
+       && !context.Request.Path.StartsWithSegments("/settings/profile")
        && context.User.IsInRole(MediaEngine.Domain.AppRoles.Administrator)
        && Guid.TryParse(context.User.FindFirstValue("tuvima:session_id"),out _))
     {

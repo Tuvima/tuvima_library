@@ -122,7 +122,10 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.DoesNotContain("SettingsSelected", accountSource);
         Assert.DoesNotContain("ReviewSelected", accountSource);
         Assert.DoesNotContain("NotificationsNone", accountSource);
-        Assert.DoesNotContain("top-nav-account-menu__trigger-copy", accountSource);
+        Assert.Contains("top-nav-account-menu__trigger-copy", accountSource);
+        Assert.Contains("href=\"/settings/profile\"", accountSource);
+        Assert.Contains("Switch profile?", accountSource);
+        Assert.Contains("ProfileSwitchStatus.PinRequired", accountSource);
         Assert.Contains("font-family: var(--font-brand);", css);
         Assert.Contains("grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);", css);
         Assert.Contains("grid-column: 2;", css);

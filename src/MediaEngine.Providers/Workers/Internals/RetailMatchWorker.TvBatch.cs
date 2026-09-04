@@ -878,7 +878,7 @@ public sealed partial class RetailMatchWorker
         if (_entityAssetRepo is null || _assetPaths is null)
             return;
 
-        var stillUrl = RetailRequestBuilder.BuildTmdbImageUrl(episode["still_path"]?.GetValue<string>());
+        var stillUrl = RetailRequestBuilder.BuildTmdbEpisodeStillUrl(episode["still_path"]?.GetValue<string>());
         if (string.IsNullOrWhiteSpace(stillUrl))
             return;
 
@@ -903,7 +903,8 @@ public sealed partial class RetailMatchWorker
         var existingTmdbStill = existingVariants.FirstOrDefault(asset =>
             string.Equals(asset.SourceProvider, "tmdb", StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrWhiteSpace(asset.LocalImagePath)
-            && File.Exists(asset.LocalImagePath));
+            && File.Exists(asset.LocalImagePath)
+            && !IsLegacyLowResolutionTmdbStill(asset));
 
         if (existingTmdbStill is not null)
         {
@@ -946,7 +947,7 @@ public sealed partial class RetailMatchWorker
             EntityId = episodeWorkId.ToString(),
             EntityType = "Work",
             AssetTypeValue = AssetType.EpisodeStill.ToString(),
-            ImageUrl = null,
+            ImageUrl = stillUrl,
             LocalImagePath = string.Empty,
             SourceProvider = "tmdb",
             AssetClassValue = "Artwork",
@@ -969,6 +970,15 @@ public sealed partial class RetailMatchWorker
         await _entityAssetRepo.UpsertAsync(variant, ct);
         await _entityAssetRepo.SetPreferredAsync(variant.Id, ct);
         await UpsertPreferredEpisodeStillCanonicalAsync(episodeWorkId, variant, ct);
+
+        foreach (var stale in existingVariants.Where(asset =>
+                     string.Equals(asset.SourceProvider, "tmdb", StringComparison.OrdinalIgnoreCase)
+                     && asset.Id != variant.Id
+                     && IsLegacyLowResolutionTmdbStill(asset)))
+        {
+            await _entityAssetRepo.DeleteAsync(stale.Id, ct);
+            DeleteManagedEpisodeStillFiles(stale);
+        }
 
         if (_assetExportService is not null)
             await _assetExportService.ReconcileArtworkAsync(
@@ -1035,6 +1045,43 @@ public sealed partial class RetailMatchWorker
         }
 
         return ".jpg";
+    }
+
+    private static bool IsLegacyLowResolutionTmdbStill(EntityAsset asset)
+    {
+        var legacySource = string.IsNullOrWhiteSpace(asset.ImageUrl)
+                           || asset.ImageUrl.Contains("/w500/", StringComparison.OrdinalIgnoreCase)
+                           || asset.ImageUrl.Contains("/w500", StringComparison.OrdinalIgnoreCase);
+        var undersized = asset.WidthPx is null or < 1280 || asset.HeightPx is null or < 720;
+        return legacySource && undersized;
+    }
+
+    private static void DeleteManagedEpisodeStillFiles(EntityAsset asset)
+    {
+        foreach (var path in new[]
+                 {
+                     asset.LocalImagePath,
+                     asset.LocalImagePathSmall,
+                     asset.LocalImagePathMedium,
+                     asset.LocalImagePathLarge,
+                 }.Where(path => !string.IsNullOrWhiteSpace(path)).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch (IOException)
+            {
+                // The stale database row is already gone. A later central asset
+                // cleanup can retry a file that is temporarily held by a reader.
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // Preserve ingestion progress when an external process has a
+                // temporary lock or restrictive ACL on an obsolete rendition.
+            }
+        }
     }
 
     // ── Grouping key helpers ─────────────────────────────────────────────────

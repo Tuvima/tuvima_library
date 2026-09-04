@@ -2,6 +2,8 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Workers;
+using MediaEngine.Providers.Models;
+using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -25,6 +27,35 @@ public sealed class PersonEnrichmentWorkerTests : IDisposable
     {
         try { _db.Dispose(); } catch { }
         try { File.Delete(_dbPath); } catch { }
+    }
+
+    [Fact]
+    public void BuildTmdbImageHints_KeepsCompanionDataBoundToEachContributor()
+    {
+        var claims = new List<ProviderClaim>
+        {
+            new("director", "First Director", 0.9),
+            new("director_tmdb_id", "101", 0.9),
+            new("director_profile_url", "https://images.example/first.jpg", 0.9),
+            new("director", "Second Director", 0.9),
+            new("director_tmdb_id", "202", 0.9),
+            new("director", "Third Director", 0.9),
+            new("director_profile_url", "https://images.example/third.jpg", 0.9),
+        };
+
+        var hints = PersonEnrichmentWorker.BuildTmdbImageHints(claims);
+
+        var first = hints[$"Director::{RetailHints.NormalizePersonNameKey("First Director")}"];
+        Assert.Equal(101, first.PersonId);
+        Assert.Equal("https://images.example/first.jpg", first.ProfileUrl);
+
+        var second = hints[$"Director::{RetailHints.NormalizePersonNameKey("Second Director")}"];
+        Assert.Equal(202, second.PersonId);
+        Assert.Null(second.ProfileUrl);
+
+        var third = hints[$"Director::{RetailHints.NormalizePersonNameKey("Third Director")}"];
+        Assert.Null(third.PersonId);
+        Assert.Equal("https://images.example/third.jpg", third.ProfileUrl);
     }
 
     [Fact]

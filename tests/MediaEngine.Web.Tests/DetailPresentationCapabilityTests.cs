@@ -147,6 +147,41 @@ public sealed class DetailPresentationCapabilityTests : AsyncBunitContext
         Assert.Contains("width:98%", primary.InnerHtml);
     }
 
+    [Fact]
+    public void HeroActionRow_RateMenuCanBeOpenedByClickAndClosesAfterSelection()
+    {
+        Render<MudBlazor.MudPopoverProvider>();
+        DetailAction? selected = null;
+        var cut = Render<HeroActionRow>(parameters => parameters
+            .Add(component => component.SecondaryActions, new[]
+            {
+                new DetailAction
+                {
+                    Key = "reaction-menu",
+                    Label = "Rate",
+                    Icon = "thumbs_up_down",
+                    Children =
+                    [
+                        new DetailAction { Key = "like", Label = "Like", Icon = "thumb_up" },
+                        new DetailAction { Key = "dislike", Label = "Dislike", Icon = "thumb_down" },
+                    ],
+                },
+            })
+            .Add(component => component.OnActionSelected, action => selected = action));
+
+        var trigger = cut.Find(".tl-detail-reaction-button");
+
+        trigger.Click();
+
+        Assert.Contains("is-open", cut.Find(".tl-reaction-menu").ClassList);
+        Assert.Equal("true", cut.Find(".tl-detail-reaction-button").GetAttribute("aria-expanded"));
+
+        cut.Find("[role='menuitem'][aria-label='Like']").Click();
+
+        Assert.Equal("like", selected?.Key);
+        Assert.DoesNotContain("is-open", cut.Find(".tl-reaction-menu").ClassList);
+    }
+
     private static MetadataPill Genre(string label) => new()
     {
         Label = label,

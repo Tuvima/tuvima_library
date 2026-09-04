@@ -390,8 +390,7 @@
 }
 
 @media (max-width: 640px) {
-    .layout-shell__activity-slot,
-    .layout-shell__my-list-slot {
+    .layout-shell__activity-slot {
         display: none;
     }
 }

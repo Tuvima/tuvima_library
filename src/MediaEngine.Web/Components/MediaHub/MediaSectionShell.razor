@@ -6,6 +6,57 @@
 @inject IJSRuntime JS
 
 <div class="@ShellCssClass">
+    @if (ShowMobileNavigation)
+    {
+    <nav class="media-section-shell__mobile-nav" aria-label="@($"{Title} mobile navigation")">
+        <details>
+            <summary>
+                <span>
+                    <MudIcon Icon="@Icons.Material.Outlined.Menu" aria-hidden="true" />
+                    <span>@MobileActiveLabel</span>
+                </span>
+                <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" aria-hidden="true" />
+            </summary>
+            <div class="media-section-shell__mobile-nav-panel">
+                @foreach (var group in NavigationGroups)
+                {
+                    <section aria-labelledby="@($"{GroupId(group)}-mobile")">
+                        <div id="@($"{GroupId(group)}-mobile")" class="media-section-shell__mobile-nav-label">@group.Label</div>
+                        @foreach (var item in group.Items)
+                        {
+                            <a href="@item.Route"
+                               class="media-section-shell__mobile-nav-link @(IsOwnRouteActive(item, forceExact: true) ? "is-active" : null)"
+                               aria-current="@(IsOwnRouteActive(item, forceExact: true) ? "page" : null)">
+                                <MudIcon Icon="@item.Icon" aria-hidden="true" />
+                                <span>@item.Label</span>
+                                @if (!string.IsNullOrWhiteSpace(item.Meta))
+                                {
+                                    <small>@item.Meta</small>
+                                }
+                            </a>
+                            @if (HasChildren(item))
+                            {
+                                @foreach (var child in item.Children!)
+                                {
+                                    <a href="@child.Route"
+                                       class="media-section-shell__mobile-nav-link is-child @(IsActive(child) ? "is-active" : null)"
+                                       aria-current="@(IsActive(child) ? "page" : null)">
+                                        <span aria-hidden="true" class="media-section-shell__mobile-nav-marker"></span>
+                                        <span>@child.Label</span>
+                                        @if (!string.IsNullOrWhiteSpace(child.Meta))
+                                        {
+                                            <small>@child.Meta</small>
+                                        }
+                                    </a>
+                                }
+                            }
+                        }
+                    </section>
+                }
+            </div>
+        </details>
+    </nav>
+    }
     <aside class="media-section-shell__rail" aria-label="@($"{Title} navigation")">
         @foreach (var group in NavigationGroups)
         {
@@ -324,6 +375,12 @@
     [Parameter] public Func<MediaSectionNavigationRenameEvent, Task<bool>>? OnNavigationItemRename { get; set; }
     [Parameter] public Func<MediaSectionNavigationManageEvent, Task<bool>>? OnNavigationItemDelete { get; set; }
     [Parameter] public Func<MediaSectionNavigationReorderEvent, Task<bool>>? OnNavigationItemReorder { get; set; }
+    [Parameter] public bool ShowMobileNavigation { get; set; } = true;
+
+    private string MobileActiveLabel => NavigationGroups
+        .SelectMany(group => group.Items)
+        .SelectMany(item => HasChildren(item) ? new[] { item }.Concat(item.Children!) : [item])
+        .FirstOrDefault(IsActive)?.Label ?? $"Browse {Title}";
     [Parameter] public bool AccordionNavigation { get; set; }
 
     private readonly HashSet<string> _expandedRoutes = new(StringComparer.OrdinalIgnoreCase);
@@ -348,9 +405,12 @@
     private double _pointerStartX;
     private double _pointerStartY;
 
-    private string ShellCssClass => HasNestedNavigation
-        ? "media-section-shell media-section-shell--nested"
-        : "media-section-shell";
+    private string ShellCssClass => string.Join(' ', new[]
+    {
+        "media-section-shell",
+        HasNestedNavigation ? "media-section-shell--nested" : null,
+        ShowMobileNavigation ? "media-section-shell--has-mobile-nav" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private bool HasNestedNavigation => NavigationGroups.Any(group =>
         group.CreateOptions is not null

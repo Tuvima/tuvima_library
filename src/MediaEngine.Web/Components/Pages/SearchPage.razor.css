@@ -168,3 +168,13 @@
         width: auto;
     }
 }
+
+@media (max-width: 480px) {
+    .search-page__filters {
+        grid-template-columns: 1fr;
+    }
+
+    .search-page__year-filter > div {
+        grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    }
+}

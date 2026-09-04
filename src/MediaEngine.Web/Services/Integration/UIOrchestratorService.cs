@@ -210,16 +210,19 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         _activeProfileSession.GetActiveProfileAsync(ct);
 
     /// <summary>Persists the active browser/session profile and notifies layout consumers.</summary>
-    public async Task<ProfileViewModel?> SetActiveProfileAsync(Guid profileId, CancellationToken ct = default)
+    public async Task<ProfileSwitchOutcome> SetActiveProfileAsync(
+        Guid profileId,
+        string? secret = null,
+        CancellationToken ct = default)
     {
-        var profile = await _activeProfileSession.SetActiveProfileAsync(profileId, ct);
-        if (profile is null)
+        var outcome = await _activeProfileSession.SetActiveProfileAsync(profileId, secret, ct);
+        if (!outcome.Succeeded)
         {
-            return null;
+            return outcome;
         }
 
         OnProfileChanged?.Invoke();
-        return profile;
+        return outcome;
     }
     /// <summary>Creates a new user profile. Returns true on success.</summary>
     public async Task<bool> CreateProfileAsync(

@@ -2471,3 +2471,51 @@
 ::deep .app-field.audiobooks-select {
     min-width: 132px;
 }
+
+/* Phone and tablet navigation must not leave the content in a cramped
+   two-column desktop rail. Keep the existing destinations available in a
+   bounded, scrollable navigation region above the playlist content. */
+@media (max-width: 840px) {
+    .listen-page,
+    .listen-page--detail {
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
+        height: calc(100dvh - var(--app-topbar-height, 65px) - var(--tl-bottom-dock-height, 0px));
+        min-height: 0;
+        padding-bottom: 0;
+    }
+
+    .listen-rail-shell {
+        position: static;
+        width: 100%;
+        height: auto;
+        max-height: min(34dvh, 18rem);
+        overflow: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--tl-border-subtle);
+    }
+
+    .listen-content {
+        min-height: 0;
+        padding: 8px 14px calc(24px + var(--tl-safe-area-bottom));
+        overflow-y: auto;
+    }
+
+    .listen-rail__item,
+    ::deep .listen-rail__section-toggle,
+    ::deep .listen-rail__drag,
+    ::deep .listen-rail__more,
+    ::deep .listen-rail__add,
+    ::deep .listen-icon-button {
+        min-height: var(--tl-touch-target-min, 48px);
+    }
+
+    ::deep .listen-rail__drag,
+    ::deep .listen-rail__more,
+    ::deep .listen-rail__add,
+    ::deep .listen-icon-button {
+        width: var(--tl-touch-target-min, 48px);
+        min-width: var(--tl-touch-target-min, 48px);
+    }
+}

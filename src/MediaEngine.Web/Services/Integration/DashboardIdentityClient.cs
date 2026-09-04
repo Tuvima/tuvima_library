@@ -118,12 +118,24 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients,IHttpCont
             : null;
     }
 
-    public async Task<SessionValidationResponse?> SwitchProfileAsync(SwitchProfileRequest request, CancellationToken ct = default)
+    public async Task<DashboardProfileSwitchResult> SwitchProfileAsync(SwitchProfileRequest request, CancellationToken ct = default)
     {
         using var response = await Client.PostAsJsonAsync("/auth/session/switch-profile", request, ct).ConfigureAwait(false);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<SessionValidationResponse>(cancellationToken: ct).ConfigureAwait(false)
-            : null;
+        if (response.IsSuccessStatusCode)
+        {
+            var session = await response.Content.ReadFromJsonAsync<SessionValidationResponse>(cancellationToken: ct).ConfigureAwait(false);
+            return session is null
+                ? new DashboardProfileSwitchResult(DashboardProfileSwitchStatus.Failed)
+                : new DashboardProfileSwitchResult(DashboardProfileSwitchStatus.Succeeded, session);
+        }
+
+        return response.StatusCode switch
+        {
+            HttpStatusCode.PreconditionRequired => new DashboardProfileSwitchResult(DashboardProfileSwitchStatus.PinRequired),
+            HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden => new DashboardProfileSwitchResult(DashboardProfileSwitchStatus.Forbidden),
+            HttpStatusCode.NotFound => new DashboardProfileSwitchResult(DashboardProfileSwitchStatus.NotFound),
+            _ => new DashboardProfileSwitchResult(DashboardProfileSwitchStatus.Failed),
+        };
     }
 
     public async Task<AuthSessionResponse?> CreateExternalSessionAsync(ExternalSessionRequest request, CancellationToken ct = default)
@@ -142,3 +154,16 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients,IHttpCont
             : null;
     }
 }
+
+public enum DashboardProfileSwitchStatus
+{
+    Succeeded,
+    PinRequired,
+    Forbidden,
+    NotFound,
+    Failed,
+}
+
+public sealed record DashboardProfileSwitchResult(
+    DashboardProfileSwitchStatus Status,
+    SessionValidationResponse? Session = null);

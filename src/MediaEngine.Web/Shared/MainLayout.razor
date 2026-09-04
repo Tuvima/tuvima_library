@@ -101,7 +101,7 @@
                                    ReviewCount="@_reviewCount"
                                    CanViewReview="@CanViewReview"
                                    ShowSignOut="true"
-                                   ProfileSelected="SwitchProfileAsync" />
+                                   ProfileSwitchRequested="SwitchProfileAsync" />
             </span>
         </MudStack>
     </MudAppBar>
@@ -365,17 +365,22 @@
         }
     }
 
-    private async Task SwitchProfileAsync(Guid profileId)
+    private async Task<ProfileSwitchOutcome> SwitchProfileAsync(Guid profileId, string? secret)
     {
-        var profile = await Orchestrator.SetActiveProfileAsync(profileId);
-        if (profile is null)
+        var outcome = await Orchestrator.SetActiveProfileAsync(profileId, secret);
+        if (!outcome.Succeeded)
         {
-            return;
+            return outcome;
         }
 
         await LoadActiveProfileAsync();
         await LoadReviewCountAsync();
         StateHasChanged();
+        // A profile switch changes the authenticated role and every profile-scoped
+        // data source. Rebuild the request/circuit so cookie validation renews the
+        // principal and no already-mounted page can retain the previous profile.
+        Nav.NavigateTo("/", forceLoad: true, replace: true);
+        return outcome;
     }
 
     private async Task LoadReviewCountAsync()

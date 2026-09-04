@@ -64,6 +64,24 @@ internal static class DetailViewModelBuilder
             GetValue(values, "clear_logo"),
             GetValue(values, "logo_url"),
             GetValue(values, "logo"));
+        var heroSmallUrl = StringHelpers.FirstNonBlank(
+            GetValue(values, "background_url_s"),
+            GetValue(values, "banner_url_s"),
+            GetValue(values, "episode_still_url_s"),
+            GetValue(values, "poster_url_s"),
+            GetValue(values, "cover_url_s"));
+        var heroMediumUrl = StringHelpers.FirstNonBlank(
+            GetValue(values, "background_url_m"),
+            GetValue(values, "banner_url_m"),
+            GetValue(values, "episode_still_url_m"),
+            GetValue(values, "poster_url_m"),
+            GetValue(values, "cover_url_m"));
+        var heroLargeUrl = StringHelpers.FirstNonBlank(
+            GetValue(values, "background_url_l"),
+            GetValue(values, "banner_url_l"),
+            GetValue(values, "episode_still_url_l"),
+            GetValue(values, "poster_url_l"),
+            GetValue(values, "cover_url_l"));
         var heroArtwork = HeroArtworkResolver.Resolve(
             entityType,
             backdropUrl,
@@ -73,7 +91,10 @@ internal static class DetailViewModelBuilder
             portraitUrl,
             characterImageUrl,
             relatedArtwork,
-            resolvedLogoUrl);
+            resolvedLogoUrl,
+            heroSmallUrl,
+            heroMediumUrl,
+            heroLargeUrl);
 
         return new ArtworkSet
         {

@@ -134,6 +134,36 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task SwitchActiveProfileAsync_ReportsPinRequirementSeparatelyFromAccessDenial()
+    {
+        var bootstrap = await _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner", "browser-1", "Living room", "Dashboard");
+        var profile = new Profile
+        {
+            Id = Guid.NewGuid(),
+            DisplayName = "Kids",
+            AvatarColor = "#7C4DFF",
+            Role = ProfileRole.RestrictedProfile,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        await _profiles.InsertAsync(profile);
+        await _accounts.GrantProfileAsync(new AccountProfileGrant
+        {
+            AccountId = bootstrap.Account.Id,
+            ProfileId = profile.Id,
+            GrantedAt = DateTimeOffset.UtcNow,
+        });
+        await _service.SetProfilePinAsync(profile.Id, "2468");
+
+        await Assert.ThrowsAsync<ProfilePinRequiredException>(() =>
+            _service.SwitchActiveProfileAsync(bootstrap.PlaintextToken, profile.Id, null));
+
+        var switched = await _service.SwitchActiveProfileAsync(
+            bootstrap.PlaintextToken, profile.Id, "2468");
+        Assert.Equal(profile.Id, switched.ActiveProfile.Id);
+    }
+
+    [Fact]
     public async Task LocalPassword_AllowsEightCharacters()
     {
         var bootstrap = await _service.BootstrapAdministratorAsync(

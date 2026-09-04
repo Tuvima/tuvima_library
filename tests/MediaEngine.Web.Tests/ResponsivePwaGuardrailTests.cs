@@ -73,6 +73,21 @@ public sealed class ResponsivePwaGuardrailTests
     }
 
     [Fact]
+    public void LibraryAndDetailSurfaces_ExposePhoneNavigationAndTouchTargets()
+    {
+        var section = Read("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor");
+        var sectionStyles = Read("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor.css");
+        var detailStyles = Read("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+
+        Assert.Contains("media-section-shell__mobile-nav", section, StringComparison.Ordinal);
+        Assert.Contains("<details>", section, StringComparison.Ordinal);
+        Assert.Contains("min-height: var(--tl-touch-target-min, 48px)", sectionStyles, StringComparison.Ordinal);
+        Assert.Contains("var(--tl-bottom-dock-height", sectionStyles, StringComparison.Ordinal);
+        Assert.Contains("display: block;", detailStyles, StringComparison.Ordinal);
+        Assert.Contains("min-height: var(--tl-touch-target-min, 48px)", detailStyles, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AuthenticationShell_ExposesInstallMetadataAndSafeAreaSizing()
     {
         var source = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");

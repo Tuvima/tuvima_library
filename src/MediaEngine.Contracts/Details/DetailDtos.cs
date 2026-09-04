@@ -206,6 +206,9 @@ public sealed class ArtworkSet
 public sealed class HeroArtworkViewModel
 {
     public string? Url { get; init; }
+    public string? SmallUrl { get; init; }
+    public string? MediumUrl { get; init; }
+    public string? LargeUrl { get; init; }
     public HeroArtworkMode Mode { get; init; } = HeroArtworkMode.Placeholder;
     public bool HasImage { get; init; }
     public double? AspectRatio { get; init; }

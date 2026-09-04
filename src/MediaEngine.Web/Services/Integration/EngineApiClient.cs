@@ -1781,6 +1781,9 @@ public sealed partial class EngineApiClient : IEngineApiClient, IDisposable
         return new HeroArtworkViewModel
         {
             Url = NormalizeOptionalUrl(heroArtwork.Url),
+            SmallUrl = NormalizeOptionalUrl(heroArtwork.SmallUrl),
+            MediumUrl = NormalizeOptionalUrl(heroArtwork.MediumUrl),
+            LargeUrl = NormalizeOptionalUrl(heroArtwork.LargeUrl),
             Mode = heroArtwork.Mode,
             HasImage = heroArtwork.HasImage && !string.IsNullOrWhiteSpace(heroArtwork.Url),
             AspectRatio = heroArtwork.AspectRatio,

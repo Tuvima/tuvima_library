@@ -4,6 +4,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Authentication;
 using MediaEngine.Identity.Contracts;
+using MediaEngine.Identity;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using Microsoft.AspNetCore.Identity;
@@ -264,9 +265,18 @@ public static class AuthenticationEndpoints
                     httpRequest.Headers[TuvimaAuthDefaults.SessionHeader].ToString(), request.ProfileId, request.Secret, ct).ConfigureAwait(false);
                 return Results.Ok(ToValidationResponse(result));
             }
+            catch (ProfilePinRequiredException)
+            {
+                return Results.Problem(
+                    title: "Profile PIN required",
+                    detail: "Enter the target profile's PIN to continue.",
+                    statusCode: StatusCodes.Status428PreconditionRequired);
+            }
             catch (KeyNotFoundException ex) { return ApiErrors.NotFound(ex.Message); }
             catch (UnauthorizedAccessException) { return Results.Unauthorized(); }
-        }).Produces<SessionValidationResponse>().RequireRateLimiting("authentication").RequireAuthorization(AuthPolicies.Authenticated);
+        }).Produces<SessionValidationResponse>()
+          .ProducesProblem(StatusCodes.Status428PreconditionRequired)
+          .RequireRateLimiting("authentication").RequireAuthorization(AuthPolicies.Authenticated);
 
         group.MapPost("/intercom-token", (ClaimsPrincipal user, IntercomTokenService tokens) =>
         {

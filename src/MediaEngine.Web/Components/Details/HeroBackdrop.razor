@@ -4,7 +4,13 @@
 <AppCssElement Tag="div" Class="@StageClass" Css="@StageStyle">
     @if (IsBackdropMode && !string.IsNullOrWhiteSpace(HeroImageUrl))
     {
-        <img class="tl-detail-hero__artwork tl-detail-media-stage__background" src="@HeroImageUrl" alt="" aria-hidden="true" @onerror="HandleImageError" />
+        <img class="tl-detail-hero__artwork tl-detail-media-stage__background"
+             src="@HeroImageUrl"
+             srcset="@HeroImageSrcSet"
+             sizes="100vw"
+             alt=""
+             aria-hidden="true"
+             @onerror="HandleImageError" />
         <div class="tl-detail-hero__overlays tl-detail-media-stage__overlay" aria-hidden="true"></div>
         @if (ShowAlbumForeground)
         {
@@ -88,6 +94,10 @@
                 : null
         : null;
     private string? HeroImageUrl => !_imageFailed ? HeroImageCandidate : null;
+    private string? HeroImageSrcSet => BuildSrcSet(
+        (HeroArtwork.SmallUrl, 320),
+        (HeroArtwork.MediumUrl, 960),
+        (HeroArtwork.LargeUrl, 2160));
     private HeroArtworkMode EffectiveMode => string.IsNullOrWhiteSpace(HeroImageUrl)
         ? HeroArtworkMode.Placeholder
         : HeroArtwork.Mode;
@@ -183,6 +193,16 @@
 
     private static string EscapeCssString(string value)
         => value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
+
+    private static string? BuildSrcSet(params (string? Url, int Width)[] candidates)
+    {
+        var entries = candidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate.Url))
+            .DistinctBy(candidate => candidate.Url, StringComparer.OrdinalIgnoreCase)
+            .Select(candidate => $"{candidate.Url} {candidate.Width}w")
+            .ToList();
+        return entries.Count == 0 ? null : string.Join(", ", entries);
+    }
 
     private enum HeroForegroundTreatment
     {

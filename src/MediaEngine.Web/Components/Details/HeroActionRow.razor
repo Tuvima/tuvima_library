@@ -78,16 +78,25 @@
             else if (action.Key == "reaction-menu")
             {
                 <div class="tl-detail-secondary-action @(IsPrimaryHeroActionRow ? "tl-detail-secondary-action--watch" : null)">
-                    <div class="tl-hover-action-menu tl-reaction-menu" tabindex="0" aria-label="@action.Label">
-                        <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-detail-flat-action tl-detail-reaction-button" AriaLabel="@action.Label">
+                    <div class="tl-hover-action-menu tl-reaction-menu @(IsHoverMenuOpen(action.Key) ? "is-open" : null)"
+                         tabindex="0"
+                         aria-label="@action.Label"
+                         @onkeydown="HandleHoverMenuKeyDown">
+                        <AppNativeButton Type="button"
+                                         Class="tl-media-action tl-media-action--flat tl-detail-flat-action tl-detail-reaction-button"
+                                         AriaLabel="@action.Label"
+                                         aria-haspopup="menu"
+                                         aria-expanded="@(IsHoverMenuOpen(action.Key) ? "true" : "false")"
+                                         aria-controls="detail-reaction-menu"
+                                         OnClick="@(() => ToggleHoverMenu(action.Key))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                             <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
-                        <div class="tl-hover-action-menu__tray">
+                        <div id="detail-reaction-menu" class="tl-hover-action-menu__tray" role="menu" aria-label="Rate this item">
                             @foreach (var child in OrderedReactionChildren(action))
                             {
                                 <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
-                                    <AppNativeButton Type="button" Class='@($"tl-detail-reaction-choice {ReactionStateClass(child)}")' AriaLabel="@child.Label" Disabled="@child.IsDisabled" OnClick="@(() => SelectReaction(child))">
+                                    <AppNativeButton Type="button" Class='@($"tl-detail-reaction-choice {ReactionStateClass(child)}")' role="menuitem" AriaLabel="@child.Label" Disabled="@child.IsDisabled" OnClick="@(() => SelectReaction(child))">
                                         <MudIcon Icon="@IconFor(child)" Size="Size.Small" />
                                     </AppNativeButton>
                                 </MudTooltip>
@@ -103,16 +112,25 @@
             else if (action.Key == "format-tools")
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
-                    <div class="tl-hover-action-menu tl-format-menu" tabindex="0" aria-label="@action.Label">
-                        <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-detail-flat-action" AriaLabel="@action.Label">
+                    <div class="tl-hover-action-menu tl-format-menu @(IsHoverMenuOpen(action.Key) ? "is-open" : null)"
+                         tabindex="0"
+                         aria-label="@action.Label"
+                         @onkeydown="HandleHoverMenuKeyDown">
+                        <AppNativeButton Type="button"
+                                         Class="tl-media-action tl-media-action--flat tl-detail-flat-action"
+                                         AriaLabel="@action.Label"
+                                         aria-haspopup="menu"
+                                         aria-expanded="@(IsHoverMenuOpen(action.Key) ? "true" : "false")"
+                                         aria-controls="detail-format-menu"
+                                         OnClick="@(() => ToggleHoverMenu(action.Key))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
                             <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
-                        <div class="tl-hover-action-menu__tray">
+                        <div id="detail-format-menu" class="tl-hover-action-menu__tray" role="menu" aria-label="Format tools">
                             @foreach (var child in action.Children)
                             {
                                 <MudTooltip Text="@TooltipFor(child)" Placement="Placement.Bottom">
-                                    <AppNativeButton Type="button" Class="tl-detail-icon-action" AriaLabel="@child.Label" Disabled="@child.IsDisabled" OnClick="@(() => Select(child))">
+                                    <AppNativeButton Type="button" Class="tl-detail-icon-action" role="menuitem" AriaLabel="@child.Label" Disabled="@child.IsDisabled" OnClick="@(() => SelectFromHoverMenu(child))">
                                         <MudIcon Icon="@IconFor(child)" Size="Size.Small" />
                                     </AppNativeButton>
                                 </MudTooltip>
@@ -180,6 +198,7 @@
     // this shared prevents Read/Listen/group details from drifting into
     // media-specific action layouts.
     private bool IsPrimaryHeroActionRow => true;
+    private string? _openHoverMenuKey;
     private IReadOnlyList<DetailAction> VisibleSecondaryActions => SecondaryActions;
 
     private IReadOnlyList<DetailAction> OverflowMenuActions => OverflowActions;
@@ -215,7 +234,26 @@
         if (action.IsDisabled)
             return;
 
+        _openHoverMenuKey = null;
         await OnActionSelected.InvokeAsync(action);
+    }
+
+    private async Task SelectFromHoverMenu(DetailAction action)
+    {
+        _openHoverMenuKey = null;
+        await Select(action);
+    }
+
+    private bool IsHoverMenuOpen(string key) =>
+        string.Equals(_openHoverMenuKey, key, StringComparison.Ordinal);
+
+    private void ToggleHoverMenu(string key) =>
+        _openHoverMenuKey = IsHoverMenuOpen(key) ? null : key;
+
+    private void HandleHoverMenuKeyDown(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+            _openHoverMenuKey = null;
     }
 
     private IReadOnlyDictionary<string, object>? AttributesFor(DetailAction action) =>

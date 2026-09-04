@@ -42,6 +42,8 @@ public sealed class RetailProviderDecompositionTests
         Assert.Equal("https://api.themoviedb.org/3/tv/456/season/2?language=en-US&api_key=key", season);
         Assert.Equal("https://image.tmdb.org/t/p/w500/path.jpg", RetailRequestBuilder.BuildTmdbImageUrl("/path.jpg"));
         Assert.Equal("https://cdn.example/image.png", RetailRequestBuilder.BuildTmdbImageUrl("https://cdn.example/image.png"));
+        Assert.Equal("https://image.tmdb.org/t/p/original/path.jpg", RetailRequestBuilder.BuildTmdbEpisodeStillUrl("/path.jpg"));
+        Assert.Equal("https://cdn.example/episode.png", RetailRequestBuilder.BuildTmdbEpisodeStillUrl("https://cdn.example/episode.png"));
     }
 
     [Fact]

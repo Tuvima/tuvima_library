@@ -55,6 +55,30 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
     }
 
     [Fact]
+    public void MediaSectionShell_ProvidesCompactMobileNavigationWithCurrentRoute()
+    {
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/watch/tv");
+        var navigation = new[]
+        {
+            new MediaSectionNavigationGroup("Library",
+            [
+                new("Discover", "/watch", Icons.Material.Outlined.Explore, Exact: true),
+                new("TV Shows", "/watch/tv", Icons.Material.Outlined.LiveTv),
+            ]),
+        };
+
+        var cut = Render<MediaSectionShell>(parameters => parameters
+            .Add(component => component.Title, "Watch")
+            .Add(component => component.NavigationGroups, navigation)
+            .AddChildContent("<section>Watch content</section>"));
+
+        Assert.Equal("Watch mobile navigation", cut.Find(".media-section-shell__mobile-nav").GetAttribute("aria-label"));
+        Assert.Contains("TV Shows", cut.Find(".media-section-shell__mobile-nav summary").TextContent, StringComparison.Ordinal);
+        var current = cut.Find(".media-section-shell__mobile-nav-link[aria-current='page']");
+        Assert.Contains("TV Shows", current.TextContent, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ViewSectionShell_RendersExactlyFourPrimaryDestinationsAndTracksRoute()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();

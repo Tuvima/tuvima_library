@@ -80,32 +80,45 @@ public sealed class ActiveProfileSessionService : IDisposable
         return _activeProfile;
     }
 
-    public async Task<ProfileViewModel?> SetActiveProfileAsync(Guid profileId, CancellationToken ct = default)
+    public async Task<ProfileSwitchOutcome> SetActiveProfileAsync(
+        Guid profileId,
+        string? secret = null,
+        CancellationToken ct = default)
     {
         var profiles = await GetProfilesAsync(ct);
         var profile = profiles.FirstOrDefault(candidate => candidate.Id == profileId);
         if (profile is null)
         {
-            return null;
+            return new ProfileSwitchOutcome(ProfileSwitchStatus.NotFound);
         }
 
         if (_identityClient is not null && _dashboardSession?.SessionToken is not null)
         {
             var switched = await _identityClient.SwitchProfileAsync(
-                new MediaEngine.Contracts.Authentication.SwitchProfileRequest { ProfileId = profileId }, ct);
-            if (switched is null)
-                return null;
+                new MediaEngine.Contracts.Authentication.SwitchProfileRequest { ProfileId = profileId, Secret = secret }, ct);
+            if (switched.Status != DashboardProfileSwitchStatus.Succeeded || switched.Session is null)
+            {
+                return new ProfileSwitchOutcome(switched.Status switch
+                {
+                    DashboardProfileSwitchStatus.PinRequired => ProfileSwitchStatus.PinRequired,
+                    DashboardProfileSwitchStatus.Forbidden => ProfileSwitchStatus.Forbidden,
+                    DashboardProfileSwitchStatus.NotFound => ProfileSwitchStatus.NotFound,
+                    _ => ProfileSwitchStatus.Failed,
+                });
+            }
+
+            var session = switched.Session;
             _dashboardSession.Set(
                 _dashboardSession.SessionToken,
-                switched.AccountId,
-                switched.ActiveProfileId,
-                switched.SessionId,
-                switched.Role);
+                session.AccountId,
+                session.ActiveProfileId,
+                session.SessionId,
+                session.Role);
         }
 
         _activeProfile = profile;
         _activeProfileAccessor.SetProfile(profileId);
-        return profile;
+        return new ProfileSwitchOutcome(ProfileSwitchStatus.Succeeded, profile);
     }
 
     public Task<List<ProfileViewModel>> RefreshProfilesAsync(CancellationToken ct = default) =>

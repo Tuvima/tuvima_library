@@ -2843,11 +2843,19 @@
 
 ::deep .tl-hover-action-menu {
     position: relative;
+    z-index: 1;
     display: inline-grid;
+}
+
+::deep .tl-hover-action-menu:hover,
+::deep .tl-hover-action-menu:focus-within,
+::deep .tl-hover-action-menu.is-open {
+    z-index: var(--tl-z-popover, 1600);
 }
 
 ::deep .tl-hover-action-menu__tray {
     position: absolute;
+    z-index: var(--tl-z-popover, 1600);
     left: 50%;
     bottom: calc(100% + 0.45rem);
     display: flex;
@@ -2873,10 +2881,18 @@
 }
 
 ::deep .tl-hover-action-menu:hover .tl-hover-action-menu__tray,
-::deep .tl-hover-action-menu:focus-within .tl-hover-action-menu__tray {
+::deep .tl-hover-action-menu:focus-within .tl-hover-action-menu__tray,
+::deep .tl-hover-action-menu.is-open .tl-hover-action-menu__tray {
     opacity: 1;
     pointer-events: auto;
     transform: translate(-50%, 0);
+}
+
+@media (hover: none), (pointer: coarse) {
+    ::deep .tl-hover-action-menu:not(.is-open):not(:focus-within) .tl-hover-action-menu__tray {
+        opacity: 0;
+        pointer-events: none;
+    }
 }
 
 ::deep .tl-credit-preview--bar {
@@ -11363,5 +11379,137 @@
     .tl-detail-stage ::deep .tl-detail-action--has-progress {
         min-width: min(100%, 16rem) !important;
         padding-inline: 1rem !important;
+    }
+}
+
+/* Final phone contract: detail content owns normal vertical scrolling, audio
+   rows become compact cards, and every direct action remains touchable. */
+@media (max-width: 720px) {
+    .tl-detail-stage {
+        height: auto;
+        min-height: 0;
+        max-height: none;
+        overflow: visible;
+    }
+
+    .tl-detail-stage ::deep .cinematic-hero-surface,
+    .tl-detail-stage ::deep .tl-detail-hero {
+        height: auto !important;
+        min-height: clamp(30rem, 68svh, 36rem) !important;
+        max-height: none !important;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        align-items: flex-end;
+        min-height: clamp(30rem, 68svh, 36rem);
+        padding:
+            calc(var(--app-topbar-height, 65px) + 2.25rem)
+            1.1rem
+            1.35rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
+        align-content: end;
+        width: 100%;
+        max-width: 100%;
+        gap: 0.6rem;
+        transform: none;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero__copy h1,
+    .tl-detail-stage ::deep .tl-detail-hero--watch .tl-detail-hero__copy h1,
+    .tl-detail-stage ::deep .tl-detail-hero--watch.tl-detail-hero--title-long .tl-detail-hero__copy h1,
+    .tl-detail-stage ::deep .tl-detail-hero--watch.tl-detail-hero--title-dense .tl-detail-hero__copy h1 {
+        max-width: 100%;
+        font-size: clamp(2.35rem, 11vw, 3.6rem);
+        line-height: 0.96;
+        text-wrap: balance;
+    }
+
+    .tl-detail-stage__navigation {
+        position: relative;
+        width: 100%;
+        min-height: var(--tl-touch-target-min, 48px);
+    }
+
+    .tl-detail-stage--with-primary ::deep .tl-embedded-audio__table {
+        min-width: 0;
+    }
+
+    .tl-detail-stage--with-primary ::deep .tl-embedded-audio__row {
+        grid-template-columns: minmax(3rem, auto) minmax(0, 1fr) var(--tl-touch-target-min, 48px);
+        min-height: 4rem;
+        padding: 0.45rem 0.25rem 0.45rem 0.5rem;
+    }
+
+    .tl-detail-stage--with-primary ::deep .tl-embedded-audio__duration,
+    .tl-detail-stage--with-primary ::deep .tl-embedded-audio__status {
+        display: none;
+    }
+
+    .tl-detail-stage--with-primary ::deep .tl-embedded-audio__row-play,
+    .tl-detail-stage--with-primary ::deep .tl-embedded-audio__playing,
+    .tl-detail-stage--with-primary ::deep .tl-embedded-audio__more {
+        width: var(--tl-touch-target-min, 48px) !important;
+        min-width: var(--tl-touch-target-min, 48px) !important;
+        height: var(--tl-touch-target-min, 48px) !important;
+    }
+
+    ::deep .tl-detail-track-table {
+        min-width: 0;
+    }
+
+    ::deep .tl-detail-track-table thead,
+    ::deep .tl-audio-item-table__resizer {
+        display: none;
+    }
+
+    ::deep .tl-detail-track-table,
+    ::deep .tl-detail-track-table tbody,
+    ::deep .tl-detail-track-table tr,
+    ::deep .tl-detail-track-table td {
+        display: block;
+        width: 100%;
+    }
+
+    ::deep .tl-detail-track-table .tl-detail-track-row {
+        position: relative;
+        min-height: 4.5rem;
+        padding: 0.65rem 3.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    ::deep .tl-detail-track-table td {
+        height: auto !important;
+        padding: 0.1rem 0 !important;
+        border: 0 !important;
+    }
+
+    ::deep .tl-detail-track-table td.tl-detail-track-row__number {
+        position: absolute;
+        top: 0.65rem;
+        left: 0.25rem;
+        width: 3rem;
+        min-height: var(--tl-touch-target-min, 48px);
+    }
+
+    ::deep .tl-detail-track-table td.tl-detail-track-row__duration,
+    ::deep .tl-detail-track-table td.tl-detail-track-row__status {
+        display: none;
+    }
+
+    ::deep .tl-detail-track-table td:last-child {
+        position: absolute;
+        top: 0.65rem;
+        right: 0.25rem;
+        width: var(--tl-touch-target-min, 48px);
+        min-height: var(--tl-touch-target-min, 48px);
+    }
+
+    ::deep .tl-detail-reaction-choice,
+    ::deep .tl-detail-icon-action {
+        width: var(--tl-touch-target-min, 48px);
+        min-width: var(--tl-touch-target-min, 48px);
+        height: var(--tl-touch-target-min, 48px);
     }
 }

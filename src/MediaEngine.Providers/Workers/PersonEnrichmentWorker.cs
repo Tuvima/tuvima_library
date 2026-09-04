@@ -338,37 +338,61 @@ public sealed class PersonEnrichmentWorker
         }
     }
 
-    private static IReadOnlyDictionary<string, TmdbPersonImageHint> BuildTmdbImageHints(IReadOnlyList<ProviderClaim> claims)
+    internal static IReadOnlyDictionary<string, TmdbPersonImageHint> BuildTmdbImageHints(IReadOnlyList<ProviderClaim> claims)
     {
         var hints = new Dictionary<string, TmdbPersonImageHint>(StringComparer.OrdinalIgnoreCase);
 
-        AddTmdbImageHints(hints, "Actor", ValuesFor(claims, MetadataFieldConstants.CastMember), ValuesFor(claims, "cast_member_tmdb_id"), ValuesFor(claims, "cast_member_profile_url"));
-        AddTmdbImageHints(hints, "Director", ValuesFor(claims, "director"), ValuesFor(claims, "director_tmdb_id"), ValuesFor(claims, "director_profile_url"));
-        AddTmdbImageHints(hints, "Screenwriter", ValuesFor(claims, "screenwriter"), ValuesFor(claims, "screenwriter_tmdb_id"), ValuesFor(claims, "screenwriter_profile_url"));
-        AddTmdbImageHints(hints, "Composer", ValuesFor(claims, "composer"), ValuesFor(claims, "composer_tmdb_id"), ValuesFor(claims, "composer_profile_url"));
-        AddTmdbImageHints(hints, "Producer", ValuesFor(claims, "producer"), ValuesFor(claims, "producer_tmdb_id"), ValuesFor(claims, "producer_profile_url"));
+        AddTmdbImageHints(hints, claims, "Actor", MetadataFieldConstants.CastMember, "cast_member_tmdb_id", "cast_member_profile_url");
+        AddTmdbImageHints(hints, claims, "Director", "director", "director_tmdb_id", "director_profile_url");
+        AddTmdbImageHints(hints, claims, "Screenwriter", "screenwriter", "screenwriter_tmdb_id", "screenwriter_profile_url");
+        AddTmdbImageHints(hints, claims, "Composer", "composer", "composer_tmdb_id", "composer_profile_url");
+        AddTmdbImageHints(hints, claims, "Producer", "producer", "producer_tmdb_id", "producer_profile_url");
 
         return hints;
     }
 
     private static void AddTmdbImageHints(
         Dictionary<string, TmdbPersonImageHint> hints,
+        IReadOnlyList<ProviderClaim> claims,
         string role,
-        IReadOnlyList<string> names,
-        IReadOnlyList<string> ids,
-        IReadOnlyList<string> profileUrls)
+        string nameKey,
+        string idKey,
+        string profileUrlKey)
     {
-        for (var i = 0; i < names.Count; i++)
+        for (var i = 0; i < claims.Count; i++)
         {
-            var name = names[i];
-            if (string.IsNullOrWhiteSpace(name))
+            var nameClaim = claims[i];
+            if (!string.Equals(nameClaim.Key, nameKey, StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(nameClaim.Value))
                 continue;
 
+            var name = nameClaim.Value;
             int? personId = null;
-            if (i < ids.Count && int.TryParse(ids[i], out var parsedId))
-                personId = parsedId;
+            string? profileUrl = null;
 
-            var profileUrl = i < profileUrls.Count ? profileUrls[i] : null;
+            // TMDB contributor claims are emitted as an atomic run: name, ID,
+            // profile URL. Scan only until the next contributor of the same role
+            // so a missing ID or image cannot shift every later person's data.
+            for (var companionIndex = i + 1; companionIndex < claims.Count; companionIndex++)
+            {
+                var companion = claims[companionIndex];
+                if (string.Equals(companion.Key, nameKey, StringComparison.OrdinalIgnoreCase))
+                    break;
+
+                if (!personId.HasValue
+                    && string.Equals(companion.Key, idKey, StringComparison.OrdinalIgnoreCase)
+                    && int.TryParse(companion.Value, out var parsedId))
+                {
+                    personId = parsedId;
+                }
+                else if (profileUrl is null
+                         && string.Equals(companion.Key, profileUrlKey, StringComparison.OrdinalIgnoreCase)
+                         && !string.IsNullOrWhiteSpace(companion.Value))
+                {
+                    profileUrl = companion.Value;
+                }
+            }
+
             if (!personId.HasValue && string.IsNullOrWhiteSpace(profileUrl))
                 continue;
 
@@ -396,12 +420,6 @@ public sealed class PersonEnrichmentWorker
             : null;
     }
 
-    private static IReadOnlyList<string> ValuesFor(IReadOnlyList<ProviderClaim> claims, string key)
-        => claims
-            .Where(claim => string.Equals(claim.Key, key, StringComparison.OrdinalIgnoreCase))
-            .Select(claim => claim.Value)
-            .ToList();
-
     private static string? ResolvePersonWorkTitleHint(
         IReadOnlyList<CanonicalValue> canonicals,
         MediaType mediaType)
@@ -423,7 +441,7 @@ public sealed class PersonEnrichmentWorker
         };
     }
 
-    private sealed record TmdbPersonImageHint(int? PersonId, string? ProfileUrl);
+    internal sealed record TmdbPersonImageHint(int? PersonId, string? ProfileUrl);
 
     /// <summary>
     /// Creates or locates a Person record for a name-only person reference that was

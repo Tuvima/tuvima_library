@@ -4961,6 +4961,15 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     display: inline-flex;
 }
 
+/* An anchored overlay and its trigger must enter the same layer as the panel.
+   Otherwise later siblings can paint above a correctly-z-indexed child. */
+.app-overflow-menu[data-app-dismissible="open"],
+.browse-multi-select[data-app-dismissible="open"],
+.top-nav-account-menu-shell[data-app-dismissible="open"] {
+    position: relative;
+    z-index: var(--tl-z-popover, 1600);
+}
+
 .app-overflow-menu__backdrop {
     position: fixed;
     z-index: calc(var(--tl-z-popover, 1600) - 1);

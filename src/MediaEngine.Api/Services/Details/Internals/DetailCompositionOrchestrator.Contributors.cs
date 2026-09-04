@@ -126,12 +126,14 @@ internal sealed partial class DetailCompositionOrchestrator
                 var person = string.IsNullOrWhiteSpace(qid) ? null : await _persons.FindByQidAsync(qid, ct);
                 person ??= await _persons.FindByNameAsync(name, ct);
                 var imageUrl = person is null
-                    ? StringHelpers.FirstNonBlankOr(string.Empty,
-                        GetValue(canonicalValues, $"{canonicalArrayKey}_headshot_url"),
-                        GetValue(canonicalValues, $"{canonicalArrayKey}_image_url"),
-                        GetValue(canonicalValues, $"{canonicalArrayKey}_profile_url"),
-                        GetValue(canonicalValues, $"{canonicalArrayKey}_photo_url"),
-                        entries.Count == 1 ? GetValue(canonicalValues, "headshot_url") : null)
+                    ? entries.Count == 1
+                        ? StringHelpers.FirstNonBlankOr(string.Empty,
+                            GetValue(canonicalValues, $"{canonicalArrayKey}_headshot_url"),
+                            GetValue(canonicalValues, $"{canonicalArrayKey}_image_url"),
+                            GetValue(canonicalValues, $"{canonicalArrayKey}_profile_url"),
+                            GetValue(canonicalValues, $"{canonicalArrayKey}_photo_url"),
+                            GetValue(canonicalValues, "headshot_url"))
+                        : string.Empty
                     : ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl);
                 credits.Add(new EntityCreditViewModel
                 {

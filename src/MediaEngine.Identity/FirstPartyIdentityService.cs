@@ -225,7 +225,7 @@ public sealed class FirstPartyIdentityService(
         if (!await accounts.HasProfileAccessAsync(current.Account.Id, targetProfileId, ct).ConfigureAwait(false)) throw new UnauthorizedAccessException("This account cannot use that profile.");
         var target = await profiles.GetByIdAsync(targetProfileId, ct).ConfigureAwait(false) ?? throw new KeyNotFoundException($"Profile '{targetProfileId}' was not found.");
         var credential = await identities.GetCredentialAsync(target.Id, ProfileCredentialKind.ProfilePin, ct).ConfigureAwait(false);
-        if (credential is not null && (string.IsNullOrEmpty(pin) || !Verify(credential, pin, out _))) throw new UnauthorizedAccessException("That profile requires its PIN.");
+        if (credential is not null && (string.IsNullOrEmpty(pin) || !Verify(credential, pin, out _))) throw new ProfilePinRequiredException();
         if (!await identities.UpdateActiveProfileAsync(current.Session.Id, target.Id, ct).ConfigureAwait(false)) throw new UnauthorizedAccessException("The session is no longer valid.");
         await identities.ClearElevationGrantAsync(current.Session.Id, ct).ConfigureAwait(false);
         current.Session.ActiveProfileId=target.Id;

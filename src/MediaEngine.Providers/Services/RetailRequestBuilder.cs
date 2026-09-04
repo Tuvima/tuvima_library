@@ -52,6 +52,21 @@ public sealed class RetailRequestBuilder
             : $"https://image.tmdb.org/t/p/w500{stillPath}";
     }
 
+    /// <summary>
+    /// Builds the source URL used for episode still ingestion. Episode stills are
+    /// reused by both shelf tiles and full-width detail heroes, so the original
+    /// provider image must be retained before responsive renditions are derived.
+    /// </summary>
+    public static string? BuildTmdbEpisodeStillUrl(string? stillPath)
+    {
+        if (string.IsNullOrWhiteSpace(stillPath))
+            return null;
+
+        return stillPath.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+            ? stillPath
+            : $"https://image.tmdb.org/t/p/original/{stillPath.TrimStart('/')}";
+    }
+
     public static string InferTmdbStillExtension(string imageUrl)
     {
         var extension = Path.GetExtension(new Uri(imageUrl).AbsolutePath);

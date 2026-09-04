@@ -537,5 +537,15 @@
     .view-kind-tabs { width: 100%; }
     ::deep .view-more-filters { min-height: 46px; }
     .view-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    .view-viewer__bar { align-items: flex-start; }
+    .view-viewer__bar {
+        align-items: flex-start;
+        padding-top: max(12px, var(--tl-safe-area-top));
+        padding-right: max(12px, var(--tl-safe-area-right));
+        padding-left: max(12px, var(--tl-safe-area-left));
+    }
+
+    .view-viewer__action {
+        width: var(--tl-touch-target-min, 48px);
+        height: var(--tl-touch-target-min, 48px);
+    }
 }
