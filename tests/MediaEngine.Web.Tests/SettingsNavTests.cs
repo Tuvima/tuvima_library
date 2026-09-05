@@ -67,7 +67,6 @@ public sealed class SettingsNavTests
     }
 
     [Theory]
-    [InlineData(SettingsSection.ActivityLogs, "batches", "/settings/activity/batches")]
     [InlineData(SettingsSection.LocalAi, "models", "/settings/ai/models")]
     [InlineData(SettingsSection.Providers, "providers", "/settings/metadata/providers")]
     [InlineData(SettingsSection.Providers, "ingestion-flow", "/settings/metadata/ingestion-flow")]
@@ -110,6 +109,7 @@ public sealed class SettingsNavTests
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Overview));
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Playback));
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.AdminOverview));
+        Assert.Empty(SettingsNav.GetSubsections(SettingsSection.ActivityLogs));
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Review));
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Server));
     }
@@ -127,7 +127,6 @@ public sealed class SettingsNavTests
         Assert.True(SettingsNav.IsMobileRouteAvailable(SettingsSection.Providers, "providers"));
         Assert.False(SettingsNav.IsMobileRouteAvailable(SettingsSection.Providers, "providers", "tmdb"));
         Assert.True(SettingsNav.IsMobileRouteAvailable(SettingsSection.ActivityLogs));
-        Assert.False(SettingsNav.IsMobileRouteAvailable(SettingsSection.ActivityLogs, "batches"));
     }
 
     [Theory]
@@ -280,10 +279,10 @@ public sealed class SettingsNavTests
             "System Overview",
             "Libraries",
             "Import Folders",
-            "Ingestion",
-            "Metadata",
-            "Needs Review",
+            "Operations",
             "Activity & Audit",
+            "Needs Review",
+            "Metadata",
             "Network & Remote Access",
             "Playback & Delivery",
             "Users & Access",
@@ -359,7 +358,7 @@ public sealed class SettingsNavTests
         Assert.True(resolution.IsKnownRoute);
         Assert.Equal(SettingsSection.Ingestion, resolution.Section);
         Assert.Equal("/settings/ingestion", resolution.CanonicalRoute);
-        Assert.Contains(SettingsNav.AllItems, item => item.Label == "Ingestion");
+        Assert.Contains(SettingsNav.AllItems, item => item.Label == "Operations");
     }
 
     [Fact]

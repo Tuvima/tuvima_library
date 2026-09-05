@@ -11,7 +11,7 @@ The canonical destinations are:
 | Group | Pages |
 |---|---|
 | Personal | Profile, Playback & Reading |
-| Administration | System Overview, Libraries, Ingestion, Metadata Providers, Review Queue, Activity & Audit, Playback & Delivery, Users & Access |
+| Administration | System Overview, Libraries, Import, Operations, Review Queue, Metadata Providers, Playback & Delivery, Users & Access |
 | Advanced | Local AI, Plugins, Developer Tools |
 
 `/settings` redirects to `/settings/profile`. Legacy page aliases are normalized to the current canonical route. Privacy & Data is intentionally absent from navigation because the Engine does not expose the required history, tracking, export, or deletion operations yet.
@@ -21,7 +21,9 @@ The canonical destinations are:
 - Profile is one scannable dashboard: profile identity, appearance, activity summary, continue, recent history, and top genres. Missing activity renders an empty state, not invented zero metrics.
 - Playback & Reading owns its General, Watching, Listening, Reading, and Subtitles tabs. Internal audiobook history thresholds live under an Advanced disclosure.
 - System Overview consolidates library totals, ingestion, review, transcodes, recent runs, and operational health.
-- Libraries, Ingestion, Metadata Providers, Activity & Audit, Playback & Delivery, Users & Access, Local AI, and Plugins use page-local tabs or segmented controls.
+- Ingestion answers “what is happening now?” with the current run, active and queued work, retry waits, outcomes, and a compact media mix. File-check volume appears once in the outcome cards, never as overall progress. Activity & Audit owns one operation-first history: named runs expand into summary categories, chronological individual records, and disclosed technical details.
+- Mobile keeps Ingestion and Activity available as summaries: the current state and outcomes stay visible, stages collapse into a disclosure, operation cards replace dense tables, and event rows stack into touch-friendly cards.
+- Libraries, Operations, Metadata Providers, Playback & Delivery, Users & Access, Local AI, and Plugins use page-local tabs or segmented controls. Operations contains the paired Ingestion and Activity & Audit views.
 - Developer Tools is visible only to Administrators when internal tools are enabled. Provider and enrichment testers are launched from that page and are not duplicated in the rail.
 - Unimplemented settings are hidden or explained as unavailable. The Dashboard does not present disabled sample controls as if they were saved configuration.
 

@@ -28,6 +28,7 @@ public static class TuvimaHostedServiceCollectionExtensions
         services.AddHostedService(sp => sp.GetRequiredService<ProviderHealthMonitorService>());
         services.AddHostedService<ActivityPruningService>();
         services.AddHostedService<MediaOperationRecoveryHostedService>();
+        services.AddHostedService<IngestionBatchProgressHostedService>();
         services.AddHostedService<TextTrackRefreshOperationWorker>();
         services.AddHostedService<ArtworkRenditionRepairStartupService>();
         services.AddHostedService<RejectedFileCleanupService>();

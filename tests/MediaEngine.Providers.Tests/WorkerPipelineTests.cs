@@ -3929,9 +3929,6 @@ public sealed class WorkerPipelineTests
         public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default)
             => Task.FromResult(0);
 
-        public Task<int> AbandonRunningAsync(CancellationToken ct = default)
-            => Task.FromResult(0);
-
         public Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(Guid batchId, CancellationToken ct = default)
             => Task.FromResult(new IngestionBatchProgressSnapshot());
     }
@@ -3976,9 +3973,6 @@ public sealed class WorkerPipelineTests
             => Task.FromResult<IReadOnlyList<IngestionBatch>>([_batch]);
 
         public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default)
-            => Task.FromResult(0);
-
-        public Task<int> AbandonRunningAsync(CancellationToken ct = default)
             => Task.FromResult(0);
 
         public Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(Guid batchId, CancellationToken ct = default)

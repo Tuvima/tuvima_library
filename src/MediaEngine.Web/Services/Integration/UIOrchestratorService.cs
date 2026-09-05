@@ -488,7 +488,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default)
         => _api.UpdateRetentionAsync(days, ct);
 
-    /// <summary>Returns activity entries filtered by action types  -  used by Timeline view.</summary>
+    /// <summary>Returns activity entries filtered by action types for activity summaries.</summary>
     public Task<List<ActivityEntryResponse>> GetActivityByTypesAsync(
         string[] actionTypes, int limit = 50, CancellationToken ct = default)
         => _api.GetActivityByTypesAsync(actionTypes, limit, ct);
@@ -505,6 +505,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<List<ActivityMediaTypeGroupDto>> GetActivityBatchGroupsAsync(
         Guid batchId, CancellationToken ct = default)
         => _api.GetActivityBatchGroupsAsync(batchId, ct);
+
+    public Task<List<ActivityOperationEventDto>> GetActivityBatchEventsAsync(
+        Guid batchId,
+        string? category = null,
+        int limit = 100,
+        CancellationToken ct = default)
+        => _api.GetActivityBatchEventsAsync(batchId, category, limit, ct);
 
     public Task<PagedResponse<ActivityBatchItemDto>?> GetActivityBatchItemsAsync(
         Guid batchId,

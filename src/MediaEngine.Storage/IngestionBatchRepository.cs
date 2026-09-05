@@ -166,6 +166,19 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
         return Task.FromResult<IReadOnlyList<IngestionBatch>>(results);
     }
 
+    public Task<IReadOnlyList<IngestionBatch>> GetActiveAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var results = conn.Query<IngestionBatch>($"""
+            SELECT {SelectColumns}
+            FROM ingestion_batches
+            WHERE status IN ('running', 'queued', 'processing', 'active')
+            ORDER BY started_at DESC;
+            """).AsList();
+        return Task.FromResult<IReadOnlyList<IngestionBatch>>(results);
+    }
+
     /// <inheritdoc/>
     public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default)
     {
@@ -209,26 +222,6 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             });
 
         return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
-    public Task<int> AbandonRunningAsync(CancellationToken ct = default)
-    {
-        using var conn = _db.CreateConnection();
-        var affected = conn.Execute("""
-            UPDATE ingestion_batches
-            SET    status       = 'abandoned',
-                   completed_at = @completedAt,
-                   updated_at   = @updatedAt
-            WHERE  status = 'running';
-            """,
-            new
-            {
-                completedAt = DateTimeOffset.UtcNow.ToString("O"),
-                updatedAt   = DateTimeOffset.UtcNow.ToString("O"),
-            });
-
-        return Task.FromResult(affected);
     }
 
     /// <inheritdoc/>
@@ -284,7 +277,44 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
                 COALESCE(SUM(CASE WHEN js.state = 'BridgeSearching' THEN 1 ELSE 0 END), 0) AS BridgeSearching,
                 COALESCE(SUM(CASE WHEN js.state = 'QidResolved' THEN 1 ELSE 0 END), 0) AS QidResolved,
                 COALESCE(SUM(CASE WHEN js.state = 'Hydrating' THEN 1 ELSE 0 END), 0) AS Hydrating,
-                COALESCE(SUM(CASE WHEN js.state = 'UniverseEnriching' THEN 1 ELSE 0 END), 0) AS UniverseEnriching
+                COALESCE(SUM(CASE WHEN js.state = 'UniverseEnriching' THEN 1 ELSE 0 END), 0) AS UniverseEnriching,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_kind NOT IN ('ingestion', 'identity')
+                      AND mo.status IN ('pending', 'queued', 'leased', 'running', 'retry_waiting', 'interrupted', 'failed_retryable')
+                ) + COALESCE(SUM(CASE
+                    WHEN js.state IN ('Queued', 'RetailSearching', 'RetailMatched', 'BridgeSearching', 'QidResolved', 'Hydrating', 'UniverseEnriching') THEN 1
+                    ELSE 0
+                END), 0) AS OutstandingOperations,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_kind NOT IN ('ingestion', 'identity')
+                      AND mo.status IN ('leased', 'running')
+                ) + COALESCE(SUM(CASE
+                    WHEN js.state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching') THEN 1
+                    ELSE 0
+                END), 0) AS ActiveOperations,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_kind NOT IN ('ingestion', 'identity')
+                      AND mo.status IN ('pending', 'queued')
+                ) + COALESCE(SUM(CASE
+                    WHEN js.state IN ('Queued', 'RetailMatched', 'QidResolved') THEN 1
+                    ELSE 0
+                END), 0) AS QueuedOperations,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.operation_kind NOT IN ('ingestion', 'identity')
+                      AND mo.status IN ('retry_waiting', 'interrupted', 'failed_retryable')
+                ) AS RetryWaitingOperations
             FROM job_states js
             LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
             """,
@@ -338,6 +368,10 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             QidResolved = snapshot.QidResolved,
             Hydrating = snapshot.Hydrating,
             UniverseEnriching = snapshot.UniverseEnriching,
+            OutstandingOperations = snapshot.OutstandingOperations,
+            ActiveOperations = snapshot.ActiveOperations,
+            QueuedOperations = snapshot.QueuedOperations,
+            RetryWaitingOperations = snapshot.RetryWaitingOperations,
             CurrentFileTitle = currentFileTitle,
         });
     }

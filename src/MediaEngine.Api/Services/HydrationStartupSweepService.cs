@@ -49,13 +49,6 @@ public sealed class HydrationStartupSweepService : BackgroundService
             if (recovered == 0)
             {
                 _logger.LogInformation("Identity startup recovery found no interrupted jobs.");
-                var abandoned = await _batches.AbandonRunningAsync(cancellationToken).ConfigureAwait(false);
-                if (abandoned > 0)
-                {
-                    _logger.LogInformation(
-                        "Identity startup recovery marked {Count} stale running batch(es) abandoned.",
-                        abandoned);
-                }
             }
             else
             {

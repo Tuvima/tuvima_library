@@ -98,6 +98,8 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Shared", "MainLayout.razor"));
         var accountSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Navigation", "TopNavAccountMenu.razor"));
         var accountCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Navigation", "TopNavAccountMenu.razor.css"));
+        var activityIndicator = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Navigation", "SystemActivityIndicator.razor"));
+        var activityIndicatorCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Navigation", "SystemActivityIndicator.razor.css"));
         var globalCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "wwwroot", "app.css"));
         var css = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Shared", "MainLayout.razor.css"));
 
@@ -105,6 +107,9 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.Contains("await Activity.InitializeAsync();", source);
         Assert.Contains("<TopNavAccountMenu", source);
         Assert.Contains("<SystemActivityIndicator", source);
+        Assert.Contains("ShellActivityKind.Ingestion or ShellActivityKind.Enrichment", activityIndicator);
+        Assert.Contains("system-activity-indicator__ring is-animated", activityIndicator);
+        Assert.Contains("@keyframes system-activity-ring-spin", activityIndicatorCss);
         Assert.Contains("/images/library.svg", source);
         Assert.DoesNotContain("<AppLogo", source);
         Assert.Contains("Nav_Search", source);

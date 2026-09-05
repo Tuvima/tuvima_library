@@ -1,4 +1,5 @@
 .settings-shell-content {
+    position: relative;
     width: 100%;
     min-width: 0;
     padding: var(--tl-space-6, 24px) clamp(18px, 2.5vw, 36px) var(--tl-space-8, 32px);
@@ -11,6 +12,42 @@
     font-family: var(--font-ui, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif);
     font-size: 16px;
     line-height: 1.5;
+}
+
+.settings-operations-navigation {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    border-bottom: 1px solid var(--tl-border-subtle);
+}
+
+.settings-operations-navigation a {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    color: var(--tl-text-secondary);
+    font-size: .9rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.settings-operations-navigation a:hover,
+.settings-operations-navigation a:focus-visible,
+.settings-operations-navigation a.is-active {
+    color: var(--tl-text-primary);
+}
+
+.settings-operations-navigation a.is-active::after {
+    position: absolute;
+    right: 0;
+    bottom: -1px;
+    left: 0;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background: linear-gradient(90deg, #7559ef, #a35cff);
+    content: "";
 }
 
 .settings-mobile-navigation {

@@ -83,6 +83,25 @@ public sealed class SharedUiPrimitiveTests : AsyncBunitContext
     }
 
     [Fact]
+    public void AppPanel_CapturesElevationAndLiveRegionAttributesTogether()
+    {
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<AppPanel>(0);
+            builder.AddAttribute(1, "Elevation", 0);
+            builder.AddAttribute(2, "aria-live", "polite");
+            builder.AddAttribute(3, nameof(AppPanel.ChildContent), (RenderFragment)(contentBuilder =>
+                contentBuilder.AddContent(0, "Current activity")));
+            builder.CloseComponent();
+        });
+
+        var panel = cut.Find("section");
+        Assert.Equal("0", panel.GetAttribute("Elevation"));
+        Assert.Equal("polite", panel.GetAttribute("aria-live"));
+        Assert.Contains("Current activity", panel.TextContent);
+    }
+
+    [Fact]
     public void AppCheckbox_UsesSharedToneAndSupportsTwoWayValueChanges()
     {
         var value = false;

@@ -53,8 +53,8 @@ Quick hydration does explicitly enqueue the universe stage, and the universe ser
 | Results scope | `LatestBatch` selects the newest batch without requiring it to be completed. The summary also consumes library-wide review counts. | Label Current run versus Last run explicitly; never mix historical/global counts into current-run cards. |
 | Added/updated | The page displays `RegisteredCount`; elsewhere the view model adds review counts into added/updated. | Define actual add/update outcomes. Registration or a review decision is not evidence of an update. |
 | Recent activity | Ingestion shows five raw event descriptions from a filtered global recent list. | Person enrichment can dominate the summary and hide batch milestones. Aggregate here; retain individual events in Activity. |
-| History hierarchy | Batch explorer leads with short IDs and a nested table. Activity root starts with the event timeline. | Lead with named runs, outcomes, duration, warnings, and failures. Keep IDs in expanded details. |
-| Event search | Timeline fetches 100 recent/type events, then applies dates locally; run mode loads the run event set. | Date filters cannot represent complete history reliably at scale. Add server-side filtering and pagination for events. |
+| History hierarchy | Batch explorer leads with short IDs and a nested table. | Lead with named operations, outcomes, duration, warnings, and failures. Keep IDs in expanded technical details. |
+| Event search | The prior ledger fetched 100 recent/type events, then applied dates locally. | Date filters cannot represent complete history reliably at scale. Add server-side filtering and pagination for events within an operation. |
 | Audit semantics | Activity entries have action, actor, entity, changes JSON, and optional ingestion run ID; no explicit severity/source/category fields. | Add structured semantics before implementing the reference image's filters and summary counts. |
 | Read cost | The overview loads operations, reviews, capability summaries, and activity separately; the status service performs extensive SQL and heuristic projections. | Use a compact, consistent summary read; fetch detailed queues, rows, and schedules on demand. |
 | Schedules | Current UI is an entity-level enrichment refresh table; worker promotes up to 50 due entries hourly. | Do not depict unsupported daily/weekly scan jobs or generic enable switches. Show real due work and actual policies. |
@@ -63,7 +63,7 @@ Quick hydration does explicitly enqueue the universe stage, and the universe ser
 
 ### Ingestion: a live summary
 
-Keep the existing `/settings/ingestion` route and Settings header. Place **View activity**, **Refresh**, and **Scan now** consistently with other Settings page actions. Use a specific **Processing settings** link to the existing metadata ingestion-flow configuration; source-folder actions still lead to Libraries/Import Folders.
+Keep the existing `/settings/ingestion` route under one **Operations** Settings destination with local **Ingestion** and **Activity & Audit** navigation. Place **View activity** and the single **Scan now** action consistently with other Settings page actions. Status refreshes automatically through SignalR and snapshot polling, so do not expose a redundant manual Refresh action. Use a specific **Processing settings** link to the existing metadata ingestion-flow configuration; source-folder actions still lead to Libraries/Import Folders.
 
 The desktop layout should follow this order:
 
@@ -81,7 +81,6 @@ Use four user-facing stages: **Discover, Identify, Enrich, Organize**. Organize 
 The main message should describe work at batch scale, without rapidly cycling filenames or person names. For example, with illustrative counts:
 
 > **Updating library details** · Books and Movies  
-> File processing finished: 111 of 111 checked.  
 > Updating people and artwork · 3 groups active · 27 tasks queued.  
 > Your available titles can already be opened. **View this run's activity**
 
@@ -93,20 +92,20 @@ Use the reference's purple progress/accent, subdued blue panels, green terminal 
 
 ### Truthful progress rules
 
-- The headline represents **run state**, not an invented whole-run percentage. Default to phase language plus an indeterminate active indicator while the amount of downstream work can grow.
+- The headline represents **run state**, not an invented whole-run percentage. Default to concrete phase language, an animated running-state indicator, and active/queued/retry counts while the amount of downstream work can grow.
 - A bounded phase may show a percentage only with an explicit label and count unit, such as “Files checked: 111/111.” Discover is indeterminate until enumeration closes.
 - Do not average stage percentages, take their maximum, weight unrelated work units, or cap the display at 99% as a substitute for a lifecycle fix.
-- Never show a full overall progress bar or all-success stage strip while required run work remains. A completed file substage may truthfully show 100% while Enrich remains active.
+- Never show an overall progress bar or all-success stage strip while required run work remains. Keep the bounded Files checked count in its outcome card while Enrich remains active.
 - Person tasks, files, works, provider requests, and batches are different units. Preserve `count_unit`; do not sum unlike denominators.
 - Initially omit overall ETA and trend arrows. A later phase ETA requires a stable denominator and a measured recent rate. Any displayed rate must name its unit and measurement period.
 - Idle says “No active ingestion” with the last run result. Disconnected/stale says “Status unavailable” with last observed time, never “Complete.”
 
 ### Activity & Audit: history with drilldown
 
-Keep `/settings/activity`, making **Grouped** its default display. Offer **Timeline** as the alternate view with shared URL-backed filters. Preserve People audit as an explicit secondary view, and maintenance/retention as a collapsed utility.
+Keep `/settings/activity` as one **Grouped Activity** experience. Every batch or administrative job is a top-level operation. Expanding it reveals meaningful summary categories; selecting a category reveals chronological individual records; technical fields remain behind a per-event disclosure. Maintenance and retention remain a collapsed utility.
 
 - Run cards lead with meaningful names such as “Library scan — Books,” trigger/actor, start time, duration, terminal outcome, a concise result sentence, event count, warnings, and failures. Do not invent batches by grouping unrelated admin edits into an arbitrary time window.
-- Expand a card to a short paged event preview, prioritizing attention events and milestones. **View all events** opens the full run-filtered timeline. Preserve existing media → title/file → changes drilldown for deeper inspection.
+- Expand a card into summary categories such as files discovered, items identified, metadata updated, people hydrated, enrichment queued, warnings, and failures. Selecting a category reveals the matching chronological records without changing page modes.
 - Show separate lifecycle and outcome labels: an ended run can be **Completed with issues**. A completed state must never visually erase failures. A pending review is an outcome requiring a person, not automatic work still running.
 - Use search plus category, source/provider, severity, and date range filters. Add actor/media filters where useful without forcing every selector onto one crowded row. Filtering and totals happen server-side before pagination.
 - Summary counts use the same filter/date scope as the list: runs, warning events, failure events, administrative changes, and review actions. Explain whether a number counts events or affected items. No percentage deltas until the comparison periods and retained history support them.
@@ -127,15 +126,15 @@ Use a single-column layout in this order:
 4. **View activity.** Provide a prominent link to this run's mobile Activity summary. If several runs are active, show their count and up to three compact run rows, with **View all active runs** expanding the remaining summaries. Selecting a run updates the summary scope without losing the link back to all runs.
 5. **Up next and last result.** Show one concise next-work/schedule summary and the latest completed run when relevant. Media mix and additional run summaries are collapsed; omit the desktop chart from the initial phone view.
 
-Keep Refresh accessible in the header. Place Scan now below the current summary so monitoring takes priority; preserve the same server acceptance, duplicate prevention, and permissions as desktop. Move Processing settings and technical diagnostics behind clearly labeled secondary actions. Idle emphasizes the last result and Scan now. Unknown or stale status remains explicit instead of showing reassuring zero counts.
+Keep the automatic status update visible through changing timestamps and live values. Show one Scan now action; preserve the same server acceptance, duplicate prevention, and permissions as desktop. Explain that it starts an extra watched-folder scan while ordinary monitoring, schedules, and queued processing remain automatic. Move Processing settings and technical diagnostics behind clearly labeled secondary actions. Idle emphasizes the last result and Scan now. Unknown or stale status remains explicit instead of showing reassuring zero counts.
 
 #### Mobile Activity & Audit
 
-- Start with a compact title, the selected date range, and a **View live ingestion** link while work is active. Default to Grouped, preserving a deep-linked run or filter when present.
+- Start with a compact title, the selected date range, and a **View live ingestion** link while work is active. Preserve a deep-linked run or filter when present.
 - Replace the five desktop metric cards with a compact summary of run count and warning/failure event counts for the selected scope. Put administrative-change and review-action counts under **More summary**; retain their distinct units and drilldown links.
 - Show a short first page of named run cards. Each includes status, relative start time, duration, one outcome sentence, and nonzero warning/failure badges. Raw IDs, paths, provider lists, and individual person events stay out of collapsed cards.
-- Tapping a run opens an inline summary with outcomes and up to three notable events. **View events** opens its paged timeline as vertically arranged event cards, not a horizontally scrolling table. Each card can reveal actor, source, exact timestamp, item, and safe change details on demand.
-- Keep search visible. Put category, source/provider, severity, and additional filters in a labeled **Filters** disclosure with an active-filter count, Apply, and Clear actions. Keep the selected date scope visible when filters are closed. Grouped/Timeline remains a compact shared view control.
+- Tapping an operation opens summary categories. Selecting a category shows its chronological records as vertically arranged event cards without a horizontally scrolling table. Each card can reveal actor, source, exact timestamp, item, and safe technical details on demand.
+- Keep search visible. Put category, source/provider, severity, and additional filters in a labeled **Filters** disclosure with an active-filter count, Apply, and Clear actions. Keep the selected date scope visible when filters are closed.
 - Render **Important changes** as a collapsed section with its matching count and a short preview on expansion. It must not interrupt the primary run list or duplicate an entire desktop sidebar. People audit and retention tools remain secondary destinations/utilities.
 - Use explicit **Load more** pagination. Newly arriving activity shows an update affordance without moving cards under the user's finger. Returning from event details restores filters, expanded run, and list position.
 
@@ -149,8 +148,8 @@ Keep Refresh accessible in the header. Place Scan now below the current summary 
 
 ### Settings and navbar alignment
 
-- Place Ingestion, Activity & Audit, and Review together in the Administration rail, with Ingestion immediately followed by Activity. Retain the existing shared Settings shell, one page title, consistent content width, padding, cards, and action placement.
-- Remove the timeline's redundant “Recent activity” page header when the Settings header already provides the identity. Use shared controls for all selects, view toggles, badges, and filters.
+- Place one Operations destination beside Review in the Administration rail. Within Operations, keep Ingestion and Activity & Audit adjacent in a local tab strip. Retain the existing shared Settings shell, one page title, consistent content width, padding, cards, and action placement.
+- Use the Settings header as the page identity. Use shared controls for selects, badges, filters, category drilldown, and technical disclosures.
 - For ingestion/identity/enrichment primary activity, the navbar opens `/settings/ingestion`, optionally focused on a real run ID. After ingestion files settle, its downstream enrichment still routes there.
 - Preserve playback's queue-panel action. Other primary activities use their existing relevant destination or Activity. Avoid a blanket rewrite that makes playback or unrelated maintenance open Ingestion.
 - Use existing administrator authorization on both navigation and endpoints. Shared links carry the run/filter state; Back restores the previously viewed scope.
@@ -203,11 +202,11 @@ Query all active runs directly rather than deriving them from the latest 12 hist
 | 1. Correct the progress contract | Add failing behavior tests for active downstream work; separate file progress from run state/copy; show queue/phase context; route ingestion navbar clicks to Ingestion. | No headline implies completion while known work remains. Playback navigation is unchanged. This is an interim presentation correction, not the full completion fix. |
 | 2. Make lifecycle authoritative | Inventory producers, persist run scope/child dependencies, unify terminal rules and recovery, remove GET-time reconciliation, make terminal history durable. | Run status is correct even if no Dashboard is open, including retry, restart, and shared-work cases. |
 | 3. Build shared read contracts | Compact summary, run history/event queries, structured audit semantics, aggregates, schedule rollups, snapshot revisions and correlation. | API, SignalR, Activity, and navbar agree on the same run; full-history filters and counts are accurate. |
-| 4. Rebuild Ingestion presentation | Shared Settings header/actions, current-work card, explicit stage strip, outcome cards, batch summaries, media mix, real Up next, lazy details, and the dedicated mobile summary with compact outcomes and expandable stages. | On desktop and phone, an administrator can identify what is running, whether it is waiting, and what needs action within a few seconds. |
-| 5. Rebuild Activity and join navigation | Grouped run cards, event timeline, filters, important changes, preserved item/people audit, deep links, adjacent Settings placement, and mobile run summaries with paged event cards and collapsed filters. | On desktop and phone, a user can move from a live run to its exact event history and back without searching again. |
+| 4. Rebuild Ingestion presentation | Shared Settings header/actions, current-work card, explicit stage strip, outcome cards, batch summaries, media mix, real Up next, and the dedicated mobile summary with compact outcomes and expandable stages. | On desktop and phone, an administrator can identify what is running, whether it is waiting, and what needs action within a few seconds. |
+| 5. Rebuild Activity and join navigation | Operation cards, summary-category drilldown, chronological individual records, technical disclosures, filters, important changes, deep links, adjacent Settings placement, and mobile summaries with stacked event cards. | On desktop and phone, a user can move from a live run to its exact event history and back without searching again. |
 | 6. Validate and document | Integrated fresh-ingest checks, desktop/mobile visual checks, lifecycle/query/performance tests, and product/architecture documentation. | All acceptance cases below pass; no placeholder metrics or unsupported controls ship. |
 
-Deliver phases in dependency order. Trend comparisons, broad schedule editors, pause/cancel controls, and overall ETA are outside the initial scope unless the underlying services already support their exact semantics. Refresh and Scan now must report server acceptance/failure and prevent accidental duplicate commands through server-side idempotency, not only a disabled button.
+Deliver phases in dependency order. Trend comparisons, broad schedule editors, pause/cancel controls, and overall ETA are outside the initial scope unless the underlying services already support their exact semantics. Scan now must report server acceptance/failure and prevent accidental duplicate commands through server-side idempotency, not only a disabled button. Automatic snapshot refresh must recover cleanly after reconnect and browser resume.
 
 ## Acceptance and verification
 

@@ -19,5 +19,9 @@ public sealed class IngestionBatchProgressSnapshot
     public int QidResolved { get; init; }
     public int Hydrating { get; init; }
     public int UniverseEnriching { get; init; }
+    public int OutstandingOperations { get; init; }
+    public int ActiveOperations { get; init; }
+    public int QueuedOperations { get; init; }
+    public int RetryWaitingOperations { get; init; }
     public string? CurrentFileTitle { get; init; }
 }

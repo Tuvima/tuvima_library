@@ -13,7 +13,7 @@
                          Class="@ButtonClass"
                          AriaLabel="@AriaLabel"
                          OnClick="HandleClick">
-            <span class="system-activity-indicator__ring" aria-hidden="true">
+            <span class="@RingClass" aria-hidden="true">
                 @if (Snapshot.Primary?.ProgressPercent is { } progress)
                 {
                     <MudProgressCircular Value="@progress" Size="Size.Small" />
@@ -38,6 +38,10 @@
 
     private ShellActivitySnapshot Snapshot => Activity.Current;
     private string ButtonClass => "system-activity-indicator is-active";
+    private string RingClass => Snapshot.Primary is { ProgressPercent: not null } primary
+        && primary.Kind is ShellActivityKind.Ingestion or ShellActivityKind.Enrichment
+            ? "system-activity-indicator__ring is-animated"
+            : "system-activity-indicator__ring";
 
     private string PrimaryIcon => Snapshot.Primary?.Kind switch
     {
@@ -72,8 +76,13 @@
             return;
         }
 
-        if (CanOpenSystemActivity)
-            Nav.NavigateTo("/settings/activity");
+        if (!CanOpenSystemActivity)
+            return;
+
+        var destination = Snapshot.Primary?.Kind is ShellActivityKind.Ingestion or ShellActivityKind.Enrichment
+            ? "/settings/ingestion"
+            : "/settings/activity";
+        Nav.NavigateTo(destination);
     }
 
     private static string FormatActivity(ShellActivityItem activity) => activity.ProgressPercent is { } progress

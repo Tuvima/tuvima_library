@@ -347,7 +347,6 @@ internal sealed class StubIngestionBatchRepository : IIngestionBatchRepository
     public Task<MediaEngine.Domain.Entities.IngestionBatch?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult<MediaEngine.Domain.Entities.IngestionBatch?>(null);
     public Task<IReadOnlyList<MediaEngine.Domain.Entities.IngestionBatch>> GetRecentAsync(int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<MediaEngine.Domain.Entities.IngestionBatch>>([]);
     public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default) => Task.FromResult(0);
-    public Task<int> AbandonRunningAsync(CancellationToken ct = default) => Task.FromResult(0);
     public Task<MediaEngine.Domain.Models.IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(
         Guid batchId,
         CancellationToken ct = default)

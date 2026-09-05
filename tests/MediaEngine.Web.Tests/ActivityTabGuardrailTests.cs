@@ -19,71 +19,52 @@ public sealed class ActivityTabGuardrailTests
     public void ActivityTab_ComposesCentralizedActivitySurfaces()
     {
         var tab = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\ActivityTab.razor"));
+        var settings = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
         var batches = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityBatchExplorer.razor"));
         var batchCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityBatchExplorer.razor.css"));
-        var group = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityMediaTypeAuditGroup.razor"));
-        var detail = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityTitleAuditDetail.razor"));
-        var people = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityPeopleAudit.razor"));
-        var events = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityEventsLedger.razor"));
         var maintenance = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityMaintenancePanel.razor"));
 
         Assert.Contains("<ActivityBatchExplorer", tab, StringComparison.Ordinal);
-        Assert.Contains("<ActivityPeopleAudit", tab, StringComparison.Ordinal);
-        Assert.Contains("<ActivityEventsLedger", tab, StringComparison.Ordinal);
         Assert.Contains("<ActivityMaintenancePanel", tab, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppTabs", tab, StringComparison.Ordinal);
-        Assert.Contains("@if (ActiveSubsection == \"events\")", tab, StringComparison.Ordinal);
-        Assert.Contains("_ => \"events\"", tab, StringComparison.Ordinal);
-        Assert.True(tab.IndexOf("<ActivityEventsLedger", StringComparison.Ordinal) < tab.IndexOf("<ActivityBatchExplorer", StringComparison.Ordinal));
-        Assert.True(tab.IndexOf("<ActivityBatchExplorer", StringComparison.Ordinal) < tab.IndexOf("<ActivityPeopleAudit", StringComparison.Ordinal));
+        Assert.DoesNotContain("Timeline", tab, StringComparison.Ordinal);
+        Assert.DoesNotContain("ActivityEventsLedger", tab, StringComparison.Ordinal);
+        Assert.DoesNotContain("ActivityPeopleAudit", tab, StringComparison.Ordinal);
+        Assert.Contains("settings-operations-navigation", settings, StringComparison.Ordinal);
+        Assert.Contains("Activity &amp; Audit", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("GetActivity", tab, StringComparison.Ordinal);
         Assert.DoesNotContain("SELECT", tab, StringComparison.OrdinalIgnoreCase);
 
         Assert.Contains("GetActivityBatchesAsync", batches, StringComparison.Ordinal);
-        Assert.Contains("GetActivityBatchGroupsAsync", batches, StringComparison.Ordinal);
-        Assert.Contains("GetActivityBatchItemsAsync", batches, StringComparison.Ordinal);
-        Assert.Contains("GetActivityBatchItemDetailAsync", batches, StringComparison.Ordinal);
+        Assert.Contains("GetActivityBatchEventsAsync", batches, StringComparison.Ordinal);
+        Assert.Contains("GroupBy(operation => operation.BatchId)", batches, StringComparison.Ordinal);
         Assert.Contains("AppFilterBar", batches, StringComparison.Ordinal);
-        Assert.Contains("AppExpandableAuditTable", batches, StringComparison.Ordinal);
+        Assert.Contains("activity-audit__filter-disclosure", batches, StringComparison.Ordinal);
+        Assert.Contains("open=\"@(!DeviceContext.IsMobile)\"", batches, StringComparison.Ordinal);
+        Assert.Contains("activity-run-card", batches, StringComparison.Ordinal);
+        Assert.Contains("activity-operation-categories", batches, StringComparison.Ordinal);
+        Assert.Contains("activity-event-table", batches, StringComparison.Ordinal);
+        Assert.Contains("Show technical details", batches, StringComparison.Ordinal);
+        Assert.Contains("Important changes", batches, StringComparison.Ordinal);
         Assert.Contains("AppCompactPager", batches, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Batch ID\"", batches, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Started\"", batches, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Media\"", batches, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Total\"", batches, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Duration\"", batches, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Status\"", batches, StringComparison.Ordinal);
-        Assert.DoesNotContain("Label=\"Source\"", batches, StringComparison.Ordinal);
-        Assert.DoesNotContain("Take(4)", batches, StringComparison.Ordinal);
-        Assert.Contains("table-layout: fixed", batchCss, StringComparison.Ordinal);
-
-        Assert.Contains("Label=\"Title\"", group, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Provider\"", group, StringComparison.Ordinal);
-        Assert.Contains("Label=\"QID\"", group, StringComparison.Ordinal);
-        Assert.Contains("Label=\"People\"", group, StringComparison.Ordinal);
-        Assert.DoesNotContain("Label=\"Duration\"", group, StringComparison.Ordinal);
-        Assert.DoesNotContain("Books T", group, StringComparison.Ordinal);
-        Assert.DoesNotContain("Catalog Match", detail, StringComparison.Ordinal);
-        Assert.DoesNotContain("Apple Books", detail, StringComparison.Ordinal);
-
-        Assert.Contains("GetActivityPeopleAsync", people, StringComparison.Ordinal);
-        Assert.Contains("AppFilterBar", people, StringComparison.Ordinal);
-        Assert.Contains("AppExpandableAuditTable", people, StringComparison.Ordinal);
-
-        Assert.Contains("GetRecentActivityAsync", events, StringComparison.Ordinal);
-        Assert.Contains("GetActivityByTypesAsync", events, StringComparison.Ordinal);
-        Assert.Contains("GetActivityByRunIdAsync", events, StringComparison.Ordinal);
-        Assert.Contains("QueryHelpers.ParseQuery", events, StringComparison.Ordinal);
-        Assert.Contains("\"runId\"", events, StringComparison.Ordinal);
-        Assert.Contains("\"batchId\"", events, StringComparison.Ordinal);
-        Assert.Contains("DateRangeOptions", events, StringComparison.Ordinal);
-        Assert.Contains("Actor =", events, StringComparison.Ordinal);
-        Assert.Contains("/settings/activity", events, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Activity type\"", batches, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Source\"", batches, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Result\"", batches, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Library\"", batches, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Date\"", batches, StringComparison.Ordinal);
+        Assert.Contains("People hydrated", batches, StringComparison.Ordinal);
+        Assert.Contains("Metadata updated", batches, StringComparison.Ordinal);
+        Assert.Contains("Enrichment operations", batches, StringComparison.Ordinal);
+        Assert.Contains("activity-audit__summary", batchCss, StringComparison.Ordinal);
+        Assert.Contains("activity-operation-category", batchCss, StringComparison.Ordinal);
+        Assert.Contains("@media (max-width: 700px)", batchCss, StringComparison.Ordinal);
+        Assert.Contains(".activity-audit__filter-disclosure > summary", batchCss, StringComparison.Ordinal);
         Assert.Contains("<details class=\"activity-page__advanced\"", tab, StringComparison.Ordinal);
 
         Assert.Contains("GetActivityStatsAsync", maintenance, StringComparison.Ordinal);
         Assert.Contains("TriggerPruneAsync", maintenance, StringComparison.Ordinal);
 
-        foreach (var source in new[] { tab, batches, people, events, maintenance })
+        foreach (var source in new[] { tab, batches, maintenance })
         {
             Assert.DoesNotContain("_sampleEntries", source, StringComparison.Ordinal);
             Assert.DoesNotContain("Task.Delay", source, StringComparison.Ordinal);

@@ -1550,6 +1550,29 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public async Task<List<ActivityOperationEventDto>> GetActivityBatchEventsAsync(
+        Guid batchId,
+        string? category = null,
+        int limit = 100,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var parameters = new List<string> { $"limit={Math.Clamp(limit, 1, 500)}" };
+            if (!string.IsNullOrWhiteSpace(category) && !category.Equals("all", StringComparison.OrdinalIgnoreCase))
+                parameters.Add($"category={Uri.EscapeDataString(category)}");
+            var raw = await _http.GetFromJsonAsync<List<ActivityOperationEventDto>>(
+                $"/activity/batches/{batchId:D}/events?{string.Join("&", parameters)}", ct);
+            return raw ?? [];
+        }
+        catch (OperationCanceledException) { return []; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/batches/{BatchId}/events failed", batchId);
+            return [];
+        }
+    }
+
     // -- GET /ai/enrichment/progress -------------------------------------------
 
     public async Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default)

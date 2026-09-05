@@ -223,7 +223,7 @@ public partial interface IEngineApiClient
     /// <summary>GET /activity/run/{runId} — all entries for a specific ingestion run.</summary>
     Task<List<ActivityEntryResponse>> GetActivityByRunIdAsync(Guid runId, CancellationToken ct = default);
 
-    /// <summary>GET /activity/by-types?types=...&amp;limit= — entries filtered by action type for Timeline view.</summary>
+    /// <summary>GET /activity/by-types?types=...&amp;limit= — entries filtered by action type for activity summaries.</summary>
     Task<List<ActivityEntryResponse>> GetActivityByTypesAsync(
         string[] actionTypes, int limit = 50, CancellationToken ct = default);
 
@@ -233,6 +233,12 @@ public partial interface IEngineApiClient
 
     Task<List<ActivityMediaTypeGroupDto>> GetActivityBatchGroupsAsync(
         Guid batchId,
+        CancellationToken ct = default);
+
+    Task<List<ActivityOperationEventDto>> GetActivityBatchEventsAsync(
+        Guid batchId,
+        string? category = null,
+        int limit = 100,
         CancellationToken ct = default);
 
     Task<PagedResponse<ActivityBatchItemDto>?> GetActivityBatchItemsAsync(

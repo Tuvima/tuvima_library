@@ -195,7 +195,9 @@ public sealed class ShellActivityState : IDisposable
                 ShellActivityKind.Ingestion,
                 label,
                 FriendlyStage(batch.CurrentStage),
-                Math.Clamp(batch.ProgressPercent, 0, 100),
+                batch.IsComplete || batch.ProgressPercent < 100
+                    ? Math.Clamp(batch.ProgressPercent, 0, 100)
+                    : null,
                 now));
             return true;
         }

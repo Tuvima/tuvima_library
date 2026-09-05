@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=691; api=0; web-client=86
+# scopes: contracts=692; api=0; web-client=86
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -73,8 +73,14 @@
   PeopleCount: System.Int32 | json=people_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ReviewCount: System.Int32 | json=review_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AlertCount: System.Int32 | json=alert_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FilesDiscoveredCount: System.Int32 | json=files_discovered_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ItemsIdentifiedCount: System.Int32 | json=items_identified_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MetadataUpdatedCount: System.Int32 | json=metadata_updated_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EnrichmentOperationCount: System.Int32 | json=enrichment_operation_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  WarningCount: System.Int32 | json=warning_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FailureCount: System.Int32 | json=failure_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MediaTypes: System.Collections.Generic.List<MediaEngine.Contracts.Activity.ActivityMediaTypeCountDto> | json=media_types | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"batch_id":"11111111-2222-3333-4444-555555555555","status":"sample","source":"sample","category":"sample","started_at":"2025-01-02T03:04:05+00:00","completed_at":"2025-01-02T03:04:05+00:00","last_activity_at":"2025-01-02T03:04:05+00:00","duration_seconds":7,"duration_label":"sample","media_type_count":7,"title_count":7,"item_count":7,"event_count":7,"people_count":7,"review_count":7,"alert_count":7,"media_types":[]}
+  sample={"batch_id":"11111111-2222-3333-4444-555555555555","status":"sample","source":"sample","category":"sample","started_at":"2025-01-02T03:04:05+00:00","completed_at":"2025-01-02T03:04:05+00:00","last_activity_at":"2025-01-02T03:04:05+00:00","duration_seconds":7,"duration_label":"sample","media_type_count":7,"title_count":7,"item_count":7,"event_count":7,"people_count":7,"review_count":7,"alert_count":7,"files_discovered_count":7,"items_identified_count":7,"metadata_updated_count":7,"enrichment_operation_count":7,"warning_count":7,"failure_count":7,"media_types":[]}
 
 [contracts] MediaEngine.Contracts.Activity.ActivityDetailFieldDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -125,6 +131,25 @@
   AlertCount: System.Int32 | json=alert_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LastActivityAt: System.DateTimeOffset? | json=last_activity_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"batch_id":"11111111-2222-3333-4444-555555555555","media_type":"sample","title_count":7,"item_count":7,"event_count":7,"people_count":7,"review_count":7,"alert_count":7,"last_activity_at":"2025-01-02T03:04:05+00:00"}
+
+[contracts] MediaEngine.Contracts.Activity.ActivityOperationEventDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  EventId: System.String | json=event_id | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BatchId: System.Guid | json=batch_id | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OccurredAt: System.DateTimeOffset | json=occurred_at | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Category: System.String | json=category | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EventType: System.String | json=event_type | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Item: System.String | json=item | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Library: System.String | json=library | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Provider: System.String | json=provider | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Operation: System.String | json=operation | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Result: System.String | json=result | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Severity: System.String | json=severity | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  DurationSeconds: System.Double? | json=duration_seconds | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Message: System.String | json=message | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EntityId: System.Guid? | json=entity_id | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TechnicalDetails: System.String | json=technical_details | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"event_id":"sample","batch_id":"11111111-2222-3333-4444-555555555555","occurred_at":"2025-01-02T03:04:05+00:00","category":"sample","event_type":"sample","item":"sample","library":"sample","provider":"sample","operation":"sample","result":"sample","severity":"sample","duration_seconds":7,"message":"sample","entity_id":"11111111-2222-3333-4444-555555555555","technical_details":"sample"}
 
 [contracts] MediaEngine.Contracts.Activity.ActivityPersonAuditDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -2571,6 +2596,10 @@
   RegisteredCount: System.Int32 | json=registered_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ReviewCount: System.Int32 | json=review_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   FailedCount: System.Int32 | json=failed_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OutstandingOperations: System.Int32 | json=outstanding_operations | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ActiveOperations: System.Int32 | json=active_operations | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  QueuedOperations: System.Int32 | json=queued_operations | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RetryWaitingOperations: System.Int32 | json=retry_waiting_operations | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PeopleGeneratedCount: System.Int32 | json=people_generated_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ArtworkDownloadedCount: System.Int32 | json=artwork_downloaded_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MetadataUpdatedCount: System.Int32 | json=metadata_updated_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -2578,7 +2607,7 @@
   Status: System.String | json=status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Summary: System.String | json=summary | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   StageProgress: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionStageProgressDto> | json=stage_progress | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"batch_id":"11111111-2222-3333-4444-555555555555","started_at":"2025-01-02T03:04:05+00:00","completed_at":"2025-01-02T03:04:05+00:00","source":"sample","media_type":"sample","total_files":7,"processed_files":7,"movies_count":7,"tv_shows_count":7,"books_count":7,"audiobooks_count":7,"music_count":7,"comics_count":7,"registered_count":7,"review_count":7,"failed_count":7,"people_generated_count":7,"artwork_downloaded_count":7,"metadata_updated_count":7,"duration_seconds":7,"status":"sample","summary":"sample","stage_progress":[]}
+  sample={"batch_id":"11111111-2222-3333-4444-555555555555","started_at":"2025-01-02T03:04:05+00:00","completed_at":"2025-01-02T03:04:05+00:00","source":"sample","media_type":"sample","total_files":7,"processed_files":7,"movies_count":7,"tv_shows_count":7,"books_count":7,"audiobooks_count":7,"music_count":7,"comics_count":7,"registered_count":7,"review_count":7,"failed_count":7,"outstanding_operations":7,"active_operations":7,"queued_operations":7,"retry_waiting_operations":7,"people_generated_count":7,"artwork_downloaded_count":7,"metadata_updated_count":7,"duration_seconds":7,"status":"sample","summary":"sample","stage_progress":[]}
 
 [contracts] MediaEngine.Contracts.Ingestion.IngestionOperationsJobDto
   kind=class | converter=default | number-handling=default | unmapped=default

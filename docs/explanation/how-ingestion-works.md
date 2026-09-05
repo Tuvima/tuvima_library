@@ -172,19 +172,25 @@ The pipeline is designed to fail safely:
 
 ## Watching Operations
 
-**Settings > Ingestion** is the admin view for this pipeline at `/settings/ingestion`. It presents ingestion as operational library health rather than a raw task log.
+**Settings > Operations > Ingestion** is the live admin summary at `/settings/ingestion`. It answers what is happening now, whether the pipeline is waiting, and whether anything needs attention. **Operations > Activity & Audit** is the historical view: it groups completed and active runs, then lets an administrator open the event trail and item-level details.
 
 It shows real application state from the Engine:
 
-- active scans and ingestion batches
+- active scans and ingestion batches, grouped by Discover, Identify, Enrich, and Organize
 - registered, provisional, and review lifecycle counts
-- recent batches and their registered/review/failed outcomes
+- current-run outcomes and recent named runs
 - Watch, Listen, and Read source folders from `config/libraries.json`
 - provider health without exposing secrets
 - pipeline counts from durable identity jobs and ingestion logs
 - grouped review reasons from pending Review Queue records
 
-While work is active, the Dashboard updates from SignalR `BatchProgress` and `IngestionProgress` events and polls the operations snapshot more frequently. When idle, it polls less often. If a signal is not tracked yet, the page says so instead of inventing a count.
+File progress and run completion are deliberately separate. The Files checked outcome reports intake volume, while the live status reports active, queued, and retrying work plus the concrete work categories currently running. The run stays active while required identity, artwork, people, relationship, or organization operations remain outstanding. The Dashboard does not present those different units as one overall percentage or progress bar.
+
+While work is active, the Dashboard updates from SignalR `BatchProgress` and `IngestionProgress` events and polls the operations snapshot more frequently. When idle, it polls less often. If a signal is not tracked yet, the page says so instead of inventing a count. The top navigation activity indicator opens Ingestion for ingestion, identity, and enrichment work; Activity & Audit remains the destination for detailed history. The page has no manual status-refresh control because this synchronization is automatic. Its one **Scan now** action starts an extra scan of watched folders; folder monitoring, schedules, and queued processing continue automatically.
+
+Activity & Audit presents one operation-first view rather than a separate page-level timeline. Each batch or administrative job expands into summary categories such as files discovered, items identified, metadata updated, people hydrated, warnings, and failures. Selecting a category reveals its chronological individual records, with technical fields hidden behind a disclosure. A durable ingestion batch remains the same Activity entry when the Engine restarts and resumes its outstanding work.
+
+On a phone, Ingestion keeps current state, active and queued operation counts, attention, and four outcome summaries visible before the optional detail sections. Activity & Audit shows compact operation cards and stacked event records. Both mobile views use the same run state and counts as desktop.
 - if Wikidata finds no QID, the item can still remain usable without forcing a bad identity
 - if artwork is still unresolved, the item stays out of the main browse surfaces until that question is settled
 

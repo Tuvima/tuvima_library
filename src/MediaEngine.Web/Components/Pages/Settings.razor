@@ -39,6 +39,18 @@
                            Title="@GetHeroTitle()"
                            Subtitle="@GetSectionDescription(_activeSection)" />
 
+        @if (IsOperationsWorkspace)
+        {
+            <nav class="settings-operations-navigation" aria-label="Operations views">
+                <a href="/settings/ingestion"
+                   class="@(IsOperationsView(SettingsSection.Ingestion) ? "is-active" : null)"
+                   aria-current="@(IsOperationsView(SettingsSection.Ingestion) ? "page" : null)">Ingestion</a>
+                <a href="/settings/activity"
+                   class="@(IsOperationsView(SettingsSection.ActivityLogs) ? "is-active" : null)"
+                   aria-current="@(IsOperationsView(SettingsSection.ActivityLogs) ? "page" : null)">Activity &amp; Audit</a>
+            </nav>
+        }
+
         <div @key="DeviceContext.DeviceClass" class="@PageCanvasClass">
             @if (ShouldDeferForRoleResolution)
             {
@@ -193,6 +205,8 @@
             .ToList();
 
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
+    private bool IsOperationsSection => _activeSection is SettingsSection.Ingestion or SettingsSection.ActivityLogs;
+    private bool IsOperationsWorkspace => IsOperationsSection && SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole);
     private string BrowserTitle => string.IsNullOrWhiteSpace(_activeSubsection)
         ? $"{GetHeroTitle()} - Tuvima Library"
         : $"{GetSubsectionLabel()} - {GetHeroTitle()} - Tuvima Library";
@@ -445,17 +459,29 @@
     private IReadOnlyList<SettingsItemDef> GetVisibleTreeItems(SettingsTreeGroupDef group) =>
         SettingsNav.FilteredTreeItems(group, _currentRole)
             .Where(item => !DeviceContext.IsMobile || SettingsNav.IsVisibleOnMobile(item.Value))
+            .Where(item => item.Value != SettingsSection.ActivityLogs || !SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole))
             .Where(IsItemEnabledByUiSettings)
             .ToList();
 
     private void OnDeviceContextChanged() => InvokeAsync(StateHasChanged);
 
-    private static MediaSectionNavigationItem BuildNavigationItem(SettingsItemDef item) =>
-        new(
+    private MediaSectionNavigationItem BuildNavigationItem(SettingsItemDef item)
+    {
+        if (item.Value == SettingsSection.Ingestion && IsOperationsWorkspace)
+        {
+            return new(
+                "Operations",
+                SettingsNav.RouteFor(_activeSection),
+                Icons.Material.Outlined.SettingsSuggest,
+                Exact: true);
+        }
+
+        return new(
             item.Label,
             SettingsNav.RouteFor(item.Value),
             item.Icon,
             Exact: true);
+    }
 
     private bool IsItemEnabledByUiSettings(SettingsItemDef item) => item.Value switch
     {
@@ -509,6 +535,9 @@
 
     private string GetHeroTitle()
     {
+        if (IsOperationsWorkspace)
+            return "Operations";
+
         if (_activeSection != SettingsSection.Providers || string.IsNullOrWhiteSpace(Detail))
             return SettingsNav.GetItem(_activeSection).Label;
         return "Provider Configuration";
@@ -526,11 +555,13 @@
         SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",
         SettingsSection.Libraries => "Manage structured libraries and review each profile's Personal Space bridge.",
         SettingsSection.ImportFolders => "Manage watched intake locations before media is routed into a destination library.",
-        SettingsSection.Ingestion => "Monitor scans, routing, enrichment, and operational ingestion health.",
+        SettingsSection.Ingestion => "Monitor ingestion, enrichment, and processing health.",
         SettingsSection.Network => "Manage how devices reach Tuvima at home and away without exposing unnecessary technical detail.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
         SettingsSection.Providers => GetMetadataDescription(),
-        SettingsSection.ActivityLogs => "See meaningful system activity and important administrative changes.",
+        SettingsSection.ActivityLogs => IsOperationsWorkspace
+            ? "Monitor ingestion, enrichment, and processing health."
+            : "See meaningful system activity and important administrative changes.",
         SettingsSection.LocalAi => "Manage local intelligence features while keeping technical details out of the way.",
         SettingsSection.Plugins => "Manage installed extensions and keep plugin health under control.",
         SettingsSection.Delivery => "Manage server-side playback quality, transcoding, storage, and delivery health.",
@@ -541,6 +572,8 @@
         SettingsSection.EnrichmentTester => "Internal enrichment debugging tool.",
         _ => "Settings",
     };
+
+    private bool IsOperationsView(SettingsSection section) => _activeSection == section;
 
     private string GetMetadataDescription()
     {

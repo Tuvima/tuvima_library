@@ -78,6 +78,7 @@ public sealed class EngineSmokeGuardrailTests
         Assert.True(recoveryRegistration < hydrationRegistration);
         Assert.Contains("public override async Task StartAsync", recoverySource, StringComparison.Ordinal);
         Assert.Contains("RecoverInterruptedJobsAsync(cancellationToken)", recoverySource, StringComparison.Ordinal);
+        Assert.DoesNotContain("AbandonRunningAsync", recoverySource, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.Delay", recoverySource, StringComparison.Ordinal);
     }
 

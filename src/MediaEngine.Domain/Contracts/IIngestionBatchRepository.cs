@@ -47,6 +47,16 @@ public interface IIngestionBatchRepository
     Task<IReadOnlyList<IngestionBatch>> GetRecentAsync(int limit = 20, CancellationToken ct = default);
 
     /// <summary>
+    /// Returns every non-terminal batch regardless of its position in history.
+    /// Implementations should query by status; the default keeps lightweight
+    /// test repositories source-compatible.
+    /// </summary>
+    async Task<IReadOnlyList<IngestionBatch>> GetActiveAsync(CancellationToken ct = default)
+        => (await GetRecentAsync(1000, ct).ConfigureAwait(false))
+            .Where(batch => batch.Status is "running" or "queued" or "processing" or "active")
+            .ToList();
+
+    /// <summary>
     /// Returns the total number of files across all batches that require user attention
     /// (i.e. the sum of <c>FilesReview</c> and <c>FilesNoMatch</c> across all batches
     /// where at least one such file exists).
@@ -58,13 +68,6 @@ public interface IIngestionBatchRepository
     /// Uses SQL <c>col = col + 1</c> — safe for concurrent calls, no read-modify-write needed.
     /// </summary>
     Task IncrementCounterAsync(Guid id, BatchCounterColumn column, CancellationToken ct = default);
-
-    /// <summary>
-    /// Marks all batches currently in "running" status as "abandoned".
-    /// Called on Engine startup to clean up batches that were interrupted
-    /// by a previous shutdown. Returns the number of batches abandoned.
-    /// </summary>
-    Task<int> AbandonRunningAsync(CancellationToken ct = default);
 
     /// <summary>
     /// Returns the latest identity-job state projection used for live batch progress.

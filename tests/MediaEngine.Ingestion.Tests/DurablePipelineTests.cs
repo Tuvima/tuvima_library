@@ -1755,7 +1755,6 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<IngestionBatch?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult<IngestionBatch?>(null);
         public Task<IReadOnlyList<IngestionBatch>> GetRecentAsync(int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<IngestionBatch>>([]);
         public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default) => Task.FromResult(0);
-        public Task<int> AbandonRunningAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(Guid batchId, CancellationToken ct = default)
             => Task.FromResult(new IngestionBatchProgressSnapshot());
     }

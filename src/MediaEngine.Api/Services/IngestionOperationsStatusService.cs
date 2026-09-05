@@ -8,6 +8,7 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Providers.Services;
@@ -157,6 +158,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         ct.ThrowIfCancellationRequested();
 
         var recentBatches = await _batchRepository.GetRecentAsync(12, ct);
+        var activeBatches = await _batchRepository.GetActiveAsync(ct);
+        recentBatches = activeBatches
+            .Concat(recentBatches)
+            .GroupBy(batch => batch.Id)
+            .Select(group => group.First())
+            .OrderByDescending(batch => batch.StartedAt)
+            .ToList();
         recentBatches = await ReconcileCompletedBatchesAsync(recentBatches, ct);
         recentBatches = await ProjectRecentBatchesForDisplayAsync(recentBatches, ct);
         var displayBatches = SelectDisplayBatches(recentBatches);
@@ -3496,7 +3504,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             var noActivePipelineWork = snapshot.Active == 0
                 && (snapshot.Queued == 0 || staleInterruptedWork)
                 && (snapshot.StaleActive == 0 || staleInterruptedWork)
-                && (snapshot.StaleRunningOperations == 0 || staleInterruptedWork);
+                && (snapshot.StaleRunningOperations == 0 || staleInterruptedWork)
+                && snapshot.OperationOutstanding == 0;
             var isNoWorkBatch = batch.FilesTotal > 0
                 && terminal == 0
                 && batch.FilesProcessed == 0
@@ -3658,6 +3667,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                         AND COALESCE(julianday(mo.updated_at), 0) <= julianday(@staleCutoff)
                       )
                 ) AS StaleRunningOperations,
+                (
+                    SELECT COUNT(*)
+                    FROM media_operations mo
+                    WHERE mo.batch_id = @batchId
+                      AND mo.status IN ('pending', 'queued', 'leased', 'running', 'retry_waiting', 'interrupted', 'failed_retryable')
+                ) AS OperationOutstanding,
                 COUNT(js.entity_id) AS TotalJobs,
                 (
                     SELECT COUNT(*)
@@ -4026,8 +4041,18 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 stats.PendingReviewCount,
                 Math.Max(0, group.Batch.FilesTotal),
                 ct).ConfigureAwait(false);
+            var progressSnapshots = new List<IngestionBatchProgressSnapshot>(group.SourceBatchIds.Count);
+            foreach (var batchId in group.SourceBatchIds)
+            {
+                progressSnapshots.Add(await _batchRepository.GetProgressSnapshotAsync(batchId, ct).ConfigureAwait(false));
+            }
 
-            result.Add(ToRecentBatchWithStageProgress(group.Batch, stats, stageProgress));
+            var dto = ToRecentBatchWithStageProgress(group.Batch, stats, stageProgress);
+            dto.OutstandingOperations = progressSnapshots.Sum(progress => Math.Max(0, progress.OutstandingOperations));
+            dto.ActiveOperations = progressSnapshots.Sum(progress => Math.Max(0, progress.ActiveOperations));
+            dto.QueuedOperations = progressSnapshots.Sum(progress => Math.Max(0, progress.QueuedOperations));
+            dto.RetryWaitingOperations = progressSnapshots.Sum(progress => Math.Max(0, progress.RetryWaitingOperations));
+            result.Add(dto);
         }
 
         return result;
@@ -4649,6 +4674,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public int OperationSkipped { get; init; }
         public int OperationFailed { get; init; }
         public int FileOperationsTerminal { get; init; }
+        public int OperationOutstanding { get; init; }
         public int OperationOnlyTerminal => Math.Max(0, FileOperationsTerminal - TotalJobs);
         public int OperationTerminal => OperationNoMatch + OperationSkipped + OperationFailed + OperationOnlyTerminal;
         public bool HasRows => TotalJobs > 0 || LogRows > 0 || FileOperationsTerminal > 0 || StaleRunningOperations > 0;

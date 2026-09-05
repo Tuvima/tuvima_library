@@ -1,4 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Ingestion
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject IngestionLiveDashboardState Dashboard
@@ -6,157 +7,271 @@
 
 <div class="tl-page ingestion-operations">
     <div class="ingestion-operations__toolbar">
-        <AppButton Label="Refresh" StartIcon="@Icons.Material.Outlined.Refresh" Disabled="@Dashboard.IsLoading" OnClick="RefreshAsync" />
-        <AppButton Label="Scan now" StartIcon="@Icons.Material.Outlined.PlayArrow" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(Dashboard.IsLoading || Dashboard.IsScanStarting)" Loading="@Dashboard.IsScanStarting" OnClick="ScanNowAsync" />
+        <AppButton Href="/settings/metadata/ingestion-flow" Label="Processing settings" StartIcon="@Icons.Material.Outlined.Settings" />
+        <AppButton Href="/settings/activity" Label="View activity" StartIcon="@Icons.Material.Outlined.Timeline" />
+        <MudTooltip Text="Start an extra scan of every watched folder. File monitoring, scheduled scans, and queued processing continue automatically." Placement="Placement.Bottom">
+            <AppButton Label="Scan now" StartIcon="@Icons.Material.Outlined.PlayArrow" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(Dashboard.IsLoading || Dashboard.IsScanStarting || IsRunning)" Loading="@Dashboard.IsScanStarting" OnClick="ScanNowAsync" />
+        </MudTooltip>
     </div>
 
     @if (Dashboard.IsLoading && Dashboard.Snapshot is null)
     {
-        <AppPageState Kind="AppPageStateKind.Loading" Title="Loading media processing" />
+        <AppPageState Kind="AppPageStateKind.Loading" Title="Loading ingestion status" />
     }
-    else if (!string.IsNullOrWhiteSpace(Dashboard.Error))
+    else if (!string.IsNullOrWhiteSpace(Dashboard.Error) && Dashboard.Snapshot is null)
     {
-        <AppPageState Kind="AppPageStateKind.Error"
-                      Icon="@Icons.Material.Outlined.CloudOff"
-                      Title="Media processing status is unavailable"
-                      Message="@Dashboard.Error" />
+        <AppPageState Kind="AppPageStateKind.Error" Icon="@Icons.Material.Outlined.CloudOff" Title="Ingestion status is unavailable" Message="@Dashboard.Error" />
     }
     else
     {
-        <AppPanel Elevation="0" Class="tl-card ingestion-operations__current">
-            <div class="ingestion-operations__heading"><div><h3>Current activity</h3><p>@Dashboard.LibraryUpdateStatus.MainLine</p></div><AppStatusBadge Text="@Dashboard.LibraryUpdateStatus.StatusLabel" Tone="@StatusTone(Dashboard.LibraryUpdateStatus.StatusTone)" /></div>
-            @if (Dashboard.LibraryUpdateStatus.ShowProgress)
-            {
-                <div class="ingestion-operations__progress"><span>@Dashboard.LibraryUpdateStatus.Heading</span><strong>@($"{Dashboard.LibraryUpdateStatus.ProgressPercent:0}%")</strong></div>
-                <AppProgressBar Value="@Dashboard.LibraryUpdateStatus.ProgressPercent" ShowValue="false" Indeterminate="@Dashboard.LibraryUpdateStatus.IsIndeterminate" />
-                @if (!string.IsNullOrWhiteSpace(Dashboard.LibraryUpdateStatus.CurrentItemTitle))
-                {
-                    <p class="ingestion-operations__current-item">@Dashboard.LibraryUpdateStatus.CurrentStep · @Dashboard.LibraryUpdateStatus.CurrentItemTitle</p>
-                }
-            }
-        </AppPanel>
-
-        <AppPanel Elevation="0" Class="tl-card ingestion-operations__results">
-            <h3>Latest scan results</h3>
-            @if (LatestBatch is null)
-            {
-                <AppEmptyState Title="No completed scan"
-                               Message="Start a scan when your library or import folders are ready." />
-            }
-            else
-            {
-                <p class="ingestion-operations__muted">Started @FormatRelative(LatestBatch.StartedAt)</p>
-                <div class="ingestion-operations__metrics">
-                    <div><span>Added or updated</span><strong>@LatestBatch.RegisteredCount</strong></div>
-                    <div><span>Need review</span><strong>@LatestBatch.ReviewCount</strong></div>
-                    <div><span>Failed</span><strong>@LatestBatch.FailedCount</strong></div>
-                    <div><span>Processed</span><strong>@LatestBatch.ProcessedFiles</strong></div>
+        <AppPanel Elevation="0" Class="@($"tl-card ingestion-current {CurrentStateClass}")" aria-live="polite">
+            <div class="ingestion-current__top">
+                <div class="ingestion-current__identity">
+                    <span class="ingestion-current__pulse" aria-hidden="true"><MudIcon Icon="@CurrentIcon" /></span>
+                    <div>
+                        <div class="ingestion-current__kicker"><strong>Current run</strong><AppStatusBadge Text="@Model.StatusLabel" Tone="@StatusTone(Model.StatusTone)" /></div>
+                        <h2>@Model.Heading</h2>
+                        <p>@CurrentHeadline</p>
+                    </div>
                 </div>
-            }
-        </AppPanel>
-
-        <AppPanel Elevation="0" Class="tl-card ingestion-operations__recent">
-            <div class="ingestion-operations__heading"><h3>Recent activity</h3><AppButton Href="/settings/activity" Label="View activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" /></div>
-            @if (Dashboard.RecentActivity.Count == 0)
-            {
-                <AppEmptyState Title="No recent media processing activity"
-                               Message="Completed scans and enrichment work will appear here." />
-            }
-            else
-            {
-                <div class="ingestion-operations__activity" role="list">
-                    @foreach (var entry in Dashboard.RecentActivity.Take(5))
+                <div class="ingestion-current__facts-wrap">
+                    <dl class="ingestion-current__facts">
+                        <div><dt>Elapsed</dt><dd>@ElapsedLabel</dd></div>
+                        <div><dt>Active now</dt><dd>@CurrentActiveCount.ToString("N0")</dd></div>
+                        <div><dt>Queued</dt><dd>@CurrentQueuedCount.ToString("N0")</dd></div>
+                        <div><dt>Waiting to retry</dt><dd>@RetryWaitingCount.ToString("N0")</dd></div>
+                    </dl>
+                    @if (DisplayBatch is not null)
                     {
-                        <div role="listitem"><span>@ActivityText(entry)</span><time datetime="@entry.OccurredAt">@FormatRelative(entry.OccurredAt)</time></div>
+                        <p class="ingestion-current__started">Started @DisplayBatch.StartedAt.ToLocalTime().ToString("MMM d, h:mm tt")</p>
                     }
                 </div>
+            </div>
+
+            @if (IsRunning)
+            {
+                @if (ActiveActivityGroups.Count > 0)
+                {
+                    <section class="ingestion-current__work" aria-label="Work happening now">
+                        @foreach (var activity in ActiveActivityGroups)
+                        {
+                            <article>
+                                <span aria-hidden="true"><MudIcon Icon="@ActivityIcon(activity.StageKey)" /></span>
+                                <div><strong>@ActivityLabel(activity)</strong><small>@ActivityCounts(activity)</small></div>
+                            </article>
+                        }
+                    </section>
+                }
+                else
+                {
+                    <div class="ingestion-current__now">
+                        <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" aria-hidden="true" />
+                        <div><strong>@Model.CurrentStep</strong><span>@CurrentWorkSummary</span></div>
+                        <time>@Model.TimestampLine</time>
+                    </div>
+                }
             }
+
+            <div class="ingestion-stage-strip" aria-label="Ingestion stages">
+                @foreach (var phase in Phases)
+                {
+                    <div class="@PhaseClass(phase)">
+                        <span class="ingestion-stage__icon" aria-hidden="true"><MudIcon Icon="@phase.Icon" /></span>
+                        <div><strong>@phase.Label</strong><small>@phase.Description</small></div>
+                        <span class="ingestion-stage__state">@phase.StatusLabel</span>
+                    </div>
+                }
+            </div>
+
+            <details class="ingestion-stage-mobile">
+                <summary>Stages <span>@ActivePhaseSummary</span></summary>
+                <div class="ingestion-stage-mobile__rows">
+                    @foreach (var phase in Phases)
+                    {
+                        <div class="@PhaseClass(phase)">
+                            <span class="ingestion-stage__icon" aria-hidden="true"><MudIcon Icon="@phase.Icon" /></span>
+                            <div><strong>@phase.Label</strong><small>@phase.Description</small></div>
+                            <span class="ingestion-stage__state">@phase.StatusLabel</span>
+                        </div>
+                    }
+                </div>
+            </details>
+
         </AppPanel>
 
-        <details class="ingestion-operations__advanced">
-            <summary>Processing details</summary>
-            <IngestionLiveDashboard Snapshot="Dashboard.Snapshot"
-                            Status="Dashboard.LibraryUpdateStatus"
-                            Metrics="Dashboard.Metrics"
-                            OverallProgress="Dashboard.OverallProgress"
-                            Stages="Dashboard.Stages"
-                            Jobs="Dashboard.ActiveJobs"
-                            CurrentActivities="Dashboard.CurrentActivities"
-                            Activities="Dashboard.RecentActivity"
-                            PendingReviews="Dashboard.PendingReviews"
-                            ReviewReasons="ReviewReasons"
-                            ProviderActivity="Dashboard.ProviderActivity"
-                            LiveMode="Dashboard.LiveMode"
-                            ConnectionState="Dashboard.ConnectionState"
-                            LastUpdated="Dashboard.LastUpdated"
-                            Loading="Dashboard.IsLoading"
-                            ScanStarting="Dashboard.IsScanStarting"
-                            Error="@Dashboard.Error"
-                            Subsection="batches"
-                            OnRefresh="RefreshAsync"
-                            OnScanNow="ScanNowAsync" />
-        </details>
+        @if (ReviewCount > 0 || FailedCount > 0 || ProviderWaitCount > 0)
+        {
+            <section class="ingestion-attention" aria-label="Needs attention">
+                <MudIcon Icon="@AttentionIcon" aria-hidden="true" />
+                <div><strong>@AttentionTitle</strong><span>@AttentionText</span></div>
+                <AppButton Href="@AttentionHref" Label="@AttentionActionLabel" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+            </section>
+        }
 
-        <details class="ingestion-operations__advanced">
-            <summary>Scheduled enrichment refreshes</summary>
-            <EnrichmentRefreshSchedulePanel />
-        </details>
+        <section class="ingestion-metrics" aria-label="Current run outcomes">
+            @foreach (var metric in OutcomeMetrics)
+            {
+                <article class="ingestion-metric @metric.Tone">
+                    <span class="ingestion-metric__icon" aria-hidden="true"><MudIcon Icon="@metric.Icon" /></span>
+                    <div><strong>@metric.Value.ToString("N0")</strong><span>@metric.Label</span><small>@RunScopeLabel</small></div>
+                </article>
+            }
+        </section>
+
+        <div class="ingestion-overview-grid">
+            <AppPanel Elevation="0" Class="tl-card ingestion-summary">
+                <div class="ingestion-section-heading">
+                    <div><h3>@(IsRunning ? "Work in progress" : "Recent runs")</h3><p>@(IsRunning ? "Grouped by the kind of work Tuvima is doing." : "The latest library updates and their outcomes.")</p></div>
+                    <AppButton Href="@CurrentActivityHref" Label="View all activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+                </div>
+                @if (IsRunning && ActiveActivityGroups.Count > 0)
+                {
+                    <div class="ingestion-work-groups">
+                        @foreach (var activity in ActiveActivityGroups)
+                        {
+                            <div class="ingestion-work-group">
+                                <span aria-hidden="true"><MudIcon Icon="@ActivityIcon(activity.StageKey)" /></span>
+                                <div><strong>@ActivityLabel(activity)</strong><small>@ActivityCounts(activity)</small></div>
+                                <AppStatusBadge Text="Active" Tone="AppUiTone.Primary" />
+                            </div>
+                        }
+                    </div>
+                }
+                else if (RecentBatches.Count > 0)
+                {
+                    <div class="ingestion-run-list">
+                        @foreach (var batch in RecentBatches)
+                        {
+                            <a class="ingestion-run" href="@RunActivityHref(batch)">
+                                <span class="ingestion-run__icon" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.Storage" /></span>
+                                <div><strong>@BatchTitle(batch)</strong><small>@BatchSummary(batch)</small></div>
+                                <time>@FormatRelative(batch.StartedAt)</time>
+                            </a>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <AppEmptyState Title="No ingestion activity yet" Message="Start a scan when your library folders are ready." />
+                }
+            </AppPanel>
+
+            <AppPanel Elevation="0" Class="tl-card ingestion-media-mix">
+                <div class="ingestion-section-heading"><div><h3>Media in this run</h3><p>@MediaMixSummary</p></div></div>
+                @if (MediaMix.Count > 0)
+                {
+                    <div class="ingestion-media-mix__rows">
+                        @foreach (var media in MediaMix)
+                        {
+                            <div><span><MudIcon Icon="@media.Icon" aria-hidden="true" />@media.Label</span><AppProgressBar Value="@MediaPercent(media.Count)" Class="ingestion-media-mix__bar" /><strong>@media.Count.ToString("N0")</strong></div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="ingestion-empty-copy">Media counts will appear after files are classified.</p>
+                }
+            </AppPanel>
+
+            <AppPanel Elevation="0" Class="tl-card ingestion-next">
+                <div class="ingestion-section-heading"><div><h3>Up next</h3><p>Queued work and scheduled refreshes.</p></div></div>
+                <div class="ingestion-next__summary"><span aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.Schedule" /></span><div><strong>@NextWorkTitle</strong><small>@NextWorkText</small></div></div>
+                <details class="ingestion-next__details"><summary>Scheduled enrichment refreshes</summary><EnrichmentRefreshSchedulePanel /></details>
+            </AppPanel>
+        </div>
+
     }
 </div>
 
 @code {
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() { Dashboard.OnChanged += OnDashboardChanged; await Dashboard.InitializeAsync(); }
+
+    private LibraryUpdateStatusViewModel Model => Dashboard.LibraryUpdateStatus;
+    private bool IsRunning => Model.PageState == LibraryUpdatePageState.Running;
+    private IReadOnlyList<IngestionReviewReasonDto> ReviewReasons => Dashboard.Snapshot?.ReviewReasons ?? [];
+    private IReadOnlyList<IngestionOperationsBatchDto> RecentBatches => Dashboard.Snapshot?.RecentBatches.Take(4).ToList() ?? [];
+    private IngestionOperationsBatchDto? DisplayBatch => RecentBatches
+        .Where(batch => IsActiveStatus(batch.Status))
+        .OrderByDescending(batch => batch.OutstandingOperations > 0)
+        .ThenByDescending(batch => Math.Max(batch.TotalFiles, batch.ProcessedFiles))
+        .ThenByDescending(batch => batch.StartedAt)
+        .FirstOrDefault()
+        ?? RecentBatches.FirstOrDefault();
+    private IReadOnlyList<IngestionCurrentActivityDto> ActiveActivityGroups => Dashboard.CurrentActivities.Where(activity => activity.ActiveCount > 0 || activity.QueuedCount > 0).Take(4).ToList();
+    private int ReviewCount => DisplayBatch?.ReviewCount ?? (IsRunning ? 0 : Model.ReviewItems);
+    private int FailedCount => DisplayBatch?.FailedCount ?? (IsRunning ? 0 : Dashboard.Snapshot?.Summary.FailedJobs ?? 0);
+    private int ProviderWaitCount => Dashboard.ProviderActivity.Sum(provider => Math.Max(0, provider.WaitingRequests));
+    private int CurrentActiveCount => DisplayBatch is null ? Model.ActiveItems : Math.Max(0, DisplayBatch.ActiveOperations);
+    private int CurrentQueuedCount => DisplayBatch is null ? Model.QueuedItems : Math.Max(0, DisplayBatch.QueuedOperations);
+    private int RetryWaitingCount => Math.Max(0, DisplayBatch?.RetryWaitingOperations ?? 0);
+    private string CurrentHeadline => IsRunning ? ActiveWorkHeadline : Model.MainLine;
+    private string ActiveWorkHeadline => ActiveActivityGroups.Count > 0
+        ? string.Join(" · ", ActiveActivityGroups.Select(ActivityLabel).Distinct(StringComparer.OrdinalIgnoreCase).Take(3))
+        : Model.CurrentStep;
+    private string RunScopeLabel => IsRunning ? "Current run" : DisplayBatch is null ? "No run yet" : "Last run";
+    private string ElapsedLabel => DisplayBatch?.DurationSeconds is { } seconds ? FormatDuration(seconds) : IsRunning && DisplayBatch is not null ? FormatDuration((int)Math.Max(0, (DateTimeOffset.UtcNow - DisplayBatch.StartedAt).TotalSeconds)) : "—";
+    private string CurrentWorkSummary => Model.SecondaryLine ?? (Model.QueuedItems > 0 ? $"{Model.QueuedItems:N0} tasks remain queued." : "Working through the current phase.");
+    private string CurrentActivityHref => DisplayBatch is null ? "/settings/activity" : $"/settings/activity?runId={DisplayBatch.BatchId:D}";
+    private string CurrentStateClass => $"is-{Model.PageState.ToString().ToLowerInvariant()}";
+    private string ActivePhaseSummary => Phases.FirstOrDefault(phase => phase.Status == LibraryUpdateStepStatus.InProgress)?.Label ?? Model.StatusLabel;
+    private string CurrentIcon => Model.PageState switch { LibraryUpdatePageState.Running => Icons.Material.Outlined.Sync, LibraryUpdatePageState.Failed => Icons.Material.Outlined.ErrorOutline, LibraryUpdatePageState.Interrupted => Icons.Material.Outlined.WarningAmber, LibraryUpdatePageState.StatusUnavailable => Icons.Material.Outlined.CloudOff, _ => Icons.Material.Outlined.CheckCircle };
+
+    private IReadOnlyList<PhaseViewModel> Phases =>
+    [
+        Phase("Discover", "Find and read new or changed files", Icons.Material.Outlined.FolderOpen, Combine(Model.Steps.Take(2))),
+        Phase("Identify", "Match titles to trusted metadata", Icons.Material.Outlined.Search, StatusAt(Model.Steps, 2)),
+        Phase("Enrich", "Add artwork, people, and details", Icons.Material.Outlined.AutoAwesome, StatusAt(Model.Steps, 3)),
+        Phase("Organize", "Update library groups and relationships", Icons.Material.Outlined.AccountTree, StatusAt(Model.Steps, 4)),
+    ];
+
+    private IReadOnlyList<OutcomeMetric> OutcomeMetrics =>
+    [
+        new("Files checked", Model.ProcessedFiles, Icons.Material.Outlined.Description, "is-primary"),
+        new("Added or updated", DisplayBatch?.RegisteredCount ?? Model.AddedOrUpdatedCount, Icons.Material.Outlined.Add, "is-success"),
+        new("Need review", ReviewCount, Icons.Material.Outlined.PendingActions, "is-warning"),
+        new("Failed", FailedCount, Icons.Material.Outlined.ErrorOutline, "is-danger"),
+    ];
+
+    private IReadOnlyList<MediaMetric> MediaMix => DisplayBatch is null ? [] : new[]
     {
-        Dashboard.OnChanged += OnDashboardChanged;
-        await Dashboard.InitializeAsync();
-    }
+        new MediaMetric("Movies", DisplayBatch.MoviesCount, Icons.Material.Outlined.Movie), new MediaMetric("TV shows", DisplayBatch.TvShowsCount, Icons.Material.Outlined.Tv),
+        new MediaMetric("Books", DisplayBatch.BooksCount, Icons.Material.Outlined.MenuBook), new MediaMetric("Audiobooks", DisplayBatch.AudiobooksCount, Icons.Material.Outlined.Headphones),
+        new MediaMetric("Music", DisplayBatch.MusicCount, Icons.Material.Outlined.MusicNote), new MediaMetric("Comics", DisplayBatch.ComicsCount, Icons.Material.Outlined.AutoStories),
+    }.Where(metric => metric.Count > 0).ToList();
 
-    private Task RefreshAsync() => Dashboard.LoadAsync();
+    private string MediaMixSummary => DisplayBatch is null || MediaMix.Count == 0
+        ? "Media counts appear as files are classified."
+        : $"{RunScopeLabel} · {MediaMix.Sum(metric => metric.Count):N0} items across {MediaMix.Count:N0} {Pluralize("media type", MediaMix.Count)}";
 
+    private string NextWorkTitle => Model.QueuedItems > 0 ? $"{Model.QueuedItems:N0} queued {Pluralize("task", Model.QueuedItems)}" : ProviderWaitCount > 0 ? "Waiting for a provider" : "No queued work";
+    private string NextWorkText => Model.QueuedItems > 0 ? "Tuvima will continue automatically." : ProviderWaitCount > 0 ? $"{ProviderWaitCount:N0} {Pluralize("request", ProviderWaitCount)} waiting for capacity." : "Scheduled refreshes run according to metadata policy.";
+    private string AttentionTitle => FailedCount > 0 ? $"{FailedCount:N0} failed {Pluralize("operation", FailedCount)}" : ReviewCount > 0 ? $"{ReviewCount:N0} {Pluralize("item", ReviewCount)} need review" : "A metadata provider is busy";
+    private string AttentionText => FailedCount > 0 ? "Open Activity to see what failed and whether it will retry." : ReviewCount > 0 ? "These items need a decision before Tuvima can finish their identity." : "Tuvima is waiting and will resume automatically.";
+    private string AttentionHref => ReviewCount > 0 && FailedCount == 0 ? "/settings/review" : CurrentActivityHref;
+    private string AttentionIcon => FailedCount > 0 ? Icons.Material.Outlined.ErrorOutline : ReviewCount > 0 ? Icons.Material.Outlined.RateReview : Icons.Material.Outlined.Schedule;
+    private string AttentionActionLabel => ReviewCount > 0 && FailedCount == 0 ? "Review" : "View activity";
+
+    private static PhaseViewModel Phase(string label, string description, string icon, LibraryUpdateStepStatus status) => new(label, description, icon, status, status switch { LibraryUpdateStepStatus.Complete => "Complete", LibraryUpdateStepStatus.InProgress => "Active", LibraryUpdateStepStatus.NeedsReview => "Needs review", _ => "Up next" });
+    private static LibraryUpdateStepStatus StatusAt(IReadOnlyList<LibraryUpdateStepViewModel> steps, int index) => index < steps.Count ? steps[index].Status : LibraryUpdateStepStatus.Pending;
+    private static LibraryUpdateStepStatus Combine(IEnumerable<LibraryUpdateStepViewModel> steps) { var values = steps.Select(step => step.Status).ToList(); if (values.Contains(LibraryUpdateStepStatus.InProgress)) return LibraryUpdateStepStatus.InProgress; if (values.Contains(LibraryUpdateStepStatus.NeedsReview)) return LibraryUpdateStepStatus.NeedsReview; return values.Count > 0 && values.All(status => status == LibraryUpdateStepStatus.Complete) ? LibraryUpdateStepStatus.Complete : LibraryUpdateStepStatus.Pending; }
+    private static string PhaseClass(PhaseViewModel phase) => $"ingestion-stage is-{phase.Status.ToString().ToLowerInvariant()}";
+    private static string BatchTitle(IngestionOperationsBatchDto batch) => !string.IsNullOrWhiteSpace(batch.MediaType) ? $"Library scan — {batch.MediaType}" : !string.IsNullOrWhiteSpace(batch.Source) ? $"Library scan — {Path.GetFileName(batch.Source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))}" : "Library scan";
+    private static string BatchSummary(IngestionOperationsBatchDto batch) => !string.IsNullOrWhiteSpace(batch.Summary) ? batch.Summary : $"{batch.ProcessedFiles:N0} files checked · {batch.RegisteredCount:N0} added or updated";
+    private static string RunActivityHref(IngestionOperationsBatchDto batch) => $"/settings/activity?runId={batch.BatchId:D}";
+    private static bool IsActiveStatus(string? status) => status is not null && status.ToLowerInvariant() is "running" or "queued" or "processing" or "active";
+    private static string ActivityLabel(IngestionCurrentActivityDto activity) => string.IsNullOrWhiteSpace(activity.Message) ? "Updating library details" : activity.Message;
+    private static string ActivityCounts(IngestionCurrentActivityDto activity) { var parts = new List<string>(); if (activity.ActiveCount > 0) parts.Add($"{activity.ActiveCount:N0} active"); if (activity.QueuedCount > 0) parts.Add($"{activity.QueuedCount:N0} queued"); if (activity.ProcessedCount > 0) parts.Add($"{activity.ProcessedCount:N0} completed"); return parts.Count == 0 ? "In progress" : string.Join(" · ", parts); }
+    private static string ActivityIcon(string? key) => key?.ToLowerInvariant() switch { "artwork" => Icons.Material.Outlined.Image, "people" => Icons.Material.Outlined.People, "relationships" or "universe" => Icons.Material.Outlined.AccountTree, "wikidata" or "identity" => Icons.Material.Outlined.Search, _ => Icons.Material.Outlined.AutoAwesome };
+    private double MediaPercent(int count) => Math.Max(8, count * 100d / Math.Max(1, MediaMix.Max(metric => metric.Count)));
+    private static string FormatDuration(int seconds) => TimeSpan.FromSeconds(Math.Max(0, seconds)) switch { var span when span.TotalHours >= 1 => $"{(int)span.TotalHours}h {span.Minutes}m", var span when span.TotalMinutes >= 1 => $"{(int)span.TotalMinutes}m {span.Seconds}s", var span => $"{span.Seconds}s" };
+    private static string FormatRelative(DateTimeOffset value) { var elapsed = DateTimeOffset.UtcNow - value.ToUniversalTime(); return elapsed.TotalMinutes switch { < 1 => "just now", < 60 => $"{(int)elapsed.TotalMinutes}m ago", < 1440 => $"{(int)elapsed.TotalHours}h ago", _ => $"{(int)elapsed.TotalDays}d ago" }; }
+    private static string Pluralize(string value, int count) => count == 1 ? value : value + "s";
+    private static AppUiTone StatusTone(string? tone) => tone?.ToLowerInvariant() switch { "success" => AppUiTone.Success, "warning" => AppUiTone.Warning, "error" or "danger" => AppUiTone.Error, "primary" or "info" => AppUiTone.Primary, _ => AppUiTone.Neutral };
     private Task ScanNowAsync() => Dashboard.ScanNowAsync();
+    private void OnDashboardChanged() => _ = InvokeAsync(StateHasChanged);
+    public async ValueTask DisposeAsync() { Dashboard.OnChanged -= OnDashboardChanged; await Dashboard.StopAsync(); }
 
-    private IReadOnlyList<IngestionReviewReasonDto> ReviewReasons =>
-        Dashboard.Snapshot?.ReviewReasons ?? [];
-
-    private IngestionOperationsBatchDto? LatestBatch => Dashboard.Snapshot?.RecentBatches
-        .OrderByDescending(batch => batch.StartedAt)
-        .FirstOrDefault();
-
-    private static string ActivityText(ActivityEntryResponse entry) =>
-        string.IsNullOrWhiteSpace(entry.Detail) ? entry.ActionType.Replace('_', ' ') : entry.Detail;
-
-    private static string FormatRelative(DateTimeOffset value)
-    {
-        var elapsed = DateTimeOffset.UtcNow - value.ToUniversalTime();
-        return elapsed.TotalMinutes switch
-        {
-            < 1 => "just now",
-            < 60 => $"{(int)elapsed.TotalMinutes}m ago",
-            < 1440 => $"{(int)elapsed.TotalHours}h ago",
-            _ => $"{(int)elapsed.TotalDays}d ago",
-        };
-    }
-
-    private static string FormatRelative(string value) =>
-        DateTimeOffset.TryParse(value, out var parsed) ? FormatRelative(parsed) : "recently";
-
-    private static AppUiTone StatusTone(string? tone) => tone?.ToLowerInvariant() switch
-    {
-        "success" => AppUiTone.Success,
-        "warning" => AppUiTone.Warning,
-        "error" or "danger" => AppUiTone.Error,
-        "primary" or "info" => AppUiTone.Primary,
-        _ => AppUiTone.Neutral,
-    };
-
-    private void OnDashboardChanged()
-    {
-        InvokeAsync(StateHasChanged);
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        Dashboard.OnChanged -= OnDashboardChanged;
-        await Dashboard.StopAsync();
-    }
+    private sealed record PhaseViewModel(string Label, string Description, string Icon, LibraryUpdateStepStatus Status, string StatusLabel);
+    private sealed record OutcomeMetric(string Label, int Value, string Icon, string Tone);
+    private sealed record MediaMetric(string Label, int Count, string Icon);
 }

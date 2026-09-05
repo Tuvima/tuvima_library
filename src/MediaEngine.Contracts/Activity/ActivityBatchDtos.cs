@@ -52,8 +52,74 @@ public sealed class ActivityBatchSummaryDto
     [JsonPropertyName("alert_count")]
     public int AlertCount { get; set; }
 
+    [JsonPropertyName("files_discovered_count")]
+    public int FilesDiscoveredCount { get; set; }
+
+    [JsonPropertyName("items_identified_count")]
+    public int ItemsIdentifiedCount { get; set; }
+
+    [JsonPropertyName("metadata_updated_count")]
+    public int MetadataUpdatedCount { get; set; }
+
+    [JsonPropertyName("enrichment_operation_count")]
+    public int EnrichmentOperationCount { get; set; }
+
+    [JsonPropertyName("warning_count")]
+    public int WarningCount { get; set; }
+
+    [JsonPropertyName("failure_count")]
+    public int FailureCount { get; set; }
+
     [JsonPropertyName("media_types")]
     public List<ActivityMediaTypeCountDto> MediaTypes { get; set; } = [];
+}
+
+public sealed class ActivityOperationEventDto
+{
+    [JsonPropertyName("event_id")]
+    public string EventId { get; set; } = "";
+
+    [JsonPropertyName("batch_id")]
+    public Guid BatchId { get; set; }
+
+    [JsonPropertyName("occurred_at")]
+    public DateTimeOffset OccurredAt { get; set; }
+
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = "Other";
+
+    [JsonPropertyName("event_type")]
+    public string EventType { get; set; } = "";
+
+    [JsonPropertyName("item")]
+    public string? Item { get; set; }
+
+    [JsonPropertyName("library")]
+    public string? Library { get; set; }
+
+    [JsonPropertyName("provider")]
+    public string? Provider { get; set; }
+
+    [JsonPropertyName("operation")]
+    public string? Operation { get; set; }
+
+    [JsonPropertyName("result")]
+    public string Result { get; set; } = "Recorded";
+
+    [JsonPropertyName("severity")]
+    public string Severity { get; set; } = "info";
+
+    [JsonPropertyName("duration_seconds")]
+    public double? DurationSeconds { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("entity_id")]
+    public Guid? EntityId { get; set; }
+
+    [JsonPropertyName("technical_details")]
+    public string? TechnicalDetails { get; set; }
 }
 
 public sealed class ActivityMediaTypeGroupDto

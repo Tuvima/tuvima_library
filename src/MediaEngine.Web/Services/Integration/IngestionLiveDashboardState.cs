@@ -421,6 +421,10 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         target.RegisteredCount = source.RegisteredCount;
         target.ReviewCount = source.ReviewCount;
         target.FailedCount = source.FailedCount;
+        target.OutstandingOperations = source.OutstandingOperations;
+        target.ActiveOperations = source.ActiveOperations;
+        target.QueuedOperations = source.QueuedOperations;
+        target.RetryWaitingOperations = source.RetryWaitingOperations;
         target.PeopleGeneratedCount = source.PeopleGeneratedCount;
         target.ArtworkDownloadedCount = source.ArtworkDownloadedCount;
         target.MetadataUpdatedCount = source.MetadataUpdatedCount;

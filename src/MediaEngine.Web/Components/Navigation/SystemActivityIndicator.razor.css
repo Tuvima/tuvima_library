@@ -50,6 +50,15 @@
     height: 2.3rem;
 }
 
+.system-activity-indicator__ring.is-animated {
+    animation: system-activity-ring-spin 1.6s linear infinite;
+}
+
+@keyframes system-activity-ring-spin {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
 .system-activity-indicator-shell ::deep .system-activity-indicator__ring .mud-progress-circular {
     width: 2.3rem !important;
     height: 2.3rem !important;
@@ -86,6 +95,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .system-activity-indicator__ring.is-animated {
+        animation-duration: 4s;
+    }
+
     .system-activity-indicator-shell ::deep .system-activity-indicator__ring .mud-progress-circular-indeterminate {
         animation-duration: 2.4s !important;
     }

@@ -401,6 +401,26 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
+    public void BatchCompletion_WaitsForDurableChildOperationsAndRunsWithoutADashboardClient()
+    {
+        var root = FindRepoRoot();
+        var progressSource = File.ReadAllText(Path.Combine(
+            root, "src", "MediaEngine.Providers", "Services", "BatchProgressService.cs"));
+        var repositorySource = File.ReadAllText(Path.Combine(
+            root, "src", "MediaEngine.Storage", "IngestionBatchRepository.cs"));
+        var hostedServicesSource = File.ReadAllText(Path.Combine(
+            root, "src", "MediaEngine.Api", "DependencyInjection", "TuvimaHostedServiceCollectionExtensions.cs"));
+        var reconcilerSource = File.ReadAllText(Path.Combine(
+            root, "src", "MediaEngine.Api", "Services", "IngestionBatchProgressHostedService.cs"));
+
+        Assert.Contains("snapshot.OutstandingOperations == 0", progressSource, StringComparison.Ordinal);
+        Assert.Contains("failed_retryable", repositorySource, StringComparison.Ordinal);
+        Assert.Contains("AddHostedService<IngestionBatchProgressHostedService>()", hostedServicesSource, StringComparison.Ordinal);
+        Assert.Contains("GetActiveAsync", reconcilerSource, StringComparison.Ordinal);
+        Assert.Contains("EmitProgressAsync", reconcilerSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ReviewEndpoints_UseReadyOnlyReviewQueueReadService()
     {
         var source = File.ReadAllText(Path.Combine(

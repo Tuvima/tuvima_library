@@ -98,6 +98,7 @@ public sealed class BatchProgressService
                 + snapshot.BridgeSearching
                 + snapshot.Hydrating
                 + snapshot.UniverseEnriching;
+            active = Math.Max(active, snapshot.ActiveOperations);
             var terminal = identified + review + noMatch + failed;
             if (total > 0)
             {
@@ -108,10 +109,14 @@ public sealed class BatchProgressService
             var queued = total > 0
                 ? Math.Max(0, total - terminal - active)
                 : snapshot.QueuedJobs + snapshot.RetailMatched + snapshot.QidResolved;
+            queued = Math.Max(queued, snapshot.QueuedOperations + snapshot.RetryWaitingOperations);
 
             var progressed = terminal;
             var pct = total > 0 ? (int)Math.Round(Math.Clamp(progressed * 100d / total, 0, 100)) : 0;
-            var completed = total > 0 && terminal >= total && active == 0;
+            var completed = total > 0
+                && terminal >= total
+                && active == 0
+                && snapshot.OutstandingOperations == 0;
 
             int? etaSecs = null;
             if (progressed > 0 && queued > 0)
@@ -123,7 +128,8 @@ public sealed class BatchProgressService
 
             if (completed && !string.Equals(batch.Status, "completed", StringComparison.OrdinalIgnoreCase))
             {
-                await _batchRepo.CompleteAsync(batchId, "completed", ct).ConfigureAwait(false);
+                var finalStatus = failed >= Math.Max(1, total) ? "failed" : "completed";
+                await _batchRepo.CompleteAsync(batchId, finalStatus, ct).ConfigureAwait(false);
             }
 
             var lifecycleStage = ResolveLifecycleStage(snapshot, queued, review, completed);

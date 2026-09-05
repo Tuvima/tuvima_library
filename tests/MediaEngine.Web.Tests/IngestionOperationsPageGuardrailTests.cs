@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using Bunit;
 using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain.Enums;
@@ -23,17 +24,25 @@ public sealed class IngestionOperationsPageGuardrailTests
         var orchestratorSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\UIOrchestratorService.cs"));
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
-        Assert.Contains("<IngestionLiveDashboard", source, StringComparison.Ordinal);
         Assert.Contains("<EnrichmentRefreshSchedulePanel", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Upcoming Refreshes", source, StringComparison.Ordinal);
         Assert.DoesNotContain("AppSegmentedControl", source, StringComparison.Ordinal);
-        Assert.Contains("Subsection=\"batches\"", source, StringComparison.Ordinal);
-        Assert.Contains("Current activity", source, StringComparison.Ordinal);
-        Assert.Contains("Latest scan results", source, StringComparison.Ordinal);
-        Assert.Contains("Recent activity", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Processing details", source, StringComparison.Ordinal);
+        Assert.Contains("Current run", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("file checks complete", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Overall batch", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Finishing current work", source, StringComparison.Ordinal);
+        Assert.Contains("Added or updated", source, StringComparison.Ordinal);
+        Assert.Contains("Work in progress", source, StringComparison.Ordinal);
+        Assert.Contains("Media in this run", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecentBatches.OrderByDescending", source, StringComparison.Ordinal);
+        Assert.Contains("batch.OutstandingOperations > 0", source, StringComparison.Ordinal);
+        Assert.Contains("Math.Max(batch.TotalFiles, batch.ProcessedFiles)", source, StringComparison.Ordinal);
+        Assert.Single(Regex.Matches(source, "Label=\"Scan now\""));
+        Assert.DoesNotContain("Label=\"Refresh\"", source, StringComparison.Ordinal);
+        Assert.Contains("ingestion-stage-mobile", source, StringComparison.Ordinal);
         Assert.Contains("View processing details", dashboardSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<IngestionActivityList", source, StringComparison.Ordinal);
-        Assert.Contains("Status=\"Dashboard.LibraryUpdateStatus\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldRender", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("BuildRenderSignature", dashboardSource, StringComparison.Ordinal);
         Assert.Contains("EffectiveProviderActivity", dashboardSource, StringComparison.Ordinal);
@@ -48,6 +57,8 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("MergeSnapshot(Snapshot, snapshotTask.Result)", stateSource, StringComparison.Ordinal);
         Assert.Contains("MergeByKey", stateSource, StringComparison.Ordinal);
         Assert.Contains("OrderBatchesStable", stateSource, StringComparison.Ordinal);
+        Assert.Contains("target.ActiveOperations = source.ActiveOperations", stateSource, StringComparison.Ordinal);
+        Assert.Contains("target.QueuedOperations = source.QueuedOperations", stateSource, StringComparison.Ordinal);
         Assert.Contains("TimeSpan.FromSeconds(2)", stateSource, StringComparison.Ordinal);
         Assert.Contains("LibraryUpdatePageState.Interrupted", stateSource, StringComparison.Ordinal);
         Assert.Contains("SignalREvents.IngestionItemProgress", orchestratorSource, StringComparison.Ordinal);
@@ -344,8 +355,9 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Equal(131, status.ProcessedFiles);
         Assert.Equal(50, status.ActiveItems);
         Assert.Equal(6, status.QueuedItems);
-        Assert.Equal(100, status.ProgressPercent);
-        Assert.Equal("131 of 131 files finished", status.MainLine);
+        Assert.Equal(0, status.ProgressPercent);
+        Assert.True(status.IsIndeterminate);
+        Assert.Equal("Metadata, artwork, people, and relationships are still being processed.", status.MainLine);
         Assert.Contains("6 still in pipeline", status.SecondaryLine, StringComparison.Ordinal);
     }
 
@@ -446,7 +458,8 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Equal(117, status.TotalFiles);
         Assert.Equal(117, status.ProcessedFiles);
         Assert.Equal(0, status.QueuedItems);
-        Assert.Equal(100, Math.Round(status.ProgressPercent, 1));
+        Assert.Equal(0, Math.Round(status.ProgressPercent, 1));
+        Assert.True(status.IsIndeterminate);
         Assert.Equal("The Empire Strikes Back", status.CurrentItemTitle);
         Assert.Equal("Matching titles and identity", status.CurrentStep);
         Assert.Contains(status.Steps, step => step.Label == "Matched identity" && step.Status == LibraryUpdateStepStatus.InProgress);
@@ -878,6 +891,15 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("var terminal = identified + review + noMatch + failed;", normalizedProgressSource, StringComparison.Ordinal);
         Assert.Contains("var progressed = terminal;", normalizedProgressSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AverageProgressPercent", normalizedProgressSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void IngestionSummary_UsesUnmatchedAriaAttributesWithoutConflictingWithAppPanelCapture()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor"));
+
+        Assert.Contains("aria-live=\"polite\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AdditionalAttributes=", source, StringComparison.Ordinal);
     }
 
     [Fact]

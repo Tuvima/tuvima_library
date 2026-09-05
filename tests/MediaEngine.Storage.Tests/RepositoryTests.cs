@@ -1734,6 +1734,49 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task IngestionBatchProgress_CountsIdentityWorkAfterFileOperationsFinish()
+    {
+        var batchRepo = new IngestionBatchRepository(_db);
+        var jobRepo = new IdentityJobRepository(_db);
+        var batchId = Guid.NewGuid();
+
+        await batchRepo.CreateAsync(new IngestionBatch
+        {
+            Id = batchId,
+            Status = "running",
+            SourcePath = "/library/books",
+            FilesTotal = 2,
+            FilesProcessed = 2,
+        });
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            IngestionRunId = batchId,
+            Pass = "Quick",
+            State = IdentityJobState.Hydrating.ToString(),
+        });
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            IngestionRunId = batchId,
+            Pass = "Quick",
+            State = IdentityJobState.QidResolved.ToString(),
+        });
+
+        var snapshot = await batchRepo.GetProgressSnapshotAsync(batchId);
+
+        Assert.Equal(2, snapshot.OutstandingOperations);
+        Assert.Equal(1, snapshot.ActiveOperations);
+        Assert.Equal(1, snapshot.QueuedOperations);
+        Assert.Equal(0, snapshot.RetryWaitingOperations);
+    }
+
+    [Fact]
     public async Task IngestionBatch_GetRecent_IncludesAbandonedTerminalBatches()
     {
         var batchRepo = new IngestionBatchRepository(_db);

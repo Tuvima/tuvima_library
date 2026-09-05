@@ -523,6 +523,18 @@ public sealed class IngestionOperationsBatchDto
     [JsonPropertyName("failed_count")]
     public int FailedCount { get; set; }
 
+    [JsonPropertyName("outstanding_operations")]
+    public int OutstandingOperations { get; set; }
+
+    [JsonPropertyName("active_operations")]
+    public int ActiveOperations { get; set; }
+
+    [JsonPropertyName("queued_operations")]
+    public int QueuedOperations { get; set; }
+
+    [JsonPropertyName("retry_waiting_operations")]
+    public int RetryWaitingOperations { get; set; }
+
     [JsonPropertyName("people_generated_count")]
     public int PeopleGeneratedCount { get; set; }
 

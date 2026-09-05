@@ -68,6 +68,25 @@ public static class ActivityEndpoints
         .Produces<List<ActivityMediaTypeGroupDto>>(StatusCodes.Status200OK)
         .RequireAdminOrStandardUser();
 
+        group.MapGet("/batches/{batchId:guid}/events", async (
+            Guid batchId,
+            IActivityBatchReadService readService,
+            string? category,
+            int? limit,
+            CancellationToken ct) =>
+        {
+            var page = PagedRequest.From(null, limit, defaultLimit: 100, maxLimit: 500);
+            return Results.Ok(await readService.GetEventsAsync(
+                batchId,
+                category,
+                page.Limit,
+                ct));
+        })
+        .WithName("GetActivityBatchEvents")
+        .WithSummary("Returns chronological operational events for one durable batch.")
+        .Produces<List<ActivityOperationEventDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrStandardUser();
+
         group.MapGet("/batches/{batchId:guid}/items", async (
             Guid batchId,
             IActivityBatchReadService readService,
@@ -222,7 +241,7 @@ public static class ActivityEndpoints
         .RequireAdmin();
 
         // GET /activity/by-types?types=BatchCreated,BatchCompleted&limit=50
-        // Returns recent entries filtered by action types — used by Timeline view.
+        // Returns recent entries filtered by action types for activity summaries.
         group.MapGet("/by-types", async (
             ISystemActivityRepository repo,
             IPersonRepository personRepo,

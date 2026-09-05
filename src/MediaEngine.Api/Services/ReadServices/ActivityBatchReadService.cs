@@ -181,12 +181,22 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             operation_rollups AS (
                 SELECT
                     mo.batch_id AS BatchId,
-                    COUNT(DISTINCT mo.entity_id) AS OperationItemCount,
+                    COUNT(DISTINCT CASE WHEN mo.operation_type = 'ingestion.file' THEN mo.entity_id END) AS OperationItemCount,
+                    COUNT(CASE WHEN mo.operation_type <> 'ingestion.file' THEN 1 END) AS EnrichmentOperationCount,
+                    COUNT(CASE WHEN mo.status IN ('retry_waiting', 'interrupted', 'failed_retryable') THEN 1 END) AS OperationWarningCount,
+                    COUNT(CASE WHEN mo.status IN ('failed_terminal', 'dead_lettered') THEN 1 END) AS OperationFailureCount,
                     MAX(mo.updated_at) AS LastOperationAt
                 FROM media_operations mo
                 JOIN page_batches pb ON pb.id = mo.batch_id
-                WHERE mo.operation_type = 'ingestion.file'
                 GROUP BY mo.batch_id
+            ),
+            operation_event_rollups AS (
+                SELECT
+                    moe.batch_id AS BatchId,
+                    COUNT(*) AS EventCount
+                FROM media_operation_events moe
+                JOIN page_batches pb ON pb.id = moe.batch_id
+                GROUP BY moe.batch_id
             ),
             ingestion_log_rollups AS (
                 SELECT
@@ -200,6 +210,14 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 SELECT
                     sa.ingestion_run_id AS BatchId,
                     COUNT(*) AS EventCount,
+                    COUNT(CASE WHEN sa.action_type IN (
+                        'MetadataHydrated',
+                        'NarrativeRootResolved',
+                        'RelationshipDiscovered',
+                        'CharacterEnriched',
+                        'LocationEnriched',
+                        'OrganizationEnriched'
+                    ) THEN 1 END) AS MetadataUpdatedCount,
                     MAX(sa.occurred_at) AS LastActivityAt
                 FROM system_activity sa
                 JOIN page_batches pb ON pb.id = sa.ingestion_run_id
@@ -250,7 +268,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     WHEN pb.files_total > 0 THEN pb.files_total
                     ELSE MAX(COALESCE(mor.OperationItemCount, 0), COALESCE(ilr.LogItemCount, 0))
                 END AS ItemCount,
-                COALESCE(ar.EventCount, 0) AS EventCount,
+                COALESCE(ar.EventCount, 0) + COALESCE(oer.EventCount, 0) AS EventCount,
                 COALESCE(pr.PeopleCount, 0) AS PeopleCount,
                 MAX(
                     pb.files_review,
@@ -259,12 +277,20 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 pb.files_failed + pb.files_no_match + MAX(
                     pb.files_review,
                     COALESCE(rr.ReviewCount, 0)
-                ) AS AlertCount
+                ) + COALESCE(mor.OperationWarningCount, 0) + COALESCE(mor.OperationFailureCount, 0) AS AlertCount,
+                pb.files_total AS FilesDiscoveredCount,
+                pb.files_registered AS ItemsIdentifiedCount,
+                COALESCE(ar.MetadataUpdatedCount, 0) AS MetadataUpdatedCount,
+                COALESCE(mor.EnrichmentOperationCount, 0) AS EnrichmentOperationCount,
+                pb.files_no_match + MAX(pb.files_review, COALESCE(rr.ReviewCount, 0))
+                    + COALESCE(mor.OperationWarningCount, 0) AS WarningCount,
+                pb.files_failed + COALESCE(mor.OperationFailureCount, 0) AS FailureCount
             FROM page_batches pb
             LEFT JOIN latest_job_rollups ljr ON ljr.BatchId = pb.id
             LEFT JOIN operation_rollups mor ON mor.BatchId = pb.id
             LEFT JOIN ingestion_log_rollups ilr ON ilr.BatchId = pb.id
             LEFT JOIN activity_rollups ar ON ar.BatchId = pb.id
+            LEFT JOIN operation_event_rollups oer ON oer.BatchId = pb.id
             LEFT JOIN people_rollups pr ON pr.BatchId = pb.id
             LEFT JOIN review_rollups rr ON rr.BatchId = pb.id
             ORDER BY {orderBy.Replace("b.", "pb.", StringComparison.Ordinal)};
@@ -293,6 +319,12 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 PeopleCount = row.PeopleCount,
                 ReviewCount = row.ReviewCount,
                 AlertCount = row.AlertCount,
+                FilesDiscoveredCount = row.FilesDiscoveredCount,
+                ItemsIdentifiedCount = row.ItemsIdentifiedCount,
+                MetadataUpdatedCount = row.MetadataUpdatedCount,
+                EnrichmentOperationCount = row.EnrichmentOperationCount,
+                WarningCount = row.WarningCount,
+                FailureCount = row.FailureCount,
                 MediaTypes = mediaTypes,
             };
         }).ToList();
@@ -302,6 +334,73 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             parameters).ConfigureAwait(false);
 
         return PagedResponse<ActivityBatchSummaryDto>.FromPage(items, page, total);
+    }
+
+    public async Task<IReadOnlyList<ActivityOperationEventDto>> GetEventsAsync(
+        Guid batchId,
+        string? category,
+        int limit,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var boundedLimit = Math.Clamp(limit, 1, 500);
+
+        using var conn = _db.CreateConnection();
+        var rows = (await conn.QueryAsync<ActivityOperationEventRow>("""
+            SELECT
+                'activity-' || CAST(sa.id AS TEXT) AS EventId,
+                sa.ingestion_run_id AS BatchId,
+                sa.occurred_at AS OccurredAt,
+                sa.action_type AS EventType,
+                COALESCE(NULLIF(sa.collection_name, ''), NULLIF(sa.entity_type, '')) AS Item,
+                b.source_path AS Library,
+                NULL AS Provider,
+                sa.action_type AS Operation,
+                NULL AS OperationStatus,
+                NULL AS DurationSeconds,
+                sa.detail AS Message,
+                sa.entity_id AS EntityId,
+                sa.changes_json AS TechnicalDetails
+            FROM system_activity sa
+            JOIN ingestion_batches b ON b.id = sa.ingestion_run_id
+            WHERE sa.ingestion_run_id = @batchId
+
+            UNION ALL
+
+            SELECT
+                'operation-' || LOWER(HEX(moe.id)) AS EventId,
+                moe.batch_id AS BatchId,
+                moe.occurred_at AS OccurredAt,
+                moe.event_type AS EventType,
+                COALESCE(NULLIF(mo.result_summary, ''), NULLIF(mo.source_path, ''), NULLIF(mo.entity_kind, '')) AS Item,
+                b.source_path AS Library,
+                mo.provider_id AS Provider,
+                mo.operation_type AS Operation,
+                COALESCE(NULLIF(moe.new_status, ''), NULLIF(mo.status, '')) AS OperationStatus,
+                CASE
+                    WHEN mo.started_at IS NOT NULL THEN
+                        MAX(0, (julianday(COALESCE(mo.completed_at, mo.updated_at)) - julianday(mo.started_at)) * 86400.0)
+                    ELSE NULL
+                END AS DurationSeconds,
+                moe.message AS Message,
+                moe.entity_id AS EntityId,
+                moe.detail_json AS TechnicalDetails
+            FROM media_operation_events moe
+            JOIN media_operations mo ON mo.id = moe.operation_id
+            JOIN ingestion_batches b ON b.id = moe.batch_id
+            WHERE moe.batch_id = @batchId
+
+            ORDER BY OccurredAt ASC
+            LIMIT 1000;
+            """, new { batchId })).AsList();
+
+        return rows
+            .Select(ToOperationEvent)
+            .Where(item => string.IsNullOrWhiteSpace(category)
+                || category.Equals("all", StringComparison.OrdinalIgnoreCase)
+                || item.Category.Equals(category, StringComparison.OrdinalIgnoreCase))
+            .Take(boundedLimit)
+            .ToList();
     }
 
     public async Task<IReadOnlyList<ActivityMediaTypeGroupDto>> GetGroupsAsync(
@@ -1416,6 +1515,29 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         public int PeopleCount { get; set; }
         public int ReviewCount { get; set; }
         public int AlertCount { get; set; }
+        public int FilesDiscoveredCount { get; set; }
+        public int ItemsIdentifiedCount { get; set; }
+        public int MetadataUpdatedCount { get; set; }
+        public int EnrichmentOperationCount { get; set; }
+        public int WarningCount { get; set; }
+        public int FailureCount { get; set; }
+    }
+
+    private sealed class ActivityOperationEventRow
+    {
+        public string EventId { get; set; } = "";
+        public Guid BatchId { get; set; }
+        public DateTimeOffset OccurredAt { get; set; }
+        public string EventType { get; set; } = "";
+        public string? Item { get; set; }
+        public string? Library { get; set; }
+        public string? Provider { get; set; }
+        public string? Operation { get; set; }
+        public string? OperationStatus { get; set; }
+        public double? DurationSeconds { get; set; }
+        public string? Message { get; set; }
+        public Guid? EntityId { get; set; }
+        public string? TechnicalDetails { get; set; }
     }
 
     private sealed class ActivityMediaTypeCountRow
@@ -1423,5 +1545,81 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         public Guid BatchId { get; set; }
         public string MediaType { get; set; } = "Unknown";
         public int Count { get; set; }
+    }
+
+    private static ActivityOperationEventDto ToOperationEvent(ActivityOperationEventRow row)
+    {
+        var severity = ResolveOperationSeverity(row.EventType, row.OperationStatus, row.Message);
+        return new ActivityOperationEventDto
+        {
+            EventId = row.EventId,
+            BatchId = row.BatchId,
+            OccurredAt = row.OccurredAt,
+            Category = ResolveOperationCategory(row.EventType, row.Operation, severity),
+            EventType = row.EventType,
+            Item = row.Item,
+            Library = row.Library,
+            Provider = row.Provider,
+            Operation = row.Operation,
+            Result = ResolveOperationResult(row.OperationStatus, severity),
+            Severity = severity,
+            DurationSeconds = row.DurationSeconds,
+            Message = row.Message,
+            EntityId = row.EntityId,
+            TechnicalDetails = row.TechnicalDetails,
+        };
+    }
+
+    private static string ResolveOperationCategory(string? eventType, string? operation, string severity)
+    {
+        var value = $"{eventType} {operation}";
+        if (severity == "error") return "Failures";
+        if (severity == "warning") return "Warnings";
+        if (value.Contains("person", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("cast", StringComparison.OrdinalIgnoreCase)) return "People";
+        if (value.Contains("metadata", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("hydrat", StringComparison.OrdinalIgnoreCase)) return "Metadata";
+        if (value.Contains("identity", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("match", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("qid", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("wikidata", StringComparison.OrdinalIgnoreCase)) return "Identification";
+        if (value.Contains("enrich", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("artwork", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("relationship", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("universe", StringComparison.OrdinalIgnoreCase)) return "Enrichment";
+        if (value.Contains("file", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("ingestion", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("scan", StringComparison.OrdinalIgnoreCase)) return "Files";
+        if (value.Contains("review", StringComparison.OrdinalIgnoreCase)) return "Review";
+        return "Other";
+    }
+
+    private static string ResolveOperationSeverity(string? eventType, string? status, string? message)
+    {
+        var value = $"{eventType} {status} {message}";
+        if (value.Contains("failed", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("error", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("dead_letter", StringComparison.OrdinalIgnoreCase)) return "error";
+        if (value.Contains("warning", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("retry", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("interrupted", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("review", StringComparison.OrdinalIgnoreCase)) return "warning";
+        if (value.Contains("succeeded", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("complete", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("added", StringComparison.OrdinalIgnoreCase)) return "success";
+        return "info";
+    }
+
+    private static string ResolveOperationResult(string? status, string severity)
+    {
+        if (!string.IsNullOrWhiteSpace(status))
+            return status.Replace('_', ' ');
+        return severity switch
+        {
+            "error" => "Failed",
+            "warning" => "Attention",
+            "success" => "Success",
+            _ => "Recorded",
+        };
     }
 }

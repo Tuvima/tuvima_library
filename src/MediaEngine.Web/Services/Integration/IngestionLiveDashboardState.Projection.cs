@@ -927,7 +927,8 @@ public sealed partial class IngestionLiveDashboardState
         var activeStep = ResolveActiveLibraryUpdateStep(activeJobs, currentActivities);
         var progressPercent = ResolveLibraryUpdateProgress(pageState, activeJobs, processedFiles, totalFiles);
         var showProgress = pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete or LibraryUpdatePageState.Failed or LibraryUpdatePageState.Interrupted;
-        var isIndeterminate = pageState == LibraryUpdatePageState.Running && totalFiles == 0;
+        var isIndeterminate = pageState == LibraryUpdatePageState.Running
+            && (totalFiles == 0 || processedFiles >= totalFiles);
         var primaryActivity = SelectPrimaryActivity(activeJobs, currentActivities, activeStep);
         var currentItem = CleanDisplayTitle(StringHelpers.FirstNonBlankOr("",
             primaryActivity?.CurrentItem,
@@ -1437,8 +1438,11 @@ public sealed partial class IngestionLiveDashboardState
             ? Math.Max(calculatedPercent, livePercent)
             : calculatedPercent;
 
-        return pageState == LibraryUpdatePageState.Running
-            ? Math.Clamp(percent, 0, 100)
+        // A settled file count is only one phase of an ingestion run. Avoid a
+        // full run percentage while identity or enrichment work is still live;
+        // those stages can discover additional work as they proceed.
+        return pageState == LibraryUpdatePageState.Running && percent >= 100
+            ? 0
             : Math.Clamp(percent, 0, 100);
     }
 
@@ -1774,8 +1778,11 @@ public sealed partial class IngestionLiveDashboardState
         DateTimeOffset? lastCompletedAt,
         DateTimeOffset now)
     {
+        if (pageState == LibraryUpdatePageState.Running && totalFiles > 0 && processedFiles >= totalFiles)
+            return "Metadata, artwork, people, and relationships are still being processed.";
+
         if ((pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete or LibraryUpdatePageState.Interrupted) && totalFiles > 0)
-            return $"{processedFiles.ToString("N0", CultureInfo.CurrentCulture)} of {totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files finished";
+            return $"{processedFiles.ToString("N0", CultureInfo.CurrentCulture)} of {totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files checked";
 
         return pageState switch
         {
