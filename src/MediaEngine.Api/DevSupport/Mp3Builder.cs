@@ -23,7 +23,8 @@ public static class Mp3Builder
         string? narrator = null,
         string? asin = null,
         string? series = null,
-        int? seriesPosition = null)
+        int? seriesPosition = null,
+        int? trackNumber = null)
     {
         album ??= title;
 
@@ -62,6 +63,9 @@ public static class Mp3Builder
 
         if (seriesPosition is not null)
             WriteTxxxFrame(frames, "SERIES_INDEX", seriesPosition.Value.ToString());
+
+        if (trackNumber is not null)
+            WriteTextFrame(frames, "TRCK", trackNumber.Value.ToString());
 
         byte[] frameData = frames.ToArray();
 

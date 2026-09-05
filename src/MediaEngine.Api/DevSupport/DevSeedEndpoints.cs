@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -73,7 +74,9 @@ public static class DevSeedEndpoints
         string? ExpectedReason = null,
         string? ExpectedProvider = null,
         string? ExpectedQid = null,
-        bool ExpectedCoverArt = true);
+        bool ExpectedCoverArt = true,
+        int PartCount = 1,
+        bool IncludeAbsMetadataSidecar = false);
 
     /// <summary>A seed MP4 movie/TV definition.</summary>
     private sealed record SeedVideo(
@@ -109,7 +112,8 @@ public static class DevSeedEndpoints
         string? ExpectedReason = null,
         string? ExpectedProvider = null,
         string? ExpectedQid = null,
-        bool ExpectedCoverArt = true);
+        bool ExpectedCoverArt = true,
+        string? AlbumArtist = null);
 
     /// <summary>A seed CBZ comic definition.</summary>
     private sealed record SeedComic(
@@ -344,7 +348,9 @@ public static class DevSeedEndpoints
             TestCategory: "Audiobook pair — Dune (Simon Vance narrator)"),
 
         new("Project Hail Mary", "Andy Weir", "Ray Porter", 2021,
-            TestCategory: "Audiobook pair — standalone, popular narrator"),
+            TestCategory: "Edge — multi-file audiobook with ABS metadata sidecar",
+            PartCount: 3,
+            IncludeAbsMetadataSidecar: true),
 
         new("The Hobbit", "J.R.R. Tolkien", "Andy Serkis", 1937,
             TestCategory: "Audiobook pair — celebrity narrator"),
@@ -510,8 +516,8 @@ public static class DevSeedEndpoints
         new("Anjin", null, 2024, "TV",
             Series: "Shogun", SeasonNumber: 1, EpisodeNumber: 1,
             EpisodeTitle: "Anjin",
-            FileNameOverride: "Shogun (2024)/Season 01/Shogun - S01E01 - Anjin.mp4",
-            TestCategory: "TV pattern — show with year suffix folder + SxxExx + episode title",
+            FileNameOverride: "Shogun (2024)/Season 01/Shogun - S01E01 - Anjin WEBRip-1080p v2.mp4",
+            TestCategory: "TV pattern — release-quality suffix and v2 marker are excluded from episode title",
             ExpectedProvider: "tmdb"),
 
         new("Chapter 1: The Mandalorian", null, 2019, "TV",
@@ -658,7 +664,8 @@ public static class DevSeedEndpoints
 
         new("Under Pressure", "Queen & David Bowie",
             Album: "Hot Space", Year: 1982, Genre: "Rock", TrackNumber: 11,
-            TestCategory: "Music — dual artist, ampersand separator"),
+            TestCategory: "Music — track artist differs from album artist",
+            AlbumArtist: "Queen"),
 
         new("Stan", "Eminem",
             Album: "The Marshall Mathers LP", Year: 2000, Genre: "Hip-Hop", TrackNumber: 3,
@@ -1034,6 +1041,13 @@ public static class DevSeedEndpoints
                 return report.Passed ? Results.Ok(report) : Results.Json(report, statusCode: 422);
             })
             .WithSummary("Download attributed free-stock photos and verify View metadata, Places, People, upload, trash, and restore behavior");
+
+        group.MapPost("/generate-ingestion-edge-fixtures", async (CancellationToken ct) =>
+            {
+                var root = Path.Combine(Path.GetTempPath(), $"tuvima-ingestion-edge-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}");
+                return Results.Ok(await RealWorldEdgeFixtureBuilder.CreateAsync(root, ct));
+            })
+            .WithSummary("Generate a disposable manifest and tiny files mirroring real-world ingestion edge cases without importing them");
     }
 
     // ── GET /dev/check-keys ─────────────────────────────────────────────────
@@ -1113,30 +1127,28 @@ public static class DevSeedEndpoints
             : (object)new { total = SeedBooks.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("books", "Excluded") };
 
         // ── Seed MP3 Audiobooks ─────────────────────────────────────────────
-        // Audiobooks share the Books library folder.
+        // Audiobooks have their own Listen-lane library folder.
         int audiobooksCreated = 0;
-        if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(booksDir))
+        var audiobooksDir = ResolveWatchDirectory(configLoader, options, "Audiobooks");
+        if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(audiobooksDir))
         {
             foreach (SeedAudiobook ab in SeedAudiobooks)
             {
-                string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
-                string filePath = Path.Combine(booksDir, fileName);
-
-                if (File.Exists(filePath)) { skipped++; continue; }
-
-                byte[] mp3 = Mp3Builder.Create(
-                    ab.Title, ab.Artist, narrator: ab.Narrator,
-                    year: ab.Year, language: ab.Language,
-                    series: ab.Series, seriesPosition: ab.SeriesPosition,
-                    asin: ab.Asin);
-                await File.WriteAllBytesAsync(filePath, mp3);
-                created.Add(fileName);
-                audiobooksCreated++;
-                logger.LogInformation("Seed MP3 created: {Path} [{Category}]", filePath, ab.TestCategory ?? "Uncategorised");
+                var fixture = await CreateAudiobookFixtureAsync(audiobooksDir, ab, logger);
+                created.AddRange(fixture.RelativePaths);
+                audiobooksCreated += fixture.Created;
+                skipped += fixture.Skipped;
             }
         }
         perTypeResults["audiobooks"] = activeTypes.Contains("audiobooks")
-            ? new { total = SeedAudiobooks.Length, created = audiobooksCreated, directory = booksDir ?? "not configured" }
+            ? new
+            {
+                fixture_titles = SeedAudiobooks.Length,
+                total_media_files = SeedAudiobooks.Sum(item => item.PartCount),
+                created = audiobooksCreated,
+                directory = audiobooksDir ?? "not configured",
+                edge_cases = new[] { "multi-file audiobook", "ABS metadata.json sidecar", "ordered chapter files" }
+            }
             : (object)new { total = SeedAudiobooks.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("audiobooks", "Excluded") };
 
         // ── Seed MP4 Videos (Movies + TV) ─────────────────────────────────
@@ -1214,7 +1226,7 @@ public static class DevSeedEndpoints
             ? new { total = SeedVideos.Count(v => v.MediaType == "Movie"), created = moviesCreated, directory = moviesDir ?? "not configured" }
             : (object)new { total = SeedVideos.Count(v => v.MediaType == "Movie"), created = 0, skipped_reason = skipReasons.GetValueOrDefault("movies", "Excluded") };
         perTypeResults["tv"] = activeTypes.Contains("tv")
-            ? new { total = SeedVideos.Count(v => v.MediaType == "TV"), created = tvCreated, directory = tvDir ?? "not configured" }
+            ? new { total = SeedVideos.Count(v => v.MediaType == "TV"), created = tvCreated, directory = tvDir ?? "not configured", edge_cases = new[] { "flat and nested seasons", "release-quality suffix", "v2 episode marker" } }
             : (object)new { total = SeedVideos.Count(v => v.MediaType == "TV"), created = 0, skipped_reason = skipReasons.GetValueOrDefault("tv", "Excluded") };
 
         // ── Seed FLAC Music ───────────────────────────────────────────────
@@ -1232,7 +1244,7 @@ public static class DevSeedEndpoints
 
                 byte[] flac = FlacBuilder.Create(
                     track.Title, track.Artist, track.Album,
-                    track.Year, track.Genre, track.TrackNumber);
+                    track.Year, track.Genre, track.TrackNumber, track.AlbumArtist);
                 await File.WriteAllBytesAsync(filePath, flac);
                 created.Add(fileName);
                 musicCreated++;
@@ -1240,7 +1252,7 @@ public static class DevSeedEndpoints
             }
         }
         perTypeResults["music"] = activeTypes.Contains("music")
-            ? new { total = SeedMusicTracks.Length, created = musicCreated, directory = musicDir ?? "not configured" }
+            ? new { total = SeedMusicTracks.Length, created = musicCreated, directory = musicDir ?? "not configured", edge_cases = new[] { "album artist differs from track artist", "compilation-safe album grouping" } }
             : (object)new { total = SeedMusicTracks.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("music", "Excluded") };
 
         // ── Seed CBZ Comics ──────────────────────────────────────────────
@@ -1553,6 +1565,77 @@ public static class DevSeedEndpoints
         return sb.ToString();
     }
 
+    private sealed record AudiobookFixtureResult(int Created, int Skipped, IReadOnlyList<string> RelativePaths);
+
+    private static async Task<AudiobookFixtureResult> CreateAudiobookFixtureAsync(
+        string root,
+        SeedAudiobook audiobook,
+        ILogger logger)
+    {
+        var created = 0;
+        var skipped = 0;
+        var relativePaths = new List<string>();
+        var directory = audiobook.PartCount > 1
+            ? Path.Combine(root, SanitizeFileName(audiobook.Artist), SanitizeFileName(audiobook.Title))
+            : root;
+        EnsureDirectory(directory, logger);
+
+        for (var part = 1; part <= audiobook.PartCount; part++)
+        {
+            var fileName = audiobook.PartCount > 1
+                ? $"{part:D3} - Part {part:D2}.mp3"
+                : $"{SanitizeFileName(audiobook.Title)} - {SanitizeFileName(audiobook.Narrator)}.mp3";
+            var filePath = Path.Combine(directory, fileName);
+            relativePaths.Add(Path.GetRelativePath(root, filePath));
+            if (File.Exists(filePath))
+            {
+                skipped++;
+                continue;
+            }
+
+            var trackTitle = audiobook.PartCount > 1 ? $"Part {part:D2}" : audiobook.Title;
+            var bytes = Mp3Builder.Create(
+                trackTitle,
+                audiobook.Artist,
+                album: audiobook.Title,
+                narrator: audiobook.Narrator,
+                year: audiobook.Year,
+                language: audiobook.Language,
+                series: audiobook.Series,
+                seriesPosition: audiobook.SeriesPosition,
+                asin: audiobook.Asin,
+                trackNumber: audiobook.PartCount > 1 ? part : null);
+            await File.WriteAllBytesAsync(filePath, bytes);
+            created++;
+            logger.LogInformation("Seed MP3 created: {Path} [{Category}]", filePath, audiobook.TestCategory ?? "Uncategorised");
+        }
+
+        if (audiobook.IncludeAbsMetadataSidecar)
+        {
+            var sidecarPath = Path.Combine(directory, "metadata.json");
+            if (!File.Exists(sidecarPath))
+            {
+                var sidecar = new
+                {
+                    title = audiobook.Title,
+                    authors = new[] { audiobook.Artist },
+                    narrators = new[] { audiobook.Narrator },
+                    genres = new[] { "Science Fiction & Fantasy" },
+                    publishedYear = audiobook.Year.ToString(),
+                    asin = audiobook.Asin ?? "B-DEV-HARNESS",
+                    language = audiobook.Language,
+                    chapters = Enumerable.Range(1, audiobook.PartCount)
+                        .Select(index => new { id = index - 1, start = 0, end = 1, title = $"Part {index:D2}" })
+                        .ToArray(),
+                };
+                await File.WriteAllTextAsync(sidecarPath, JsonSerializer.Serialize(sidecar, new JsonSerializerOptions { WriteIndented = true }));
+                logger.LogInformation("Seed audiobook sidecar created: {Path}", sidecarPath);
+            }
+        }
+
+        return new AudiobookFixtureResult(created, skipped, relativePaths);
+    }
+
     // ── Seed expectation model ────────────────────────────────────────────────
 
     /// <summary>
@@ -1623,25 +1706,14 @@ public static class DevSeedEndpoints
             }
         }
 
-        // Audiobooks (MP3) — share the Books folder so the library prior applies
-        if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(booksDir))
+        // Audiobooks (MP3) — use the dedicated Listen-lane destination.
+        string? audiobooksDir = ResolveWatchDirectory(configLoader, options, "Audiobooks");
+        if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(audiobooksDir))
         {
             foreach (SeedAudiobook ab in SeedAudiobooks)
             {
-                string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
-                string filePath = Path.Combine(booksDir, fileName);
-                if (File.Exists(filePath))
-                {
-                    continue;
-                }
-
-                byte[] bytes = Mp3Builder.Create(
-                    ab.Title, ab.Artist, narrator: ab.Narrator,
-                    year: ab.Year, language: ab.Language,
-                    series: ab.Series, seriesPosition: ab.SeriesPosition,
-                    asin: ab.Asin);
-                await File.WriteAllBytesAsync(filePath, bytes);
-                created++;
+                var fixture = await CreateAudiobookFixtureAsync(audiobooksDir, ab, logger);
+                created += fixture.Created;
             }
         }
 
@@ -1720,7 +1792,7 @@ public static class DevSeedEndpoints
 
                 byte[] bytes = FlacBuilder.Create(
                     track.Title, track.Artist, track.Album,
-                    track.Year, track.Genre, track.TrackNumber);
+                    track.Year, track.Genre, track.TrackNumber, track.AlbumArtist);
                 await File.WriteAllBytesAsync(filePath, bytes);
                 created++;
             }
@@ -1779,11 +1851,20 @@ public static class DevSeedEndpoints
             }
         }
 
-        if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(booksDir))
+        string? audiobooksDir = ResolveWatchDirectory(configLoader, options, "Audiobooks");
+        if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(audiobooksDir))
         {
             foreach (SeedAudiobook ab in SeedAudiobooks)
             {
-                paths.Add(Path.Combine(booksDir, $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3"));
+                if (ab.PartCount <= 1)
+                {
+                    paths.Add(Path.Combine(audiobooksDir, $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3"));
+                    continue;
+                }
+
+                var directory = Path.Combine(audiobooksDir, SanitizeFileName(ab.Artist), SanitizeFileName(ab.Title));
+                for (var part = 1; part <= ab.PartCount; part++)
+                    paths.Add(Path.Combine(directory, $"{part:D3} - Part {part:D2}.mp3"));
             }
         }
 

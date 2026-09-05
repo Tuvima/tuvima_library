@@ -470,8 +470,14 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "logo", ".png", ".jpg");
 
         MoveCompanionCandidates(
-            [Path.Combine(oldFolder, "cover.jpg")],
+            [Path.Combine(oldFolder, "cover.jpg"), Path.Combine(oldFolder, "cover.jpeg"), Path.Combine(oldFolder, "cover.png")],
             Path.Combine(newFolder, "cover.jpg"));
+        MoveCompanionCandidates(
+            [Path.Combine(oldFolder, "metadata.json")],
+            Path.Combine(newFolder, "metadata.json"));
+        MoveCompanionCandidates(
+            [Path.Combine(oldFolder, "metadata.opf")],
+            Path.Combine(newFolder, "metadata.opf"));
     }
 
     private void MoveCompanionCandidates(IEnumerable<string> sourceCandidates, string destinationPath)

@@ -80,7 +80,7 @@ public sealed class HierarchyResolver
     private async Task<ResolverResult> ResolveMusicAsync(
         IReadOnlyDictionary<string, string> meta, CancellationToken ct)
     {
-        var artist = Get(meta, "artist") ?? Get(meta, "album_artist");
+        var artist = Get(meta, "album_artist") ?? Get(meta, "artist");
         var album  = Get(meta, "album");
         var title  = Get(meta, "title");
         var track  = OrdinalNormalizer.NormalizeDiscTrack(
@@ -178,6 +178,19 @@ public sealed class HierarchyResolver
         var author   = Get(meta, "author") ?? Get(meta, "creator");
         var position = OrdinalNormalizer.Normalize(Get(meta, MetadataFieldConstants.SeriesPosition) ?? Get(meta, "series_index"));
         var title    = Get(meta, "title");
+
+        if (mediaType == MediaType.Audiobooks && string.IsNullOrWhiteSpace(series))
+        {
+            var bookTitle = Get(meta, "book_title") ?? Get(meta, "album");
+            var part = ParseInt(Get(meta, "audiobook_part_number"));
+            var partCount = ParseInt(Get(meta, "audiobook_part_count"));
+            if (!string.IsNullOrWhiteSpace(bookTitle) && partCount is > 1)
+            {
+                var audiobookKey = MakeKey(NormalizePersonNameForKey(author), bookTitle);
+                var audiobookParentId = await FindOrCreateParentAsync(mediaType, audiobookKey, null, null, ct);
+                return await FindOrCreateChildAsync(mediaType, audiobookParentId, part, part, title, ct);
+            }
+        }
 
         if (string.IsNullOrWhiteSpace(series))
             return await CreateStandaloneAsync(mediaType, ct);

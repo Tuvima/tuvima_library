@@ -19,7 +19,8 @@ public static class FlacBuilder
         string? album = null,
         int year = 0,
         string? genre = null,
-        int? trackNumber = null)
+        int? trackNumber = null,
+        string? albumArtist = null)
     {
         album ??= title;
 
@@ -34,7 +35,7 @@ public static class FlacBuilder
         WriteStreamInfo(stream);
 
         // 3. VORBIS_COMMENT metadata block (type 4) — contains our tags
-        byte[] vorbisData = BuildVorbisComment(title, artist, album, year, genre, trackNumber);
+        byte[] vorbisData = BuildVorbisComment(title, artist, album, year, genre, trackNumber, albumArtist);
         WriteMetadataBlockHeader(stream, blockType: 4, dataLength: vorbisData.Length, isLast: true);
         stream.Write(vorbisData);
 
@@ -92,7 +93,7 @@ public static class FlacBuilder
     /// Each comment: length (LE32) + "KEY=value" UTF-8 bytes
     /// </summary>
     private static byte[] BuildVorbisComment(
-        string title, string artist, string? album, int year, string? genre, int? trackNumber)
+        string title, string artist, string? album, int year, string? genre, int? trackNumber, string? albumArtist)
     {
         using var stream = new MemoryStream();
         const string vendor = "Tuvima Library Seed";
@@ -112,6 +113,7 @@ public static class FlacBuilder
         if (year > 0) comments.Add($"DATE={year}");
         if (genre is not null) comments.Add($"GENRE={genre}");
         if (trackNumber is not null) comments.Add($"TRACKNUMBER={trackNumber}");
+        if (albumArtist is not null) comments.Add($"ALBUMARTIST={albumArtist}");
 
         // Comment count
         WriteLittleEndian32(stream, comments.Count);

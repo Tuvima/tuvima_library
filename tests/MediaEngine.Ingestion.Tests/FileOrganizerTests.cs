@@ -117,6 +117,50 @@ public class FileOrganizerTests
         Assert.DoesNotContain("TV Shows", relative);
     }
 
+    [Fact]
+    public void CalculatePath_MultipartAudiobookUsesBookFolderAndPartIdentity()
+    {
+        var candidate = BuildCandidate(
+            @"C:\watch\001.mp3",
+            MediaType.Audiobooks,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["author"] = "Andy Weir",
+                ["book_title"] = "Project Hail Mary",
+                ["title"] = "Part 01",
+                ["audiobook_part_number"] = "1",
+                ["year"] = "2021",
+            });
+
+        var relative = CreateOrganizer().CalculatePath(
+            candidate,
+            "Audiobooks/{Author}/{BookTitle} ({Year})/{TrackNumber?} {TrackTitle}{Ext}");
+
+        Assert.Equal("Audiobooks/Andy Weir/Project Hail Mary (2021)/01 Part 01.mp3", relative);
+    }
+
+    [Fact]
+    public void CalculatePath_MusicUsesAlbumArtistWithoutChangingTrackTitle()
+    {
+        var candidate = BuildCandidate(
+            @"C:\watch\under-pressure.flac",
+            MediaType.Music,
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["artist"] = "Queen & David Bowie",
+                ["album_artist"] = "Queen",
+                ["album"] = "Hot Space",
+                ["title"] = "Under Pressure",
+                ["track_number"] = "11",
+            });
+
+        var relative = CreateOrganizer().CalculatePath(
+            candidate,
+            "Music/{AlbumArtist}/{Album}/{TrackNumber} - {Title}{Ext}");
+
+        Assert.Equal("Music/Queen/Hot Space/11 - Under Pressure.flac", relative);
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // Default template: hyphen-dash separator + Q0 placeholder
     // ──────────────────────────────────────────────────────────────────────────

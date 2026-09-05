@@ -32,7 +32,7 @@ public sealed class MediaProcessorRouter : IProcessorRouter, IDisposable
 {
     private static readonly HashSet<string> AudioExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".mp3", ".m4a", ".m4b", ".flac", ".ogg", ".wav", ".aac",
+        ".mp3", ".m4a", ".m4b", ".flac", ".ogg", ".opus", ".wav", ".aac", ".wma",
     };
     private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -110,7 +110,9 @@ public sealed class MediaProcessorRouter : IProcessorRouter, IDisposable
     private static bool ExtensionMatches(IMediaProcessor processor, string extension) => processor switch
     {
         EpubProcessor => extension.Equals(".epub", StringComparison.OrdinalIgnoreCase),
+        AzW3Processor => extension.Equals(".azw3", StringComparison.OrdinalIgnoreCase),
         PdfProcessor => extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase),
+        DiscImageProcessor => extension.Equals(".iso", StringComparison.OrdinalIgnoreCase),
         ComicProcessor => extension is ".cbz" or ".cbr" or ".CBZ" or ".CBR",
         AudioProcessor => AudioExtensions.Contains(extension),
         VideoProcessor => VideoExtensions.Contains(extension),

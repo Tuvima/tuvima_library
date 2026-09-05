@@ -31,10 +31,10 @@ public sealed class MediaTypeConfiguration
     /// </summary>
     public static List<MediaTypeDefinition> DefaultTypes() =>
     [
-        new() { Key = "books",      DisplayName = "Books",      Icon = "MenuBook",    Extensions = [".epub", ".pdf"],                              CategoryFolder = "Books",    BuiltIn = true },
-        new() { Key = "audiobooks", DisplayName = "Audiobooks", Icon = "Headphones",  Extensions = [".m4b", ".mp3", ".m4a"],                       CategoryFolder = "Audio",    BuiltIn = true },
+        new() { Key = "books",      DisplayName = "Books",      Icon = "MenuBook",    Extensions = [".epub", ".pdf", ".azw3"],                    CategoryFolder = "Books",    BuiltIn = true },
+        new() { Key = "audiobooks", DisplayName = "Audiobooks", Icon = "Headphones",  Extensions = [".m4b", ".mp3", ".m4a"],                       CategoryFolder = "Audiobooks", BuiltIn = true },
         new() { Key = "comics",     DisplayName = "Comics",     Icon = "AutoStories", Extensions = [".cbz", ".cbr", ".cb7"],                       CategoryFolder = "Comics",   BuiltIn = true },
-        new() { Key = "movies",     DisplayName = "Movies",     Icon = "Movie",       Extensions = [".mp4", ".mkv", ".webm", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".mpeg", ".mpg", ".m2ts"], CategoryFolder = "Videos",   BuiltIn = true },
+        new() { Key = "movies",     DisplayName = "Movies",     Icon = "Movie",       Extensions = [".mp4", ".mkv", ".webm", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".mpeg", ".mpg", ".m2ts", ".iso"], CategoryFolder = "Videos", BuiltIn = true },
         new() { Key = "tv_shows",   DisplayName = "TV Shows",   Icon = "Tv",          Extensions = [".mp4", ".mkv", ".webm", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".mpeg", ".mpg", ".m2ts"], CategoryFolder = "TV Shows", BuiltIn = true },
         new() { Key = "music",      DisplayName = "Music",      Icon = "MusicNote",   Extensions = [".mp3", ".flac", ".ogg", ".m4a", ".aac", ".wav", ".opus", ".wma"], CategoryFolder = "Music", BuiltIn = true },
     ];

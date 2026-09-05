@@ -2,6 +2,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
+using System.Text.Json;
 
 namespace MediaEngine.Processors.Processors;
 
@@ -42,7 +43,7 @@ public sealed partial class AudioProcessor : IMediaProcessor
 
     // ── Magic-byte detection ─────────────────────────────────────────────
 
-    private enum AudioContainer { Unknown, Mp3, M4a, M4b, Flac, Ogg, Wav, Aac }
+    private enum AudioContainer { Unknown, Mp3, M4a, M4b, Flac, Ogg, Wav, Aac, Wma }
 
     /// <inheritdoc/>
     public bool CanProcess(string filePath)
@@ -75,7 +76,8 @@ public sealed partial class AudioProcessor : IMediaProcessor
 
         try
         {
-            var claims = BuildClaims(filePath, container, tagFile);
+            var claims = BuildClaims(filePath, container, tagFile).ToList();
+            AddAudiobookCompanionClaims(filePath, container, tagFile, claims);
             var candidates = BuildMediaTypeCandidates(container, tagFile);
             var topType = candidates.Count > 0 ? candidates[0].Type : MediaType.Unknown;
 
@@ -122,6 +124,11 @@ public sealed partial class AudioProcessor : IMediaProcessor
         if (header[0] == 0x4F && header[1] == 0x67 &&
             header[2] == 0x67 && header[3] == 0x53)
             return AudioContainer.Ogg;
+
+        // Windows Media / ASF container GUID.
+        ReadOnlySpan<byte> asfHeader = [0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C];
+        if (read >= asfHeader.Length && header[..asfHeader.Length].SequenceEqual(asfHeader))
+            return AudioContainer.Wma;
 
         // MP3: ID3v2 header (49 44 33 = "ID3")
         if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33)
@@ -238,6 +245,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
         if (!string.IsNullOrWhiteSpace(artist))
             claims.Add(Claim("artist", artist, 0.7));
 
+        if (!string.IsNullOrWhiteSpace(tagFile?.Tag.FirstAlbumArtist))
+            claims.Add(Claim("album_artist", tagFile.Tag.FirstAlbumArtist, 0.8));
+
         // Album
         if (!string.IsNullOrWhiteSpace(tagFile?.Tag.Album))
             claims.Add(Claim("album", tagFile!.Tag.Album, 0.7));
@@ -275,6 +285,7 @@ public sealed partial class AudioProcessor : IMediaProcessor
             AudioContainer.Flac => "FLAC",
             AudioContainer.Ogg => "OGG",
             AudioContainer.Wav => "WAV",
+            AudioContainer.Wma => "WMA",
             _ => "Unknown",
         };
         claims.Add(Claim("container", containerLabel, 1.0));
@@ -289,6 +300,140 @@ public sealed partial class AudioProcessor : IMediaProcessor
             claims.Add(Claim("asin", asin, 0.9));
 
         return claims;
+    }
+
+    private static void AddAudiobookCompanionClaims(
+        string filePath,
+        AudioContainer container,
+        TagLib.File? tagFile,
+        List<ExtractedClaim> claims)
+    {
+        var directory = Path.GetDirectoryName(filePath);
+        if (string.IsNullOrWhiteSpace(directory))
+            return;
+
+        var sidecarPath = Path.Combine(directory, "metadata.json");
+        var genre = tagFile?.Tag.FirstGenre;
+        var isAudiobook = container == AudioContainer.M4b
+            || !string.IsNullOrWhiteSpace(ExtractNarrator(tagFile))
+            || !string.IsNullOrWhiteSpace(ExtractAsin(tagFile))
+            || genre?.Contains("audiobook", StringComparison.OrdinalIgnoreCase) == true
+            || genre?.Contains("speech", StringComparison.OrdinalIgnoreCase) == true
+            || HasAudiobookSidecarShape(sidecarPath);
+        if (!isAudiobook)
+            return;
+
+        var audioFiles = Directory.EnumerateFiles(directory)
+            .Where(path => IsAudioExtension(Path.GetExtension(path)))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (audioFiles.Length > 1)
+        {
+            var partIndex = Array.FindIndex(audioFiles,
+                path => string.Equals(Path.GetFullPath(path), Path.GetFullPath(filePath), StringComparison.OrdinalIgnoreCase));
+            claims.Add(Claim("audiobook_part_number", (Math.Max(0, partIndex) + 1).ToString(), 0.95));
+            claims.Add(Claim("audiobook_part_count", audioFiles.Length.ToString(), 0.95));
+        }
+
+        if (!File.Exists(sidecarPath))
+            return;
+
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(sidecarPath));
+            var root = document.RootElement;
+            AddJsonString(root, "title", "book_title", 0.98, claims);
+            AddJsonString(root, "title", "album", 0.98, claims);
+            AddJsonString(root, "publishedYear", "year", 0.92, claims);
+            AddJsonString(root, "publisher", "publisher", 0.92, claims);
+            AddJsonString(root, "description", "description", 0.92, claims);
+            AddJsonString(root, "asin", "asin", 0.98, claims);
+            AddJsonString(root, "language", "language", 0.92, claims);
+            AddFirstArrayValue(root, "authors", "author", 0.98, claims);
+            AddFirstArrayValue(root, "narrators", "narrator", 0.98, claims);
+            AddFirstArrayValue(root, "series", "series", 0.95, claims);
+            AddFirstArrayValue(root, "genres", "genre", 0.92, claims);
+
+            if (root.TryGetProperty("chapters", out var chapters) && chapters.ValueKind == JsonValueKind.Array)
+                claims.Add(Claim("sidecar_chapter_count", chapters.GetArrayLength().ToString(), 0.98));
+        }
+        catch (JsonException)
+        {
+            // A malformed optional sidecar must not make a playable audio file corrupt.
+        }
+        catch (IOException)
+        {
+            // The watcher may observe the audio while its companion file is still settling.
+        }
+    }
+
+    private static bool HasAudiobookSidecarShape(string path)
+    {
+        if (!File.Exists(path))
+            return false;
+        try
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(path));
+            var root = document.RootElement;
+            return root.TryGetProperty("authors", out var authors) && authors.ValueKind == JsonValueKind.Array
+                || root.TryGetProperty("narrators", out var narrators) && narrators.ValueKind == JsonValueKind.Array
+                || root.TryGetProperty("chapters", out var chapters) && chapters.ValueKind == JsonValueKind.Array;
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
+
+    private static bool IsAudioExtension(string extension)
+        => extension.Equals(".mp3", StringComparison.OrdinalIgnoreCase)
+           || extension.Equals(".m4a", StringComparison.OrdinalIgnoreCase)
+           || extension.Equals(".m4b", StringComparison.OrdinalIgnoreCase)
+           || extension.Equals(".flac", StringComparison.OrdinalIgnoreCase)
+           || extension.Equals(".ogg", StringComparison.OrdinalIgnoreCase)
+           || extension.Equals(".wav", StringComparison.OrdinalIgnoreCase)
+           || extension.Equals(".aac", StringComparison.OrdinalIgnoreCase)
+           || extension.Equals(".opus", StringComparison.OrdinalIgnoreCase)
+           || extension.Equals(".wma", StringComparison.OrdinalIgnoreCase);
+
+    private static void AddJsonString(
+        JsonElement root,
+        string property,
+        string claimKey,
+        double confidence,
+        List<ExtractedClaim> claims)
+    {
+        if (root.TryGetProperty(property, out var value)
+            && value.ValueKind == JsonValueKind.String
+            && !string.IsNullOrWhiteSpace(value.GetString()))
+        {
+            claims.Add(Claim(claimKey, value.GetString()!, confidence));
+        }
+    }
+
+    private static void AddFirstArrayValue(
+        JsonElement root,
+        string property,
+        string claimKey,
+        double confidence,
+        List<ExtractedClaim> claims)
+    {
+        if (!root.TryGetProperty(property, out var values) || values.ValueKind != JsonValueKind.Array)
+            return;
+
+        foreach (var value in values.EnumerateArray())
+        {
+            if (value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString()))
+            {
+                claims.Add(Claim(claimKey, value.GetString()!, confidence));
+                return;
+            }
+        }
     }
 
     // ── Media type disambiguation ────────────────────────────────────────
@@ -309,6 +454,7 @@ public sealed partial class AudioProcessor : IMediaProcessor
             AudioContainer.Ogg => [new() { Type = MediaType.Music, Confidence = 0.95, Reason = "OGG format (music)" }],
             AudioContainer.Wav => [new() { Type = MediaType.Music, Confidence = 0.95, Reason = "WAV format (uncompressed audio)" }],
             AudioContainer.Aac => [new() { Type = MediaType.Music, Confidence = 0.90, Reason = "AAC audio stream" }],
+            AudioContainer.Wma => [new() { Type = MediaType.Music, Confidence = 0.90, Reason = "Windows Media Audio container" }],
 
             // MP3 and M4A are ambiguous (could be audiobook or music).
             // Use tag-based heuristics to produce candidates when signals are present.

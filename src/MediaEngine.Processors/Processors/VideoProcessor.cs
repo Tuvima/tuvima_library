@@ -169,6 +169,10 @@ public sealed class VideoProcessor : IMediaProcessor
     private static readonly Regex TrailingOrganizerTokenRegex = new(
         @"\s*(?:\{[^{}]+\}|\[[^\[\]]+\])\s*$", RegexOptions.Compiled);
 
+    private static readonly Regex TrailingReleaseSuffixRegex = new(
+        @"\s+(?:(?:BluRay|Bluray|WEBRip|WEB[ ._-]?DL|HDTV)(?:[ ._-]?\d{3,4}p)?|(?:x|h)[ ._-]?26[45]|HEVC|AVC)(?:\s+v\d+)?\s*$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     /// <summary>1x01 format.</summary>
     private static readonly Regex NxNNRegex = new(
         @"^(?<series>.+?)\s*[.\-_ ]+(?<season>\d{1,2})[Xx](?<ep1>\d{1,4})",
@@ -356,7 +360,7 @@ public sealed class VideoProcessor : IMediaProcessor
             var episode = int.Parse(m.Groups["ep1"].Value);
             // Extract episode title from text after the SxxExx pattern
             var afterPattern = text[m.Length..].TrimStart('.', '-', '–', '—', '_', ' ');
-            var epTitle = string.IsNullOrWhiteSpace(afterPattern) ? null : afterPattern;
+            var epTitle = CleanEpisodeTitle(afterPattern);
             return (series, season, episode, epTitle);
         }
 
@@ -368,7 +372,7 @@ public sealed class VideoProcessor : IMediaProcessor
             var season = int.Parse(m.Groups["season"].Value);
             var episode = int.Parse(m.Groups["ep1"].Value);
             var afterPattern = text[m.Length..].TrimStart('.', '-', '–', '—', '_', ' ');
-            var epTitle = string.IsNullOrWhiteSpace(afterPattern) ? null : afterPattern;
+            var epTitle = CleanEpisodeTitle(afterPattern);
             return (series, season, episode, epTitle);
         }
 
@@ -380,7 +384,7 @@ public sealed class VideoProcessor : IMediaProcessor
             var season = int.Parse(m.Groups["season"].Value);
             var episode = int.Parse(m.Groups["ep1"].Value);
             var afterPattern = text[m.Length..].TrimStart('.', '-', '–', '—', '_', ' ');
-            var epTitle = string.IsNullOrWhiteSpace(afterPattern) ? null : afterPattern;
+            var epTitle = CleanEpisodeTitle(afterPattern);
             return (series, season, episode, epTitle);
         }
 
@@ -392,7 +396,7 @@ public sealed class VideoProcessor : IMediaProcessor
             var season = int.Parse(m.Groups["season"].Value);
             var episode = int.Parse(m.Groups["ep1"].Value);
             var epTitle = m.Groups["epTitle"].Success
-                ? m.Groups["epTitle"].Value.Trim()
+                ? CleanEpisodeTitle(m.Groups["epTitle"].Value)
                 : null;
             return (null, season, episode, string.IsNullOrWhiteSpace(epTitle) ? null : epTitle);
         }
@@ -404,6 +408,23 @@ public sealed class VideoProcessor : IMediaProcessor
     private static string CleanSeriesTitle(string raw)
     {
         return raw.TrimEnd('.', '-', '_', ' ');
+    }
+
+    private static string? CleanEpisodeTitle(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        var cleaned = raw.Trim();
+        string previous;
+        do
+        {
+            previous = cleaned;
+            cleaned = TrailingReleaseSuffixRegex.Replace(cleaned, string.Empty).TrimEnd(' ', '-', '.', '_');
+        }
+        while (!string.Equals(previous, cleaned, StringComparison.Ordinal));
+
+        return string.IsNullOrWhiteSpace(cleaned) ? null : cleaned;
     }
 
     private static string StripTrailingOrganizerTokens(string value)

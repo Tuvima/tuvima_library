@@ -5,8 +5,8 @@
       "key": "books",
       "display_name": "Books",
       "icon": "MenuBook",
-      "extensions": [".epub", ".pdf"],
-      "category_folder": "Books",
+      "extensions": [".epub", ".pdf", ".azw3"],
+      "category_folder": "Audiobooks",
       "built_in": true
     },
     {
@@ -29,12 +29,12 @@
       "key": "movies",
       "display_name": "Movies",
       "icon": "Movie",
-      "extensions": [".mp4", ".mkv", ".webm", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".mpeg", ".mpg", ".m2ts"],
+      "extensions": [".mp4", ".mkv", ".webm", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".mpeg", ".mpg", ".m2ts", ".iso"],
       "category_folder": "Videos",
       "built_in": true
     },
     {
-      "key": "TV",
+      "key": "tv_shows",
       "display_name": "TV Shows",
       "icon": "Tv",
       "extensions": [".mp4", ".mkv", ".webm", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".mpeg", ".mpg", ".m2ts"],

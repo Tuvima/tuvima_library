@@ -9,7 +9,8 @@ internal static class ProcessorHeaderReader
         string filePath,
         Span<byte> destination,
         out int bytesRead,
-        FileShare fileShare = FileShare.Read)
+        FileShare fileShare = FileShare.Read,
+        long offset = 0)
     {
         try
         {
@@ -21,6 +22,15 @@ internal static class ProcessorHeaderReader
                 bufferSize: destination.Length,
                 FileOptions.None);
 
+            if (offset > 0)
+            {
+                if (stream.Length < offset + destination.Length)
+                {
+                    bytesRead = 0;
+                    return false;
+                }
+                stream.Position = offset;
+            }
             bytesRead = stream.Read(destination);
             return true;
         }

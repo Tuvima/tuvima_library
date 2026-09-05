@@ -6,6 +6,7 @@ using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using SkiaSharp;
+using System.Text.RegularExpressions;
 
 namespace MediaEngine.Api.Services.LocalAssets;
 
@@ -20,7 +21,8 @@ public sealed class ViewLibraryService(
     ILibraryAccessEvaluator accessEvaluator,
     IViewPersonalSpaceRepository spaces,
     ViewStorageService storage,
-    ILogger<ViewLibraryService> logger) : IViewPathIndexer
+    ILogger<ViewLibraryService> logger,
+    IFFmpegService? ffmpeg = null) : IViewPathIndexer
 {
     private const int MaxDocumentCharacters = 256 * 1024;
 
@@ -86,6 +88,10 @@ public sealed class ViewLibraryService(
     private static readonly IReadOnlySet<string> JpegExtensions = new HashSet<string>(
         [".jpg", ".jpeg"],
         StringComparer.OrdinalIgnoreCase);
+
+    private static readonly Regex TimedCompoundName = new(
+        @"^(?<prefix>.*?)(?<seconds>\d{2})(?<kind>IMG|VID)$",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public bool CanAccess(
         Guid libraryId,
@@ -240,11 +246,12 @@ public sealed class ViewLibraryService(
             ?? throw new InvalidDataException($"The file type '{Path.GetExtension(fullPath)}' is not supported by View.");
         var directory = Path.GetDirectoryName(fullPath)
             ?? throw new InvalidDataException("The local asset directory could not be resolved.");
-        var stem = Path.GetFileNameWithoutExtension(fullPath);
-        var candidates = Directory.EnumerateFiles(directory, stem + ".*", SearchOption.TopDirectoryOnly)
+        var uploadedGroupKey = GetCompoundGroupKey(uploaded);
+        var candidates = Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
             .Select(TryCreateCandidate)
             .Where(candidate => candidate is not null)
             .Cast<FileCandidate>()
+            .Where(candidate => string.Equals(GetCompoundGroupKey(candidate), uploadedGroupKey, StringComparison.OrdinalIgnoreCase))
             .ToList();
         var group = BuildGroups(candidates).FirstOrDefault(candidate =>
             candidate.Files.Any(member => string.Equals(
@@ -313,7 +320,7 @@ public sealed class ViewLibraryService(
         AssetGroup group,
         CancellationToken ct)
     {
-        var metadata = ReadMetadata(group.Primary);
+        var metadata = await ReadMetadataAsync(group.Primary, ct);
         var device = await ResolveDeviceAsync(space, source, metadata, ct);
         var registrations = new List<LocalAssetFileRegistration>(group.Files.Count);
         foreach (var member in group.Files)
@@ -398,26 +405,31 @@ public sealed class ViewLibraryService(
         var result = new List<AssetGroup>();
         foreach (var stemGroup in candidates
                      .GroupBy(
-                         candidate => Path.Combine(
-                             Path.GetDirectoryName(candidate.Path) ?? string.Empty,
-                             Path.GetFileNameWithoutExtension(candidate.Path)),
+                         GetCompoundGroupKey,
                          StringComparer.OrdinalIgnoreCase)
                      .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
         {
             var members = stemGroup.OrderBy(candidate => candidate.Path, StringComparer.OrdinalIgnoreCase).ToList();
             var consumed = new HashSet<FileCandidate>();
 
-            var heic = members.FirstOrDefault(candidate =>
-                candidate.Extension is ".heic" or ".heif");
-            var motion = members.FirstOrDefault(candidate => candidate.Extension == ".mov");
-            if (heic is not null && motion is not null)
+            var images = members.Where(candidate =>
+                candidate.Extension is ".heic" or ".heif" || JpegExtensions.Contains(candidate.Extension)).ToList();
+            var motions = members.Where(candidate => candidate.Extension == ".mov").ToList();
+            foreach (var image in images)
             {
-                result.Add(new AssetGroup(heic,
+                var motion = motions
+                    .Where(candidate => !consumed.Contains(candidate) && IsLivePhotoPair(image, candidate))
+                    .OrderBy(candidate => LivePhotoDistance(image, candidate))
+                    .FirstOrDefault();
+                if (motion is null)
+                    continue;
+
+                result.Add(new AssetGroup(image,
                 [
-                    new AssetMember(heic, LocalAssetFileRoles.Primary),
+                    new AssetMember(image, LocalAssetFileRoles.Primary),
                     new AssetMember(motion, LocalAssetFileRoles.LivePhotoVideo),
                 ]));
-                consumed.Add(heic);
+                consumed.Add(image);
                 consumed.Add(motion);
             }
 
@@ -451,7 +463,43 @@ public sealed class ViewLibraryService(
         return result;
     }
 
-    private static LocalMetadata ReadMetadata(FileCandidate candidate)
+    private static string GetCompoundGroupKey(FileCandidate candidate)
+    {
+        var directory = Path.GetDirectoryName(candidate.Path) ?? string.Empty;
+        var stem = Path.GetFileNameWithoutExtension(candidate.Path);
+        var match = TimedCompoundName.Match(stem);
+        return match.Success
+            ? Path.Combine(directory, match.Groups["prefix"].Value)
+            : Path.Combine(directory, stem);
+    }
+
+    private static bool IsLivePhotoPair(FileCandidate image, FileCandidate motion)
+    {
+        var imageStem = Path.GetFileNameWithoutExtension(image.Path);
+        var motionStem = Path.GetFileNameWithoutExtension(motion.Path);
+        if (string.Equals(imageStem, motionStem, StringComparison.OrdinalIgnoreCase))
+            return image.Extension is ".heic" or ".heif" || JpegExtensions.Contains(image.Extension);
+
+        var imageMatch = TimedCompoundName.Match(imageStem);
+        var motionMatch = TimedCompoundName.Match(motionStem);
+        return imageMatch.Success
+            && motionMatch.Success
+            && imageMatch.Groups["kind"].Value.Equals("IMG", StringComparison.OrdinalIgnoreCase)
+            && motionMatch.Groups["kind"].Value.Equals("VID", StringComparison.OrdinalIgnoreCase)
+            && imageMatch.Groups["prefix"].Value.Equals(motionMatch.Groups["prefix"].Value, StringComparison.OrdinalIgnoreCase)
+            && LivePhotoDistance(image, motion) <= 2;
+    }
+
+    private static int LivePhotoDistance(FileCandidate first, FileCandidate second)
+    {
+        var firstMatch = TimedCompoundName.Match(Path.GetFileNameWithoutExtension(first.Path));
+        var secondMatch = TimedCompoundName.Match(Path.GetFileNameWithoutExtension(second.Path));
+        if (!firstMatch.Success || !secondMatch.Success)
+            return 0;
+        return Math.Abs(int.Parse(firstMatch.Groups["seconds"].Value) - int.Parse(secondMatch.Groups["seconds"].Value));
+    }
+
+    private async Task<LocalMetadata> ReadMetadataAsync(FileCandidate candidate, CancellationToken ct)
     {
         var info = new FileInfo(candidate.Path);
         var capturedAt = ResolveFileDate(info);
@@ -508,6 +556,24 @@ public sealed class ViewLibraryService(
         catch
         {
             // Unsupported or malformed local metadata is non-fatal.
+        }
+
+        if (ffmpeg is { IsAvailable: true }
+            && (candidate.Type.MediaKind is LocalAssetMediaKinds.Image or LocalAssetMediaKinds.Video or LocalAssetMediaKinds.Audio))
+        {
+            var probe = await ffmpeg.ProbeAsync(candidate.Path, ct).ConfigureAwait(false);
+            if (probe is not null)
+            {
+                title ??= NullIfWhiteSpace(probe.Title);
+                capturedAt = probe.CapturedAt ?? capturedAt;
+                width ??= probe.Width;
+                height ??= probe.Height;
+                durationSeconds ??= probe.Duration.TotalSeconds > 0 ? probe.Duration.TotalSeconds : null;
+                deviceMake ??= NullIfWhiteSpace(probe.DeviceMake);
+                deviceModel ??= NullIfWhiteSpace(probe.DeviceModel);
+                latitude ??= ValidCoordinate(probe.Latitude, -90, 90);
+                longitude ??= ValidCoordinate(probe.Longitude, -180, 180);
+            }
         }
 
         return new LocalMetadata(

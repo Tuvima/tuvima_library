@@ -50,7 +50,10 @@ public sealed class ViewThumbnailService(
                     : null;
             }
 
-            return await Task.Run(() => GenerateImage(source.FilePath, target), ct).ConfigureAwait(false)
+            if (await Task.Run(() => GenerateImage(source.FilePath, target), ct).ConfigureAwait(false))
+                return target;
+
+            return await GenerateImageWithFfmpegAsync(source.FilePath, target, ct).ConfigureAwait(false)
                 ? target
                 : null;
         }
@@ -80,6 +83,28 @@ public sealed class ViewThumbnailService(
         {
             var result = await ffmpeg.RunAsync(
                 $"-y -ss 0.5 -i {Quote(source)} -frames:v 1 -vf scale={MaximumEdge}:-2:force_original_aspect_ratio=decrease {Quote(temporary)}",
+                ct).ConfigureAwait(false);
+            if (result.ExitCode != 0 || !File.Exists(temporary)) return false;
+            File.Move(temporary, target, overwrite: true);
+            return true;
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+    }
+
+    private async Task<bool> GenerateImageWithFfmpegAsync(string source, string target, CancellationToken ct)
+    {
+        if (ffmpeg is not { IsAvailable: true }) return false;
+
+        var directory = Path.GetDirectoryName(target)!;
+        Directory.CreateDirectory(directory);
+        var temporary = Path.Combine(directory, $".{Path.GetFileNameWithoutExtension(target)}.{Guid.NewGuid():N}.tmp.jpg");
+        try
+        {
+            var result = await ffmpeg.RunAsync(
+                $"-y -i {Quote(source)} -frames:v 1 -vf scale={MaximumEdge}:-2:force_original_aspect_ratio=decrease {Quote(temporary)}",
                 ct).ConfigureAwait(false);
             if (result.ExitCode != 0 || !File.Exists(temporary)) return false;
             File.Move(temporary, target, overwrite: true);

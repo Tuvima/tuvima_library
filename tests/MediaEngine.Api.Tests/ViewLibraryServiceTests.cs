@@ -120,6 +120,24 @@ public sealed class ViewLibraryServiceTests
     }
 
     [Fact]
+    public async Task Scan_GroupsAdjacentImgVidNamesAsLivePhotoPair()
+    {
+        using var fixture = new ViewFixture();
+        fixture.WritePersonal("Sep 11 - 01.31.35IMG.jpg", [0xFF, 0xD8, 0xFF, 0xD9]);
+        fixture.WritePersonal("Sep 11 - 01.31.34VID.mov", [1, 2, 3]);
+
+        var result = Assert.IsType<MediaEngine.Contracts.LocalAssets.LocalAssetScanResultDto>(
+            await fixture.Service.ScanAsync(fixture.PersonalLibraryId));
+
+        Assert.Equal(1, result.ItemsAdded);
+        var item = Assert.Single(fixture.Repository.Query(new LocalAssetQuery(
+            fixture.PersonalLibraryId,
+            Limit: 20,
+            IncludeHidden: true)).Items);
+        Assert.Contains(item.Files, file => file.Role == LocalAssetFileRoles.LivePhotoVideo);
+    }
+
+    [Fact]
     public async Task IndexPath_IndexesOnlyTheUploadedViewItemWithoutCatalogueIngestion()
     {
         using var fixture = new ViewFixture();

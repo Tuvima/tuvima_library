@@ -23,6 +23,13 @@ public sealed record MediaProbeResult
     public int?    TrackNumber  { get; init; }
     public string? Publisher    { get; init; }
     public string? Description  { get; init; }
+    public DateTimeOffset? CapturedAt { get; init; }
+    public string? DeviceMake   { get; init; }
+    public string? DeviceModel  { get; init; }
+    public double? Latitude     { get; init; }
+    public double? Longitude    { get; init; }
+    public string? ContentIdentifier { get; init; }
+    public bool IsLivePhoto     { get; init; }
 
     // ── Audio stream ─────────────────────────────────────────────────────────
 

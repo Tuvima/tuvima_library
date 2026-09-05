@@ -75,9 +75,9 @@ internal sealed partial class DetailCompositionOrchestrator
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<AudiobookAssetRow>(new CommandDefinition(
+        var rows = (await conn.QueryAsync<AudiobookAssetRow>(new CommandDefinition(
             """
-            SELECT w.id AS WorkId,
+            SELECT @workId AS WorkId,
                    ma.id AS AssetId,
                    COALESCE(
                        MAX(CASE WHEN wcv.key = 'title' THEN wcv.value END),
@@ -107,47 +107,56 @@ internal sealed partial class DetailCompositionOrchestrator
             INNER JOIN media_assets ma ON ma.edition_id = e.id
             LEFT JOIN canonical_values wcv ON wcv.entity_id = w.id
             LEFT JOIN canonical_values acv ON acv.entity_id = ma.id
-            WHERE w.id = @workId
+            WHERE (w.id = @workId OR w.parent_work_id = @workId)
               AND LOWER(w.media_type) IN ('audiobook', 'audiobooks', 'audio')
             GROUP BY w.id, ma.id
-            ORDER BY ma.presented_at IS NULL, ma.presented_at DESC, ma.file_path_root
-            LIMIT 1;
+            ORDER BY COALESCE(w.ordinal_sort, w.ordinal, 2147483647), ma.file_path_root;
             """,
             new { workId },
-            cancellationToken: ct));
+            cancellationToken: ct))).AsList();
 
-        if (row is null)
+        if (rows.Count == 0)
         {
             return null;
         }
 
-        MediaEngine.Contracts.Playback.PlaybackManifestDto? manifest = null;
-        if (_playback is not null && row.AssetId != Guid.Empty)
+        var items = new List<MediaGroupingItemViewModel>();
+        for (var rowIndex = 0; rowIndex < rows.Count; rowIndex++)
         {
-            try
+            var row = rows[rowIndex];
+            MediaEngine.Contracts.Playback.PlaybackManifestDto? manifest = null;
+            if (_playback is not null && row.AssetId != Guid.Empty)
             {
-                manifest = await _playback.BuildManifestAsync(row.AssetId, "web", profileId, ct);
+                try
+                {
+                    manifest = await _playback.BuildManifestAsync(row.AssetId, "web", profileId, ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(
+                        ex,
+                        "Could not build playback manifest for audiobook asset {AssetId}; falling back to an asset track row.",
+                        row.AssetId);
+                }
             }
-            catch (OperationCanceledException)
+
+            var chapters = manifest?.Chapters ?? [];
+            var totalDurationSeconds = ResolveAudiobookTotalDurationSeconds(row, chapters);
+            var resume = await LoadAudiobookResumeAsync(conn, row.WorkId, row.AssetId, manifest?.Resume, totalDurationSeconds, ct);
+            var resumeSeconds = resume?.PositionSeconds;
+            if (chapters.Count > 0)
             {
-                throw;
+                items.AddRange(chapters.Select(chapter => ToAudiobookChapterItem(row, chapter, resumeSeconds)));
             }
-            catch (Exception ex)
+            else
             {
-                _logger?.LogWarning(
-                    ex,
-                    "Could not build playback manifest for audiobook asset {AssetId}; falling back to full-audiobook detail row.",
-                    row.AssetId);
+                items.Add(ToFullAudiobookItem(row, manifest, resume, rowIndex + 1, rows.Count));
             }
         }
-
-        var chapters = manifest?.Chapters ?? [];
-        var totalDurationSeconds = ResolveAudiobookTotalDurationSeconds(row, chapters);
-        var resume = await LoadAudiobookResumeAsync(conn, row.WorkId, row.AssetId, manifest?.Resume, totalDurationSeconds, ct);
-        var resumeSeconds = resume?.PositionSeconds;
-        var items = chapters.Count > 0
-            ? chapters.Select(chapter => ToAudiobookChapterItem(row, chapter, resumeSeconds)).ToList()
-            : [ToFullAudiobookItem(row, manifest, resume)];
 
         return new MediaGroupingViewModel
         {
@@ -196,7 +205,12 @@ internal sealed partial class DetailCompositionOrchestrator
         };
     }
 
-    private static MediaGroupingItemViewModel ToFullAudiobookItem(AudiobookAssetRow row, MediaEngine.Contracts.Playback.PlaybackManifestDto? manifest, MediaEngine.Contracts.Playback.PlaybackResumeDto? resume)
+    private static MediaGroupingItemViewModel ToFullAudiobookItem(
+        AudiobookAssetRow row,
+        MediaEngine.Contracts.Playback.PlaybackManifestDto? manifest,
+        MediaEngine.Contracts.Playback.PlaybackResumeDto? resume,
+        int trackNumber = 1,
+        int assetCount = 1)
     {
         double? durationSeconds = TryParseAudioDurationSeconds(row.DurationSecondsValue)
             ?? TryParseDurationSeconds(row.Duration);
@@ -214,11 +228,11 @@ internal sealed partial class DetailCompositionOrchestrator
         {
             Id = row.WorkId.ToString("D"),
             EntityType = DetailEntityType.Audiobook,
-            Title = "Full audiobook",
+            Title = assetCount > 1 && !string.IsNullOrWhiteSpace(row.Title) ? row.Title : "Full audiobook",
             Subtitle = FirstText(row.Author, row.Narrator),
             Artist = FirstText(row.Narrator, row.Author),
             ArtworkUrl = $"/stream/{row.AssetId}/cover",
-            TrackNumber = "1",
+            TrackNumber = trackNumber.ToString(CultureInfo.InvariantCulture),
             Duration = FormatSecondsDuration(durationSeconds),
             DurationSeconds = durationSeconds,
             AssetId = row.AssetId.ToString("D"),

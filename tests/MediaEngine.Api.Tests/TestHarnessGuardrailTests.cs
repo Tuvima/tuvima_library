@@ -141,6 +141,28 @@ public sealed class TestHarnessGuardrailTests
         Assert.Contains("Dune Part Two (2024) {imdb-tt15239678}.mp4", source);
         Assert.Contains("Batman Begins (2005) {imdb-tt0372784}.mp4", source);
         Assert.Contains("The Dark Knight (2008) {imdb-tt0468569}.mp4", source);
+        Assert.Contains("PartCount: 3", source);
+        Assert.Contains("IncludeAbsMetadataSidecar: true", source);
+        Assert.Contains("WEBRip-1080p v2", source);
+        Assert.Contains("AlbumArtist: \"Queen\"", source);
+    }
+
+    [Fact]
+    public void DevHarness_ExposesDisposableRealWorldEdgeFixtureManifest()
+    {
+        var endpoint = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "DevSeedEndpoints.cs"));
+        var builder = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "RealWorldEdgeFixtureBuilder.cs"));
+
+        Assert.Contains("/generate-ingestion-edge-fixtures", endpoint);
+        Assert.Contains("MANIFEST.json", builder);
+        Assert.Contains("metadata.json", builder);
+        Assert.Contains("metadata.opf", builder);
+        Assert.Contains(".fuse_hidden", builder);
+        Assert.Contains(".azw3", builder);
+        Assert.Contains(".iso", builder);
+        Assert.Contains("WEBRip-1080p v2", builder);
+        Assert.Contains("albumArtist: \"Queen\"", builder);
+        Assert.Contains("Live Photo-style pair", builder);
     }
 
     [Fact]

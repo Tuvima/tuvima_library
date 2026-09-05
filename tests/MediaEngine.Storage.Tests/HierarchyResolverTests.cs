@@ -73,6 +73,34 @@ public sealed class HierarchyResolverTests : IDisposable
     }
 
     [Fact]
+    public async Task Music_UsesAlbumArtistForCompilationParentIdentity()
+    {
+        var collaboration = await _resolver.ResolveAsync(MediaType.Music, new Dictionary<string, string>
+        {
+            ["artist"] = "Queen & David Bowie",
+            ["album_artist"] = "Queen",
+            ["album"] = "Hot Space",
+            ["title"] = "Under Pressure",
+            ["track_number"] = "11",
+        });
+        var queenTrack = await _resolver.ResolveAsync(MediaType.Music, Track("Queen", "Hot Space", "Las Palabras de Amor", 9));
+
+        Assert.Equal(collaboration.ParentWorkId, queenTrack.ParentWorkId);
+    }
+
+    [Fact]
+    public async Task Audiobook_MultipleFilesShareParentAndRemainOrderedParts()
+    {
+        var first = await _resolver.ResolveAsync(MediaType.Audiobooks, AudiobookPart("Andy Weir", "Project Hail Mary", "Part 01", 1, 3));
+        var second = await _resolver.ResolveAsync(MediaType.Audiobooks, AudiobookPart("Andy Weir", "Project Hail Mary", "Part 02", 2, 3));
+
+        Assert.Equal(WorkKind.Child, first.WorkKind);
+        Assert.Equal(first.ParentWorkId, second.ParentWorkId);
+        Assert.Equal(1, first.Ordinal);
+        Assert.Equal(2, second.Ordinal);
+    }
+
+    [Fact]
     public async Task Maintenance_RemovesEmptyAutoParentsAndDerivedArtwork_WhenLastChildDeleted()
     {
         var resolved = await _resolver.ResolveAsync(
@@ -448,6 +476,21 @@ public sealed class HierarchyResolverTests : IDisposable
 
         return metadata;
     }
+
+    private static Dictionary<string, string> AudiobookPart(
+        string author,
+        string bookTitle,
+        string title,
+        int part,
+        int partCount) => new()
+    {
+        ["author"] = author,
+        ["book_title"] = bookTitle,
+        ["album"] = bookTitle,
+        ["title"] = title,
+        ["audiobook_part_number"] = part.ToString(),
+        ["audiobook_part_count"] = partCount.ToString(),
+    };
 
     private static Dictionary<string, string> Episode(string show, int season, int episode, string title) => new()
     {

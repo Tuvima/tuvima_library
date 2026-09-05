@@ -60,7 +60,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
     private static readonly HashSet<string> NonMediaExtensions =
         new(StringComparer.OrdinalIgnoreCase)
     {
-        ".json", ".xml", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",
+        ".json", ".xml", ".opf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",
         ".txt", ".md", ".nfo", ".srt", ".vtt", ".ass", ".sub", ".idx",
         ".log", ".db", ".db-wal", ".db-shm", ".lnk", ".ini", ".cfg",
     };

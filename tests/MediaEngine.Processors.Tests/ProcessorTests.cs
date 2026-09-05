@@ -160,6 +160,39 @@ public class FFmpegServiceParsingTests
                 Assert.Equal(120, chapter.EndSeconds);
             });
     }
+
+    [Fact]
+    public void ParseProbeJson_ReadsAppleCaptureAndLivePhotoMetadata()
+    {
+        const string json = """
+        {
+          "format": {
+            "duration": "1.5",
+            "size": "2048",
+            "tags": {
+              "com.apple.quicktime.creationdate": "2022-09-11T01:31:34-0500",
+              "com.apple.quicktime.make": "Apple",
+              "com.apple.quicktime.model": "iPhone 13 Pro",
+              "com.apple.quicktime.location.ISO6709": "+41.8818-087.6231+181.000/",
+              "com.apple.quicktime.content.identifier": "edge-live-photo-id",
+              "com.apple.quicktime.live-photo.auto": "1"
+            }
+          },
+          "streams": []
+        }
+        """;
+
+        var parser = typeof(FFmpegService).GetMethod("ParseProbeJson", BindingFlags.NonPublic | BindingFlags.Static);
+        var result = Assert.IsType<MediaProbeResult>(parser!.Invoke(null, [json, "photo.mov"]));
+
+        Assert.Equal(2022, result.CapturedAt?.Year);
+        Assert.Equal("Apple", result.DeviceMake);
+        Assert.Equal("iPhone 13 Pro", result.DeviceModel);
+        Assert.Equal(41.8818, result.Latitude);
+        Assert.Equal(-87.6231, result.Longitude);
+        Assert.Equal("edge-live-photo-id", result.ContentIdentifier);
+        Assert.True(result.IsLivePhoto);
+    }
 }
 
 // ════════════════════════════════════════════════════════════════════════
@@ -190,6 +223,25 @@ public class VideoProcessorTests
             Assert.Contains(result.Claims, claim => claim.Key == "title" && claim.Value == expectedTitle);
             Assert.Contains(result.Claims, claim => claim.Key == "year" && claim.Value == expectedYear);
             Assert.DoesNotContain(result.Claims, claim => claim.Key == "title" && claim.Value.Contains("imdb-", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task ProcessAsync_StripsReleaseQualityAndVersionFromEpisodeTitle()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"video_processor_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var file = Path.Combine(dir, "Solo Leveling - S02E08 - Looking Up Was Tiring Me Out WEBRip-1080p v2.mp4");
+        await File.WriteAllBytesAsync(file, MinimalMp4Header());
+        try
+        {
+            var result = await new VideoProcessor(new StubVideoMetadataExtractor()).ProcessAsync(file);
+            Assert.Contains(result.Claims, claim => claim.Key == "episode_title" && claim.Value == "Looking Up Was Tiring Me Out");
+            Assert.DoesNotContain(result.Claims, claim => claim.Value.Contains("WEBRip", StringComparison.OrdinalIgnoreCase));
         }
         finally
         {

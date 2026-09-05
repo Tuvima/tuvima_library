@@ -25,6 +25,8 @@ public sealed class ProcessorPrimitiveCharacterizationTests
                 (new ComicProcessor(), MediaType.Comics),
                 (new EpubProcessor(), MediaType.Books),
                 (new PdfProcessor(), MediaType.Books),
+                (new AzW3Processor(), MediaType.Books),
+                (new DiscImageProcessor(), MediaType.Movies),
             };
 
             foreach (var (processor, expectedType) in processors)
@@ -90,7 +92,7 @@ public sealed class ProcessorPrimitiveCharacterizationTests
             .Where(path => !path.EndsWith("ProcessorPrimitives.cs", StringComparison.Ordinal))
             .ToArray();
 
-        Assert.Equal(6, implementationFiles.Length);
+        Assert.Equal(8, implementationFiles.Length);
 
         foreach (var file in implementationFiles)
         {

@@ -240,7 +240,19 @@ public sealed partial class IngestionEngine
             return true;
         }
 
-        return NonMediaExtensions.Contains(Path.GetExtension(filePath));
+        return IsTransientInputPath(filePath)
+            || NonMediaExtensions.Contains(Path.GetExtension(filePath));
+    }
+
+    private static bool IsTransientInputPath(string filePath)
+    {
+        var name = Path.GetFileName(filePath);
+        return name.StartsWith(".fuse_hidden", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith(".nfs", StringComparison.OrdinalIgnoreCase)
+            || name.StartsWith("~$", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".part", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".partial", StringComparison.OrdinalIgnoreCase)
+            || name.EndsWith(".crdownload", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string NormalizeDirectoryPath(string path)
@@ -484,7 +496,7 @@ public sealed partial class IngestionEngine
     private bool BufferFswEvent(FileEvent evt)
     {
         var extension = Path.GetExtension(evt.Path);
-        if (string.IsNullOrWhiteSpace(extension) || NonMediaExtensions.Contains(extension))
+        if (string.IsNullOrWhiteSpace(extension) || IsIgnoredScanFile(evt.Path))
         {
             return false;
         }
@@ -669,7 +681,7 @@ public sealed partial class IngestionEngine
         {
             var normalizedPath = Path.GetFullPath(evt.Path);
             var extension = Path.GetExtension(normalizedPath);
-            if (string.IsNullOrWhiteSpace(extension) || NonMediaExtensions.Contains(extension))
+            if (string.IsNullOrWhiteSpace(extension) || IsIgnoredScanFile(normalizedPath))
             {
                 ReleaseActivePath(evt.Path);
                 continue;

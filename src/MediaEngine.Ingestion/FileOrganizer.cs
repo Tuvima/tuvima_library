@@ -29,7 +29,10 @@ namespace MediaEngine.Ingestion;
 ///   {Publisher}    — publisher claim
 ///   {Category}     — top-level category folder (Movies, TV, Music, …)
 ///   {Artist}       — music artist
+///   {AlbumArtist}  — music album artist (falls back to track artist)
 ///   {Album}        — music album
+///   {BookTitle}    — audiobook work title from sidecar or album tag
+///   {TrackTitle}   — source-authored audiobook/music part title
 ///   {TrackNumber}  — zero-padded track number
 ///   {Disc}         — zero-padded disc number for multi-disc albums (empty when single-disc — pair with conditional `({Disc})`)
 ///   {Season}       — zero-padded TV season
@@ -181,7 +184,10 @@ public sealed class FileOrganizer : IFileOrganizer
             ["Edition"]     = "Hardcover",
             ["Qid"]         = "Q190159",
             ["Artist"]      = "Sample Artist",
+            ["AlbumArtist"] = "Sample Album Artist",
             ["Album"]       = "Sample Album",
+            ["BookTitle"]   = "Sample Audiobook",
+            ["TrackTitle"]  = "Chapter One",
             ["TrackNumber"] = "01",
             ["Season"]      = "01",
             ["Episode"]     = "01",
@@ -437,8 +443,13 @@ public sealed class FileOrganizer : IFileOrganizer
             ["Qid"]       = meta.GetValueOrDefault("wikidata_qid") is { Length: > 0 } q ? q : "Q0",
             // ── Per-media-type tokens ────────────────────────────────────────────
             ["Artist"]      = meta.GetValueOrDefault(MetadataFieldConstants.Artist,       meta.GetValueOrDefault(MetadataFieldConstants.Author, "Unknown")),
+            ["AlbumArtist"] = meta.GetValueOrDefault("album_artist", meta.GetValueOrDefault(MetadataFieldConstants.Artist, meta.GetValueOrDefault(MetadataFieldConstants.Author, "Unknown"))),
             ["Album"]       = meta.GetValueOrDefault(MetadataFieldConstants.Album,        "Unknown"),
-            ["TrackNumber"] = PadNumeric(meta.GetValueOrDefault(MetadataFieldConstants.TrackNumber, string.Empty)),
+            ["BookTitle"]   = meta.GetValueOrDefault("book_title", meta.GetValueOrDefault(MetadataFieldConstants.Album, meta.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown"))),
+            ["TrackTitle"]  = meta.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown"),
+            ["TrackNumber"] = PadNumeric(meta.GetValueOrDefault(MetadataFieldConstants.TrackNumber, string.Empty) is { Length: > 0 } track
+                                  ? track
+                                  : meta.GetValueOrDefault("audiobook_part_number", string.Empty)),
             ["Season"]      = PadNumeric(meta.GetValueOrDefault("season",  "") is { Length: > 0 } sn ? sn : meta.GetValueOrDefault("season_number",  string.Empty)),
             ["Episode"]     = PadNumeric(meta.GetValueOrDefault("episode", "") is { Length: > 0 } ep ? ep : meta.GetValueOrDefault("episode_number", string.Empty)),
             // ── TV episode title (Plex/Jellyfin filename convention) ─────────────

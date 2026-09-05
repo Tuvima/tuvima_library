@@ -84,6 +84,29 @@ public sealed class ViewThumbnailServiceTests : IDisposable
         Assert.NotNull(thumbnail);
     }
 
+    [Fact]
+    public async Task GetOrCreateAsync_UsesFfmpegWhenSkiaCannotDecodeHeic()
+    {
+        Directory.CreateDirectory(_root);
+        var sourcePath = Path.Combine(_root, "photo.heic");
+        await File.WriteAllBytesAsync(sourcePath, [0, 0, 0, 24, 0x66, 0x74, 0x79, 0x70]);
+        var itemId = Guid.NewGuid();
+        var ffmpeg = new ThumbnailFfmpegService();
+        var service = new ViewThumbnailService(
+            new AssetPathService(_root),
+            NullLogger<ViewThumbnailService>.Instance,
+            ffmpeg);
+
+        var result = await service.GetOrCreateAsync(
+            itemId,
+            Location(itemId, sourcePath) with { MimeType = "image/heic" });
+
+        Assert.NotNull(result);
+        Assert.True(File.Exists(result));
+        Assert.Contains("-frames:v 1", ffmpeg.LastArguments, StringComparison.Ordinal);
+        Assert.DoesNotContain("-ss 0.5", ffmpeg.LastArguments, StringComparison.Ordinal);
+    }
+
     private static LocalAssetContentLocation Location(Guid itemId, string filePath) => new(
         itemId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), null, null,
         filePath, "image/jpeg", new FileInfo(filePath).Length, "hash", "primary", null);

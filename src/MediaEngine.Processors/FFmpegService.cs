@@ -278,6 +278,15 @@ public sealed class FFmpegService : IFFmpegService
                 return null;
             }
 
+            var captureText = Tag("com.apple.quicktime.creationdate") ?? Tag("creation_time");
+            var capturedAt = DateTimeOffset.TryParse(
+                captureText,
+                System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal,
+                out var parsedCapture) ? parsedCapture : (DateTimeOffset?)null;
+            var location = Tag("com.apple.quicktime.location.ISO6709") ?? Tag("location");
+            var (latitude, longitude) = ParseIso6709(location);
+
             // ── Streams ───────────────────────────────────────────────────────
             string? audioCodec = null;
             string? audioLanguage = null;
@@ -408,6 +417,13 @@ public sealed class FFmpegService : IFFmpegService
                 Narrator       = Tag("narrator") ?? Tag("composer"),
                 Publisher      = Tag("publisher"),
                 Description    = Tag("description") ?? Tag("comment"),
+                CapturedAt     = capturedAt,
+                DeviceMake     = Tag("com.apple.quicktime.make") ?? Tag("make"),
+                DeviceModel    = Tag("com.apple.quicktime.model") ?? Tag("model"),
+                Latitude       = latitude,
+                Longitude      = longitude,
+                ContentIdentifier = Tag("com.apple.quicktime.content.identifier"),
+                IsLivePhoto    = string.Equals(Tag("com.apple.quicktime.live-photo.auto"), "1", StringComparison.OrdinalIgnoreCase),
                 AudioLanguage  = audioLanguage,
                 AudioCodec     = audioCodec,
                 AudioBitrate   = bitrate,
@@ -530,5 +546,25 @@ public sealed class FFmpegService : IFFmpegService
         }
 
         return null;
+    }
+
+    private static (double? Latitude, double? Longitude) ParseIso6709(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return (null, null);
+
+        var match = System.Text.RegularExpressions.Regex.Match(
+            value,
+            @"^(?<lat>[+-]\d+(?:\.\d+)?)(?<lon>[+-]\d+(?:\.\d+)?)");
+        if (!match.Success
+            || !double.TryParse(match.Groups["lat"].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var latitude)
+            || !double.TryParse(match.Groups["lon"].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var longitude))
+        {
+            return (null, null);
+        }
+
+        return latitude is >= -90 and <= 90 && longitude is >= -180 and <= 180
+            ? (latitude, longitude)
+            : (null, null);
     }
 }
