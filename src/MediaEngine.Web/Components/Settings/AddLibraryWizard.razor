@@ -28,10 +28,11 @@
         </div>
 
         <ol class="add-library-wizard__steps" aria-label="Library setup progress">
-            @foreach (var step in WizardSteps)
+            @foreach (var step in VisibleSteps)
             {
+                var ordinal = VisibleStepOrdinal(step.Number);
                 <li class="@StepClass(step.Number)" aria-current="@(step.Number == _step ? "step" : null)">
-                    <span>@(step.Number < _step ? "✓" : step.Number)</span>
+                    <span>@(IsStepComplete(step.Number) ? "✓" : ordinal.ToString())</span>
                     <div><strong>@step.Title</strong><small>@step.Help</small></div>
                 </li>
             }
@@ -129,7 +130,7 @@
                     </div>
                     @if (AllFoldersValid)
                     {
-                        <AppAlert Tone="AppUiTone.Success" Icon="@Icons.Material.Outlined.CheckCircle">All folders look good. Paths are accessible and the primary destination is explicit.</AppAlert>
+                        <AppAlert Tone="AppUiTone.Success" Icon="@Icons.Material.Outlined.CheckCircle">@FolderValidationSummary</AppAlert>
                     }
                 }
             </section>
@@ -177,19 +178,29 @@
                     <div><dt>Area</dt><dd>@TitleCase(_draft.Area)</dd></div>
                     <div><dt>Type</dt><dd>Structured media</dd></div>
                     <div><dt>Folders</dt><dd>@_draft.Sources.Count</dd></div>
-                    <div><dt>Primary folder</dt><dd>@(_draft.GetPrimaryDestination()?.Path ?? "Not configured")</dd></div>
-                    <div><dt>Other folders</dt><dd>@SecondaryFolderSummary</dd></div>
-                    <div><dt>Organization</dt><dd>@OrganizationLabel</dd></div>
-                    <div><dt>Existing files unchanged</dt><dd>Yes, for Existing Library sources</dd></div>
+                    @if (HasManagedSources)
+                    {
+                        <div><dt>Managed primary</dt><dd>@(_draft.GetPrimaryDestination()?.Path ?? "Not configured")</dd></div>
+                        <div><dt>Other folders</dt><dd>@SecondaryFolderSummary</dd></div>
+                        <div><dt>Organization</dt><dd>@OrganizationLabel</dd></div>
+                        @if (HasReadOnlySources)
+                        {
+                            <div><dt>Read-only sources</dt><dd>Existing files remain unchanged</dd></div>
+                        }
+                    }
+                    else
+                    {
+                        <div><dt>File handling</dt><dd>Existing files will remain unchanged</dd></div>
+                    }
                 </dl>
             </section>
         }
 
         <div class="add-library-wizard__footer">
-            <AppButton Label="Back" ButtonStyle="AppButtonStyle.Outlined" Disabled="@(_step == 1 || _saving)" OnClick="Back" />
+            <AppButton Label="Back" ButtonStyle="AppButtonStyle.Outlined" Disabled="@(IsFirstStep || _saving)" OnClick="Back" />
             <div>
                 <AppButton Label="Cancel" ButtonStyle="AppButtonStyle.Text" Disabled="@_saving" OnClick="Cancel" />
-                @if (_step < 4)
+                @if (!IsLastStep)
                 {
                     <AppButton Label="Next" EndIcon="@Icons.Material.Outlined.ArrowForward" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(!CanContinue)" OnClick="Next" />
                 }
@@ -228,6 +239,10 @@
         new(3, "Organization", "Set naming and options"),
         new(4, "Review", "Confirm and create"),
     ];
+
+    private IReadOnlyList<WizardStep> VisibleSteps => HasManagedSources
+        ? WizardSteps
+        : WizardSteps.Where(step => step.Number != 3).ToList();
 
     private static readonly OrganizationMode[] OrganizationModes =
     [
@@ -360,9 +375,11 @@
         if (!managed && source.Role == "primary_destination")
         {
             source.Role = "secondary";
+            source.IntakeRole = "none";
             _draft.PrimaryDestinationSourceId = null;
         }
         _validation[source.Id] = validation!;
+        NormalizePrimaryDestination();
     }
 
     private void SetSourceRole(LibrarySourceDto source, string? role)
@@ -370,6 +387,7 @@
         if (role != "primary_destination" || source.ManagementMode != "managed_by_tuvima")
         {
             source.Role = "secondary";
+            source.IntakeRole = "none";
             if (_draft.PrimaryDestinationSourceId == source.Id) _draft.PrimaryDestinationSourceId = null;
             return;
         }
@@ -389,6 +407,7 @@
         _draft.Sources.Remove(source);
         _validation.Remove(source.Id);
         if (_draft.PrimaryDestinationSourceId == source.Id) _draft.PrimaryDestinationSourceId = null;
+        NormalizePrimaryDestination();
     }
 
     private void SetNewFolderMode(string value) => _newFolderMode = value;
@@ -396,9 +415,36 @@
     private string SourceFriendlyName(LibrarySourceDto source) => string.IsNullOrWhiteSpace(source.Notes) ? Path.GetFileName(source.Path) : source.Notes;
     private string ValidationLabel(LibrarySourceDto source) => _validation.TryGetValue(source.Id, out var result) && result.CanSelect ? "Healthy" : "Needs validation";
     private AppUiTone ValidationTone(LibrarySourceDto source) => _validation.TryGetValue(source.Id, out var result) && result.CanSelect ? AppUiTone.Success : AppUiTone.Warning;
+    private bool HasManagedSources => _draft.Sources.Any(source => source.ManagementMode == "managed_by_tuvima");
+    private bool HasReadOnlySources => _draft.Sources.Any(source => source.ManagementMode == "existing_library");
+    private bool RequiresPrimaryDestination => HasManagedSources;
+    private bool HasValidPrimaryDestination
+    {
+        get
+        {
+            var primaryRoles = _draft.Sources.Where(source => source.Role == "primary_destination").ToList();
+            if (!RequiresPrimaryDestination)
+            {
+                return string.IsNullOrWhiteSpace(_draft.PrimaryDestinationSourceId) && primaryRoles.Count == 0;
+            }
+
+            var primary = _draft.GetPrimaryDestination();
+            return primaryRoles.Count == 1
+                && primary is not null
+                && ReferenceEquals(primary, primaryRoles[0])
+                && primary.ManagementMode == "managed_by_tuvima"
+                && primary.AccessMode == "writable"
+                && _validation.TryGetValue(primary.Id, out var validation)
+                && validation.CanSelect
+                && validation.HasWrite;
+        }
+    }
     private bool AllFoldersValid => _draft.Sources.Count > 0
-        && _draft.GetPrimaryDestination() is not null
-        && _draft.Sources.All(source => _validation.TryGetValue(source.Id, out var result) && result.CanSelect);
+        && HasValidPrimaryDestination
+        && _draft.Sources.All(source => _validation.TryGetValue(source.Id, out var result)
+            && result.CanSelect
+            && result.HasRead
+            && (source.ManagementMode != "managed_by_tuvima" || result.HasWrite));
     private bool CanContinue => _step switch
     {
         1 => _selectedType is not null,
@@ -407,9 +453,54 @@
         _ => true,
     };
 
-    private string StepClass(int step) => step == _step ? "is-active" : step < _step ? "is-complete" : string.Empty;
-    private void Back() => _step = Math.Max(1, _step - 1);
-    private void Next() { if (CanContinue) _step = Math.Min(4, _step + 1); }
+    private int CurrentVisibleStepIndex => VisibleSteps.ToList().FindIndex(step => step.Number == _step);
+    private bool IsFirstStep => CurrentVisibleStepIndex <= 0;
+    private bool IsLastStep => CurrentVisibleStepIndex == VisibleSteps.Count - 1;
+    private int VisibleStepOrdinal(int step) => VisibleSteps.ToList().FindIndex(item => item.Number == step) + 1;
+    private bool IsStepComplete(int step) => VisibleStepOrdinal(step) < VisibleStepOrdinal(_step);
+    private string StepClass(int step) => step == _step ? "is-active" : IsStepComplete(step) ? "is-complete" : string.Empty;
+    private void Back()
+    {
+        var index = CurrentVisibleStepIndex;
+        if (index > 0) _step = VisibleSteps[index - 1].Number;
+    }
+    private void Next()
+    {
+        var index = CurrentVisibleStepIndex;
+        if (CanContinue && index >= 0 && index < VisibleSteps.Count - 1)
+            _step = VisibleSteps[index + 1].Number;
+    }
+
+    private void NormalizePrimaryDestination()
+    {
+        var managed = _draft.Sources
+            .Where(source => source.ManagementMode == "managed_by_tuvima")
+            .ToList();
+        foreach (var source in _draft.Sources.Where(source => source.ManagementMode != "managed_by_tuvima"))
+        {
+            source.Role = "secondary";
+            source.IntakeRole = "none";
+        }
+
+        if (managed.Count == 0)
+        {
+            _draft.PrimaryDestinationSourceId = null;
+            return;
+        }
+
+        var primary = managed.FirstOrDefault(source =>
+            source.Role == "primary_destination"
+            && string.Equals(source.Id, _draft.PrimaryDestinationSourceId, StringComparison.OrdinalIgnoreCase))
+            ?? managed.FirstOrDefault(source => source.Role == "primary_destination")
+            ?? managed[0];
+        foreach (var source in managed)
+        {
+            var isPrimary = ReferenceEquals(source, primary);
+            source.Role = isPrimary ? "primary_destination" : "secondary";
+            source.IntakeRole = isPrimary ? "direct" : "none";
+        }
+        _draft.PrimaryDestinationSourceId = primary.Id;
+    }
     private async Task Cancel()
     {
         if (Embedded)
@@ -467,6 +558,11 @@
         _ => "Movies / Title (2026) / Title (2026).mkv",
     };
     private string OrganizationLabel => OrganizationModes.First(mode => mode.Value == _draft.OrganizationPolicy.Mode).Label;
+    private string FolderValidationSummary => HasManagedSources
+        ? HasReadOnlySources
+            ? "All folders are accessible. The managed primary is writable, and read-only sources will remain unchanged."
+            : "All folders are accessible and the managed primary destination is writable."
+        : "All folders are accessible. Existing files will remain unchanged.";
     private string SecondaryFolderSummary => _draft.Sources.Count(source => source.Role == "secondary") switch
     {
         0 => "None",

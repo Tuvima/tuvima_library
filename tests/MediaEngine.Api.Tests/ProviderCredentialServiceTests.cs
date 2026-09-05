@@ -119,6 +119,52 @@ public sealed class ProviderCredentialServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task TestAsync_RejectsApplicationManagedCredentialSubmission()
+    {
+        using var loader = CreateApplicationManagedLoader();
+        var handler = new StubHandler(HttpStatusCode.OK);
+        var service = CreateService(loader, handler);
+
+        var result = await service.TestAsync(
+            "contract_provider",
+            new Dictionary<string, string> { ["api_key"] = new string('x', 32) });
+
+        Assert.False(result.Success);
+        Assert.Equal("invalid_format", result.Status);
+        Assert.Contains("managed by the application", result.FieldErrors["api_key"], StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, handler.RequestCount);
+    }
+
+    [Fact]
+    public async Task SaveAndRemove_UserCredential_PreserveApplicationManagedCredential()
+    {
+        using var loader = CreateApplicationManagedLoader();
+        var handler = new StubHandler(HttpStatusCode.OK);
+        var consumer = new CredentialConsumer("contract_provider");
+        var service = CreateService(loader, handler, consumer);
+        var clientKey = new string('c', 32);
+
+        var saved = await service.SaveAsync(
+            "contract_provider",
+            new Dictionary<string, string> { ["client_key"] = clientKey });
+
+        Assert.True(saved.Success);
+        Assert.Contains("api_key=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", handler.LastRequestUri?.Query, StringComparison.Ordinal);
+        Assert.Contains($"client_key={clientKey}", handler.LastRequestUri?.Query, StringComparison.Ordinal);
+        var secretPath = Path.Combine(_root, "secrets", "contract_provider.json");
+        Assert.Contains(new string('a', 32), File.ReadAllText(secretPath), StringComparison.Ordinal);
+        Assert.Contains(clientKey, File.ReadAllText(secretPath), StringComparison.Ordinal);
+
+        var removed = service.Remove("contract_provider");
+
+        Assert.True(removed.Success);
+        Assert.Contains(new string('a', 32), File.ReadAllText(secretPath), StringComparison.Ordinal);
+        Assert.DoesNotContain(clientKey, File.ReadAllText(secretPath), StringComparison.Ordinal);
+        Assert.Equal(new string('a', 32), consumer.LastCredentials["api_key"]);
+        Assert.Null(consumer.LastCredentials.GetValueOrDefault("client_key"));
+    }
+
+    [Fact]
     public void Loader_CreatesSecretsDirectoryWhenExistingConfigRootIsEmpty()
     {
         Directory.CreateDirectory(_root);
@@ -169,6 +215,27 @@ public sealed class ProviderCredentialServiceTests : IDisposable
                 },
             },
         });
+        return loader;
+    }
+
+    private ConfigurationDirectoryLoader CreateApplicationManagedLoader()
+    {
+        var loader = CreateLoader();
+        var provider = loader.LoadProvider("contract_provider")!;
+        provider.HttpClient!.ApiKey = new string('a', 32);
+        provider.Onboarding!.Credentials[0].Ownership = "application_managed";
+        provider.Onboarding.Credentials[0].Purpose = "api_key";
+        provider.Onboarding.Credentials.Add(new ProviderCredentialFieldConfiguration
+        {
+            Key = "client_key",
+            Label = "Personal client key",
+            Ownership = "user_supplied",
+            Purpose = "client_key",
+            Required = false,
+            MinimumLength = 32,
+            MaximumLength = 32,
+        });
+        loader.SaveProvider(provider);
         return loader;
     }
 

@@ -124,7 +124,7 @@
                         }
                         else if (_browse.Directories.Count == 0)
                         {
-                            <div class="server-folder-picker__state">No accessible folders are available here.</div>
+                            <div class="server-folder-picker__state">@(string.IsNullOrWhiteSpace(_search) ? "No accessible subfolders are available here." : "No folders match your search in this location.")</div>
                         }
                         else
                         {
@@ -216,6 +216,11 @@
     [Parameter] public IReadOnlyCollection<string>? AllowedStorageLocationIds { get; set; }
 
     private readonly CancellationTokenSource _lifetime = new();
+    private CancellationTokenSource? _browseRequest;
+    private CancellationTokenSource? _validationRequest;
+    private CancellationTokenSource? _searchDebounce;
+    private long _browseGeneration;
+    private long _validationGeneration;
     private List<ServerStorageLocationDto> _locations = [];
     private BrowseServerFoldersResultDto? _browse;
     private ServerStorageLocationDto? _activeLocation;
@@ -268,15 +273,23 @@
 
     private async Task SelectLocationAsync(ServerStorageLocationDto location, string? relativePath = null)
     {
+        CancelSearchDebounce();
         _activeLocation = location;
         _search = string.Empty;
         _showManualPath = false;
-        await NavigateAsync(relativePath ?? string.Empty);
+        _selectedRelativePath = relativePath ?? string.Empty;
+        _validation = null;
+        await NavigateAsync(_selectedRelativePath, preserveSelection: false);
     }
 
-    private async Task NavigateAsync(string relativePath)
+    private async Task NavigateAsync(string relativePath, bool preserveSelection = false)
     {
         if (_activeLocation is null) return;
+        var generation = ++_browseGeneration;
+        _browseRequest?.Cancel();
+        _browseRequest?.Dispose();
+        _browseRequest = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        var token = _browseRequest.Token;
         _loadingBrowse = true;
         _error = null;
         var request = new BrowseServerFoldersRequest
@@ -285,30 +298,58 @@
             RelativePath = relativePath,
             Search = _search,
         };
-        _browse = string.IsNullOrWhiteSpace(SetupSession)
-            ? await ApiClient.BrowseServerFoldersAsync(request, _lifetime.Token)
-            : await ApiClient.BrowseSetupServerFoldersAsync(request, SetupSession, _lifetime.Token);
-        _loadingBrowse = false;
-        if (_browse is null)
+        BrowseServerFoldersResultDto? browse;
+        try
         {
-            _error = "Tuvima could not browse this server folder.";
+            browse = string.IsNullOrWhiteSpace(SetupSession)
+                ? await ApiClient.BrowseServerFoldersAsync(request, token)
+                : await ApiClient.BrowseSetupServerFoldersAsync(request, SetupSession, token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return;
+        }
+        finally
+        {
+            if (generation == _browseGeneration) _loadingBrowse = false;
+        }
+
+        if (generation != _browseGeneration) return;
+        if (browse is null)
+        {
+            _error = "Tuvima could not reach this server folder. Check that the location is online and try again.";
             return;
         }
 
-        _selectedRelativePath = _browse.RelativePath;
-        await ValidateSelectedAsync();
+        _browse = browse;
+        if (!preserveSelection)
+        {
+            _selectedRelativePath = browse.RelativePath;
+            await ValidateSelectedAsync();
+        }
     }
 
     private Task NavigateUpAsync() => _browse?.ParentRelativePath is { } parent
         ? NavigateAsync(parent)
         : Task.CompletedTask;
 
-    private Task RefreshAsync() => NavigateAsync(_browse?.RelativePath ?? string.Empty);
+    private Task RefreshAsync() => NavigateAsync(_browse?.RelativePath ?? string.Empty, preserveSelection: true);
 
     private async Task SearchChangedAsync(object? value)
     {
         _search = value?.ToString() ?? string.Empty;
-        await NavigateAsync(_browse?.RelativePath ?? string.Empty);
+        CancelSearchDebounce();
+        _searchDebounce = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        var token = _searchDebounce.Token;
+        try
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(275), token);
+            await NavigateAsync(_browse?.RelativePath ?? string.Empty, preserveSelection: true);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // A newer search value superseded this request.
+        }
     }
 
     private async Task SelectFolderAsync(ServerFolderEntryDto folder)
@@ -320,6 +361,11 @@
     private async Task ValidateSelectedAsync()
     {
         if (_activeLocation is null) return;
+        var generation = ++_validationGeneration;
+        _validationRequest?.Cancel();
+        _validationRequest?.Dispose();
+        _validationRequest = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        var token = _validationRequest.Token;
         _validating = true;
         _error = null;
         var request = new ValidateServerFolderRequest
@@ -329,11 +375,24 @@
             SelectionMode = SelectionMode,
             CurrentSourceId = CurrentSourceId,
         };
-        _validation = string.IsNullOrWhiteSpace(SetupSession)
-            ? await ApiClient.ValidateServerFolderAsync(request, _lifetime.Token)
-            : await ApiClient.ValidateSetupServerFolderAsync(request, SetupSession, _lifetime.Token);
-        _validating = false;
-        if (_validation is null) _error = "The selected server folder could not be validated.";
+        ServerFolderValidationResultDto? validation;
+        try
+        {
+            validation = string.IsNullOrWhiteSpace(SetupSession)
+                ? await ApiClient.ValidateServerFolderAsync(request, token)
+                : await ApiClient.ValidateSetupServerFolderAsync(request, SetupSession, token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return;
+        }
+        finally
+        {
+            if (generation == _validationGeneration) _validating = false;
+        }
+        if (generation != _validationGeneration) return;
+        _validation = validation;
+        if (_validation is null) _error = "Tuvima could not validate this server folder. Check that the location is online and try again.";
     }
 
     private async Task ValidateManualPathAsync()
@@ -362,6 +421,12 @@
     }
 
     private void ToggleManualPath() => _showManualPath = !_showManualPath;
+    private void CancelSearchDebounce()
+    {
+        _searchDebounce?.Cancel();
+        _searchDebounce?.Dispose();
+        _searchDebounce = null;
+    }
     private void Confirm() { if (_validation?.CanSelect == true) DialogInstance.Close(DialogResult.Ok(_validation)); }
     private void Cancel() => DialogInstance.Cancel();
 
@@ -401,6 +466,11 @@
 
     public void Dispose()
     {
+        CancelSearchDebounce();
+        _browseRequest?.Cancel();
+        _browseRequest?.Dispose();
+        _validationRequest?.Cancel();
+        _validationRequest?.Dispose();
         _lifetime.Cancel();
         _lifetime.Dispose();
     }

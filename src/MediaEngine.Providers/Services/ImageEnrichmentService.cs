@@ -39,7 +39,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private readonly ImageDownloadCoordinator _imageDownloadCoordinator;
     private readonly ILogger<ImageEnrichmentService> _logger;
 
-    private const string FanartBaseUrl = "https://webservice.fanart.tv/v3";
+    private const string FanartBaseUrl = "https://webservice.fanart.tv/v3.2";
     private const string FanartProviderConfigName = "fanart_tv";
     private const int MaxFanartVariantsPerAssetType = 3;
     private const double CharacterMatchThreshold = 0.70;
@@ -217,6 +217,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         var apiResult = await CallFanartApiAsync(
             fanartRequest,
             apiKey,
+            fanartConfig?.HttpClient?.ClientKey,
             fanartConfig?.Name,
             ct);
         if (apiResult.Json is null)
@@ -904,10 +905,13 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private async Task<FanartApiResult> CallFanartApiAsync(
         FanartRequest request,
         string apiKey,
+        string? clientKey,
         string? clientName,
         CancellationToken ct)
     {
-        var url = $"{request.Endpoint}?api_key={apiKey}";
+        var url = $"{request.Endpoint}?api_key={Uri.EscapeDataString(apiKey)}";
+        if (!string.IsNullOrWhiteSpace(clientKey))
+            url += $"&client_key={Uri.EscapeDataString(clientKey)}";
         try
         {
             using var client = _httpFactory.CreateClient(
@@ -917,10 +921,13 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
             if (!response.IsSuccessStatusCode)
             {
+                var redactedUrl = url.Replace(apiKey, "***", StringComparison.Ordinal);
+                if (!string.IsNullOrWhiteSpace(clientKey))
+                    redactedUrl = redactedUrl.Replace(clientKey, "***", StringComparison.Ordinal);
                 _logger.LogWarning(
                     "[IMAGE-ENRICH] Fanart.tv returned {Status} for {Url}",
                     response.StatusCode,
-                    url.Replace(apiKey, "***", StringComparison.Ordinal));
+                    redactedUrl);
 
                 return new FanartApiResult(
                     null,
@@ -1301,6 +1308,17 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         if (json["albums"] is JsonObject albums)
         {
             foreach (var (_, albumNode) in albums)
+            {
+                foreach (var jsonField in jsonFields)
+                {
+                    if (albumNode?[jsonField] is JsonArray nestedArray && nestedArray.Count > 0)
+                        results.AddRange(nestedArray.Where(node => node is not null).Select(node => node!));
+                }
+            }
+        }
+        else if (json["albums"] is JsonArray albumArray)
+        {
+            foreach (var albumNode in albumArray.Where(node => node is not null))
             {
                 foreach (var jsonField in jsonFields)
                 {

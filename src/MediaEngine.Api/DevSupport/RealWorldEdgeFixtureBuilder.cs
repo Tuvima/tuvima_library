@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Api.DevSupport;
 
@@ -31,7 +32,7 @@ public static class RealWorldEdgeFixtureBuilder
             asin = "B-EDGE-MULTIPART",
             language = "English",
             chapters = Enumerable.Range(1, 3).Select(index => new { id = index - 1, start = 0, end = 1, title = $"Part {index:D2}" }),
-        }, new JsonSerializerOptions { WriteIndented = true }), ct);
+        }, MediaEngineJson.Indented), ct);
         files.Add(Entry(root, metadataPath, "sidecar", "metadata enrichment only; never a media asset"));
 
         var bookDirectory = Path.Combine(root, "books", "Noam Chomsky", "Manufacturing Consent");
@@ -89,7 +90,7 @@ public static class RealWorldEdgeFixtureBuilder
             safety = "Disposable synthetic fixtures. This directory is not added to configured libraries automatically.",
             files,
         };
-        await File.WriteAllTextAsync(manifestPath, JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }), ct);
+        await File.WriteAllTextAsync(manifestPath, JsonSerializer.Serialize(manifest, MediaEngineJson.Indented), ct);
         return new { root, manifest = manifestPath, file_count = files.Count, files };
     }
 

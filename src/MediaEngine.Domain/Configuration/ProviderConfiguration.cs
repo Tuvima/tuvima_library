@@ -281,6 +281,78 @@ public sealed class ProviderOnboardingConfiguration
 
     [JsonPropertyName("authentication_probe")]
     public ProviderAuthenticationProbeConfiguration? AuthenticationProbe { get; set; }
+
+    [JsonPropertyName("intro")]
+    public ProviderOnboardingIntroConfiguration? Intro { get; set; }
+
+    [JsonPropertyName("steps")]
+    public List<ProviderOnboardingStepConfiguration> Steps { get; set; } = [];
+
+    [JsonPropertyName("troubleshooting")]
+    public List<ProviderOnboardingTroubleshootingConfiguration> Troubleshooting { get; set; } = [];
+}
+
+public sealed class ProviderOnboardingIntroConfiguration
+{
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("summary")]
+    public string Summary { get; set; } = string.Empty;
+}
+
+public sealed class ProviderOnboardingStepConfiguration
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("instructions")]
+    public List<string> Instructions { get; set; } = [];
+
+    [JsonPropertyName("action")]
+    public ProviderOnboardingActionConfiguration? Action { get; set; }
+
+    [JsonPropertyName("credential_keys")]
+    public List<string> CredentialKeys { get; set; } = [];
+}
+
+public sealed class ProviderOnboardingActionConfiguration
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "information";
+
+    [JsonPropertyName("label")]
+    public string? Label { get; set; }
+
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
+
+    [JsonPropertyName("url_role")]
+    public string? UrlRole { get; set; }
+}
+
+public sealed class ProviderOnboardingTroubleshootingConfiguration
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("instructions")]
+    public List<string> Instructions { get; set; } = [];
+
+    [JsonPropertyName("help_url")]
+    public string? HelpUrl { get; set; }
 }
 
 public sealed class ProviderSkipConsequenceConfiguration
@@ -309,6 +381,14 @@ public sealed class ProviderCredentialFieldConfiguration
 
     [JsonPropertyName("required")]
     public bool Required { get; set; } = true;
+
+    /// <summary>Who supplies this credential: <c>user_supplied</c> or <c>application_managed</c>.</summary>
+    [JsonPropertyName("ownership")]
+    public string Ownership { get; set; } = "user_supplied";
+
+    /// <summary>Credential purpose used by generic provider authentication UI and services.</summary>
+    [JsonPropertyName("purpose")]
+    public string? Purpose { get; set; }
 
     [JsonPropertyName("format_hint")]
     public string? FormatHint { get; set; }
@@ -470,6 +550,14 @@ public sealed class HttpClientConfig
     /// </summary>
     [JsonPropertyName("api_key")]
     public string? ApiKey { get; set; }
+
+    /// <summary>Optional user/client key used alongside an application API key.</summary>
+    [JsonPropertyName("client_key")]
+    public string? ClientKey { get; set; }
+
+    /// <summary>Optional access token for providers whose declared credential purpose is access_token.</summary>
+    [JsonPropertyName("access_token")]
+    public string? AccessToken { get; set; }
 
     /// <summary>
     /// How the API key is delivered to the provider. Values:

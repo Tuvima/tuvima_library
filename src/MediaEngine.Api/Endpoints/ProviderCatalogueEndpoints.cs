@@ -109,6 +109,39 @@ public static class ProviderCatalogueEndpoints
             PrivacyUrl = onboarding.PrivacyUrl,
             SupportedLanes = [.. onboarding.SupportedLanes],
             RequiredScopes = [.. onboarding.RequiredScopes],
+            Intro = onboarding.Intro is null
+                ? null
+                : new ProviderOnboardingIntroDto
+                {
+                    Title = onboarding.Intro.Title,
+                    Summary = onboarding.Intro.Summary,
+                },
+            Steps = onboarding.Steps.Select(step => new ProviderOnboardingStepDto
+            {
+                Id = step.Id,
+                Title = step.Title,
+                Description = step.Description,
+                Instructions = [.. step.Instructions],
+                CredentialKeys = [.. step.CredentialKeys],
+                Action = step.Action is null
+                    ? null
+                    : new ProviderOnboardingActionDto
+                    {
+                        Kind = step.Action.Kind,
+                        Label = step.Action.Label,
+                        Url = step.Action.Url,
+                        UrlRole = step.Action.UrlRole,
+                    },
+            }).ToList(),
+            Troubleshooting = onboarding.Troubleshooting.Select(item =>
+                new ProviderOnboardingTroubleshootingDto
+                {
+                    Status = item.Status,
+                    Title = item.Title,
+                    Message = item.Message,
+                    Instructions = [.. item.Instructions],
+                    HelpUrl = item.HelpUrl,
+                }).ToList(),
             SkipConsequences = onboarding.SkipConsequences.Select(consequence =>
                 new ProviderSkipConsequenceDto
                 {
@@ -123,6 +156,8 @@ public static class ProviderCatalogueEndpoints
                     Label = field.Label,
                     InputType = field.InputType,
                     Required = field.Required,
+                    Ownership = NormalizeOwnership(field.Ownership),
+                    Purpose = ResolvePurpose(field),
                     FormatHint = field.FormatHint,
                     MinimumLength = field.MinimumLength,
                     MaximumLength = field.MaximumLength,
@@ -136,10 +171,34 @@ public static class ProviderCatalogueEndpoints
         string key) => key.ToLowerInvariant() switch
         {
             "api_key" => !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey),
+            "client_key" => !string.IsNullOrWhiteSpace(provider.HttpClient?.ClientKey),
             "username" => !string.IsNullOrWhiteSpace(provider.HttpClient?.Username),
             "password" => !string.IsNullOrWhiteSpace(provider.HttpClient?.Password),
+            "access_token" => !string.IsNullOrWhiteSpace(provider.HttpClient?.AccessToken),
             _ => false,
         };
+
+    private static string NormalizeOwnership(string? ownership) =>
+        string.Equals(ownership, "application_managed", StringComparison.OrdinalIgnoreCase)
+            ? "application_managed"
+            : "user_supplied";
+
+    private static string ResolvePurpose(
+        MediaEngine.Domain.Configuration.ProviderCredentialFieldConfiguration field)
+    {
+        if (!string.IsNullOrWhiteSpace(field.Purpose))
+            return field.Purpose.ToLowerInvariant();
+
+        return field.Key.ToLowerInvariant() switch
+        {
+            "api_key" => "api_key",
+            "client_key" => "client_key",
+            "username" => "username",
+            "password" => "password",
+            "access_token" => "access_token",
+            _ => "other",
+        };
+    }
 
     private static Dictionary<string, List<string>> BuildChips(
         Dictionary<string, List<string>>? source)

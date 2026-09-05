@@ -75,19 +75,14 @@ public static class SetupEndpoints
 
         group.MapPost("/media-locations/validate", async (
             HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
-            IConfigurationLoader configuration, OnboardingRepository onboarding, CancellationToken ct) =>
+            SetupMediaLocationValidationService mediaLocations,
+            OnboardingRepository onboarding, CancellationToken ct) =>
         {
             if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
-            var libraries = configuration.LoadLibraries();
-            var sources = libraries.Libraries.SelectMany(library => library.Sources).ToList();
-            var readable = sources.Count(source => Directory.Exists(source.Path));
-            var passed = sources.Count > 0 && readable > 0;
-            var detail = passed
-                ? $"{readable} of {sources.Count} configured media locations are visible to the server."
-                : "Add at least one readable media location before completing setup.";
-            await onboarding.SetStepAsync("media-locations", passed ? "passed" : "blocked", detail,
-                passed ? null : "/setup?step=media-locations", null, ct).ConfigureAwait(false);
-            return Results.Ok(new SetupMediaLocationsDto(passed, sources.Count, readable, detail));
+            var result = mediaLocations.Validate();
+            await onboarding.SetStepAsync("media-locations", result.Passed ? "passed" : "blocked", result.Detail,
+                result.Passed ? null : "/setup?step=media-locations", null, ct).ConfigureAwait(false);
+            return Results.Ok(result);
         }).Produces<SetupMediaLocationsDto>();
 
         group.MapGet("/libraries", async (
@@ -147,6 +142,15 @@ public static class SetupEndpoints
         {
             if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             return Results.Ok(await credentials.SaveAsync(name, request.Credentials, ct).ConfigureAwait(false));
+        }).Produces<ProviderCredentialOperationResultDto>();
+
+        group.MapPost("/providers/{name}/credentials/test", async (
+            string name, ProviderCredentialWriteRequest request,
+            HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
+            ProviderCredentialService credentials, CancellationToken ct) =>
+        {
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            return Results.Ok(await credentials.TestAsync(name, request.Credentials, ct).ConfigureAwait(false));
         }).Produces<ProviderCredentialOperationResultDto>();
 
         group.MapPost("/steps/{stepKey}", async (

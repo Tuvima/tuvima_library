@@ -313,6 +313,8 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             if (config.HttpClient is null)
             {
                 var hasHttpField = root.TryGetProperty("api_key", out _)
+                    || root.TryGetProperty("client_key", out _)
+                    || root.TryGetProperty("access_token", out _)
                     || root.TryGetProperty("username", out _)
                     || root.TryGetProperty("password", out _);
 
@@ -324,6 +326,10 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             {
                 if (root.TryGetProperty("api_key", out var apiKey) && apiKey.ValueKind == JsonValueKind.String)
                     config.HttpClient.ApiKey = apiKey.GetString();
+                if (root.TryGetProperty("client_key", out var clientKey) && clientKey.ValueKind == JsonValueKind.String)
+                    config.HttpClient.ClientKey = clientKey.GetString();
+                if (root.TryGetProperty("access_token", out var accessToken) && accessToken.ValueKind == JsonValueKind.String)
+                    config.HttpClient.AccessToken = accessToken.GetString();
                 if (root.TryGetProperty("username", out var user) && user.ValueKind == JsonValueKind.String)
                     config.HttpClient.Username = user.GetString();
                 if (root.TryGetProperty("password", out var pass) && pass.ValueKind == JsonValueKind.String)

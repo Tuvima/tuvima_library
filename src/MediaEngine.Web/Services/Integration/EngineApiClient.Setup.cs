@@ -36,6 +36,10 @@ public sealed partial class EngineApiClient
     public Task<ServerFolderValidationResultDto?> ValidateSetupServerFolderAsync(ValidateServerFolderRequest request, string? setupSession, CancellationToken ct = default) =>
         SetupSendAsync<ServerFolderValidationResultDto>(HttpMethod.Post, "/setup/v1/server-folders/validate", JsonContent.Create(request), setupSession, ct);
 
+    public Task<ProviderCredentialOperationResultDto?> TestSetupProviderCredentialsAsync(string name, ProviderCredentialWriteRequest request, string? setupSession, CancellationToken ct = default) =>
+        SetupSendAsync<ProviderCredentialOperationResultDto>(HttpMethod.Post,
+            $"/setup/v1/providers/{Uri.EscapeDataString(name)}/credentials/test", JsonContent.Create(request), setupSession, ct);
+
     public Task<ProviderCredentialOperationResultDto?> SaveSetupProviderCredentialsAsync(string name, ProviderCredentialWriteRequest request, string? setupSession, CancellationToken ct = default) =>
         SetupSendAsync<ProviderCredentialOperationResultDto>(HttpMethod.Put,
             $"/setup/v1/providers/{Uri.EscapeDataString(name)}/credentials", JsonContent.Create(request), setupSession, ct);

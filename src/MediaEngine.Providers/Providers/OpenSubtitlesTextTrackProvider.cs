@@ -47,6 +47,7 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
     {
         _config.HttpClient ??= new HttpClientConfig();
         _config.HttpClient.ApiKey = credentials.GetValueOrDefault("api_key");
+        _config.HttpClient.AccessToken = credentials.GetValueOrDefault("access_token");
         _config.HttpClient.Username = credentials.GetValueOrDefault("username");
         _config.HttpClient.Password = credentials.GetValueOrDefault("password");
         _bearerToken = null;

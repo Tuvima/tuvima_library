@@ -7,12 +7,13 @@ public sealed class DashboardFirstRunExperienceTests
     {
         var dashboard = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");
         var setup = Read("src/MediaEngine.Web/Components/Pages/SetupPage.razor");
+        var preflight = Read("src/MediaEngine.Web/Components/Setup/SetupPreflightStage.razor");
         var engine = Read("src/MediaEngine.Api/Endpoints/AuthenticationEndpoints.cs");
         var setupSessions = Read("src/MediaEngine.Api/Services/SetupSessionService.cs");
 
         Assert.Contains("Results.Redirect(\"/setup\")", dashboard, StringComparison.Ordinal);
         Assert.Contains("BeginSetupAsync", setup, StringComparison.Ordinal);
-        Assert.Contains("Keep this Dashboard on your private network", setup, StringComparison.Ordinal);
+        Assert.Contains("Keep this Dashboard on your private network", preflight, StringComparison.Ordinal);
         Assert.DoesNotContain("Claim this server", setup, StringComparison.Ordinal);
         Assert.DoesNotContain("[Tuvima Setup] Claim token", setup, StringComparison.Ordinal);
         Assert.Contains("X-Tuvima-Setup-Session", setupSessions, StringComparison.Ordinal);
@@ -27,16 +28,31 @@ public sealed class DashboardFirstRunExperienceTests
     public void SetupWizard_IsReversibleFocusedAndProtectsCredentialEntry()
     {
         var setup = Read("src/MediaEngine.Web/Components/Pages/SetupPage.razor");
+        var administrator = Read("src/MediaEngine.Web/Components/Setup/SetupAdministratorStage.razor");
+        var preflight = Read("src/MediaEngine.Web/Components/Setup/SetupPreflightStage.razor");
+        var providers = Read("src/MediaEngine.Web/Components/Setup/SetupProvidersStage.razor");
+        var providerDialog = Read("src/MediaEngine.Web/Components/Shared/Providers/ProviderOnboardingDialog.razor");
+        var metadataSettings = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
+        var readiness = Read("src/MediaEngine.Web/Components/Setup/SetupReadinessStage.razor");
         var workflow = Read("src/MediaEngine.Contracts/Setup/SetupContracts.cs");
         var overview = Read("src/MediaEngine.Web/Components/Settings/OverviewTab.razor");
 
-        Assert.Contains("Confirm password", setup, StringComparison.Ordinal);
-        Assert.Contains("Download .txt", setup, StringComparison.Ordinal);
+        Assert.Contains("Confirm password", administrator, StringComparison.Ordinal);
+        Assert.Contains("Download .txt", administrator, StringComparison.Ordinal);
         Assert.Contains("CopyRecoveryCodesAsync", setup, StringComparison.Ordinal);
-        Assert.Contains("Save storage locations", setup, StringComparison.Ordinal);
-        Assert.Contains("CanNavigateTo(step)", setup, StringComparison.Ordinal);
+        Assert.Contains("Save and check again", preflight, StringComparison.Ordinal);
+        Assert.Contains("CanNavigateTo(key)", setup, StringComparison.Ordinal);
         Assert.Contains("Label=\"Back\"", setup, StringComparison.Ordinal);
-        Assert.Contains("Fanart.tv", setup, StringComparison.Ordinal);
+        Assert.Contains("ProviderOnboardingDialog", providers, StringComparison.Ordinal);
+        Assert.Contains("ProviderOnboardingDialog", metadataSettings, StringComparison.Ordinal);
+        Assert.Contains("provider.MediaTypes.Any(ConfiguredMediaTypes.Contains)", providers, StringComparison.Ordinal);
+        Assert.Contains("Set up later", providers, StringComparison.Ordinal);
+        Assert.DoesNotContain("TMDB", providers, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Fanart.tv", providers, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Ownership", providerDialog, StringComparison.Ordinal);
+        Assert.Contains("RunPreflightAsync(automaticallyAdvance: true)", setup, StringComparison.Ordinal);
+        Assert.Contains("LoadReadinessAsync", setup, StringComparison.Ordinal);
+        Assert.Contains("Ready · later", readiness, StringComparison.Ordinal);
         Assert.DoesNotContain("case \"local-ai\"", setup, StringComparison.Ordinal);
         Assert.DoesNotContain("case \"access\"", setup, StringComparison.Ordinal);
         Assert.DoesNotContain("\"local-ai\", \"access\"", workflow, StringComparison.Ordinal);

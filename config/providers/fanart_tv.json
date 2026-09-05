@@ -22,7 +22,7 @@
   "cache_ttl_hours": 336,
 
   "endpoints": {
-    "api": "https://webservice.fanart.tv/v3"
+    "api": "https://webservice.fanart.tv/v3.2"
   },
 
   "http_client": {
@@ -37,21 +37,21 @@
     {
       "name": "movie_lookup",
       "required_fields": ["tmdb_id"],
-      "url_template": "{base_url}/movies/{tmdb_id}?api_key={api_key}",
+      "url_template": "{base_url}/movies/{tmdb_id}?api_key={api_key}&client_key={client_key}",
       "method": "GET",
       "response_format": "json"
     },
     {
       "name": "tv_lookup",
       "required_fields": ["tvdb_id"],
-      "url_template": "{base_url}/tv/{tvdb_id}?api_key={api_key}",
+      "url_template": "{base_url}/tv/{tvdb_id}?api_key={api_key}&client_key={client_key}",
       "method": "GET",
       "response_format": "json"
     },
     {
       "name": "music_lookup",
       "required_fields": ["musicbrainz_id"],
-      "url_template": "{base_url}/music/{musicbrainz_id}?api_key={api_key}",
+      "url_template": "{base_url}/music/{musicbrainz_id}?api_key={api_key}&client_key={client_key}",
       "method": "GET",
       "response_format": "json"
     }
@@ -81,12 +81,26 @@
     "privacy_url": "https://fanart.tv/privacy-policy/",
     "supported_lanes": ["watch", "listen"],
     "required_scopes": ["Read-only Fanart.tv API access"],
+    "intro": { "title": "Connect Fanart.tv", "summary": "Adds optional logos, backgrounds, and other artwork for Watch and Listen." },
+    "steps": [
+      { "id": "account", "title": "Account", "description": "Sign in to Fanart.tv and open your API keys page.", "instructions": ["Create a Fanart.tv account if needed.", "Open the API keys page."], "action": { "kind": "external_link", "label": "Open Fanart.tv API keys", "url": "https://fanart.tv/get-an-api-key/", "url_role": "signup" } },
+      { "id": "credential", "title": "Get personal key", "description": "Tuvima supplies its application project key. You may add your personal client key for your Fanart.tv account.", "instructions": ["Copy your personal client key from Fanart.tv.", "The application project key is managed by the Tuvima server and is never shown here."], "action": { "kind": "credential_entry", "label": "Enter personal client key" }, "credential_keys": ["client_key"] },
+      { "id": "connect", "title": "Connect", "description": "Tuvima will test the application project key together with your personal client key when supplied.", "action": { "kind": "credential_probe", "label": "Verify & connect" }, "credential_keys": ["client_key"] }
+    ],
+    "troubleshooting": [
+      { "status": "invalid_format", "title": "Fanart.tv credentials are incomplete", "message": "The Tuvima application project key must be provisioned on the server. A personal client key must use the format shown by Fanart.tv.", "instructions": ["Ask the server administrator to verify the application-managed project key if this field was not available to edit."], "help_url": "https://api.fanart.tv/" },
+      { "status": "invalid_credential", "title": "Fanart.tv did not accept the connection", "message": "The application project key or personal client key was rejected.", "instructions": ["Copy your personal client key again.", "If it still fails, ask the server administrator to verify the application project key."], "help_url": "https://api.fanart.tv/" },
+      { "status": "rate_limited", "title": "Fanart.tv rate limit reached", "message": "Wait briefly, then test the connection again.", "instructions": [] },
+      { "status": "provider_outage", "title": "Fanart.tv is temporarily unavailable", "message": "Your credentials may be valid. Try again later.", "instructions": [] },
+      { "status": "connectivity_failure", "title": "Tuvima could not reach Fanart.tv", "message": "Check this server's internet, DNS, proxy, and firewall settings.", "instructions": [] }
+    ],
     "skip_consequences": [
       { "lane": "watch", "summary": "Movies and TV shows will use other artwork sources and may have fewer logos or backgrounds.", "unavailable_capabilities": ["artwork"] },
       { "lane": "listen", "summary": "Music will use other artwork sources and may have fewer artist or album images.", "unavailable_capabilities": ["artwork"] }
     ],
     "credentials": [
-      { "key": "api_key", "label": "Fanart.tv API Key", "input_type": "password", "required": true, "format_hint": "The personal API key from your Fanart.tv account.", "minimum_length": 16, "maximum_length": 128, "validation_pattern": "^[A-Za-z0-9_-]+$" }
+      { "key": "api_key", "label": "Tuvima Fanart.tv Project Key", "input_type": "password", "required": true, "ownership": "application_managed", "purpose": "api_key", "format_hint": "The Fanart.tv project API key provisioned for this Tuvima server.", "minimum_length": 16, "maximum_length": 128, "validation_pattern": "^[A-Za-z0-9_-]+$" },
+      { "key": "client_key", "label": "Fanart.tv Personal Client Key", "input_type": "password", "required": false, "ownership": "user_supplied", "purpose": "client_key", "format_hint": "The optional personal client key from your Fanart.tv account.", "minimum_length": 16, "maximum_length": 128, "validation_pattern": "^[A-Za-z0-9_-]+$" }
     ],
     "authentication_probe": { "path": "/movies/603", "method": "GET", "success_status_codes": [200] }
   }

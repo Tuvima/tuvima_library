@@ -5,15 +5,21 @@ namespace MediaEngine.Web.Tests;
 public sealed class ProviderManagementStateTests
 {
     [Fact]
-    public void ProviderSettings_UsesCatalogueCredentialFieldsWithoutProviderSpecificInstructions()
+    public void ProviderSettings_UsesSharedOnboardingWithoutProviderSpecificInstructions()
     {
         var page = File.ReadAllText(FindRepoFile(
             "src", "MediaEngine.Web", "Components", "Settings", "MetadataSettingsPage.razor"));
+        var dialog = File.ReadAllText(FindRepoFile(
+            "src", "MediaEngine.Web", "Components", "Shared", "Providers", "ProviderOnboardingDialog.razor"));
 
-        Assert.Contains("Catalogue.Onboarding?.Credentials", page, StringComparison.Ordinal);
-        Assert.Contains("credential.Label", page, StringComparison.Ordinal);
+        Assert.Contains("OpenProviderDialogAsync", page, StringComparison.Ordinal);
+        Assert.Contains("Onboarding.Steps", dialog, StringComparison.Ordinal);
+        Assert.Contains("current.Action", dialog, StringComparison.Ordinal);
+        Assert.Contains("Onboarding.Troubleshooting", dialog, StringComparison.Ordinal);
         Assert.DoesNotContain("TMDB API Key", page, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Comic Vine API Key", page, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("TMDB API Key", dialog, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Comic Vine API Key", dialog, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -31,19 +37,21 @@ public sealed class ProviderManagementStateTests
         var update = draft.ToUpdate("api");
 
         Assert.NotNull(update);
-        Assert.Empty(draft.ToCredentialRequest().Credentials);
+        Assert.DoesNotContain("Credential", string.Join(' ', typeof(ProviderEditorDraft).GetMembers().Select(member => member.Name)), StringComparison.Ordinal);
     }
 
     [Fact]
-    public void EditorDraft_SendsOnlyAnExplicitCredentialReplacement()
+    public void SharedCredentialForm_RendersOnlyUserSuppliedFields()
     {
-        var draft = ProviderEditorDraft.From(new ProviderManagementItem { Key = "tmdb" });
-        draft.CredentialReplacements["api_key"] = "replacement";
+        var form = File.ReadAllText(FindRepoFile(
+            "src", "MediaEngine.Web", "Components", "Shared", "Providers", "ProviderCredentialForm.razor"));
+        var dialog = File.ReadAllText(FindRepoFile(
+            "src", "MediaEngine.Web", "Components", "Shared", "Providers", "ProviderOnboardingDialog.razor"));
 
-        var request = draft.ToCredentialRequest();
-
-        Assert.Equal("replacement", request.Credentials["api_key"]);
-        Assert.DoesNotContain("replacement", draft.Fingerprint(), StringComparison.Ordinal);
+        Assert.Contains("IsUserSupplied", form, StringComparison.Ordinal);
+        Assert.Contains("user_supplied", form, StringComparison.Ordinal);
+        Assert.Contains("user_supplied", dialog, StringComparison.Ordinal);
+        Assert.DoesNotContain("application_managed", form, StringComparison.Ordinal);
     }
 
     [Fact]

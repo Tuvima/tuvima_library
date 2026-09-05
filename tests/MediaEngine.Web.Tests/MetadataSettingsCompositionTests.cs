@@ -59,15 +59,22 @@ public sealed class MetadataSettingsCompositionTests
     public void ProviderConfiguration_ProtectsSecretsAndRequiredProviders()
     {
         var page = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
+        var dialog = Read("src/MediaEngine.Web/Components/Shared/Providers/ProviderOnboardingDialog.razor");
+        var form = Read("src/MediaEngine.Web/Components/Shared/Providers/ProviderCredentialForm.razor");
 
         Assert.Contains("Provider enabled", page, StringComparison.Ordinal);
         Assert.Contains("Disabled=\"@provider.RequiredSystemProvider\"", page, StringComparison.Ordinal);
-        Assert.Contains("The stored credential is never returned", page, StringComparison.Ordinal);
-        Assert.Contains("credential.InputType, \"password\"", page, StringComparison.Ordinal);
-        Assert.Contains("InputType.Password : InputType.Text", page, StringComparison.Ordinal);
+        Assert.Contains("Connect provider", page, StringComparison.Ordinal);
+        Assert.Contains("Replace credential", page, StringComparison.Ordinal);
+        Assert.Contains("Remove credential", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("CredentialReplacements", page, StringComparison.Ordinal);
+        Assert.Contains("The stored value is encrypted and is never returned", form, StringComparison.Ordinal);
+        Assert.Contains("field.InputType, \"password\"", form, StringComparison.Ordinal);
+        Assert.Contains("InputType.Password", form, StringComparison.Ordinal);
+        Assert.Contains("AppHostedDialog", dialog, StringComparison.Ordinal);
         Assert.Contains("TestProviderAsync", page, StringComparison.Ordinal);
-        Assert.Contains("TestProviderCredentialsAsync", page, StringComparison.Ordinal);
-        Assert.Contains("SaveProviderCredentialsAsync", page, StringComparison.Ordinal);
+        Assert.Contains("TestProviderCredentialsAsync", dialog, StringComparison.Ordinal);
+        Assert.Contains("SaveProviderCredentialsAsync", dialog, StringComparison.Ordinal);
         Assert.Contains("SaveProviderConfigAsync", page, StringComparison.Ordinal);
         Assert.DoesNotContain("UpdateHydrationSettingsAsync", page, StringComparison.Ordinal);
     }

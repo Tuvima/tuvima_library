@@ -305,6 +305,40 @@
     "privacy_url": "https://www.themoviedb.org/privacy-policy",
     "supported_lanes": ["watch"],
     "required_scopes": ["Read-only application access to the TMDB API"],
+    "intro": {
+      "title": "Connect TMDB",
+      "summary": "Adds movie and TV identity, metadata, artwork, ratings, cast, and relationships."
+    },
+    "steps": [
+      {
+        "id": "account",
+        "title": "Account",
+        "description": "Sign in to TMDB or create an account.",
+        "instructions": ["Open your TMDB account settings and select API.", "Complete API registration if TMDB asks you to."],
+        "action": { "kind": "external_link", "label": "Open TMDB API settings", "url": "https://www.themoviedb.org/settings/api", "url_role": "signup" }
+      },
+      {
+        "id": "credential",
+        "title": "Get credential",
+        "description": "Copy API Key (v3 auth). Do not paste the API Read Access Token.",
+        "instructions": ["Locate API Key (v3 auth).", "Copy the 32-character value exactly."],
+        "action": { "kind": "credential_entry", "label": "Enter API key" },
+        "credential_keys": ["api_key"]
+      },
+      {
+        "id": "connect",
+        "title": "Connect",
+        "description": "Tuvima will perform a read-only connection check.",
+        "action": { "kind": "credential_probe", "label": "Verify & connect" },
+        "credential_keys": ["api_key"]
+      }
+    ],
+    "troubleshooting": [
+      { "status": "invalid_credential", "title": "TMDB did not accept this key", "message": "Confirm that you copied API Key (v3 auth), not the API Read Access Token.", "instructions": ["Return to TMDB API settings.", "Copy API Key (v3 auth) again and retry."], "help_url": "https://developer.themoviedb.org/docs/authentication-application" },
+      { "status": "rate_limited", "title": "TMDB is receiving too many requests", "message": "Wait briefly, then try the connection again.", "instructions": [] },
+      { "status": "provider_outage", "title": "TMDB is temporarily unavailable", "message": "Your key may be valid. Try again when TMDB is available.", "instructions": [] },
+      { "status": "connectivity_failure", "title": "Tuvima could not reach TMDB", "message": "Check this server's internet, DNS, proxy, and firewall settings.", "instructions": [] }
+    ],
     "skip_consequences": [
       {
         "lane": "watch",
@@ -318,6 +352,8 @@
         "label": "TMDB API Key (v3 auth)",
         "input_type": "password",
         "required": true,
+        "ownership": "user_supplied",
+        "purpose": "api_key",
         "format_hint": "32 hexadecimal characters from the API section of your TMDB account.",
         "minimum_length": 32,
         "maximum_length": 32,

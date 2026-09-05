@@ -828,6 +828,69 @@ public static class JsonConfigValidator
             ValidateCandidateSelection(strategy.CandidateSelection, strategy.Name, errors);
             ValidateRequestFilters(strategy.ReleaseSelection?.RequestFilters, strategy.Name, errors);
         }
+
+        ValidateProviderOnboarding(provider.Onboarding, errors);
+    }
+
+    private static void ValidateProviderOnboarding(
+        ProviderOnboardingConfiguration? onboarding,
+        List<string> errors)
+    {
+        if (onboarding is null)
+            return;
+
+        if (!Allowed(onboarding.Classification, "built_in", "recommended", "optional"))
+            errors.Add("onboarding.classification is unsupported.");
+
+        if (onboarding.Intro is not null)
+        {
+            AddRequired(errors, onboarding.Intro.Title, "onboarding.intro.title");
+            AddRequired(errors, onboarding.Intro.Summary, "onboarding.intro.summary");
+        }
+
+        var credentialKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var credential in onboarding.Credentials)
+        {
+            AddRequired(errors, credential.Key, "onboarding.credentials[].key");
+            AddRequired(errors, credential.Label, "onboarding.credentials[].label");
+            if (!credentialKeys.Add(credential.Key))
+                errors.Add("onboarding.credentials[].key values must be unique.");
+            if (!Allowed(credential.Ownership, "user_supplied", "application_managed"))
+                errors.Add($"onboarding.credentials['{credential.Key}'].ownership is unsupported.");
+
+            var purpose = string.IsNullOrWhiteSpace(credential.Purpose)
+                ? credential.Key.ToLowerInvariant() switch
+                {
+                    "api_key" or "client_key" or "username" or "password" or "access_token" => credential.Key,
+                    _ => "other",
+                }
+                : credential.Purpose;
+            if (!Allowed(purpose, "api_key", "client_key", "username", "password", "access_token", "other"))
+                errors.Add($"onboarding.credentials['{credential.Key}'].purpose is unsupported.");
+        }
+
+        var stepIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var step in onboarding.Steps)
+        {
+            AddRequired(errors, step.Id, "onboarding.steps[].id");
+            AddRequired(errors, step.Title, "onboarding.steps[].title");
+            if (!stepIds.Add(step.Id))
+                errors.Add("onboarding.steps[].id values must be unique.");
+            if (step.Action is not null
+                && !Allowed(step.Action.Kind, "external_link", "credential_entry", "credential_probe", "information"))
+            {
+                errors.Add($"onboarding.steps['{step.Id}'].action.kind is unsupported.");
+            }
+            foreach (var key in step.CredentialKeys.Where(key => !credentialKeys.Contains(key)))
+                errors.Add($"onboarding.steps['{step.Id}'].credential_keys references unknown credential '{key}'.");
+        }
+
+        foreach (var item in onboarding.Troubleshooting)
+        {
+            AddRequired(errors, item.Status, "onboarding.troubleshooting[].status");
+            AddRequired(errors, item.Title, "onboarding.troubleshooting[].title");
+            AddRequired(errors, item.Message, "onboarding.troubleshooting[].message");
+        }
     }
 
     private static void ValidateCandidateSelection(

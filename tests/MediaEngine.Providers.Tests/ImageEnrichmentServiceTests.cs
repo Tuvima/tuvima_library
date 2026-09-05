@@ -58,6 +58,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             HttpClient = new StorageHttpClientConfig
             {
                 ApiKey = "test-key",
+                ClientKey = "personal-client-key",
                 TimeoutSeconds = 10,
             },
         });
@@ -104,6 +105,9 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             var url = request.RequestUri?.ToString() ?? string.Empty;
             if (url.Contains("/movies/12345?", StringComparison.OrdinalIgnoreCase))
             {
+                Assert.StartsWith("https://webservice.fanart.tv/v3.2/movies/12345?", url, StringComparison.OrdinalIgnoreCase);
+                Assert.Contains("api_key=test-key", url, StringComparison.Ordinal);
+                Assert.Contains("client_key=personal-client-key", url, StringComparison.Ordinal);
                 var payload = """
                     {
                       "movieposter": [
@@ -160,13 +164,16 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             {
                 var payload = """
                     {
-                      "albums": {
-                        "rg-123": {
+                      "albums": [
+                        {
+                          "albumcover": [
+                            { "url": "https://images.test/album-cover.jpg", "likes": "8", "lang": "en" }
+                          ],
                           "cdart": [
                             { "url": "https://images.test/album-disc.png", "likes": "4", "lang": "en" }
                           ]
                         }
-                      }
+                      ]
                     }
                     """;
                 return JsonResponse(payload);
@@ -178,8 +185,9 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         var result = await service.EnrichWorkImagesAsync(album.AssetId, "QALBUM");
 
         Assert.True(result.Success);
-        Assert.Equal(0, result.DownloadedCount);
-        Assert.Empty(await _entityAssets.GetByEntityAsync(album.WorkId.ToString()));
+        Assert.Equal(1, result.DownloadedCount);
+        Assert.Single(await _entityAssets.GetByEntityAsync(album.WorkId.ToString(), "CoverArt"));
+        Assert.DoesNotContain(await _entityAssets.GetByEntityAsync(album.WorkId.ToString()), asset => asset.AssetTypeValue == "DiscArt");
     }
 
     [Fact]

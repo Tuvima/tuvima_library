@@ -1,0 +1,212 @@
+@namespace MediaEngine.Web.Components.Setup
+@using MediaEngine.Contracts.Settings
+@using MediaEngine.Web.Components.Shared.Providers
+@inject IDialogService DialogService
+
+<div class="setup-stage-content">
+    <div class="setup-stage__heading">
+        <MudIcon Icon="@Icons.Material.Outlined.CloudSync" />
+        <div>
+            <h2 id="setup-stage-title">Enhance your library</h2>
+            <p>Connect services that add richer identity, artwork, people, and relationships for the media you selected.</p>
+        </div>
+    </div>
+
+    @if (Catalogue.Count == 0)
+    {
+        <div class="setup-preparing" role="status">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <span>Finding metadata providers for your library…</span>
+        </div>
+    }
+    else
+    {
+        @if (CredentialProviders.Count == 0)
+        {
+            <AppAlert Tone="AppUiTone.Success">
+                <strong>Your metadata providers are ready.</strong>
+                The services needed for these media types work without another account.
+            </AppAlert>
+        }
+        else
+        {
+            @RenderProviderGroup("Recommended", RecommendedProviders)
+            @RenderProviderGroup("Optional enhancements", OptionalProviders)
+        }
+
+        @if (BuiltInProviders.Count > 0)
+        {
+            <section class="setup-provider-group" aria-labelledby="ready-provider-heading">
+                <div class="setup-provider-group__heading">
+                    <h3 id="ready-provider-heading">Ready without signup</h3>
+                    <p>These open providers work automatically.</p>
+                </div>
+                <div class="setup-builtins">
+                    @foreach (var provider in BuiltInProviders)
+                    {
+                        <span>@provider.DisplayName</span>
+                    }
+                </div>
+            </section>
+        }
+    }
+
+    <div class="setup-actions setup-actions--end">
+        @if (CredentialProviders.Count > 0)
+        {
+            <AppButton Label="Set up later" Disabled="@Busy" OnClick="Defer" />
+        }
+        <AppButton Label="Continue" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@Busy" Disabled="@(Busy || Catalogue.Count == 0)" OnClick="Continue" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ProviderCatalogueDto> Catalogue { get; set; } = [];
+    [Parameter] public LibrariesConfigurationDto? Libraries { get; set; }
+    [Parameter] public string? SetupSession { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback RefreshRequested { get; set; }
+    [Parameter] public EventCallback Continue { get; set; }
+    [Parameter] public EventCallback Defer { get; set; }
+
+    private HashSet<string> ConfiguredMediaTypes => Libraries?.Libraries
+        .Where(library => string.Equals(library.Kind, "catalogued", StringComparison.OrdinalIgnoreCase))
+        .SelectMany(library => library.MediaTypes)
+        .Where(mediaType => !string.IsNullOrWhiteSpace(mediaType))
+        .ToHashSet(StringComparer.OrdinalIgnoreCase) ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    private IReadOnlyList<ProviderCatalogueDto> RelevantProviders => Catalogue
+        .Where(IsRelevant)
+        .OrderBy(provider => provider.DisplayName, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    private IReadOnlyList<ProviderCatalogueDto> CredentialProviders => RelevantProviders
+        .Where(provider => provider.Onboarding is not null
+            && provider.Onboarding.Credentials.Any(IsUserSupplied))
+        .ToList();
+
+    private IReadOnlyList<ProviderCatalogueDto> RecommendedProviders => CredentialProviders
+        .Where(provider => string.Equals(provider.Onboarding?.Classification, "recommended", StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private IReadOnlyList<ProviderCatalogueDto> OptionalProviders => CredentialProviders
+        .Where(provider => !string.Equals(provider.Onboarding?.Classification, "recommended", StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private IReadOnlyList<ProviderCatalogueDto> BuiltInProviders => RelevantProviders
+        .Where(provider => !provider.RequiresKey
+            || (provider.Onboarding is not null
+                && !provider.Onboarding.Credentials.Any(IsUserSupplied)
+                && IsConnected(provider)))
+        .ToList();
+
+    private RenderFragment RenderProviderGroup(string title, IReadOnlyList<ProviderCatalogueDto> providers) => builder =>
+    {
+        if (providers.Count == 0) return;
+        builder.OpenElement(0, "section");
+        builder.AddAttribute(1, "class", "setup-provider-group");
+        builder.OpenElement(2, "div");
+        builder.AddAttribute(3, "class", "setup-provider-group__heading");
+        builder.OpenElement(4, "h3");
+        builder.AddContent(5, title);
+        builder.CloseElement();
+        builder.CloseElement();
+        builder.OpenElement(6, "div");
+        builder.AddAttribute(7, "class", "setup-provider-grid");
+        foreach (var provider in providers)
+        {
+            builder.OpenElement(8, "article");
+            builder.AddAttribute(9, "class", "setup-provider-card");
+            builder.OpenElement(10, "div");
+            builder.AddAttribute(11, "class", "setup-provider-card__identity");
+            builder.OpenComponent<AppProviderLogo>(12);
+            builder.AddAttribute(13, nameof(AppProviderLogo.ImageUrl), provider.IconPath);
+            builder.AddAttribute(14, nameof(AppProviderLogo.Icon), provider.MaterialIcon);
+            builder.AddAttribute(15, nameof(AppProviderLogo.AccentColor), provider.AccentColor);
+            builder.AddAttribute(16, nameof(AppProviderLogo.FallbackText), Initials(provider.DisplayName));
+            builder.AddAttribute(17, nameof(AppProviderLogo.AltText), string.Empty);
+            builder.CloseComponent();
+            builder.OpenElement(18, "div");
+            builder.OpenElement(19, "strong");
+            builder.AddContent(20, provider.DisplayName);
+            builder.CloseElement();
+            builder.OpenElement(21, "small");
+            builder.AddContent(22, Purpose(provider));
+            builder.CloseElement();
+            builder.CloseElement();
+            builder.CloseElement();
+            builder.OpenComponent<AppStatusBadge>(23);
+            builder.AddAttribute(24, nameof(AppStatusBadge.Text), ProviderStatus(provider));
+            builder.AddAttribute(25, nameof(AppStatusBadge.Tone), ProviderTone(provider));
+            builder.CloseComponent();
+            builder.OpenComponent<AppButton>(26);
+            builder.AddAttribute(27, nameof(AppButton.Label), ProviderAction(provider));
+            builder.AddAttribute(28, nameof(AppButton.ButtonStyle), AppButtonStyle.Filled);
+            builder.AddAttribute(29, nameof(AppButton.Tone), AppUiTone.Primary);
+            builder.AddAttribute(30, nameof(AppButton.Size), AppControlSize.Compact);
+            builder.AddAttribute(31, nameof(AppButton.OnClick), EventCallback.Factory.Create(this, () => OpenProviderAsync(provider)));
+            builder.CloseComponent();
+            builder.CloseElement();
+        }
+        builder.CloseElement();
+        builder.CloseElement();
+    };
+
+    private bool IsRelevant(ProviderCatalogueDto provider)
+    {
+        if (!provider.Enabled || ConfiguredMediaTypes.Count == 0) return false;
+        return provider.MediaTypes.Count == 0 || provider.MediaTypes.Any(ConfiguredMediaTypes.Contains);
+    }
+
+    private async Task OpenProviderAsync(ProviderCatalogueDto provider)
+    {
+        var parameters = new DialogParameters<ProviderOnboardingDialog>
+        {
+            { component => component.Catalogue, provider },
+            { component => component.SetupSession, SetupSession },
+            { component => component.Operation, ProviderOnboardingOperation.Connect },
+        };
+        var dialog = await DialogService.ShowAsync<ProviderOnboardingDialog>(string.Empty, parameters, new DialogOptions
+        {
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true,
+            CloseButton = false,
+            CloseOnEscapeKey = true,
+        });
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: ProviderOnboardingDialogResult })
+            await RefreshRequested.InvokeAsync();
+    }
+
+    private static bool IsUserSupplied(ProviderCredentialFieldDto credential) =>
+        string.Equals(credential.Ownership, "user_supplied", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsConnected(ProviderCatalogueDto provider) =>
+        provider.Onboarding?.Credentials.Where(credential => credential.Required).All(credential => credential.Configured) == true;
+
+    private static string ProviderStatus(ProviderCatalogueDto provider) => IsConnected(provider)
+        ? "Connected"
+        : string.Equals(provider.Onboarding?.Classification, "recommended", StringComparison.OrdinalIgnoreCase)
+            ? "Recommended"
+            : "Optional";
+
+    private static AppUiTone ProviderTone(ProviderCatalogueDto provider) => IsConnected(provider)
+        ? AppUiTone.Success
+        : string.Equals(provider.Onboarding?.Classification, "recommended", StringComparison.OrdinalIgnoreCase)
+            ? AppUiTone.Warning
+            : AppUiTone.Neutral;
+
+    private static string ProviderAction(ProviderCatalogueDto provider) => IsConnected(provider) ? "Review connection" : "Connect";
+    private static string Purpose(ProviderCatalogueDto provider) => provider.Onboarding?.Intro?.Summary
+        ?? (provider.Onboarding?.SupportedLanes.Count > 0
+            ? $"Improves {string.Join(", ", provider.Onboarding.SupportedLanes.Select(Friendly))}."
+            : "Optional metadata enrichment.");
+
+    private static string Initials(string name) => string.Concat(name
+        .Split([' ', '.', '_', '-'], StringSplitOptions.RemoveEmptyEntries)
+        .Take(2)
+        .Select(word => char.ToUpperInvariant(word[0])));
+
+    private static string Friendly(string value) => string.Join(' ', value.Replace('_', '-').Split('-', StringSplitOptions.RemoveEmptyEntries)
+        .Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
+}

@@ -5,6 +5,8 @@
 @inject ISnackbar Snackbar
 @inject ILogger<MetadataSettingsPage> Logger
 @inject DeviceContextService DeviceContext
+@inject IDialogService DialogService
+@inject IJSRuntime JS
 
 <NavigationLock ConfirmExternalNavigation="@HasUnsavedChanges" />
 
@@ -266,22 +268,13 @@
             <div><MudIcon Icon="@Icons.Material.Outlined.Description" /><span><strong>Provides</strong><small>@string.Join(", ", ProviderOutputs(provider)).</small></span></div>
             <div><MudIcon Icon="@Icons.Material.Outlined.NetworkCheck" /><span><strong>Connection status</strong><small>@ConnectionCopy(provider)</small></span></div>
         </div>
+        @ProviderConnection(provider)
         <div class="metadata-provider-fields">
             <AppSwitchRow Label="Provider enabled"
                           Description="@(provider.RequiredSystemProvider ? "Required system providers cannot be disabled." : "Disabled providers are skipped during metadata work.")"
                           Value="@draft.Enabled"
                           Disabled="@provider.RequiredSystemProvider"
                           ValueChanged="@(value => draft.Enabled = value)" />
-            @foreach (var credential in provider.Catalogue.Onboarding?.Credentials ?? [])
-            {
-                var credentialKey = credential.Key;
-                <AppTextField Value="@draft.CredentialReplacements.GetValueOrDefault(credentialKey)"
-                              ValueChanged="@(value => draft.CredentialReplacements[credentialKey] = value ?? string.Empty)"
-                              Label="@credential.Label"
-                              Placeholder="@(credential.Configured ? "Configured — enter a replacement" : $"Enter {credential.Label}")"
-                              HelpText="@(credential.FormatHint ?? "The stored credential is never returned to this page.")"
-                              InputType="@(string.Equals(credential.InputType, "password", StringComparison.OrdinalIgnoreCase) ? InputType.Password : InputType.Text)" />
-            }
             <AppSelect Value="@draft.LanguageStrategy"
                        ValueChanged="@(value => draft.LanguageStrategy = value ?? "source")"
                        Label="Language strategy"
@@ -299,14 +292,42 @@
                 }
             </div>
         </details>
-        <div class="metadata-provider-config__test">
-            <span>@(_testMessages.GetValueOrDefault(provider.Key) ?? LastCheckCopy(provider))</span>
-            <AppButton Label="@(_testing.Contains(provider.Key) ? "Testing…" : "Test Connection")"
-                       StartIcon="@Icons.Material.Outlined.NetworkCheck"
-                       Disabled="@(_testing.Contains(provider.Key) || !draft.Enabled)"
-                       OnClick="@(() => TestProviderAsync(provider.Key))" />
-        </div>
     </AppCard>;
+
+    private RenderFragment ProviderConnection(MetadataProviderInventoryItem provider) => @<section class="metadata-provider-connection" aria-labelledby="provider-connection-title">
+        <div class="metadata-provider-connection__heading">
+            <div>
+                <h3 id="provider-connection-title">Connection</h3>
+                <p>@(_testMessages.GetValueOrDefault(provider.Key) ?? LastCheckCopy(provider))</p>
+            </div>
+            <AppStatusBadge Text="@(IsCredentialConfigured(provider) ? "Connected" : UserCredentials(provider).Count == 0 ? "No signup required" : "Not connected")"
+                            Tone="@(IsCredentialConfigured(provider) || UserCredentials(provider).Count == 0 ? AppUiTone.Success : AppUiTone.Warning)" />
+        </div>
+        <div class="metadata-provider-connection__actions">
+            @if (UserCredentials(provider).Count == 0)
+            {
+                <AppButton Label="@(_testing.Contains(provider.Key) ? "Testing…" : "Test connection")"
+                           StartIcon="@Icons.Material.Outlined.NetworkCheck"
+                           Disabled="@(_testing.Contains(provider.Key) || !DraftFor(provider.Key).Enabled)"
+                           OnClick="@(() => TestProviderAsync(provider.Key))" />
+            }
+            else if (IsCredentialConfigured(provider) && HasStoredUserCredential(provider))
+            {
+                <AppButton Label="Replace credential" StartIcon="@Icons.Material.Outlined.Key" OnClick="@(() => OpenProviderDialogAsync(provider, ProviderOnboardingOperation.Replace))" />
+                <AppButton Label="Test connection" StartIcon="@Icons.Material.Outlined.NetworkCheck" OnClick="@(() => OpenProviderDialogAsync(provider, ProviderOnboardingOperation.Test))" />
+                <AppButton Label="Remove credential" ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Error" StartIcon="@Icons.Material.Outlined.DeleteOutline" OnClick="@(() => RemoveProviderCredentialAsync(provider))" />
+            }
+            else if (IsCredentialConfigured(provider))
+            {
+                <AppButton Label="Add optional credential" StartIcon="@Icons.Material.Outlined.Key" OnClick="@(() => OpenProviderDialogAsync(provider, ProviderOnboardingOperation.Replace))" />
+                <AppButton Label="Test connection" StartIcon="@Icons.Material.Outlined.NetworkCheck" OnClick="@(() => OpenProviderDialogAsync(provider, ProviderOnboardingOperation.Test))" />
+            }
+            else
+            {
+                <AppButton Label="Connect provider" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" StartIcon="@Icons.Material.Outlined.Link" OnClick="@(() => OpenProviderDialogAsync(provider, ProviderOnboardingOperation.Connect))" />
+            }
+        </div>
+    </section>;
 
     private RenderFragment IngestionFlowPage() => @<div class="metadata-experience metadata-flow-page">
         <div class="metadata-flow-intro">
@@ -382,19 +403,6 @@
             foreach (var (key, draft) in _providerDrafts)
             {
                 if (_providerBaselines.GetValueOrDefault(key) == draft.Fingerprint()) continue;
-                if (draft.HasCredentialReplacements)
-                {
-                    var credentialResult = await ApiClient.SaveProviderCredentialsAsync(key, draft.ToCredentialRequest());
-                    if (credentialResult?.Success != true)
-                    {
-                        Snackbar.Add(
-                            credentialResult?.Message ?? $"Could not save {CatalogueService.GetDisplayName(key)} credentials.",
-                            Severity.Error);
-                        return;
-                    }
-
-                    draft.CredentialReplacements.Clear();
-                }
                 if (!await ApiClient.SaveProviderConfigAsync(key, draft.ToUpdate("api")))
                 {
                     Snackbar.Add($"Could not save {CatalogueService.GetDisplayName(key)} settings.", Severity.Error);
@@ -419,25 +427,55 @@
         if (!_testing.Add(key)) return;
         try
         {
-            var provider = _snapshot?.Providers.FirstOrDefault(item =>
-                string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase));
-            if (provider?.Catalogue.Onboarding?.Credentials.Count > 0)
-            {
-                var credentialResult = await ApiClient.TestProviderCredentialsAsync(
-                    key,
-                    DraftFor(key).ToCredentialRequest());
-                _testMessages[key] = credentialResult?.Message ?? "No authentication result was returned.";
-                Snackbar.Add(
-                    _testMessages[key],
-                    credentialResult?.Success == true ? Severity.Success : Severity.Warning);
-                return;
-            }
-
             var result = await ApiClient.TestProviderAsync(key);
             _testMessages[key] = result?.Message ?? "No connection result was returned.";
             Snackbar.Add(_testMessages[key], result?.Success == true ? Severity.Success : Severity.Warning);
         }
         finally { _testing.Remove(key); }
+    }
+
+    private async Task OpenProviderDialogAsync(
+        MetadataProviderInventoryItem provider,
+        ProviderOnboardingOperation operation)
+    {
+        var parameters = new DialogParameters<ProviderOnboardingDialog>
+        {
+            { component => component.Catalogue, provider.Catalogue },
+            { component => component.Operation, operation },
+        };
+        var dialog = await DialogService.ShowAsync<ProviderOnboardingDialog>(string.Empty, parameters, new DialogOptions
+        {
+            MaxWidth = MaxWidth.Large,
+            FullWidth = true,
+            CloseButton = false,
+            CloseOnEscapeKey = true,
+        });
+        var result = await dialog.Result;
+        if (result is not { Canceled: false, Data: ProviderOnboardingDialogResult connection }) return;
+
+        _testMessages[provider.Key] = connection.Message;
+        Snackbar.Add(connection.Message, connection.Success ? Severity.Success : Severity.Warning);
+        CatalogueService.Invalidate();
+        await LoadAsync();
+    }
+
+    private async Task RemoveProviderCredentialAsync(MetadataProviderInventoryItem provider)
+    {
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"Remove the {provider.DisplayName} credential? The provider will stop running until it is connected again.");
+        if (!confirmed) return;
+
+        var result = await ApiClient.RemoveProviderCredentialsAsync(provider.Key);
+        if (result?.Success != true)
+        {
+            Snackbar.Add(result?.Message ?? $"Could not remove the {provider.DisplayName} credential.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add(result.Message, Severity.Success);
+        CatalogueService.Invalidate();
+        await LoadAsync();
     }
 
     private IReadOnlyList<MetadataProviderInventoryItem> FilteredProviders => _snapshot!.Providers
@@ -466,6 +504,21 @@
     private ProviderEditorDraft DraftFor(string key) => _providerDrafts.TryGetValue(key, out var draft)
         ? draft
         : new ProviderEditorDraft { Key = key };
+
+    private static IReadOnlyList<ProviderCredentialFieldDto> UserCredentials(MetadataProviderInventoryItem provider) =>
+        provider.Catalogue.Onboarding?.Credentials
+            .Where(field => string.Equals(field.Ownership, "user_supplied", StringComparison.OrdinalIgnoreCase))
+            .ToList() ?? [];
+
+    private static bool IsCredentialConfigured(MetadataProviderInventoryItem provider)
+    {
+        var fields = provider.Catalogue.Onboarding?.Credentials ?? [];
+        return fields.Count > 0
+            && fields.Where(field => field.Required).All(field => field.Configured);
+    }
+
+    private static bool HasStoredUserCredential(MetadataProviderInventoryItem provider) =>
+        UserCredentials(provider).Any(field => field.Configured);
 
     private static readonly IReadOnlyList<AppSelectOption> LanguageOptions =
     [

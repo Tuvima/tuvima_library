@@ -153,12 +153,10 @@ public sealed class ProviderCredentialService
 
         var provider = _configuration.LoadProvider(providerName)!;
         var fields = provider.Onboarding!.Credentials;
-        var allowedKeys = fields
-            .Select(field => field.Key)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var effectiveCredentials = BuildEffectiveCredentials(provider, fields, credentials);
         var normalized = effectiveCredentials
-            .Where(pair => allowedKeys.Contains(pair.Key))
+            .Where(pair => fields.Any(field =>
+                string.Equals(field.Key, pair.Key, StringComparison.OrdinalIgnoreCase)))
             .ToDictionary(
                 pair => pair.Key,
                 pair => pair.Value.Trim(),
@@ -181,13 +179,30 @@ public sealed class ProviderCredentialService
             return Failure("provider_not_found", "The provider is not available.");
         }
 
+        var fields = provider.Onboarding?.Credentials ?? [];
+        var retained = fields
+            .Where(field => !IsUserSupplied(field))
+            .Select(field => (field.Key, Value: GetStoredCredential(provider, field.Key)))
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+            .ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value!,
+                StringComparer.OrdinalIgnoreCase);
+
         var path = GetSecretPath(provider);
-        if (File.Exists(path))
+        if (retained.Count > 0)
+        {
+            WriteSecretFile(provider, retained);
+        }
+        else if (File.Exists(path))
         {
             File.Delete(path);
         }
 
-        ApplyRuntimeCredentials(provider.Name, new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase));
+        ApplyRuntimeCredentials(provider.Name, retained.ToDictionary(
+            pair => pair.Key,
+            pair => (string?)pair.Value,
+            StringComparer.OrdinalIgnoreCase));
         return new ProviderCredentialOperationResultDto
         {
             Success = true,
@@ -206,17 +221,14 @@ public sealed class ProviderCredentialService
         {
             if (submitted.TryGetValue(field.Key, out var submittedValue))
             {
-                result[field.Key] = submittedValue.Trim();
-                continue;
+                if (IsUserSupplied(field))
+                {
+                    result[field.Key] = submittedValue.Trim();
+                    continue;
+                }
             }
 
-            var stored = field.Key.ToLowerInvariant() switch
-            {
-                "api_key" => provider.HttpClient?.ApiKey,
-                "username" => provider.HttpClient?.Username,
-                "password" => provider.HttpClient?.Password,
-                _ => null,
-            };
+            var stored = GetStoredCredential(provider, field.Key);
             if (!string.IsNullOrWhiteSpace(stored))
             {
                 result[field.Key] = stored;
@@ -232,10 +244,16 @@ public sealed class ProviderCredentialService
         IReadOnlyDictionary<string, string> effective)
     {
         var errors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var allowedKeys = fields.Select(field => field.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var allowedKeys = fields
+            .Where(IsUserSupplied)
+            .Select(field => field.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var key in submitted.Keys.Where(key => !allowedKeys.Contains(key)))
         {
-            errors[key] = "This credential field is not supported by the provider.";
+            errors[key] = fields.Any(field =>
+                string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase))
+                ? "This credential is managed by the application and cannot be changed here."
+                : "This credential field is not supported by the provider.";
         }
 
         foreach (var field in fields)
@@ -311,7 +329,46 @@ public sealed class ProviderCredentialService
                 }
                 break;
         }
+
+        if (credentials.TryGetValue("client_key", out var clientKey)
+            && !string.IsNullOrWhiteSpace(clientKey))
+        {
+            AppendQueryCredential(request, "client_key", clientKey);
+        }
+
+        if (credentials.TryGetValue("access_token", out var accessToken)
+            && !string.IsNullOrWhiteSpace(accessToken)
+            && request.Headers.Authorization is null)
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        }
     }
+
+    private static void AppendQueryCredential(HttpRequestMessage request, string key, string value)
+    {
+        var builder = new UriBuilder(request.RequestUri!);
+        var separator = string.IsNullOrEmpty(builder.Query) ? string.Empty : "&";
+        builder.Query = builder.Query.TrimStart('?')
+            + separator
+            + Uri.EscapeDataString(key)
+            + "="
+            + Uri.EscapeDataString(value);
+        request.RequestUri = builder.Uri;
+    }
+
+    private static bool IsUserSupplied(ProviderCredentialFieldConfiguration field) =>
+        !string.Equals(field.Ownership, "application_managed", StringComparison.OrdinalIgnoreCase);
+
+    private static string? GetStoredCredential(ProviderConfiguration provider, string key) =>
+        key.ToLowerInvariant() switch
+        {
+            "api_key" => provider.HttpClient?.ApiKey,
+            "client_key" => provider.HttpClient?.ClientKey,
+            "username" => provider.HttpClient?.Username,
+            "password" => provider.HttpClient?.Password,
+            "access_token" => provider.HttpClient?.AccessToken,
+            _ => null,
+        };
 
     private void WriteSecretFile(ProviderConfiguration provider, IReadOnlyDictionary<string, string> credentials)
     {

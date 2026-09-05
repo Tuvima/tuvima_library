@@ -1,0 +1,29 @@
+@namespace MediaEngine.Web.Components.Setup
+@using MediaEngine.Contracts.Setup
+
+<div class="setup-stage-content">
+    <div class="setup-stage__heading"><MudIcon Icon="@Icons.Material.Outlined.FolderOpen" /><div><h2 id="setup-stage-title">Media locations</h2><p>Add the folders Tuvima should index. Existing libraries can remain completely read-only.</p></div></div>
+    @if (ShowLibraryWizard)
+    {
+        <AddLibraryWizard Embedded="true" SetupSession="@SetupSession" LibraryCreated="LibraryCreated" Cancelled="CancelLibraryWizard" />
+    }
+    else
+    {
+        @if (Media is not null)
+        {
+            <AppAlert Tone="@(Media.Passed ? AppUiTone.Success : AppUiTone.Warning)">@Media.Detail</AppAlert>
+        }
+        <div class="setup-actions"><AppButton Label="Add a library" StartIcon="@Icons.Material.Outlined.CreateNewFolder" OnClick="OpenLibraryWizard" /><AppButton Label="Verify and continue" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@Busy" OnClick="ValidateMedia" /></div>
+    }
+</div>
+
+@code {
+    [Parameter] public SetupMediaLocationsDto? Media { get; set; }
+    [Parameter] public string? SetupSession { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool ShowLibraryWizard { get; set; }
+    [Parameter] public EventCallback OpenLibraryWizard { get; set; }
+    [Parameter] public EventCallback CancelLibraryWizard { get; set; }
+    [Parameter] public EventCallback LibraryCreated { get; set; }
+    [Parameter] public EventCallback ValidateMedia { get; set; }
+}

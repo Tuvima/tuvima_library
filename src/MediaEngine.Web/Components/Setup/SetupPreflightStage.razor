@@ -1,0 +1,99 @@
+@namespace MediaEngine.Web.Components.Setup
+@using MediaEngine.Contracts.Setup
+@using MediaEngine.Contracts.Settings
+
+<div class="setup-stage-content">
+    <div class="setup-stage__heading">
+        <MudIcon Icon="@Icons.Material.Outlined.FactCheck" />
+        <div><h2 id="setup-stage-title">Prepare this installation</h2><p>Tuvima is checking the server before account creation.</p></div>
+    </div>
+
+    <AppAlert Tone="AppUiTone.Info">Keep this Dashboard on your private network until the first administrator is created. An unconfigured server intentionally accepts setup without a separate claim token.</AppAlert>
+
+    @if (ShowRestore)
+    {
+        <div class="setup-restore">
+            <h3>Restore a backup file</h3>
+            <p>Choose a Tuvima backup ZIP. It is inspected before anything is replaced.</p>
+            <InputFile OnChange="UploadBackup" accept=".zip,application/zip" class="setup-file-input" />
+            @if (Backup is not null)
+            {
+                <dl class="setup-facts"><div><dt>File</dt><dd>@Backup.FileName</dd></div><div><dt>Created</dt><dd>@(Backup.CreatedAt?.ToString("g") ?? "Unknown")</dd></div><div><dt>Database epoch</dt><dd>@Backup.DatabaseEpoch</dd></div><div><dt>Entries</dt><dd>@Backup.EntryCount</dd></div></dl>
+                <AppAlert Tone="AppUiTone.Warning">@Backup.Warning The application will restart after confirmation.</AppAlert>
+                <div class="setup-actions"><AppButton Label="Cancel restore" OnClick="CancelRestore" /><AppButton Label="Restore and restart" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Warning" Loading="@Busy" OnClick="ConfirmRestore" /></div>
+            }
+            else
+            {
+                <div class="setup-actions"><AppButton Label="Cancel restore" OnClick="CancelRestore" /></div>
+            }
+        </div>
+    }
+    else if (Preflight is null || Busy)
+    {
+        <div class="setup-preparing" role="status" aria-live="polite">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            <div><h3>Preparing your server…</h3><p>These checks usually take only a moment.</p></div>
+        </div>
+        <ul class="setup-preparing__checks">
+            <li>Checking storage</li><li>Checking configuration</li><li>Checking database</li><li>Checking media tools</li>
+        </ul>
+    }
+    else if (Preflight.Passed)
+    {
+        <AppAlert Tone="AppUiTone.Success">Server checks passed. Continuing to administrator setup…</AppAlert>
+    }
+    else
+    {
+        <AppAlert Tone="AppUiTone.Error">Tuvima needs attention before setup can continue. Fix the blocked location below, then run the checks again.</AppAlert>
+        @if (Libraries is not null)
+        {
+            <div class="setup-storage-editor">
+                <div><h3>Server storage locations</h3><p>Use paths visible to the Tuvima server or container. Writable locations must permit server-side writes.</p></div>
+                @foreach (var location in Libraries.StorageLocations)
+                {
+                    <div class="setup-storage-row">
+                        <AppTextField Label="@location.Label" Value="@location.Path" ValueChanged="@((string? value) => location.Path = value?.Trim() ?? string.Empty)" />
+                        <AppStatusBadge Text="@(location.AllowWrite ? "Writable" : "Read only")" Tone="@(location.AllowWrite ? AppUiTone.Success : AppUiTone.Neutral)" />
+                    </div>
+                }
+                <div class="setup-actions"><AppButton Label="Save and check again" StartIcon="@Icons.Material.Outlined.Refresh" Loading="@Busy" OnClick="SaveStorageLocations" /></div>
+            </div>
+        }
+        <div class="setup-actions setup-actions--secondary"><AppButton Label="Run checks again" StartIcon="@Icons.Material.Outlined.Refresh" ButtonStyle="AppButtonStyle.Text" Loading="@Busy" OnClick="Retry" /></div>
+    }
+
+    @if (Preflight is not null)
+    {
+        <details class="setup-technical" open="@(!Preflight.Passed)">
+            <summary>Technical details</summary>
+            <p>@Preflight.ContainerExplanation</p>
+            <div class="setup-checks">
+                @foreach (var check in Preflight.Checks)
+                {
+                    <article><AppStatusBadge Text="@Friendly(check.Status)" Tone="@(check.Status == "passed" ? AppUiTone.Success : AppUiTone.Error)" /><div><strong>@check.Label</strong><small>@check.Detail</small><code>@check.Path</code></div></article>
+                }
+            </div>
+            <p class="setup-runtime">@Preflight.RuntimeIdentifier · @Preflight.ProcessArchitecture · FFmpeg: @Preflight.FfmpegStatus</p>
+        </details>
+    }
+
+    @if (!ShowRestore)
+    {
+        <div class="setup-actions setup-actions--secondary"><AppButton Label="Restore a backup instead" StartIcon="@Icons.Material.Outlined.Restore" ButtonStyle="AppButtonStyle.Text" OnClick="OpenRestore" /></div>
+    }
+</div>
+
+@code {
+    [Parameter] public SetupPreflightDto? Preflight { get; set; }
+    [Parameter] public SetupBackupInspectionDto? Backup { get; set; }
+    [Parameter] public LibrariesConfigurationDto? Libraries { get; set; }
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public bool ShowRestore { get; set; }
+    [Parameter] public EventCallback OpenRestore { get; set; }
+    [Parameter] public EventCallback CancelRestore { get; set; }
+    [Parameter] public EventCallback<InputFileChangeEventArgs> UploadBackup { get; set; }
+    [Parameter] public EventCallback ConfirmRestore { get; set; }
+    [Parameter] public EventCallback Retry { get; set; }
+    [Parameter] public EventCallback SaveStorageLocations { get; set; }
+    private static string Friendly(string value) => char.ToUpperInvariant(value[0]) + value[1..].Replace('_', ' ');
+}

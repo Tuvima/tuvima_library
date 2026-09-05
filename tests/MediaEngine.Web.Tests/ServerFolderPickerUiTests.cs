@@ -20,6 +20,9 @@ public sealed class ServerFolderPickerUiTests
         Assert.Contains("Enter path manually", picker, StringComparison.Ordinal);
         Assert.Contains("Select this folder", picker, StringComparison.Ordinal);
         Assert.DoesNotContain("InputFile", picker, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromMilliseconds(275)", picker, StringComparison.Ordinal);
+        Assert.Contains("preserveSelection: true", picker, StringComparison.Ordinal);
+        Assert.Contains("_browseRequest?.Cancel()", picker, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -55,6 +58,9 @@ public sealed class ServerFolderPickerUiTests
         Assert.Contains("Organization", wizard, StringComparison.Ordinal);
         Assert.Contains("Review", wizard, StringComparison.Ordinal);
         Assert.Contains("PrimaryDestinationSourceId", wizard, StringComparison.Ordinal);
+        Assert.Contains("VisibleSteps", wizard, StringComparison.Ordinal);
+        Assert.Contains("RequiresPrimaryDestination", wizard, StringComparison.Ordinal);
+        Assert.Contains("Existing files will remain unchanged", wizard, StringComparison.Ordinal);
         Assert.Contains("Overview", libraries, StringComparison.Ordinal);
         Assert.Contains("Folders", libraries, StringComparison.Ordinal);
         Assert.Contains("Organization", libraries, StringComparison.Ordinal);

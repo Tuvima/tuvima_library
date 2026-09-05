@@ -1,7 +1,7 @@
 {
   "name": "opensubtitles",
   "version": "1.0",
-  "enabled": false,
+  "enabled": true,
   "weight": 0.75,
   "domain": "Video",
   "icon": "images/providers/opensubtitles.png",
@@ -63,11 +63,23 @@
     "privacy_url": "https://www.opensubtitles.com/en/privacy",
     "supported_lanes": ["watch"],
     "required_scopes": ["Read-only OpenSubtitles API access"],
+    "intro": { "title": "Connect OpenSubtitles", "summary": "Adds subtitle search and downloads for movies and owned TV episodes." },
+    "steps": [
+      { "id": "account", "title": "Consumer account", "description": "Create or open an OpenSubtitles API consumer.", "instructions": ["Sign in to OpenSubtitles.com.", "Open Consumers and create an API consumer if needed."], "action": { "kind": "external_link", "label": "Open OpenSubtitles Consumers", "url": "https://www.opensubtitles.com/en/consumers", "url_role": "signup" } },
+      { "id": "credential", "title": "Get credential", "description": "Copy the API key assigned to your consumer application.", "instructions": ["Open the consumer application.", "Copy its API key."], "action": { "kind": "credential_entry", "label": "Enter API key" }, "credential_keys": ["api_key"] },
+      { "id": "connect", "title": "Connect", "description": "The API key enables subtitle search and anonymous download quotas. Optional account login remains an advanced setting for authenticated download quotas.", "action": { "kind": "credential_probe", "label": "Verify & connect" }, "credential_keys": ["api_key"] }
+    ],
+    "troubleshooting": [
+      { "status": "invalid_credential", "title": "OpenSubtitles did not accept this key", "message": "Confirm that this is the API key for an OpenSubtitles consumer application.", "instructions": ["Open Consumers and copy the key again."], "help_url": "https://opensubtitles.stoplight.io/docs/opensubtitles-api/e3750fd63a100-getting-started" },
+      { "status": "rate_limited", "title": "OpenSubtitles quota reached", "message": "Wait until the provider allows another request. Signed-in download quotas are configured separately.", "instructions": [] },
+      { "status": "provider_outage", "title": "OpenSubtitles is temporarily unavailable", "message": "Your API key may be valid. Try again later.", "instructions": [] },
+      { "status": "connectivity_failure", "title": "Tuvima could not reach OpenSubtitles", "message": "Check this server's internet, DNS, proxy, and firewall settings.", "instructions": [] }
+    ],
     "skip_consequences": [
       { "lane": "watch", "summary": "Movies and owned TV episodes will not receive downloadable subtitles from OpenSubtitles.", "unavailable_capabilities": ["subtitles"] }
     ],
     "credentials": [
-      { "key": "api_key", "label": "OpenSubtitles API Key", "input_type": "password", "required": true, "format_hint": "The API key assigned to your OpenSubtitles consumer application.", "minimum_length": 16, "maximum_length": 128, "validation_pattern": "^[A-Za-z0-9_-]+$" }
+      { "key": "api_key", "label": "OpenSubtitles API Key", "input_type": "password", "required": true, "ownership": "user_supplied", "purpose": "api_key", "format_hint": "The API key assigned to your OpenSubtitles consumer application.", "minimum_length": 16, "maximum_length": 128, "validation_pattern": "^[A-Za-z0-9_-]+$" }
     ],
     "authentication_probe": { "path": "/infos/formats", "method": "GET", "success_status_codes": [200] }
   }

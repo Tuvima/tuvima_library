@@ -123,10 +123,10 @@ public sealed class SearchServiceUniverseSearchTests
     }
 
     [Fact]
-    public async Task SearchRetail_DoesNotQueryDisabledProviders()
+    public async Task SearchRetail_DoesNotQueryUnconfiguredProviders()
     {
-        var disabledProvider = new CapturingRetailProvider("opensubtitles");
-        var service = BuildSearchService(disabledProvider);
+        var unconfiguredProvider = new CapturingRetailProvider("test_unconfigured_provider");
+        var service = BuildSearchService(unconfiguredProvider);
 
         var result = await service.SearchRetailAsync(new SearchRetailRequest(
             Query: "Le Petit Prince",
@@ -136,7 +136,7 @@ public sealed class SearchServiceUniverseSearchTests
             LocalAuthor: "Antoine de Saint-Exupery"));
 
         Assert.Empty(result.Candidates);
-        Assert.Equal(0, disabledProvider.SearchCount);
+        Assert.Equal(0, unconfiguredProvider.SearchCount);
     }
 
     [Fact]

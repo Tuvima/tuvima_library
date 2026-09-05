@@ -528,6 +528,8 @@ public sealed partial class ConfigDrivenAdapter
         url = ReplacePlaceholder(url, "{series}", request.Series, encode: true);
         url = ReplacePlaceholder(url, "{genre}", request.Genre, encode: true);
         url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
+        url = ReplacePlaceholder(url, "{client_key}", _config.HttpClient?.ClientKey, encode: true);
+        url = ReplacePlaceholder(url, "{access_token}", _config.HttpClient?.AccessToken, encode: true);
         url = ReplacePlaceholder(url, "{lang}",    request.Language.ToLowerInvariant(), encode: true);
         url = ReplacePlaceholder(url, "{country}", request.Country.ToUpperInvariant(),  encode: true);
         url = ReplacePlaceholder(url, "{year}",    yearFromTitle ?? string.Empty, encode: true);

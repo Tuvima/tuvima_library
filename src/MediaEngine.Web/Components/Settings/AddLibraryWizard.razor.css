@@ -3,7 +3,7 @@
 .add-library-wizard__header h2, .add-library-wizard__header p, .add-library-wizard__stage-heading h3, .add-library-wizard__stage-heading p { margin: 0; }
 .add-library-wizard__header h2 { color: var(--tl-text-primary); font-size: 1.35rem; }
 .add-library-wizard__header p, .add-library-wizard__stage-heading p { margin-top: 3px; color: var(--tl-text-muted); font-size: .84rem; }
-.add-library-wizard__steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--tl-space-4); margin: 0; padding: 0 0 var(--tl-space-4); border-bottom: 1px solid var(--tl-border-subtle); list-style: none; }
+.add-library-wizard__steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: var(--tl-space-4); margin: 0; padding: 0 0 var(--tl-space-4); border-bottom: 1px solid var(--tl-border-subtle); list-style: none; }
 .add-library-wizard__steps li { position: relative; display: flex; align-items: center; gap: 11px; min-width: 0; color: var(--tl-text-muted); }
 .add-library-wizard__steps li:not(:last-child)::after { position: absolute; top: 16px; right: calc(-1 * var(--tl-space-3)); width: var(--tl-space-4); height: 1px; background: var(--tl-border-subtle); content: ""; }
 .add-library-wizard__steps li > span { display: grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; border: 1px solid var(--tl-border-strong); border-radius: 50%; font-size: .8rem; font-weight: 700; }

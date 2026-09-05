@@ -56,7 +56,6 @@ public sealed class ProviderEditorDraft
 {
     public string Key { get; init; } = string.Empty;
     public bool Enabled { get; set; }
-    public Dictionary<string, string> CredentialReplacements { get; } = new(StringComparer.OrdinalIgnoreCase);
     public string LanguageStrategy { get; set; } = "source";
     public int TimeoutSeconds { get; set; } = 10;
     public int ThrottleMs { get; set; }
@@ -89,28 +88,11 @@ public sealed class ProviderEditorDraft
             },
     };
 
-    public ProviderCredentialWriteRequest ToCredentialRequest() => new()
-    {
-        Credentials = CredentialReplacements
-            .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
-            .ToDictionary(
-                pair => pair.Key,
-                pair => pair.Value,
-                StringComparer.OrdinalIgnoreCase),
-    };
-
-    public bool HasCredentialReplacements =>
-        CredentialReplacements.Values.Any(value => !string.IsNullOrWhiteSpace(value));
-
     public string Fingerprint() => string.Join('|',
         Enabled,
         LanguageStrategy,
         TimeoutSeconds,
         ThrottleMs,
         MaxConcurrency,
-        PrimaryEndpoint.Trim(),
-        string.Join(';', CredentialReplacements
-            .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
-            .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(pair => pair.Key)));
+        PrimaryEndpoint.Trim());
 }

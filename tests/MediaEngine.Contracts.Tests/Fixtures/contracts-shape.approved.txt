@@ -5399,6 +5399,8 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderCredential
   Label: System.String | nullability=not-null | accessors=get,set
   InputType: System.String | nullability=not-null | accessors=get,set
   Required: System.Boolean | nullability=not-null | accessors=get,set
+  Ownership: System.String | nullability=not-null | accessors=get,set
+  Purpose: System.String | nullability=not-null | accessors=get,set
   FormatHint: System.String | nullability=nullable | accessors=get,set
   MinimumLength: System.Int32? | nullability=nullable | accessors=get,set
   MaximumLength: System.Int32? | nullability=nullable | accessors=get,set
@@ -5434,6 +5436,12 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderHealthStat
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderIconPathResponse
   path: System.String | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderOnboardingActionDto
+  Kind: System.String | nullability=not-null | accessors=get,set
+  Label: System.String | nullability=nullable | accessors=get,set
+  Url: System.String | nullability=nullable | accessors=get,set
+  UrlRole: System.String | nullability=nullable | accessors=get,set
+
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderOnboardingDto
   Classification: System.String | nullability=not-null | accessors=get,set
   SignupUrl: System.String | nullability=nullable | accessors=get,set
@@ -5444,6 +5452,28 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderOnboarding
   RequiredScopes: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
   SkipConsequences: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ProviderSkipConsequenceDto> | nullability=not-null | accessors=get,set
   Credentials: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ProviderCredentialFieldDto> | nullability=not-null | accessors=get,set
+  Intro: MediaEngine.Contracts.Settings.ProviderOnboardingIntroDto | nullability=nullable | accessors=get,set
+  Steps: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ProviderOnboardingStepDto> | nullability=not-null | accessors=get,set
+  Troubleshooting: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ProviderOnboardingTroubleshootingDto> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderOnboardingIntroDto
+  Title: System.String | nullability=not-null | accessors=get,set
+  Summary: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderOnboardingStepDto
+  Id: System.String | nullability=not-null | accessors=get,set
+  Title: System.String | nullability=not-null | accessors=get,set
+  Description: System.String | nullability=nullable | accessors=get,set
+  Instructions: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+  Action: MediaEngine.Contracts.Settings.ProviderOnboardingActionDto | nullability=nullable | accessors=get,set
+  CredentialKeys: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderOnboardingTroubleshootingDto
+  Status: System.String | nullability=not-null | accessors=get,set
+  Title: System.String | nullability=not-null | accessors=get,set
+  Message: System.String | nullability=not-null | accessors=get,set
+  Instructions: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+  HelpUrl: System.String | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderSampleClaimDto
   Key: System.String | nullability=not-null | accessors=get,init

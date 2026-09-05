@@ -1,0 +1,54 @@
+@namespace MediaEngine.Web.Components.Setup
+@using MediaEngine.Contracts.Setup
+
+<ol class="setup-stepper" aria-label="Setup steps">
+    @foreach (var step in SetupWorkflow.StepKeys)
+    {
+        var state = StateFor(step);
+        <li class="@StepClass(step, state)" aria-current="@(step == CurrentStep ? "step" : null)">
+            <AppNativeButton Type="button"
+                               Disabled="@(!CanNavigate(step))"
+                               AriaLabel="@AriaLabel(step, state)"
+                               OnClick="@(() => StepSelected.InvokeAsync(step))">
+                <span aria-hidden="true">@StepMarker(step, state)</span>
+                <small>@Friendly(step)</small>
+                @if (state == "deferred")
+                {
+                    <em>Later</em>
+                }
+            </AppNativeButton>
+        </li>
+    }
+</ol>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<SetupStepStatusDto> Steps { get; set; } = [];
+    [Parameter, EditorRequired] public string CurrentStep { get; set; } = "preflight";
+    [Parameter, EditorRequired] public string WorkflowStep { get; set; } = "preflight";
+    [Parameter] public EventCallback<string> StepSelected { get; set; }
+
+    private string StateFor(string key) => Steps.FirstOrDefault(step => step.Key == key)?.Status ?? "not_started";
+
+    private bool CanNavigate(string key) =>
+        Array.IndexOf(SetupWorkflow.StepKeys, key) <= Array.IndexOf(SetupWorkflow.StepKeys, WorkflowStep)
+        || StateFor(key) is "passed" or "deferred";
+
+    private string StepClass(string key, string state) => string.Join(' ', new[]
+    {
+        key == CurrentStep ? "is-current" : null,
+        state == "passed" ? "is-complete" : null,
+        state == "deferred" ? "is-deferred" : null,
+        state == "blocked" ? "is-blocked" : null,
+    }.Where(value => value is not null));
+
+    private static string StepMarker(string key, string state) => state switch
+    {
+        "passed" => "✓",
+        "deferred" => "✓",
+        "blocked" => "!",
+        _ => (Array.IndexOf(SetupWorkflow.StepKeys, key) + 1).ToString(),
+    };
+
+    private static string AriaLabel(string key, string state) => $"{Friendly(key)}, {Friendly(state)}";
+    private static string Friendly(string value) => string.Join(' ', value.Replace('_', '-').Split('-', StringSplitOptions.RemoveEmptyEntries).Select(part => char.ToUpperInvariant(part[0]) + part[1..]));
+}

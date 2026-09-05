@@ -1,0 +1,288 @@
+@namespace MediaEngine.Web.Components.Shared.Providers
+@inject IEngineApiClient ApiClient
+
+<AppHostedDialog Title="@DialogTitle"
+                 Subtitle="@DialogSubtitle"
+                 Eyebrow="Provider connection"
+                 Icon="@Icons.Material.Outlined.Extension"
+                 Size="Large"
+                 Class="provider-onboarding-host"
+                 OnClose="Cancel">
+    <ChildContent>
+        <div class="provider-onboarding" style="@AccentStyle">
+            <div class="provider-onboarding__identity">
+                <AppProviderLogo ImageUrl="@Catalogue.IconPath"
+                                 Icon="@Catalogue.MaterialIcon"
+                                 AccentColor="@Catalogue.AccentColor"
+                                 FallbackText="@Initials(Catalogue.DisplayName)"
+                                 AltText="" />
+                <span><strong>@Catalogue.DisplayName</strong><small>@ProviderPurpose</small></span>
+            </div>
+
+            @if (_result?.Success == true)
+            {
+                <div class="provider-onboarding__success" role="status">
+                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
+                    <div><h3>@SuccessTitle</h3><p>@_result.Message</p></div>
+                </div>
+            }
+            else
+            {
+                @if (Steps.Count > 1)
+                {
+                    <ol class="provider-onboarding__progress" aria-label="Connection progress">
+                        @for (var index = 0; index < Steps.Count; index++)
+                        {
+                            var step = Steps[index];
+                            <li class="@StepClass(index)" aria-current="@(index == _activeStep ? "step" : null)">
+                                <span>@(index + 1)</span><strong>@step.Title</strong>
+                            </li>
+                        }
+                    </ol>
+                }
+
+                var current = Steps[_activeStep];
+                <section class="provider-onboarding__step" aria-live="polite">
+                    <h3>@current.Title</h3>
+                    @if (!string.IsNullOrWhiteSpace(current.Description))
+                    {
+                        <p>@current.Description</p>
+                    }
+                    @if (current.Instructions.Count > 0)
+                    {
+                        <ol class="provider-onboarding__instructions">
+                            @foreach (var instruction in current.Instructions)
+                            {
+                                <li>@instruction</li>
+                            }
+                        </ol>
+                    }
+
+                    @RenderAction(current.Action)
+
+                    @if (FieldsFor(current).Count > 0)
+                    {
+                        <ProviderCredentialForm Fields="@FieldsFor(current)"
+                                                Values="@_credentials"
+                                                FieldErrors="@FieldErrors"
+                                                Replacing="@(Operation == ProviderOnboardingOperation.Replace)"
+                                                ValuesChanged="CredentialsChanged" />
+                    }
+
+                    @if (_result is { Success: false })
+                    {
+                        <AppAlert Tone="AppUiTone.Error" Class="provider-onboarding__failure">
+                            <strong>@FailureTitle</strong>
+                            <span>@FailureMessage</span>
+                            @if (FailureInstructions.Count > 0)
+                            {
+                                <ul>
+                                    @foreach (var instruction in FailureInstructions)
+                                    {
+                                        <li>@instruction</li>
+                                    }
+                                </ul>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(FailureHelpUrl))
+                            {
+                                <a href="@FailureHelpUrl" target="_blank" rel="noopener noreferrer">Open troubleshooting help</a>
+                            }
+                        </AppAlert>
+                    }
+                </section>
+            }
+        </div>
+    </ChildContent>
+    <FooterContent>
+        @if (_result?.Success == true)
+        {
+            <AppButton Label="Done" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="Complete" />
+        }
+        else
+        {
+            <AppButton Label="Cancel" Disabled="@_busy" OnClick="Cancel" />
+            @if (_activeStep > 0)
+            {
+                <AppButton Label="Back" Disabled="@_busy" OnClick="Previous" />
+            }
+            @if (_activeStep < Steps.Count - 1)
+            {
+                <AppButton Label="Continue" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@_busy" OnClick="Next" />
+            }
+            else
+            {
+                <AppButton Label="@SubmitLabel"
+                           StartIcon="@Icons.Material.Outlined.NetworkCheck"
+                           ButtonStyle="AppButtonStyle.Filled"
+                           Tone="AppUiTone.Primary"
+                           Loading="@_busy"
+                           Disabled="@(_busy || !CanSubmit)"
+                           OnClick="SubmitAsync" />
+            }
+        }
+    </FooterContent>
+</AppHostedDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance DialogInstance { get; set; } = default!;
+
+    [Parameter, EditorRequired] public ProviderCatalogueDto Catalogue { get; set; } = new();
+    [Parameter] public string? SetupSession { get; set; }
+    [Parameter] public ProviderOnboardingOperation Operation { get; set; } = ProviderOnboardingOperation.Connect;
+
+    private readonly Dictionary<string, string> _credentials = new(StringComparer.OrdinalIgnoreCase);
+    private ProviderCredentialOperationResultDto? _result;
+    private int _activeStep;
+    private bool _busy;
+
+    private ProviderOnboardingDto Onboarding => Catalogue.Onboarding ?? new ProviderOnboardingDto();
+    private IReadOnlyList<ProviderOnboardingStepDto> Steps => Onboarding.Steps.Count > 0
+        ? Onboarding.Steps
+        : [new ProviderOnboardingStepDto
+        {
+            Id = "credentials",
+            Title = Operation == ProviderOnboardingOperation.Test ? "Test connection" : "Connect provider",
+            Description = Onboarding.Intro?.Summary,
+            CredentialKeys = UserFields.Select(credential => credential.Key).ToList(),
+        }];
+    private IReadOnlyList<ProviderCredentialFieldDto> UserFields => Onboarding.Credentials
+        .Where(credential => string.Equals(credential.Ownership, "user_supplied", StringComparison.OrdinalIgnoreCase))
+        .ToList();
+    private IReadOnlyDictionary<string, string> FieldErrors => _result?.FieldErrors
+        ?? new Dictionary<string, string>();
+    private bool CanSubmit => UserFields.Where(credential => credential.Required).All(credential =>
+        credential.Configured || !string.IsNullOrWhiteSpace(_credentials.GetValueOrDefault(credential.Key)))
+        && (Operation != ProviderOnboardingOperation.Replace
+            || _credentials.Values.Any(value => !string.IsNullOrWhiteSpace(value)));
+    private string DialogTitle => Onboarding.Intro?.Title ?? $"Connect {Catalogue.DisplayName}";
+    private string? DialogSubtitle => Onboarding.Intro?.Summary;
+    private string ProviderPurpose => Onboarding.SupportedLanes.Count > 0
+        ? $"Supports {string.Join(", ", Onboarding.SupportedLanes)}."
+        : "Metadata provider";
+    private string SubmitLabel => string.Equals(Steps[_activeStep].Action?.Kind, "credential_probe", StringComparison.OrdinalIgnoreCase)
+        && !string.IsNullOrWhiteSpace(Steps[_activeStep].Action?.Label)
+            ? Steps[_activeStep].Action!.Label!
+            : Operation switch
+            {
+                ProviderOnboardingOperation.Test => "Test connection",
+                ProviderOnboardingOperation.Replace => "Save replacement",
+                _ => "Save and verify",
+            };
+    private string SuccessTitle => Operation == ProviderOnboardingOperation.Test
+        ? "Connection verified"
+        : "Provider connected";
+    private ProviderOnboardingTroubleshootingDto? Troubleshooting => Onboarding.Troubleshooting.FirstOrDefault(item =>
+        string.Equals(item.Status, _result?.Status, StringComparison.OrdinalIgnoreCase));
+    private string FailureTitle => Troubleshooting?.Title ?? "Connection needs attention";
+    private string FailureMessage => Troubleshooting?.Message ?? _result?.Message ?? "The provider could not be reached.";
+    private IReadOnlyList<string> FailureInstructions => Troubleshooting?.Instructions ?? [];
+    private string? FailureHelpUrl => Troubleshooting?.HelpUrl ?? Onboarding.HelpUrl;
+    private string AccentStyle => $"--provider-accent:{Catalogue.AccentColor}";
+
+    private IReadOnlyList<ProviderCredentialFieldDto> FieldsFor(ProviderOnboardingStepDto step)
+    {
+        if (step.CredentialKeys.Count == 0)
+            return Steps.Count == 1 ? UserFields : [];
+
+        return UserFields.Where(credential => step.CredentialKeys.Contains(credential.Key, StringComparer.OrdinalIgnoreCase)).ToList();
+    }
+
+    private RenderFragment RenderAction(ProviderOnboardingActionDto? action) => builder =>
+    {
+        if (action is null) return;
+        var kind = action.Kind?.Trim().ToLowerInvariant();
+        if (kind == "external_link" && !string.IsNullOrWhiteSpace(action.Url))
+        {
+            builder.OpenComponent<AppButton>(0);
+            builder.AddAttribute(1, nameof(AppButton.Label), action.Label ?? "Open provider website");
+            builder.AddAttribute(2, nameof(AppButton.Href), action.Url);
+            builder.AddAttribute(3, nameof(AppButton.Target), "_blank");
+            builder.AddAttribute(4, nameof(AppButton.EndIcon), Icons.Material.Outlined.OpenInNew);
+            builder.AddAttribute(5, nameof(AppButton.AdditionalAttributes), new Dictionary<string, object>
+            {
+                ["rel"] = "noopener noreferrer",
+            });
+            builder.CloseComponent();
+        }
+        else if (kind == "information" && !string.IsNullOrWhiteSpace(action.Label))
+        {
+            builder.OpenComponent<AppAlert>(0);
+            builder.AddAttribute(1, nameof(AppAlert.Tone), AppUiTone.Info);
+            builder.AddAttribute(2, nameof(AppAlert.ChildContent), (RenderFragment)(content => content.AddContent(0, action.Label)));
+            builder.CloseComponent();
+        }
+    };
+
+    private Task CredentialsChanged()
+    {
+        _result = null;
+        return Task.CompletedTask;
+    }
+
+    private void Next()
+    {
+        if (_activeStep < Steps.Count - 1) _activeStep++;
+        _result = null;
+    }
+
+    private void Previous()
+    {
+        if (_activeStep > 0) _activeStep--;
+        _result = null;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_busy || !CanSubmit) return;
+        _busy = true;
+        _result = null;
+        try
+        {
+            var request = new ProviderCredentialWriteRequest
+            {
+                Credentials = _credentials
+                    .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+                    .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase),
+            };
+            _result = !string.IsNullOrWhiteSpace(SetupSession)
+                ? await ApiClient.SaveSetupProviderCredentialsAsync(Catalogue.Name, request, SetupSession)
+                : Operation == ProviderOnboardingOperation.Test
+                    ? await ApiClient.TestProviderCredentialsAsync(Catalogue.Name, request)
+                    : await ApiClient.SaveProviderCredentialsAsync(Catalogue.Name, request);
+            _result ??= new ProviderCredentialOperationResultDto
+            {
+                Success = false,
+                Status = "connectivity_failure",
+                Message = "The Engine did not return a provider connection result.",
+            };
+        }
+        catch
+        {
+            _result = new ProviderCredentialOperationResultDto
+            {
+                Success = false,
+                Status = "connectivity_failure",
+                Message = "The Dashboard could not reach the Engine. Check that it is running and try again.",
+            };
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Complete() => DialogInstance.Close(DialogResult.Ok(new ProviderOnboardingDialogResult(
+        true,
+        _result?.Status ?? "success",
+        _result?.Message ?? "Provider connected.")));
+    private void Cancel() => DialogInstance.Cancel();
+
+    private string StepClass(int index) => index == _activeStep
+        ? "is-active"
+        : index < _activeStep ? "is-complete" : string.Empty;
+
+    private static string Initials(string name) => string.Concat(name
+        .Split([' ', '.', '_', '-'], StringSplitOptions.RemoveEmptyEntries)
+        .Take(2)
+        .Select(word => char.ToUpperInvariant(word[0])));
+}

@@ -15,6 +15,7 @@ public partial interface IEngineApiClient
     Task<IReadOnlyList<ServerStorageLocationDto>> GetSetupServerFolderRootsAsync(string? setupSession, CancellationToken ct = default);
     Task<BrowseServerFoldersResultDto?> BrowseSetupServerFoldersAsync(BrowseServerFoldersRequest request, string? setupSession, CancellationToken ct = default);
     Task<ServerFolderValidationResultDto?> ValidateSetupServerFolderAsync(ValidateServerFolderRequest request, string? setupSession, CancellationToken ct = default);
+    Task<ProviderCredentialOperationResultDto?> TestSetupProviderCredentialsAsync(string name, ProviderCredentialWriteRequest request, string? setupSession, CancellationToken ct = default);
     Task<ProviderCredentialOperationResultDto?> SaveSetupProviderCredentialsAsync(string name, ProviderCredentialWriteRequest request, string? setupSession, CancellationToken ct = default);
     Task<SetupStatusDto?> DecideSetupStepAsync(string stepKey, string status, string? detail, string? setupSession, CancellationToken ct = default);
     Task<SetupBackupInspectionDto?> UploadSetupBackupAsync(Stream stream, string fileName, string setupSession, CancellationToken ct = default);

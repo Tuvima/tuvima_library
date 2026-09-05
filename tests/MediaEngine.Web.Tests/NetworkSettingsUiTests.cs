@@ -23,10 +23,12 @@ public sealed class NetworkSettingsUiTests
     public void FirstRunUsesTheVersionedSetupWorkflow()
     {
         var setup = Read(@"src\MediaEngine.Web\Components\Pages\SetupPage.razor");
+        var media = Read(@"src\MediaEngine.Web\Components\Setup\SetupMediaStage.razor");
 
         Assert.Contains("@page \"/setup\"", setup, StringComparison.Ordinal);
         Assert.Contains("UploadBackupAsync", setup, StringComparison.Ordinal);
-        Assert.Contains("AddLibraryWizard Embedded=\"true\"", setup, StringComparison.Ordinal);
+        Assert.Contains("SetupMediaStage", setup, StringComparison.Ordinal);
+        Assert.Contains("AddLibraryWizard Embedded=\"true\"", media, StringComparison.Ordinal);
         Assert.Contains("SetupWorkflow.StepKeys", setup, StringComparison.Ordinal);
     }
 

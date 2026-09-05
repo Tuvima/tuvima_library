@@ -100,6 +100,78 @@ public sealed class ProviderOnboardingDto
 
     [JsonPropertyName("credentials")]
     public List<ProviderCredentialFieldDto> Credentials { get; set; } = [];
+
+    [JsonPropertyName("intro")]
+    public ProviderOnboardingIntroDto? Intro { get; set; }
+
+    [JsonPropertyName("steps")]
+    public List<ProviderOnboardingStepDto> Steps { get; set; } = [];
+
+    [JsonPropertyName("troubleshooting")]
+    public List<ProviderOnboardingTroubleshootingDto> Troubleshooting { get; set; } = [];
+}
+
+public sealed class ProviderOnboardingIntroDto
+{
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("summary")]
+    public string Summary { get; set; } = string.Empty;
+}
+
+public sealed class ProviderOnboardingStepDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [JsonPropertyName("instructions")]
+    public List<string> Instructions { get; set; } = [];
+
+    [JsonPropertyName("action")]
+    public ProviderOnboardingActionDto? Action { get; set; }
+
+    [JsonPropertyName("credentialKeys")]
+    public List<string> CredentialKeys { get; set; } = [];
+}
+
+public sealed class ProviderOnboardingActionDto
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "information";
+
+    [JsonPropertyName("label")]
+    public string? Label { get; set; }
+
+    [JsonPropertyName("url")]
+    public string? Url { get; set; }
+
+    [JsonPropertyName("urlRole")]
+    public string? UrlRole { get; set; }
+}
+
+public sealed class ProviderOnboardingTroubleshootingDto
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = string.Empty;
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
+
+    [JsonPropertyName("instructions")]
+    public List<string> Instructions { get; set; } = [];
+
+    [JsonPropertyName("helpUrl")]
+    public string? HelpUrl { get; set; }
 }
 
 public sealed class ProviderSkipConsequenceDto
@@ -127,6 +199,12 @@ public sealed class ProviderCredentialFieldDto
 
     [JsonPropertyName("required")]
     public bool Required { get; set; }
+
+    [JsonPropertyName("ownership")]
+    public string Ownership { get; set; } = "user_supplied";
+
+    [JsonPropertyName("purpose")]
+    public string Purpose { get; set; } = "other";
 
     [JsonPropertyName("formatHint")]
     public string? FormatHint { get; set; }

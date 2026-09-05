@@ -1628,7 +1628,7 @@ public static class DevSeedEndpoints
                         .Select(index => new { id = index - 1, start = 0, end = 1, title = $"Part {index:D2}" })
                         .ToArray(),
                 };
-                await File.WriteAllTextAsync(sidecarPath, JsonSerializer.Serialize(sidecar, new JsonSerializerOptions { WriteIndented = true }));
+                await File.WriteAllTextAsync(sidecarPath, JsonSerializer.Serialize(sidecar, MediaEngineJson.Indented));
                 logger.LogInformation("Seed audiobook sidecar created: {Path}", sidecarPath);
             }
         }
