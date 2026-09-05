@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=689; api=0; web-client=86
+# scopes: contracts=691; api=0; web-client=86
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -2454,6 +2454,15 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   PlanId: System.Guid | json=plan_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Fingerprint: System.String | json=fingerprint | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Ingestion.FileMetadataRereadResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  AssetId: System.Guid | json=asset_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Status: System.String | json=status | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Refreshed: System.Boolean | json=refreshed | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ContentHashChanged: System.Boolean | json=content_hash_changed | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Message: System.String | json=message | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"asset_id":"11111111-2222-3333-4444-555555555555","status":"sample","refreshed":true,"content_hash_changed":true,"message":"sample"}
 
 [contracts] MediaEngine.Contracts.Ingestion.IngestionActivityBatchDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4950,6 +4959,13 @@
   Connection: MediaEngine.Contracts.Playback.PlaybackConnectionContextDto | json=connection | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"profileId":"11111111-2222-3333-4444-555555555555","sessionId":"11111111-2222-3333-4444-555555555555","deviceId":"sample","client":"sample","playbackState":"sample","experience":"sample","stateVersion":7,"currentQueueItemId":"11111111-2222-3333-4444-555555555555","currentItem":null,"queue":[],"positionSeconds":7,"durationSeconds":7,"progressPct":7,"volume":7,"isMuted":true,"playbackRate":7,"shuffleEnabled":true,"repeatMode":"sample","sourceLabel":"sample","createdAt":"2025-01-02T03:04:05+00:00","updatedAt":"2025-01-02T03:04:05+00:00","lastHeartbeatAt":"2025-01-02T03:04:05+00:00","isStale":true,"capabilities":null,"audiobookHistory":[],"warnings":[],"connection":null}
 
+[contracts] MediaEngine.Contracts.Playback.PreferredTextTrackResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  asset_id: System.Guid | json=asset_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  track_id: System.Guid | json=track_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  preferred: System.Boolean | json=preferred | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"asset_id":"11111111-2222-3333-4444-555555555555","track_id":"11111111-2222-3333-4444-555555555555","preferred":true}
+
 [contracts] MediaEngine.Contracts.Playback.QueueEncodeRequestDto
   kind=class | converter=default | number-handling=default | unmapped=default
   ProfileKey: System.String | json=profileKey | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -4983,6 +4999,7 @@
 
 [contracts] MediaEngine.Contracts.Playback.RefreshTextTracksResponse
   kind=class | converter=default | number-handling=default | unmapped=default
+  operation_id: System.Guid? | json=operation_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   asset_id: System.Guid | json=asset_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   enrichment_type: System.String | json=enrichment_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   refreshed: System.Boolean | json=refreshed | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -4991,7 +5008,7 @@
   after_count: System.Int32 | json=after_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   track_id: System.Guid? | json=track_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   message: System.String | json=message | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"asset_id":"11111111-2222-3333-4444-555555555555","enrichment_type":"sample","refreshed":true,"status":"sample","before_count":7,"after_count":7,"track_id":"11111111-2222-3333-4444-555555555555","message":"sample"}
+  sample={"operation_id":"11111111-2222-3333-4444-555555555555","asset_id":"11111111-2222-3333-4444-555555555555","enrichment_type":"sample","refreshed":true,"status":"sample","before_count":7,"after_count":7,"track_id":"11111111-2222-3333-4444-555555555555","message":"sample"}
 
 [contracts] MediaEngine.Contracts.Playback.SubtitleLanguageSettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default

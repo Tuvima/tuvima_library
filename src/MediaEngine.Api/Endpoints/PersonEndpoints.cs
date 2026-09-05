@@ -148,7 +148,7 @@ public static class PersonEndpoints
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
                 return ApiErrors.BadRequest("No file provided.");
-            if (file.Length > 20 * 1024 * 1024)
+            if (file.Length > BoundedHttpContent.MaximumImageBytes)
                 return ApiErrors.BadRequest("Artwork files must be 20 MB or smaller.");
             if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedType))
                 return ApiErrors.BadRequest(normalizedType == "Logo" ? "Logos must be PNG images." : "Only JPEG and PNG images are accepted.");
@@ -157,8 +157,7 @@ public static class PersonEndpoints
             var localPath = artworkScopeService.BuildArtworkUploadPath("Person", id, normalizedType, variantId, file.ContentType);
             AssetPathService.EnsureDirectory(localPath);
             await using (var input = file.OpenReadStream())
-            await using (var output = new FileStream(localPath, FileMode.Create, FileAccess.Write))
-                await input.CopyToAsync(output, ct);
+                await BoundedHttpContent.CopyImageToFileAtomicallyAsync(input, localPath, ct);
 
             var asset = new EntityAsset
             {
@@ -315,7 +314,7 @@ public static class PersonEndpoints
                     using var response = await client.GetAsync(person.HeadshotUrl, ct);
                     if (response.IsSuccessStatusCode)
                     {
-                        var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+                        var bytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct);
                         var contentType = response.Content.Headers.ContentType?.MediaType;
                         if (bytes.Length > 0 && IsLikelyImageBytes(bytes, contentType))
                         {
@@ -323,7 +322,7 @@ public static class PersonEndpoints
                                 id,
                                 MediaMimeTypes.InferImageExtension(contentType) ?? MediaMimeTypes.InferImageExtension(person.HeadshotUrl) ?? ".jpg");
                             AssetPathService.EnsureDirectory(localPath);
-                            await File.WriteAllBytesAsync(localPath, bytes, ct);
+                            await BoundedHttpContent.WriteFileAtomicallyAsync(localPath, bytes, ct);
                             await personRepo.UpdateLocalHeadshotPathAsync(id, localPath, ct);
                             return Results.File(bytes, contentType ?? GetImageMimeTypeOrJpeg(localPath), Path.GetFileName(localPath));
                         }

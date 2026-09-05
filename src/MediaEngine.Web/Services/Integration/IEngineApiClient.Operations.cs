@@ -19,6 +19,8 @@ public partial interface IEngineApiClient
     /// <summary>POST /ingestion/reconcile — scan all assets and clean orphans.</summary>
     Task<ReconciliationResultResponse?> TriggerReconciliationAsync(CancellationToken ct = default);
 
+    Task<FileMetadataRereadResponse?> RereadAssetMetadataAsync(Guid assetId, CancellationToken ct = default);
+
     // ── Hydration (/metadata/hydrate) ──────────────────────────────────────────
 
     /// <summary>POST /metadata/hydrate/{entityId} — trigger Wikidata SPARQL deep hydration.</summary>
@@ -27,6 +29,9 @@ public partial interface IEngineApiClient
 
     Task<EnrichmentRefreshScheduleResponse?> GetEnrichmentRefreshScheduleAsync(
         string? entityType = null, string? status = null, int limit = 250, CancellationToken ct = default);
+
+    Task<EnrichmentRefreshScheduleDto?> GetEntityEnrichmentRefreshScheduleAsync(
+        string entityType, Guid entityId, CancellationToken ct = default);
 
     Task<EnrichmentRefreshQueuedResponse?> QueueEnrichmentRefreshNowAsync(
         string entityType, Guid entityId, CancellationToken ct = default);

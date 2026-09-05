@@ -135,6 +135,15 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public Task<FileMetadataRereadResponse?> RereadAssetMetadataAsync(
+        Guid assetId,
+        CancellationToken ct = default) =>
+        PostAsync<object, FileMetadataRereadResponse>(
+            "POST /ingestion/assets/{assetId}/reread-metadata",
+            $"/ingestion/assets/{assetId:D}/reread-metadata",
+            new { },
+            ct: ct);
+
     // -- GET /ingestion/watch-folder --------------------------------------------
 
     public async Task<List<WatchFolderFileDto>> GetWatchFolderAsync(CancellationToken ct = default)
@@ -213,6 +222,15 @@ public sealed partial class EngineApiClient
             query,
             ct: ct);
     }
+
+    public Task<EnrichmentRefreshScheduleDto?> GetEntityEnrichmentRefreshScheduleAsync(
+        string entityType,
+        Guid entityId,
+        CancellationToken ct = default) =>
+        GetAsync<EnrichmentRefreshScheduleDto>(
+            "GET /ingestion/refresh-schedule/{entityType}/{entityId}",
+            $"/ingestion/refresh-schedule/{Uri.EscapeDataString(entityType)}/{entityId:D}",
+            ct: ct);
 
     public async Task<EnrichmentRefreshQueuedResponse?> QueueEnrichmentRefreshNowAsync(
         string entityType,

@@ -65,7 +65,7 @@ public static class CharacterEndpoints
                 return ApiErrors.NotFound("Portrait image source could not be retrieved.");
             }
 
-            var bytesFromSource = await response.Content.ReadAsByteArrayAsync(ct);
+            var bytesFromSource = await BoundedHttpContent.ReadImageAsync(response.Content, ct);
             if (bytesFromSource.Length == 0)
             {
                 return ApiErrors.NotFound("Portrait image source was empty.");
@@ -79,7 +79,7 @@ public static class CharacterEndpoints
                 : portrait.LocalImagePath;
 
             AssetPathService.EnsureDirectory(localPath);
-            await File.WriteAllBytesAsync(localPath, bytesFromSource, ct);
+            await BoundedHttpContent.WriteFileAtomicallyAsync(localPath, bytesFromSource, ct);
 
             portrait.LocalImagePath = localPath;
             portrait.UpdatedAt = DateTimeOffset.UtcNow;

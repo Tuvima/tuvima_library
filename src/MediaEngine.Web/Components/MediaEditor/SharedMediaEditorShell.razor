@@ -1679,7 +1679,15 @@
                             </section>
 
                             <section class="sme-file-status-panel">
-                                <div class="sme-file-panel-heading"><span>Processing</span></div>
+                                <div class="sme-file-panel-heading">
+                                    <span>Processing</span>
+                                    <AppButton Label="@(_rereadingFileMetadata ? "Rereading..." : "Reread file metadata")"
+                                               StartIcon="@Icons.Material.Outlined.Refresh"
+                                               ButtonStyle="AppButtonStyle.Outlined"
+                                               Tone="AppUiTone.Primary"
+                                               Disabled="@_rereadingFileMetadata"
+                                               OnClick="RereadFileMetadataAsync" />
+                                </div>
                                 <dl class="sme-file-fact-grid sme-file-fact-grid--processing">
                                     <div><dt>Identity</dt><dd><span class="sme-file-health"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" /> @(_detail.Status ?? "Identified")</span></dd></div>
                                     <div><dt>Pipeline</dt><dd><span class="sme-file-health"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" /> @(_detail.PipelineStep ?? "Complete")</span></dd></div>
@@ -1690,6 +1698,13 @@
                                     <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
                                     <span>Physical-file information is read-only. Metadata changes are written through the processing pipeline.</span>
                                 </div>
+                                @if (!string.IsNullOrWhiteSpace(_fileMetadataRereadMessage))
+                                {
+                                    <div class="sme-file-panel-note" role="status">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                                        <span>@_fileMetadataRereadMessage</span>
+                                    </div>
+                                }
                             </section>
 
                             @if (SupportsTextTracks && CurrentTextTrackAssetId.HasValue)
@@ -1703,6 +1718,14 @@
                                                    Tone="AppUiTone.Primary"
                                                    Disabled="@(_textTracksLoading || _textTracksRefreshing)"
                                                    OnClick="RefreshTextTracksAsync" />
+                                        <label class="sme-text-track-import" aria-disabled="@_textTrackImporting">
+                                            <InputFile class="sme-text-track-import__input"
+                                                       OnChange="ImportTextTrackAsync"
+                                                       disabled="@_textTrackImporting"
+                                                       accept="@(UsesLyrics ? ".lrc,.txt" : ".vtt,.srt,.ass")" />
+                                            <MudIcon Icon="@Icons.Material.Outlined.UploadFile" Size="Size.Small" />
+                                            <span>@(_textTrackImporting ? "Importing..." : "Import")</span>
+                                        </label>
                                     </div>
                                     @if (_textTracksLoading)
                                     {
@@ -1719,14 +1742,26 @@
                                         <div class="sme-text-track-list" aria-label="Managed @TextTrackHeading.ToLowerInvariant()">
                                             @foreach (var track in _textTracks.OrderByDescending(item => item.IsPreferred).ThenByDescending(item => item.IsUserOwned).ThenBy(item => item.Language))
                                             {
-                                                <a class="sme-text-track-row" href="@track.Url" target="_blank" rel="noopener noreferrer">
+                                                <div class="sme-text-track-row">
                                                     <span class="sme-text-track-language">@track.Language.ToUpperInvariant()</span>
                                                     <span>
                                                         <strong>@(track.IsUserOwned ? "Local file" : track.Provider)</strong>
                                                         <small>@track.NormalizedFormat.ToUpperInvariant() · @(track.IsPreferred ? "Preferred" : "Available")</small>
                                                     </span>
-                                                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
-                                                </a>
+                                                    <span class="sme-text-track-actions">
+                                                        @if (!track.IsPreferred)
+                                                        {
+                                                            <AppButton Label="@(_textTrackPreferencePendingId == track.Id ? "Selecting..." : "Use")"
+                                                                       ButtonStyle="AppButtonStyle.Text"
+                                                                       Tone="AppUiTone.Primary"
+                                                                       Disabled="@_textTrackPreferencePendingId.HasValue"
+                                                                       OnClick="@(() => SetPreferredTextTrackAsync(track.Id))" />
+                                                        }
+                                                        <a href="@track.Url" target="_blank" rel="noopener noreferrer" aria-label="Open text track">
+                                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
+                                                        </a>
+                                                    </span>
+                                                </div>
                                             }
                                         </div>
                                     }

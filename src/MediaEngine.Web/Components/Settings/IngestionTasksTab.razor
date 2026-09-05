@@ -2,7 +2,6 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject IngestionLiveDashboardState Dashboard
-@inject DeviceContextService DeviceContext
 @implements IAsyncDisposable
 
 <div class="tl-page ingestion-operations">
@@ -74,8 +73,6 @@
             }
         </AppPanel>
 
-        @if (!DeviceContext.IsMobile)
-        {
         <details class="ingestion-operations__advanced">
             <summary>Processing details</summary>
             <IngestionLiveDashboard Snapshot="Dashboard.Snapshot"
@@ -104,7 +101,6 @@
             <summary>Scheduled enrichment refreshes</summary>
             <EnrichmentRefreshSchedulePanel />
         </details>
-        }
     }
 </div>
 

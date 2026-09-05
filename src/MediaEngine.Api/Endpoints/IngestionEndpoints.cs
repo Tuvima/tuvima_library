@@ -35,6 +35,30 @@ public static class IngestionEndpoints
         .Produces<IngestionOperationsSnapshotDto>(StatusCodes.Status200OK)
         .RequireAdminOrStandardUser();
 
+        group.MapPost("/assets/{assetId:guid}/reread-metadata", async (
+            Guid assetId,
+            IIngestionEngine engine,
+            CancellationToken ct) =>
+        {
+            var result = await engine.RereadAssetMetadataAsync(assetId, ct);
+            var response = new FileMetadataRereadResponse
+            {
+                AssetId = result.AssetId,
+                Status = result.Status,
+                Refreshed = result.Refreshed,
+                ContentHashChanged = result.ContentHashChanged,
+                Message = result.Message,
+            };
+            return result.Status == "AssetMissing"
+                ? ApiErrors.NotFound(result.Message)
+                : Results.Ok(response);
+        })
+        .WithName("RereadAssetMetadata")
+        .WithSummary("Re-read local tags and technical metadata without identity matching or file moves.")
+        .Produces<FileMetadataRereadResponse>()
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrStandardUser();
+
         group.MapPost("/scan", async (
             ScanRequest? request,
             IIngestionEngine engine,

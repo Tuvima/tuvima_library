@@ -17,6 +17,9 @@ public interface IIngestionEngine
     /// </summary>
     Task EnqueueIntakeAsync(IntakeFileRequest request, CancellationToken ct = default);
 
+    /// <summary>Re-read local tags and technical metadata for one existing asset without rematching or moving it.</summary>
+    Task<FileMetadataRereadResult> RereadAssetMetadataAsync(Guid assetId, CancellationToken ct = default);
+
     /// <summary>Starts the watcher and begins consuming the debounce queue.</summary>
     void Start();
 
@@ -66,6 +69,13 @@ public interface IIngestionEngine
 
 /// <summary>One directory included in a grouped ingestion scan.</summary>
 public sealed record IngestionScanTarget(string Path, bool IncludeSubdirectories = true);
+
+public sealed record FileMetadataRereadResult(
+    Guid AssetId,
+    string Status,
+    bool Refreshed,
+    bool ContentHashChanged,
+    string Message);
 
 /// <summary>
 /// A file system operation that the ingestion engine intends to perform,

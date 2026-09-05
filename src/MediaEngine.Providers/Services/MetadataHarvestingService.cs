@@ -1122,7 +1122,10 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                 else
                 {
                     using var client = _httpFactory.CreateClient("headshot_download");
-                    bytes = await client.GetByteArrayAsync(headshotUrl, ct)
+                    using var response = await client.GetAsync(headshotUrl, HttpCompletionOption.ResponseHeadersRead, ct)
+                        .ConfigureAwait(false);
+                    response.EnsureSuccessStatusCode();
+                    bytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct)
                         .ConfigureAwait(false);
                 }
 
@@ -1142,7 +1145,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                     }
                     else
                     {
-                        await File.WriteAllBytesAsync(headshotPath, bytes, ct)
+                        await BoundedHttpContent.WriteFileAtomicallyAsync(headshotPath, bytes, ct)
                             .ConfigureAwait(false);
                     }
 

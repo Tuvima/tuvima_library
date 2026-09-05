@@ -4,6 +4,7 @@ using MediaEngine.Api.Services.Details;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Authentication;
+using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -154,7 +155,7 @@ public static class StreamEndpoints
                 if (!response.IsSuccessStatusCode)
                     return CreateArtworkPlaceholderResult();
 
-                var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+                var bytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct);
                 var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
                 return Results.File(bytes, contentType);
             }
@@ -220,7 +221,7 @@ public static class StreamEndpoints
                 using var response = await client.GetAsync(imageUri, ct);
                 if (response.IsSuccessStatusCode)
                 {
-                    var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+                    var bytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct);
                     var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
                     return Results.File(bytes, contentType);
                 }
@@ -322,6 +323,80 @@ public static class StreamEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireClientScope(ClientApiScopes.PlaybackRead);
 
+        group.MapPost("/{assetId:guid}/text-tracks/{trackId:guid}/preferred", async (
+            Guid assetId,
+            Guid trackId,
+            ITextTrackRepository textTrackRepo,
+            CancellationToken ct) =>
+        {
+            var track = await textTrackRepo.FindByIdAsync(trackId, ct);
+            if (track is null || track.AssetId != assetId)
+                return ApiErrors.NotFound("Text track not found for this asset.");
+
+            await textTrackRepo.SetPreferredAsync(trackId, ct);
+            return Results.Ok(new PreferredTextTrackResponse
+            {
+                asset_id = assetId,
+                track_id = trackId,
+                preferred = true,
+            });
+        })
+        .WithName("SetPreferredAssetTextTrack")
+        .WithSummary("Select one managed lyrics or subtitle variant as preferred for its language.")
+        .Produces<PreferredTextTrackResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireClientScope(ClientApiScopes.PlaybackWrite);
+
+        group.MapPost("/{assetId:guid}/text-tracks/import", async (
+            Guid assetId,
+            HttpRequest request,
+            TextTrackEnrichmentWorker textTrackWorker,
+            CancellationToken ct) =>
+        {
+            if (!request.HasFormContentType)
+                return ApiErrors.BadRequest("A multipart form with a text-track file is required.");
+
+            var form = await request.ReadFormAsync(ct);
+            var file = form.Files.GetFile("file");
+            if (file is null || file.Length == 0)
+                return ApiErrors.BadRequest("A non-empty text-track file is required.");
+            if (file.Length > 5 * 1024 * 1024)
+                return ApiErrors.BadRequest("Text-track files must be 5 MB or smaller.");
+
+            var kindValue = form["kind"].ToString();
+            var kind = string.Equals(kindValue, "lyrics", StringComparison.OrdinalIgnoreCase)
+                ? TextTrackKind.Lyrics
+                : string.Equals(kindValue, "subtitles", StringComparison.OrdinalIgnoreCase)
+                    ? TextTrackKind.Subtitles
+                    : (TextTrackKind?)null;
+            if (kind is null)
+                return ApiErrors.BadRequest("kind must be either 'lyrics' or 'subtitles'.");
+
+            await using var input = file.OpenReadStream();
+            using var reader = new StreamReader(input, detectEncodingFromByteOrderMarks: true);
+            var content = await reader.ReadToEndAsync(ct);
+            var result = await textTrackWorker.ImportAsync(assetId, kind.Value, file.FileName, content, form["language"], ct);
+            return result.Status == "AssetMissing"
+                ? ApiErrors.NotFound(result.Message)
+                : Results.Ok(new RefreshTextTracksResponse
+                {
+                    asset_id = assetId,
+                    enrichment_type = kind.Value == TextTrackKind.Lyrics ? EnrichmentType.TimedLyrics.ToString() : EnrichmentType.Subtitles.ToString(),
+                    refreshed = result.Status == "Updated",
+                    status = result.Status,
+                    before_count = result.BeforeCount,
+                    after_count = result.AfterCount,
+                    track_id = result.TrackId,
+                    message = result.Message,
+                });
+        })
+        .WithName("ImportAssetTextTrack")
+        .WithSummary("Import a user-owned lyrics or subtitle file into managed text tracks.")
+        .Accepts<IFormFile>("multipart/form-data")
+        .Produces<RefreshTextTracksResponse>()
+        .DisableAntiforgery()
+        .RequireClientScope(ClientApiScopes.PlaybackWrite);
+
         group.MapGet("/{assetId:guid}/lyrics", async (
             Guid assetId,
             ITextTrackRepository textTrackRepo,
@@ -362,8 +437,9 @@ public static class StreamEndpoints
         group.MapPost("/{assetId:guid}/text-tracks/refresh", async (
             Guid assetId,
             string? kind,
+            HttpRequest request,
             IMediaAssetRepository assetRepo,
-            TextTrackEnrichmentWorker textTrackWorker,
+            IMediaOperationRepository operationRepo,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
@@ -387,22 +463,50 @@ public static class StreamEndpoints
                 return ApiErrors.BadRequest("kind must be either 'lyrics' or 'subtitles'.");
             }
 
-            var result = await textTrackWorker.EnrichAsync(assetId, textTrackKind, ct);
-            return Results.Ok(new RefreshTextTracksResponse
+            var requestKey = request.Headers["Idempotency-Key"].ToString().Trim();
+            if (string.IsNullOrWhiteSpace(requestKey))
+                requestKey = Guid.NewGuid().ToString("N");
+            if (requestKey.Length > 200)
+                return ApiErrors.BadRequest("Idempotency-Key must be 200 characters or fewer.");
+
+            var operation = await operationRepo.EnsureAsync(new MediaOperation
             {
+                OperationType = textTrackKind == TextTrackKind.Lyrics
+                    ? MediaOperationType.TextTrackLyrics
+                    : MediaOperationType.TextTrackSubtitles,
+                OperationKind = MediaOperationKind.TextTrack,
+                EntityId = assetId,
+                EntityKind = EntityType.MediaAsset.ToString(),
+                Status = MediaOperationStatus.Queued,
+                Stage = MediaOperationStage.Queued,
+                QueueName = "text_track",
+                CapabilityId = textTrackKind == TextTrackKind.Lyrics
+                    ? CapabilityId.TextTrackLyrics
+                    : CapabilityId.TextTrackSubtitles,
+                CapabilityVersion = "1",
+                IdempotencyKey = $"manual-text-track:{assetId:D}:{textTrackKind}:{requestKey}",
+            }, ct);
+
+            var alreadyFinished = operation.Status is MediaOperationStatus.Succeeded
+                or MediaOperationStatus.NoResult
+                or MediaOperationStatus.Blocked
+                or MediaOperationStatus.FailedTerminal
+                or MediaOperationStatus.Cancelled;
+            return Results.Accepted($"/operations/{operation.Id:D}", new RefreshTextTracksResponse
+            {
+                operation_id = operation.Id,
                 asset_id = assetId,
                 enrichment_type = type.ToString(),
-                refreshed = string.Equals(result.Status, "Updated", StringComparison.OrdinalIgnoreCase),
-                status = result.Status,
-                before_count = result.BeforeCount,
-                after_count = result.AfterCount,
-                track_id = result.TrackId,
-                message = result.Message,
+                refreshed = operation.Status == MediaOperationStatus.Succeeded,
+                status = operation.Status,
+                message = alreadyFinished
+                    ? operation.ResultSummary ?? operation.LastError ?? "The text-track refresh finished."
+                    : "The text-track refresh was queued and will continue if the editor is closed.",
             });
         })
         .WithName("RefreshAssetTextTracks")
-        .WithSummary("Manually refresh timed lyrics or subtitles for a media asset.")
-        .Produces<RefreshTextTracksResponse>(StatusCodes.Status200OK)
+        .WithSummary("Queue a durable lyrics or subtitle refresh for one media asset.")
+        .Produces<RefreshTextTracksResponse>(StatusCodes.Status202Accepted)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireClientScope(ClientApiScopes.PlaybackWrite);
 

@@ -27,11 +27,58 @@ namespace MediaEngine.Ingestion;
 
 public sealed partial class IngestionEngine
 {
+    public async Task<FileMetadataRereadResult> RereadAssetMetadataAsync(
+        Guid assetId,
+        CancellationToken ct = default)
+    {
+        var asset = await _assetRepo.FindByIdAsync(assetId, ct).ConfigureAwait(false);
+        if (asset is null)
+            return new(assetId, "AssetMissing", false, false, "The library asset could not be found.");
+
+        var path = asset.FilePathRoot;
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return new(assetId, "FileUnavailable", false, false, "The media file is currently unavailable.");
+
+        var hash = await ComputeHashWithCacheAsync(path, ct).ConfigureAwait(false);
+        var changed = !string.Equals(asset.ContentHash, hash.Hash.Hex, StringComparison.OrdinalIgnoreCase);
+        if (changed)
+        {
+            var duplicate = await _assetRepo.FindByHashAsync(hash.Hash.Hex, ct).ConfigureAwait(false);
+            if (duplicate is not null && duplicate.Id != asset.Id)
+                return new(assetId, "HashConflict", false, true, "The file now duplicates another library asset, so its existing metadata was left unchanged.");
+        }
+        var refreshed = await RefreshExistingAssetMetadataAsync(
+            asset,
+            path,
+            Guid.NewGuid(),
+            ct,
+            queueIdentityRefresh: false).ConfigureAwait(false);
+        if (!refreshed)
+            return new(assetId, "Failed", false, changed, "The file was read, but its local metadata could not be refreshed.");
+
+        if (changed)
+        {
+            var hashUpdated = await _assetRepo.UpdateContentHashAsync(asset.Id, hash.Hash.Hex, ct).ConfigureAwait(false);
+            if (!hashUpdated)
+                return new(assetId, "HashConflict", true, true, "Local metadata was refreshed, but the file bytes duplicate another library asset.");
+        }
+
+        return new(
+            assetId,
+            "Updated",
+            true,
+            changed,
+            changed
+                ? "Local tags and technical metadata were refreshed from the changed file."
+                : "Local tags and technical metadata were reread; the file bytes were unchanged.");
+    }
+
     private async Task<bool> RefreshExistingAssetMetadataAsync(
         MediaAsset asset,
         string filePath,
         Guid ingestionRunId,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool queueIdentityRefresh = true)
     {
         try
         {
@@ -113,7 +160,7 @@ public sealed partial class IngestionEngine
                 ActionType = "LocalMetadataRefreshed",
                 EntityId = asset.Id,
                 EntityType = "MediaAsset",
-                Detail = $"Re-read {claims.Count} local metadata fields after the file changed in place.",
+                Detail = $"Re-read {claims.Count} local metadata fields from the source file.",
                 ChangesJson = JsonSerializer.Serialize(new
                 {
                     file_name = Path.GetFileName(filePath),
@@ -123,15 +170,18 @@ public sealed partial class IngestionEngine
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
-            await _identityJobRepo.CreateAsync(new IdentityJob
+            if (queueIdentityRefresh)
             {
-                EntityId = asset.Id,
-                EntityType = EntityType.MediaAsset.ToString(),
-                MediaType = result.DetectedType.ToString(),
-                Pass = "Quick",
-                IngestionRunId = ingestionRunId,
-            }, ct).ConfigureAwait(false);
-            _identityStageDependencies.Signal?.Signal(IdentityPipelineSignalKind.Retail);
+                await _identityJobRepo.CreateAsync(new IdentityJob
+                {
+                    EntityId = asset.Id,
+                    EntityType = EntityType.MediaAsset.ToString(),
+                    MediaType = result.DetectedType.ToString(),
+                    Pass = "Quick",
+                    IngestionRunId = ingestionRunId,
+                }, ct).ConfigureAwait(false);
+                _identityStageDependencies.Signal?.Signal(IdentityPipelineSignalKind.Retail);
+            }
             return true;
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

@@ -56,6 +56,19 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
 
     public bool CanHandle(MediaType mediaType) => mediaType is MediaType.Movies or MediaType.TV;
 
+    public TextTrackProviderAvailability GetAvailability(MediaType mediaType)
+    {
+        if (!CanHandle(mediaType))
+            return new("Unsupported", $"{Name} does not support {mediaType}.");
+        if (!IsEnabled)
+            return new("Disabled", $"{Name} is disabled in provider settings.");
+        if (!HasCredentials())
+            return new("AuthenticationRequired", $"{Name} needs an API key before subtitles can be fetched.");
+        if (_health.IsDown(Name))
+            return new("ProviderUnavailable", $"{Name} is temporarily unavailable after repeated provider failures.");
+        return new("Available", null);
+    }
+
     public async Task<IReadOnlyList<TextTrackCandidate>> SearchAsync(TextTrackLookup lookup, CancellationToken ct = default)
     {
         if (!IsEnabled || !CanHandle(lookup.MediaType) || !HasCredentials())
@@ -103,8 +116,13 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
 
             var lang = attributes.TryGetProperty("language", out var langNode) ? langNode.GetString() ?? language : language;
             var hearingImpaired = attributes.TryGetProperty("hearing_impaired", out var hiNode) && hiNode.ValueKind is JsonValueKind.True;
+            var forced = attributes.TryGetProperty("foreign_parts_only", out var forcedNode) && forcedNode.ValueKind is JsonValueKind.True;
+            var releaseName = attributes.TryGetProperty("release", out var releaseNode) && releaseNode.ValueKind == JsonValueKind.String
+                ? releaseNode.GetString()
+                : null;
+            var hashMatched = attributes.TryGetProperty("moviehash_match", out var hashNode) && hashNode.ValueKind is JsonValueKind.True;
             var downloads = attributes.TryGetProperty("download_count", out var downloadsNode) && downloadsNode.TryGetInt32(out var dc) ? dc : 0;
-            var confidence = Math.Clamp(0.72 + Math.Min(downloads, 1000) / 10000d, 0.72, 0.9);
+            var confidence = Math.Clamp(0.72 + Math.Min(downloads, 1000) / 10000d + (hashMatched ? 0.08 : 0), 0.72, 0.98);
 
             candidates.Add(new TextTrackCandidate(
                 Provider: Name,
@@ -116,7 +134,9 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
                 Confidence: confidence,
                 IsHearingImpaired: hearingImpaired,
                 DurationMatchScore: null,
-                Payload: fileId));
+                Payload: fileId,
+                IsForced: forced,
+                ReleaseName: releaseName));
         }
 
         return candidates;
@@ -174,6 +194,10 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
                 await _cache.UpsertAsync(cacheKey, WellKnownProviders.OpenSubtitles.ToString(), queryHash, json, null, _config.CacheTtlHours.Value, ct).ConfigureAwait(false);
             await _health.ReportSuccessAsync(Name, ct).ConfigureAwait(false);
             return json;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {

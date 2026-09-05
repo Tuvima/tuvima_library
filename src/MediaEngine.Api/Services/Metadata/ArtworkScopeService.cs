@@ -2,6 +2,7 @@ using System.Globalization;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Services;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -39,8 +40,10 @@ internal sealed class ArtworkScopeService(
     IEntityAssetRepository entityAssetRepo,
     ILibraryItemRepository libraryItemRepo,
     IWorkRepository workRepo,
+    IMediaAssetRepository mediaAssetRepo,
     IMetadataEditorRepository metadataData,
-    AssetPathService assetPathService)
+    AssetPathService assetPathService,
+    IConfigurationLoader configurationLoader)
 {
     public async Task<ArtworkEditorEnvelope> BuildScopedArtworkEnvelopeAsync(
         EditorScopeResolution scope,
@@ -138,7 +141,10 @@ internal sealed class ArtworkScopeService(
             or ("TV", "series")
             or ("TV", "season")
             or ("TV", "episode")
-            or ("Music", "album");
+            or ("Music", "album")
+            or ("Books", "item")
+            or ("Audiobooks", "item")
+            or ("Comics", "item");
 
     public async Task<ProviderArtworkRefreshTarget> ResolveProviderArtworkRefreshTargetAsync(
         EditorScopeResolution scope,
@@ -154,6 +160,34 @@ internal sealed class ArtworkScopeService(
                 skippedReason: "missing_representative_asset",
                 message: "No owned media file was found for this artwork scope.",
                 mediaType: scope.MediaType));
+        }
+
+        var representativeAsset = await mediaAssetRepo.FindByIdAsync(representativeAssetId.Value, ct);
+        if (representativeAsset is not null
+            && !string.IsNullOrWhiteSpace(representativeAsset.LibraryId))
+        {
+            LibraryFolderConfig? library;
+            try
+            {
+                library = configurationLoader.LoadLibraries().Libraries.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Id, representativeAsset.LibraryId, StringComparison.OrdinalIgnoreCase));
+            }
+            catch
+            {
+                return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
+                    status: "Skipped",
+                    skippedReason: "library_policy_unavailable",
+                    message: "The library metadata policy could not be read, so no external artwork provider was contacted.",
+                    mediaType: scope.MediaType));
+            }
+            if (library is not null && LibraryMetadataPolicies.BypassesExternalIdentity(library.MetadataPolicy))
+            {
+                return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
+                    status: "Skipped",
+                    skippedReason: "external_lookup_blocked",
+                    message: "This library uses local-only or manual metadata, so no external artwork provider was contacted.",
+                    mediaType: scope.MediaType));
+            }
         }
 
         var lineage = await workRepo.GetLineageByAssetAsync(representativeAssetId.Value, ct);
@@ -187,6 +221,27 @@ internal sealed class ArtworkScopeService(
             }
         }
 
+        var normalizedMediaType = MetadataEndpoints.NormalizeEditorMediaType(scope.MediaType);
+        if (normalizedMediaType is "Books" or "Audiobooks" or "Comics")
+        {
+            var coverUrl = StringHelpers.FirstNonBlankOr(
+                string.Empty,
+                MetadataEndpoints.GetCanonicalValue(canonicalLookup, MetadataFieldConstants.CoverUrl),
+                MetadataEndpoints.GetCanonicalValue(canonicalLookup, MetadataFieldConstants.Cover));
+            if (string.IsNullOrWhiteSpace(coverUrl))
+            {
+                return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
+                    status: "Skipped",
+                    skippedReason: "missing_cover_url",
+                    message: "This item needs a cover URL from its metadata provider before artwork can be refreshed.",
+                    mediaType: scope.MediaType,
+                    provider: "retail_provider",
+                    providerName: "Metadata provider"));
+            }
+
+            return new ProviderArtworkRefreshTarget(representativeAssetId, qid, coverUrl, null);
+        }
+
         var bridge = ResolveProviderArtworkBridge(canonicalLookup, scope.MediaType);
         if (bridge is null)
         {
@@ -197,7 +252,7 @@ internal sealed class ArtworkScopeService(
                 mediaType: scope.MediaType));
         }
 
-        return new ProviderArtworkRefreshTarget(representativeAssetId, qid, null);
+        return new ProviderArtworkRefreshTarget(representativeAssetId, qid, null, null);
     }
 
     public static (string Key, string Value)? ResolveProviderArtworkBridge(

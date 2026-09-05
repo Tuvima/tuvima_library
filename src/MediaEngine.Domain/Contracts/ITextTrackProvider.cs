@@ -14,9 +14,21 @@ public interface ITextTrackProvider
 
     bool CanHandle(MediaType mediaType);
 
+    TextTrackProviderAvailability GetAvailability(MediaType mediaType) =>
+        !CanHandle(mediaType)
+            ? new("Unsupported", $"{Name} does not support {mediaType}.")
+            : IsEnabled
+                ? new("Available", null)
+                : new("Disabled", $"{Name} is disabled in provider settings.");
+
     Task<IReadOnlyList<TextTrackCandidate>> SearchAsync(TextTrackLookup lookup, CancellationToken ct = default);
 
     Task<TextTrackDownload?> DownloadAsync(TextTrackCandidate candidate, CancellationToken ct = default);
+}
+
+public sealed record TextTrackProviderAvailability(string Status, string? Message)
+{
+    public bool IsAvailable => string.Equals(Status, "Available", StringComparison.OrdinalIgnoreCase);
 }
 
 public sealed record TextTrackLookup(
@@ -40,7 +52,10 @@ public sealed record TextTrackCandidate(
     double Confidence,
     bool IsHearingImpaired,
     double? DurationMatchScore,
-    object? Payload = null);
+    object? Payload = null,
+    bool IsForced = false,
+    string? ReleaseName = null,
+    bool IsInstrumental = false);
 
 public sealed record TextTrackDownload(
     TextTrackCandidate Candidate,

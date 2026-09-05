@@ -5156,11 +5156,39 @@
 }
 
 .sme-text-track-row:hover,
-.sme-text-track-row:focus-visible {
+.sme-text-track-row:focus-within {
     border-color: rgba(179, 138, 255, 0.55);
     outline: none;
     background: rgba(154, 102, 255, 0.08);
 }
+
+.sme-text-track-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.45rem;
+}
+
+.sme-text-track-actions > a {
+    display: inline-flex;
+    color: rgba(232, 225, 255, 0.82);
+}
+
+.sme-text-track-import {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.25rem;
+    padding: 0 0.75rem;
+    border: 1px solid rgba(179, 138, 255, 0.42);
+    border-radius: 0.5rem;
+    color: #d7c9ff;
+    cursor: pointer;
+}
+
+.sme-text-track-import[aria-disabled="true"] { opacity: 0.55; cursor: wait; }
+.sme-text-track-import__input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 
 .sme-text-track-row > span:not(.sme-text-track-language) {
     display: grid;

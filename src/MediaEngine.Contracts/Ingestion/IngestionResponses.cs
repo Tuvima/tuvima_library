@@ -39,3 +39,12 @@ public sealed record UploadMediaResponse(string path, string mediaType, string d
 
 /// <summary>Wire shape for <c>POST /ingestion/rescan</c>.</summary>
 public sealed record RescanAcceptedResponse(string message, int paths_scanned);
+
+public sealed class FileMetadataRereadResponse
+{
+    [JsonPropertyName("asset_id")] public Guid AssetId { get; init; }
+    [JsonPropertyName("status")] public string Status { get; init; } = string.Empty;
+    [JsonPropertyName("refreshed")] public bool Refreshed { get; init; }
+    [JsonPropertyName("content_hash_changed")] public bool ContentHashChanged { get; init; }
+    [JsonPropertyName("message")] public string Message { get; init; } = string.Empty;
+}

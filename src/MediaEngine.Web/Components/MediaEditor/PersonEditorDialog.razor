@@ -365,14 +365,14 @@
         var personTask = ApiClient.GetPersonDetailAsync(PersonId);
         var stateTask = ApiClient.GetPersonEditorStateAsync(PersonId, Request.ActiveProfileId);
         var artworkTask = ApiClient.GetPersonArtworkAsync(PersonId);
-        var scheduleTask = ApiClient.GetEnrichmentRefreshScheduleAsync("Person", limit: 500);
+        var scheduleTask = ApiClient.GetEntityEnrichmentRefreshScheduleAsync("Person", PersonId);
         var suggestionsTask = ApiClient.GetItemEditorSuggestionsAsync("tags", Request.ActiveProfileId);
         await Task.WhenAll(personTask, stateTask, artworkTask, scheduleTask, suggestionsTask);
         _person = personTask.Result;
         _state = stateTask.Result;
         _artwork = artworkTask.Result;
         NormalizePersonArtworkSelection();
-        _refresh = scheduleTask.Result?.Items.FirstOrDefault(item => item.EntityId == PersonId)
+        _refresh = scheduleTask.Result
             ?? new EnrichmentRefreshScheduleDto
             {
                 EntityType = "Person",
@@ -622,8 +622,7 @@
         Snackbar.Add(queued?.Message ?? "The person refresh could not be queued.", queued is null ? Severity.Error : Severity.Success);
         if (queued is not null)
         {
-            var schedule = await ApiClient.GetEnrichmentRefreshScheduleAsync("Person", limit: 500);
-            _refresh = schedule?.Items.FirstOrDefault(item => item.EntityId == PersonId) ?? _refresh;
+            _refresh = await ApiClient.GetEntityEnrichmentRefreshScheduleAsync("Person", PersonId) ?? _refresh;
         }
     }
 

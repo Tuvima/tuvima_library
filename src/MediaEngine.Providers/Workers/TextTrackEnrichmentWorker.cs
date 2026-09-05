@@ -2,6 +2,7 @@ using System.Globalization;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
@@ -29,6 +30,7 @@ public sealed class TextTrackEnrichmentWorker
     private readonly AssetPathService _assetPaths;
     private readonly ILogger<TextTrackEnrichmentWorker> _logger;
     private readonly ITextTrackExportService? _textTrackExportService;
+    private readonly IConfigurationLoader? _configurationLoader;
 
     public TextTrackEnrichmentWorker(
         IMediaAssetRepository assetRepo,
@@ -39,7 +41,8 @@ public sealed class TextTrackEnrichmentWorker
         IEnumerable<ITextTrackProvider> providers,
         AssetPathService assetPaths,
         ILogger<TextTrackEnrichmentWorker> logger,
-        ITextTrackExportService? textTrackExportService = null)
+        ITextTrackExportService? textTrackExportService = null,
+        IConfigurationLoader? configurationLoader = null)
     {
         _assetRepo = assetRepo;
         _workRepo = workRepo;
@@ -50,6 +53,7 @@ public sealed class TextTrackEnrichmentWorker
         _assetPaths = assetPaths;
         _logger = logger;
         _textTrackExportService = textTrackExportService;
+        _configurationLoader = configurationLoader;
     }
 
     public async Task<TextTrackEnrichmentResult> EnrichAsync(Guid assetId, TextTrackKind kind, CancellationToken ct = default)
@@ -85,11 +89,70 @@ public sealed class TextTrackEnrichmentWorker
                     : "The user-owned preferred text track was preserved.");
         }
 
+        if (BypassesExternalProviders(asset))
+        {
+            var afterLocal = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
+            return new(
+                importedLocal ? "Updated" : "ExternalLookupBlocked",
+                kind,
+                before.Count,
+                afterLocal.Count,
+                afterLocal.FirstOrDefault(track => track.IsPreferred)?.Id,
+                importedLocal
+                    ? "Local text tracks were refreshed."
+                    : "This library uses local-only or manual metadata, so no external text-track provider was contacted.");
+        }
+
+        var matchingProviders = _providers
+            .Where(provider => provider.Kind == kind && provider.CanHandle(mediaType))
+            .Select(provider => (Provider: provider, Availability: provider.GetAvailability(mediaType)))
+            .ToList();
+        if (matchingProviders.Count == 0)
+        {
+            var afterLocal = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
+            return new(
+                importedLocal ? "Updated" : "NoProviderConfigured",
+                kind,
+                before.Count,
+                afterLocal.Count,
+                afterLocal.FirstOrDefault(track => track.IsPreferred)?.Id,
+                importedLocal
+                    ? "Local text tracks were refreshed."
+                    : $"No {kind.ToString().ToLowerInvariant()} provider is configured for {mediaType}.");
+        }
+
+        var availableProviders = matchingProviders
+            .Where(candidate => candidate.Availability.IsAvailable)
+            .Select(candidate => candidate.Provider)
+            .ToList();
+        if (availableProviders.Count == 0)
+        {
+            var providerState = matchingProviders
+                .Select(candidate => candidate.Availability)
+                .OrderBy(candidate => candidate.Status == "AuthenticationRequired" ? 0 : candidate.Status == "ProviderUnavailable" ? 1 : 2)
+                .First();
+            var afterLocal = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
+            return new(
+                importedLocal ? "Updated" : providerState.Status,
+                kind,
+                before.Count,
+                afterLocal.Count,
+                afterLocal.FirstOrDefault(track => track.IsPreferred)?.Id,
+                importedLocal ? "Local text tracks were refreshed." : providerState.Message ?? "The text-track provider is unavailable.");
+        }
+
         var lookup = await BuildLookupAsync(asset, lineage, mediaType, kind, ct).ConfigureAwait(false);
-        foreach (var provider in _providers.Where(p => p.Kind == kind && p.IsEnabled && p.CanHandle(mediaType)))
+        var instrumentalDetected = false;
+        foreach (var provider in availableProviders)
         {
             var candidates = await provider.SearchAsync(lookup, ct).ConfigureAwait(false);
-            foreach (var candidate in candidates.OrderByDescending(c => c.Confidence).Take(1))
+            instrumentalDetected |= candidates.Any(candidate => candidate.IsInstrumental);
+            foreach (var candidate in candidates
+                         .Where(candidate => !candidate.IsInstrumental)
+                         .OrderBy(candidate => candidate.IsForced)
+                         .ThenBy(candidate => candidate.IsHearingImpaired)
+                         .ThenByDescending(candidate => candidate.Confidence)
+                         .Take(1))
             {
                 var download = await provider.DownloadAsync(candidate, ct).ConfigureAwait(false);
                 if (download is null)
@@ -112,14 +175,100 @@ public sealed class TextTrackEnrichmentWorker
 
         var after = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
         return new(
-            importedLocal ? "Updated" : "NoResult",
+            importedLocal ? "Updated" : instrumentalDetected ? "Instrumental" : "NoResult",
             kind,
             before.Count,
             after.Count,
             after.FirstOrDefault(track => track.IsPreferred)?.Id,
             importedLocal
                 ? "Local text tracks were refreshed."
-                : $"No matching {kind.ToString().ToLowerInvariant()} were found.");
+                : instrumentalDetected
+                    ? "The provider identifies this track as instrumental, so there are no lyrics to download."
+                    : $"No matching {kind.ToString().ToLowerInvariant()} were found.");
+    }
+
+    private bool BypassesExternalProviders(MediaAsset asset)
+    {
+        if (_configurationLoader is null || string.IsNullOrWhiteSpace(asset.LibraryId))
+            return false;
+
+        try
+        {
+            var library = _configurationLoader.LoadLibraries().Libraries.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, asset.LibraryId, StringComparison.OrdinalIgnoreCase));
+            return library is not null && LibraryMetadataPolicies.BypassesExternalIdentity(library.MetadataPolicy);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not resolve metadata policy for library {LibraryId}; external text-track lookup was skipped.", asset.LibraryId);
+            return true;
+        }
+    }
+
+    public async Task<TextTrackEnrichmentResult> ImportAsync(
+        Guid assetId,
+        TextTrackKind kind,
+        string fileName,
+        string content,
+        string? language,
+        CancellationToken ct = default)
+    {
+        var asset = await _assetRepo.FindByIdAsync(assetId, ct).ConfigureAwait(false);
+        if (asset is null)
+            return new("AssetMissing", kind, 0, 0, null, "The owned media file could not be found.");
+
+        var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
+        var mediaType = lineage?.MediaType ?? InferMediaType(asset.FilePathRoot);
+        if (!IsRelevant(kind, mediaType))
+            return new("Unsupported", kind, 0, 0, null, $"{kind} are not supported for {mediaType}.");
+
+        var extension = Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant();
+        var allowed = kind == TextTrackKind.Lyrics
+            ? extension is "lrc" or "txt"
+            : extension is "vtt" or "srt" or "ass";
+        if (!allowed)
+            return new("UnsupportedFormat", kind, 0, 0, null, $".{extension} is not a supported {kind.ToString().ToLowerInvariant()} format.");
+        if (string.IsNullOrWhiteSpace(content))
+            return new("InvalidContent", kind, 0, 0, null, "The selected text-track file is empty.");
+
+        var before = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
+        var normalizedLanguage = string.IsNullOrWhiteSpace(language) || string.Equals(language, "und", StringComparison.OrdinalIgnoreCase)
+            ? ExtractLanguage(fileName, Path.GetFileNameWithoutExtension(asset.FilePathRoot))
+            : language.Trim().ToLowerInvariant();
+        var normalized = kind == TextTrackKind.Subtitles
+            ? SubtitleNormalizer.NormalizeToWebVtt(content, extension)
+            : extension == "lrc" ? LrcParser.Normalize(content) : content.Trim();
+        var normalizedFormat = kind == TextTrackKind.Subtitles ? "vtt" : extension;
+        var identity = BuildTrackIdentity(assetId, kind, "user", Hashing.Sha256Hex(normalized), normalizedLanguage);
+        var storageProvider = $"user-{Hashing.Sha256Hex(identity)[..12]}";
+        var path = _assetPaths.GetCentralTextTrackPath(
+            assetId,
+            kind == TextTrackKind.Lyrics ? "Lyrics" : "Subtitles",
+            storageProvider,
+            normalizedLanguage,
+            kind == TextTrackKind.Subtitles ? ".vtt" : $".{normalizedFormat}");
+        await WriteTextAtomicallyAsync(path, normalized, ct).ConfigureAwait(false);
+
+        var track = new TextTrack
+        {
+            Id = Hashing.DeterministicGuid(identity),
+            AssetId = assetId,
+            Kind = kind,
+            Language = normalizedLanguage,
+            Provider = "user",
+            Confidence = 1,
+            SourceId = Path.GetFileName(fileName),
+            SourceFormat = extension,
+            NormalizedFormat = normalizedFormat,
+            LocalPath = path,
+            TimingMode = kind == TextTrackKind.Lyrics && extension == "txt" ? "Plain" : kind == TextTrackKind.Lyrics ? "Line" : "Cue",
+            IsPreferred = true,
+            IsUserOwned = true,
+        };
+        await _trackRepo.UpsertAsync(track, ct).ConfigureAwait(false);
+        await _trackRepo.SetPreferredAsync(track.Id, ct).ConfigureAwait(false);
+        var after = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
+        return new("Updated", kind, before.Count, after.Count, track.Id, $"Imported {Path.GetFileName(fileName)} and selected it as preferred.");
     }
 
     private async Task<bool> ImportLocalSidecarsAsync(MediaAsset asset, TextTrackKind kind, CancellationToken ct)
@@ -134,7 +283,7 @@ public sealed class TextTrackEnrichmentWorker
             return false;
 
         var patterns = kind == TextTrackKind.Lyrics
-            ? new[] { $"{basename}.lrc" }
+            ? new[] { $"{basename}.lrc", $"{basename}.txt" }
             : new[] { $"{basename}.vtt", $"{basename}.srt", $"{basename}.*.vtt", $"{basename}.*.srt", $"{basename}.*.ass" };
 
         var imported = false;
@@ -176,7 +325,7 @@ public sealed class TextTrackEnrichmentWorker
                     NormalizedFormat = normalizedFormat,
                     LocalPath = localPath,
                     SidecarPath = path,
-                    TimingMode = kind == TextTrackKind.Lyrics ? "Line" : "Cue",
+                    TimingMode = kind == TextTrackKind.Lyrics && extension == "txt" ? "Plain" : kind == TextTrackKind.Lyrics ? "Line" : "Cue",
                     IsPreferred = true,
                     IsUserOwned = true,
                 };
@@ -228,10 +377,12 @@ public sealed class TextTrackEnrichmentWorker
     private async Task<TextTrack?> SaveDownloadAsync(MediaAsset asset, TextTrackDownload download, CancellationToken ct)
     {
         var candidate = download.Candidate;
+        var plainLyrics = candidate.Kind == TextTrackKind.Lyrics
+            && string.Equals(download.SourceFormat, "txt", StringComparison.OrdinalIgnoreCase);
         var normalized = candidate.Kind == TextTrackKind.Lyrics
-            ? LrcParser.Normalize(download.Content)
+            ? plainLyrics ? download.Content.Trim() : LrcParser.Normalize(download.Content)
             : SubtitleNormalizer.NormalizeToWebVtt(download.Content, download.SourceFormat);
-        var extension = candidate.Kind == TextTrackKind.Lyrics ? ".lrc" : ".vtt";
+        var extension = candidate.Kind == TextTrackKind.Lyrics ? plainLyrics ? ".txt" : ".lrc" : ".vtt";
         var kindName = candidate.Kind == TextTrackKind.Lyrics ? "Lyrics" : "Subtitles";
         var sourceIdentity = string.IsNullOrWhiteSpace(candidate.SourceId) ? candidate.SourceUrl : candidate.SourceId;
         var identity = BuildTrackIdentity(asset.Id, candidate.Kind, candidate.Provider, sourceIdentity, candidate.Language);
@@ -252,7 +403,7 @@ public sealed class TextTrackEnrichmentWorker
             SourceFormat = download.SourceFormat,
             NormalizedFormat = download.NormalizedFormat,
             LocalPath = path,
-            TimingMode = candidate.Kind == TextTrackKind.Lyrics ? "Line" : "Cue",
+            TimingMode = candidate.Kind == TextTrackKind.Lyrics ? plainLyrics ? "Plain" : "Line" : "Cue",
             DurationMatchScore = candidate.DurationMatchScore,
             IsHearingImpaired = candidate.IsHearingImpaired,
         };
@@ -312,8 +463,15 @@ public sealed class TextTrackEnrichmentWorker
     private static string ExtractLanguage(string path, string basename)
     {
         var name = Path.GetFileNameWithoutExtension(path);
-        var suffix = name.Length > basename.Length ? name[(basename.Length + 1)..] : string.Empty;
-        return string.IsNullOrWhiteSpace(suffix) ? "und" : suffix.Split('.', StringSplitOptions.RemoveEmptyEntries)[0].ToLowerInvariant();
+        var suffix = name.StartsWith($"{basename}.", StringComparison.OrdinalIgnoreCase)
+            ? name[(basename.Length + 1)..]
+            : name.Contains('.')
+                ? name[(name.LastIndexOf('.') + 1)..]
+                : string.Empty;
+        var candidate = suffix.Split('.', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.ToLowerInvariant();
+        return candidate is { Length: >= 2 and <= 8 } && candidate.All(character => char.IsLetter(character) || character == '-')
+            ? candidate
+            : "und";
     }
 
     private static string? First(IReadOnlyDictionary<string, string> values, params string[] keys)

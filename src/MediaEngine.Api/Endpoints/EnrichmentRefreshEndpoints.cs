@@ -28,6 +28,22 @@ public static class EnrichmentRefreshEndpoints
             .WithSummary("Upcoming and active recurring enrichment refreshes.")
             .Produces<EnrichmentRefreshScheduleResponse>();
 
+        group.MapGet("/{entityType}/{entityId:guid}", async (
+            string entityType,
+            Guid entityId,
+            EnrichmentRefreshScheduleService schedule,
+            CancellationToken ct) =>
+        {
+            var item = await schedule.GetForEntityAsync(entityType, entityId, ct);
+            return item is null
+                ? ApiErrors.NotFound($"Refresh target '{entityType}/{entityId}' was not found or does not support scheduled enrichment.")
+                : Results.Ok(item);
+        })
+        .WithName("GetEntityEnrichmentRefreshSchedule")
+        .WithSummary("Returns one enrichment schedule without synchronizing the whole library.")
+        .Produces<EnrichmentRefreshScheduleDto>()
+        .Produces(StatusCodes.Status404NotFound);
+
         group.MapPost("/{entityType}/{entityId:guid}/run-now", async (
             string entityType,
             Guid entityId,

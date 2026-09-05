@@ -40,6 +40,17 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
 
     public bool CanHandle(MediaType mediaType) => mediaType == MediaType.Music;
 
+    public TextTrackProviderAvailability GetAvailability(MediaType mediaType)
+    {
+        if (!CanHandle(mediaType))
+            return new("Unsupported", $"{Name} does not support {mediaType}.");
+        if (!IsEnabled)
+            return new("Disabled", $"{Name} is disabled in provider settings.");
+        if (_health.IsDown(Name))
+            return new("ProviderUnavailable", $"{Name} is temporarily unavailable after repeated provider failures.");
+        return new("Available", null);
+    }
+
     public async Task<IReadOnlyList<TextTrackCandidate>> SearchAsync(TextTrackLookup lookup, CancellationToken ct = default)
     {
         if (!IsEnabled || !CanHandle(lookup.MediaType) || string.IsNullOrWhiteSpace(lookup.Title))
@@ -64,11 +75,21 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
-        if (!root.TryGetProperty("syncedLyrics", out var synced) || synced.ValueKind != JsonValueKind.String)
-            return [];
-
-        var lyrics = synced.GetString();
+        var lyrics = root.TryGetProperty("syncedLyrics", out var synced) && synced.ValueKind == JsonValueKind.String
+            ? synced.GetString()
+            : null;
+        var sourceFormat = "lrc";
         if (string.IsNullOrWhiteSpace(lyrics))
+        {
+            lyrics = root.TryGetProperty("plainLyrics", out var plain) && plain.ValueKind == JsonValueKind.String
+                ? plain.GetString()
+                : null;
+            sourceFormat = "txt";
+        }
+
+        var instrumental = root.TryGetProperty("instrumental", out var instrumentalNode)
+            && instrumentalNode.ValueKind is JsonValueKind.True;
+        if (string.IsNullOrWhiteSpace(lyrics) && !instrumental)
             return [];
 
         var sourceId = root.TryGetProperty("id", out var id) ? id.ToString() : ComputeHash(url);
@@ -81,11 +102,12 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
                 SourceId: sourceId,
                 SourceUrl: url,
                 Language: lookup.Language ?? "und",
-                SourceFormat: "lrc",
+                SourceFormat: sourceFormat,
                 Confidence: durationScore.HasValue ? Math.Max(0.75, durationScore.Value) : 0.82,
                 IsHearingImpaired: false,
                 DurationMatchScore: durationScore,
-                Payload: lyrics)
+                Payload: lyrics,
+                IsInstrumental: instrumental)
         ];
     }
 
@@ -94,7 +116,7 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
         var content = candidate.Payload as string;
         return Task.FromResult(string.IsNullOrWhiteSpace(content)
             ? null
-            : new TextTrackDownload(candidate, content, "lrc", "lrc"));
+            : new TextTrackDownload(candidate, content, candidate.SourceFormat, candidate.SourceFormat));
     }
 
     private async Task<string?> GetJsonAsync(string url, CancellationToken ct)
@@ -119,6 +141,10 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
                 await _cache.UpsertAsync(cacheKey, WellKnownProviders.Lrclib.ToString(), queryHash, json, null, _config.CacheTtlHours.Value, ct).ConfigureAwait(false);
             await _health.ReportSuccessAsync(Name, ct).ConfigureAwait(false);
             return json;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
         {

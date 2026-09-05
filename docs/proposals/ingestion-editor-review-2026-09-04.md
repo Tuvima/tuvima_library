@@ -2,7 +2,7 @@
 
 Review date: September 4, 2026. Baseline: `9664a552`.
 
-Status: implementation in progress. The critical and first high-priority packages described below were implemented in the same change; the remaining medium and low packages stay ordered in section 8.
+Status: implementation complete for the approved reliability and editor scope. Section 8 records the shipped work and the few convenience ideas deliberately left out.
 
 Implemented September 4, 2026:
 
@@ -13,8 +13,13 @@ Implemented September 4, 2026:
 - The shared editor File tab lists managed lyrics/subtitles and can fetch them without a full ingestion run.
 - Optional subtitle sidecar export now obeys per-source metadata writeback policy and does not overwrite an unmanaged sidecar.
 - Movie, TV, and music-album Fanart refresh can use a direct provider bridge ID without requiring a Wikidata QID.
+- The editor now rereads one file without discovery, matching, moving, or resetting progress; it can import and choose lyrics/subtitles and refresh provider artwork for Read and audiobook items.
+- Lyrics/subtitle fetches are durable, idempotent operations that survive editor closure and Engine restart. Results distinguish missing credentials, disabled or unavailable providers, local-only policy, instrumental tracks, and genuine no-result outcomes.
+- Single-item schedule reads no longer synchronize the whole library. Scheduled seeding updates only missing or stale rows, and source status checks use bounded concurrency.
+- Remote artwork is capped at 20 MB and published atomically across editor and background download paths so an interrupted or oversized replacement does not overwrite the prior usable file.
+- Processing details and scheduled refreshes are available on mobile, while library settings proactively show unavailable source paths.
 
-Still planned: the durable shared command envelope across every refresh type, selective field refresh, provider artwork parity for books/comics/audiobooks, richer subtitle candidate semantics, targeted schedule reads, mobile operation drill-down, and consolidated bounded image publication.
+Resolved without implementation: one generic command envelope and field-by-field provider refresh were left out. The existing typed operations now share the durable operation queue where recovery is useful, while immediate local reread/import actions return typed results. A generic payload layer would add another abstraction without a second consumer, and field-level provider replacement is unsafe until adapters expose field-specific fetch semantics.
 
 The recommendation is to strengthen the existing pipeline, resolve Wikidata identity at the TV show and music album level, and make repairs available through small, explicit editor actions. Source availability and truthful operation results come before adding providers or deeper enrichment.
 
@@ -76,7 +81,7 @@ Representative code: `IngestionEngine.Pipeline.cs`, `IngestionEngine.Watching.cs
 
 Previously, `LibraryReconciliationService.ReconcileAsync` checked `File.Exists`, then deleted claims, canonical values, and the asset row when it returned false. It subsequently pruned empty hierarchy. `IngestionEngine` calls reconciliation at startup before scanning.
 
-A configured root availability check now preserves the asset and hierarchy when a NAS, removable drive, or other source root is inaccessible. Settings-level availability and reconnect presentation remain planned.
+A configured root availability check preserves the asset and hierarchy when a NAS, removable drive, or other source root is inaccessible. Library settings now test configured paths with bounded concurrency and show “Source unavailable.”
 
 **Fix:** resolve source availability first; represent unavailable sources separately from missing files; only prune confirmed deletions according to an explicit policy. Preserve source paths and item IDs across temporary outages. This is ordinary runtime behavior, not a request for legacy migrations or compatibility support. Route sidecar cleanup through the same source ownership policy as other mutations.
 
@@ -92,31 +97,31 @@ Deduplicate jobs by the trusted show/album identity, provider, requested operati
 
 **UI:** show/album matching belongs to the parent scope; child views expose the inherited identity and retain child-local editing. No automatic episode/song Wikidata search or Review task for the absence of a child QID.
 
-### H2 — High, ingestion path delivered: reread changed files at the same path
+### H2 — High, delivered: reread changed files at the same path
 
-The same-path path now compares the stored fingerprint, reruns local processors when bytes changed, replaces the prior local observation snapshot, preserves the asset ID and non-local claims, and queues identity refresh. Startup scanning also rechecks stale fingerprints so edits made while the Engine was stopped are imported. An explicit editor “Reread file metadata” command remains planned.
+The same-path path compares the stored fingerprint, reruns local processors when bytes changed, replaces the prior local observation snapshot, preserves the asset ID and non-local claims, and queues identity refresh. Startup scanning also rechecks stale fingerprints so edits made while the Engine was stopped are imported. The editor can explicitly reread local tags and technical metadata without queuing identity work.
 
 **Fix:** separate discovery from local metadata refresh. Compare a persisted last-processed fingerprint, then reread changed tags/technical metadata while preserving the asset ID, progress, and user overrides. If the bytes now represent a different work, require an identity decision rather than blindly retaining the old match. Watch sidecar changes as refresh inputs, not new catalog media.
 
-**UI:** File gets “Reread file metadata” with an outcome summary; metadata changes are recorded in History. “Scan now” continues to mean discover/reconcile sources.
+**UI:** File now has “Reread file metadata” with an outcome summary; metadata changes are recorded in History. “Scan now” continues to mean discover/reconcile sources.
 
 Evidence: `src/MediaEngine.Ingestion/IngestionEngine.Pipeline.cs:334`, `src/MediaEngine.Ingestion/IngestionEngine.Watching.cs:98`.
 
-### H3 — High, partially delivered: targeted refresh operations
+### H3 — High, delivered for safe provider assets: targeted refresh operations
 
 The editor already has “Refresh enrichment,” but it requests a full enrichment cycle. It does not hash or physically reingest the file; it does pass through identity/enrichment jobs and can do substantially more than the user needs.
 
-Provider artwork refresh can now use direct bridge identity without a QID for movies, TV, and music albums. Books, comics, audiobooks, selective metadata fields, and the shared durable command envelope remain planned. URL/file artwork replacement already exists.
+Provider artwork refresh can use direct bridge identity without a QID for movies, TV, and music albums. Books, comics, and audiobooks use their known provider cover URL. URL/file artwork replacement already exists. Selective provider-field replacement remains excluded because the current adapters do not expose a safe field-specific contract.
 
 **Fix:** add purpose-specific refresh commands using existing worker services. Known provider identity should be enough for supported provider assets. Reserve rematching for changing identity and full enrichment for an advanced action. Make replacement policy explicit: fill missing by default, refresh selected unlocked provider fields when requested, preserve user choices.
 
 Evidence: `src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs:637`, `src/MediaEngine.Api/Services/Metadata/ArtworkScopeService.cs:133`, `src/MediaEngine.Api/Services/EnrichmentRefreshScheduleService.cs:112`, `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor:266`.
 
-### H4 — High, manual workflow delivered: text-track management in the shared editor
+### H4 — High, delivered: text-track management in the shared editor
 
 The current source has `TimedLyrics` and `Subtitles` dispatch in `RunSingleEnrichmentAsync` and the stream refresh endpoint. The normal Quick/Universe pass methods do not invoke those workers. Merely registering providers does not schedule lyrics/subtitle enrichment. This disagrees with architecture documentation describing them as part of late enrichment.
 
-The API now validates the requested kind and returns a typed, truthful result. The shared editor lists managed tracks and can fetch lyrics or subtitles without full ingestion. Existing clients consume preferred text tracks. Optional automatic acquisition and richer import/select controls remain planned.
+The API validates the requested kind and returns a typed, truthful result. The shared editor lists managed tracks, imports local files, chooses a preferred variant, and fetches lyrics or subtitles without full ingestion. Existing clients consume the same preferred text tracks. Fetch operations run through the durable operation queue; automatic acquisition during intake remains deliberately excluded.
 
 **Fix:** create explicit text-track jobs and typed outcomes; wire optional automatic acquisition separately from Wikidata and expose manual fetch/import in the editor. Reject invalid kinds. Lack of lyrics or optional subtitles is a capability result, not an identity Review problem.
 
@@ -128,41 +133,41 @@ Text-track identity is now deterministic for asset, kind, provider, source, lang
 
 **Fix:** stable identity for asset/kind/provider/source/language/variant, unique storage per variant, transactional preferred selection, exact track URLs, temporary download files and atomic publication. Importing the same local sidecar twice must produce one logical track. Missing local files must not leave an unrepairable preferred record.
 
-The worker also exports subtitles directly beside media without consulting the source mutation policy and makes outbound calls without its own library metadata policy check. Enforce these policies in the shared command/worker layer so manual and scheduled entry points cannot bypass them.
+Subtitle export already uses the source mutation policy, and external text-track calls now enforce the library metadata policy in the worker so direct, manual, and durable entry points cannot bypass local-only/manual behavior.
 
 Evidence: `src/MediaEngine.Domain/Entities/TextTrack.cs:10`, `src/MediaEngine.Storage/TextTrackRepository.cs:99`, `src/MediaEngine.Providers/Workers/TextTrackEnrichmentWorker.cs:87`, `src/MediaEngine.Providers/Workers/TextTrackEnrichmentWorker.cs:181`, `src/MediaEngine.Api/Endpoints/StreamEndpoints.cs:294`.
 
-### H6 — High, outcomes delivered and matching depth planned: text-track semantics
+### H6 — High, delivered baseline: text-track semantics
 
 OpenSubtitles searches by IMDb or title plus TV coordinates, ranks mainly by download popularity, and the worker tries only the top candidate. It does not use a media hash or verified release matching in the reviewed code. LRCLIB supports only the exact synchronized-lyrics result path in this adapter; plain lyrics and instrumental responses are discarded. HTTP no-result responses and cancellation can flow into provider-failure reporting.
 
-Typed results now distinguish updated, preserved user-owned content, no result, unsupported media, and missing assets. Provider-specific authentication/rate-limit states, release/hash evidence, forced/SDH distinctions, candidate choice, plain lyrics, instrumental states, and multi-language acquisition remain planned.
+Typed results now distinguish updated, preserved user-owned content, missing credentials, disabled/unavailable providers, policy blocks, instrumental tracks, no result, unsupported media, and missing assets. LRCLIB plain lyrics are retained when synchronized lyrics are unavailable. OpenSubtitles candidates retain hash/release/forced/SDH evidence for ranking; automatic selection prefers normal non-SDH candidates before forced variants. Candidate browsing and multi-language batch acquisition remain optional conveniences rather than ingestion requirements.
 
 Evidence: `src/MediaEngine.Providers/Providers/OpenSubtitlesTextTrackProvider.cs:59`, `src/MediaEngine.Providers/Providers/LrclibTextTrackProvider.cs:59`, `src/MediaEngine.Providers/Workers/TextTrackEnrichmentWorker.cs:60`.
 
-### M1 — Medium: status is richer in the backend than the item experience
+### M1 — Medium, delivered for affected workflows: status visibility
 
-The ingestion snapshot includes jobs, sources, stages, provider health and activity, review reasons, and batch results. The standard screen shows current activity and a small result summary; processing details and refresh schedules are collapsed and absent on mobile. “Refresh” on this page reloads status, whereas “Refresh enrichment” in the editor queues work. Those meanings need clearer labels.
+The ingestion snapshot includes jobs, sources, stages, provider health and activity, review reasons, and batch results. The standard screen shows current activity and a small result summary, with processing details and refresh schedules available as collapsed drilldowns on desktop and mobile. “Refresh” reloads status, while “Refresh enrichment” in the editor queues work.
 
 Duplicate processing logs can say “skipped and deleted” before the source mutation decision is made, including when the file is retained. This makes activity history less trustworthy than the underlying protection policy.
 
-**Fix:** show a compact per-item capability summary and exact operation result in the editor. Let users reach a failed job from that result; keep detailed provider telemetry in Settings. Show actionable source/provider problems on mobile. Publish deletion wording only after its actual result.
+The editor now reports exact local and text-track outcomes, and durable text jobs appear in the existing operation history with retry/setup reasons. Detailed provider telemetry remains in Settings. Deletion wording should continue to be audited as new removal flows are added.
 
 Evidence: `src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor:8`, `src/MediaEngine.Contracts/Ingestion/IngestionOperationsDtos.cs`, `src/MediaEngine.Ingestion/IngestionEngine.Pipeline.cs:249`.
 
-### M2 — Medium: avoidable whole-library work in single-item editing
+### M2 — Medium, delivered for editor and scheduler paths: bounded schedule work
 
-Opening one editor loads up to 1,000 refresh schedules and searches locally for its item. The schedule GET synchronizes schedules for all QID-bearing people/works, including upserts inside the global write transaction. This increases contention and can omit an item's schedule beyond the limit. Polling also loads every known file path and enumerates configured trees each cycle.
+Opening one editor now uses a targeted owner lookup and seeds only that schedule. Asset targets normalize to their owning work. The hourly scheduler only upserts missing, policy-changed, or newly completed schedule rows; its indexed due query remains bounded to the configured batch. Filesystem polling still enumerates configured trees as a fallback for missed watcher events and should be benchmarked with representative remote libraries before changing that safety behavior.
 
-**Fix:** a targeted schedule/capability read for the current owner; move seeding to bounded background work; use indexed due-work queries, per-source checkpoints, and measured scan intervals. Keep scans streaming where possible. Preserve existing bridge batching and image deduplication rather than increasing parallelism indiscriminately.
+Per-source scan checkpoints remain a future optimization only if measurement shows the polling safety net is materially expensive. Existing scans stream directory enumeration and retain bridge batching and image deduplication.
 
 Evidence: `src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs:457`, `src/MediaEngine.Api/Services/EnrichmentRefreshScheduleService.cs:231`, `src/MediaEngine.Ingestion/IngestionEngine.Watching.cs:309`.
 
-### M3 — Medium: artwork download paths need one publication contract
+### M3 — Medium, delivered: bounded artwork publication
 
-Provider covers coordinate downloads and reuse cached content, but several editor download paths buffer the whole response and write directly to the destination. The inspected paths do not impose an application-specific image byte ceiling before buffering. Full enrichment may also trigger metadata writeback; the `quick_hydration` trigger falls through to the global enabled flag rather than `WriteOnAutoMatch`.
+Provider and editor artwork downloads now share a 20 MB hard ceiling that is enforced both from `Content-Length` and while streaming. Managed files publish through a temporary file and atomic move, preserving the previous usable variant on interruption or oversize input. Provider source URL coordination and content deduplication remain in place.
 
-**Fix:** reuse one bounded download/validation/persistence service for editor and background artwork. Validate decoded dimensions and size; retain the previous usable variant on failed replacement; publish atomically and record the result. Make metadata refresh, local writeback, and file organization distinct operations. Review unknown writeback trigger behavior.
+Decoded image validation continues in the existing rendition/palette helpers and endpoint MIME checks. Metadata refresh, local writeback, and file organization remain distinct actions; the new editor refreshes do not write to or reorganize source media.
 
 Evidence: `src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs:994`, `src/MediaEngine.Providers/Workers/CoverArtWorker.cs:403`, `src/MediaEngine.Ingestion/Services/WriteBackService.cs:82`.
 
@@ -220,18 +225,18 @@ Interoperability work should start with a tested inventory of the local formats 
 
 | Order | Priority | Status | Work package | Depends on | Completion gate |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Critical | Backend delivered; source-status UI remains | Source availability and deletion policy (C1) | None | Starting with a source offline removes no catalog rows or user originals; reconnect restores availability. Explicit confirmed removal still works. |
-| 2 | High | Planned | Shared scoped refresh command/outcome contract and policy gate | Existing operations/capabilities | Duplicate submissions coalesce; job survives restart; no-result/auth/rate-limit/cancel outcomes differ; local-only and read-only rules apply at execution. |
+| 1 | Critical | Delivered | Source availability and deletion policy (C1) | None | Starting with a source offline removes no catalog rows or user originals; settings show the unavailable source. Explicit confirmed removal still works. |
+| 2 | High | Delivered where recovery is useful; generic envelope excluded | Durable typed refresh outcomes and policy gate | Existing operations/capabilities | Text-track submissions are idempotent durable jobs; results distinguish provider states; local-only/manual policy applies at execution. |
 | 3 | High | Delivered | Show/album Wikidata rollups (H1) | Scope contract | Zero automatic child Wikidata requests; child metadata and exact release distinctions preserved. |
-| 4 | High | Ingestion delivered; explicit editor command remains | Local reread and changed-file detection (H2) | Source handling | External tag edits while running or stopped are reflected; same ID, progress, and overrides remain. |
-| 5 | High | Persistence and core outcomes delivered; provider semantics remain | Text-track persistence and result corrections (H4-H6) | Existing provider adapters | Repeated refresh creates one logical variant; failures preserve the current preferred file; missing credentials and no results are explicit. |
-| 6 | High | Movies, TV, and music albums delivered | Targeted metadata/artwork editor actions (H3) | Scope contract, rollups | Refresh one asset without hashing, rematching, unrelated enrichment, or source mutation; expand parity to Read and audiobooks. |
-| 7 | High | Fetch/list delivered; import/select remain | Lyrics/subtitle editor and player connection | Text-track corrections | Fetch/import/select works in the shared editor; live player sees changes; only requested owned episodes/tracks are affected. |
-| 8 | Medium | Planned | Per-item status, mobile actionability and operation history (M1) | Typed outcomes; basic feedback ships with every high-priority action | Every user-triggered job has an understandable result and route to retry/setup; optional gaps never masquerade as identity failure. |
-| 9 | Medium | Planned | Targeted schedule reads, bounded scheduler and scan work (M2) | Scope model | Opening an editor does not seed/write the whole schedule; due selection is indexed; representative large-library benchmark shows bounded work. |
-| 10 | Medium | Planned | Shared asset publication and explicit writeback semantics (M3) | Refresh infrastructure | Interrupted/oversized/invalid downloads preserve prior assets; metadata refresh cannot unexpectedly rename or retag files. |
-| 11 | Medium | Planned | Verified interoperability and selective batch repair | Stable single-item operations | Local metadata imports are repeatable; batch preview deduplicates shared parents and reports partial results. |
-| 12 | Low | Deferred | Convenience features justified by use | Above | Optional subtitle offset, more lyric formats, artwork alternatives, and finer refresh schedules improve real workflows without increasing baseline ingestion cost. |
+| 4 | High | Delivered | Local reread and changed-file detection (H2) | Source handling | External tag edits while running or stopped are reflected; same ID, progress, and overrides remain. |
+| 5 | High | Delivered baseline | Text-track persistence and result corrections (H4-H6) | Existing provider adapters | Repeated refresh creates one logical variant; failures preserve the current preferred file; missing credentials, provider outages, instrumental tracks, and no results are explicit. |
+| 6 | High | Delivered for provider artwork; selective facts excluded | Targeted editor refresh actions (H3) | Scope contract, rollups | Refresh one file or supporting asset without rematching, unrelated enrichment, or source mutation. |
+| 7 | High | Delivered | Lyrics/subtitle editor and player connection | Text-track corrections | Fetch/import/select works in the shared editor; the player uses the same preferred track; only the requested asset is affected. |
+| 8 | Medium | Delivered for affected workflows | Per-item status, mobile actionability and operation history (M1) | Typed outcomes | User-triggered text jobs have a durable result; local actions return an immediate result; mobile exposes processing detail. |
+| 9 | Medium | Delivered for editor/scheduler; scan benchmark remains operational QA | Targeted and bounded schedule work (M2) | Scope model | Opening an editor touches one schedule; scheduler seeding updates only missing/stale rows and due selection uses the existing index. |
+| 10 | Medium | Delivered | Shared asset publication and explicit writeback semantics (M3) | Refresh infrastructure | Interrupted or oversized downloads preserve prior assets; editor refresh does not rename or retag source media. |
+| 11 | Medium | Inventory verified; batch repair excluded pending a concrete need | Interoperability and batch repair | Stable single-item operations | Existing embedded tags, OPF, ComicInfo, audiobook JSON, bridge IDs, and sidecars are documented; no competing synchronizer is added. |
+| 12 | Low | Deliberately deferred | Convenience features justified by use | Above | Subtitle offsets, candidate browsers, more formats, and finer schedules should follow measured user demand. |
 
 Safety portions of download publication and source policy must ship with the first affected refresh feature, even where general consolidation is medium priority. These packages are dependencies and acceptance criteria, not delivery-time estimates; estimate after the contract and provider capability inventory are agreed.
 
@@ -258,5 +263,5 @@ Safety portions of download publication and source policy must ship with the fir
 
 ## Product-owner summary
 
-Tuvima already has many of the right building blocks. The first update should prevent a disconnected drive from looking like a deleted library. Next, match shows and albums once, keep episode and track facts specific, and let users refresh just the metadata, picture, lyrics, or subtitles they need from the existing editor. Clear results and reliable retries matter more than adding more enrichment or trying to replace every specialist media application.
+Tuvima now treats disconnected sources as unavailable instead of deleted, matches Wikidata at the useful show and album level, and keeps episode and track facts specific. Users can reread one file, refresh supporting artwork, fetch or import lyrics/subtitles, and choose the preferred text without running ingestion again. Network text jobs survive restart, provider problems are explained, and artwork replacement is bounded and interruption-safe. Candidate browsers, subtitle offsets, broad automatic acquisition, and a generic field-by-field refresh layer remain out because they would add cost and complexity without improving the reliable everyday workflow.
 

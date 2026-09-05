@@ -168,7 +168,7 @@ public sealed class PersonImageEnrichmentWorker
         string? imageContentHash = null;
         if (_imageCache is null)
         {
-            await File.WriteAllBytesAsync(asset.LocalImagePath, bytes, ct).ConfigureAwait(false);
+            await BoundedHttpContent.WriteFileAtomicallyAsync(asset.LocalImagePath, bytes, ct).ConfigureAwait(false);
         }
         else
         {
@@ -180,7 +180,7 @@ public sealed class PersonImageEnrichmentWorker
                     File.Copy(contentCachedPath, asset.LocalImagePath, overwrite: true);
             }
             else
-                await File.WriteAllBytesAsync(asset.LocalImagePath, bytes, ct).ConfigureAwait(false);
+                await BoundedHttpContent.WriteFileAtomicallyAsync(asset.LocalImagePath, bytes, ct).ConfigureAwait(false);
         }
 
         ArtworkVariantHelper.StampMetadataAndRenditions(asset, _assetPaths);
@@ -303,7 +303,7 @@ public sealed class PersonImageEnrichmentWorker
             if (contentType is not null && !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
                 return null;
 
-            return await response.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            return await BoundedHttpContent.ReadImageAsync(response.Content, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

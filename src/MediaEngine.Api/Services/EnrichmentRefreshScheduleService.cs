@@ -114,14 +114,71 @@ public sealed class EnrichmentRefreshScheduleService
         };
     }
 
+    public async Task<EnrichmentRefreshScheduleDto?> GetForEntityAsync(
+        string entityType,
+        Guid entityId,
+        CancellationToken ct = default)
+    {
+        var normalizedType = entityType.Trim();
+        if (!normalizedType.Equals("Person", StringComparison.OrdinalIgnoreCase))
+        {
+            var target = ResolveWorkTarget(entityId);
+            if (target is null)
+                return null;
+            normalizedType = "Work";
+            entityId = target.EntityId;
+        }
+        await EnsureEntityScheduledAsync(normalizedType, entityId, ct).ConfigureAwait(false);
+
+        using var conn = _db.CreateConnection();
+        var row = conn.QueryFirstOrDefault<ScheduleRow>(
+            """
+            SELECT schedule.entity_type AS EntityType,
+                   schedule.entity_id AS EntityId,
+                   COALESCE(person.name, title.value, schedule.entity_type) AS EntityName,
+                   schedule.stage AS Stage,
+                   schedule.provider_id AS ProviderId,
+                   schedule.policy_key AS PolicyKey,
+                   schedule.interval_days AS IntervalDays,
+                   schedule.last_success_at AS LastSuccessAt,
+                   schedule.last_attempt_at AS LastAttemptAt,
+                   schedule.next_due_at AS NextDueAt,
+                   schedule.status AS Status,
+                   schedule.failure_count AS FailureCount,
+                   schedule.retry_after AS RetryAfter,
+                   schedule.operation_id AS OperationId,
+                   schedule.reason AS Reason
+            FROM enrichment_refresh_schedule schedule
+            LEFT JOIN persons person
+                ON schedule.entity_type = 'Person' AND person.id = schedule.entity_id
+            LEFT JOIN canonical_values title
+                ON title.entity_id = schedule.entity_id AND title.key = 'title'
+            WHERE schedule.entity_type = @entityType COLLATE NOCASE
+              AND schedule.entity_id = @entityId
+            LIMIT 1;
+            """,
+            new { entityType = normalizedType, entityId });
+
+        return row is null ? null : Map(row);
+    }
+
     public async Task<EnrichmentRefreshQueuedResponse?> QueueNowAsync(
         string entityType,
         Guid entityId,
         string reason,
         CancellationToken ct = default)
     {
-        await SynchronizeAsync(ct).ConfigureAwait(false);
         var normalizedType = entityType.Trim();
+        AssetRefreshRow? refreshTarget = null;
+        if (!normalizedType.Equals("Person", StringComparison.OrdinalIgnoreCase))
+        {
+            refreshTarget = ResolveWorkTarget(entityId);
+            if (refreshTarget is null)
+                return null;
+            normalizedType = "Work";
+            entityId = refreshTarget.EntityId;
+        }
+        await EnsureEntityScheduledAsync(normalizedType, entityId, ct).ConfigureAwait(false);
         var now = DateTimeOffset.UtcNow;
         Guid? operationId = null;
 
@@ -149,38 +206,14 @@ public sealed class EnrichmentRefreshScheduleService
         }
         else
         {
-            using var conn = _db.CreateConnection();
-            var target = conn.QueryFirstOrDefault<AssetRefreshRow>(
-                """
-                SELECT work.id AS EntityId,
-                       work.media_type AS MediaType,
-                       'Work' AS EntityType
-                FROM works work
-                WHERE work.id = @entityId
-
-                UNION ALL
-
-                SELECT asset.id AS EntityId,
-                       work.media_type AS MediaType,
-                       'MediaAsset' AS EntityType
-                FROM media_assets asset
-                INNER JOIN editions edition ON edition.id = asset.edition_id
-                INNER JOIN works work ON work.id = edition.work_id
-                WHERE asset.id = @entityId
-                LIMIT 1;
-                """,
-                new { entityId });
-            if (target is null)
-                return null;
-
             var canonicalRows = await _canonicals.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
             var hints = canonicalRows.ToDictionary(item => item.Key, item => item.Value, StringComparer.OrdinalIgnoreCase);
             hints.TryGetValue("wikidata_qid", out var qid);
-            _ = Enum.TryParse<MediaType>(target.MediaType, true, out var mediaType);
+            _ = Enum.TryParse<MediaType>(refreshTarget!.MediaType, true, out var mediaType);
             operationId = await _hydration.EnqueueAsync(new HarvestRequest
             {
                 EntityId = entityId,
-                EntityType = target.EntityType == "Work" ? EntityType.Work : EntityType.MediaAsset,
+                EntityType = EntityType.Work,
                 MediaType = mediaType,
                 Hints = hints,
                 PreResolvedQid = qid,
@@ -216,6 +249,31 @@ public sealed class EnrichmentRefreshScheduleService
         };
     }
 
+    private AssetRefreshRow? ResolveWorkTarget(Guid entityId)
+    {
+        using var conn = _db.CreateConnection();
+        return conn.QueryFirstOrDefault<AssetRefreshRow>(
+            """
+            SELECT work.id AS EntityId,
+                   work.media_type AS MediaType,
+                   'Work' AS EntityType
+            FROM works work
+            WHERE work.id = @entityId
+
+            UNION ALL
+
+            SELECT work.id AS EntityId,
+                   work.media_type AS MediaType,
+                   'Work' AS EntityType
+            FROM media_assets asset
+            INNER JOIN editions edition ON edition.id = asset.edition_id
+            INNER JOIN works work ON work.id = edition.work_id
+            WHERE asset.id = @entityId
+            LIMIT 1;
+            """,
+            new { entityId });
+    }
+
     public async Task<int> QueueDueAsync(int maxItems, CancellationToken ct = default)
     {
         var due = await GetAsync(null, "Scheduled", Math.Clamp(maxItems, 1, 100), ct).ConfigureAwait(false);
@@ -242,9 +300,19 @@ public sealed class EnrichmentRefreshScheduleService
         innerCt.ThrowIfCancellationRequested();
         var people = conn.Query<SeedRow>(
             """
-            SELECT id AS EntityId, enriched_at AS LastSuccessAt, created_at AS CreatedAt
-            FROM persons
-            WHERE wikidata_qid IS NOT NULL AND TRIM(wikidata_qid) <> '';
+            SELECT person.id AS EntityId, person.enriched_at AS LastSuccessAt, person.created_at AS CreatedAt
+            FROM persons person
+            LEFT JOIN enrichment_refresh_schedule schedule
+              ON schedule.entity_type = 'Person'
+             AND schedule.entity_id = person.id
+             AND schedule.stage = 'people'
+             AND schedule.provider_id = 'wikidata'
+            WHERE person.wikidata_qid IS NOT NULL
+              AND TRIM(person.wikidata_qid) <> ''
+              AND (schedule.entity_id IS NULL
+                   OR schedule.policy_key <> 'people.default'
+                   OR (person.enriched_at IS NOT NULL
+                       AND (schedule.last_success_at IS NULL OR person.enriched_at > schedule.last_success_at)));
             """, transaction: tx);
         foreach (var person in people)
             UpsertSeed(conn, tx, "Person", person, "people", "wikidata", "people.default", personDays, now);
@@ -266,13 +334,23 @@ public sealed class EnrichmentRefreshScheduleService
                 ON qid.entity_id = work.id AND qid.key = 'wikidata_qid'
             LEFT JOIN canonical_values enriched
                 ON enriched.entity_id = work.id AND enriched.key = 'stage3_enriched_at'
+            LEFT JOIN enrichment_refresh_schedule schedule
+                ON schedule.entity_type = 'Work'
+               AND schedule.entity_id = work.id
+               AND schedule.stage = 'universe'
+               AND schedule.provider_id = 'wikidata'
             WHERE TRIM(qid.value) <> ''
-              AND work.is_catalog_only = 0;
+              AND work.is_catalog_only = 0
+              AND (schedule.entity_id IS NULL
+                   OR schedule.policy_key <> @structuredPolicy
+                   OR (enriched.value IS NOT NULL
+                       AND (schedule.last_success_at IS NULL OR enriched.value > schedule.last_success_at)));
             """, new
             {
                 now = now.ToString("O"),
                 discoveryCapability = CapabilityId.EnrichmentStructuredDiscoveryMetadata,
                 discoveryVersion = StructuredDiscoveryFieldCatalog.CapabilityVersion,
+                structuredPolicy,
             }, tx);
         foreach (var work in works)
             UpsertSeed(conn, tx, "Work", work, "universe", "wikidata", structuredPolicy, mediaDays, now);
@@ -296,6 +374,67 @@ public sealed class EnrichmentRefreshScheduleService
                 staleAttempt = now.AddHours(-24).ToString("O"),
             }, tx);
 
+        }, ct);
+    }
+
+    private Task EnsureEntityScheduledAsync(string entityType, Guid entityId, CancellationToken ct)
+    {
+        var settings = _configuration.LoadHydration();
+        var now = DateTimeOffset.UtcNow;
+        var structuredPolicy = $"media.stage3+structured-discovery-v{StructuredDiscoveryFieldCatalog.CapabilityVersion.Replace('.', '_')}";
+
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            if (entityType.Equals("Person", StringComparison.OrdinalIgnoreCase))
+            {
+                var person = conn.QueryFirstOrDefault<SeedRow>(
+                    """
+                    SELECT id AS EntityId, enriched_at AS LastSuccessAt, created_at AS CreatedAt
+                    FROM persons
+                    WHERE id = @entityId
+                      AND wikidata_qid IS NOT NULL
+                      AND TRIM(wikidata_qid) <> '';
+                    """,
+                    new { entityId }, tx);
+                if (person is not null)
+                    UpsertSeed(conn, tx, "Person", person, "people", "wikidata", "people.default", Math.Max(1, settings.PersonRefreshDays), now);
+                return;
+            }
+
+            var work = conn.QueryFirstOrDefault<SeedRow>(
+                """
+                SELECT work.id AS EntityId,
+                       CASE WHEN EXISTS (
+                           SELECT 1
+                           FROM entity_capability_states discovery
+                           WHERE discovery.entity_id = work.id
+                             AND discovery.capability_id = @discoveryCapability
+                             AND discovery.capability_version = @discoveryVersion
+                             AND discovery.status IN ('succeeded', 'no_result')
+                       ) THEN enriched.value ELSE NULL END AS LastSuccessAt,
+                       @now AS CreatedAt
+                FROM works work
+                LEFT JOIN editions edition ON edition.work_id = work.id
+                LEFT JOIN media_assets asset ON asset.edition_id = edition.id
+                INNER JOIN canonical_values qid
+                    ON qid.entity_id = work.id AND qid.key = 'wikidata_qid'
+                LEFT JOIN canonical_values enriched
+                    ON enriched.entity_id = work.id AND enriched.key = 'stage3_enriched_at'
+                WHERE (work.id = @entityId OR asset.id = @entityId)
+                  AND TRIM(qid.value) <> ''
+                  AND work.is_catalog_only = 0
+                LIMIT 1;
+                """,
+                new
+                {
+                    entityId,
+                    now = now.ToString("O"),
+                    discoveryCapability = CapabilityId.EnrichmentStructuredDiscoveryMetadata,
+                    discoveryVersion = StructuredDiscoveryFieldCatalog.CapabilityVersion,
+                }, tx);
+            if (work is not null)
+                UpsertSeed(conn, tx, "Work", work, "universe", "wikidata", structuredPolicy, Math.Max(1, settings.Stage3RefreshDays), now);
         }, ct);
     }
 

@@ -1217,7 +1217,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         try
         {
             using var client = _httpFactory.CreateClient("fanart_tv");
-            return await client.GetByteArrayAsync(imageUrl, ct);
+            using var response = await client.GetAsync(imageUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+            return await BoundedHttpContent.ReadImageAsync(response.Content, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1244,7 +1246,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         else
         {
             AssetPathService.EnsureDirectory(localPath);
-            await File.WriteAllBytesAsync(localPath, bytes, ct);
+            await BoundedHttpContent.WriteFileAtomicallyAsync(localPath, bytes, ct);
         }
 
         // Record every observed URL even when the hash was already cached.

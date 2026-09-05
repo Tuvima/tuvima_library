@@ -102,7 +102,7 @@ Unify Tuvima Library's managed asset storage so downloaded/provider artwork and 
 
 - Media files
 - Preferred external subtitles/captions
-- Preferred synced lyrics (`.lrc`)
+- User-owned synced or plain lyrics already stored beside the media (`.lrc` or `.txt`)
 - User-owned metadata sidecars
 - Extras and theme media
 - Cue/disc/chapter files the user manages
@@ -136,7 +136,7 @@ Use `Hybrid` storage mode:
 - Artist owns artist image/background/banner/logo
 - Album owns cover/square
 - Tracks do not duplicate album art
-- Lyrics/subtitles remain local when present
+- User-owned lyrics/subtitles remain local and are indexed into managed storage; provider-downloaded lyrics stay central
 
 ### Audiobooks
 

@@ -43,6 +43,13 @@ public sealed class TextTrackDto
     public string Url { get; set; } = string.Empty;
 }
 
+public sealed record PreferredTextTrackResponse
+{
+    public Guid asset_id { get; init; }
+    public Guid track_id { get; init; }
+    public bool preferred { get; init; }
+}
+
 /// <summary>
 /// Response for <c>POST /stream/{assetId}/text-tracks/refresh</c>. Property names (including
 /// snake_case spelling) retain the original fields and add an explicit, truthful outcome
@@ -50,6 +57,7 @@ public sealed class TextTrackDto
 /// </summary>
 public sealed record RefreshTextTracksResponse
 {
+    public Guid? operation_id { get; init; }
     public Guid asset_id { get; init; }
     public string enrichment_type { get; init; } = string.Empty;
     public bool refreshed { get; init; }

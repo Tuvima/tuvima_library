@@ -926,7 +926,9 @@ public sealed partial class RetailMatchWorker
             try
             {
                 using var client = _httpFactory.CreateClient("tmdb");
-                bytes = await client.GetByteArrayAsync(stillUrl, ct);
+                using var response = await client.GetAsync(stillUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+                response.EnsureSuccessStatusCode();
+                bytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -1003,7 +1005,7 @@ public sealed partial class RetailMatchWorker
 
         if (_imageCache is null)
         {
-            await File.WriteAllBytesAsync(destinationPath, bytes, ct);
+            await BoundedHttpContent.WriteFileAtomicallyAsync(destinationPath, bytes, ct);
             return;
         }
 
@@ -1016,7 +1018,7 @@ public sealed partial class RetailMatchWorker
         }
         else
         {
-            await File.WriteAllBytesAsync(destinationPath, bytes, ct);
+            await BoundedHttpContent.WriteFileAtomicallyAsync(destinationPath, bytes, ct);
         }
 
         await _imageCache.InsertAsync(hash, destinationPath, sourceUrl, ct);

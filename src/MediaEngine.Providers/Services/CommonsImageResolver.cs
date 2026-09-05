@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -40,12 +41,13 @@ public sealed class CommonsImageResolver
             using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
 
+            var bytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct).ConfigureAwait(false);
+            if (bytes.Length == 0)
+                return null;
+
             Directory.CreateDirectory(personFolderPath);
             var destPath = Path.Combine(personFolderPath, $"headshot{ext}");
-
-            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
-            await using var file = File.OpenWrite(destPath);
-            await stream.CopyToAsync(file, ct).ConfigureAwait(false);
+            await BoundedHttpContent.WriteFileAtomicallyAsync(destPath, bytes, ct).ConfigureAwait(false);
 
             _logger.LogInformation("{Provider}: downloaded headshot to {Path}", providerName, destPath);
             return destPath;

@@ -659,6 +659,7 @@
             else
             {
                 _baseline = JsonSerializer.Serialize(_configuration);
+                await RefreshPathStatusesAsync();
                 EnsureSelection(NormalizeSection(Subsection));
             }
         }
@@ -853,6 +854,36 @@
         if (result is not null) _pathResults[path] = result;
     }
 
+    private async Task RefreshPathStatusesAsync()
+    {
+        if (_configuration is null)
+            return;
+
+        var paths = _configuration.Libraries
+            .SelectMany(library => library.Sources)
+            .Select(source => source.Path)
+            .Concat(_configuration.IncomingSources.Select(source => source.Path))
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        using var gate = new SemaphoreSlim(4);
+        var checks = paths.Select(async path =>
+        {
+            await gate.WaitAsync();
+            try
+            {
+                return (Path: path, Result: await Orchestrator.TestPathAsync(path));
+            }
+            finally
+            {
+                gate.Release();
+            }
+        }).ToList();
+        foreach (var check in await Task.WhenAll(checks))
+            if (check.Result is not null)
+                _pathResults[check.Path] = check.Result;
+    }
+
     private async Task BrowseIncomingAsync(IncomingSourceDto source)
     {
         var selected = await BrowseForPathAsync(
@@ -977,7 +1008,7 @@
     {
         if (string.IsNullOrWhiteSpace(path)) return "Missing path";
         if (!_pathResults.TryGetValue(path, out var result)) return "Not checked";
-        if (!result.Exists) return "Missing";
+        if (!result.Exists) return "Source unavailable";
         if (!result.HasRead) return "Permission issue";
         if (!result.HasWrite) return "Read-only";
         return "Healthy";
@@ -1019,7 +1050,7 @@
     {
         if (library.Sources.Count == 0) return "No sources";
         var statuses = library.Sources.Select(source => PathStatus(source.Path)).ToList();
-        if (statuses.Any(status => status is "Missing path" or "Missing" or "Permission issue")) return "Needs attention";
+        if (statuses.Any(status => status is "Missing path" or "Source unavailable" or "Permission issue")) return "Needs attention";
         if (statuses.All(status => status == "Healthy")) return "Healthy";
         if (statuses.Any(status => status == "Read-only")) return "Read-only";
         return "Not checked";

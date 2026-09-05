@@ -404,7 +404,9 @@ public sealed class CoverArtWorker
             try
             {
                 using var client = _httpFactory.CreateClient("cover_download");
-                bytes = await client.GetByteArrayAsync(coverUrl, ct);
+                using var response = await client.GetAsync(coverUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+                response.EnsureSuccessStatusCode();
+                bytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -429,7 +431,7 @@ public sealed class CoverArtWorker
         }
         else
         {
-            await File.WriteAllBytesAsync(coverPath, bytes, ct);
+            await BoundedHttpContent.WriteFileAtomicallyAsync(coverPath, bytes, ct);
         }
 
         // Always register the source URL. InsertAsync preserves the canonical

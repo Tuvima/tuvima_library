@@ -230,20 +230,97 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            using var response = await _http.PostAsync(
-                $"/stream/{assetId}/text-tracks/refresh?kind={Uri.EscapeDataString(kind)}",
-                content: null,
-                ct);
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post,
+                $"/stream/{assetId}/text-tracks/refresh?kind={Uri.EscapeDataString(kind)}");
+            request.Headers.TryAddWithoutValidation("Idempotency-Key", Guid.NewGuid().ToString("N"));
+            using var response = await _http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            return await response.Content.ReadFromJsonAsync<RefreshTextTracksResponse>(cancellationToken: ct);
+            var queued = await response.Content.ReadFromJsonAsync<RefreshTextTracksResponse>(cancellationToken: ct);
+            if (queued?.operation_id is not { } operationId)
+                return queued;
+
+            for (var attempt = 0; attempt < 40; attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(500), ct);
+                var detail = await GetMediaOperationAsync(operationId, ct);
+                var operation = detail?.Operation;
+                if (operation is null || operation.Status is "queued" or "leased" or "running" or "pending" or "interrupted")
+                    continue;
+
+                return queued with
+                {
+                    refreshed = operation.Status == "succeeded",
+                    status = operation.Status,
+                    message = operation.ResultSummary
+                        ?? operation.LastError
+                        ?? operation.MissingReason
+                        ?? "The text-track refresh finished.",
+                };
+            }
+
+            return queued with
+            {
+                status = "queued",
+                message = "The text-track refresh is still running in the background. Its result will appear in activity history.",
+            };
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /stream/{AssetId}/text-tracks/refresh failed", assetId);
             return null;
+        }
+    }
+
+    public async Task<RefreshTextTracksResponse?> ImportTextTrackAsync(
+        Guid assetId,
+        string kind,
+        string language,
+        string fileName,
+        string contentType,
+        Stream content,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var form = new MultipartFormDataContent();
+            form.Add(new StringContent(kind), "kind");
+            form.Add(new StringContent(language), "language");
+            var fileContent = new StreamContent(content);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(contentType) ? "text/plain" : contentType);
+            form.Add(fileContent, "file", fileName);
+            using var response = await _http.PostAsync($"/stream/{assetId:D}/text-tracks/import", form, ct);
+            if (!response.IsSuccessStatusCode)
+                return null;
+            return await response.Content.ReadFromJsonAsync<RefreshTextTracksResponse>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /stream/{AssetId}/text-tracks/import failed", assetId);
+            return null;
+        }
+    }
+
+    public async Task<bool> SetPreferredTextTrackAsync(Guid assetId, Guid trackId, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PostAsync(
+                $"/stream/{assetId:D}/text-tracks/{trackId:D}/preferred",
+                content: null,
+                ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST preferred text track failed for {AssetId}/{TrackId}", assetId, trackId);
+            return false;
         }
     }
 

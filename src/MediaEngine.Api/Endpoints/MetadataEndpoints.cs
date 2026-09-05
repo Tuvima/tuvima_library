@@ -16,14 +16,15 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using ArtworkEditorEnvelope = MediaEngine.Contracts.Metadata.ArtworkEditorDto;
 using ArtworkSlotEnvelope = MediaEngine.Contracts.Metadata.ArtworkSlotDto;
 using ArtworkVariantEnvelope = MediaEngine.Contracts.Metadata.ArtworkVariantDto;
 using ProviderArtworkRefreshEnvelope = MediaEngine.Contracts.Metadata.ProviderArtworkRefreshDto;
-using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
+using MediaEngine.Providers.Workers;
 using MediaEngine.Storage.Contracts;
 using ArtworkResolutionContext = MediaEngine.Domain.Models.MetadataArtworkResolutionContext;
 using EditorLaunchContext = MediaEngine.Domain.Models.MetadataEditorLaunchContext;
@@ -640,6 +641,7 @@ public static partial class MetadataEndpoints
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
             IImageEnrichmentService imageEnrichment,
+            CoverArtWorker coverArtWorker,
             IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
             CancellationToken ct) =>
@@ -658,13 +660,41 @@ public static partial class MetadataEndpoints
                 return Results.Ok(ArtworkScopeService.CreateProviderArtworkRefreshEnvelope(
                     status: "Skipped",
                     skippedReason: "unsupported_scope",
-                    message: "Provider artwork refresh is available for movie, TV, and music album artwork scopes.",
+                    message: "Provider artwork refresh is not available for this artwork scope.",
                     mediaType: scope.MediaType));
             }
 
             var target = await artworkScopeService.ResolveProviderArtworkRefreshTargetAsync(scope, ct);
             if (target.Skipped is not null)
                 return Results.Ok(target.Skipped);
+
+            if (!string.IsNullOrWhiteSpace(target.CoverUrl))
+            {
+                await coverArtWorker.DownloadAndPersistAsync(
+                    target.RepresentativeAssetId!.Value,
+                    target.WorkQid,
+                    ct,
+                    target.CoverUrl);
+                var refreshedArtwork = await artworkScopeService.BuildScopedArtworkEnvelopeAsync(scope, ct);
+                var coverCount = refreshedArtwork.Slots
+                    .FirstOrDefault(slot => string.Equals(slot.AssetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
+                    ?.Variants.Count ?? 0;
+                return Results.Ok(ArtworkScopeService.CreateProviderArtworkRefreshEnvelope(
+                    status: coverCount > 0 ? "Completed" : "NoImages",
+                    skippedReason: coverCount > 0 ? null : "no_cover_available",
+                    message: coverCount > 0
+                        ? "The provider cover is available in managed artwork."
+                        : "The provider did not supply a usable cover for this item.",
+                    mediaType: scope.MediaType,
+                    downloadedCount: 0,
+                    updatedPreferredCount: 0,
+                    storedCounts: new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        ["CoverArt"] = coverCount,
+                    },
+                    provider: "retail_provider",
+                    providerName: "Metadata provider"));
+            }
 
             var result = await imageEnrichment.EnrichWorkImagesAsync(
                 target.RepresentativeAssetId!.Value,
@@ -781,6 +811,8 @@ public static partial class MetadataEndpoints
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
                 return ApiErrors.BadRequest("No file provided.");
+            if (file.Length > BoundedHttpContent.MaximumImageBytes)
+                return ApiErrors.BadRequest("Artwork files must be 20 MB or smaller.");
 
             var normalizedAssetType = "CoverArt";
             if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
@@ -801,10 +833,7 @@ public static partial class MetadataEndpoints
 
             AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
-            await using (var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write))
-            {
-                await stream.CopyToAsync(fs, ct);
-            }
+                await BoundedHttpContent.CopyImageToFileAtomicallyAsync(stream, localPath, ct);
 
             var storedAsset = new EntityAsset
             {
@@ -895,6 +924,8 @@ public static partial class MetadataEndpoints
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
                 return ApiErrors.BadRequest("No file provided.");
+            if (file.Length > BoundedHttpContent.MaximumImageBytes)
+                return ApiErrors.BadRequest("Artwork files must be 20 MB or smaller.");
 
             if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
                 return ApiErrors.BadRequest(normalizedAssetType == "Logo"
@@ -908,10 +939,7 @@ public static partial class MetadataEndpoints
 
             AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
-            await using (var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write))
-            {
-                await stream.CopyToAsync(fs, ct);
-            }
+                await BoundedHttpContent.CopyImageToFileAtomicallyAsync(stream, localPath, ct);
 
             var storedAsset = new EntityAsset
             {
@@ -996,7 +1024,15 @@ public static partial class MetadataEndpoints
             if (!response.IsSuccessStatusCode)
                 return ApiErrors.BadRequest($"Failed to download image: {(int)response.StatusCode} {response.ReasonPhrase}");
 
-            var imageBytes = await response.Content.ReadAsByteArrayAsync(ct);
+            byte[] imageBytes;
+            try
+            {
+                imageBytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct);
+            }
+            catch (RemoteContentTooLargeException ex)
+            {
+                return ApiErrors.BadRequest(ex.Message);
+            }
             if (imageBytes.Length == 0)
                 return ApiErrors.BadRequest("Downloaded image is empty.");
 
@@ -1012,7 +1048,7 @@ public static partial class MetadataEndpoints
                 return ApiErrors.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
 
             AssetPathService.EnsureDirectory(localPath);
-            await File.WriteAllBytesAsync(localPath, imageBytes, ct);
+            await BoundedHttpContent.WriteFileAtomicallyAsync(localPath, imageBytes, ct);
 
             var storedAsset = new EntityAsset
             {
@@ -1075,6 +1111,8 @@ public static partial class MetadataEndpoints
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
                 return ApiErrors.BadRequest("No file provided.");
+            if (file.Length > BoundedHttpContent.MaximumImageBytes)
+                return ApiErrors.BadRequest("Artwork files must be 20 MB or smaller.");
 
             if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
                 return ApiErrors.BadRequest(normalizedAssetType == "Logo"
@@ -1096,10 +1134,7 @@ public static partial class MetadataEndpoints
 
             AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
-            await using (var fs = new FileStream(localPath, FileMode.Create, FileAccess.Write))
-            {
-                await stream.CopyToAsync(fs, ct);
-            }
+                await BoundedHttpContent.CopyImageToFileAtomicallyAsync(stream, localPath, ct);
 
             var storedAsset = new EntityAsset
             {
@@ -1603,7 +1638,7 @@ public static partial class MetadataEndpoints
                 using var response = await client.GetAsync(request.ImageUrl, ct);
                 response.EnsureSuccessStatusCode();
 
-                var imageBytes = await response.Content.ReadAsByteArrayAsync(ct);
+                var imageBytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct);
 
                 if (imageBytes.Length == 0)
                     return ApiErrors.BadRequest("Downloaded image is empty.");
@@ -1615,7 +1650,7 @@ public static partial class MetadataEndpoints
                 var variantId = Guid.NewGuid();
                 var coverPath = artworkScopeService.BuildArtworkUploadPath("Work", ownerEntityId, "CoverArt", variantId, contentType);
                 AssetPathService.EnsureDirectory(coverPath);
-                await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
+                await BoundedHttpContent.WriteFileAtomicallyAsync(coverPath, imageBytes, ct);
 
                 logger.LogInformation(
                     "Cover downloaded from URL for entity {Id}: {Size} bytes → {Path}",
@@ -1654,7 +1689,7 @@ public static partial class MetadataEndpoints
                     storedAsset.SecondaryHex,
                     storedAsset.AccentHex));
             }
-            catch (HttpRequestException ex)
+            catch (Exception ex) when (ex is HttpRequestException or RemoteContentTooLargeException)
             {
                 logger.LogWarning(ex, "Failed to download cover from URL for entity {Id}", entityId);
                 return ApiErrors.BadRequest($"Failed to download image: {ex.Message}");
@@ -2326,10 +2361,11 @@ public static partial class MetadataEndpoints
     internal sealed record ProviderArtworkRefreshTarget(
         Guid? RepresentativeAssetId,
         string? WorkQid,
+        string? CoverUrl,
         ProviderArtworkRefreshEnvelope? Skipped)
     {
         public static ProviderArtworkRefreshTarget Skip(ProviderArtworkRefreshEnvelope envelope) =>
-            new(null, null, envelope);
+            new(null, null, null, envelope);
     }
     private sealed record EditorScopeContext(
         Guid LaunchEntityId,

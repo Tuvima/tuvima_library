@@ -1977,6 +1977,13 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.ExecuteReorganiz
   PlanId: System.Guid | nullability=not-null | accessors=get,init
   Fingerprint: System.String | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.FileMetadataRereadResponse
+  AssetId: System.Guid | nullability=not-null | accessors=get,init
+  Status: System.String | nullability=not-null | accessors=get,init
+  Refreshed: System.Boolean | nullability=not-null | accessors=get,init
+  ContentHashChanged: System.Boolean | nullability=not-null | accessors=get,init
+  Message: System.String | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionActivityBatchDto
   BatchNumber: System.Int32 | nullability=not-null | accessors=get,set
   BatchSize: System.Int32 | nullability=not-null | accessors=get,set
@@ -4148,6 +4155,11 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerStateDto
   Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
   Connection: MediaEngine.Contracts.Playback.PlaybackConnectionContextDto | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PreferredTextTrackResponse
+  asset_id: System.Guid | nullability=not-null | accessors=get,init
+  track_id: System.Guid | nullability=not-null | accessors=get,init
+  preferred: System.Boolean | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.QueueEncodeRequestDto
   ProfileKey: System.String | nullability=not-null | accessors=get,init
   ScheduledFor: System.DateTimeOffset? | nullability=nullable | accessors=get,init
@@ -4174,6 +4186,7 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.ReadingSettingsDto
   DefaultComicMode: System.String | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.RefreshTextTracksResponse
+  operation_id: System.Guid? | nullability=nullable | accessors=get,init
   asset_id: System.Guid | nullability=not-null | accessors=get,init
   enrichment_type: System.String | nullability=not-null | accessors=get,init
   refreshed: System.Boolean | nullability=not-null | accessors=get,init

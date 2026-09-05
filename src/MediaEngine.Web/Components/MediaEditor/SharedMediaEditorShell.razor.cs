@@ -132,7 +132,11 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<TextTrackDto> _textTracks = [];
     private bool _textTracksLoading;
     private bool _textTracksRefreshing;
+    private bool _textTrackImporting;
+    private Guid? _textTrackPreferencePendingId;
     private string? _textTrackRefreshMessage;
+    private bool _rereadingFileMetadata;
+    private string? _fileMetadataRereadMessage;
     private string _historyFilter = "all";
     private bool _confirmDiscard;
     private bool _showQuarantineConfirm;
@@ -460,9 +464,10 @@ public partial class SharedMediaEditorShell
 
     private async Task LoadRefreshScheduleAsync()
     {
-        var schedule = await ApiClient.GetEnrichmentRefreshScheduleAsync(limit: 1000);
-        _refreshSchedule = schedule?.Items.FirstOrDefault(item => item.EntityId == EditorContextEntityId)
-            ?? schedule?.Items.FirstOrDefault(item => item.EntityId == CurrentEntityId);
+        var entityType = ActiveScope?.FieldEntityKind ?? "Work";
+        _refreshSchedule = await ApiClient.GetEntityEnrichmentRefreshScheduleAsync(entityType, EditorContextEntityId);
+        if (_refreshSchedule is null && CurrentEntityId != EditorContextEntityId)
+            _refreshSchedule = await ApiClient.GetEntityEnrichmentRefreshScheduleAsync("MediaAsset", CurrentEntityId);
     }
 
     protected async Task QueueFullEnrichmentAsync()
@@ -2089,7 +2094,10 @@ public partial class SharedMediaEditorShell
             or ("TV", "series")
             or ("TV", "season")
             or ("TV", "episode")
-            or ("Music", "album"));
+            or ("Music", "album")
+            or ("Books", "item")
+            or ("Audiobooks", "item")
+            or ("Comics", "item"));
 
     private static Severity GetProviderArtworkRefreshSeverity(ProviderArtworkRefreshDto result) =>
         result.Success && result.DownloadedCount > 0
@@ -3915,6 +3923,91 @@ public partial class SharedMediaEditorShell
         finally
         {
             _textTracksRefreshing = false;
+        }
+    }
+
+    protected async Task ImportTextTrackAsync(InputFileChangeEventArgs args)
+    {
+        if (_textTrackImporting || CurrentTextTrackAssetId is not { } assetId)
+            return;
+
+        var file = args.File;
+        _textTrackImporting = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(5 * 1024 * 1024);
+            var result = await ApiClient.ImportTextTrackAsync(
+                assetId,
+                UsesLyrics ? "lyrics" : "subtitles",
+                "und",
+                file.Name,
+                file.ContentType,
+                stream);
+            if (result is null)
+            {
+                _textTrackRefreshMessage = $"{TextTrackHeading} could not be imported.";
+                Snackbar.Add(_textTrackRefreshMessage, Severity.Error);
+                return;
+            }
+
+            _textTrackRefreshMessage = result.message;
+            _textTracks = await ApiClient.GetTextTracksAsync(assetId);
+            Snackbar.Add(result.message, result.refreshed ? Severity.Success : Severity.Warning);
+        }
+        finally
+        {
+            _textTrackImporting = false;
+        }
+    }
+
+    protected async Task SetPreferredTextTrackAsync(Guid trackId)
+    {
+        if (_textTrackPreferencePendingId.HasValue || CurrentTextTrackAssetId is not { } assetId)
+            return;
+
+        _textTrackPreferencePendingId = trackId;
+        try
+        {
+            if (!await ApiClient.SetPreferredTextTrackAsync(assetId, trackId))
+            {
+                Snackbar.Add("The preferred text track could not be changed.", Severity.Error);
+                return;
+            }
+
+            _textTracks = await ApiClient.GetTextTracksAsync(assetId);
+            Snackbar.Add($"Preferred {TextTrackHeading.ToLowerInvariant()} updated.", Severity.Success);
+        }
+        finally
+        {
+            _textTrackPreferencePendingId = null;
+        }
+    }
+
+    protected async Task RereadFileMetadataAsync()
+    {
+        if (_rereadingFileMetadata || CurrentTextTrackAssetId is not { } assetId)
+            return;
+
+        _rereadingFileMetadata = true;
+        _fileMetadataRereadMessage = null;
+        try
+        {
+            var result = await ApiClient.RereadAssetMetadataAsync(assetId);
+            if (result is null)
+            {
+                _fileMetadataRereadMessage = "The file metadata refresh could not be started.";
+                Snackbar.Add(_fileMetadataRereadMessage, Severity.Error);
+                return;
+            }
+
+            _fileMetadataRereadMessage = result.Message;
+            Snackbar.Add(result.Message, result.Refreshed ? Severity.Success : Severity.Warning);
+            if (result.Refreshed)
+                await LoadSingleItemAsync(resetEditorState: false);
+        }
+        finally
+        {
+            _rereadingFileMetadata = false;
         }
     }
 
