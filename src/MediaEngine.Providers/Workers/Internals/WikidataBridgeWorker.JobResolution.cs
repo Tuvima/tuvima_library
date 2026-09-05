@@ -150,20 +150,16 @@ public sealed partial class WikidataBridgeWorker
                 // Persist the resolution method as a canonical value (mirrors batch path).
                 if (ctx.MatchedBy is not null)
                 {
-                    var canonicalMethod = ctx.MatchedBy switch
-                    {
-                        "bridge_id"          => "bridge",
-                        "music_album"        => "album",
-                        _                    => ctx.MatchedBy,
-                    };
+                    var canonicalMethod = ResolveQidResolutionMethod(ctx.MediaType, ctx.MatchedBy);
                     ctx.AdditionalClaims.Add(new ProviderClaim(
                         MetadataFieldConstants.QidResolutionMethod, canonicalMethod, 1.0));
                 }
 
                 MarkComicTextResolvedQidAsSeriesScope(ctx);
+                MarkContainerRollupQidScope(ctx);
 
-                // Music tracks: ensure the album QID is also persisted as a
-                // wikidata_qid claim on the track asset (see PollAsync Phase 5).
+                // Album rollups must emit a QID claim so lineage-aware scoring can
+                // persist the resolved identity on the album Work.
                 if (result.MatchedBy == ResolveStrategy.MusicAlbum
                     && !string.IsNullOrWhiteSpace(ctx.ResolvedQid)
                     && !ctx.AdditionalClaims.Any(c => string.Equals(
@@ -298,8 +294,8 @@ public sealed partial class WikidataBridgeWorker
         Year = BuildBridgeYearHint(ctx.MediaType, ctx.SeriesHint, ctx.YearHint),
         FileLanguage = ctx.LanguageHint,
         SeriesTitle = ctx.SeriesHint,
-        SeasonNumber = ctx.SeasonNumber,
-        EpisodeNumber = ctx.EpisodeNumber,
+        SeasonNumber = ctx.MediaType == MediaType.TV ? null : ctx.SeasonNumber,
+        EpisodeNumber = ctx.MediaType == MediaType.TV ? null : ctx.EpisodeNumber,
         IssueNumber = ctx.IssueNumber,
     };
 
@@ -467,7 +463,30 @@ public sealed partial class WikidataBridgeWorker
     }
 
     private static string ResolveBridgeResolutionScope(MediaType mediaType) =>
-        mediaType == MediaType.Music ? "MusicTrack" : mediaType.ToString();
+        mediaType == MediaType.Music ? "MusicAlbum" : mediaType.ToString();
+
+    internal static string ResolveQidResolutionMethod(MediaType mediaType, string matchedBy) =>
+        mediaType switch
+        {
+            MediaType.TV => "tv_show_rollup",
+            MediaType.Music => "music_album_rollup",
+            _ when string.Equals(matchedBy, "bridge_id", StringComparison.OrdinalIgnoreCase) => "bridge",
+            _ when string.Equals(matchedBy, "music_album", StringComparison.OrdinalIgnoreCase) => "album",
+            _ => matchedBy,
+        };
+
+    private static void MarkContainerRollupQidScope(JobContext ctx)
+    {
+        var scope = ctx.MediaType switch
+        {
+            MediaType.TV => "show",
+            MediaType.Music => "album",
+            _ => null,
+        };
+
+        if (scope is not null)
+            AddDistinctAdditionalClaim(ctx, MetadataFieldConstants.WikidataQidScope, scope, 1.0);
+    }
 
     private BridgeResolutionScopeConfiguration? LoadBridgeResolutionScope(string scope) =>
         _configLoader

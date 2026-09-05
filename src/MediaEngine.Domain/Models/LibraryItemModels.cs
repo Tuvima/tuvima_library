@@ -82,7 +82,7 @@ public sealed record LibraryCatalogItem
     [JsonPropertyName("wikidata_qid")]
     public string? WikidataQid { get; init; }
 
-    /// <summary>How the Wikidata QID was resolved: "bridge", "text", or "album".</summary>
+    /// <summary>How the Wikidata QID was resolved, including show/album rollup scope when applicable.</summary>
     [JsonPropertyName("qid_resolution_method")]
     public string? QidResolutionMethod { get; init; }
 

@@ -137,7 +137,8 @@ internal sealed class ArtworkScopeService(
             ("Movies", "item")
             or ("TV", "series")
             or ("TV", "season")
-            or ("TV", "episode");
+            or ("TV", "episode")
+            or ("Music", "album");
 
     public async Task<ProviderArtworkRefreshTarget> ResolveProviderArtworkRefreshTargetAsync(
         EditorScopeResolution scope,
@@ -186,22 +187,13 @@ internal sealed class ArtworkScopeService(
             }
         }
 
-        if (string.IsNullOrWhiteSpace(qid))
-        {
-            return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
-                status: "Skipped",
-                skippedReason: "missing_qid",
-                message: "This item needs a confirmed Wikidata QID before provider artwork can be refreshed.",
-                mediaType: scope.MediaType));
-        }
-
         var bridge = ResolveProviderArtworkBridge(canonicalLookup, scope.MediaType);
         if (bridge is null)
         {
             return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
                 status: "Skipped",
                 skippedReason: "missing_bridge_id",
-                message: "This item needs a provider bridge ID before Fanart.tv artwork can be refreshed.",
+                message: "This item needs a supported provider ID before Fanart.tv artwork can be refreshed.",
                 mediaType: scope.MediaType));
         }
 
@@ -225,6 +217,16 @@ internal sealed class ArtworkScopeService(
         {
             var tvdb = MetadataEndpoints.GetCanonicalValue(canonicals, BridgeIdKeys.TvdbId);
             return string.IsNullOrWhiteSpace(tvdb) ? null : (BridgeIdKeys.TvdbId, tvdb);
+        }
+
+        if (normalized == "Music")
+        {
+            var releaseGroup = MetadataEndpoints.GetCanonicalValue(
+                canonicals,
+                BridgeIdKeys.MusicBrainzReleaseGroupId);
+            return string.IsNullOrWhiteSpace(releaseGroup)
+                ? null
+                : (BridgeIdKeys.MusicBrainzReleaseGroupId, releaseGroup);
         }
 
         return null;

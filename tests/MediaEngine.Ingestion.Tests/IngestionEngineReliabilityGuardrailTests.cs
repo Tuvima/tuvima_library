@@ -8,7 +8,7 @@ public sealed class IngestionEngineReliabilityGuardrailTests
         var source = ReadIngestionEngineSource();
 
         Assert.DoesNotContain("new ScoringConfiguration()", source, StringComparison.Ordinal);
-        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(
+        Assert.Equal(4, System.Text.RegularExpressions.Regex.Matches(
             source, @"Configuration\s*=\s*_scoringConfig").Count);
     }
 

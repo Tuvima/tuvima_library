@@ -126,8 +126,8 @@
         "allow_constrained_text_fallback": false
       },
       "TV": {
-        "target_ids": ["tmdb_tv_id", "tmdb_id", "tvdb_episode_id", "tvdb_id", "imdb_id", "apple_tv_episode_id", "apple_tv_show_id"],
-        "context_ids": ["itunes_tv_season_id"],
+        "target_ids": ["tmdb_tv_id", "tmdb_id", "tvdb_id", "apple_tv_show_id"],
+        "context_ids": ["tvdb_episode_id", "tmdb_episode_id", "imdb_id", "apple_tv_episode_id", "itunes_tv_season_id"],
         "allow_constrained_text_fallback": false
       },
       "Comics": {

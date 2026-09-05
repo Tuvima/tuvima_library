@@ -105,7 +105,9 @@ public static class ClaimScopeCatalog
         {
             [MediaType.Music] = new(StringComparer.OrdinalIgnoreCase)
             {
-                [BridgeIdKeys.WikidataQid]           = ClaimScope.Self,
+                [BridgeIdKeys.WikidataQid]           = ClaimScope.Parent,
+                [MetadataFieldConstants.WikidataQidScope] = ClaimScope.Parent,
+                [MetadataFieldConstants.QidResolutionMethod] = ClaimScope.Parent,
                 [BridgeIdKeys.MusicBrainzRecordingId] = ClaimScope.Self,
                 [BridgeIdKeys.MusicBrainzWorkId]     = ClaimScope.Self,
                 [BridgeIdKeys.Isrc]                  = ClaimScope.Self,
@@ -122,6 +124,9 @@ public static class ClaimScopeCatalog
             },
             [MediaType.TV] = new(StringComparer.OrdinalIgnoreCase)
             {
+                [BridgeIdKeys.WikidataQid]             = ClaimScope.Parent,
+                [MetadataFieldConstants.WikidataQidScope] = ClaimScope.Parent,
+                [MetadataFieldConstants.QidResolutionMethod] = ClaimScope.Parent,
                 // TMDB exposes both a show id and an episode id. The generic
                 // tmdb_id is the show/container identity for TV; the distinct
                 // tmdb_episode_id remains attached to the owned episode.

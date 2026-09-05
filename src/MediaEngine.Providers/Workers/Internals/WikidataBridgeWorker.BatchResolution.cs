@@ -260,22 +260,16 @@ public sealed partial class WikidataBridgeWorker
                 // The Dashboard can filter items by how their Wikidata match was made.
                 if (ctx.MatchedBy is not null)
                 {
-                    var canonicalMethod = ctx.MatchedBy switch
-                    {
-                        "bridge_id"          => "bridge",
-                        "music_album"        => "album",
-                        _                    => ctx.MatchedBy,
-                    };
+                    var canonicalMethod = ResolveQidResolutionMethod(ctx.MediaType, ctx.MatchedBy);
                     ctx.AdditionalClaims.Add(new ProviderClaim(
                         MetadataFieldConstants.QidResolutionMethod, canonicalMethod, 1.0));
                 }
 
                 MarkComicTextResolvedQidAsSeriesScope(ctx);
+                MarkContainerRollupQidScope(ctx);
 
-                // Music tracks: ResolveMusicAlbumAsync returns the album QID but
-                // doesn't always emit it as a wikidata_qid claim — without this
-                // the track stalls because nothing downstream sees a resolved QID
-                // on the asset.
+                // Album rollups must emit a QID claim so lineage-aware scoring can
+                // persist the resolved identity on the album Work.
                 if (result.MatchedBy == ResolveStrategy.MusicAlbum
                     && !string.IsNullOrWhiteSpace(ctx.ResolvedQid)
                     && !ctx.AdditionalClaims.Any(c => string.Equals(

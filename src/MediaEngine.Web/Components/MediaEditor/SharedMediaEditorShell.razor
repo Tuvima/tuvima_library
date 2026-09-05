@@ -1692,6 +1692,54 @@
                                 </div>
                             </section>
 
+                            @if (SupportsTextTracks && CurrentTextTrackAssetId.HasValue)
+                            {
+                                <section class="sme-file-status-panel">
+                                    <div class="sme-file-panel-heading">
+                                        <span>@TextTrackHeading</span>
+                                        <AppButton Label="@TextTrackRefreshLabel"
+                                                   StartIcon="@Icons.Material.Outlined.CloudDownload"
+                                                   ButtonStyle="AppButtonStyle.Outlined"
+                                                   Tone="AppUiTone.Primary"
+                                                   Disabled="@(_textTracksLoading || _textTracksRefreshing)"
+                                                   OnClick="RefreshTextTracksAsync" />
+                                    </div>
+                                    @if (_textTracksLoading)
+                                    {
+                                        <div class="sme-text-track-empty">Loading managed @TextTrackHeading.ToLowerInvariant()...</div>
+                                    }
+                                    else if (_textTracks.Count == 0)
+                                    {
+                                        <div class="sme-text-track-empty">
+                                            No managed @TextTrackHeading.ToLowerInvariant() are available. Tuvima checks local sidecars first and preserves user-owned files when refreshing.
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="sme-text-track-list" aria-label="Managed @TextTrackHeading.ToLowerInvariant()">
+                                            @foreach (var track in _textTracks.OrderByDescending(item => item.IsPreferred).ThenByDescending(item => item.IsUserOwned).ThenBy(item => item.Language))
+                                            {
+                                                <a class="sme-text-track-row" href="@track.Url" target="_blank" rel="noopener noreferrer">
+                                                    <span class="sme-text-track-language">@track.Language.ToUpperInvariant()</span>
+                                                    <span>
+                                                        <strong>@(track.IsUserOwned ? "Local file" : track.Provider)</strong>
+                                                        <small>@track.NormalizedFormat.ToUpperInvariant() · @(track.IsPreferred ? "Preferred" : "Available")</small>
+                                                    </span>
+                                                    <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
+                                                </a>
+                                            }
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(_textTrackRefreshMessage))
+                                    {
+                                        <div class="sme-file-panel-note" role="status">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                                            <span>@_textTrackRefreshMessage</span>
+                                        </div>
+                                    }
+                                </section>
+                            }
+
                             @if (_detail.PlaybackSummary is { } technical)
                             {
                                 <section class="sme-file-status-panel">

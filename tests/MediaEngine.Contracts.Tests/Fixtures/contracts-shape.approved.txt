@@ -4177,6 +4177,11 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.RefreshTextTracksR
   asset_id: System.Guid | nullability=not-null | accessors=get,init
   enrichment_type: System.String | nullability=not-null | accessors=get,init
   refreshed: System.Boolean | nullability=not-null | accessors=get,init
+  status: System.String | nullability=not-null | accessors=get,init
+  before_count: System.Int32 | nullability=not-null | accessors=get,init
+  after_count: System.Int32 | nullability=not-null | accessors=get,init
+  track_id: System.Guid? | nullability=nullable | accessors=get,init
+  message: System.String | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.SubtitleLanguageSettingsDto
   DefaultSubtitleLanguage: System.String | nullability=not-null | accessors=get,set

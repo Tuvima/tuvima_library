@@ -2950,6 +2950,19 @@ public sealed class WorkerPipelineTests
         Assert.Equal("2005", WikidataBridgeWorker.BuildBridgeYearHint(MediaType.Movies, "Batman in film", "2005"));
     }
 
+    [Theory]
+    [InlineData(MediaType.TV, "bridge_id", "tv_show_rollup")]
+    [InlineData(MediaType.Music, "music_album", "music_album_rollup")]
+    [InlineData(MediaType.Movies, "bridge_id", "bridge")]
+    [InlineData(MediaType.Books, "retail_text", "retail_text")]
+    public void WikidataBridgeWorker_QidResolutionMethod_ReportsContainerRollups(
+        MediaType mediaType,
+        string matchedBy,
+        string expected)
+    {
+        Assert.Equal(expected, WikidataBridgeWorker.ResolveQidResolutionMethod(mediaType, matchedBy));
+    }
+
     [Fact]
     public void WikidataBridgeWorker_AudiobookLookupHints_FallbackToArtistAndAlbum()
     {

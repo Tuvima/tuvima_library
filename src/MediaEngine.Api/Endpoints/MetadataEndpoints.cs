@@ -658,7 +658,7 @@ public static partial class MetadataEndpoints
                 return Results.Ok(ArtworkScopeService.CreateProviderArtworkRefreshEnvelope(
                     status: "Skipped",
                     skippedReason: "unsupported_scope",
-                    message: "Provider artwork refresh is available for movie and TV artwork scopes.",
+                    message: "Provider artwork refresh is available for movie, TV, and music album artwork scopes.",
                     mediaType: scope.MediaType));
             }
 
@@ -668,7 +668,7 @@ public static partial class MetadataEndpoints
 
             var result = await imageEnrichment.EnrichWorkImagesAsync(
                 target.RepresentativeAssetId!.Value,
-                target.WorkQid!,
+                target.WorkQid,
                 ct);
 
             return Results.Ok(ArtworkScopeService.MapProviderArtworkRefreshResult(result));

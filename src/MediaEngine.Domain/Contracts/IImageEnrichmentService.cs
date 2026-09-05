@@ -16,7 +16,7 @@ public interface IImageEnrichmentService
     /// to performer-character pairs; upgrades hero images from background art.
     /// </summary>
     /// <param name="assetId">The media asset ID used for artwork storage and stream routes.</param>
-    /// <param name="workQid">The work's confirmed Wikidata QID.</param>
+    /// <param name="workQid">The work's confirmed Wikidata QID when available. Fanart provider refresh can use a direct bridge ID without one.</param>
     /// <param name="ct">Cancellation token.</param>
-    Task<ImageEnrichmentResult> EnrichWorkImagesAsync(Guid assetId, string workQid, CancellationToken ct = default);
+    Task<ImageEnrichmentResult> EnrichWorkImagesAsync(Guid assetId, string? workQid, CancellationToken ct = default);
 }

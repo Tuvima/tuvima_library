@@ -129,6 +129,10 @@ public partial class SharedMediaEditorShell
     private bool _artworkUrlSubmitting;
     private bool _providerArtworkRefreshing;
     private bool _retryingWriteback;
+    private IReadOnlyList<TextTrackDto> _textTracks = [];
+    private bool _textTracksLoading;
+    private bool _textTracksRefreshing;
+    private string? _textTrackRefreshMessage;
     private string _historyFilter = "all";
     private bool _confirmDiscard;
     private bool _showQuarantineConfirm;
@@ -597,6 +601,7 @@ public partial class SharedMediaEditorShell
             EnsureActiveTabVisible();
             InitializeMatchSearchQueries();
             InitializeMatchSearchState();
+            await LoadTextTracksAsync();
         }
         catch (Exception ex)
         {
@@ -2083,7 +2088,8 @@ public partial class SharedMediaEditorShell
             ("Movies", "item")
             or ("TV", "series")
             or ("TV", "season")
-            or ("TV", "episode"));
+            or ("TV", "episode")
+            or ("Music", "album"));
 
     private static Severity GetProviderArtworkRefreshSeverity(ProviderArtworkRefreshDto result) =>
         result.Success && result.DownloadedCount > 0
@@ -2107,7 +2113,6 @@ public partial class SharedMediaEditorShell
     private static string FormatProviderArtworkSkipReason(string? reason) =>
         reason switch
         {
-            "missing_qid" => "confirmed canonical identity required.",
             "missing_bridge_id" => "provider bridge ID required.",
             "missing_api_key" => "Fanart.tv API key is not configured.",
             "provider_no_result" => "provider returned no artwork.",
@@ -3846,6 +3851,70 @@ public partial class SharedMediaEditorShell
         finally
         {
             _retryingWriteback = false;
+        }
+    }
+
+    protected Guid? CurrentTextTrackAssetId =>
+        SelectedNavigatorNode?.PrimaryAssetId
+        ?? NavigatorRootNode?.PrimaryAssetId;
+
+    protected bool SupportsTextTracks =>
+        string.Equals(_selectedMediaType, "Music", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(_selectedMediaType, "Movies", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(_selectedMediaType, "TV", StringComparison.OrdinalIgnoreCase);
+
+    protected bool UsesLyrics =>
+        string.Equals(_selectedMediaType, "Music", StringComparison.OrdinalIgnoreCase);
+
+    protected string TextTrackHeading => UsesLyrics ? "Lyrics" : "Subtitles";
+
+    protected string TextTrackRefreshLabel =>
+        _textTracksRefreshing ? $"Finding {TextTrackHeading.ToLowerInvariant()}..." : $"Find {TextTrackHeading.ToLowerInvariant()}";
+
+    private async Task LoadTextTracksAsync()
+    {
+        _textTrackRefreshMessage = null;
+        if (!SupportsTextTracks || CurrentTextTrackAssetId is not { } assetId)
+        {
+            _textTracks = [];
+            return;
+        }
+
+        _textTracksLoading = true;
+        try
+        {
+            _textTracks = await ApiClient.GetTextTracksAsync(assetId);
+        }
+        finally
+        {
+            _textTracksLoading = false;
+        }
+    }
+
+    protected async Task RefreshTextTracksAsync()
+    {
+        if (_textTracksRefreshing || CurrentTextTrackAssetId is not { } assetId)
+            return;
+
+        _textTracksRefreshing = true;
+        _textTrackRefreshMessage = null;
+        try
+        {
+            var kind = UsesLyrics ? "lyrics" : "subtitles";
+            var result = await ApiClient.RefreshTextTracksAsync(assetId, kind);
+            if (result is null)
+            {
+                _textTrackRefreshMessage = $"{TextTrackHeading} could not be refreshed.";
+                return;
+            }
+
+            _textTrackRefreshMessage = result.message;
+            _textTracks = await ApiClient.GetTextTracksAsync(assetId);
+            Snackbar.Add(result.message, result.refreshed ? Severity.Success : Severity.Info);
+        }
+        finally
+        {
+            _textTracksRefreshing = false;
         }
     }
 

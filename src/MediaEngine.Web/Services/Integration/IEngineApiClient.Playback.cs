@@ -50,6 +50,8 @@ public partial interface IEngineApiClient
 
     Task<IReadOnlyList<TextTrackDto>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
 
+    Task<RefreshTextTracksResponse?> RefreshTextTracksAsync(Guid assetId, string kind, CancellationToken ct = default);
+
     Task<string?> GetLyricsAsync(Guid assetId, CancellationToken ct = default);
 
     Task<List<EncodeJobDto>> GetEncodeJobsAsync(CancellationToken ct = default);

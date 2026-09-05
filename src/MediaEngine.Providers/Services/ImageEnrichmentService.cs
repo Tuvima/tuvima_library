@@ -134,10 +134,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     }
 
     /// <inheritdoc/>
-    public async Task<ImageEnrichmentResult> EnrichWorkImagesAsync(Guid assetId, string workQid, CancellationToken ct = default)
+    public async Task<ImageEnrichmentResult> EnrichWorkImagesAsync(Guid assetId, string? workQid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(workQid);
         var checkedAt = DateTimeOffset.UtcNow;
 
         var context = await ResolveImageWorkContextAsync(assetId, ct);
@@ -179,6 +178,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             musicBrainzArtistId,
             musicBrainzReleaseGroupId,
             mediaTypeStr);
+        var artworkIdentity = string.IsNullOrWhiteSpace(workQid)
+            ? $"entity:{context.CanonicalEntityId:D}"
+            : workQid;
 
         if (fanartRequest is null)
         {
@@ -248,7 +250,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                     mapping.JsonFields,
                     mapping.Type,
                     context.CanonicalEntityId,
-                    workQid,
+                    artworkIdentity,
                     mapping.UpdatePreferred,
                     ct);
                 AddStoredCount(storedCounts, mapping.Type, processed.StoredCount);
@@ -263,7 +265,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 TvSeasonPosterFields,
                 AssetType.SeasonPoster,
                 context.CanonicalEntityId,
-                workQid,
+                artworkIdentity,
                 ct);
             AddStoredCount(storedCounts, AssetType.SeasonPoster, seasonPosters.StoredCount);
             updatedPreferredCount += seasonPosters.UpdatedPreferredCount;
@@ -273,7 +275,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 TvSeasonThumbFields,
                 AssetType.SeasonThumb,
                 context.CanonicalEntityId,
-                workQid,
+                artworkIdentity,
                 ct);
             AddStoredCount(storedCounts, AssetType.SeasonThumb, seasonThumbs.StoredCount);
             updatedPreferredCount += seasonThumbs.UpdatedPreferredCount;
@@ -283,14 +285,15 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 TvEpisodeStillFields,
                 AssetType.EpisodeStill,
                 context.CanonicalEntityId,
-                workQid,
+                artworkIdentity,
                 ct);
             AddStoredCount(storedCounts, AssetType.EpisodeStill, episodeStills.StoredCount);
             updatedPreferredCount += episodeStills.UpdatedPreferredCount;
         }
 
         // ── Steps 5–6: Character art matching ──
-        if (CharacterArtFields.TryGetValue(apiResult.MediaType, out var charField))
+        if (!string.IsNullOrWhiteSpace(workQid)
+            && CharacterArtFields.TryGetValue(apiResult.MediaType, out var charField))
         {
             await MatchVerifiedCharacterArtAsync(apiResult.Json, charField, workQid, ct);
         }

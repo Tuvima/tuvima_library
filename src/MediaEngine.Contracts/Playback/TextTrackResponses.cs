@@ -45,12 +45,17 @@ public sealed class TextTrackDto
 
 /// <summary>
 /// Response for <c>POST /stream/{assetId}/text-tracks/refresh</c>. Property names (including
-/// snake_case spelling) are byte-identical to the anonymous object this record replaced
-/// (Stage 5A wave 2 response-shape promotion) so the wire shape does not change.
+/// snake_case spelling) retain the original fields and add an explicit, truthful outcome
+/// so editor clients can distinguish an update from an empty provider result.
 /// </summary>
 public sealed record RefreshTextTracksResponse
 {
     public Guid asset_id { get; init; }
     public string enrichment_type { get; init; } = string.Empty;
     public bool refreshed { get; init; }
+    public string status { get; init; } = string.Empty;
+    public int before_count { get; init; }
+    public int after_count { get; init; }
+    public Guid? track_id { get; init; }
+    public string message { get; init; } = string.Empty;
 }

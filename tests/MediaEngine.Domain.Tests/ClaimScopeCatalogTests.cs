@@ -63,9 +63,9 @@ public class ClaimScopeCatalogTests
     // ── Movies (no parent) ───────────────────────────────────────────────
 
     [Fact]
-    public void Music_WikidataQid_TrackOrWorkLevel_RoutesToSelf()
+    public void Music_WikidataQid_AlbumRollup_RoutesToParent()
     {
-        Assert.Equal(ClaimScope.Self,
+        Assert.Equal(ClaimScope.Parent,
             ClaimScopeCatalog.GetScope(BridgeIdKeys.WikidataQid, MediaType.Music));
     }
 

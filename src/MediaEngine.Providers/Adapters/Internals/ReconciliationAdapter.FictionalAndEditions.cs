@@ -637,18 +637,18 @@ public sealed partial class ReconciliationAdapter
         MediaType.Audiobooks when request.AllowConstrainedTextFallback && realBridgeIdCount == 0 => BridgeMediaKind.Book,
         MediaType.Audiobooks => BridgeMediaKind.Audiobook,
         MediaType.Movies => BridgeMediaKind.Movie,
-        MediaType.TV => request.EpisodeNumber.HasValue
-            ? BridgeMediaKind.TvEpisode
-            : request.SeasonNumber.HasValue
-                ? BridgeMediaKind.TvSeason
-                : BridgeMediaKind.TvSeries,
+        // Wikidata identity is deliberately resolved at the root show. Episode
+        // coordinates remain provider-local facts used by TMDB and subtitles.
+        MediaType.TV => BridgeMediaKind.TvSeries,
         MediaType.Comics => !string.IsNullOrWhiteSpace(request.SeriesTitle)
             ? BridgeMediaKind.ComicSeries
             : string.IsNullOrWhiteSpace(request.IssueNumber)
             ? BridgeMediaKind.ComicSeries
             : BridgeMediaKind.ComicIssue,
         MediaType.Music when string.Equals(request.ResolutionScope, "MusicAlbum", StringComparison.OrdinalIgnoreCase) => BridgeMediaKind.MusicAlbum,
-        MediaType.Music => BridgeMediaKind.MusicWork,
+        // Music Wikidata identity is deliberately resolved at the album/release
+        // group. Track/recording IDs remain available for playback and lyrics.
+        MediaType.Music => BridgeMediaKind.MusicAlbum,
         _ => BridgeMediaKind.Unknown
     };
 

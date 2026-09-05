@@ -112,13 +112,38 @@ public sealed partial class IngestionEngine
                         continue;
                     }
 
-                    // Skip files already tracked by the database (path-based pre-filter).
-                    // The pipeline's hash check remains the authoritative duplicate guard
-                    // for files whose path has changed since initial ingestion.
+                    // Skip a tracked path only when its persistent size/mtime fingerprint
+                    // still maps to a cached content hash. A changed file may have been
+                    // edited while the Engine was stopped and must reach the same-path
+                    // refresh path so embedded/local metadata is read again.
                     if (knownPaths.Contains(normalizedPath))
                     {
-                        skipped++;
-                        continue;
+                        var fingerprintIsCurrent = false;
+                        if (_hashStageDependencies.FileHashCache is not null)
+                        {
+                            try
+                            {
+                                var info = new FileInfo(normalizedPath);
+                                var cachedHash = await _hashStageDependencies.FileHashCache.TryGetAsync(
+                                    normalizedPath,
+                                    info.Length,
+                                    new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
+                                    ct).ConfigureAwait(false);
+                                fingerprintIsCurrent = !string.IsNullOrWhiteSpace(cachedHash);
+                            }
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                _logger.LogDebug(ex,
+                                    "Could not verify the persistent fingerprint for tracked path {Path}; queuing a safe recheck",
+                                    normalizedPath);
+                            }
+                        }
+
+                        if (fingerprintIsCurrent)
+                        {
+                            skipped++;
+                            continue;
+                        }
                     }
 
                     var trackedOperation = await GetTrackedIngestionOperationAsync(normalizedPath, ct).ConfigureAwait(false);

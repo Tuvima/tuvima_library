@@ -59,7 +59,7 @@
 
     private static string SourceIcon(string key) => key switch
     {
-        "wikidata" or "wikidata-series" => Icons.Material.Outlined.AccountTree,
+        "wikidata" or "wikidata_qid" or "wikidata-series" or "wikidata-show" or "wikidata-album" => Icons.Material.Outlined.AccountTree,
         "wikipedia" => Icons.Material.Outlined.Article,
         _ => Icons.Material.Outlined.OpenInNew,
     };

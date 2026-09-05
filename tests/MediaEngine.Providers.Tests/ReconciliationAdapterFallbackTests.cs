@@ -76,7 +76,7 @@ public sealed class ReconciliationAdapterFallbackTests
         Assert.Equal("1446014714", bridgeIds[BridgeIdKeys.AppleMusicId]);
 
         var typed = Assert.IsType<BridgeResolutionRequest>(bridgeRequest);
-        Assert.Equal(BridgeMediaKind.MusicWork, typed.MediaKind);
+        Assert.Equal(BridgeMediaKind.MusicAlbum, typed.MediaKind);
         Assert.Equal("99 Luftballons", typed.Title);
     }
 
@@ -119,7 +119,7 @@ public sealed class ReconciliationAdapterFallbackTests
     }
 
     [Fact]
-    public void BuildBridgeResolutionRequest_LaVieEnRoseUsesTrackScopeForExpectedSongQid()
+    public void BuildBridgeResolutionRequest_MusicTrackInputStillUsesAlbumRollup()
     {
         const string expectedQid = "Q11986";
         var adapter = CreateAdapter();
@@ -153,7 +153,7 @@ public sealed class ReconciliationAdapterFallbackTests
         var bridgeRequest = BuildBridgeRequest(adapter, request);
 
         Assert.Equal(expectedQid, "Q11986");
-        Assert.Equal(BridgeMediaKind.MusicWork, bridgeRequest.MediaKind);
+        Assert.Equal(BridgeMediaKind.MusicAlbum, bridgeRequest.MediaKind);
         Assert.Equal("La Vie en rose", bridgeRequest.Title);
         Assert.Equal("Édith Piaf", bridgeRequest.Creator);
         Assert.Equal("fr", bridgeRequest.Language);
@@ -165,6 +165,33 @@ public sealed class ReconciliationAdapterFallbackTests
         Assert.Equal("P435", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.MusicBrainzWorkId]);
         Assert.Equal("P10110", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.AppleMusicId]);
         Assert.Equal("P2281", bridgeRequest.CustomWikidataProperties![BridgeIdKeys.AppleMusicCollectionId]);
+    }
+
+    [Fact]
+    public void BuildBridgeResolutionRequest_TvEpisodeInputUsesSeriesRollup()
+    {
+        var adapter = CreateAdapter();
+        var request = new WikidataResolveRequest
+        {
+            CorrelationKey = "tv-episode",
+            MediaType = MediaType.TV,
+            ResolutionScope = "TV",
+            Title = "The Episode",
+            SeriesTitle = "The Show",
+            SeasonNumber = 2,
+            EpisodeNumber = 4,
+            BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.TmdbId] = "1234",
+                [BridgeIdKeys.TmdbEpisodeId] = "5678",
+            },
+        };
+
+        var bridgeRequest = BuildBridgeRequest(adapter, request);
+
+        Assert.Equal(BridgeMediaKind.TvSeries, bridgeRequest.MediaKind);
+        Assert.Equal(2, bridgeRequest.SeasonNumber);
+        Assert.Equal(4, bridgeRequest.EpisodeNumber);
     }
 
     [Fact]

@@ -64,6 +64,7 @@ public static class TuvimaStorageServiceCollectionExtensions
             return new AssetPathService(core.LibraryRoot, core.StoragePolicy, core.DataRoot);
         });
         services.AddSingleton<IAssetExportService, AssetExportService>();
+        services.AddSingleton<ITextTrackExportService, TextTrackExportService>();
         services.AddSingleton<ICollectionRepository, CollectionRepository>();
         services.AddSingleton<ICollectionPlacementRepository, CollectionPlacementRepository>();
         services.AddSingleton<IAudioFingerprintRepository, AudioFingerprintRepository>();

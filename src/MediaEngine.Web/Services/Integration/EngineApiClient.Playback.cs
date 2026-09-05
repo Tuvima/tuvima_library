@@ -226,6 +226,27 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public async Task<RefreshTextTracksResponse?> RefreshTextTracksAsync(Guid assetId, string kind, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.PostAsync(
+                $"/stream/{assetId}/text-tracks/refresh?kind={Uri.EscapeDataString(kind)}",
+                content: null,
+                ct);
+            if (!response.IsSuccessStatusCode)
+                return null;
+
+            return await response.Content.ReadFromJsonAsync<RefreshTextTracksResponse>(cancellationToken: ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /stream/{AssetId}/text-tracks/refresh failed", assetId);
+            return null;
+        }
+    }
+
     public async Task<List<EncodeJobDto>> GetEncodeJobsAsync(CancellationToken ct = default)
     {
         try

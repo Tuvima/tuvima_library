@@ -4986,7 +4986,12 @@
   asset_id: System.Guid | json=asset_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   enrichment_type: System.String | json=enrichment_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   refreshed: System.Boolean | json=refreshed | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"asset_id":"11111111-2222-3333-4444-555555555555","enrichment_type":"sample","refreshed":true}
+  status: System.String | json=status | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  before_count: System.Int32 | json=before_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  after_count: System.Int32 | json=after_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  track_id: System.Guid? | json=track_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  message: System.String | json=message | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"asset_id":"11111111-2222-3333-4444-555555555555","enrichment_type":"sample","refreshed":true,"status":"sample","before_count":7,"after_count":7,"track_id":"11111111-2222-3333-4444-555555555555","message":"sample"}
 
 [contracts] MediaEngine.Contracts.Playback.SubtitleLanguageSettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default

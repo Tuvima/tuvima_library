@@ -678,6 +678,38 @@ internal sealed partial class DetailCompositionOrchestrator
             : null;
         var links = _providerSourceLinks.Resolve(identifiers, mediaType).ToList();
 
+        if (values is not null)
+        {
+            var method = GetValue(values, MetadataFieldConstants.QidResolutionMethod);
+            var rollupPresentation = method?.Trim().ToLowerInvariant() switch
+            {
+                "tv_show_rollup" => (Key: "wikidata-show", Label: "TV show on Wikidata", Tooltip: "Open the root TV show identity used for every owned episode."),
+                "music_album_rollup" => (Key: "wikidata-album", Label: "Album on Wikidata", Tooltip: "Open the album identity used for every owned track."),
+                "comic_series_rollup" => (Key: "wikidata-series", Label: "Series/run on Wikidata", Tooltip: "Open the series or run identity used for this comic issue."),
+                _ => default,
+            };
+
+            if (!string.IsNullOrWhiteSpace(rollupPresentation.Key))
+            {
+                var wikidataLinkIndex = links.FindIndex(link => string.Equals(
+                    link.Key,
+                    BridgeIdKeys.WikidataQid,
+                    StringComparison.OrdinalIgnoreCase));
+                if (wikidataLinkIndex >= 0)
+                {
+                    var link = links[wikidataLinkIndex];
+                    links[wikidataLinkIndex] = new ExternalSourceLinkViewModel
+                    {
+                        Key = rollupPresentation.Key,
+                        Label = rollupPresentation.Label,
+                        Url = link.Url,
+                        SourceName = link.SourceName,
+                        Tooltip = rollupPresentation.Tooltip,
+                    };
+                }
+            }
+        }
+
         var seriesQid = ExtractQid(FirstText(sequence?.SourceContainerId, sequence?.ContainerId));
         if (!string.IsNullOrWhiteSpace(seriesQid)
             && !string.Equals(seriesQid, qid, StringComparison.OrdinalIgnoreCase))

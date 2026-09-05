@@ -7,6 +7,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Contracts.Realtime;
+using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Services;
 
@@ -46,6 +47,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     private readonly IConfigurationLoader         _configLoader;
     private readonly AssetPathService             _assetPaths;
     private readonly IDatabaseConnection          _db;
+    private readonly ILibraryFolderResolver       _libraryFolderResolver;
     private readonly ILogger<LibraryReconciliationService> _logger;
 
     /// <summary>Category root folder names that should never be deleted.</summary>
@@ -72,6 +74,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         IConfigurationLoader        configLoader,
         AssetPathService            assetPaths,
         IDatabaseConnection         db,
+        ILibraryFolderResolver      libraryFolderResolver,
         ILogger<LibraryReconciliationService> logger)
     {
         _assetRepo     = assetRepo;
@@ -88,6 +91,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         _configLoader  = configLoader;
         _assetPaths    = assetPaths;
         _db            = db;
+        _libraryFolderResolver = libraryFolderResolver;
         _logger        = logger;
     }
 
@@ -166,6 +170,17 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
             if (File.Exists(asset.FilePathRoot))
                 continue;
+
+            var configuredSource = _libraryFolderResolver.ResolveSourceForPath(asset.FilePathRoot);
+            if (configuredSource is not null && !IsConfiguredSourceAvailable(configuredSource.Source.Path))
+            {
+                _logger.LogWarning(
+                    "Reconciliation deferred missing-file cleanup for asset {Id}; source {SourceId} is unavailable at {SourcePath}",
+                    asset.Id,
+                    configuredSource.Source.Id,
+                    configuredSource.Source.Path);
+                continue;
+            }
 
             _logger.LogInformation(
                 "Reconciliation: file missing for asset {Id} at {Path}",
@@ -365,6 +380,21 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             sw.ElapsedMilliseconds,
             duplicateReadWorksMerged,
             audiobookAuthorsAligned);
+    }
+
+    internal static bool IsConfiguredSourceAvailable(string sourcePath)
+    {
+        if (string.IsNullOrWhiteSpace(sourcePath))
+            return false;
+
+        try
+        {
+            return Directory.Exists(Path.GetFullPath(sourcePath));
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException or System.Security.SecurityException)
+        {
+            return false;
+        }
     }
 
     // ── Pass 1: Empty Folder Pruning ────────────────────────────────────────

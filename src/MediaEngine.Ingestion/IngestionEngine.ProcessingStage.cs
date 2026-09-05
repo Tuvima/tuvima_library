@@ -27,6 +27,120 @@ namespace MediaEngine.Ingestion;
 
 public sealed partial class IngestionEngine
 {
+    private async Task<bool> RefreshExistingAssetMetadataAsync(
+        MediaAsset asset,
+        string filePath,
+        Guid ingestionRunId,
+        CancellationToken ct)
+    {
+        try
+        {
+            var result = await _processors.ProcessAsync(filePath, ct).ConfigureAwait(false);
+            if (result.IsCorrupt)
+            {
+                _logger.LogWarning(
+                    "Changed same-path file {Path} could not be refreshed because the processor marked it corrupt: {Reason}",
+                    filePath,
+                    result.CorruptReason);
+                return false;
+            }
+
+            var claims = BuildClaims(asset.Id, result).ToList();
+            if (!claims.Any(claim => claim.ClaimKey.Equals(MetadataFieldConstants.MediaTypeField, StringComparison.OrdinalIgnoreCase)))
+            {
+                claims.Add(new MetadataClaim
+                {
+                    Id = Guid.NewGuid(),
+                    EntityId = asset.Id,
+                    ProviderId = LocalProcessorProviderId,
+                    ClaimKey = MetadataFieldConstants.MediaTypeField,
+                    ClaimValue = result.DetectedType.ToString(),
+                    Confidence = 1,
+                    ClaimedAt = DateTimeOffset.UtcNow,
+                });
+            }
+
+            var previousClaims = await _claimRepo.GetByEntityAsync(asset.Id, ct).ConfigureAwait(false);
+            var refreshedKeys = previousClaims
+                .Where(claim => claim.ProviderId == LocalProcessorProviderId)
+                .Select(claim => claim.ClaimKey)
+                .Concat(claims.Select(claim => claim.ClaimKey))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            await _claimRepo.ReplaceCurrentProviderClaimsAsync(
+                asset.Id,
+                LocalProcessorProviderId,
+                refreshedKeys,
+                claims,
+                ct).ConfigureAwait(false);
+
+            var currentClaims = await _claimRepo.GetByEntityAsync(asset.Id, ct).ConfigureAwait(false);
+            var scored = await _scorer.ScoreEntityAsync(new ScoringContext
+            {
+                EntityId = asset.Id,
+                Claims = currentClaims,
+                ProviderWeights = new Dictionary<Guid, double> { [LocalProcessorProviderId] = 1 },
+                Configuration = _scoringConfig,
+                DetectedMediaType = result.DetectedType,
+            }, ct).ConfigureAwait(false);
+
+            var canonicals = scored.FieldScores
+                .Where(field => !string.IsNullOrWhiteSpace(field.WinningValue))
+                .Where(field => !MetadataFieldConstants.IsMultiValued(field.Key))
+                .Select(field => new CanonicalValue
+                {
+                    EntityId = asset.Id,
+                    Key = field.Key,
+                    Value = field.WinningValue!,
+                    LastScoredAt = scored.ScoredAt,
+                    IsConflicted = field.IsConflicted,
+                    WinningProviderId = field.WinningProviderId,
+                    NeedsReview = field.IsConflicted,
+                })
+                .ToList();
+            await _canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
+
+            var winningKeys = scored.FieldScores
+                .Where(field => !string.IsNullOrWhiteSpace(field.WinningValue))
+                .Select(field => field.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in refreshedKeys.Where(key => !winningKeys.Contains(key)))
+                await _canonicalRepo.DeleteByKeyAsync(asset.Id, key, ct).ConfigureAwait(false);
+
+            await SafeActivityLogAsync(new SystemActivityEntry
+            {
+                ActionType = "LocalMetadataRefreshed",
+                EntityId = asset.Id,
+                EntityType = "MediaAsset",
+                Detail = $"Re-read {claims.Count} local metadata fields after the file changed in place.",
+                ChangesJson = JsonSerializer.Serialize(new
+                {
+                    file_name = Path.GetFileName(filePath),
+                    media_type = result.DetectedType.ToString(),
+                    claims_count = claims.Count,
+                }),
+                IngestionRunId = ingestionRunId,
+            }, ct).ConfigureAwait(false);
+
+            await _identityJobRepo.CreateAsync(new IdentityJob
+            {
+                EntityId = asset.Id,
+                EntityType = EntityType.MediaAsset.ToString(),
+                MediaType = result.DetectedType.ToString(),
+                Pass = "Quick",
+                IngestionRunId = ingestionRunId,
+            }, ct).ConfigureAwait(false);
+            _identityStageDependencies.Signal?.Signal(IdentityPipelineSignalKind.Retail);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Failed to re-read local metadata for changed same-path file {Path}", filePath);
+            return false;
+        }
+    }
+
     private async Task RunProcessStageAsync(IngestionPipelineContext context, CancellationToken ct)
     {
         var candidate = context.Candidate;

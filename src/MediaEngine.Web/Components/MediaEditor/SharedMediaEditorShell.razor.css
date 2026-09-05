@@ -5130,6 +5130,55 @@
     font-size: 0.78rem;
 }
 
+.sme-text-track-empty {
+    padding: 0.9rem 1.15rem 1.15rem;
+    color: rgba(209, 219, 238, 0.62);
+    font-size: 0.84rem;
+}
+
+.sme-text-track-list {
+    display: grid;
+    gap: 0.4rem;
+    padding: 0.25rem 1.15rem 1.15rem;
+}
+
+.sme-text-track-row {
+    display: grid;
+    grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.8rem;
+    padding: 0.72rem 0.8rem;
+    border: 1px solid rgba(151, 170, 205, 0.12);
+    border-radius: 0.45rem;
+    color: rgba(248, 250, 255, 0.9);
+    background: rgba(255, 255, 255, 0.025);
+    text-decoration: none;
+}
+
+.sme-text-track-row:hover,
+.sme-text-track-row:focus-visible {
+    border-color: rgba(179, 138, 255, 0.55);
+    outline: none;
+    background: rgba(154, 102, 255, 0.08);
+}
+
+.sme-text-track-row > span:not(.sme-text-track-language) {
+    display: grid;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.sme-text-track-row small {
+    color: rgba(209, 219, 238, 0.55);
+}
+
+.sme-text-track-language {
+    color: #cdbbff;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
 .sme-history-item-summary {
     display: grid;
     grid-template-columns: 6.5rem minmax(0, 1fr);

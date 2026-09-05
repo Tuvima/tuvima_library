@@ -10,6 +10,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Providers.Workers;
 using Microsoft.Net.Http.Headers;
 
 namespace MediaEngine.Api.Endpoints;
@@ -288,14 +289,36 @@ public static class StreamEndpoints
                 IsPreferred = t.IsPreferred,
                 IsUserOwned = t.IsUserOwned,
                 IsLocallyExported = t.SidecarPath is not null,
-                Url = t.Kind == TextTrackKind.Lyrics
-                    ? $"/stream/{assetId}/lyrics"
-                    : $"/stream/{assetId}/subtitles?language={Uri.EscapeDataString(t.Language)}",
+                Url = $"/stream/{assetId}/text-tracks/{t.Id}",
             }));
         })
         .WithName("GetAssetTextTracks")
         .WithSummary("List lyrics and subtitle tracks available for a media asset.")
         .Produces<IReadOnlyList<TextTrackDto>>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireClientScope(ClientApiScopes.PlaybackRead);
+
+        group.MapGet("/{assetId:guid}/text-tracks/{trackId:guid}", async (
+            Guid assetId,
+            Guid trackId,
+            ITextTrackRepository textTrackRepo,
+            CancellationToken ct) =>
+        {
+            var track = await textTrackRepo.FindByIdAsync(trackId, ct);
+            if (track is null || track.AssetId != assetId)
+                return ApiErrors.NotFound("Text track not found for this asset.");
+            if (string.IsNullOrWhiteSpace(track.LocalPath) || !File.Exists(track.LocalPath))
+                return ApiErrors.NotFound("The managed text-track file is unavailable.");
+
+            var bytes = await File.ReadAllBytesAsync(track.LocalPath, ct);
+            var contentType = track.Kind == TextTrackKind.Lyrics
+                ? "text/plain; charset=utf-8"
+                : "text/vtt; charset=utf-8";
+            return Results.File(bytes, contentType, Path.GetFileName(track.LocalPath));
+        })
+        .WithName("GetAssetTextTrack")
+        .WithSummary("Serve one exact managed lyrics or subtitle variant.")
+        .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireClientScope(ClientApiScopes.PlaybackRead);
 
@@ -340,22 +363,41 @@ public static class StreamEndpoints
             Guid assetId,
             string? kind,
             IMediaAssetRepository assetRepo,
-            IEnrichmentService enrichmentService,
+            TextTrackEnrichmentWorker textTrackWorker,
             CancellationToken ct) =>
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
                 return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
-            var type = string.Equals(kind, "subtitles", StringComparison.OrdinalIgnoreCase)
-                ? EnrichmentType.Subtitles
-                : EnrichmentType.TimedLyrics;
-            await enrichmentService.RunSingleEnrichmentAsync(assetId, string.Empty, type, ct);
+            TextTrackKind textTrackKind;
+            EnrichmentType type;
+            if (string.Equals(kind, "subtitles", StringComparison.OrdinalIgnoreCase))
+            {
+                textTrackKind = TextTrackKind.Subtitles;
+                type = EnrichmentType.Subtitles;
+            }
+            else if (string.Equals(kind, "lyrics", StringComparison.OrdinalIgnoreCase))
+            {
+                textTrackKind = TextTrackKind.Lyrics;
+                type = EnrichmentType.TimedLyrics;
+            }
+            else
+            {
+                return ApiErrors.BadRequest("kind must be either 'lyrics' or 'subtitles'.");
+            }
+
+            var result = await textTrackWorker.EnrichAsync(assetId, textTrackKind, ct);
             return Results.Ok(new RefreshTextTracksResponse
             {
                 asset_id = assetId,
                 enrichment_type = type.ToString(),
-                refreshed = true,
+                refreshed = string.Equals(result.Status, "Updated", StringComparison.OrdinalIgnoreCase),
+                status = result.Status,
+                before_count = result.BeforeCount,
+                after_count = result.AfterCount,
+                track_id = result.TrackId,
+                message = result.Message,
             });
         })
         .WithName("RefreshAssetTextTracks")

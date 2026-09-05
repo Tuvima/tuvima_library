@@ -10,6 +10,14 @@ using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Workers;
 
+public sealed record TextTrackEnrichmentResult(
+    string Status,
+    TextTrackKind Kind,
+    int BeforeCount,
+    int AfterCount,
+    Guid? TrackId,
+    string Message);
+
 public sealed class TextTrackEnrichmentWorker
 {
     private readonly IMediaAssetRepository _assetRepo;
@@ -20,6 +28,7 @@ public sealed class TextTrackEnrichmentWorker
     private readonly IEnumerable<ITextTrackProvider> _providers;
     private readonly AssetPathService _assetPaths;
     private readonly ILogger<TextTrackEnrichmentWorker> _logger;
+    private readonly ITextTrackExportService? _textTrackExportService;
 
     public TextTrackEnrichmentWorker(
         IMediaAssetRepository assetRepo,
@@ -29,7 +38,8 @@ public sealed class TextTrackEnrichmentWorker
         ITextTrackRepository trackRepo,
         IEnumerable<ITextTrackProvider> providers,
         AssetPathService assetPaths,
-        ILogger<TextTrackEnrichmentWorker> logger)
+        ILogger<TextTrackEnrichmentWorker> logger,
+        ITextTrackExportService? textTrackExportService = null)
     {
         _assetRepo = assetRepo;
         _workRepo = workRepo;
@@ -39,27 +49,41 @@ public sealed class TextTrackEnrichmentWorker
         _providers = providers;
         _assetPaths = assetPaths;
         _logger = logger;
+        _textTrackExportService = textTrackExportService;
     }
 
-    public async Task EnrichAsync(Guid assetId, TextTrackKind kind, CancellationToken ct = default)
+    public async Task<TextTrackEnrichmentResult> EnrichAsync(Guid assetId, TextTrackKind kind, CancellationToken ct = default)
     {
         var asset = await _assetRepo.FindByIdAsync(assetId, ct).ConfigureAwait(false);
         if (asset is null)
         {
             _logger.LogDebug("Skipping {Kind} enrichment; asset {AssetId} was not found", kind, assetId);
-            return;
+            return new("AssetMissing", kind, 0, 0, null, "The owned media file could not be found.");
         }
 
         var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
         var mediaType = lineage?.MediaType ?? InferMediaType(asset.FilePathRoot);
         if (!IsRelevant(kind, mediaType))
-            return;
+            return new("Unsupported", kind, 0, 0, null, $"{kind} are not supported for {mediaType}.");
 
-        await ImportLocalSidecarsAsync(asset, kind, ct).ConfigureAwait(false);
+        var before = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
+
+        var importedLocal = await ImportLocalSidecarsAsync(asset, kind, ct).ConfigureAwait(false);
 
         var existingPreferred = await _trackRepo.GetPreferredAsync(asset.Id, kind, null, ct).ConfigureAwait(false);
         if (existingPreferred?.IsUserOwned == true)
-            return;
+        {
+            var afterLocal = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
+            return new(
+                importedLocal ? "Updated" : "PreservedUserOwned",
+                kind,
+                before.Count,
+                afterLocal.Count,
+                existingPreferred.Id,
+                importedLocal
+                    ? "Local text tracks were refreshed and the user-owned choice was preserved."
+                    : "The user-owned preferred text track was preserved.");
+        }
 
         var lookup = await BuildLookupAsync(asset, lineage, mediaType, kind, ct).ConfigureAwait(false);
         foreach (var provider in _providers.Where(p => p.Kind == kind && p.IsEnabled && p.CanHandle(mediaType)))
@@ -75,57 +99,74 @@ public sealed class TextTrackEnrichmentWorker
                 if (saved is not null)
                 {
                     await _trackRepo.SetPreferredAsync(saved.Id, ct).ConfigureAwait(false);
-                    if (kind == TextTrackKind.Subtitles && _assetPaths.ShouldKeepPreferredSubtitlesLocal)
+                    if (kind == TextTrackKind.Subtitles
+                        && _assetPaths.ShouldKeepPreferredSubtitlesLocal
+                        && _textTrackExportService is not null)
                         await ExportPreferredSubtitleAsync(asset, saved, ct).ConfigureAwait(false);
-                    return;
+                    var afterDownload = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
+                    return new("Updated", kind, before.Count, afterDownload.Count, saved.Id,
+                        $"{kind} were refreshed from {candidate.Provider}.");
                 }
             }
         }
+
+        var after = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
+        return new(
+            importedLocal ? "Updated" : "NoResult",
+            kind,
+            before.Count,
+            after.Count,
+            after.FirstOrDefault(track => track.IsPreferred)?.Id,
+            importedLocal
+                ? "Local text tracks were refreshed."
+                : $"No matching {kind.ToString().ToLowerInvariant()} were found.");
     }
 
-    private async Task ImportLocalSidecarsAsync(MediaAsset asset, TextTrackKind kind, CancellationToken ct)
+    private async Task<bool> ImportLocalSidecarsAsync(MediaAsset asset, TextTrackKind kind, CancellationToken ct)
     {
         var mediaPath = asset.FilePathRoot;
         if (string.IsNullOrWhiteSpace(mediaPath))
-            return;
+            return false;
 
         var directory = Path.GetDirectoryName(mediaPath);
         var basename = Path.GetFileNameWithoutExtension(mediaPath);
         if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(basename) || !Directory.Exists(directory))
-            return;
+            return false;
 
         var patterns = kind == TextTrackKind.Lyrics
             ? new[] { $"{basename}.lrc" }
             : new[] { $"{basename}.vtt", $"{basename}.srt", $"{basename}.*.vtt", $"{basename}.*.srt", $"{basename}.*.ass" };
 
+        var imported = false;
         foreach (var pattern in patterns)
         {
             foreach (var path in Directory.EnumerateFiles(directory, pattern))
             {
                 var extension = Path.GetExtension(path).TrimStart('.').ToLowerInvariant();
                 var language = ExtractLanguage(path, basename);
+                var identity = BuildTrackIdentity(asset.Id, kind, "local", path, language);
+                var storageProvider = $"local-{Hashing.Sha256Hex(identity)[..12]}";
                 var localPath = path;
                 var normalizedFormat = extension;
 
                 if (kind == TextTrackKind.Subtitles && extension is "srt" or "ass")
                 {
                     var normalized = SubtitleNormalizer.NormalizeToWebVtt(await File.ReadAllTextAsync(path, ct).ConfigureAwait(false), extension);
-                    localPath = _assetPaths.GetCentralTextTrackPath(asset.Id, "Subtitles", "local", language, ".vtt");
-                    AssetPathService.EnsureDirectory(localPath);
-                    await File.WriteAllTextAsync(localPath, normalized, ct).ConfigureAwait(false);
+                    localPath = _assetPaths.GetCentralTextTrackPath(asset.Id, "Subtitles", storageProvider, language, ".vtt");
+                    await WriteTextAtomicallyAsync(localPath, normalized, ct).ConfigureAwait(false);
                     normalizedFormat = "vtt";
                 }
 
                 if (kind == TextTrackKind.Lyrics && extension == "lrc")
                 {
                     var normalized = LrcParser.Normalize(await File.ReadAllTextAsync(path, ct).ConfigureAwait(false));
-                    localPath = _assetPaths.GetCentralTextTrackPath(asset.Id, "Lyrics", "local", language, ".lrc");
-                    AssetPathService.EnsureDirectory(localPath);
-                    await File.WriteAllTextAsync(localPath, normalized, ct).ConfigureAwait(false);
+                    localPath = _assetPaths.GetCentralTextTrackPath(asset.Id, "Lyrics", storageProvider, language, ".lrc");
+                    await WriteTextAtomicallyAsync(localPath, normalized, ct).ConfigureAwait(false);
                 }
 
                 var track = new TextTrack
                 {
+                    Id = Hashing.DeterministicGuid(identity),
                     AssetId = asset.Id,
                     Kind = kind,
                     Language = language,
@@ -141,8 +182,11 @@ public sealed class TextTrackEnrichmentWorker
                 };
                 await _trackRepo.UpsertAsync(track, ct).ConfigureAwait(false);
                 await _trackRepo.SetPreferredAsync(track.Id, ct).ConfigureAwait(false);
+                imported = true;
             }
         }
+
+        return imported;
     }
 
     private async Task<TextTrackLookup> BuildLookupAsync(MediaAsset asset, WorkLineage? lineage, MediaType mediaType, TextTrackKind kind, CancellationToken ct)
@@ -189,12 +233,15 @@ public sealed class TextTrackEnrichmentWorker
             : SubtitleNormalizer.NormalizeToWebVtt(download.Content, download.SourceFormat);
         var extension = candidate.Kind == TextTrackKind.Lyrics ? ".lrc" : ".vtt";
         var kindName = candidate.Kind == TextTrackKind.Lyrics ? "Lyrics" : "Subtitles";
-        var path = _assetPaths.GetCentralTextTrackPath(asset.Id, kindName, candidate.Provider, candidate.Language, extension);
-        AssetPathService.EnsureDirectory(path);
-        await File.WriteAllTextAsync(path, normalized, ct).ConfigureAwait(false);
+        var sourceIdentity = string.IsNullOrWhiteSpace(candidate.SourceId) ? candidate.SourceUrl : candidate.SourceId;
+        var identity = BuildTrackIdentity(asset.Id, candidate.Kind, candidate.Provider, sourceIdentity, candidate.Language);
+        var storageProvider = $"{candidate.Provider}-{Hashing.Sha256Hex(identity)[..12]}";
+        var path = _assetPaths.GetCentralTextTrackPath(asset.Id, kindName, storageProvider, candidate.Language, extension);
+        await WriteTextAtomicallyAsync(path, normalized, ct).ConfigureAwait(false);
 
         var track = new TextTrack
         {
+            Id = Hashing.DeterministicGuid(identity),
             AssetId = asset.Id,
             Kind = candidate.Kind,
             Language = candidate.Language,
@@ -214,17 +261,37 @@ public sealed class TextTrackEnrichmentWorker
         return track;
     }
 
+    internal static string BuildTrackIdentity(
+        Guid assetId,
+        TextTrackKind kind,
+        string provider,
+        string? sourceIdentity,
+        string language) =>
+        $"text-track|{assetId:D}|{kind}|{provider.Trim().ToLowerInvariant()}|{sourceIdentity?.Trim().ToLowerInvariant()}|{language.Trim().ToLowerInvariant()}";
+
+    private static async Task WriteTextAtomicallyAsync(string path, string content, CancellationToken ct)
+    {
+        AssetPathService.EnsureDirectory(path);
+        var temporaryPath = $"{path}.{Guid.NewGuid():N}.tmp";
+        try
+        {
+            await File.WriteAllTextAsync(temporaryPath, content, ct).ConfigureAwait(false);
+            File.Move(temporaryPath, path, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath))
+                File.Delete(temporaryPath);
+        }
+    }
+
     private async Task ExportPreferredSubtitleAsync(MediaAsset asset, TextTrack track, CancellationToken ct)
     {
-        if (!File.Exists(track.LocalPath))
+        var exportPath = await _textTrackExportService!.ExportPreferredSubtitleAsync(asset, track, ct)
+            .ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(exportPath))
             return;
 
-        var exportPath = AssetPathService.BuildSubtitleSidecarPath(asset.FilePathRoot, track.Language, ".vtt");
-        if (File.Exists(exportPath) && !string.Equals(exportPath, track.SidecarPath, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        AssetPathService.EnsureDirectory(exportPath);
-        File.Copy(track.LocalPath, exportPath, overwrite: true);
         track.SidecarPath = exportPath;
         await _trackRepo.UpsertAsync(track, ct).ConfigureAwait(false);
     }

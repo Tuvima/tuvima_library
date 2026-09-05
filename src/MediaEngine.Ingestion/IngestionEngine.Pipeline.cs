@@ -335,24 +335,35 @@ public sealed partial class IngestionEngine
 
                 // Same-path re-detection: attempt re-organization (file may have been
                 // enriched since first scan).
-                if (!string.Equals(existing.ContentHash, hash.Hex, StringComparison.OrdinalIgnoreCase))
+                var contentChanged = !string.Equals(existing.ContentHash, hash.Hex, StringComparison.OrdinalIgnoreCase);
+                var metadataRefreshed = false;
+                if (contentChanged)
                 {
-                    var hashUpdated = await _assetRepo.UpdateContentHashAsync(existing.Id, hash.Hex, ct)
-                        .ConfigureAwait(false);
-                    if (hashUpdated)
+                    metadataRefreshed = await RefreshExistingAssetMetadataAsync(
+                        existing,
+                        candidate.Path,
+                        ingestionRunId,
+                        ct).ConfigureAwait(false);
+
+                    if (metadataRefreshed)
                     {
-                        _logger.LogInformation(
-                            "Updated content hash for same-path asset {AssetId}: {OldHash} -> {NewHash}",
-                            existing.Id,
-                            existing.ContentHash.Length >= 12 ? existing.ContentHash[..12] : existing.ContentHash,
-                            hash.Hex[..12]);
-                    }
-                    else
-                    {
-                        _logger.LogWarning(
-                            "Could not update content hash for same-path asset {AssetId}; hash {Hash} already belongs to another asset",
-                            existing.Id,
-                            hash.Hex[..12]);
+                        var hashUpdated = await _assetRepo.UpdateContentHashAsync(existing.Id, hash.Hex, ct)
+                            .ConfigureAwait(false);
+                        if (hashUpdated)
+                        {
+                            _logger.LogInformation(
+                                "Re-read local metadata and updated content hash for same-path asset {AssetId}: {OldHash} -> {NewHash}",
+                                existing.Id,
+                                existing.ContentHash.Length >= 12 ? existing.ContentHash[..12] : existing.ContentHash,
+                                hash.Hex[..12]);
+                        }
+                        else
+                        {
+                            _logger.LogWarning(
+                                "Could not update content hash for same-path asset {AssetId}; hash {Hash} already belongs to another asset",
+                                existing.Id,
+                                hash.Hex[..12]);
+                        }
                     }
                 }
 
@@ -365,7 +376,11 @@ public sealed partial class IngestionEngine
                         "same_path_redetected",
                         contentHash: hash.Hex,
                         mediaAssetId: existing.Id,
-                        errorDetail: "The file is already tracked at this path, so no duplicate library item was created.",
+                        errorDetail: metadataRefreshed
+                            ? "The tracked file changed in place. Local metadata was re-read and identity enrichment was queued."
+                            : contentChanged
+                                ? "The tracked file changed in place, but local metadata could not be re-read. The previous metadata and hash were preserved for retry."
+                                : "The file is already tracked at this path, so no duplicate library item was created.",
                         ct: ct).ConfigureAwait(false);
                     await PublishItemProgressAsync(
                         candidate,
