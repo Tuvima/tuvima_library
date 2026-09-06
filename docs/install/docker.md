@@ -18,7 +18,6 @@ Create or choose these host folders:
 
 | Container path | Purpose | Required access |
 | --- | --- | --- |
-| `/watch` | Incoming catalogue media | Read; write only for managed intake |
 | `/library` | Media managed by Tuvima | Read and write |
 | `/config` | Non-secret configuration and data-protection keys | Read and write |
 | `/db` | SQLite catalogue | Read and write |

@@ -120,7 +120,6 @@ public sealed class SettingsNavTests
     {
         Assert.Equal(SettingsMobileAvailability.Full, SettingsNav.GetMobileAvailability(SettingsSection.Playback));
         Assert.Equal(SettingsMobileAvailability.SummaryOnly, SettingsNav.GetMobileAvailability(SettingsSection.AdminOverview));
-        Assert.Equal(SettingsMobileAvailability.DesktopOnly, SettingsNav.GetMobileAvailability(SettingsSection.ImportFolders));
         Assert.Equal(SettingsMobileAvailability.DesktopOnly, SettingsNav.GetMobileAvailability(SettingsSection.DevHarness));
 
         Assert.True(SettingsNav.IsMobileRouteAvailable(SettingsSection.Network, "overview"));
@@ -134,7 +133,6 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.AdminOverview, "/settings/system")]
     [InlineData(SettingsSection.Playback, "/settings/playback")]
     [InlineData(SettingsSection.Libraries, "/settings/libraries")]
-    [InlineData(SettingsSection.ImportFolders, "/settings/import-folders")]
     [InlineData(SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData(SettingsSection.DevHarness, "/settings/developer/options")]
     [InlineData(SettingsSection.Providers, "/settings/metadata/providers")]
@@ -279,7 +277,6 @@ public sealed class SettingsNavTests
         Assert.Equal([
             "System Overview",
             "Libraries",
-            "Import Folders",
             "Operations",
             "Activity & Audit",
             "Needs Review",
@@ -349,6 +346,10 @@ public sealed class SettingsNavTests
         var folders = SettingsNav.ResolveRoute("folders", "Administrator");
         Assert.False(folders.IsKnownRoute);
         Assert.Equal("/not-found", folders.CanonicalRoute);
+
+        var importFolders = SettingsNav.ResolveRoute("import-folders", "Administrator");
+        Assert.False(importFolders.IsKnownRoute);
+        Assert.Equal("/not-found", importFolders.CanonicalRoute);
     }
 
     [Fact]

@@ -710,15 +710,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         if (policy is null)
         {
-            var incoming = _options.ResolveIncomingSource(path);
-            if (incoming is not null)
-            {
-                policy = FileSourceMutationPolicyFactory.Create(incoming, allowDelete);
-            }
-        }
-
-        if (policy is null)
-        {
             _logger.LogDebug(
                 "Filesystem mutation denied because {Path} has no configured source policy",
                 path);

@@ -141,6 +141,10 @@ public static class JsonConfigValidator
         AddRequired(errors, core.SchemaVersion, "schema_version");
         AddRequired(errors, core.DatabasePath, "database_path");
         AddRequired(errors, core.ServerName, "server_name");
+        foreach (var property in core.UnmappedProperties?.Keys ?? Enumerable.Empty<string>())
+        {
+            errors.Add($"$.{property} is not supported by core schema 2.0.");
+        }
         if (!string.IsNullOrWhiteSpace(core.Country) && core.Country.Length != 2)
         {
             errors.Add("country must be a two-letter country code.");
@@ -221,9 +225,9 @@ public static class JsonConfigValidator
 
     private static void ValidateLibraries(LibrariesConfiguration config, List<string> errors)
     {
-        if (!string.Equals(config.SchemaVersion, "5.0", StringComparison.Ordinal))
+        if (!string.Equals(config.SchemaVersion, "6.0", StringComparison.Ordinal))
         {
-            errors.Add("schema_version must be 5.0; pre-beta library configuration is not migrated in place.");
+            errors.Add("schema_version must be 6.0; pre-beta library configuration is not migrated in place.");
         }
 
         AddNoUnmappedProperties(config.UnmappedProperties, "$", errors);
@@ -396,16 +400,6 @@ public static class JsonConfigValidator
             ValidatePrimaryDestination(library, prefix, errors);
         }
 
-        for (var index = 0; index < config.IncomingSources.Count; index++)
-        {
-            ValidateIncomingSource(
-                config.IncomingSources[index],
-                $"incoming_sources[{index}]",
-                sourceIds,
-                normalizedPaths,
-                errors);
-        }
-
         for (var left = 0; left < normalizedPaths.Count; left++)
         {
             for (var right = left + 1; right < normalizedPaths.Count; right++)
@@ -418,50 +412,6 @@ public static class JsonConfigValidator
                 }
             }
         }
-    }
-
-    private static void ValidateIncomingSource(
-        IncomingSourceConfig source,
-        string prefix,
-        HashSet<Guid> ids,
-        List<(string Path, string Field)> normalizedPaths,
-        List<string> errors)
-    {
-        if (!Guid.TryParse(source.Id, out var id) || id == Guid.Empty)
-        {
-            errors.Add($"{prefix}.id must be a non-empty GUID.");
-        }
-        else if (!ids.Add(id))
-        {
-            errors.Add($"{prefix}.id must be globally unique.");
-        }
-
-        AddRequired(errors, source.Path, $"{prefix}.path");
-        if (TryNormalizePath(source.Path, out var normalizedPath))
-        {
-            normalizedPaths.Add((normalizedPath, $"{prefix}.path"));
-        }
-        else if (!string.IsNullOrWhiteSpace(source.Path))
-        {
-            errors.Add($"{prefix}.path must be an absolute path.");
-        }
-
-        if (!IncomingSourcePurposes.IsValid(source.Purpose))
-        {
-            errors.Add($"{prefix}.purpose is unsupported.");
-        }
-
-        if (!IncomingDefaultHandling.IsValid(source.DefaultHandling))
-        {
-            errors.Add($"{prefix}.default_handling is unsupported.");
-        }
-
-        if (!LibrarySourceTypes.IsValid(source.SourceType))
-        {
-            errors.Add($"{prefix}.source_type is unsupported.");
-        }
-
-        AddNoUnmappedProperties(source.UnmappedProperties, prefix, errors);
     }
 
     private static void ValidateLibrarySemantics(LibraryFolderConfig library, string prefix, List<string> errors)
@@ -732,7 +682,7 @@ public static class JsonConfigValidator
     {
         foreach (var property in properties?.Keys ?? Enumerable.Empty<string>())
         {
-            errors.Add($"{prefix}.{property} is not supported by libraries schema 5.0.");
+            errors.Add($"{prefix}.{property} is not supported by libraries schema 6.0.");
         }
     }
 

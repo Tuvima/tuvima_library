@@ -181,32 +181,6 @@ public sealed class DurablePipelineTests : IDisposable
         Assert.True(File.Exists(filePath));
     }
 
-    [Fact]
-    public async Task IngestionEngine_UnresolvedSharedIncoming_BlocksInPlaceWithoutIdentityOrDestination()
-    {
-        var filePath = CreateWatchFile("Unrouted Movie.mp4");
-        _processors.SetNextResult(new ProcessorResult
-        {
-            FilePath = filePath,
-            DetectedType = MediaType.Movies,
-            Claims = [new ExtractedClaim { Key = "title", Value = "Unrouted Movie", Confidence = 0.95 }],
-        });
-
-        await RunPipelineAsync(unresolvedSharedIncoming: true);
-
-        using var conn = _dbFactory.Connection.CreateConnection();
-        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM media_assets;"));
-        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM editions;"));
-        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM works;"));
-        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM collections;"));
-        Assert.Equal(1, conn.ExecuteScalar<int>(
-            "SELECT COUNT(*) FROM review_queue WHERE trigger = @trigger AND status = 'Pending';",
-            new { trigger = ReviewTrigger.UnresolvedIntakeDestination }));
-        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM identity_jobs;"));
-        Assert.True(File.Exists(filePath));
-        Assert.Empty(Directory.EnumerateFiles(_libraryDir, "*", SearchOption.AllDirectories));
-    }
-
     // ── Test 2: Duplicate file ingestion creates only one asset ───────────
 
     [Fact]
@@ -989,8 +963,7 @@ public sealed class DurablePipelineTests : IDisposable
 
     private async Task RunPipelineAsync(
         bool localOnly = false,
-        bool applyMediaTypePrior = true,
-        bool unresolvedSharedIncoming = false)
+        bool applyMediaTypePrior = true)
     {
         var libraryId = localOnly
             ? "99999999-9999-4999-8999-999999999999"
@@ -1012,17 +985,12 @@ public sealed class DurablePipelineTests : IDisposable
                     MetadataPolicy = localOnly ? LibraryMetadataPolicies.LocalOnly : LibraryMetadataPolicies.Enriched,
                     Sources =
                     [
-                        .. unresolvedSharedIncoming
-                            ? []
-                            : new[]
-                            {
-                                new LibrarySourceEntry
-                                {
-                                    Id = $"{libraryId}-source",
-                                    Path = _watchDir,
-                                    IncludeSubdirectories = false,
-                                },
-                            },
+                        new LibrarySourceEntry
+                        {
+                            Id = $"{libraryId}-source",
+                            Path = _watchDir,
+                            IncludeSubdirectories = false,
+                        },
                         new LibrarySourceEntry
                         {
                             Id = $"{libraryId}-destination",
@@ -1039,14 +1007,6 @@ public sealed class DurablePipelineTests : IDisposable
                     AcceptedIntakeModes = [LibraryIntakeModes.IncomingFolder],
                 },
             ],
-            IncomingSources = unresolvedSharedIncoming
-                ? [new IncomingSourceEntry
-                {
-                    Id = "shared-incoming",
-                    Path = _watchDir,
-                    IncludeSubdirectories = false,
-                }]
-                : [],
         };
 
         var debounceOptions = new DebounceOptions

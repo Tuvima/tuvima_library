@@ -122,19 +122,3 @@ public static class LibrarySourceIntakeRoles
     public const string DeviceImport = "device_import";
     public static bool IsValid(string? value) => value is None or Direct or MobileBackup or DeviceImport;
 }
-
-public static class IncomingSourcePurposes
-{
-    public const string SharedIntake = "shared_intake";
-    public const string BrowserUploads = "browser_uploads";
-    public const string DeviceIntake = "device_intake";
-    public static bool IsValid(string? value) => value is SharedIntake or BrowserUploads or DeviceIntake;
-}
-
-public static class IncomingDefaultHandling
-{
-    public const string RouteAutomatically = "route_automatically";
-    public const string StageThenRoute = "stage_then_route";
-    public const string IndexInPlace = "index_in_place";
-    public static bool IsValid(string? value) => value is RouteAutomatically or StageThenRoute or IndexInPlace;
-}

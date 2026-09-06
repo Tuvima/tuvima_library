@@ -118,9 +118,6 @@
                                 <LibrariesTab Subsection="@_activeSubsection" DetailTab="@DetailTab" />
                             }
                             break;
-                        case SettingsSection.ImportFolders:
-                            <LibrariesTab Subsection="incoming" />
-                            break;
                         case SettingsSection.Ingestion:
                             <IngestionTasksTab />
                             break;
@@ -572,7 +569,6 @@
         SettingsSection.Privacy => "Personal history and export controls are not yet available.",
         SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",
         SettingsSection.Libraries => "Manage structured libraries and review each profile's Personal Space bridge.",
-        SettingsSection.ImportFolders => "Manage watched intake locations before media is routed into a destination library.",
         SettingsSection.Ingestion => "Scan, match, enrich, and organize your media library.",
         SettingsSection.Network => "Manage how devices reach Tuvima at home and away without exposing unnecessary technical detail.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",

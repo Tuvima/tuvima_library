@@ -139,11 +139,10 @@ public sealed class IngestionLibraryRegistrationTests
     }
 
     [Fact]
-    public void AddMediaEngineIngestion_WatchesCatalogueAndIncomingSourcesButNotPersonalViewSources()
+    public void AddMediaEngineIngestion_WatchesCatalogueButNotPersonalViewSources()
     {
         string cataloguePath = Path.Combine(Path.GetTempPath(), "tuvima-catalogue");
         string personalPath = Path.Combine(Path.GetTempPath(), "tuvima-personal");
-        string incomingPath = Path.Combine(Path.GetTempPath(), "tuvima-incoming");
         var loader = new StubConfigurationLoader
         {
             Libraries = new LibrariesConfiguration
@@ -171,14 +170,6 @@ public sealed class IngestionLibraryRegistrationTests
                         Sources = [ManagedSource(personalPath)],
                     },
                 ],
-                IncomingSources =
-                [
-                    new IncomingSourceConfig
-                    {
-                        Id = Guid.NewGuid().ToString(),
-                        Path = incomingPath,
-                    },
-                ],
             },
         };
         var services = new ServiceCollection();
@@ -196,7 +187,6 @@ public sealed class IngestionLibraryRegistrationTests
         var options = provider.GetRequiredService<IOptions<IngestionOptions>>().Value;
 
         Assert.Contains(cataloguePath, options.EffectiveWatchDirectories, StringComparer.OrdinalIgnoreCase);
-        Assert.Contains(incomingPath, options.EffectiveWatchDirectories, StringComparer.OrdinalIgnoreCase);
         Assert.DoesNotContain(personalPath, options.EffectiveWatchDirectories, StringComparer.OrdinalIgnoreCase);
     }
 

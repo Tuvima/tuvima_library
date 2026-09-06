@@ -306,17 +306,18 @@ else
             }
 
             var libraries = await Orchestrator.GetLibrariesAsync();
-            var importFolders = libraries?.IncomingSources
+            var libraryFolders = libraries?.Libraries
+                .SelectMany(library => library.Sources)
                 .Select(source => source.Path)
                 .Where(path => !string.IsNullOrWhiteSpace(path))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList() ?? [];
-            if (importFolders.Count == 0)
+            if (libraryFolders.Count == 0)
                 return false;
 
-            foreach (var importFolder in importFolders)
+            foreach (var libraryFolder in libraryFolders)
             {
-                if (!await IsReadyFolderAsync(importFolder))
+                if (!await IsReadyFolderAsync(libraryFolder))
                     return false;
             }
 

@@ -423,8 +423,6 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
             .Where(library => string.Equals(library.Kind, LibraryKinds.Catalogued, StringComparison.OrdinalIgnoreCase))
             .SelectMany(library => library.Sources.Select(source =>
                 new IngestionScanTarget(source.Path, source.IncludeSubdirectories)))
-            .Concat(_options.IncomingSources.Select(source =>
-                new IngestionScanTarget(source.Path, source.IncludeSubdirectories)))
             .Where(target => !string.IsNullOrWhiteSpace(target.Path))
             .GroupBy(target => target.Path, StringComparer.OrdinalIgnoreCase)
             .Select(group => new IngestionScanTarget(

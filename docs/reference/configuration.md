@@ -18,15 +18,13 @@ All configuration lives in the `config/` directory as individual JSON files grou
 
 ## config/core.json
 
-Core Engine settings. Most changes are read at startup. Normal ingestion sources and destinations come from `config/libraries.json`; Settings > Libraries and Import Folders save the schema 4 model and ask the running Engine to hot-swap watchers.
+Core Engine settings. Most changes are read at startup. Ingestion sources and destinations come from `config/libraries.json`; Settings > Libraries saves that model and asks the running Engine to hot-swap watchers.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `schema_version` | string | `"2.0"` | Config schema version. Used for migration compatibility checks. |
 | `database_path` | string | `".data/database/library.db"` | Path to the SQLite database file. Relative paths resolve from `data_root`. |
 | `data_root` | string | `""` | Root directory for all internal Engine storage (`.data/`). Must be set before first run. |
-| `watch_directory` | string | `""` | Derived first-source compatibility value after `config/libraries.json` loads. Not a normal runtime ingestion fallback. |
-| `watch_directories` | string[] | `[]` | Derived compatibility list after `config/libraries.json` loads. Runtime watchers are configured from library entries, not this field. |
 | `library_root` | string | `""` | Root directory where the Engine places organized media after promotion. |
 | `organization_template` | string | - | Default file organization template. Tokens: `{Category}`, `{Title}`, `{Qid}`, `{Ext}`. |
 | `organization_templates` | object | - | Per-media-type templates. Keys: `default`, `Books`, `Audiobooks`, `Movies`, `TV`, `Comics`, `Music`. TV supports `{Series}`, `{Season}`, `{Episode}` tokens. Music supports `{Artist}`, `{Album}`, `{TrackNumber}` tokens. |
@@ -208,11 +206,11 @@ Common fields configured here: `cover`, `description`, `rating`, `narrator`, `du
 
 ## config/libraries.json
 
-Defines the clean schema 4 library model used by **Settings > Libraries** and **Settings > Import Folders**. The root contains explicitly approved `storage_locations`, `personal_library_policy`, `libraries`, and shared, unassigned `incoming_sources`.
+Defines the clean schema 6 library model used by **Settings > Libraries**. The root contains explicitly approved `storage_locations`, `personal_library_policy`, and `libraries`.
 
 | Field | Type | Description |
 |---|---|---|
-| `schema_version` | string | Must be `4.0`. Older schemas are rejected and development state is reset/reingested rather than migrated. |
+| `schema_version` | string | Must be `6.0`. Older schemas are rejected and development state is reset/reingested rather than migrated. |
 | `storage_locations` | array | Explicit server/container roots administrators may browse. Each entry has a stable `id`, friendly `label`, absolute `path`, and `allow_write` policy. |
 | `personal_library_policy` | object | Administrator defaults and capability switches for the internal personal-library bridge, managed/existing storage, browser upload, reserved future intake producers, and default visibility. |
 | `id` | GUID string | Stable library identity used by intake, indexing, access, and Dashboard editing. Required. |
@@ -233,8 +231,6 @@ Defines the clean schema 4 library model used by **Settings > Libraries** and **
 | `organization_policy` | object | Organization mode, optional custom template, and original-preservation policy. |
 
 Each source owns `id`, `path`, `role`, `management_mode`, `source_type`, `include_subdirectories`, `access_mode`, `writeback_override`, `participates_in_organization`, and `intake_role`. **Existing library** sources must be read-only and are never moved, renamed, tagged, deleted, or used as destinations. Only **Managed by Tuvima** plus writable sources can authorize mutation.
-
-Each top-level incoming source owns `id`, `path`, `purpose`, `default_handling`, `include_subdirectories`, and `source_type`. Incoming files carry this source identity through the ingestion queue. Direct intake also carries an explicit destination library ID; shared incoming receives one only after unambiguous policy routing.
 
 Each enabled profile resolves one View Personal Space, backed by one internal
 `personal` library bridge and any number of sources/devices. It indexes mixed

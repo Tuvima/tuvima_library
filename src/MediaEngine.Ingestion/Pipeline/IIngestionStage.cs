@@ -47,7 +47,6 @@ internal sealed class IngestionPipelineContext(
     public MediaType ResolvedMediaType { get; set; }
     public bool MediaTypeNeedsReview { get; set; }
     public IReadOnlyList<MediaTypeCandidate> MediaTypeCandidates { get; set; } = [];
-    public string? IntakeRoutingFailure { get; set; }
     public string ResolvedTitle { get; set; } = "Unknown";
     public string ResolvedAuthor { get; set; } = string.Empty;
     public string CurrentPath { get; set; } = candidate.Path;

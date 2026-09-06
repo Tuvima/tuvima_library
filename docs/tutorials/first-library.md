@@ -5,7 +5,7 @@ audience: "user"
 category: "tutorial"
 product_area: "library"
 tags:
-  - "watch-folders"
+  - "library-folders"
   - "library"
   - "onboarding"
 ---
@@ -24,7 +24,7 @@ In the Dashboard, open **Settings > Libraries**.
 
 Create or select a library, then confirm:
 
-- **Watch Folder** - where new files appear for Tuvima to scan.
+- **Source folder** - where files already live or where new files appear for Tuvima to scan.
 - **Primary destination** - the managed source where organized files can live after intake.
 - **Organization template** - the folder/file naming pattern used during organization.
 - **Path checks** - whether the Engine can read and write the configured paths.
@@ -35,7 +35,7 @@ Save the settings when they look correct.
 
 ## Step 2 - Add Test Media
 
-Copy a small set of supported files into the Watch Folder. Start with a few known items rather than a huge collection:
+Copy a small set of supported files into the library's managed source folder, or add an existing read-only folder that already contains them. Start with a few known items rather than a huge collection:
 
 - one EPUB or PDF
 - one movie or TV file

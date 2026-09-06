@@ -39,7 +39,6 @@ if [ "$(id -u)" -eq 0 ] && [ "${TUVIMA_PRIVILEGES_DROPPED:-0}" != "1" ]; then
     for path in /config /db /models /artwork-cache /backups /transcode; do
         prepare_owned_directory "$path"
     done
-    prepare_media_directory /watch
     prepare_media_directory /library
 
     export TUVIMA_PRIVILEGES_DROPPED=1
@@ -65,8 +64,6 @@ mkdir -p /config/secrets "$HOME" /artwork-cache/logs /transcode/variants
 for writable_path in /config /db /models /artwork-cache /backups /transcode /library; do
     [ -w "$writable_path" ] || fail "$writable_path is not writable by UID $(id -u) and GID $(id -g)."
 done
-[ -r /watch ] || fail "/watch is not readable by UID $(id -u) and GID $(id -g)."
-
 export TUVIMA_CONFIG_DIR="${TUVIMA_CONFIG_DIR:-/config}"
 export TUVIMA_DB_PATH="${TUVIMA_DB_PATH:-/db/library.db}"
 export TUVIMA_MODELS_DIR="${TUVIMA_MODELS_DIR:-/models}"

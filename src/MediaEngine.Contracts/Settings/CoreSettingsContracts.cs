@@ -182,7 +182,7 @@ public sealed class LibraryOrganizationPolicyDto
 public sealed class UpdateLibrariesRequest
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; init; } = "5.0";
+    public string SchemaVersion { get; init; } = "6.0";
 
     [JsonPropertyName("storage_locations")]
     public List<ServerStorageLocationDto> StorageLocations { get; init; } = [];
@@ -192,9 +192,6 @@ public sealed class UpdateLibrariesRequest
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderDto> Libraries { get; init; } = [];
-
-    [JsonPropertyName("incoming_sources")]
-    public List<IncomingSourceDto> IncomingSources { get; init; } = [];
 
     [JsonPropertyName("personal_library_policy")]
     public PersonalLibraryPolicyDto PersonalLibraryPolicy { get; init; } = new();
@@ -203,7 +200,7 @@ public sealed class UpdateLibrariesRequest
 public sealed class LibrariesConfigurationDto
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; init; } = "5.0";
+    public string SchemaVersion { get; init; } = "6.0";
 
     [JsonPropertyName("storage_locations")]
     public List<ServerStorageLocationDto> StorageLocations { get; init; } = [];
@@ -213,9 +210,6 @@ public sealed class LibrariesConfigurationDto
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderDto> Libraries { get; init; } = [];
-
-    [JsonPropertyName("incoming_sources")]
-    public List<IncomingSourceDto> IncomingSources { get; init; } = [];
 
     [JsonPropertyName("personal_library_policy")]
     public PersonalLibraryPolicyDto PersonalLibraryPolicy { get; init; } = new();
@@ -252,36 +246,6 @@ public sealed class PersonalLibraryPolicyDto
 
     [JsonPropertyName("default_visibility")]
     public string DefaultVisibility { get; set; } = "private";
-}
-
-public sealed class IncomingSourceDto
-{
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
-
-    [JsonPropertyName("path")]
-    public string Path { get; set; } = string.Empty;
-
-    [JsonPropertyName("purpose")]
-    public string Purpose { get; set; } = "shared_intake";
-
-    [JsonPropertyName("default_handling")]
-    public string DefaultHandling { get; set; } = "route_automatically";
-
-    [JsonPropertyName("include_subdirectories")]
-    public bool IncludeSubdirectories { get; set; } = true;
-
-    [JsonPropertyName("source_type")]
-    public string SourceType { get; set; } = "local_folder";
-
-    [JsonPropertyName("notes")]
-    public string? Notes { get; set; }
-}
-
-public sealed class UpdateIncomingSourcesRequest
-{
-    [JsonPropertyName("incoming_sources")]
-    public List<IncomingSourceDto> IncomingSources { get; init; } = [];
 }
 
 public sealed class TestPathRequest
@@ -402,15 +366,14 @@ public static class ServerFolderSelectionModes
 {
     public const string ManagedLibrary = "managed_library";
     public const string ExistingLibrary = "existing_library";
-    public const string Incoming = "incoming";
     public const string PersonalSpaceManaged = "personal_space_managed";
     public const string PersonalSpaceExisting = "personal_space_existing";
 
     public static bool RequiresWrite(string? value) => value is
-        ManagedLibrary or Incoming or PersonalSpaceManaged;
+        ManagedLibrary or PersonalSpaceManaged;
 
     public static bool IsValid(string? value) => value is
-        ManagedLibrary or ExistingLibrary or Incoming or PersonalSpaceManaged or PersonalSpaceExisting;
+        ManagedLibrary or ExistingLibrary or PersonalSpaceManaged or PersonalSpaceExisting;
 }
 
 public sealed class ServerFolderValidationIssueDto

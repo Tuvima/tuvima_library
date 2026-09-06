@@ -22,7 +22,6 @@ public sealed record IntakeContext
 public static class IntakeSourceKinds
 {
     public const string Watcher = "watcher";
-    public const string SharedIncoming = "shared_incoming";
     public const string DirectLibrary = "direct_library";
     public const string BrowserUpload = "browser_upload";
     public const string MobileBackup = "mobile_backup";
@@ -30,7 +29,7 @@ public static class IntakeSourceKinds
     public const string Api = "api";
 
     public static bool IsValid(string? value) => value is
-        Watcher or SharedIncoming or DirectLibrary or BrowserUpload
+        Watcher or DirectLibrary or BrowserUpload
         or MobileBackup or ConnectedDevice or Api;
 }
 

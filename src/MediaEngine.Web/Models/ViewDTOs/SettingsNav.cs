@@ -14,7 +14,6 @@ public enum SettingsSection
 
     AdminOverview,
     Libraries,
-    ImportFolders,
     Ingestion,
     DevHarness,
     Providers,
@@ -123,7 +122,6 @@ public static class SettingsNav
             [SettingsSection.Playback] = Complete(),
             [SettingsSection.AdminOverview] = Complete(),
             [SettingsSection.Libraries] = Complete(),
-            [SettingsSection.ImportFolders] = Complete(),
             [SettingsSection.Ingestion] = Complete(),
             [SettingsSection.Providers] = Complete(),
             [SettingsSection.Review] = Complete(),
@@ -158,7 +156,6 @@ public static class SettingsNav
 
         new(SettingsSection.AdminOverview, "administration", "system", Icons.Material.Outlined.Dashboard, "System Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.VideoLibrary, "Libraries", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
-        new(SettingsSection.ImportFolders, "administration", "import-folders", Icons.Material.Outlined.MoveToInbox, "Import Folders", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.DesktopOnly),
         new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.SettingsSuggest, "Operations", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Providers, "administration", "metadata", Icons.Material.Outlined.Storage, "Metadata", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.DesktopOnly),
@@ -183,7 +180,6 @@ public static class SettingsNav
             [
                 SettingsSection.AdminOverview,
                 SettingsSection.Libraries,
-                SettingsSection.ImportFolders,
                 SettingsSection.Ingestion,
                 SettingsSection.ActivityLogs,
                 SettingsSection.Review,
@@ -212,7 +208,6 @@ public static class SettingsNav
             ],
             [SettingsSection.AdminOverview] = [],
             [SettingsSection.Libraries] = [],
-            [SettingsSection.ImportFolders] = [],
             [SettingsSection.Ingestion] = [],
             [SettingsSection.DevHarness] =
             [
@@ -291,7 +286,6 @@ public static class SettingsNav
         SettingsSection.Playback,
         SettingsSection.AdminOverview,
         SettingsSection.Libraries,
-        SettingsSection.ImportFolders,
         SettingsSection.Ingestion,
         SettingsSection.Review,
         SettingsSection.ActivityLogs,

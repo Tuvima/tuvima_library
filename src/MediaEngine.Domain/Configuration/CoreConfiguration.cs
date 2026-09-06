@@ -32,21 +32,8 @@ public sealed class CoreConfiguration
     [JsonPropertyName("data_root")]
     public string DataRoot { get; set; } = "./media";
 
-    /// <summary>
-    /// Directories monitored for new files.
-    /// </summary>
-    [JsonPropertyName("watch_directories")]
-    public List<string> WatchDirectories { get; set; } = [];
-
-    /// <summary>
-    /// Normalized import directory list.
-    /// </summary>
-    [JsonIgnore]
-    public IReadOnlyList<string> EffectiveWatchDirectories =>
-        WatchDirectories
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
 
     /// <summary>
     /// Organised media library root.

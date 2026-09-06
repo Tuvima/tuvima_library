@@ -42,13 +42,10 @@ Direct-to-space actions retain the owning profile, Personal Space, stable
 destination library ID, and source/device provenance through the pipeline.
 Browser upload is implemented. Drag-and-drop, mobile backup, connected-device
 import, and API intake remain modeled producer types for future clients; their
-presence in configuration or storage is not evidence of a working client. A
-shared incoming source has no destination hint and invokes routing rules instead.
-
-Shared incoming currently auto-routes only to a single eligible catalogued
-library. A personal/View candidate is classified but parked for review because
-the lower-level incoming worker does not yet own View's local-index service.
-Explicit personal browser uploads already use the dedicated targeted View
+presence in configuration or storage is not evidence of a working client.
+Every catalogue file-system source belongs to one explicit library, so its
+classification and safety policy are known before ingestion begins. Personal
+browser uploads use the dedicated targeted View
 indexer and never enter catalogue ingestion.
 
 The destination library determines the processing branch:

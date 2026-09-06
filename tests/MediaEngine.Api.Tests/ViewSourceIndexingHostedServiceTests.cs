@@ -28,7 +28,7 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
         _spaces = new ViewPersonalSpaceRepository(_database);
         _configuration.SaveLibraries(new LibrariesConfiguration
         {
-            SchemaVersion = "5.0",
+            SchemaVersion = "6.0",
             StorageLocations = [StorageRoot()],
             ViewStorage = new ViewStorageConfig { StorageLocationId = "view-tests", RelativeRoot = "managed" },
         });

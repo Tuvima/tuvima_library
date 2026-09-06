@@ -69,7 +69,7 @@ Confirm:
 - The file is not locked by another process.
 - The extension is supported in [Media Types](../reference/media-types.md).
 
-Use **Scan saved watch folder** from the Libraries settings section after changing folder paths.
+Use **Scan now** from Ingestion after changing library folder paths.
 
 To inspect the durable queue directly:
 

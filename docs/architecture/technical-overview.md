@@ -72,7 +72,6 @@ The Engine owns business rules and persistence. Managed artwork and headshots ar
 - `/settings` and `/settings/{section}` - user/admin settings
 - `/settings/review` - Review Queue
 - `/settings/libraries` - structured library configuration and profile Personal Space status
-- `/settings/import-folders` - watched intake-folder configuration
 - `/settings/ingestion` - ingestion operations dashboard
 - `/settings/developer/options` - temporary development wipe, reingest, and validation harness
 

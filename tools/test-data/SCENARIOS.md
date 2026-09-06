@@ -37,7 +37,7 @@ dotnet run --project src/MediaEngine.Api
 Current generated output is media-type scoped: `books`, `audiobooks`, `tv`, `movies`, `music`, `comics`, and `general` live under the watch root, with `MANIFEST.json` written at the watch root. The large corpus includes TV episodes across multiple seasons and expanded comic issue fixtures.
 
 ```
-C:\temp\tuvima-watch\books\          ← Engine watch_directory (core.json)
+C:\temp\tuvima-library\Books\        ← Books library source (libraries.json)
   dune.epub                           #  1
   neuromancer.epub                    #  2
   foundation.epub                     #  3

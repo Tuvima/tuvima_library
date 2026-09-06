@@ -23,7 +23,7 @@ Create a shared folder tree such as:
 /volume1/docker/tuvima/transcode
 ```
 
-Choose separate media paths for `/watch` and `/library`. Give the service account represented by `TUVIMA_UID` and `TUVIMA_GID` access to every mapped folder. You can obtain a user's numeric IDs over an administrator SSH session with `id USERNAME`.
+Choose the media paths that will become your managed or read-only library sources. Give the service account represented by `TUVIMA_UID` and `TUVIMA_GID` access to every mapped folder. You can obtain a user's numeric IDs over an administrator SSH session with `id USERNAME`.
 
 ## Create the project
 

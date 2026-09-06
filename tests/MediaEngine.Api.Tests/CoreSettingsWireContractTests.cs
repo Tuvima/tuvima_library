@@ -114,11 +114,11 @@ public sealed class CoreSettingsWireContractTests
     }
 
     [Fact]
-    public void LibrarySettingsMapper_PreservesSchemaFiveLibrariesIncomingSourcesAndViewStorage()
+    public void LibrarySettingsMapper_PreservesSchemaSixLibrariesAndViewStorage()
     {
         var request = new UpdateLibrariesRequest
         {
-            SchemaVersion = "5.0",
+            SchemaVersion = "6.0",
             StorageLocations =
             [
                 new ServerStorageLocationDto
@@ -168,27 +168,16 @@ public sealed class CoreSettingsWireContractTests
                     AcceptedIntakeModes = ["browser_upload"],
                 },
             ],
-            IncomingSources =
-            [
-                new IncomingSourceDto
-                {
-                    Id = "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
-                    Path = @"D:\Incoming",
-                    Purpose = "shared_intake",
-                    DefaultHandling = "route_automatically",
-                },
-            ],
         };
 
         var storage = SettingsContractMapper.ToStorage(request);
         var contract = SettingsContractMapper.ToContract(storage);
 
-        Assert.Equal("5.0", storage.SchemaVersion);
+        Assert.Equal("6.0", storage.SchemaVersion);
         Assert.Equal(@"D:\Media", storage.StorageLocations.Single().Path);
         Assert.Equal("View", contract.ViewStorage.RelativeRoot);
         Assert.Equal(@"D:\Media\Movies", storage.Libraries.Single().PrimaryDestination?.Path);
         Assert.True(storage.Libraries.Single().PrimaryDestination?.AllowsFileMutation);
-        Assert.Equal(@"D:\Incoming", contract.IncomingSources.Single().Path);
         Assert.False(storage.PersonalLibraryPolicy.AllowMobileBackup);
         Assert.False(contract.PersonalLibraryPolicy.AllowConnectedDeviceImport);
         Assert.Equal("private", contract.PersonalLibraryPolicy.DefaultVisibility);

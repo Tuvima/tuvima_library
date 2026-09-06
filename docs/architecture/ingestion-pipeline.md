@@ -88,21 +88,15 @@ The Engine is configured with logical **Libraries**, each declaring:
 | `metadata_policy` | Enriched, local-preferred, local-only, or manual |
 | `sources` | Stable per-folder source identities and safety policy |
 | `primary_destination_source_id` | The explicit managed destination; never inferred from ordering |
-| `accepted_intake_modes` | The direct and shared intake mechanisms accepted by this library |
+| `accepted_intake_modes` | The direct intake mechanisms accepted by this library |
 
-Configuration lives in `config/libraries.json`. Schema 3 is required; flat source paths, library roots, intake modes, and read-only flags are rejected.
+Configuration lives in `config/libraries.json`. Schema 6 is required; obsolete top-level watch folders, flat source paths, and read-only flags are rejected.
 
 File watching is source-folder aware. A flush that contains files from one source records that source path on the ingestion batch; a flush that spans more than one source records `Multiple source folders`. Watcher noise is buffered for `Ingestion:FswQuietPeriodSeconds` seconds, defaulting to 30 seconds, before the batch is released to the debounce queue.
 
 ```json
 {
-  "schema_version": "4.0",
-  "incoming_sources": [{
-    "id": "99999999-aaaa-4999-8999-999999999999",
-    "path": "/media/incoming",
-    "purpose": "shared_intake",
-    "default_handling": "route_automatically"
-  }],
+  "schema_version": "6.0",
   "libraries": [
     {
       "id": "44444444-4444-4444-8444-444444444444",
@@ -198,11 +192,11 @@ Music remains a conservative organization lane. The status surface emphasizes ta
 
 ## Intake Modes
 
-### Watch Mode
+### Library source monitoring
 
-The Engine monitors the source folder for new files. When a file appears, it is processed through the full ingestion pipeline and then **moved** into the organised library structure. Watch mode is designed as a permanent inbox - files dropped in are consumed and relocated automatically.
+The Engine monitors every catalogued library source for new files. Existing-library sources are indexed in place and remain read-only. Managed writable sources may organize files when their source and library policies allow it.
 
-The `.staging/` directory within the library root is excluded from Watch Folder monitoring to prevent re-ingestion loops.
+The `.staging/` directory within the library root is excluded from library source monitoring to prevent re-ingestion loops.
 
 ### Import Mode
 
@@ -237,7 +231,7 @@ The organize stage is deliberately a readiness and review decision during
 initial ingestion. It does not move the file into the final library. The file
 remains in place until the retail-first identity pipeline has enough context for
 `AutoOrganizeService` to promote it. Write-back is likewise deferred for files
-still in a watch folder because changing their bytes would change the content
+still in a monitored source folder because changing their bytes would change the content
 hash and trigger re-ingestion.
 
 Nullable integrations are grouped with the stage that consumes them: hash
@@ -289,7 +283,7 @@ Managed artwork is stored through `AssetPathService` and `entity_assets` under `
 All ingested files land in `.staging/` before reaching the organised library. The library invariant is that every file within the library root (outside `.staging/`) has been hydrated, has reached a settled identity outcome, and has a settled artwork outcome. That may mean a resolved QID with art present, or a precision-preserving QID-missing result with artwork explicitly confirmed missing.
 
 ```
-Watch Folder  --(detect + process)-->  .staging/  --(hydration + promote)-->  Library
+Library source  --(detect + process)-->  .staging/  --(hydration + promote)-->  Managed destination
                                            |
                                       stays here if:
                                       - low confidence
@@ -329,7 +323,7 @@ Hero banner generation (blur + vignette + grain, via SkiaSharp) runs during prom
 
 ### Manual Reclamation
 
-Staged files retain their fingerprint and metadata in the database. A user can manually resolve a staged file from the Dashboard - by dragging it to a Collection or providing a user-locked title - triggering promotion to the organised library structure. The `.staging/` directory is excluded from Watch Folder monitoring to prevent re-ingestion loops.
+Staged files retain their fingerprint and metadata in the database. A user can manually resolve a staged file from the Dashboard - by dragging it to a Collection or providing a user-locked title - triggering promotion to the organised library structure. The `.staging/` directory is excluded from library source monitoring to prevent re-ingestion loops.
 
 On startup, if `{LibraryRoot}/.orphans/` exists and `.staging/` does not, the Engine renames the directory and updates all database file paths automatically.
 

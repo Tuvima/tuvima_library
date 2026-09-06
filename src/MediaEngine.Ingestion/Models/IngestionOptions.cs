@@ -83,27 +83,6 @@ public sealed class LibraryFolderEntry
         LibraryMetadataPolicies.BypassesExternalIdentity(MetadataPolicy);
 }
 
-/// <summary>Runtime projection of one top-level shared incoming source.</summary>
-public sealed class IncomingSourceEntry
-{
-    public string Id { get; init; } = string.Empty;
-
-    public string Path { get; init; } = string.Empty;
-
-    public string Purpose { get; init; } = IncomingSourcePurposes.SharedIntake;
-
-    public string DefaultHandling { get; init; } = IncomingDefaultHandling.RouteAutomatically;
-
-    public bool IncludeSubdirectories { get; init; } = true;
-
-    public string SourceType { get; init; } = LibrarySourceTypes.LocalFolder;
-
-    public bool AllowsRoutingMutation => !string.Equals(
-        DefaultHandling,
-        IncomingDefaultHandling.IndexInPlace,
-        StringComparison.OrdinalIgnoreCase);
-}
-
 /// <summary>Runtime projection of one stable configured library source.</summary>
 public sealed class LibrarySourceEntry
 {
@@ -326,46 +305,6 @@ public sealed class IngestionOptions
     /// Populated by the PostConfigure hook in Program.cs at startup.
     /// </summary>
     public IReadOnlyList<LibraryFolderEntry> LibraryFolders { get; set; } = [];
-
-    /// <summary>
-    /// Unassigned intake roots loaded from the top-level
-    /// <c>incoming_sources</c> collection in <c>config/libraries.json</c>.
-    /// </summary>
-    public IReadOnlyList<IncomingSourceEntry> IncomingSources { get; set; } = [];
-
-    /// <summary>Returns the longest configured incoming-source prefix for a path.</summary>
-    public IncomingSourceEntry? ResolveIncomingSource(string absolutePath)
-    {
-        if (string.IsNullOrWhiteSpace(absolutePath))
-        {
-            return null;
-        }
-
-        var normalizedPath = NormalizeComparablePath(absolutePath);
-        return IncomingSources
-            .Where(source => !string.IsNullOrWhiteSpace(source.Path))
-            .Select(source => (Source: source, Root: NormalizeComparablePath(source.Path)))
-            .Where(candidate => IsUnderRoot(normalizedPath, candidate.Root))
-            .OrderByDescending(candidate => candidate.Root.Length)
-            .Select(candidate => candidate.Source)
-            .FirstOrDefault();
-    }
-
-    /// <summary>
-    /// Creates the durable intake identity for a watcher/scan event under a
-    /// shared incoming root. Ordinary library-source events return null.
-    /// </summary>
-    public IntakeContext? ResolveIncomingIntakeContext(string absolutePath)
-    {
-        var source = ResolveIncomingSource(absolutePath);
-        return source is null
-            ? null
-            : new IntakeContext
-            {
-                SourceKind = IntakeSourceKinds.SharedIncoming,
-                SourceId = source.Id,
-            };
-    }
 
     // ── Template Resolution ────────────────────────────────────────────
 

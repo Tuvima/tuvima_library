@@ -91,8 +91,8 @@ public sealed class DockerfileGuardrailTests
         Assert.DoesNotContain("TUVIMA_WATCH_FOLDER", entrypoint);
         Assert.Contains("\"library_root\": \"/library\"", core);
         Assert.Contains("\"data_root\": \"/artwork-cache\"", core);
-        Assert.Contains("\"schema_version\": \"5.0\"", libraries);
-        Assert.Contains("\"path\": \"/watch\"", libraries);
+        Assert.Contains("\"schema_version\": \"6.0\"", libraries);
+        Assert.DoesNotContain("\"path\": \"/watch\"", libraries);
         Assert.Contains("\"path\": \"/library/Books\"", libraries);
         Assert.Contains("\"view_storage\"", libraries);
         Assert.DoesNotContain("\"kind\": \"photos\"", libraries);
@@ -253,11 +253,9 @@ public sealed class DockerfileGuardrailTests
                 var librariesPath = Path.Combine(temporaryConfig, "libraries.json");
                 var json = File.ReadAllText(librariesPath);
                 var windowsLibrary = Path.Combine(temporaryConfig, "library").Replace("\\", "\\\\");
-                var windowsWatch = Path.Combine(temporaryConfig, "watch").Replace("\\", "\\\\");
                 File.WriteAllText(
                     librariesPath,
-                    json.Replace("/library", windowsLibrary, StringComparison.Ordinal)
-                        .Replace("/watch", windowsWatch, StringComparison.Ordinal));
+                    json.Replace("/library", windowsLibrary, StringComparison.Ordinal));
             }
 
             var loader = new MediaEngine.Storage.ConfigurationDirectoryLoader(temporaryConfig);

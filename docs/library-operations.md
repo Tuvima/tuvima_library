@@ -12,12 +12,11 @@ tags:
 
 # Library Admin Pages
 
-**Libraries**, **Import Folders**, Ingestion, Metadata Providers, Activity & Audit,
+**Libraries**, Ingestion, Metadata Providers, Activity & Audit,
 and Developer Tools are first-class Settings pages for the part of Tuvima Library
 that turns folders into registered media. Structured destinations and the single
 View storage root live at `/settings/libraries`; profile Personal Space sources
-and devices live with Users; watched intake locations live
-at `/settings/import-folders`; ingestion operations live at `/settings/ingestion`.
+and devices live with Users; ingestion operations live at `/settings/ingestion`.
 The feature-gated development harness is available at `/settings/developer/options`.
 
 Together, these pages answer six operational questions:
@@ -25,7 +24,7 @@ Together, these pages answer six operational questions:
 - what is happening right now
 - what has been processed recently
 - what needs review
-- which Read, Watch, Listen, View-root, profile-source, and universal incoming paths are configured
+- which Read, Watch, Listen, View-root, and profile-source paths are configured
 - which provider or pipeline stage is failing, waiting, or unknown
 - how close the library is to being registered and healthy
 
@@ -121,16 +120,7 @@ normal Photos navigation control.
 
 Music is intentionally conservative. The page calls out that music should preserve album folders and prefer tags or fingerprints before organization. It does not present aggressive rename or move actions for music.
 
-## Universal Incoming
-
-**Settings → Import Folders** lists unassigned intake folders by
-stable ID, path, purpose, default handling, and health. Files arriving there
-retain that source identity while Tuvima classifies them. Routing selects a
-destination only when exactly one library accepts incoming-folder intake and
-the detected media type; ambiguous or unsupported files stop for attention
-rather than being guessed into a library.
-
-Direct producers must retain the resolved destination and provenance through
+Direct producers retain the resolved destination and provenance through
 the pipeline. Browser upload is connected for View. Drag-and-drop, mobile
 backup, connected-device, and direct API producer types remain modeled for
 future clients and must not be presented as operational backup/sync features.

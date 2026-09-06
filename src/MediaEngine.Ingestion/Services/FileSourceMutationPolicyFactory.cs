@@ -11,24 +11,6 @@ namespace MediaEngine.Ingestion.Services;
 public static class FileSourceMutationPolicyFactory
 {
     public static FileSourceMutationPolicy Create(
-        IncomingSourceEntry source,
-        bool allowDelete = false)
-    {
-        ArgumentNullException.ThrowIfNull(source);
-
-        return CreateCore(
-            $"incoming:{source.Id}",
-            source.Id,
-            source.Path,
-            managed: true,
-            writable: true,
-            participates: source.AllowsRoutingMutation,
-            writebackOverride: false,
-            globalMetadataWritebackEnabled: false,
-            allowDelete);
-    }
-
-    public static FileSourceMutationPolicy Create(
         LibraryFolderEntry library,
         LibrarySourceEntry source,
         bool globalMetadataWritebackEnabled = false,

@@ -158,24 +158,29 @@ function Write-RL {
     $script:ReportLines.Add($t)
 }
 
-function Resolve-WatchDirectoryFromSettings {
+function Resolve-BookLibrarySourceFromSettings {
     param($Settings)
 
     if ($null -eq $Settings) { return $null }
 
-    $watchDirectoriesProperty = $Settings.PSObject.Properties["watch_directories"]
-    if ($watchDirectoriesProperty -and $watchDirectoriesProperty.Value) {
-        $watchDirectories = @($watchDirectoriesProperty.Value) |
-            Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) }
-        if ($watchDirectories.Count -gt 0) {
-            return [string]$watchDirectories[0]
-        }
-    }
+    $bookLibrary = @($Settings.libraries) |
+        Where-Object {
+            $_.category -eq "Books" -or
+            @($_.media_types) -contains "Books"
+        } |
+        Select-Object -First 1
+    if ($null -eq $bookLibrary) { return $null }
 
-    $legacyWatchDirectoryProperty = $Settings.PSObject.Properties["watch_directory"]
-    if ($legacyWatchDirectoryProperty -and -not [string]::IsNullOrWhiteSpace([string]$legacyWatchDirectoryProperty.Value)) {
-        return [string]$legacyWatchDirectoryProperty.Value
-    }
+    $sources = @($bookLibrary.sources) |
+        Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.path) }
+    $source = $sources |
+        Sort-Object @{ Expression = {
+            if ($_.role -eq "intake") { 0 }
+            elseif ($_.role -eq "primary_destination") { 1 }
+            else { 2 }
+        } } |
+        Select-Object -First 1
+    if ($source) { return [string]$source.path }
 
     return $null
 }
@@ -600,10 +605,10 @@ $engineWasUp  = $null -ne $status
 $coreSettings = $null
 if ($engineWasUp) {
     Write-R " Engine online" -c "Green"
-    # -- 2. Resolve watch directory from engine settings
+    # -- 2. Resolve the Books library source from engine settings
     if (-not $WatchDirectory) {
-        $coreSettings = Invoke-Api "/settings/folders"
-        $resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreSettings
+        $coreSettings = Invoke-Api "/settings/libraries"
+        $resolvedWatchDirectory = Resolve-BookLibrarySourceFromSettings $coreSettings
         if ($resolvedWatchDirectory) {
             $WatchDirectory = $resolvedWatchDirectory
         }
@@ -631,9 +636,9 @@ $LibraryRoot = ""
 if ($null -ne $coreSettings -and $coreSettings.library_root) {
     $LibraryRoot = $coreSettings.library_root
 }
-# Fallback: read library_root and watch_directories from config/core.json when engine is offline
+# Fallback: read the library root and Books source from configuration when the Engine is offline.
 if (-not $LibraryRoot -or (-not $WatchDirectory)) {
-    $configDir = Join-Path $RepoRoot "src\MediaEngine.Api\config"
+    $configDir = Join-Path $RepoRoot "config"
     $coreJson  = Join-Path $configDir "core.json"
     if (Test-Path $coreJson) {
         try {
@@ -643,7 +648,9 @@ if (-not $LibraryRoot -or (-not $WatchDirectory)) {
                 Write-R " Library root (from config): $LibraryRoot" -c "DarkYellow"
             }
             if (-not $WatchDirectory) {
-                $resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreFile
+                $librariesJson = Join-Path $configDir "libraries.json"
+                $librariesFile = if (Test-Path $librariesJson) { Get-Content $librariesJson -Raw | ConvertFrom-Json } else { $null }
+                $resolvedWatchDirectory = Resolve-BookLibrarySourceFromSettings $librariesFile
                 if ($resolvedWatchDirectory) {
                     $WatchDirectory = $resolvedWatchDirectory
                 }
@@ -714,10 +721,10 @@ if ($doWipe) {
     if ($restarted) {
         Write-R " Engine back online." -c "Green"
         # Re-fetch settings after restart (fresh DB, fresh config)
-        $coreSettings = Invoke-Api "/settings/folders"
+        $coreSettings = Invoke-Api "/settings/libraries"
         if ($coreSettings -and $coreSettings.library_root) { $LibraryRoot = $coreSettings.library_root }
         if (-not $WatchDirectory) {
-            $resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreSettings
+            $resolvedWatchDirectory = Resolve-BookLibrarySourceFromSettings $coreSettings
             if ($resolvedWatchDirectory) {
                 $WatchDirectory = $resolvedWatchDirectory
             }

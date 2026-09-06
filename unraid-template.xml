@@ -46,16 +46,6 @@
 
   <!-- ── Volume mappings ────────────────────────────────────────────────── -->
 
-  <Config Name="Watch Folder"
-          Target="/watch"
-          Default="/mnt/user/media/tuvima-watch"
-          Mode="rw"
-          Description="Drop new catalogue media here. The configured UID/GID needs read access; managed organization also needs write access. Tuvima never deletes user-owned originals outside a managed workflow."
-          Type="Path"
-          Display="always"
-          Required="true"
-          Mask="false">/mnt/user/media/tuvima-watch</Config>
-
   <Config Name="Library Root"
           Target="/library"
           Default="/mnt/user/media/tuvima-library"
@@ -132,7 +122,7 @@
           Target="TUVIMA_UID"
           Default="99"
           Mode=""
-          Description="Numeric owner used inside the container. Unraid normally uses 99 (nobody). It must be able to read the Watch Folder and write every managed/appdata mapping."
+          Description="Numeric owner used inside the container. Unraid normally uses 99 (nobody). It must be able to read configured library sources and write every managed/appdata mapping."
           Type="Variable"
           Display="always"
           Required="true"

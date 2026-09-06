@@ -299,8 +299,8 @@ dotnet run --project src/MediaEngine.Api
 dotnet run --project src/MediaEngine.Web
 ```
 
-Then open `http://localhost:5016` and add governed sources in **Settings > Media
-Management**. Catalogued Read/Watch/Listen sources can be scanned from the
+Then open `http://localhost:5016` and add governed sources in **Settings >
+Libraries**. Catalogued Read/Watch/Listen sources can be scanned from the
 administration workflow. Personal sources feed the active profile's single
 View Personal Space; the user-facing View experience does not ask you to choose
 among source folders or expose an ordinary scan action in Photos.

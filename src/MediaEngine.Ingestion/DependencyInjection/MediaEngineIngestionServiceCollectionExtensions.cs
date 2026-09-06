@@ -198,19 +198,6 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                     .Where(e => e.EffectiveSourcePaths.Count > 0)
                     .ToList();
 
-                opts.IncomingSources = libraries.IncomingSources
-                    .Select(source => new IncomingSourceEntry
-                    {
-                        Id = source.Id,
-                        Path = source.Path,
-                        Purpose = source.Purpose,
-                        DefaultHandling = source.DefaultHandling,
-                        IncludeSubdirectories = source.IncludeSubdirectories,
-                        SourceType = source.SourceType,
-                    })
-                    .Where(source => !string.IsNullOrWhiteSpace(source.Path))
-                    .ToList();
-
                 LibraryFolderResolver.ValidateNoOverlap(opts.LibraryFolders);
 
                 var sourcePaths = opts.LibraryFolders
@@ -219,7 +206,6 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                         LibraryKinds.Catalogued,
                         StringComparison.OrdinalIgnoreCase))
                     .SelectMany(folder => folder.EffectiveSourcePaths)
-                    .Concat(opts.IncomingSources.Select(source => source.Path))
                     .Where(path => !string.IsNullOrWhiteSpace(path))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();

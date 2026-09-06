@@ -26,14 +26,13 @@ public sealed class ServerFolderPickerUiTests
     }
 
     [Fact]
-    public void Picker_IsReusedAcrossLibraryImportAndPersonalSpaceFlows()
+    public void Picker_IsReusedAcrossLibraryAndPersonalSpaceFlows()
     {
         var libraries = Read("src/MediaEngine.Web/Components/Settings/LibrariesTab.razor");
         var wizard = Read("src/MediaEngine.Web/Components/Settings/AddLibraryWizard.razor");
         var users = Read("src/MediaEngine.Web/Components/Settings/UsersTab.razor");
 
         Assert.Contains("DialogParameters<ServerFolderPicker>", libraries, StringComparison.Ordinal);
-        Assert.Contains("ServerFolderSelectionModes.Incoming", libraries, StringComparison.Ordinal);
         Assert.Contains("DialogParameters<ServerFolderPicker>", wizard, StringComparison.Ordinal);
         Assert.Contains("ServerFolderSelectionModes.ManagedLibrary", wizard, StringComparison.Ordinal);
         Assert.Contains("ServerFolderSelectionModes.ExistingLibrary", wizard, StringComparison.Ordinal);

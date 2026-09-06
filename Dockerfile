@@ -134,7 +134,6 @@ COPY docker/config/ ./docker-config/
 # Create mount points. Ownership is assigned to the configured UID/GID at
 # startup, before the application processes drop root privileges.
 RUN mkdir -p \
-      /watch \
       /library \
       /config \
       /db \

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace MediaEngine.Ingestion.Services;
 
 /// <summary>
-/// Walks every configured library and shared incoming source path, hashes each media file, and
+/// Walks every configured library source path, hashes each media file, and
 /// stores the result in <see cref="IFileHashCacheRepository"/>. Publishes
 /// progress over SignalR so the Dashboard can show a live progress bar.
 ///
@@ -84,10 +84,9 @@ public sealed class InitialSweepService : IInitialSweepService
         int discovered = 0, hashed = 0, cached = 0, failed = 0;
         long bytes = 0;
 
-        // Resolve every library source and top-level shared incoming source.
+        // Resolve every library source.
         var roots = _options.LibraryFolders
             .SelectMany(lf => lf.EffectiveSourcePaths)
-            .Concat(_options.IncomingSources.Select(source => source.Path))
             .Where(p => !string.IsNullOrWhiteSpace(p) && Directory.Exists(p))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -95,7 +94,7 @@ public sealed class InitialSweepService : IInitialSweepService
         if (roots.Count == 0)
         {
             _logger.LogInformation(
-                "InitialSweep: no library or incoming source paths configured — nothing to sweep");
+                "InitialSweep: no library source paths configured — nothing to sweep");
             return new InitialSweepResult(0, 0, 0, 0, 0, sw.Elapsed);
         }
 

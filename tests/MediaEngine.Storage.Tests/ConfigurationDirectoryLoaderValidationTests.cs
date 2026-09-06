@@ -92,7 +92,7 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
-    public void CoreConfiguration_LoadsMultipleWatchDirectoriesOnly()
+    public void LoadCore_RejectsObsoleteWatchDirectories()
     {
         using var temp = TempConfig.Create();
         var corePath = System.IO.Path.Combine(temp.Path, "core.json");
@@ -101,25 +101,24 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
               "schema_version": "2.0",
               "database_path": "library.db",
               "server_name": "Tuvima",
-              "watch_directories": ["C:\\drop-a", "D:\\drop-b"]
+              "watch_directories": ["C:\\drop-a"]
             }
             """);
 
         var loader = new ConfigurationDirectoryLoader(temp.Path);
-        var core = loader.LoadCore();
+        var ex = Assert.Throws<ConfigValidationException>(() => loader.LoadCore());
 
-        Assert.Equal([@"C:\drop-a", @"D:\drop-b"], core.WatchDirectories);
-        Assert.Equal([@"C:\drop-a", @"D:\drop-b"], core.EffectiveWatchDirectories);
+        Assert.Contains("watch_directories is not supported by core schema 2.0", ex.Message);
     }
 
     [Fact]
-    public void SaveLibraries_RoundTripsSchemaFiveCataloguedLibrariesIncomingSourcesAndViewStorage()
+    public void SaveLibraries_RoundTripsSchemaSixCataloguedLibrariesAndViewStorage()
     {
         using var temp = TempConfig.Create();
         var loader = new ConfigurationDirectoryLoader(temp.Path);
         var config = new LibrariesConfiguration
         {
-            SchemaVersion = "5.0",
+            SchemaVersion = "6.0",
             StorageLocations =
             [
                 new ServerStorageLocationConfig
@@ -136,16 +135,6 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
                 AllowConnectedDeviceImport = false,
                 DefaultVisibility = LibraryVisibility.Shared,
             },
-            IncomingSources =
-            [
-                new IncomingSourceConfig
-                {
-                    Id = "99999999-9999-4999-8999-999999999999",
-                    Path = @"C:\incoming",
-                    Purpose = IncomingSourcePurposes.SharedIntake,
-                    DefaultHandling = IncomingDefaultHandling.RouteAutomatically,
-                },
-            ],
             Libraries =
             [
                 new LibraryFolderConfig
@@ -207,7 +196,6 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         Assert.Equal(@"C:\media\home-movies", roundTrip.PrimaryDestination?.Path);
         Assert.True(roundTrip.PrimaryDestination?.AllowsFileMutation);
         Assert.False(roundTrip.Sources[1].AllowsFileMutation);
-        Assert.Equal(@"C:\incoming", loader.LoadLibraries().IncomingSources.Single().Path);
         Assert.False(loader.LoadLibraries().PersonalLibraryPolicy.AllowMobileBackup);
         Assert.False(loader.LoadLibraries().PersonalLibraryPolicy.AllowConnectedDeviceImport);
         Assert.Equal(LibraryVisibility.Shared, loader.LoadLibraries().PersonalLibraryPolicy.DefaultVisibility);
@@ -341,7 +329,7 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         var loader = new ConfigurationDirectoryLoader(temp.Path);
         var ex = Assert.Throws<ConfigValidationException>(() => loader.LoadLibraries());
 
-        Assert.Contains("schema_version must be 5.0", ex.Message);
+        Assert.Contains("schema_version must be 6.0", ex.Message);
         Assert.Contains("kind must be catalogued or personal", ex.Message);
         Assert.Contains("source_paths is not supported", ex.Message);
         Assert.Contains("library_root is not supported", ex.Message);
@@ -370,27 +358,6 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         Assert.Contains("existing libraries must use read_only access", ex.Message);
         Assert.Contains("existing libraries cannot participate in organization", ex.Message);
         Assert.Contains("existing libraries cannot enable writeback", ex.Message);
-    }
-
-    [Fact]
-    public void SaveLibraries_RejectsInvalidIncomingSourceAndGlobalSourceIdentityCollision()
-    {
-        using var temp = TempConfig.Create();
-        var loader = new ConfigurationDirectoryLoader(temp.Path);
-        var config = CreateValidCataloguedLibrary();
-        config.IncomingSources.Add(new IncomingSourceConfig
-        {
-            Id = config.Libraries[0].Sources[0].Id,
-            Path = @"C:\incoming",
-            Purpose = "mystery",
-            DefaultHandling = "copy_everywhere",
-        });
-
-        var ex = Assert.Throws<ConfigValidationException>(() => loader.SaveLibraries(config));
-
-        Assert.Contains("id must be globally unique", ex.Message);
-        Assert.Contains("purpose is unsupported", ex.Message);
-        Assert.Contains("default_handling is unsupported", ex.Message);
     }
 
     [Fact]

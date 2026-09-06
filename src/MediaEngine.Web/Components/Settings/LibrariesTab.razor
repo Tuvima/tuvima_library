@@ -38,11 +38,6 @@
         <AppActionBar Align="AppHorizontalAlignment.End" Class="media-management__actions">
             @if (section == "overview" && !readOnly)
             {
-                <AppButton Label="Add import folder"
-                           StartIcon="@Icons.Material.Outlined.MoveToInbox"
-                           ButtonStyle="AppButtonStyle.Outlined"
-                           Disabled="@_engineUnavailable"
-                           Href="/settings/import-folders" />
                 <AppButton Label="Add library"
                            StartIcon="@Icons.Material.Outlined.CreateNewFolder"
                            ButtonStyle="AppButtonStyle.Filled"
@@ -68,18 +63,14 @@
             <AppAlert Tone="AppUiTone.Warning">@_loadError</AppAlert>
         }
 
-        @if (section == "incoming" || activeLibrary is not null)
+        @if (activeLibrary is not null)
         {
-            <ServerPathGuidance ImportFolders="@(section == "incoming")" />
+            <ServerPathGuidance />
         }
 
         @if (section == "overview")
         {
             @OverviewSurface(readOnly)
-        }
-        else if (section == "incoming")
-        {
-            @IncomingSurface(readOnly)
         }
         else if (activeLibrary is not null)
         {
@@ -170,20 +161,6 @@
         new("connected_device", "Connected device"),
     ];
 
-    private static readonly IReadOnlyList<AppSelectOption> IncomingPurposeOptions =
-    [
-        new("shared_intake", "Shared intake"),
-        new("browser_uploads", "Browser uploads"),
-        new("device_intake", "Device intake"),
-    ];
-
-    private static readonly IReadOnlyList<AppSelectOption> IncomingHandlingOptions =
-    [
-        new("route_automatically", "Route automatically"),
-        new("stage_then_route", "Stage then route"),
-        new("index_in_place", "Index in place"),
-    ];
-
     private static readonly IReadOnlyList<AppSelectOption> LibraryFilterOptions =
     [
         new("all", "All", Icons.Material.Outlined.Layers),
@@ -228,16 +205,12 @@
             </AppPanel>
             <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-metric">
                 <span class="media-management-metric__icon media-management-metric__icon--blue"><MudIcon Icon="@Icons.Material.Outlined.Folder" /></span>
-                <span><small>Total folders</small><strong>@(_configuration?.Libraries.Sum(library => library.Sources.Count) ?? 0)</strong><em>Organized server locations</em></span>
+                <span><small>Total folders</small><strong>@(_configuration?.Libraries.Sum(library => library.Sources.Count) ?? 0)</strong><em>Watched by their library</em></span>
             </AppPanel>
             <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-metric media-management-metric--link">
                 <a href="/settings/review" aria-label="Open items needing review"></a>
                 <span class="media-management-metric__icon media-management-metric__icon--warning"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></span>
                 <span><small>Items needing review</small><strong>@(_ingestionSnapshot?.Summary.ItemsNeedingReview ?? 0)</strong><em>Across all libraries</em></span>
-            </AppPanel>
-            <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-metric">
-                <span class="media-management-metric__icon media-management-metric__icon--success"><MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" /></span>
-                <span><small>Monitored import folders</small><strong>@(_configuration?.IncomingSources.Count ?? 0)</strong><em>Watching for new media</em></span>
             </AppPanel>
         </div>
 
@@ -298,74 +271,8 @@
 
         <div class="media-management__aside-grid">
             <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-info">
-                <MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" />
-                <div><strong>Import folders</strong><p>@IncomingSummary</p><a href="/settings/import-folders">Manage import folders</a></div>
-            </AppPanel>
-            <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-info">
                 <MudIcon Icon="@Icons.Material.Outlined.Shield" />
                 <div><strong>Existing folders stay unchanged</strong><p>Tuvima can scan and index an existing library, but it never moves, renames, tags, or deletes its files.</p></div>
-            </AppPanel>
-        </div>
-    </div>;
-
-    private RenderFragment IncomingSurface(bool readOnly) => @<div class="media-management__incoming">
-        <AppCard Class="media-management-card">
-            <div class="media-management-card__heading">
-                <div><h3>Import folders</h3><p>Shared intake locations are unassigned. Tuvima receives each file, determines its destination, then applies that library's policy.</p></div>
-                <AppButton Label="Add import folder" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled"
-                           Tone="AppUiTone.Primary" Disabled="@(readOnly || _engineUnavailable)" OnClick="AddIncomingSourceAsync" />
-            </div>
-            <div class="media-management-source-list">
-                @foreach (var source in _configuration!.IncomingSources)
-                {
-                    <details class="media-management-source media-management-source--incoming" @key="source.Id">
-                        <summary>
-                            <span class="media-management-table__identity"><MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" /><strong>@(string.IsNullOrWhiteSpace(source.Path) ? "New import folder" : source.Path)</strong></span>
-                            <span>@TitleCase(source.Purpose)</span>
-                            <span>@IncomingSourceSummary(source)</span>
-                            <AppStatusBadge Text="@PathStatus(source.Path)" Tone="@PathTone(source.Path)" />
-                            <span class="media-management-source__edit">Edit</span>
-                        </summary>
-                        <div class="media-management-source__editor">
-                        <div class="media-management-source__path">
-                            <MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" />
-                            <AppTextField Value="@source.Path" ValueChanged="@((string? value) => source.Path = value ?? string.Empty)"
-                                          Label="Engine path" Placeholder="/watch" ReadOnly="@(readOnly || _engineUnavailable)" />
-                            <AppIconButton Icon="@Icons.Material.Outlined.FolderOpen" Tooltip="Browse" AriaLabel="Browse incoming folder"
-                                           Disabled="@(readOnly || _engineUnavailable)" OnClick="@(() => BrowseIncomingAsync(source))" />
-                            <AppStatusBadge Text="@PathStatus(source.Path)" Tone="@PathTone(source.Path)" />
-                        </div>
-                        <div class="media-management-source__fields">
-                            <AppTextField Label="Friendly name" Value="@source.Notes" ValueChanged="@((string? value) => source.Notes = value)" ReadOnly="@(readOnly || _engineUnavailable)" />
-                            <AppSelect Label="Purpose" Value="@source.Purpose" Options="@IncomingPurposeOptions"
-                                       ValueChanged="@((string? value) => source.Purpose = value ?? string.Empty)" Disabled="@(readOnly || _engineUnavailable)" />
-                            <AppSelect Label="Default handling" Value="@source.DefaultHandling" Options="@IncomingHandlingOptions"
-                                       ValueChanged="@((string? value) => source.DefaultHandling = value ?? string.Empty)" Disabled="@(readOnly || _engineUnavailable)" />
-                            <AppSelect Label="Source type" Value="@source.SourceType" Options="@SourceTypeOptions"
-                                       ValueChanged="@((string? value) => source.SourceType = value ?? string.Empty)" Disabled="@(readOnly || _engineUnavailable)" />
-                            <AppSwitchRow Label="Include subfolders" Value="@source.IncludeSubdirectories"
-                                          ValueChanged="@((bool value) => source.IncludeSubdirectories = value)" Disabled="@(readOnly || _engineUnavailable)" />
-                        </div>
-                        <div class="media-management-source__footer">
-                            <span>@IncomingSourceSummary(source)</span>
-                            <AppIconButton Icon="@Icons.Material.Outlined.Delete" Tooltip="Remove" AriaLabel="Remove incoming folder"
-                                           Tone="AppUiTone.Error" Disabled="@(readOnly || _engineUnavailable)"
-                                           OnClick="@(() => RemoveIncomingSource(source))" />
-                        </div>
-                        </div>
-                    </details>
-                }
-            </div>
-        </AppCard>
-
-        <div class="media-management__aside-grid">
-            <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-info">
-                <MudIcon Icon="@Icons.Material.Outlined.Route" />
-                <div><strong>How incoming works</strong><p>Receive file → determine destination → apply library policy → store and index. Users never need to manage staging.</p></div>
-            </AppPanel>
-            <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-info">
-                <MudIcon Icon="@Icons.Material.Outlined.UploadFile" />
-                <div><strong>Direct library intake</strong><p>Browser upload, drag-and-drop, mobile backup, and connected devices retain the chosen destination library.</p></div>
             </AppPanel>
         </div>
     </div>;
@@ -405,7 +312,7 @@
             </div>
             <div class="library-detail__overview-grid">
                 <AppCard Class="library-detail__folders-card">
-                    <div class="media-management-card__heading"><div><h3>Folders in this library</h3><p>Managed destinations and protected existing sources.</p></div><AppButton Label="Manage folders" Href="@LibraryTabRoute(library, "folders")" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" /></div>
+                    <div class="media-management-card__heading"><div><h3>Folders in this library</h3><p>Tuvima watches each folder here. Managed destinations can organize new files; existing sources stay protected.</p></div><AppButton Label="Manage folders" Href="@LibraryTabRoute(library, "folders")" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" /></div>
                     <div class="library-detail__folder-summary" role="list">
                         @foreach (var source in library.Sources)
                         {
@@ -436,7 +343,7 @@
         else if (CurrentDetailTab == "folders")
         {
             <AppCard Class="media-management-card">
-                <div class="media-management-card__heading"><div><h3>Folders</h3><p>Choose an explicit primary destination and protect existing libraries from mutation.</p></div><AppButton Label="Add folder" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(readOnly || _engineUnavailable)" OnClick="@(() => AddAndBrowseLibrarySourceAsync(library))" /></div>
+                <div class="media-management-card__heading"><div><h3>Folders</h3><p>Every folder belongs to this library and is monitored directly. Choose an explicit primary destination and protect existing libraries from mutation.</p></div><AppButton Label="Add folder" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(readOnly || _engineUnavailable)" OnClick="@(() => AddAndBrowseLibrarySourceAsync(library))" /></div>
                 <div class="media-management-source-list">
                     @foreach (var source in library.Sources)
                     {
@@ -628,13 +535,6 @@
         }
     }
 
-    private string IncomingSummary => _configuration?.IncomingSources.Count switch
-    {
-        null or 0 => "No shared incoming folders are configured.",
-        1 => "1 shared incoming folder is configured. Processing history is available in Activity.",
-        var count => $"{count} shared incoming folders are configured. Processing history is available in Activity.",
-    };
-
     private bool HasUnsavedChanges => _configuration is not null
         && !string.Equals(_baseline, JsonSerializer.Serialize(_configuration), StringComparison.Ordinal);
 
@@ -696,7 +596,6 @@
                 StorageLocations = _configuration.StorageLocations,
                 ViewStorage = _configuration.ViewStorage,
                 Libraries = _configuration.Libraries,
-                IncomingSources = _configuration.IncomingSources,
                 PersonalLibraryPolicy = _configuration.PersonalLibraryPolicy,
             });
             if (saved is null)
@@ -707,7 +606,7 @@
 
             _configuration = saved;
             _baseline = JsonSerializer.Serialize(saved);
-            Snackbar.Add("Library and import folder settings saved.", Severity.Success);
+            Snackbar.Add("Library settings saved.", Severity.Success);
         }
         finally
         {
@@ -719,7 +618,6 @@
     {
         var sources = _configuration!.Libraries.SelectMany(library => library.Sources)
             .Select(source => (source.Path, RequireWrite: source.ManagementMode == "managed_by_tuvima"))
-            .Concat(_configuration.IncomingSources.Select(source => (source.Path, RequireWrite: true)))
             .ToList();
         foreach (var source in sources)
         {
@@ -744,33 +642,8 @@
             if (library.Sources.Any(source => source.Role == "primary_destination")
                 && library.GetPrimaryDestination() is null) return $"{library.Name} needs an explicit primary destination.";
         }
-        if (_configuration.IncomingSources.Any(source => string.IsNullOrWhiteSpace(source.Path))) return "Import folder paths cannot be empty.";
         return null;
     }
-
-    private async Task AddIncomingSourceAsync()
-    {
-        var source = new IncomingSourceDto
-        {
-            Id = Guid.NewGuid().ToString("D"),
-            Purpose = "shared_intake",
-            DefaultHandling = "route_automatically",
-            IncludeSubdirectories = true,
-            SourceType = "local_folder",
-        };
-        var selected = await BrowseForPathAsync(
-            string.Empty,
-            ServerFolderSelectionModes.Incoming,
-            source.Id,
-            "Choose a server folder to watch for incoming media.");
-        if (selected is null) return;
-        source.Path = selected;
-        source.Notes = Path.GetFileName(selected.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        _configuration!.IncomingSources.Add(source);
-        await CheckPathAsync(selected);
-    }
-
-    private void RemoveIncomingSource(IncomingSourceDto source) => _configuration!.IncomingSources.Remove(source);
 
     private void AddLibrarySource(LibraryFolderDto library) => library.Sources.Add(new LibrarySourceDto
     {
@@ -858,7 +731,6 @@
         var paths = _configuration.Libraries
             .SelectMany(library => library.Sources)
             .Select(source => source.Path)
-            .Concat(_configuration.IncomingSources.Select(source => source.Path))
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -878,18 +750,6 @@
         foreach (var check in await Task.WhenAll(checks))
             if (check.Result is not null)
                 _pathResults[check.Path] = check.Result;
-    }
-
-    private async Task BrowseIncomingAsync(IncomingSourceDto source)
-    {
-        var selected = await BrowseForPathAsync(
-            source.Path,
-            ServerFolderSelectionModes.Incoming,
-            source.Id,
-            "Choose a server folder to watch for incoming media.");
-        if (selected is null) return;
-        source.Path = selected;
-        await CheckPathAsync(selected);
     }
 
     private async Task BrowseViewRootAsync()
@@ -993,7 +853,7 @@
 
     private void EnsureSelection(string section)
     {
-        if (_configuration is null || section is "overview" or "incoming") return;
+        if (_configuration is null || section == "overview") return;
         var libraries = LibrariesFor(section);
         if (libraries.Count == 0) return;
         if (!_selectedLibraryIds.TryGetValue(section, out var id) || libraries.All(library => library.Id != id))
@@ -1008,18 +868,6 @@
         if (!result.HasRead) return "Permission issue";
         if (!result.HasWrite) return "Read-only";
         return "Healthy";
-    }
-
-    private string IncomingSourceSummary(IncomingSourceDto source)
-    {
-        var folder = _ingestionSnapshot?.SourceGroups
-            .SelectMany(group => group.Libraries)
-            .SelectMany(library => library.Folders)
-            .FirstOrDefault(candidate => string.Equals(candidate.Path, source.Path, StringComparison.OrdinalIgnoreCase));
-        if (folder?.LastScan is { } lastScan)
-            return $"Last scan {FormatRelative(lastScan)} · {DisplayFormat.FormatCount(folder.ItemCount)} items";
-
-        return string.IsNullOrWhiteSpace(source.Notes) ? "No scan reported yet" : source.Notes;
     }
 
     private static string FormatRelative(DateTimeOffset value)
@@ -1074,7 +922,7 @@
         if (Guid.TryParse(normalized, out _)) return normalized!;
         return normalized switch
         {
-            "incoming" => "incoming", "libraries" => "libraries", _ => "overview",
+            "libraries" => "libraries", _ => "overview",
         };
     }
 

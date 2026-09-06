@@ -122,7 +122,7 @@ public sealed class ServerFolderBrowserService(
 
         if (ServerFolderSelectionModes.RequiresWrite(request.SelectionMode) && !hasWrite)
         {
-            issues.Add(Issue("write_required", "This folder must be writable for the selected managed or incoming mode."));
+            issues.Add(Issue("write_required", "This folder must be writable for the selected managed mode."));
         }
 
         AddProtectedPathIssue(resolved, issues);
@@ -374,8 +374,7 @@ public sealed class ServerFolderBrowserService(
         List<ServerFolderValidationIssueDto> issues)
     {
         var configured = configurationSnapshot.Libraries
-            .SelectMany(library => library.Sources.Select(source => (source.Id, source.Path, Label: library.Name)))
-            .Concat(configurationSnapshot.IncomingSources.Select(source => (source.Id, source.Path, Label: "an import folder")));
+            .SelectMany(library => library.Sources.Select(source => (source.Id, source.Path, Label: library.Name)));
 
         foreach (var source in configured)
         {

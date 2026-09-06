@@ -267,7 +267,7 @@ public sealed class ViewLibraryServiceTests
             }).GetAwaiter().GetResult();
             _configuration.SaveLibraries(new LibrariesConfiguration
             {
-                SchemaVersion = "5.0",
+                SchemaVersion = "6.0",
                 StorageLocations =
                 [
                     new ServerStorageLocationConfig

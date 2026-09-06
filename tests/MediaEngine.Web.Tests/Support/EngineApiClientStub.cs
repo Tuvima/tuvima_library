@@ -267,12 +267,22 @@ internal class EngineApiClientStub : DispatchProxy
         _handlers[nameof(IEngineApiClient.GetLibrariesAsync)] =
             _ => Task.FromResult<LibrariesConfigurationDto?>(new LibrariesConfigurationDto
             {
-                IncomingSources =
+                Libraries =
                 [
-                    new IncomingSourceDto
+                    new LibraryFolderDto
                     {
                         Id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-                        Path = @"C:\Tuvima\Incoming",
+                        Name = "Movies",
+                        Kind = "catalogued",
+                        Area = "watch",
+                        Sources =
+                        [
+                            new LibrarySourceDto
+                            {
+                                Id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                                Path = @"C:\Tuvima\Movies",
+                            },
+                        ],
                     },
                 ],
             });

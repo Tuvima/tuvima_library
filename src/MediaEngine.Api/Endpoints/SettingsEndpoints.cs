@@ -19,7 +19,6 @@ using ContractPipelineConfiguration = MediaEngine.Contracts.Settings.PipelineCon
 using ContractTranscodingSettings = MediaEngine.Contracts.Settings.TranscodingSettings;
 using FieldMappingResponse = MediaEngine.Contracts.Settings.FieldMappingDto;
 using HydrationSettingsDto = MediaEngine.Contracts.Settings.HydrationSettingsDto;
-using IncomingSourceSettingsDto = MediaEngine.Contracts.Settings.IncomingSourceDto;
 using LibrariesConfigurationSettingsDto = MediaEngine.Contracts.Settings.LibrariesConfigurationDto;
 using MediaTypeConfigurationDto = MediaEngine.Contracts.Settings.MediaTypeConfigurationDto;
 using MediaTypeDefinitionDto = MediaEngine.Contracts.Settings.MediaTypeDefinitionDto;
@@ -45,7 +44,6 @@ using SettingsCatalogEntryResponse = MediaEngine.Contracts.Settings.SettingsCata
 using SettingsSavedResponse = MediaEngine.Contracts.Settings.SettingsSavedResponse;
 using TestPathRequest = MediaEngine.Contracts.Settings.TestPathRequest;
 using TestPathResponse = MediaEngine.Contracts.Settings.PathTestResultDto;
-using UpdateIncomingSourcesRequest = MediaEngine.Contracts.Settings.UpdateIncomingSourcesRequest;
 using UpdateLibrariesRequest = MediaEngine.Contracts.Settings.UpdateLibrariesRequest;
 using UpdateOrganizationTemplateRequest = MediaEngine.Contracts.Settings.UpdateOrganizationTemplateRequest;
 using UpdateProviderRequest = MediaEngine.Contracts.Settings.UpdateProviderRequest;
@@ -57,13 +55,12 @@ namespace MediaEngine.Api.Endpoints;
 /// All routes are grouped under <c>/settings</c>.
 ///
 /// Access:
-///   Libraries, incoming sources, test-path, organization-template — Administrator only.
+///   Libraries, test-path, organization-template — Administrator only.
 ///   Providers (read) — Administrator or Curator.
 ///   Providers (write) — Administrator only.
 ///
 /// <list type="bullet">
-///   <item><c>GET/PUT /settings/libraries</c> — complete schema 4 library and approved server-root configuration</item>
-///   <item><c>GET/PUT /settings/incoming-sources</c> — shared universal-intake folders</item>
+///   <item><c>GET/PUT /settings/libraries</c> — complete library and approved server-root configuration</item>
 ///   <item><c>POST   /settings/test-path</c> — probe a path for existence / read / write access</item>
 ///   <item><c>GET    /settings/providers</c> — enabled state + async reachability for each provider</item>
 /// </list>
@@ -200,7 +197,7 @@ public static class SettingsEndpoints
             return Results.Ok(SettingsContractMapper.ToContract(configLoader.LoadLibraries()));
         })
         .WithName("GetLibraries")
-        .WithSummary("Returns schema 5 catalogued libraries, the single View root, approved storage, and incoming sources.")
+        .WithSummary("Returns schema 6 catalogued libraries, the single View root, and approved storage.")
         .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
@@ -228,46 +225,8 @@ public static class SettingsEndpoints
             return Results.Ok(SettingsContractMapper.ToContract(config));
         })
         .WithName("UpdateLibraries")
-        .WithSummary("Replaces schema 5 catalogued libraries, the single View root, approved storage, and incoming sources.")
+        .WithSummary("Replaces schema 6 catalogued libraries, the single View root, and approved storage.")
         .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
-
-        // The Incoming tab uses this focused route while persisting into the same
-        // authoritative libraries.json document as the complete endpoint above.
-        grp.MapGet("/incoming-sources", (IConfigurationLoader configLoader) =>
-            Results.Ok(configLoader.LoadLibraries().IncomingSources.Select(SettingsContractMapper.ToContract)))
-        .WithName("GetIncomingSources")
-        .WithSummary("Returns shared, unassigned intake sources.")
-        .Produces<IEnumerable<IncomingSourceSettingsDto>>(StatusCodes.Status200OK)
-        .RequireAdmin();
-
-        grp.MapPut("/incoming-sources", (
-            UpdateIncomingSourcesRequest request,
-            IConfigurationLoader configLoader) =>
-        {
-            var current = configLoader.LoadLibraries();
-            current.IncomingSources = (request.IncomingSources ?? [])
-                .Select(SettingsContractMapper.ToStorage)
-                .ToList();
-            var pathError = ValidateConfiguredPaths(current);
-            if (pathError is not null)
-            {
-                return ApiErrors.BadRequest(pathError);
-            }
-
-            var validationErrors = JsonConfigValidator.Validate(current, "libraries.json");
-            if (validationErrors.Count > 0)
-            {
-                return ApiErrors.BadRequest(string.Join(" ", validationErrors));
-            }
-
-            configLoader.SaveLibraries(current);
-            return Results.Ok(current.IncomingSources.Select(SettingsContractMapper.ToContract));
-        })
-        .WithName("UpdateIncomingSources")
-        .WithSummary("Replaces shared, unassigned intake sources.")
-        .Produces<IEnumerable<IncomingSourceSettingsDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
@@ -1443,8 +1402,7 @@ public static class SettingsEndpoints
 
     internal static string? ValidateConfiguredPaths(LibrariesConfiguration config)
     {
-        foreach (var path in config.Libraries.SelectMany(library => library.Sources).Select(source => source.Path)
-                     .Concat(config.IncomingSources.Select(source => source.Path)))
+        foreach (var path in config.Libraries.SelectMany(library => library.Sources).Select(source => source.Path))
         {
             var error = PathValidator.Validate(path);
             if (error is not null)
@@ -1458,7 +1416,7 @@ public static class SettingsEndpoints
 
     internal static string? ValidateViewStorage(LibrariesConfiguration config)
     {
-        if (!string.Equals(config.SchemaVersion, "5.0", StringComparison.Ordinal))
+        if (!string.Equals(config.SchemaVersion, "6.0", StringComparison.Ordinal))
             return "libraries.json must use schema_version 5.0.";
         if (config.Libraries.Any(library =>
                 string.Equals(library.Kind, LibraryKinds.Personal, StringComparison.OrdinalIgnoreCase)))

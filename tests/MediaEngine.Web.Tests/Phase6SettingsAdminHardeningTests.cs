@@ -45,7 +45,7 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void LibrariesTab_RendersSchemaFiveCataloguedLibrariesAndViewRootAdministration()
+    public void LibrariesTab_RendersCataloguedLibrariesAndViewRootAdministration()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LibrariesTab.razor");
         var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
@@ -53,13 +53,12 @@ public sealed class Phase6SettingsAdminHardeningTests
 
         Assert.DoesNotContain("aria-label=\"Media Management sections\"", source, StringComparison.Ordinal);
         Assert.Contains("new(SettingsSection.Libraries", nav, StringComparison.Ordinal);
-        Assert.Contains("new(SettingsSection.ImportFolders", nav, StringComparison.Ordinal);
         Assert.Contains("new(SettingsSection.Ingestion", nav, StringComparison.Ordinal);
         Assert.DoesNotContain("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
 
         Assert.Contains("All libraries", source, StringComparison.Ordinal);
         Assert.Contains("Personal Space", source, StringComparison.Ordinal);
-        Assert.Contains("Import folders", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Import folders", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Choose a media area", source, StringComparison.Ordinal);
         Assert.Contains("new(\"all\", \"All\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"read\", \"Read\"", source, StringComparison.Ordinal);

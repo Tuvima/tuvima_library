@@ -6,7 +6,7 @@ PLATFORM="${2:?usage: smoke.sh IMAGE PLATFORM}"
 SUFFIX="${GITHUB_RUN_ID:-local}-${RANDOM}-${RANDOM}"
 CONTAINER="tuvima-smoke-${SUFFIX}"
 VOLUME_PREFIX="tuvima-smoke-${SUFFIX}"
-VOLUMES=(config db models artwork backups transcode watch library)
+VOLUMES=(config db models artwork backups transcode library)
 
 cleanup() {
     docker rm --force "$CONTAINER" >/dev/null 2>&1 || true
@@ -32,7 +32,6 @@ docker run --detach \
     --volume "${VOLUME_PREFIX}-artwork:/artwork-cache" \
     --volume "${VOLUME_PREFIX}-backups:/backups" \
     --volume "${VOLUME_PREFIX}-transcode:/transcode" \
-    --volume "${VOLUME_PREFIX}-watch:/watch" \
     --volume "${VOLUME_PREFIX}-library:/library" \
     "$IMAGE" >/dev/null
 
@@ -102,7 +101,7 @@ docker exec --user 10001:10001 "$CONTAINER" sh -ec '
     test ! -e /config/backups/tuvima-backup-20260819-230724.zip
     test -z "$(find /config/secrets -type f -print -quit)"
     test -z "$(find /config -name "*.bak" -print -quit)"
-    grep -q "schema_version.*5.0" /config/libraries.json
+    grep -q "schema_version.*6.0" /config/libraries.json
     grep -q "view_storage" /config/libraries.json
     test -z "$(grep "kind.*photos" /config/libraries.json || true)"
     grep -q "ffmpeg_binary_path.*/usr/bin/ffmpeg" /config/transcoding.json
@@ -121,7 +120,7 @@ docker exec --user 10001:10001 "$CONTAINER" sh -ec '
 '
 
 docker exec --user 10001:10001 "$CONTAINER" sh -ec '
-    mkdir -p /transcode/fixtures /watch/music /watch/movies
+    mkdir -p /transcode/fixtures /library/Music /library/Movies
     ffmpeg -hide_banner -loglevel error -f lavfi -i sine=frequency=880:duration=2 \
         -metadata title="Container Audio" /transcode/fixtures/container-audio.mp3
     ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=purple:s=320x180:d=2 \
@@ -129,8 +128,8 @@ docker exec --user 10001:10001 "$CONTAINER" sh -ec '
         -c:v libx264 -pix_fmt yuv420p -c:a aac /transcode/fixtures/container-video.mp4
     ffmpeg -hide_banner -loglevel error -ss 0.5 -i /transcode/fixtures/container-video.mp4 \
         -frames:v 1 /artwork-cache/container-smoke-thumbnail.jpg
-    mv /transcode/fixtures/container-audio.mp3 "/watch/music/Container Audio.mp3"
-    mv /transcode/fixtures/container-video.mp4 "/watch/movies/Container Video.mp4"
+    mv /transcode/fixtures/container-audio.mp3 "/library/Music/Container Audio.mp3"
+    mv /transcode/fixtures/container-video.mp4 "/library/Movies/Container Video.mp4"
     printf persisted > /models/container-smoke-marker
     printf persisted > /backups/container-smoke-marker
 '

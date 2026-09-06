@@ -7,7 +7,7 @@ namespace MediaEngine.Domain.Configuration;
 public sealed class LibrariesConfiguration
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; set; } = "5.0";
+    public string SchemaVersion { get; set; } = "6.0";
 
     [JsonPropertyName("storage_locations")]
     public List<ServerStorageLocationConfig> StorageLocations { get; set; } = [];
@@ -17,9 +17,6 @@ public sealed class LibrariesConfiguration
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderConfig> Libraries { get; set; } = [];
-
-    [JsonPropertyName("incoming_sources")]
-    public List<IncomingSourceConfig> IncomingSources { get; set; } = [];
 
     [JsonPropertyName("personal_library_policy")]
     public PersonalLibraryPolicyConfig PersonalLibraryPolicy { get; set; } = new();
@@ -89,34 +86,6 @@ public sealed class PersonalLibraryPolicyConfig
 
     [JsonPropertyName("default_visibility")]
     public string DefaultVisibility { get; set; } = LibraryVisibility.Private;
-
-    [JsonExtensionData]
-    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
-}
-
-/// <summary>An unassigned intake source whose files are routed to a destination library.</summary>
-public sealed class IncomingSourceConfig
-{
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = string.Empty;
-
-    [JsonPropertyName("path")]
-    public string Path { get; set; } = string.Empty;
-
-    [JsonPropertyName("purpose")]
-    public string Purpose { get; set; } = IncomingSourcePurposes.SharedIntake;
-
-    [JsonPropertyName("default_handling")]
-    public string DefaultHandling { get; set; } = IncomingDefaultHandling.RouteAutomatically;
-
-    [JsonPropertyName("include_subdirectories")]
-    public bool IncludeSubdirectories { get; set; } = true;
-
-    [JsonPropertyName("source_type")]
-    public string SourceType { get; set; } = LibrarySourceTypes.LocalFolder;
-
-    [JsonPropertyName("notes")]
-    public string? Notes { get; set; }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }

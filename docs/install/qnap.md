@@ -12,7 +12,7 @@ QNAP Container Station can create an application from Docker Compose YAML. Use a
 
 ## Prepare storage
 
-Create persistent folders under a share such as `/share/Container/tuvima` for `config`, `db`, `models`, `artwork-cache`, `backups`, and `transcode`. Choose separate media share paths for `/watch` and `/library`.
+Create persistent folders under a share such as `/share/Container/tuvima` for `config`, `db`, `models`, `artwork-cache`, `backups`, and `transcode`. Choose the media share paths that will become your managed or read-only library sources.
 
 Use an administrator SSH session and `id USERNAME` to find a numeric UID/GID with the required share permissions. Put those values in `TUVIMA_UID` and `TUVIMA_GID`, and set `TZ` to the NAS timezone.
 

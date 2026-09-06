@@ -50,7 +50,7 @@ This repository uses normal .NET restore. It does not use npm or yarn for applic
 Configuration lives under `config/`. The most important first-run files are:
 
 - `config/core.json` - data root, database path, server name, language, and library root defaults
-- `config/libraries.json` - catalogued libraries, their governed sources, the single View storage root, and shared incoming locations
+- `config/libraries.json` - catalogued libraries, their governed source folders, and the single View storage root
 - `config/providers/*.json` - provider configuration
 - `config/secrets/` - provider credentials; this folder is ignored by git
 - `config/ai.json` - Local AI models, feature flags, vocabulary, and schedules

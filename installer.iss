@@ -111,20 +111,14 @@ end;
   paths are never replaced, and config files are never overwritten on upgrade. }
 procedure ConfigurePackagedPaths;
 var
-  ConfigDir, LibraryDir, WatchDir: string;
+  ConfigDir, LibraryDir: string;
 begin
   ConfigDir := ExpandConstant('{commonappdata}\Tuvima\config');
   LibraryDir := ExpandConstant('{commonappdata}\Tuvima\library');
-  WatchDir := ExpandConstant('{commonappdata}\Tuvima\watch');
-
   ReplacePackagedPath(ConfigDir + '\core.json',
     'C:\temp\tuvima-library', LibraryDir);
-  ReplacePackagedPath(ConfigDir + '\core.json',
-    'C:\temp\tuvima-import', WatchDir);
   ReplacePackagedPath(ConfigDir + '\libraries.json',
     'C:\temp\tuvima-library', LibraryDir);
-  ReplacePackagedPath(ConfigDir + '\libraries.json',
-    'C:\temp\tuvima-watch', WatchDir);
 end;
 
 { ── Write a one-click launch batch file ─────────────────────────────────── }

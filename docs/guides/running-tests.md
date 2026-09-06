@@ -168,8 +168,8 @@ They are absent in any other environment.
 
 ### POST /dev/seed-library
 
-Drops synthetic test files (EPUB, MP3, MP4, FLAC, CBZ) into the configured Watch Folders.
-The ingestion engine picks them up automatically if Watch mode is active.
+Drops synthetic test files (EPUB, MP3, MP4, FLAC, CBZ) into configured library source folders.
+The ingestion engine picks them up automatically.
 
 ```bash
 curl -X POST http://localhost:61495/dev/seed-library
@@ -179,7 +179,7 @@ Returns a summary of how many files were seeded per media type.
 
 ### POST /dev/wipe
 
-Wipes the database, library root, and Watch Folder, then re-initialises the empty database.
+Wipes disposable generated state and configured development source contents, then re-initialises the empty database.
 Stops the ingestion engine first to avoid processing files mid-wipe.
 
 ```bash
@@ -287,7 +287,7 @@ Key files for development:
 | File | Purpose |
 |---|---|
 | `config/core.json` | Library root, display name, language |
-| `config/libraries.json` | Watch Folder paths and media type assignments |
+| `config/libraries.json` | Library source paths, media types, and folder policies |
 | `config/server.json` | Port, auth bypass, rate limits |
 | `config/hydration.json` | Retail, Wikidata, and enrichment worker config |
 | `config/providers/*.json` | One file per metadata provider |
@@ -392,7 +392,7 @@ Another `dotnet` process has the database open. Run `taskkill //F //IM dotnet.ex
 (Windows) or `pkill -f dotnet` (Linux/macOS) and retry.
 
 **`/dev/seed-library` returns 0 seeded files**
-The Watch Folder path in `config/libraries.json` does not exist or the Engine does
+The configured library source path in `config/libraries.json` does not exist or the Engine does
 not have write permission. Check the path and create the directory if needed.
 
 **Provider returns no claims in `/debug/lookup`**

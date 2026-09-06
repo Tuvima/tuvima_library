@@ -155,7 +155,6 @@ docker build -t tuvima/library .
 docker run -p 8080:8080 -p 8081:8081 \
   -v tuvima-data:/data \
   -v /path/to/media:/library \
-  -v /path/to/inbox:/watch \
   tuvima/library
 ```
 

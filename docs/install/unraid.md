@@ -23,7 +23,7 @@ The template includes separate mappings for configuration, database, models, art
 
 ## Permissions and media safety
 
-The configured UID/GID needs read access to the Watch Folder and read/write access to `/library`, `/config`, `/db`, `/models`, `/artwork-cache`, `/backups`, and `/transcode`. Keep an existing library read-only and add it as an existing source in Tuvima instead of using it as the managed Library Root.
+The configured UID/GID needs the access required by each library source and read/write access to `/library`, `/config`, `/db`, `/models`, `/artwork-cache`, `/backups`, and `/transcode`. Keep an existing library read-only and add it as an existing source in Tuvima instead of using it as the managed Library Root.
 
 If startup reports a path is not writable, correct the share ownership or ACL. Do not solve it by enabling privileged mode; the template deliberately runs unprivileged after preparing its mounted folders.
 

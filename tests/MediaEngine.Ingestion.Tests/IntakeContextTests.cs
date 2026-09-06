@@ -61,7 +61,6 @@ public sealed class IntakeContextTests
 
     [Theory]
     [InlineData(IntakeSourceKinds.Watcher)]
-    [InlineData(IntakeSourceKinds.SharedIncoming)]
     [InlineData(IntakeSourceKinds.DirectLibrary)]
     [InlineData(IntakeSourceKinds.BrowserUpload)]
     [InlineData(IntakeSourceKinds.MobileBackup)]

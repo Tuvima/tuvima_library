@@ -75,7 +75,6 @@ internal static class SettingsContractMapper
     {
         var result = Convert<LibrariesConfiguration>(value);
         result.Libraries ??= [];
-        result.IncomingSources ??= [];
         result.ViewStorage ??= new ViewStorageConfig();
         result.PersonalLibraryPolicy ??= new PersonalLibraryPolicyConfig();
         foreach (var library in result.Libraries)
@@ -88,12 +87,6 @@ internal static class SettingsContractMapper
 
         return result;
     }
-
-    internal static IncomingSourceDto ToContract(IncomingSourceConfig value) =>
-        Convert<IncomingSourceDto>(value);
-
-    internal static IncomingSourceConfig ToStorage(IncomingSourceDto value) =>
-        Convert<IncomingSourceConfig>(value);
 
     private static TTarget Convert<TTarget>(object source) =>
         JsonSerializer.Deserialize<TTarget>(

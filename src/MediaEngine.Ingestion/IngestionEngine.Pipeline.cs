@@ -551,8 +551,6 @@ public sealed partial class IngestionEngine
         var candidateList = mediaTypeResolution.Candidates.ToList();
         context.MediaTypeCandidates = candidateList;
 
-        ApplySharedIncomingRouting(context, resolvedMediaType);
-
         // Always persist the resolved media_type as a canonical value so that
         // TryReorganizeExistingAsync (and any future re-score) knows the file type.
         // Without this, re-organization from canonical values loses the media type
@@ -633,11 +631,6 @@ public sealed partial class IngestionEngine
                 ct, ingestionRunId).ConfigureAwait(false);
         }
 
-        if (context.IntakeRoutingFailure is not null)
-        {
-            await CreateUnresolvedIntakeReviewAsync(context, ct).ConfigureAwait(false);
-        }
-
         // Create RootWatchFolder review item when a file was dropped directly into any
         // configured source root with an ambiguous extension.
         if (mediaTypeResolution.RootWatchFolderReview)
@@ -653,13 +646,6 @@ public sealed partial class IngestionEngine
         // Enrich the candidate with resolved metadata.
         candidate.Metadata = BuildMetadataDict(scored);
         candidate.DetectedMediaType = resolvedMediaType;
-
-        if (context.IntakeRoutingFailure is not null)
-        {
-            await BlockUnresolvedIncomingAsync(context, ct).ConfigureAwait(false);
-            context.Complete();
-            return;
-        }
 
         // Step 9b: create Collection ? Work ? Edition chain so the FK on media_assets
         // can be satisfied.  The factory reuses an existing Collection when a matching

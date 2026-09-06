@@ -53,8 +53,8 @@ public sealed class SettingsEndpointRouteTests
         Assert.DoesNotContain("grp.MapPut(\"/folders\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapGet(\"/libraries\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPut(\"/libraries\"", source, StringComparison.Ordinal);
-        Assert.Contains("grp.MapGet(\"/incoming-sources\"", source, StringComparison.Ordinal);
-        Assert.Contains("grp.MapPut(\"/incoming-sources\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("grp.MapGet(\"/incoming-sources\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("grp.MapPut(\"/incoming-sources\"", source, StringComparison.Ordinal);
         Assert.Contains("configLoader.SaveLibraries", source, StringComparison.Ordinal);
         Assert.Contains("JsonConfigValidator.Validate", source, StringComparison.Ordinal);
         Assert.DoesNotContain("LibraryFolderResolver.ValidateNoOverlap", source, StringComparison.Ordinal);

@@ -114,15 +114,16 @@ public sealed class TestHarnessGuardrailTests
     }
 
     [Fact]
-    public void LegacyBookHarnessReadsPluralWatchDirectories()
+    public void BookHarnessReadsTheConfiguredBooksLibrarySource()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "tools", "Test-BookIngestion.ps1"));
 
-        Assert.Contains("Resolve-WatchDirectoryFromSettings", source);
-        Assert.Contains("[\"watch_directories\"]", source);
-        Assert.Contains("[\"watch_directory\"]", source);
-        Assert.Contains("$resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreSettings", source);
-        Assert.Contains("$resolvedWatchDirectory = Resolve-WatchDirectoryFromSettings $coreFile", source);
+        Assert.Contains("Resolve-BookLibrarySourceFromSettings", source);
+        Assert.Contains("Invoke-Api \"/settings/libraries\"", source);
+        Assert.Contains("$_.category -eq \"Books\"", source);
+        Assert.Contains("$_.role -eq \"intake\"", source);
+        Assert.DoesNotContain("[\"watch_directories\"]", source);
+        Assert.DoesNotContain("[\"watch_directory\"]", source);
     }
 
     [Fact]

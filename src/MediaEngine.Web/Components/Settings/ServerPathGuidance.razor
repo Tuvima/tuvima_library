@@ -10,8 +10,6 @@
 </AppAlert>
 
 @code {
-    [Parameter] public bool ImportFolders { get; set; }
-
-    private string Title => ImportFolders ? "Import folder paths" : "Library source paths";
-    private string ExamplePath => ImportFolders ? "/watch" : "/library/Books";
+    private const string Title = "Library source paths";
+    private const string ExamplePath = "/library/Books";
 }

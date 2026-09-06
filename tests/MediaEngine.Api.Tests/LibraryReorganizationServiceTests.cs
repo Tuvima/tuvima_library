@@ -96,7 +96,7 @@ public sealed class LibraryReorganizationServiceTests
             Configuration = new ConfigurationDirectoryLoader(Path.Combine(_root, "config"));
             Configuration.SaveLibraries(new LibrariesConfiguration
             {
-                SchemaVersion = "5.0",
+                SchemaVersion = "6.0",
                 StorageLocations =
                 [
                     new ServerStorageLocationConfig

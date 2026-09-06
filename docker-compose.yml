@@ -30,8 +30,6 @@ services:
 
     volumes:
       # ── EDIT THESE PATHS to match your NAS/server layout ─────────────────
-      # Watch folder: drop new media files here and the Engine picks them up.
-      - /mnt/user/media/tuvima-watch:/watch
       # Library root: the Engine organises your files into this folder.
       - /mnt/user/media/tuvima-library:/library
       # Config: stores your settings (survives container image updates).
@@ -48,7 +46,7 @@ services:
       - /mnt/user/appdata/tuvima/transcode:/transcode
 
     environment:
-      # Runtime state locations. Library/watch paths are defined in the
+      # Runtime state locations. Library paths are defined in the
       # first-run /config/libraries.json template and remain user-editable.
       TUVIMA_CONFIG_DIR: /config
       TUVIMA_DB_PATH: /db/library.db
