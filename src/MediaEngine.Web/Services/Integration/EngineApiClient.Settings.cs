@@ -914,6 +914,23 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public async Task<ActivityBatchInsightsDto?> GetActivityBatchInsightsAsync(
+        Guid batchId,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<ActivityBatchInsightsDto>(
+                $"/activity/batches/{batchId:D}/insights", ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /activity/batches/{BatchId}/insights failed", batchId);
+            return null;
+        }
+    }
+
     public async Task<PagedResponse<ActivityPersonAuditDto>?> GetActivityPeopleAsync(
         ActivityAuditQuery query,
         CancellationToken ct = default)
@@ -1547,29 +1564,6 @@ public sealed partial class EngineApiClient
             _logger.LogWarning(ex, "DELETE /ai/benchmark failed");
             return AiOperationResultDto<HardwareProfileDto>.Failure(
                 ClientProblem("Engine communication failed", "The Dashboard could not invalidate the benchmark."));
-        }
-    }
-
-    public async Task<List<ActivityOperationEventDto>> GetActivityBatchEventsAsync(
-        Guid batchId,
-        string? category = null,
-        int limit = 100,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var parameters = new List<string> { $"limit={Math.Clamp(limit, 1, 500)}" };
-            if (!string.IsNullOrWhiteSpace(category) && !category.Equals("all", StringComparison.OrdinalIgnoreCase))
-                parameters.Add($"category={Uri.EscapeDataString(category)}");
-            var raw = await _http.GetFromJsonAsync<List<ActivityOperationEventDto>>(
-                $"/activity/batches/{batchId:D}/events?{string.Join("&", parameters)}", ct);
-            return raw ?? [];
-        }
-        catch (OperationCanceledException) { return []; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /activity/batches/{BatchId}/events failed", batchId);
-            return [];
         }
     }
 

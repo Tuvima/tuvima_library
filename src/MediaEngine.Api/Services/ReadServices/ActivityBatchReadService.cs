@@ -271,20 +271,19 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 COALESCE(ar.EventCount, 0) + COALESCE(oer.EventCount, 0) AS EventCount,
                 COALESCE(pr.PeopleCount, 0) AS PeopleCount,
                 MAX(
-                    pb.files_review,
+                    pb.files_review + pb.files_no_match,
                     COALESCE(rr.ReviewCount, 0)
                 ) AS ReviewCount,
-                pb.files_failed + pb.files_no_match + MAX(
-                    pb.files_review,
-                    COALESCE(rr.ReviewCount, 0)
-                ) + COALESCE(mor.OperationWarningCount, 0) + COALESCE(mor.OperationFailureCount, 0) AS AlertCount,
+                COALESCE(mor.OperationWarningCount, 0)
+                    + CASE WHEN pb.status IN ('abandoned', 'interrupted') THEN 0 ELSE pb.files_failed END
+                    + COALESCE(mor.OperationFailureCount, 0) AS AlertCount,
                 pb.files_total AS FilesDiscoveredCount,
                 pb.files_registered AS ItemsIdentifiedCount,
                 COALESCE(ar.MetadataUpdatedCount, 0) AS MetadataUpdatedCount,
                 COALESCE(mor.EnrichmentOperationCount, 0) AS EnrichmentOperationCount,
-                pb.files_no_match + MAX(pb.files_review, COALESCE(rr.ReviewCount, 0))
-                    + COALESCE(mor.OperationWarningCount, 0) AS WarningCount,
-                pb.files_failed + COALESCE(mor.OperationFailureCount, 0) AS FailureCount
+                COALESCE(mor.OperationWarningCount, 0) AS WarningCount,
+                CASE WHEN pb.status IN ('abandoned', 'interrupted') THEN 0 ELSE pb.files_failed END
+                    + COALESCE(mor.OperationFailureCount, 0) AS FailureCount
             FROM page_batches pb
             LEFT JOIN latest_job_rollups ljr ON ljr.BatchId = pb.id
             LEFT JOIN operation_rollups mor ON mor.BatchId = pb.id
@@ -336,71 +335,43 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         return PagedResponse<ActivityBatchSummaryDto>.FromPage(items, page, total);
     }
 
-    public async Task<IReadOnlyList<ActivityOperationEventDto>> GetEventsAsync(
+    public async Task<ActivityBatchInsightsDto> GetInsightsAsync(
         Guid batchId,
-        string? category,
-        int limit,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        var boundedLimit = Math.Clamp(limit, 1, 500);
-
         using var conn = _db.CreateConnection();
-        var rows = (await conn.QueryAsync<ActivityOperationEventRow>("""
-            SELECT
-                'activity-' || CAST(sa.id AS TEXT) AS EventId,
-                sa.ingestion_run_id AS BatchId,
-                sa.occurred_at AS OccurredAt,
-                sa.action_type AS EventType,
-                COALESCE(NULLIF(sa.collection_name, ''), NULLIF(sa.entity_type, '')) AS Item,
-                b.source_path AS Library,
-                NULL AS Provider,
-                sa.action_type AS Operation,
-                NULL AS OperationStatus,
-                NULL AS DurationSeconds,
-                sa.detail AS Message,
-                sa.entity_id AS EntityId,
-                sa.changes_json AS TechnicalDetails
-            FROM system_activity sa
-            JOIN ingestion_batches b ON b.id = sa.ingestion_run_id
-            WHERE sa.ingestion_run_id = @batchId
 
-            UNION ALL
-
+        var insight = await conn.QueryFirstOrDefaultAsync<ActivityBatchInsightsDto>("""
             SELECT
-                'operation-' || LOWER(HEX(moe.id)) AS EventId,
-                moe.batch_id AS BatchId,
-                moe.occurred_at AS OccurredAt,
-                moe.event_type AS EventType,
-                COALESCE(NULLIF(mo.result_summary, ''), NULLIF(mo.source_path, ''), NULLIF(mo.entity_kind, '')) AS Item,
-                b.source_path AS Library,
+                @batchId AS BatchId,
+                COALESCE(SUM(CASE WHEN LOWER(COALESCE(mo.operation_type, '')) LIKE '%artwork%' THEN 1 ELSE 0 END), 0) AS ArtworkCount,
+                COALESCE(SUM(CASE WHEN LOWER(COALESCE(mo.operation_type, '')) LIKE '%relationship%'
+                                      OR LOWER(COALESCE(mo.operation_type, '')) LIKE '%universe%' THEN 1 ELSE 0 END), 0) AS RelationshipCount,
+                COALESCE(SUM(CASE WHEN LOWER(COALESCE(mo.operation_type, '')) LIKE '%subtitle%' THEN 1 ELSE 0 END), 0) AS SubtitleCount,
+                COALESCE(SUM(CASE WHEN LOWER(COALESCE(mo.operation_type, '')) LIKE '%lyric%' THEN 1 ELSE 0 END), 0) AS LyricsCount,
+                COALESCE(SUM(CASE WHEN NULLIF(mo.provider_id, '') IS NOT NULL THEN 1 ELSE 0 END), 0) AS ProviderOperationCount,
+                COALESCE(SUM(CASE WHEN mo.status IN ('retry_waiting', 'interrupted', 'failed_retryable') THEN 1 ELSE 0 END), 0) AS RetryCount,
+                COALESCE(SUM(CASE WHEN mo.status IN ('failed_terminal', 'dead_lettered') THEN 1 ELSE 0 END), 0) AS ProviderFailureCount
+            FROM media_operations mo
+            WHERE mo.batch_id = @batchId;
+            """, new { batchId }).ConfigureAwait(false)
+            ?? new ActivityBatchInsightsDto { BatchId = batchId };
+
+        insight.Providers = (await conn.QueryAsync<ActivityProviderSummaryDto>("""
+            SELECT
                 mo.provider_id AS Provider,
-                mo.operation_type AS Operation,
-                COALESCE(NULLIF(moe.new_status, ''), NULLIF(mo.status, '')) AS OperationStatus,
-                CASE
-                    WHEN mo.started_at IS NOT NULL THEN
-                        MAX(0, (julianday(COALESCE(mo.completed_at, mo.updated_at)) - julianday(mo.started_at)) * 86400.0)
-                    ELSE NULL
-                END AS DurationSeconds,
-                moe.message AS Message,
-                moe.entity_id AS EntityId,
-                moe.detail_json AS TechnicalDetails
-            FROM media_operation_events moe
-            JOIN media_operations mo ON mo.id = moe.operation_id
-            JOIN ingestion_batches b ON b.id = moe.batch_id
-            WHERE moe.batch_id = @batchId
+                COUNT(*) AS OperationCount,
+                SUM(CASE WHEN mo.status IN ('retry_waiting', 'interrupted', 'failed_retryable') THEN 1 ELSE 0 END) AS RetryCount,
+                SUM(CASE WHEN mo.status IN ('failed_terminal', 'dead_lettered') THEN 1 ELSE 0 END) AS FailureCount
+            FROM media_operations mo
+            WHERE mo.batch_id = @batchId
+              AND NULLIF(mo.provider_id, '') IS NOT NULL
+            GROUP BY mo.provider_id
+            ORDER BY OperationCount DESC, Provider ASC;
+            """, new { batchId }).ConfigureAwait(false)).AsList();
 
-            ORDER BY OccurredAt ASC
-            LIMIT 1000;
-            """, new { batchId })).AsList();
-
-        return rows
-            .Select(ToOperationEvent)
-            .Where(item => string.IsNullOrWhiteSpace(category)
-                || category.Equals("all", StringComparison.OrdinalIgnoreCase)
-                || item.Category.Equals(category, StringComparison.OrdinalIgnoreCase))
-            .Take(boundedLimit)
-            .ToList();
+        return insight;
     }
 
     public async Task<IReadOnlyList<ActivityMediaTypeGroupDto>> GetGroupsAsync(
@@ -476,8 +447,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 COUNT(DISTINCT pml.person_id) AS PeopleCount,
                 COUNT(DISTINCT CASE WHEN scoped.needs_review = 1 THEN scoped.entity_id END) AS ReviewCount,
                 COUNT(DISTINCT CASE
-                    WHEN scoped.needs_review = 1 THEN scoped.entity_id
-                    WHEN mo.status IN ('blocked', 'failed_terminal', 'dead_lettered', 'cancelled', 'no_result', 'missing_confirmed') THEN mo.id
+                    WHEN mo.status IN ('failed_terminal', 'dead_lettered') THEN mo.id
                 END) AS AlertCount,
                 MAX(COALESCE(sa.occurred_at, mo.updated_at, scoped.updated_at)) AS LastActivityAt
             FROM scoped
@@ -504,7 +474,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 0 AS EventCount,
                 0 AS PeopleCount,
                 b.files_review AS ReviewCount,
-                b.files_failed + b.files_no_match + b.files_review AS AlertCount,
+                b.files_failed AS AlertCount,
                 b.updated_at AS LastActivityAt
             FROM ingestion_batches b
             WHERE b.id = @batchId;
@@ -743,8 +713,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 COALESCE(pr.PeopleCount, 0) AS PeopleCount,
                 COALESCE(ar.ArtworkCount, 0) AS ArtworkCount,
                 COALESCE(rr.ReviewCount, 0) AS ReviewCount,
-                COALESCE(rr.ReviewCount, 0)
-                + CASE WHEN mo.status IN ('blocked', 'failed_terminal', 'dead_lettered', 'cancelled', 'no_result', 'missing_confirmed') THEN 1 ELSE 0 END AS AlertCount,
+                CASE WHEN mo.status IN ('failed_terminal', 'dead_lettered') THEN 1 ELSE 0 END AS AlertCount,
                 COALESCE(er.EventCount, 0) AS EventCount,
                 COALESCE(
                     er.LastActivityAt,
@@ -1445,21 +1414,31 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            clauses.Add("""
-                AND (
-                    LOWER(p.name) LIKE @search
-                    OR LOWER(COALESCE(p.wikidata_qid, '')) LIKE @search
-                    OR EXISTS (
-                        SELECT 1
-                        FROM canonical_values cv
-                        WHERE cv.entity_id IN (ma.id, w.id)
-                          AND cv.key IN ('title', 'episode_title')
-                          AND LOWER(cv.value) LIKE @search
+            var search = query.Search.Trim();
+            if (search.StartsWith("batch:", StringComparison.OrdinalIgnoreCase)
+                && Guid.TryParse(search["batch:".Length..], out var batchId))
+            {
+                clauses.Add("AND b.id = @batchId");
+                parameters.Add("batchId", batchId);
+            }
+            else
+            {
+                clauses.Add("""
+                    AND (
+                        LOWER(p.name) LIKE @search
+                        OR LOWER(COALESCE(p.wikidata_qid, '')) LIKE @search
+                        OR EXISTS (
+                            SELECT 1
+                            FROM canonical_values cv
+                            WHERE cv.entity_id IN (ma.id, w.id)
+                              AND cv.key IN ('title', 'episode_title')
+                              AND LOWER(cv.value) LIKE @search
+                        )
+                        OR LOWER(COALESCE(b.source_path, '')) LIKE @search
                     )
-                    OR LOWER(COALESCE(b.source_path, '')) LIKE @search
-                )
-                """);
-            parameters.Add("search", $"%{query.Search.Trim().ToLowerInvariant()}%");
+                    """);
+                parameters.Add("search", $"%{search.ToLowerInvariant()}%");
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(query.MediaType))
@@ -1523,23 +1502,6 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         public int FailureCount { get; set; }
     }
 
-    private sealed class ActivityOperationEventRow
-    {
-        public string EventId { get; set; } = "";
-        public Guid BatchId { get; set; }
-        public DateTimeOffset OccurredAt { get; set; }
-        public string EventType { get; set; } = "";
-        public string? Item { get; set; }
-        public string? Library { get; set; }
-        public string? Provider { get; set; }
-        public string? Operation { get; set; }
-        public string? OperationStatus { get; set; }
-        public double? DurationSeconds { get; set; }
-        public string? Message { get; set; }
-        public Guid? EntityId { get; set; }
-        public string? TechnicalDetails { get; set; }
-    }
-
     private sealed class ActivityMediaTypeCountRow
     {
         public Guid BatchId { get; set; }
@@ -1547,79 +1509,4 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         public int Count { get; set; }
     }
 
-    private static ActivityOperationEventDto ToOperationEvent(ActivityOperationEventRow row)
-    {
-        var severity = ResolveOperationSeverity(row.EventType, row.OperationStatus, row.Message);
-        return new ActivityOperationEventDto
-        {
-            EventId = row.EventId,
-            BatchId = row.BatchId,
-            OccurredAt = row.OccurredAt,
-            Category = ResolveOperationCategory(row.EventType, row.Operation, severity),
-            EventType = row.EventType,
-            Item = row.Item,
-            Library = row.Library,
-            Provider = row.Provider,
-            Operation = row.Operation,
-            Result = ResolveOperationResult(row.OperationStatus, severity),
-            Severity = severity,
-            DurationSeconds = row.DurationSeconds,
-            Message = row.Message,
-            EntityId = row.EntityId,
-            TechnicalDetails = row.TechnicalDetails,
-        };
-    }
-
-    private static string ResolveOperationCategory(string? eventType, string? operation, string severity)
-    {
-        var value = $"{eventType} {operation}";
-        if (severity == "error") return "Failures";
-        if (severity == "warning") return "Warnings";
-        if (value.Contains("person", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("cast", StringComparison.OrdinalIgnoreCase)) return "People";
-        if (value.Contains("metadata", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("hydrat", StringComparison.OrdinalIgnoreCase)) return "Metadata";
-        if (value.Contains("identity", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("match", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("qid", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("wikidata", StringComparison.OrdinalIgnoreCase)) return "Identification";
-        if (value.Contains("enrich", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("artwork", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("relationship", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("universe", StringComparison.OrdinalIgnoreCase)) return "Enrichment";
-        if (value.Contains("file", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("ingestion", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("scan", StringComparison.OrdinalIgnoreCase)) return "Files";
-        if (value.Contains("review", StringComparison.OrdinalIgnoreCase)) return "Review";
-        return "Other";
-    }
-
-    private static string ResolveOperationSeverity(string? eventType, string? status, string? message)
-    {
-        var value = $"{eventType} {status} {message}";
-        if (value.Contains("failed", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("error", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("dead_letter", StringComparison.OrdinalIgnoreCase)) return "error";
-        if (value.Contains("warning", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("retry", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("interrupted", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("review", StringComparison.OrdinalIgnoreCase)) return "warning";
-        if (value.Contains("succeeded", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("complete", StringComparison.OrdinalIgnoreCase)
-            || value.Contains("added", StringComparison.OrdinalIgnoreCase)) return "success";
-        return "info";
-    }
-
-    private static string ResolveOperationResult(string? status, string severity)
-    {
-        if (!string.IsNullOrWhiteSpace(status))
-            return status.Replace('_', ' ');
-        return severity switch
-        {
-            "error" => "Failed",
-            "warning" => "Attention",
-            "success" => "Success",
-            _ => "Recorded",
-        };
-    }
 }

@@ -42,12 +42,12 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
 
         var batches = await service.GetBatchesAsync(query);
         var groups = await service.GetGroupsAsync(seed.BatchId);
-        var events = await service.GetEventsAsync(seed.BatchId, null, 100);
+        var insights = await service.GetInsightsAsync(seed.BatchId);
         var items = await service.GetItemsAsync(seed.BatchId, "Needs Review", 0, 10, "title", "asc");
         var movieItems = await service.GetItemsAsync(seed.BatchId, "Movies", 0, 10, "title", "asc");
         var detail = await service.GetItemDetailAsync(seed.BatchId, seed.AssetId);
         var people = await service.GetPeopleAsync(new ActivityBatchQuery(
-            Search: "Frank Herbert",
+            Search: $"batch:{seed.BatchId:D}",
             MediaType: "Movies",
             Status: null,
             Source: null,
@@ -66,17 +66,15 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         Assert.Equal(3, batch.EventCount);
         Assert.Equal(1, batch.PeopleCount);
         Assert.Equal(1, batch.ReviewCount);
-        Assert.Equal(1, batch.AlertCount);
+        Assert.Equal(0, batch.AlertCount);
         Assert.NotNull(batch.DurationLabel);
         Assert.Equal("Movies", Assert.Single(batch.MediaTypes).MediaType);
         Assert.Equal(1, batch.FilesDiscoveredCount);
         Assert.Equal(1, batch.ItemsIdentifiedCount);
-        Assert.Equal(1, batch.WarningCount);
+        Assert.Equal(0, batch.WarningCount);
         Assert.Equal(0, batch.FailureCount);
 
-        Assert.Equal(3, events.Count);
-        Assert.Contains(events, entry => entry.EventType == "FileHashed" && entry.Category == "Files");
-        Assert.Equal(events.OrderBy(entry => entry.OccurredAt), events);
+        Assert.Equal(seed.BatchId, insights.BatchId);
 
         var group = Assert.Single(groups);
         Assert.Equal("Needs Review", group.MediaType);

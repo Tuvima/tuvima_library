@@ -12,17 +12,17 @@ tags:
 
 # Ingestion and Activity Experience Plan
 
-Status: proposed implementation plan, September 5, 2026. This document describes target behavior; it does not claim the changes are implemented.
+Status: implemented, September 5, 2026. This document records the accepted product and lifecycle contract.
 
 ## Product outcome
 
-Ingestion answers **“What is happening now, is it healthy, and do I need to act?”** Activity & Audit answers **“What happened, to which items, why, and who initiated it?”** Both must describe the same run, outcomes, and timestamps.
+Ingestion answers **“What is happening now, is it healthy, and do I need to act?”** Needs Review answers **“Which items require a human decision?”** Activity & Audit answers **“What happened, to which items, why, and who initiated it?”** All three describe the same run, outcomes, and timestamps.
 
-Use the supplied images for their visual hierarchy: a prominent current-work card, compact metrics, restrained colored icons, grouped history, and a secondary important-changes column. Their sample numbers, schedules, controls, and completion indicators are illustrative. In particular, do not reproduce the first image's full progress bar and four green checks while work is still running.
+Use the supplied images for their visual hierarchy: a prominent current-work card, compact metrics, restrained colored icons, and grouped history with progressive drilldown. Their sample numbers, schedules, controls, and completion indicators are illustrative. The permanent Important changes sidebar is intentionally omitted so the selected batch remains the investigation focus.
 
-## Findings from the current implementation
+## Findings that drove the implementation
 
-This review traces source and existing tests. It is not a replay of the pictured batch, and it does not establish which particular background job was executing when the screenshot was taken. Engine and Dashboard processes were stopped under the repository's pre-work instruction; application and media data were not reset.
+This review traced source and existing tests. It was not a replay of the pictured batch and did not establish which particular background job was executing when that screenshot was taken.
 
 ### What works well
 
@@ -39,7 +39,7 @@ There are several different meanings of progress and completion today:
 
 1. **The visible percentage is file progress.** `BuildLibraryUpdateStatus` determines running state from active jobs and current activities. Separately, `ResolveLibraryUpdateProgress` calculates `processedFiles / totalFiles` and takes the maximum of that and active-job percentages. Once the files reach their count, the headline stays at 100% regardless of remaining enrichment. Taking the maximum also allows a finished stage to dominate an unfinished one.
 2. **The copy makes file progress sound like whole-run completion.** `ResolveMainLine` says “N of N files finished” even in the running state. `IngestionTasksTab` displays that with the percentage under Current activity, but does not surface the separate enrichment progress and queue context available in the view model.
-3. **Existing tests deliberately encode the contradiction.** `LiveDashboardState_SeparatesFileProcessingFromWikidataProgress` expects Running, 131/131 files, 100%, 50 active items, and six queued items simultaneously. Another case expects 100% while Wikidata matching is 55%. This is an existing product contract that needs replacing, not merely a CSS defect.
+3. **Existing tests encoded the contradiction.** They permitted Running, every file checked, and 100% while downstream work remained. The implementation replaced that contract with stage-aware progress tests.
 4. **Multiple producers define completion differently.** Intake's `PublishQueuedBatchSnapshotAsync` can publish a complete batch event when file counters settle. `BatchProgressService` instead derives completion from terminal identity jobs, including Ready/ReadyWithoutUniverse, review, no-match, and failure. Its completion check does not independently account for every downstream operation.
 5. **The status read itself changes state.** `GetSnapshotAsync` calls `ReconcileCompletedBatchesAsync`, which updates counters and completes or abandons batches. Its reconciliation query counts selected identity states and running operation rows; it is not a comprehensive lifecycle rule for every pending, leased, retrying, or shared child task. Reading a page should not be responsible for making a run finish.
 
@@ -63,7 +63,7 @@ Quick hydration does explicitly enqueue the universe stage, and the universe ser
 
 ### Ingestion: a live summary
 
-Keep the existing `/settings/ingestion` route under one **Operations** Settings destination with local **Ingestion** and **Activity & Audit** navigation. Place **View activity** and the single **Scan now** action consistently with other Settings page actions. Status refreshes automatically through SignalR and snapshot polling, so do not expose a redundant manual Refresh action. Use a specific **Processing settings** link to the existing metadata ingestion-flow configuration; source-folder actions still lead to Libraries/Import Folders.
+Keep the existing `/settings/ingestion` route under one **Operations** Settings destination with local **Ingestion**, **Needs Review**, and **Activity & Audit** navigation. Place **View activity** and the single **Scan all folders** action consistently with other Settings page actions. Status refreshes automatically through SignalR and snapshot polling, so do not expose a redundant manual Refresh action. Use a specific **Processing settings** link to the existing metadata ingestion-flow configuration; source-folder actions still lead to Libraries/Import Folders.
 
 The desktop layout should follow this order:
 
@@ -73,7 +73,6 @@ The desktop layout should follow this order:
 | Four compact outcome cards | Files checked; Added or updated; Need review; Failed. All use the same clearly labeled run scope. Secondary text can split added and updated or identify unchanged/skipped files. |
 | Main summary panel | Up to three active runs, with grouped work such as “Matching titles,” “Fetching artwork,” and “Updating people and relationships.” When idle, show the last run and a few recent run summaries. |
 | Secondary panels | Media mix for the selected run, and Up next / Scheduled with actual queued groups and earliest due times. On narrower screens, stack below the summary. |
-| Collapsed Processing details | Provider health, rate-limit waits, queue diagnostics, attempts, technical IDs, and links to detailed Activity. Load only when expanded. |
 | Collapsed refresh details | Existing entity schedule inspection and supported Run now actions, loaded on demand. |
 
 Use four user-facing stages: **Discover, Identify, Enrich, Organize**. Organize includes configured library placement/writeback and relationship/group finalization as applicable. Each stage has its own state; phases may overlap. Do not infer that earlier stages are complete merely because a later stage has started. Disabled/not-applicable stages use a neutral “Not required” state rather than a success check.
@@ -92,29 +91,31 @@ Use the reference's purple progress/accent, subdued blue panels, green terminal 
 
 ### Truthful progress rules
 
-- The headline represents **run state**, not an invented whole-run percentage. Default to concrete phase language, an animated running-state indicator, and active/queued/retry counts while the amount of downstream work can grow.
-- A bounded phase may show a percentage only with an explicit label and count unit, such as “Files checked: 111/111.” Discover is indeterminate until enumeration closes.
-- Do not average stage percentages, take their maximum, weight unrelated work units, or cap the display at 99% as a substitute for a lifecycle fix.
-- Never show an overall progress bar or all-success stage strip while required run work remains. Keep the bounded Files checked count in its outcome card while Enrich remains active.
+- The headline represents run state and the overall bar uses measured counts from the actual pipeline stages. It does not reuse file-discovery completion as whole-run completion.
+- Supporting text names the active stage and reports its own bounded task count. The Files checked count remains in its outcome card rather than being repeated as the headline.
+- The overall percentage stays below 100 while an active stage remains. A terminal run reaches 100 even when some items ended in review or another explicit terminal outcome.
+- Keep active, queued, and retry counts visible beside the percentage so uncertainty or newly registered downstream work is clear.
 - Person tasks, files, works, provider requests, and batches are different units. Preserve `count_unit`; do not sum unlike denominators.
 - Initially omit overall ETA and trend arrows. A later phase ETA requires a stable denominator and a measured recent rate. Any displayed rate must name its unit and measurement period.
 - Idle says “No active ingestion” with the last run result. Disconnected/stale says “Status unavailable” with last observed time, never “Complete.”
 
 ### Activity & Audit: history with drilldown
 
-Keep `/settings/activity` as one **Grouped Activity** experience. Every batch or administrative job is a top-level operation. Expanding it reveals meaningful summary categories; selecting a category reveals chronological individual records; technical fields remain behind a per-event disclosure. Maintenance and retention remain a collapsed utility.
+Keep `/settings/activity` as one grouped experience. Every durable run is a top-level operation. One page-level lens—Overview, Media, Enrichment, or Data & Downloads—controls the information shown for every expanded run. Do not repeat those choices inside each run. Maintenance and retention remain a collapsed utility.
 
-- Run cards lead with meaningful names such as “Library scan — Books,” trigger/actor, start time, duration, terminal outcome, a concise result sentence, event count, warnings, and failures. Do not invent batches by grouping unrelated admin edits into an arbitrary time window.
-- Expand a card into summary categories such as files discovered, items identified, metadata updated, people hydrated, enrichment queued, warnings, and failures. Selecting a category reveals the matching chronological records without changing page modes.
-- Show separate lifecycle and outcome labels: an ended run can be **Completed with issues**. A completed state must never visually erase failures. A pending review is an outcome requiring a person, not automatic work still running.
-- Use search plus category, source/provider, severity, and date range filters. Add actor/media filters where useful without forcing every selector onto one crowded row. Filtering and totals happen server-side before pagination.
+- Run cards lead with meaningful names such as “Library scan — Books,” trigger/actor, start time, duration, media-item count, and a concise result sentence. Internal event count is not a primary user metric.
+- Use one leading state icon instead of a status pill: animated activity for running, green check for completed, gray interruption for resumable work, amber warning for unrecovered operational warnings, and red only when the run itself failed. Preserve equivalent accessible text.
+- Keep run state separate from item outcomes. No match, incomplete metadata, and low confidence go to Needs Review without turning a completed run into “Completed with issues.” Recovered retries do not leave a warning. Nonzero review, warning, and failed-item counts appear as plain icon-and-count facts.
+- Expand a card into the currently selected page-level lens. Media-type counts open the Media lens already filtered to that type, and enrichment categories open a cross-media view of the same run.
+- Use search plus date range, run state, media type, trigger/source, and attention filters at run level. Apply the selected lens and filters to the list and server-side paging rather than rendering another filter row inside every run.
+- Remove Technical Log from Activity. Keep raw operation events for durable audit, retry, and diagnostics, but do not request or render them in the normal page. Supply enrichment and provider sections from compact server-side grouped aggregates. If no diagnostics client needs the raw batch-events endpoint, remove that public endpoint during the pre-beta cutover.
 - Summary counts use the same filter/date scope as the list: runs, warning events, failure events, administrative changes, and review actions. Explain whether a number counts events or affected items. No percentage deltas until the comparison periods and retained history support them.
-- The Important changes panel shows real administration/security/provider/library changes and review decisions. Link each to its exact event. Include actor attribution and a safe change summary; keep credentials out of changes JSON and UI.
+- Administrative changes remain part of the audit event model. They do not occupy a permanent sidebar that competes with batch investigation.
 - Do not let live arrivals reshuffle an expanded historical row. Show a “New activity available” affordance. The Ingestion link remains visible while matching work is active.
 
-### Mobile: dedicated summaries for both pages
+### Mobile: resilient summary access
 
-Both pages must provide a useful phone view on their existing routes. Design the mobile information hierarchy explicitly rather than stacking every desktop panel. Reuse the same run state, metrics, authorization, and query contracts so mobile and desktop always agree. The mobile default answers the main question in the first screen; deeper information opens only when requested.
+Operations is primarily an administrator workflow for desktop and tablet. Keep the existing routes responsive so navbar links and bookmarked URLs remain usable on a phone, but do not build a separate full-featured mobile operations console. Mobile should offer a compact, read-only summary from the same run state and metrics as desktop. Detailed investigation and review resolution remain larger-screen workflows.
 
 #### Mobile Ingestion
 
@@ -122,33 +123,31 @@ Use a single-column layout in this order:
 
 1. **Compact Settings header and current status.** Show the page title, running/waiting/idle/unavailable state, named run or source scope, and one plain-language sentence describing the current work. Keep last-updated information visible; show the provider wait reason when applicable.
 2. **Small progress summary.** Show the current phase, explicitly labeled file count, and active/queued work with their units. Replace the wide desktop stage strip with a **Stages** disclosure containing four compact status rows. Multiple active phases remain visible in the summary sentence and expanded rows.
-3. **Outcome grid.** Use a two-by-two grid for Files checked, Added or updated, Need review, and Failed, with a shared Current run or Last run label. Nonzero review/failure cards open the appropriate scoped destination. An actionable blocking issue appears directly below current status rather than being buried beneath metrics.
-4. **View activity.** Provide a prominent link to this run's mobile Activity summary. If several runs are active, show their count and up to three compact run rows, with **View all active runs** expanding the remaining summaries. Selecting a run updates the summary scope without losing the link back to all runs.
+3. **Outcome grid.** Use a two-by-two grid for Files checked, Added or updated, Need review, and Failed, with a shared Current run or Last run label. On a phone, Needs Review shows the count and larger-screen guidance rather than opening the editing workflow. An actionable blocking issue appears directly below current status rather than being buried beneath metrics.
+4. **View activity.** Provide a link to the compact Activity summary. If several runs are active, show their count and up to three compact run rows. Deeper batch inspection remains available on a larger screen.
 5. **Up next and last result.** Show one concise next-work/schedule summary and the latest completed run when relevant. Media mix and additional run summaries are collapsed; omit the desktop chart from the initial phone view.
 
-Keep the automatic status update visible through changing timestamps and live values. Show one Scan now action; preserve the same server acceptance, duplicate prevention, and permissions as desktop. Explain that it starts an extra watched-folder scan while ordinary monitoring, schedules, and queued processing remain automatic. Move Processing settings and technical diagnostics behind clearly labeled secondary actions. Idle emphasizes the last result and Scan now. Unknown or stale status remains explicit instead of showing reassuring zero counts.
+Keep the automatic status update visible through changing timestamps and live values. The phone summary is read-only and omits Scan now, Processing settings, and technical diagnostics. Idle emphasizes the last result. Unknown or stale status remains explicit instead of showing reassuring zero counts.
 
 #### Mobile Activity & Audit
 
-- Start with a compact title, the selected date range, and a **View live ingestion** link while work is active. Preserve a deep-linked run or filter when present.
-- Replace the five desktop metric cards with a compact summary of run count and warning/failure event counts for the selected scope. Put administrative-change and review-action counts under **More summary**; retain their distinct units and drilldown links.
-- Show a short first page of named run cards. Each includes status, relative start time, duration, one outcome sentence, and nonzero warning/failure badges. Raw IDs, paths, provider lists, and individual person events stay out of collapsed cards.
-- Tapping an operation opens summary categories. Selecting a category shows its chronological records as vertically arranged event cards without a horizontally scrolling table. Each card can reveal actor, source, exact timestamp, item, and safe technical details on demand.
-- Keep search visible. Put category, source/provider, severity, and additional filters in a labeled **Filters** disclosure with an active-filter count, Apply, and Clear actions. Keep the selected date scope visible when filters are closed.
-- Render **Important changes** as a collapsed section with its matching count and a short preview on expansion. It must not interrupt the primary run list or duplicate an entire desktop sidebar. People audit and retention tools remain secondary destinations/utilities.
-- Use explicit **Load more** pagination. Newly arriving activity shows an update affordance without moving cards under the user's finger. Returning from event details restores filters, expanded run, and list position.
+- Start with a compact title, selected date range, and a **View live ingestion** link while work is active.
+- Show a short, paged list of operation cards with state, relative start time, duration, media-item count, and nonzero attention counts.
+- Keep search available in the filter disclosure. Desktop shows one page-level lens; phone cards remain a concise summary without deep inspection.
+- Do not render raw technical events, wide item tables, provider ledgers, or the full desktop batch inspector on a phone.
+- Preserve deep links, but direct users to desktop or tablet when an action requires detailed investigation or review resolution.
 
 #### Shared mobile behavior and delivery requirements
 
-- Keep the Settings mobile page selector and adjacent Ingestion/Activity navigation consistent. Navbar ingestion clicks open the mobile Ingestion summary directly; run links between both pages preserve `runId`. Do not create separate mobile routes or a separate mobile completion algorithm.
-- Use existing responsive/device conventions and review the Settings mobile availability metadata: Ingestion's summary availability must render this experience, and Activity must explicitly support its summary and paged event cards. Supported summaries must not be replaced by a “Use a larger screen” message.
+- Keep the Settings mobile page selector and adjacent Ingestion/Activity navigation consistent. Navbar ingestion clicks open the compact Ingestion summary directly; run links preserve `runId`. Do not create separate mobile routes or a separate mobile completion algorithm.
+- Needs Review exposes its unresolved count in Operations navigation, while its editing route is reserved for desktop and tablet.
 - Use touch targets at least 44 CSS pixels high, wrapping titles, readable numbers, and disclosure buttons with expanded state. Avoid hover-only information, wide tables, nested scrolling, and fixed bottom controls that overlap persistent playback or device safe areas.
 - Fetch compact summaries and the first page only. Hidden diagnostics, schedules, filters' result pages, and event details do not preload desktop-sized datasets. Refresh the authoritative snapshot after browser resume/reconnect, retaining the last known state with a stale label until it arrives.
-- Implement these mobile compositions alongside their desktop pages in phases 4 and 5, using shared presentation primitives. Mobile is part of the initial delivery, not a later responsive cleanup.
+- Treat responsive correctness as part of the initial delivery. Additional mobile-only drilldown is outside scope unless real usage shows that administrators need it.
 
 ### Settings and navbar alignment
 
-- Place one Operations destination beside Review in the Administration rail. Within Operations, keep Ingestion and Activity & Audit adjacent in a local tab strip. Retain the existing shared Settings shell, one page title, consistent content width, padding, cards, and action placement.
+- Place one Operations destination in the Administration rail and show its unresolved review count when nonzero. Within Operations, keep Ingestion, Needs Review, and Activity & Audit adjacent in a local tab strip with the same count. Retain the existing shared Settings shell, one page title, consistent content width, padding, cards, and action placement.
 - Use the Settings header as the page identity. Use shared controls for selects, badges, filters, category drilldown, and technical disclosures.
 - For ingestion/identity/enrichment primary activity, the navbar opens `/settings/ingestion`, optionally focused on a real run ID. After ingestion files settle, its downstream enrichment still routes there.
 - Preserve playback's queue-panel action. Other primary activities use their existing relevant destination or Activity. Avoid a blanket rewrite that makes playback or unrelated maintenance open Ingestion.
@@ -202,8 +201,8 @@ Query all active runs directly rather than deriving them from the latest 12 hist
 | 1. Correct the progress contract | Add failing behavior tests for active downstream work; separate file progress from run state/copy; show queue/phase context; route ingestion navbar clicks to Ingestion. | No headline implies completion while known work remains. Playback navigation is unchanged. This is an interim presentation correction, not the full completion fix. |
 | 2. Make lifecycle authoritative | Inventory producers, persist run scope/child dependencies, unify terminal rules and recovery, remove GET-time reconciliation, make terminal history durable. | Run status is correct even if no Dashboard is open, including retry, restart, and shared-work cases. |
 | 3. Build shared read contracts | Compact summary, run history/event queries, structured audit semantics, aggregates, schedule rollups, snapshot revisions and correlation. | API, SignalR, Activity, and navbar agree on the same run; full-history filters and counts are accurate. |
-| 4. Rebuild Ingestion presentation | Shared Settings header/actions, current-work card, explicit stage strip, outcome cards, batch summaries, media mix, real Up next, and the dedicated mobile summary with compact outcomes and expandable stages. | On desktop and phone, an administrator can identify what is running, whether it is waiting, and what needs action within a few seconds. |
-| 5. Rebuild Activity and join navigation | Operation cards, summary-category drilldown, chronological individual records, technical disclosures, filters, important changes, deep links, adjacent Settings placement, and mobile summaries with stacked event cards. | On desktop and phone, a user can move from a live run to its exact event history and back without searching again. |
+| 4. Rebuild Ingestion presentation | Shared Settings header/actions, current-work card, explicit stage strip, outcome cards, batch summaries, media mix, real Up next, and a compact mobile monitoring summary. | On desktop an administrator can inspect the run; on phone they can identify the current state and any attention count without a broken layout. |
+| 5. Rebuild Activity and join navigation | Operation cards, page-level lenses, aggregate drilldown, filters, deep links, adjacent Settings placement, and compact mobile operation cards. | Desktop supports investigation while phone provides a concise history summary without loading diagnostic detail. |
 | 6. Validate and document | Integrated fresh-ingest checks, desktop/mobile visual checks, lifecycle/query/performance tests, and product/architecture documentation. | All acceptance cases below pass; no placeholder metrics or unsupported controls ship. |
 
 Deliver phases in dependency order. Trend comparisons, broad schedule editors, pause/cancel controls, and overall ETA are outside the initial scope unless the underlying services already support their exact semantics. Scan now must report server acceptance/failure and prevent accidental duplicate commands through server-side idempotency, not only a disabled button. Automatic snapshot refresh must recover cleanly after reconnect and browser resume.
@@ -221,8 +220,8 @@ Deliver phases in dependency order. Trend comparisons, broad schedule editors, p
 9. **History at batch scale:** search/date/severity/provider filters return complete matching results beyond 100 events; paging is stable; summary counts match the scope; expired details are disclosed. Large runs do not render thousands of rows on initial load.
 10. **Navigation/authorization:** navbar, review counts, failure badges, run links, browser Back, and role restrictions work. Playback still opens playback controls.
 11. **Visual/accessibility:** validate empty, active, waiting, attention, completed-with-issues, and disconnected states at 1920×1080, a lower-height desktop viewport, tablet, and mobile. Check keyboard expansion/focus, text contrast, reduced motion, non-color status cues, and restrained live announcements. Capture before/after desktop states. Verify Settings uses one content scroller and no clipped toolbar or duplicate heading.
-12. **Mobile summary usefulness:** at 360×800 and 390×844 CSS pixels, Ingestion's initial view identifies current state, work phase, and any blocking issue without opening diagnostics. Activity initially identifies the date scope, summary counts, and recent run outcomes. Check long titles, large counts, increased text size, and phone landscape without horizontal scrolling or obscured controls.
-13. **Mobile drilldown and recovery:** verify touch and keyboard stage/run expansion, scoped review/failure links, Filters Apply/Clear, Load more, event details, navbar routing, and Back restoring list position. Background/resume and reconnect recover current state without duplicate scans or false completion. Network checks confirm collapsed detail panels do not fetch full datasets; mobile and desktop show identical outcomes for the same run revision.
+12. **Mobile summary usefulness:** at 360×800 and 390×844 CSS pixels, Ingestion identifies current state, work phase, and attention count. Activity identifies the date scope and recent run outcomes. Check long titles, large counts, increased text size, phone landscape, and the larger-screen guidance for detailed review work.
+13. **Mobile recovery:** verify navbar routing, Back behavior, background/resume, and reconnect. Network checks confirm mobile summaries do not fetch item detail or raw event datasets; mobile and desktop show identical outcomes for the same run revision.
 
 Revise the existing progress tests that currently require Running + 100% headline, rather than preserving that expectation. Add behavior tests for lifecycle and snapshot consistency; retain the relevant boundary and wire-contract ratchets. During implementation run the repository-required restore, build, and full test commands, plus documentation checks. Fresh ingestion verification must use the repository's approved disposable targets and preserve source originals. This planning change itself does not require starting ingestion or resetting any data.
 

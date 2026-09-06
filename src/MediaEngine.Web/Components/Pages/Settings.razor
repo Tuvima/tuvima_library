@@ -45,6 +45,15 @@
                 <a href="/settings/ingestion"
                    class="@(IsOperationsView(SettingsSection.Ingestion) ? "is-active" : null)"
                    aria-current="@(IsOperationsView(SettingsSection.Ingestion) ? "page" : null)">Ingestion</a>
+                <a href="/settings/review"
+                   class="@(IsOperationsView(SettingsSection.Review) ? "is-active" : null)"
+                   aria-current="@(IsOperationsView(SettingsSection.Review) ? "page" : null)">
+                    Needs Review
+                    @if (_reviewCount > 0)
+                    {
+                        <span class="settings-operations-navigation__count">@_reviewCount</span>
+                    }
+                </a>
                 <a href="/settings/activity"
                    class="@(IsOperationsView(SettingsSection.ActivityLogs) ? "is-active" : null)"
                    aria-current="@(IsOperationsView(SettingsSection.ActivityLogs) ? "page" : null)">Activity &amp; Audit</a>
@@ -205,7 +214,7 @@
             .ToList();
 
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
-    private bool IsOperationsSection => _activeSection is SettingsSection.Ingestion or SettingsSection.ActivityLogs;
+    private bool IsOperationsSection => _activeSection is SettingsSection.Ingestion or SettingsSection.Review or SettingsSection.ActivityLogs;
     private bool IsOperationsWorkspace => IsOperationsSection && SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole);
     private string BrowserTitle => string.IsNullOrWhiteSpace(_activeSubsection)
         ? $"{GetHeroTitle()} - Tuvima Library"
@@ -459,7 +468,7 @@
     private IReadOnlyList<SettingsItemDef> GetVisibleTreeItems(SettingsTreeGroupDef group) =>
         SettingsNav.FilteredTreeItems(group, _currentRole)
             .Where(item => !DeviceContext.IsMobile || SettingsNav.IsVisibleOnMobile(item.Value))
-            .Where(item => item.Value != SettingsSection.ActivityLogs || !SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole))
+            .Where(item => item.Value is not SettingsSection.ActivityLogs and not SettingsSection.Review || !SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole))
             .Where(IsItemEnabledByUiSettings)
             .ToList();
 
@@ -473,6 +482,9 @@
                 "Operations",
                 SettingsNav.RouteFor(_activeSection),
                 Icons.Material.Outlined.SettingsSuggest,
+                Meta: _reviewCount > 0
+                    ? _reviewCount.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    : null,
                 Exact: true);
         }
 

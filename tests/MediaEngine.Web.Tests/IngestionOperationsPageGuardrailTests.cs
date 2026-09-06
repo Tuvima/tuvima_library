@@ -38,7 +38,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.DoesNotContain("RecentBatches.OrderByDescending", source, StringComparison.Ordinal);
         Assert.Contains("batch.OutstandingOperations > 0", source, StringComparison.Ordinal);
         Assert.Contains("Math.Max(batch.TotalFiles, batch.ProcessedFiles)", source, StringComparison.Ordinal);
-        Assert.Single(Regex.Matches(source, "Label=\"Scan now\""));
+        Assert.Single(Regex.Matches(source, "Label=\"Scan all folders\""));
         Assert.DoesNotContain("Label=\"Refresh\"", source, StringComparison.Ordinal);
         Assert.Contains("ingestion-stage-mobile", source, StringComparison.Ordinal);
         Assert.Contains("View processing details", dashboardSource, StringComparison.Ordinal);
@@ -1335,7 +1335,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Equal(43, retail.Total);
         Assert.Equal(1, retail.OtherCount);
         Assert.True(progress.Percent < 100);
-        Assert.Equal(65.3, Math.Round(progress.Percent, 1));
+        Assert.Equal(70.9, Math.Round(progress.Percent, 1));
         Assert.Equal("Ingestion_StageWikidataMatch", progress.ActiveStageLabelKey);
         Assert.Equal(19, progress.ActiveStageCount);
         Assert.Equal(31, progress.ActiveStageTotal);
@@ -1355,7 +1355,7 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         var progress = IngestionLiveDashboardState.BuildOverallProgress(new IngestionDashboardMetrics(43, 43, 1, 14), stages, null);
 
-        Assert.Equal(100, progress.Percent);
+        Assert.Equal(99, progress.Percent);
         Assert.Equal("Ingestion_StageEnrichment", progress.ActiveStageLabelKey);
     }
 

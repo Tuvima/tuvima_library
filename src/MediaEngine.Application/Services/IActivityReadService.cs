@@ -14,10 +14,8 @@ public interface IActivityBatchReadService
         Guid batchId,
         CancellationToken ct = default);
 
-    Task<IReadOnlyList<ActivityOperationEventDto>> GetEventsAsync(
+    Task<ActivityBatchInsightsDto> GetInsightsAsync(
         Guid batchId,
-        string? category,
-        int limit,
         CancellationToken ct = default);
 
     Task<PagedResponse<ActivityBatchItemDto>> GetItemsAsync(

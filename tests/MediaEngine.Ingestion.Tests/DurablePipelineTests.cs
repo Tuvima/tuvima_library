@@ -308,12 +308,12 @@ public sealed class DurablePipelineTests : IDisposable
         // Manually increment the counter (as IngestionEngine would do).
         await _batchRepo.IncrementCounterAsync(batchId, BatchCounterColumn.FilesProcessed);
         await _batchRepo.IncrementCounterAsync(batchId, BatchCounterColumn.FilesProcessed);
-        await _batchRepo.IncrementCounterAsync(batchId, BatchCounterColumn.FilesTotal);
+        await _batchRepo.IncrementCounterByAsync(batchId, BatchCounterColumn.FilesTotal, 3);
 
         var after = await _batchRepo.GetByIdAsync(batchId);
         Assert.NotNull(after);
         Assert.Equal(2, after!.FilesProcessed);
-        Assert.Equal(1, after.FilesTotal);
+        Assert.Equal(3, after.FilesTotal);
     }
 
     [Fact]

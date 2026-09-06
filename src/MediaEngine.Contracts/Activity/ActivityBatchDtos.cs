@@ -74,54 +74,6 @@ public sealed class ActivityBatchSummaryDto
     public List<ActivityMediaTypeCountDto> MediaTypes { get; set; } = [];
 }
 
-public sealed class ActivityOperationEventDto
-{
-    [JsonPropertyName("event_id")]
-    public string EventId { get; set; } = "";
-
-    [JsonPropertyName("batch_id")]
-    public Guid BatchId { get; set; }
-
-    [JsonPropertyName("occurred_at")]
-    public DateTimeOffset OccurredAt { get; set; }
-
-    [JsonPropertyName("category")]
-    public string Category { get; set; } = "Other";
-
-    [JsonPropertyName("event_type")]
-    public string EventType { get; set; } = "";
-
-    [JsonPropertyName("item")]
-    public string? Item { get; set; }
-
-    [JsonPropertyName("library")]
-    public string? Library { get; set; }
-
-    [JsonPropertyName("provider")]
-    public string? Provider { get; set; }
-
-    [JsonPropertyName("operation")]
-    public string? Operation { get; set; }
-
-    [JsonPropertyName("result")]
-    public string Result { get; set; } = "Recorded";
-
-    [JsonPropertyName("severity")]
-    public string Severity { get; set; } = "info";
-
-    [JsonPropertyName("duration_seconds")]
-    public double? DurationSeconds { get; set; }
-
-    [JsonPropertyName("message")]
-    public string? Message { get; set; }
-
-    [JsonPropertyName("entity_id")]
-    public Guid? EntityId { get; set; }
-
-    [JsonPropertyName("technical_details")]
-    public string? TechnicalDetails { get; set; }
-}
-
 public sealed class ActivityMediaTypeGroupDto
 {
     [JsonPropertyName("batch_id")]
@@ -159,6 +111,51 @@ public sealed class ActivityMediaTypeCountDto
 
     [JsonPropertyName("count")]
     public int Count { get; set; }
+}
+
+public sealed class ActivityBatchInsightsDto
+{
+    [JsonPropertyName("batch_id")]
+    public Guid BatchId { get; set; }
+
+    [JsonPropertyName("artwork_count")]
+    public int ArtworkCount { get; set; }
+
+    [JsonPropertyName("relationship_count")]
+    public int RelationshipCount { get; set; }
+
+    [JsonPropertyName("subtitle_count")]
+    public int SubtitleCount { get; set; }
+
+    [JsonPropertyName("lyrics_count")]
+    public int LyricsCount { get; set; }
+
+    [JsonPropertyName("provider_operation_count")]
+    public int ProviderOperationCount { get; set; }
+
+    [JsonPropertyName("retry_count")]
+    public int RetryCount { get; set; }
+
+    [JsonPropertyName("provider_failure_count")]
+    public int ProviderFailureCount { get; set; }
+
+    [JsonPropertyName("providers")]
+    public List<ActivityProviderSummaryDto> Providers { get; set; } = [];
+}
+
+public sealed class ActivityProviderSummaryDto
+{
+    [JsonPropertyName("provider")]
+    public string Provider { get; set; } = "Unknown provider";
+
+    [JsonPropertyName("operation_count")]
+    public int OperationCount { get; set; }
+
+    [JsonPropertyName("retry_count")]
+    public int RetryCount { get; set; }
+
+    [JsonPropertyName("failure_count")]
+    public int FailureCount { get; set; }
 }
 
 public sealed class ActivityBatchItemDto

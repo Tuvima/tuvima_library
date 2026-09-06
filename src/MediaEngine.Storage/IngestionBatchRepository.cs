@@ -194,6 +194,10 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
 
     /// <inheritdoc/>
     public Task IncrementCounterAsync(Guid id, BatchCounterColumn column, CancellationToken ct = default)
+        => IncrementCounterByAsync(id, column, 1, ct);
+
+    /// <inheritdoc/>
+    public Task IncrementCounterByAsync(Guid id, BatchCounterColumn column, int amount, CancellationToken ct = default)
     {
         // Map enum to the exact SQLite column name.
         var colName = column switch
@@ -211,13 +215,14 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
         using var conn = _db.CreateConnection();
         conn.Execute($"""
             UPDATE ingestion_batches
-            SET {colName}   = {colName} + 1,
+            SET {colName}   = {colName} + @amount,
                 updated_at  = @updatedAt
             WHERE id = @id;
             """,
             new
             {
                 id,
+                amount = Math.Max(0, amount),
                 updatedAt = DateTimeOffset.UtcNow.ToString("O"),
             });
 

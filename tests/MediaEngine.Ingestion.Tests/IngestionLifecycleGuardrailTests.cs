@@ -24,6 +24,8 @@ public sealed class IngestionLifecycleGuardrailTests
         Assert.Contains("var resumedEvents = new List<FileEvent>();", source, StringComparison.Ordinal);
         Assert.Matches(@"FilesTotal\s*=\s*newEvents\.Count", source);
         Assert.Contains("ResolveBufferedBatchSourcePath(newEvents)", source, StringComparison.Ordinal);
+        Assert.Contains("GetActiveAsync(ct)", source, StringComparison.Ordinal);
+        Assert.Contains("IncrementCounterByAsync", source, StringComparison.Ordinal);
         Assert.DoesNotMatch(@"FilesTotal\s*=\s*snapshot\.Count", source);
         Assert.DoesNotContain("_ = EnsureIngestionOperationAsync(normalizedEvent, MediaOperationStage.Discovered, CancellationToken.None);\r\n\r\n        // Events from ScanExistingFiles already have a batch", source, StringComparison.Ordinal);
         Assert.DoesNotContain("NotifyFilters.DirectoryName", watcher, StringComparison.Ordinal);

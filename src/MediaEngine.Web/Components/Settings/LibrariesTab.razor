@@ -81,10 +81,6 @@
         {
             @IncomingSurface(readOnly)
         }
-        else if (section == "activity")
-        {
-            <IngestionTasksTab />
-        }
         else if (activeLibrary is not null)
         {
             @LibraryDetailSurface(activeLibrary, readOnly)
@@ -1078,7 +1074,7 @@
         if (Guid.TryParse(normalized, out _)) return normalized!;
         return normalized switch
         {
-            "incoming" => "incoming", "libraries" => "libraries", "activity" => "activity", _ => "overview",
+            "incoming" => "incoming", "libraries" => "libraries", _ => "overview",
         };
     }
 

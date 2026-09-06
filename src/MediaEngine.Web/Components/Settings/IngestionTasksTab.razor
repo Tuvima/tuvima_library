@@ -3,16 +3,20 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject IngestionLiveDashboardState Dashboard
+@inject DeviceContextService DeviceContext
 @implements IAsyncDisposable
 
 <div class="tl-page ingestion-operations">
+    @if (!DeviceContext.IsMobile)
+    {
     <div class="ingestion-operations__toolbar">
         <AppButton Href="/settings/metadata/ingestion-flow" Label="Processing settings" StartIcon="@Icons.Material.Outlined.Settings" />
-        <AppButton Href="/settings/activity" Label="View activity" StartIcon="@Icons.Material.Outlined.Timeline" />
+        <AppButton Href="/settings/activity" Label="View activity" StartIcon="@Icons.Material.Outlined.ReceiptLong" />
         <MudTooltip Text="Start an extra scan of every watched folder. File monitoring, scheduled scans, and queued processing continue automatically." Placement="Placement.Bottom">
-            <AppButton Label="Scan now" StartIcon="@Icons.Material.Outlined.PlayArrow" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(Dashboard.IsLoading || Dashboard.IsScanStarting || IsRunning)" Loading="@Dashboard.IsScanStarting" OnClick="ScanNowAsync" />
+            <AppButton Label="Scan all folders" StartIcon="@Icons.Material.Outlined.PlayArrow" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(Dashboard.IsLoading || Dashboard.IsScanStarting || IsRunning)" Loading="@Dashboard.IsScanStarting" OnClick="ScanNowAsync" />
         </MudTooltip>
     </div>
+    }
 
     @if (Dashboard.IsLoading && Dashboard.Snapshot is null)
     {
@@ -24,12 +28,12 @@
     }
     else
     {
-        <AppPanel Elevation="0" Class="@($"tl-card ingestion-current {CurrentStateClass}")" aria-live="polite">
+        <AppPanel Class="@($"tl-card ingestion-current {CurrentStateClass}")" aria-live="polite">
             <div class="ingestion-current__top">
                 <div class="ingestion-current__identity">
                     <span class="ingestion-current__pulse" aria-hidden="true"><MudIcon Icon="@CurrentIcon" /></span>
                     <div>
-                        <div class="ingestion-current__kicker"><strong>Current run</strong><AppStatusBadge Text="@Model.StatusLabel" Tone="@StatusTone(Model.StatusTone)" /></div>
+                        <div class="ingestion-current__kicker"><strong>Current run</strong></div>
                         <h2>@Model.Heading</h2>
                         <p>@CurrentHeadline</p>
                     </div>
@@ -48,6 +52,12 @@
                 </div>
             </div>
 
+            <div class="ingestion-current__overall" aria-label="Overall current run progress">
+                <div><span>@OverallProgressLabel</span><strong>@OverallProgressPercent.ToString("0")%</strong></div>
+                <AppProgressBar Value="@OverallProgressPercent" ShowValue="false" />
+                <small>@OverallProgressDetail</small>
+            </div>
+
             @if (IsRunning)
             {
                 @if (ActiveActivityGroups.Count > 0)
@@ -57,7 +67,8 @@
                         {
                             <article>
                                 <span aria-hidden="true"><MudIcon Icon="@ActivityIcon(activity.StageKey)" /></span>
-                                <div><strong>@ActivityLabel(activity)</strong><small>@ActivityCounts(activity)</small></div>
+                                <div><strong>@ActivityLabel(activity)</strong><small>@ActivityProgressCounts(activity)</small><AppProgressBar Value="@ActivityPercent(activity)" ShowValue="false" /></div>
+                                <i aria-hidden="true"></i>
                             </article>
                         }
                     </section>
@@ -99,27 +110,22 @@
 
         </AppPanel>
 
-        @if (ReviewCount > 0 || FailedCount > 0 || ProviderWaitCount > 0)
-        {
-            <section class="ingestion-attention" aria-label="Needs attention">
-                <MudIcon Icon="@AttentionIcon" aria-hidden="true" />
-                <div><strong>@AttentionTitle</strong><span>@AttentionText</span></div>
-                <AppButton Href="@AttentionHref" Label="@AttentionActionLabel" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
-            </section>
-        }
-
         <section class="ingestion-metrics" aria-label="Current run outcomes">
             @foreach (var metric in OutcomeMetrics)
             {
-                <article class="ingestion-metric @metric.Tone">
-                    <span class="ingestion-metric__icon" aria-hidden="true"><MudIcon Icon="@metric.Icon" /></span>
-                    <div><strong>@metric.Value.ToString("N0")</strong><span>@metric.Label</span><small>@RunScopeLabel</small></div>
-                </article>
+                @if (string.IsNullOrWhiteSpace(metric.Href))
+                {
+                    <article class="ingestion-metric @metric.Tone"><span class="ingestion-metric__icon" aria-hidden="true"><MudIcon Icon="@metric.Icon" /></span><div><strong>@metric.Value.ToString("N0")</strong><span>@metric.Label</span><small>@RunScopeLabel</small></div></article>
+                }
+                else
+                {
+                    <a class="ingestion-metric @metric.Tone" href="@metric.Href"><span class="ingestion-metric__icon" aria-hidden="true"><MudIcon Icon="@metric.Icon" /></span><div><strong>@metric.Value.ToString("N0")</strong><span>@metric.Label</span><small>@RunScopeLabel</small></div><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></a>
+                }
             }
         </section>
 
         <div class="ingestion-overview-grid">
-            <AppPanel Elevation="0" Class="tl-card ingestion-summary">
+            <AppPanel Class="tl-card ingestion-summary">
                 <div class="ingestion-section-heading">
                     <div><h3>@(IsRunning ? "Work in progress" : "Recent runs")</h3><p>@(IsRunning ? "Grouped by the kind of work Tuvima is doing." : "The latest library updates and their outcomes.")</p></div>
                     <AppButton Href="@CurrentActivityHref" Label="View all activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
@@ -131,8 +137,8 @@
                         {
                             <div class="ingestion-work-group">
                                 <span aria-hidden="true"><MudIcon Icon="@ActivityIcon(activity.StageKey)" /></span>
-                                <div><strong>@ActivityLabel(activity)</strong><small>@ActivityCounts(activity)</small></div>
-                                <AppStatusBadge Text="Active" Tone="AppUiTone.Primary" />
+                                <div><strong>@ActivityLabel(activity)</strong><small>@ActivityDescription(activity.StageKey)</small><span>@ActivityProgressCounts(activity)</span><AppProgressBar Value="@ActivityPercent(activity)" ShowValue="false" /></div>
+                                <i aria-hidden="true"></i>
                             </div>
                         }
                     </div>
@@ -156,7 +162,7 @@
                 }
             </AppPanel>
 
-            <AppPanel Elevation="0" Class="tl-card ingestion-media-mix">
+            <AppPanel Class="tl-card ingestion-media-mix">
                 <div class="ingestion-section-heading"><div><h3>Media in this run</h3><p>@MediaMixSummary</p></div></div>
                 @if (MediaMix.Count > 0)
                 {
@@ -173,10 +179,18 @@
                 }
             </AppPanel>
 
-            <AppPanel Elevation="0" Class="tl-card ingestion-next">
+            <AppPanel Class="tl-card ingestion-next">
                 <div class="ingestion-section-heading"><div><h3>Up next</h3><p>Queued work and scheduled refreshes.</p></div></div>
                 <div class="ingestion-next__summary"><span aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.Schedule" /></span><div><strong>@NextWorkTitle</strong><small>@NextWorkText</small></div></div>
                 <details class="ingestion-next__details"><summary>Scheduled enrichment refreshes</summary><EnrichmentRefreshSchedulePanel /></details>
+                @if (ReviewCount > 0 || FailedCount > 0)
+                {
+                    <section class="ingestion-next__attention" aria-label="Needs attention">
+                        <div><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /><strong>Needs attention</strong></div>
+                        @if (FailedCount > 0) { <a href="@CurrentActivityHref"><span>@FailedCount.ToString("N0") failed @Pluralize("operation", FailedCount)</span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></a> }
+                        @if (ReviewCount > 0) { <a href="/settings/review"><span>@ReviewCount.ToString("N0") @Pluralize("item", ReviewCount) need review</span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></a> }
+                    </section>
+                }
             </AppPanel>
         </div>
 
@@ -204,7 +218,11 @@
     private int CurrentActiveCount => DisplayBatch is null ? Model.ActiveItems : Math.Max(0, DisplayBatch.ActiveOperations);
     private int CurrentQueuedCount => DisplayBatch is null ? Model.QueuedItems : Math.Max(0, DisplayBatch.QueuedOperations);
     private int RetryWaitingCount => Math.Max(0, DisplayBatch?.RetryWaitingOperations ?? 0);
-    private string CurrentHeadline => IsRunning ? ActiveWorkHeadline : Model.MainLine;
+    private string CurrentHeadline => IsRunning
+        ? ActiveWorkHeadline
+        : DisplayBatch?.CompletedAt is { } completedAt
+            ? $"Last scan completed {FormatRelative(completedAt)}"
+            : Model.MainLine;
     private string ActiveWorkHeadline => ActiveActivityGroups.Count > 0
         ? string.Join(" · ", ActiveActivityGroups.Select(ActivityLabel).Distinct(StringComparer.OrdinalIgnoreCase).Take(3))
         : Model.CurrentStep;
@@ -215,6 +233,25 @@
     private string CurrentStateClass => $"is-{Model.PageState.ToString().ToLowerInvariant()}";
     private string ActivePhaseSummary => Phases.FirstOrDefault(phase => phase.Status == LibraryUpdateStepStatus.InProgress)?.Label ?? Model.StatusLabel;
     private string CurrentIcon => Model.PageState switch { LibraryUpdatePageState.Running => Icons.Material.Outlined.Sync, LibraryUpdatePageState.Failed => Icons.Material.Outlined.ErrorOutline, LibraryUpdatePageState.Interrupted => Icons.Material.Outlined.WarningAmber, LibraryUpdatePageState.StatusUnavailable => Icons.Material.Outlined.CloudOff, _ => Icons.Material.Outlined.CheckCircle };
+    private double OverallProgressPercent => Math.Clamp(Dashboard.OverallProgress.Percent, 0, 100);
+    private string OverallProgressLabel => IsRunning ? "Overall run progress" : Model.PageState == LibraryUpdatePageState.Complete ? "Run complete" : "Latest run progress";
+    private int ActivePhaseNumber => Math.Max(1, Phases.ToList().FindIndex(phase => phase.Status == LibraryUpdateStepStatus.InProgress) + 1);
+    private string OverallProgressDetail
+    {
+        get
+        {
+            if (!IsRunning)
+                return DisplayBatch is null
+                    ? "No work is currently running."
+                    : $"{DisplayBatch.RegisteredCount:N0} matched · {DisplayBatch.ReviewCount:N0} need review · {DisplayBatch.FailedCount:N0} failed";
+
+            var measured = ActiveActivityGroups.Where(activity => activity.TotalCount > 0).ToList();
+            if (measured.Count > 0)
+                return $"Stage {ActivePhaseNumber} of {Phases.Count}: {ActivePhaseSummary} · {measured.Sum(activity => Math.Min(activity.ProcessedCount, activity.TotalCount)):N0} of {measured.Sum(activity => activity.TotalCount):N0} current-stage tasks complete";
+
+            return $"Stage {ActivePhaseNumber} of {Phases.Count}: {ActivePhaseSummary} · {CurrentActiveCount:N0} active · {CurrentQueuedCount:N0} queued";
+        }
+    }
 
     private IReadOnlyList<PhaseViewModel> Phases =>
     [
@@ -226,10 +263,10 @@
 
     private IReadOnlyList<OutcomeMetric> OutcomeMetrics =>
     [
-        new("Files checked", Model.ProcessedFiles, Icons.Material.Outlined.Description, "is-primary"),
-        new("Added or updated", DisplayBatch?.RegisteredCount ?? Model.AddedOrUpdatedCount, Icons.Material.Outlined.Add, "is-success"),
-        new("Need review", ReviewCount, Icons.Material.Outlined.PendingActions, "is-warning"),
-        new("Failed", FailedCount, Icons.Material.Outlined.ErrorOutline, "is-danger"),
+        new("Files checked", DisplayBatch?.ProcessedFiles ?? Model.ProcessedFiles, Icons.Material.Outlined.Description, "is-primary", null),
+        new("Added or updated", DisplayBatch?.RegisteredCount ?? Model.AddedOrUpdatedCount, Icons.Material.Outlined.Add, "is-success", null),
+        new("Need review", ReviewCount, Icons.Material.Outlined.PendingActions, "is-warning", "/settings/review"),
+        new("Failed", FailedCount, Icons.Material.Outlined.ErrorOutline, "is-danger", CurrentActivityHref),
     ];
 
     private IReadOnlyList<MediaMetric> MediaMix => DisplayBatch is null ? [] : new[]
@@ -261,6 +298,9 @@
     private static bool IsActiveStatus(string? status) => status is not null && status.ToLowerInvariant() is "running" or "queued" or "processing" or "active";
     private static string ActivityLabel(IngestionCurrentActivityDto activity) => string.IsNullOrWhiteSpace(activity.Message) ? "Updating library details" : activity.Message;
     private static string ActivityCounts(IngestionCurrentActivityDto activity) { var parts = new List<string>(); if (activity.ActiveCount > 0) parts.Add($"{activity.ActiveCount:N0} active"); if (activity.QueuedCount > 0) parts.Add($"{activity.QueuedCount:N0} queued"); if (activity.ProcessedCount > 0) parts.Add($"{activity.ProcessedCount:N0} completed"); return parts.Count == 0 ? "In progress" : string.Join(" · ", parts); }
+    private static string ActivityProgressCounts(IngestionCurrentActivityDto activity) => activity.TotalCount > 0 ? $"{Math.Min(activity.ProcessedCount, activity.TotalCount):N0} / {activity.TotalCount:N0}" : ActivityCounts(activity);
+    private static double ActivityPercent(IngestionCurrentActivityDto activity) => activity.TotalCount > 0 ? Math.Clamp(activity.ProcessedCount * 100d / activity.TotalCount, 0, 100) : 0;
+    private static string ActivityDescription(string? key) => key?.ToLowerInvariant() switch { "artwork" => "Downloading posters, covers, and supported artwork", "people" => "Matching and enriching credited people", "relationships" or "universe" => "Building series, collections, and connections", "wikidata" or "identity" => "Resolving trusted canonical identities", "metadata" => "Updating titles, facts, and descriptions", "subtitles" => "Finding and storing subtitle tracks", "lyrics" => "Finding and storing lyrics", _ => "Processing library enrichment work" };
     private static string ActivityIcon(string? key) => key?.ToLowerInvariant() switch { "artwork" => Icons.Material.Outlined.Image, "people" => Icons.Material.Outlined.People, "relationships" or "universe" => Icons.Material.Outlined.AccountTree, "wikidata" or "identity" => Icons.Material.Outlined.Search, _ => Icons.Material.Outlined.AutoAwesome };
     private double MediaPercent(int count) => Math.Max(8, count * 100d / Math.Max(1, MediaMix.Max(metric => metric.Count)));
     private static string FormatDuration(int seconds) => TimeSpan.FromSeconds(Math.Max(0, seconds)) switch { var span when span.TotalHours >= 1 => $"{(int)span.TotalHours}h {span.Minutes}m", var span when span.TotalMinutes >= 1 => $"{(int)span.TotalMinutes}m {span.Seconds}s", var span => $"{span.Seconds}s" };
@@ -272,6 +312,6 @@
     public async ValueTask DisposeAsync() { Dashboard.OnChanged -= OnDashboardChanged; await Dashboard.StopAsync(); }
 
     private sealed record PhaseViewModel(string Label, string Description, string Icon, LibraryUpdateStepStatus Status, string StatusLabel);
-    private sealed record OutcomeMetric(string Label, int Value, string Icon, string Tone);
+    private sealed record OutcomeMetric(string Label, int Value, string Icon, string Tone, string? Href);
     private sealed record MediaMetric(string Label, int Count, string Icon);
 }

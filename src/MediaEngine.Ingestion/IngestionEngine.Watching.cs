@@ -750,20 +750,42 @@ public sealed partial class IngestionEngine
 
         if (newEvents.Count > 0)
         {
-            var batchId = Guid.NewGuid();
+            var sourcePath = ResolveBufferedBatchSourcePath(newEvents);
+            var activeBatches = await _batchRepo.GetActiveAsync(ct).ConfigureAwait(false);
+            var activeBatch = activeBatches
+                .Where(batch => string.Equals(batch.Status, "running", StringComparison.OrdinalIgnoreCase))
+                .Where(batch => string.Equals(batch.SourcePath, sourcePath, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(batch.SourcePath, "Multiple source folders", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(sourcePath, "Multiple source folders", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(batch => batch.UpdatedAt)
+                .FirstOrDefault();
+            var batchId = activeBatch?.Id ?? Guid.NewGuid();
 
             try
             {
-                await _batchRepo.CreateAsync(new IngestionBatch
+                if (activeBatch is null)
                 {
-                    Id = batchId,
-                    Status = "running",
-                    SourcePath = ResolveBufferedBatchSourcePath(newEvents),
-                    FilesTotal = newEvents.Count,
-                    StartedAt = DateTimeOffset.UtcNow,
-                }, ct).ConfigureAwait(false);
+                    await _batchRepo.CreateAsync(new IngestionBatch
+                    {
+                        Id = batchId,
+                        Status = "running",
+                        SourcePath = sourcePath,
+                        FilesTotal = newEvents.Count,
+                        StartedAt = DateTimeOffset.UtcNow,
+                    }, ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    await _batchRepo.IncrementCounterByAsync(
+                        batchId,
+                        BatchCounterColumn.FilesTotal,
+                        newEvents.Count,
+                        ct).ConfigureAwait(false);
+                }
 
-                await PublishInitialBatchProgressAsync(batchId, newEvents.Count).ConfigureAwait(false);
+                await PublishInitialBatchProgressAsync(
+                    batchId,
+                    (activeBatch?.FilesTotal ?? 0) + newEvents.Count).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

@@ -50,6 +50,20 @@
     content: "";
 }
 
+.settings-operations-navigation__count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 20px;
+    height: 20px;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 999px;
+    color: #f3ecff;
+    background: rgba(139, 92, 246, .55);
+    font-size: .72rem;
+    line-height: 1;
+}
+
 .settings-mobile-navigation {
     display: none;
     margin-bottom: var(--tl-space-4, 16px);

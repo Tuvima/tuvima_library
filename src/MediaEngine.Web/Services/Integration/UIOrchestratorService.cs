@@ -506,12 +506,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         Guid batchId, CancellationToken ct = default)
         => _api.GetActivityBatchGroupsAsync(batchId, ct);
 
-    public Task<List<ActivityOperationEventDto>> GetActivityBatchEventsAsync(
+    public Task<ActivityBatchInsightsDto?> GetActivityBatchInsightsAsync(
         Guid batchId,
-        string? category = null,
-        int limit = 100,
         CancellationToken ct = default)
-        => _api.GetActivityBatchEventsAsync(batchId, category, limit, ct);
+        => _api.GetActivityBatchInsightsAsync(batchId, ct);
 
     public Task<PagedResponse<ActivityBatchItemDto>?> GetActivityBatchItemsAsync(
         Guid batchId,

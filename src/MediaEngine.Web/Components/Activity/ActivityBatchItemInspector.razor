@@ -1,0 +1,36 @@
+@namespace MediaEngine.Web.Components.Activity
+@using MediaEngine.Contracts.Activity
+
+@if (Detail is null)
+{
+    <AppProgressBar Indeterminate="true" />
+}
+else
+{
+    <div class="batch-item-inspector">
+        <header><div><h4>@Item.Title</h4><p>@ActivityDisplay.NormalizeMediaType(Item.MediaType) · @StringHelpers.FirstNonBlankOr("Processed", Detail.Status)</p></div></header>
+        <div class="batch-item-inspector__sections">
+            @if (Identification.Count > 0) { @Section("Identification", Icons.Material.Outlined.Search, Identification) }
+            @if (Metadata.Count > 0) { @Section("Metadata", Icons.Material.Outlined.Description, Metadata) }
+            @if (Artwork.Count > 0) { @Section("Artwork", Icons.Material.Outlined.Image, Artwork) }
+            @if (Detail.People.Count > 0) { <article><MudIcon Icon="@Icons.Material.Outlined.People" /><span><strong>People &amp; contributors</strong><small>@Detail.People.Select(person => person.PersonId).Distinct().Count().ToString("N0") people · @string.Join(", ", Detail.People.Select(person => person.Role).Where(role => !string.IsNullOrWhiteSpace(role)).Distinct().Take(3))</small></span></article> }
+            @if (Relationships.Count > 0) { @Section("Relationships", Icons.Material.Outlined.AccountTree, Relationships) }
+            @if (Detail.FileDetails.Count > 0) { <article><MudIcon Icon="@Icons.Material.Outlined.Description" /><span><strong>Files</strong><small>@StringHelpers.FirstNonBlankOr("File information recorded", Detail.SourcePath)</small></span></article> }
+            @if (Subtitles.Count > 0) { @Section("Subtitles", Icons.Material.Outlined.Subtitles, Subtitles) }
+            @if (Lyrics.Count > 0) { @Section("Lyrics", Icons.Material.Outlined.Lyrics, Lyrics) }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public ActivityBatchItemDto Item { get; set; } = new();
+    [Parameter] public ActivityBatchItemDetailDto? Detail { get; set; }
+    private IReadOnlyList<ActivityEvidenceDto> Identification => Evidence("match", "identity", "qid", "canonical");
+    private IReadOnlyList<ActivityEvidenceDto> Metadata => Evidence("metadata", "field");
+    private IReadOnlyList<ActivityEvidenceDto> Artwork => Evidence("artwork", "image", "cover", "poster", "backdrop");
+    private IReadOnlyList<ActivityEvidenceDto> Relationships => Evidence("relationship", "collection", "series", "universe");
+    private IReadOnlyList<ActivityEvidenceDto> Subtitles => Evidence("subtitle");
+    private IReadOnlyList<ActivityEvidenceDto> Lyrics => Evidence("lyric");
+    private IReadOnlyList<ActivityEvidenceDto> Evidence(params string[] terms) => Detail?.Evidence.Where(entry => terms.Any(term => $"{entry.Kind} {entry.Label}".Contains(term, StringComparison.OrdinalIgnoreCase))).ToList() ?? [];
+    private RenderFragment Section(string title, string icon, IReadOnlyList<ActivityEvidenceDto> entries) => builder => { builder.OpenElement(0,"article"); builder.OpenComponent<MudIcon>(1); builder.AddAttribute(2,nameof(MudIcon.Icon),icon); builder.CloseComponent(); builder.OpenElement(3,"span"); builder.OpenElement(4,"strong"); builder.AddContent(5,title); builder.CloseElement(); builder.OpenElement(6,"small"); builder.AddContent(7,string.Join(" · ",entries.Select(entry=>StringHelpers.FirstNonBlankOr(entry.Kind,entry.Label,entry.Value)).Take(3))); builder.CloseElement(); builder.CloseElement(); builder.CloseElement(); };
+}

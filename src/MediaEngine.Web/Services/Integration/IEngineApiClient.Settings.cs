@@ -235,10 +235,8 @@ public partial interface IEngineApiClient
         Guid batchId,
         CancellationToken ct = default);
 
-    Task<List<ActivityOperationEventDto>> GetActivityBatchEventsAsync(
+    Task<ActivityBatchInsightsDto?> GetActivityBatchInsightsAsync(
         Guid batchId,
-        string? category = null,
-        int limit = 100,
         CancellationToken ct = default);
 
     Task<PagedResponse<ActivityBatchItemDto>?> GetActivityBatchItemsAsync(

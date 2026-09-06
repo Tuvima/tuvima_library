@@ -22,6 +22,7 @@ public sealed class ActivityTabGuardrailTests
         var settings = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
         var batches = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityBatchExplorer.razor"));
         var batchCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityBatchExplorer.razor.css"));
+        var inspector = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityBatchInspector.razor"));
         var maintenance = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityMaintenancePanel.razor"));
 
         Assert.Contains("<ActivityBatchExplorer", tab, StringComparison.Ordinal);
@@ -36,35 +37,34 @@ public sealed class ActivityTabGuardrailTests
         Assert.DoesNotContain("SELECT", tab, StringComparison.OrdinalIgnoreCase);
 
         Assert.Contains("GetActivityBatchesAsync", batches, StringComparison.Ordinal);
-        Assert.Contains("GetActivityBatchEventsAsync", batches, StringComparison.Ordinal);
+        Assert.Contains("GetActivityBatchInsightsAsync", inspector, StringComparison.Ordinal);
         Assert.Contains("GroupBy(operation => operation.BatchId)", batches, StringComparison.Ordinal);
         Assert.Contains("AppFilterBar", batches, StringComparison.Ordinal);
         Assert.Contains("activity-audit__filter-disclosure", batches, StringComparison.Ordinal);
         Assert.Contains("open=\"@(!DeviceContext.IsMobile)\"", batches, StringComparison.Ordinal);
         Assert.Contains("activity-run-card", batches, StringComparison.Ordinal);
-        Assert.Contains("activity-operation-categories", batches, StringComparison.Ordinal);
-        Assert.Contains("activity-event-table", batches, StringComparison.Ordinal);
-        Assert.Contains("Show technical details", batches, StringComparison.Ordinal);
-        Assert.Contains("Important changes", batches, StringComparison.Ordinal);
+        Assert.Contains("ActivityBatchInspector", batches, StringComparison.Ordinal);
+        Assert.DoesNotContain("Technical Log", inspector, StringComparison.Ordinal);
+        Assert.DoesNotContain("ActivityEventList", inspector, StringComparison.Ordinal);
+        Assert.DoesNotContain("Important changes", batches, StringComparison.Ordinal);
         Assert.Contains("AppCompactPager", batches, StringComparison.Ordinal);
         Assert.Contains("Label=\"Activity type\"", batches, StringComparison.Ordinal);
         Assert.Contains("Label=\"Source\"", batches, StringComparison.Ordinal);
         Assert.Contains("Label=\"Result\"", batches, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Library\"", batches, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Media type\"", batches, StringComparison.Ordinal);
         Assert.Contains("Label=\"Date\"", batches, StringComparison.Ordinal);
-        Assert.Contains("People hydrated", batches, StringComparison.Ordinal);
-        Assert.Contains("Metadata updated", batches, StringComparison.Ordinal);
-        Assert.Contains("Enrichment operations", batches, StringComparison.Ordinal);
-        Assert.Contains("activity-audit__summary", batchCss, StringComparison.Ordinal);
-        Assert.Contains("activity-operation-category", batchCss, StringComparison.Ordinal);
-        Assert.Contains("@media (max-width: 700px)", batchCss, StringComparison.Ordinal);
+        Assert.Contains("People enriched", inspector, StringComparison.Ordinal);
+        Assert.Contains("Metadata updated", inspector, StringComparison.Ordinal);
+        Assert.Contains("Provider operations", inspector, StringComparison.Ordinal);
+        Assert.DoesNotContain("activity-audit__summary", batches, StringComparison.Ordinal);
+        Assert.Contains("@media (max-width: 900px)", batchCss, StringComparison.Ordinal);
         Assert.Contains(".activity-audit__filter-disclosure > summary", batchCss, StringComparison.Ordinal);
         Assert.Contains("<details class=\"activity-page__advanced\"", tab, StringComparison.Ordinal);
 
         Assert.Contains("GetActivityStatsAsync", maintenance, StringComparison.Ordinal);
         Assert.Contains("TriggerPruneAsync", maintenance, StringComparison.Ordinal);
 
-        foreach (var source in new[] { tab, batches, maintenance })
+        foreach (var source in new[] { tab, batches, inspector, maintenance })
         {
             Assert.DoesNotContain("_sampleEntries", source, StringComparison.Ordinal);
             Assert.DoesNotContain("Task.Delay", source, StringComparison.Ordinal);

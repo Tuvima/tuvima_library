@@ -13,6 +13,7 @@ public sealed class SettingsNavTests
         Assert.Contains("<MediaSectionShell Title=\"Settings\"", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AccordionNavigation=\"true\"", settingsSource, StringComparison.Ordinal);
         Assert.Contains("settings-mobile-navigation", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("Meta: _reviewCount > 0", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<SettingsSubsectionNav", settingsSource, StringComparison.Ordinal);
         Assert.Contains("<SidebarPageHeader", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<SidebarPageShell", settingsSource, StringComparison.Ordinal);

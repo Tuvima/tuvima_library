@@ -1,0 +1,46 @@
+.batch-inspector { display: grid; gap: 16px; padding: 16px; border-top: 1px solid var(--tl-border-subtle); background: rgba(7, 17, 32, .42); }
+.batch-inspector__metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; }
+.batch-inspector__metrics article { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 9px; align-items: center; min-height: 70px; padding: 10px; border: 1px solid var(--tl-border-subtle); border-radius: 9px; background: rgba(15, 29, 51, .55); }
+.batch-inspector__metrics article > span { display: grid; place-items: center; width: 32px; height: 32px; color: #a78bfa; border-radius: 8px; background: rgba(124,84,220,.14); }
+.batch-inspector__metrics article > span.warning { color: var(--tl-status-warning); background: rgba(245,158,11,.11); }
+.batch-inspector__metrics article > span.danger { color: var(--tl-status-error); background: rgba(244,63,94,.11); }
+.batch-inspector__metrics article div { display: grid; min-width: 0; }
+.batch-inspector__metrics small, .batch-inspector__metrics em { color: var(--tl-text-muted); font-size: .7rem; font-style: normal; }
+.batch-inspector__metrics strong { font-size: 1.1rem; }
+.batch-inspector__note { margin: 0; color: var(--tl-text-muted); font-size: .78rem; line-height: 1.45; }
+.batch-inspector__media-bars { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px 20px; }
+.batch-inspector__media-row { display: grid; grid-template-columns: minmax(110px, auto) minmax(80px, 1fr) auto; gap: 10px; align-items: center; min-height: 34px; }
+.batch-inspector__media-row > span { display: inline-flex; align-items: center; gap: 7px; color: var(--tl-text-secondary); }
+.batch-inspector__media-row ::deep .app-progress-bar__track { height: 6px; }
+.batch-inspector__fact-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.batch-inspector__fact-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; min-height: 64px; padding: 10px 12px; border: 1px solid var(--tl-border-subtle); border-radius: 9px; background: rgba(15,29,51,.45); }
+.batch-inspector__fact-row > ::deep .mud-icon-root { color: #a78bfa; }
+.batch-inspector__fact-row span { display: grid; }
+.batch-inspector__fact-row small { color: var(--tl-text-muted); }
+.batch-inspector__data-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 9px; }
+.batch-inspector__data-grid article { display: grid; gap: 3px; min-height: 60px; padding: 10px; border: 1px solid var(--tl-border-subtle); border-radius: 8px; }
+.batch-inspector__data-grid small { color: var(--tl-text-muted); }
+.batch-inspector__providers { display: grid; gap: 0; }
+.batch-inspector__providers h4 { margin: 0 0 8px; }
+.batch-inspector__providers > div { display: grid; grid-template-columns: minmax(150px, 1fr) repeat(3, minmax(110px, auto)); gap: 12px; padding: 9px 0; color: var(--tl-text-secondary); border-top: 1px solid var(--tl-border-subtle); }
+.batch-inspector__item-table { overflow: hidden; border: 1px solid var(--tl-border-subtle); border-radius: 9px; }
+.batch-inspector__item-head, .batch-inspector__item-row { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(90px, .3fr) minmax(130px, .35fr) 42px; gap: 12px; align-items: center; }
+.batch-inspector__item-head { min-height: 35px; padding: 0 12px; color: var(--tl-text-muted); font-size: .7rem; text-transform: uppercase; }
+.batch-inspector__item-row { min-height: 52px; padding: 7px 12px; border-top: 1px solid var(--tl-border-subtle); }
+.batch-inspector__item-row > span:first-child { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.batch-inspector__item-row > span:first-child > span { display: grid; min-width: 0; }
+.batch-inspector__item-row small { overflow: hidden; color: var(--tl-text-muted); text-overflow: ellipsis; white-space: nowrap; }
+.batch-inspector__item-row .is-success, .batch-inspector__item-row .is-warning, .batch-inspector__item-row .is-danger { display: inline-flex; align-items: center; gap: 5px; width: fit-content; color: var(--tl-status-success); text-decoration: none; }
+.batch-inspector__item-row .is-warning { color: var(--tl-status-warning); }
+.batch-inspector__item-row .is-danger { color: var(--tl-status-error); }
+.batch-inspector__item-row .is-success ::deep .mud-icon-root, .batch-inspector__item-row .is-warning ::deep .mud-icon-root, .batch-inspector__item-row .is-danger ::deep .mud-icon-root { width: 16px; height: 16px; font-size: 16px; }
+.batch-inspector__item-detail { padding: 12px; border-top: 1px solid var(--tl-border-subtle); }
+
+@media (max-width: 1180px) {
+    .batch-inspector__metrics, .batch-inspector__data-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .batch-inspector__fact-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+    .batch-inspector { display: none; }
+}

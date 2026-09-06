@@ -26,8 +26,8 @@ public sealed class ReviewIssueClassifierTests
     }
 
     [Theory]
-    [InlineData("RetailMatchFailed", "No retail match")]
-    [InlineData("RetailMatchAmbiguous", "Retail match needs confirmation")]
+    [InlineData("RetailMatchFailed", "No reliable match")]
+    [InlineData("RetailMatchAmbiguous", "Match needs confirmation")]
     [InlineData("MissingQid", "No canonical identity found")]
     [InlineData("MultipleQidMatches", "Canonical identity needs confirmation")]
     public void Classify_UsesPipelineStageSpecificLabels(string trigger, string expectedLabel)

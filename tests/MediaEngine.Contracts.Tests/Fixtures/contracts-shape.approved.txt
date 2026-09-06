@@ -1,3 +1,14 @@
+MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityBatchInsightsDto
+  BatchId: System.Guid | nullability=not-null | accessors=get,set
+  ArtworkCount: System.Int32 | nullability=not-null | accessors=get,set
+  RelationshipCount: System.Int32 | nullability=not-null | accessors=get,set
+  SubtitleCount: System.Int32 | nullability=not-null | accessors=get,set
+  LyricsCount: System.Int32 | nullability=not-null | accessors=get,set
+  ProviderOperationCount: System.Int32 | nullability=not-null | accessors=get,set
+  RetryCount: System.Int32 | nullability=not-null | accessors=get,set
+  ProviderFailureCount: System.Int32 | nullability=not-null | accessors=get,set
+  Providers: System.Collections.Generic.List<MediaEngine.Contracts.Activity.ActivityProviderSummaryDto> | nullability=not-null | accessors=get,set
+
 MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   BatchId: System.Guid | nullability=not-null | accessors=get,set
   AssetId: System.Guid | nullability=not-null | accessors=get,set
@@ -109,23 +120,6 @@ MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityMediaTypeG
   AlertCount: System.Int32 | nullability=not-null | accessors=get,set
   LastActivityAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
 
-MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityOperationEventDto
-  EventId: System.String | nullability=not-null | accessors=get,set
-  BatchId: System.Guid | nullability=not-null | accessors=get,set
-  OccurredAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
-  Category: System.String | nullability=not-null | accessors=get,set
-  EventType: System.String | nullability=not-null | accessors=get,set
-  Item: System.String | nullability=nullable | accessors=get,set
-  Library: System.String | nullability=nullable | accessors=get,set
-  Provider: System.String | nullability=nullable | accessors=get,set
-  Operation: System.String | nullability=nullable | accessors=get,set
-  Result: System.String | nullability=not-null | accessors=get,set
-  Severity: System.String | nullability=not-null | accessors=get,set
-  DurationSeconds: System.Double? | nullability=nullable | accessors=get,set
-  Message: System.String | nullability=nullable | accessors=get,set
-  EntityId: System.Guid? | nullability=nullable | accessors=get,set
-  TechnicalDetails: System.String | nullability=nullable | accessors=get,set
-
 MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityPersonAuditDto
   PersonId: System.Guid | nullability=not-null | accessors=get,set
   PersonName: System.String | nullability=not-null | accessors=get,set
@@ -141,6 +135,12 @@ MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityPersonAudi
   HydratedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
   HeadshotStatus: System.String | nullability=not-null | accessors=get,set
   HeadshotUrl: System.String | nullability=nullable | accessors=get,set
+
+MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityProviderSummaryDto
+  Provider: System.String | nullability=not-null | accessors=get,set
+  OperationCount: System.Int32 | nullability=not-null | accessors=get,set
+  RetryCount: System.Int32 | nullability=not-null | accessors=get,set
+  FailureCount: System.Int32 | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityStatsResponse
   TotalEntries: System.Int64 | nullability=not-null | accessors=get,set

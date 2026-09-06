@@ -70,6 +70,20 @@ public interface IIngestionBatchRepository
     Task IncrementCounterAsync(Guid id, BatchCounterColumn column, CancellationToken ct = default);
 
     /// <summary>
+    /// Atomically adds several units to a counter. Used when watcher debounce windows
+    /// join an already-running logical ingestion operation.
+    /// </summary>
+    async Task IncrementCounterByAsync(
+        Guid id,
+        BatchCounterColumn column,
+        int amount,
+        CancellationToken ct = default)
+    {
+        for (var index = 0; index < amount; index++)
+            await IncrementCounterAsync(id, column, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Returns the latest identity-job state projection used for live batch progress.
     /// </summary>
     Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(

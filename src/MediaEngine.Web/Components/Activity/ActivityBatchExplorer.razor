@@ -7,14 +7,6 @@
 @inject DeviceContextService DeviceContext
 
 <div class="activity-audit">
-    <section class="activity-audit__summary" aria-label="Activity summary">
-        <article><span><MudIcon Icon="@Icons.Material.Outlined.Storage" /></span><div><strong>@(_page?.TotalCount ?? _operations.Count)</strong><small>Operations</small></div></article>
-        <article><span><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></span><div><strong>@CompletedCount.ToString("N0")</strong><small>Completed</small></div></article>
-        <article class="is-warning"><span><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></span><div><strong>@WarningCount.ToString("N0")</strong><small>Warnings</small></div></article>
-        <article class="is-danger"><span><MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" /></span><div><strong>@FailureCount.ToString("N0")</strong><small>Failures</small></div></article>
-        <article class="is-review"><span><MudIcon Icon="@Icons.Material.Outlined.RateReview" /></span><div><strong>@ReviewCount.ToString("N0")</strong><small>Review outcomes</small></div></article>
-    </section>
-
     <details class="activity-audit__filter-disclosure" open="@(!DeviceContext.IsMobile)">
         <summary><span>Filter activity</span><small>@DateRangeLabel</small></summary>
         <AppFilterBar Search="@_query.Search"
@@ -27,10 +19,17 @@
             <AppSelect Value="@_query.EventType" ValueChanged="@OnActivityTypeChanged" Options="@ActivityTypeOptions" Label="Activity type" Class="activity-audit__filter" />
             <AppSelect Value="@_query.Source" ValueChanged="@OnSourceChanged" Options="@SourceOptions" Label="Source" Class="activity-audit__filter" />
             <AppSelect Value="@_query.Status" ValueChanged="@OnStatusChanged" Options="@StatusOptions" Label="Result" Class="activity-audit__filter" />
-            <AppSelect Value="@_query.MediaType" ValueChanged="@OnMediaTypeChanged" Options="@MediaTypeOptions" Label="Library" Class="activity-audit__filter" />
+            <AppSelect Value="@_query.MediaType" ValueChanged="@OnMediaTypeChanged" Options="@MediaTypeOptions" Label="Media type" Class="activity-audit__filter" />
             <AppSelect Value="@_dateRange" ValueChanged="@OnDateRangeChanged" Options="@DateRangeOptions" Label="Date" Class="activity-audit__filter" />
         </AppFilterBar>
     </details>
+
+    <nav class="activity-audit__lenses" aria-label="Activity detail">
+        @foreach (var lens in Lenses)
+        {
+            <AppNativeButton Type="button" Class="@LensClass(lens.Key)" OnClick="@(_ => SelectLens(lens.Key))">@lens.Label</AppNativeButton>
+        }
+    </nav>
 
     @if (_loading && _operations.Count == 0)
     {
@@ -54,21 +53,27 @@
                         var expanded = _expandedOperation == operation.BatchId;
                         <article class="activity-run-card @StatusClass(operation.Status)" @key="operation.BatchId">
                             <div class="activity-run-card__header">
-                                <span class="activity-run-card__status-icon" aria-hidden="true"><MudIcon Icon="@StatusIcon(operation.Status)" /></span>
+                                <span class="activity-run-card__status-icon" role="img" aria-label="@ActivityDisplay.StatusText(operation.Status)"><MudIcon Icon="@StatusIcon(operation.Status)" /></span>
                                 <div class="activity-run-card__identity">
-                                    <div><h3>@OperationTitle(operation)</h3><AppStatusBadge Text="@StatusLabel(operation)" Tone="@ActivityDisplay.StatusTone(operation.Status)" /></div>
+                                    <div><h3>@OperationTitle(operation)</h3></div>
                                     <p><span>@FormatDate(operation.StartedAt)</span><span>@Duration(operation)</span><span class="activity-run-card__id">Batch @ShortId(operation.BatchId)</span></p>
                                 </div>
                                 <div class="activity-run-card__badges">
-                                    <span><MudIcon Icon="@Icons.Material.Outlined.ReceiptLong" />@operation.EventCount.ToString("N0") events</span>
+                                    <span><MudIcon Icon="@Icons.Material.Outlined.VideoLibrary" />@MediaItemCount(operation).ToString("N0") media items</span>
+                                    @if (operation.ReviewCount > 0) { <span class="is-review"><MudIcon Icon="@Icons.Material.Outlined.RateReview" />@operation.ReviewCount.ToString("N0") need review</span> }
                                     @if (operation.WarningCount > 0) { <span class="is-warning"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />@operation.WarningCount.ToString("N0") warnings</span> }
                                     @if (operation.FailureCount > 0) { <span class="is-danger"><MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" />@operation.FailureCount.ToString("N0") failures</span> }
                                 </div>
-                                <AppIconButton Icon="@(expanded ? Icons.Material.Outlined.KeyboardArrowUp : Icons.Material.Outlined.KeyboardArrowDown)"
-                                               Size="AppControlSize.Compact" Class="activity-audit__expand"
-                                               Tooltip="@($"{(expanded ? "Collapse" : "Expand")} {OperationTitle(operation)}")"
-                                               AriaLabel="@($"{(expanded ? "Collapse" : "Expand")} {OperationTitle(operation)}")"
-                                               OnClick="@(() => ToggleOperationAsync(operation))" />
+                                @if (!DeviceContext.IsMobile)
+                                {
+                                <div class="activity-audit__expand-wrap">
+                                    <AppIconButton Icon="@(expanded ? Icons.Material.Outlined.KeyboardArrowUp : Icons.Material.Outlined.KeyboardArrowDown)"
+                                                   Size="AppControlSize.Compact" Class="activity-audit__expand"
+                                                   Tooltip="@($"{(expanded ? "Collapse" : "Expand")} {OperationTitle(operation)}")"
+                                                   AriaLabel="@($"{(expanded ? "Collapse" : "Expand")} {OperationTitle(operation)}")"
+                                                   OnClick="@(() => ToggleOperationAsync(operation))" />
+                                </div>
+                                }
                             </div>
                             <p class="activity-run-card__summary">@OperationSummary(operation)</p>
                             <div class="activity-run-card__media">
@@ -79,54 +84,7 @@
                             </div>
                             @if (expanded)
                             {
-                                <div class="activity-run-card__expanded">
-                                    <div class="activity-run-card__expanded-heading">
-                                        <div><strong>Operation summary</strong><small>Select a category to inspect its chronological records.</small></div>
-                                    </div>
-                                    <div class="activity-operation-categories">
-                                        @foreach (var category in Categories(operation))
-                                        {
-                                            <AppNativeButton Type="button"
-                                                             Class="@CategoryClass(operation.BatchId, category.Key)"
-                                                             OnClick="@(_ => SelectCategoryAsync(operation, category.Key))">
-                                                <span class="activity-operation-category__icon"><MudIcon Icon="@category.Icon" /></span>
-                                                <span><strong>@category.Label</strong><small>@category.HelpText</small></span>
-                                                <b>@category.Count.ToString("N0")</b>
-                                                <AppStatusBadge Text="@category.Result" Tone="@category.Tone" />
-                                            </AppNativeButton>
-                                        }
-                                    </div>
-
-                                    <section class="activity-operation-events" aria-label="Operation records">
-                                        <div class="activity-operation-events__heading">
-                                            <div><strong>@SelectedCategoryLabel(operation)</strong><small>Chronological records for batch @ShortId(operation.BatchId)</small></div>
-                                        </div>
-                                        @if (_loadingEvents.Contains(operation.BatchId))
-                                        {
-                                            <AppProgressBar Indeterminate="true" />
-                                        }
-                                        else if (EventsFor(operation.BatchId).Count == 0)
-                                        {
-                                            <p class="activity-operation-events__empty">No individual records were written for this category.</p>
-                                        }
-                                        else
-                                        {
-                                            <div class="activity-event-table" role="table" aria-label="Batch events">
-                                                <div class="activity-event-table__header" role="row"><span>Time</span><span>Event</span><span>Item</span><span>Result</span><span>Details</span></div>
-                                                @foreach (var entry in EventsFor(operation.BatchId))
-                                                {
-                                                    <article class="activity-event-row" role="row" @key="entry.EventId">
-                                                        <time>@entry.OccurredAt.ToLocalTime().ToString("h:mm:ss tt")</time>
-                                                        <div><strong>@FriendlyEvent(entry.EventType)</strong><small>@entry.Operation</small></div>
-                                                        <div><strong>@StringHelpers.FirstNonBlankOr("System", entry.Item)</strong><small>@SourceName(entry.Library)</small></div>
-                                                        <AppStatusBadge Text="@FriendlyResult(entry.Result)" Tone="@EventTone(entry.Severity)" />
-                                                        <div class="activity-event-row__detail"><span>@entry.Message</span><details><summary>Show technical details</summary><dl><div><dt>Provider</dt><dd>@StringHelpers.FirstNonBlankOr("System", entry.Provider)</dd></div><div><dt>Operation</dt><dd>@StringHelpers.FirstNonBlankOr("Recorded event", entry.Operation)</dd></div><div><dt>Duration</dt><dd>@EventDuration(entry.DurationSeconds)</dd></div><div><dt>Batch ID</dt><dd>@entry.BatchId</dd></div>@if (entry.EntityId.HasValue) { <div><dt>Entity ID</dt><dd>@entry.EntityId</dd></div> }@if (!string.IsNullOrWhiteSpace(entry.TechnicalDetails)) { <div><dt>Payload</dt><dd>@entry.TechnicalDetails</dd></div> }</dl></details></div>
-                                                    </article>
-                                                }
-                                            </div>
-                                        }
-                                    </section>
-                                </div>
+                                <ActivityBatchInspector Batch="@operation" Lens="@_lens" MediaType="@_query.MediaType" />
                             }
                         </article>
                     }
@@ -134,47 +92,26 @@
 
                 <AppCompactPager Offset="@_query.Offset" Limit="@_query.Limit" HasMore="@(_page?.HasMore == true)" TotalCount="@_page?.TotalCount" Loading="@_loading" OffsetChanged="@OnPageChanged" />
             </div>
-
-            <aside class="activity-important" aria-label="Important changes">
-                <div class="activity-important__heading"><MudIcon Icon="@Icons.Material.Outlined.Star" /><div><strong>Important changes</strong><small>Administrative events outside ingestion batches.</small></div></div>
-                @if (_importantChanges.Count == 0)
-                {
-                    <p>No recent administrative changes.</p>
-                }
-                else
-                {
-                    @foreach (var change in _importantChanges)
-                    {
-                        <article><span><MudIcon Icon="@ImportantChangeIcon(change.ActionType)" /></span><div><strong>@FriendlyEvent(change.ActionType)</strong><small>@change.Detail</small></div><time>@FormatActivityDate(change.OccurredAt)</time></article>
-                    }
-                }
-            </aside>
         </div>
     }
 </div>
 
 @code {
     private readonly ActivityAuditQuery _query = new() { Sort = "started", SortDirection = "desc", Start = DateTimeOffset.Now.AddDays(-7) };
-    private readonly Dictionary<Guid, List<ActivityOperationEventDto>> _events = [];
-    private readonly Dictionary<Guid, string> _selectedCategories = [];
-    private readonly HashSet<Guid> _loadingEvents = [];
     private PagedResponse<ActivityBatchSummaryDto>? _page;
     private List<ActivityBatchSummaryDto> _operations = [];
-    private List<ActivityEntryResponse> _importantChanges = [];
     private Guid? _expandedOperation;
     private bool _loading = true;
     private string? _error;
     private string _dateRange = "7d";
+    private string _lens = "overview";
     private string DateRangeLabel => DateRangeOptions.First(option => option.Value == _dateRange).Label;
     private List<AppSelectOption> _sourceOptions = [new("", "All sources")];
     private IReadOnlyList<AppSelectOption> SourceOptions => _sourceOptions;
-    private int CompletedCount => _operations.Count(operation => operation.Status.Equals("completed", StringComparison.OrdinalIgnoreCase));
-    private int WarningCount => _operations.Sum(operation => operation.WarningCount);
-    private int FailureCount => _operations.Sum(operation => operation.FailureCount);
-    private int ReviewCount => _operations.Sum(operation => operation.ReviewCount);
+    private static readonly IReadOnlyList<ActivityLens> Lenses = [new("overview", "Overview"), new("media", "Media"), new("enrichment", "Enrichment"), new("data", "Data & Downloads")];
 
     private static readonly IReadOnlyList<AppSelectOption> ActivityTypeOptions = [new("", "All activity"), new("MetadataHydrated", "Metadata updates"), new("PersonHydrated", "People hydration"), new("ReviewItemCreated", "Review activity"), new("BatchCompleted", "Completed scans")];
-    private static readonly IReadOnlyList<AppSelectOption> MediaTypeOptions = [new("", "All libraries"), new("Movies", "Movies"), new("TV", "TV"), new("Music", "Music"), new("Books", "Books"), new("Audiobooks", "Audiobooks"), new("Comics", "Comics")];
+    private static readonly IReadOnlyList<AppSelectOption> MediaTypeOptions = [new("", "All media types"), new("Movies", "Movies"), new("TV", "TV"), new("Music", "Music"), new("Books", "Books"), new("Audiobooks", "Audiobooks"), new("Comics", "Comics")];
     private static readonly IReadOnlyList<AppSelectOption> StatusOptions = [new("", "All results"), new("running", "Running"), new("completed", "Completed"), new("failed", "Failed"), new("abandoned", "Interrupted")];
     private static readonly IReadOnlyList<AppSelectOption> DateRangeOptions = [new("today", "Today"), new("7d", "Last 7 days"), new("30d", "Last 30 days"), new("all", "All time")];
 
@@ -182,6 +119,8 @@
     {
         if (ResolveRunId() is { } runId)
             _query.Search = runId.ToString("N");
+        else if (ResolveSearch() is { Length: > 0 } search)
+            _query.Search = search;
         await LoadOperationsAsync();
         if (ResolveRunId() is { } selected && _operations.FirstOrDefault(operation => operation.BatchId == selected) is { } operation)
             await ToggleOperationAsync(operation);
@@ -195,11 +134,6 @@
         {
             _page = await Orchestrator.GetActivityBatchesAsync(_query);
             _operations = _page?.Items.GroupBy(operation => operation.BatchId).Select(group => group.First()).ToList() ?? [];
-            _importantChanges = (await Orchestrator.GetRecentActivityAsync(30))
-                .Where(entry => string.IsNullOrWhiteSpace(entry.IngestionRunId))
-                .Where(entry => !entry.ActionType.Equals("ServerStarted", StringComparison.OrdinalIgnoreCase))
-                .Take(8)
-                .ToList();
             if (string.IsNullOrWhiteSpace(_query.Source))
                 _sourceOptions = new[] { new AppSelectOption("", "All sources") }.Concat(_operations.Where(operation => !string.IsNullOrWhiteSpace(operation.Source)).Select(operation => operation.Source!).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(source => source).Select(source => new AppSelectOption(source, SourceName(source)))).ToList();
         }
@@ -211,43 +145,12 @@
         finally { _loading = false; }
     }
 
-    private async Task ToggleOperationAsync(ActivityBatchSummaryDto operation)
+    private Task ToggleOperationAsync(ActivityBatchSummaryDto operation)
     {
-        if (_expandedOperation == operation.BatchId) { _expandedOperation = null; return; }
+        if (_expandedOperation == operation.BatchId) { _expandedOperation = null; return Task.CompletedTask; }
         _expandedOperation = operation.BatchId;
-        _selectedCategories[operation.BatchId] = "all";
-        await LoadEventsAsync(operation.BatchId, "all");
+        return Task.CompletedTask;
     }
-
-    private async Task SelectCategoryAsync(ActivityBatchSummaryDto operation, string category)
-    {
-        _selectedCategories[operation.BatchId] = category;
-        await LoadEventsAsync(operation.BatchId, category);
-    }
-
-    private async Task LoadEventsAsync(Guid batchId, string category)
-    {
-        _loadingEvents.Add(batchId);
-        try { _events[batchId] = await Orchestrator.GetActivityBatchEventsAsync(batchId, category, 200); }
-        finally { _loadingEvents.Remove(batchId); }
-    }
-
-    private IReadOnlyList<ActivityOperationEventDto> EventsFor(Guid batchId) => _events.GetValueOrDefault(batchId, []);
-    private string SelectedCategory(Guid batchId) => _selectedCategories.GetValueOrDefault(batchId, "all");
-    private string SelectedCategoryLabel(ActivityBatchSummaryDto operation) => Categories(operation).First(category => category.Key == SelectedCategory(operation.BatchId)).Label;
-    private string CategoryClass(Guid batchId, string category) => $"activity-operation-category {(SelectedCategory(batchId) == category ? "is-selected" : null)}";
-    private IReadOnlyList<OperationCategory> Categories(ActivityBatchSummaryDto operation) =>
-    [
-        new("all", "All events", operation.EventCount, "Chronological batch record", Icons.Material.Outlined.ReceiptLong, "Recorded", AppUiTone.Neutral),
-        new("Files", "Files discovered", operation.FilesDiscoveredCount, "Accepted by this scan", Icons.Material.Outlined.FolderOpen, "Recorded", AppUiTone.Success),
-        new("Identification", "Items identified", operation.ItemsIdentifiedCount, "Matched to library identities", Icons.Material.Outlined.Search, "Complete", AppUiTone.Success),
-        new("Metadata", "Metadata updated", operation.MetadataUpdatedCount, "Fields and canonical facts", Icons.Material.Outlined.Description, "Complete", AppUiTone.Success),
-        new("People", "People hydrated", operation.PeopleCount, "Authors, cast, and contributors", Icons.Material.Outlined.People, "Complete", AppUiTone.Success),
-        new("Enrichment", "Enrichment operations", operation.EnrichmentOperationCount, "Artwork and relationships", Icons.Material.Outlined.AutoAwesome, operation.Status.Equals("running", StringComparison.OrdinalIgnoreCase) ? "Active" : "Recorded", operation.Status.Equals("running", StringComparison.OrdinalIgnoreCase) ? AppUiTone.Primary : AppUiTone.Success),
-        new("Review", "Review outcomes", operation.ReviewCount, "Items requiring a decision", Icons.Material.Outlined.RateReview, operation.ReviewCount > 0 ? "Attention" : "Clear", operation.ReviewCount > 0 ? AppUiTone.Warning : AppUiTone.Success),
-        new("Warnings", "Warnings", operation.WarningCount, "Retried or unresolved work", Icons.Material.Outlined.WarningAmber, operation.WarningCount > 0 ? "Review" : "Clear", operation.WarningCount > 0 ? AppUiTone.Warning : AppUiTone.Success),
-        new("Failures", "Failures", operation.FailureCount, "Work that could not finish", Icons.Material.Outlined.ErrorOutline, operation.FailureCount > 0 ? "Failed" : "Clear", operation.FailureCount > 0 ? AppUiTone.Error : AppUiTone.Success),
-    ];
 
     private async Task OnSearchChanged(string? value) { _query.Search = value; _query.Offset = 0; await Task.CompletedTask; }
     private async Task OnSearchDebounced(string _) { _query.Offset = 0; await LoadOperationsAsync(); }
@@ -257,24 +160,37 @@
     private async Task OnSourceChanged(string? value) { _query.Source = EmptyToNull(value); _query.Offset = 0; await LoadOperationsAsync(); }
     private async Task OnDateRangeChanged(string? value) { _dateRange = string.IsNullOrWhiteSpace(value) ? "7d" : value; _query.Start = _dateRange switch { "today" => DateTimeOffset.Now.Date, "30d" => DateTimeOffset.Now.AddDays(-30), "all" => null, _ => DateTimeOffset.Now.AddDays(-7) }; _query.Offset = 0; await LoadOperationsAsync(); }
     private async Task OnPageChanged(int offset) { _query.Offset = offset; await LoadOperationsAsync(); }
+    private void SelectLens(string lens) => _lens = lens;
 
     private Guid? ResolveRunId() { var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query); return query.TryGetValue("runId", out var raw) && Guid.TryParse(raw.FirstOrDefault(), out var id) ? id : null; }
+    private string? ResolveSearch() { var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query); return query.TryGetValue("search", out var raw) ? raw.FirstOrDefault() : null; }
     private static string? EmptyToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
     private static string ShortId(Guid id) => id.ToString("N")[..8];
     private static string FormatDate(DateTimeOffset value) => value.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
     private static string FormatActivityDate(string value) => DateTimeOffset.TryParse(value, out var date) ? date.ToLocalTime().ToString("MMM d") : "Recent";
     private static string SourceName(string? source) { if (string.IsNullOrWhiteSpace(source)) return "Library"; var trimmed = source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); return Path.GetFileName(trimmed) is { Length: > 0 } label ? label : source; }
-    private static string OperationTitle(ActivityBatchSummaryDto operation) => !string.IsNullOrWhiteSpace(operation.Category) ? $"Library Scan — {operation.Category}" : !string.IsNullOrWhiteSpace(operation.Source) ? $"Library Scan — {SourceName(operation.Source)}" : "Library Scan";
-    private static string OperationSummary(ActivityBatchSummaryDto operation) => $"Scanned {operation.FilesDiscoveredCount:N0} files · {operation.ItemsIdentifiedCount:N0} identified · {operation.MetadataUpdatedCount:N0} metadata updates · {operation.EnrichmentOperationCount:N0} enrichment operations";
+    private static string OperationTitle(ActivityBatchSummaryDto operation)
+    {
+        if (operation.MediaTypeCount > 1 || operation.Source?.Contains("Multiple", StringComparison.OrdinalIgnoreCase) == true)
+            return "Library Ingestion — New Items";
+        if (operation.MediaTypes.Count == 1)
+            return $"Library Ingestion — {ActivityDisplay.NormalizeMediaType(operation.MediaTypes[0].MediaType)}";
+        if (!string.IsNullOrWhiteSpace(operation.Category))
+            return $"Library Ingestion — {operation.Category}";
+        var source = SourceName(operation.Source);
+        return source.Equals("Library", StringComparison.OrdinalIgnoreCase) ? "Library Ingestion" : $"Library Ingestion — {source}";
+    }
+    private static int MediaItemCount(ActivityBatchSummaryDto operation) => Math.Max(operation.ItemCount, Math.Max(operation.TitleCount, operation.ItemsIdentifiedCount));
+    private static string OperationSummary(ActivityBatchSummaryDto operation) => $"Checked {operation.FilesDiscoveredCount:N0} files · {operation.ItemsIdentifiedCount:N0} identified · {operation.MetadataUpdatedCount:N0} metadata updates · {operation.EnrichmentOperationCount:N0} enrichment operations";
     private static string Duration(ActivityBatchSummaryDto operation) => StringHelpers.FirstNonBlankOr("", operation.DurationLabel, operation.CompletedAt.HasValue ? "Finished" : "In progress");
-    private static string StatusLabel(ActivityBatchSummaryDto operation) => operation.Status.Equals("completed", StringComparison.OrdinalIgnoreCase) && operation.AlertCount > 0 ? "Completed with issues" : ActivityDisplay.StatusText(operation.Status);
+    private string LensClass(string key) => $"activity-audit__lens {(_lens == key ? "is-active" : null)}";
     private static string StatusClass(string? status) => $"is-{(string.IsNullOrWhiteSpace(status) ? "unknown" : status.ToLowerInvariant())}";
     private static string StatusIcon(string? status) => status?.ToLowerInvariant() switch { "completed" => Icons.Material.Outlined.CheckCircle, "failed" => Icons.Material.Outlined.ErrorOutline, "abandoned" or "interrupted" => Icons.Material.Outlined.WarningAmber, "running" or "active" or "processing" => Icons.Material.Outlined.Sync, _ => Icons.Material.Outlined.Schedule };
-    private static string ImportantChangeIcon(string? type) => type?.Contains("Review", StringComparison.OrdinalIgnoreCase) == true ? Icons.Material.Outlined.RateReview : type?.Contains("Provider", StringComparison.OrdinalIgnoreCase) == true ? Icons.Material.Outlined.Shield : Icons.Material.Outlined.Settings;
     private static string FriendlyEvent(string value) { if (string.IsNullOrWhiteSpace(value)) return "Activity"; var builder = new System.Text.StringBuilder(value.Length + 8); for (var i = 0; i < value.Length; i++) { if (i > 0 && char.IsUpper(value[i]) && !char.IsWhiteSpace(value[i - 1])) builder.Append(' '); builder.Append(value[i] == '.' || value[i] == '_' ? ' ' : value[i]); } return builder.ToString(); }
     private static string FriendlyResult(string value) => value.Replace('_', ' ');
     private static string EventDuration(double? seconds) => seconds is null ? "—" : TimeSpan.FromSeconds(Math.Max(0, seconds.Value)) switch { var span when span.TotalMinutes >= 1 => $"{(int)span.TotalMinutes}m {span.Seconds}s", var span => $"{span.TotalSeconds:F1}s" };
     private static AppUiTone EventTone(string severity) => severity.ToLowerInvariant() switch { "success" => AppUiTone.Success, "warning" => AppUiTone.Warning, "error" => AppUiTone.Error, _ => AppUiTone.Neutral };
 
-    private sealed record OperationCategory(string Key, string Label, int Count, string HelpText, string Icon, string Result, AppUiTone Tone);
+    private sealed record ActivityLens(string Key, string Label);
+
 }

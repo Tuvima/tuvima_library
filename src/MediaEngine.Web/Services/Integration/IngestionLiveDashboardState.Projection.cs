@@ -828,14 +828,20 @@ public sealed partial class IngestionLiveDashboardState
         BatchProgressEvent? batch)
     {
         var pipelineStages = stages.Where(stage => !stage.HideCount && !IsReviewStage(stage)).ToList();
-        var hasPipelineWork = metrics.TotalFiles > 0 || pipelineStages.Any(stage => stage.Total > 0 || stage.Count > 0);
-        var percent = metrics.TotalFiles > 0 && metrics.ProcessedFiles >= metrics.TotalFiles
-            ? 100
-            : hasPipelineWork && pipelineStages.Count > 0
-            ? Math.Clamp(pipelineStages.Average(stage => Math.Clamp(stage.Percent, 0, 100)), 0, 100)
+        var measurableStages = pipelineStages.Where(stage => stage.Total > 0).ToList();
+        var measuredWork = measurableStages.Sum(stage => Math.Clamp(stage.Count, 0, stage.Total));
+        var totalWork = measurableStages.Sum(stage => Math.Max(0, stage.Total));
+        var percent = totalWork > 0
+            ? Math.Clamp(measuredWork * 100d / totalWork, 0, 100)
             : metrics.TotalFiles > 0
                 ? Math.Clamp(metrics.ProcessedFiles * 100d / metrics.TotalFiles, 0, 100)
                 : 0;
+
+        var hasActiveStage = pipelineStages.Any(stage => stage.StatusKey == "Ingestion_StatusActive");
+        if (!hasActiveStage && metrics.TotalFiles > 0 && metrics.ProcessedFiles >= metrics.TotalFiles)
+            percent = 100;
+        else if (hasActiveStage && percent >= 100)
+            percent = 99;
 
         var activeStage = stages.FirstOrDefault(stage => stage.StatusKey == "Ingestion_StatusActive")
             ?? stages.FirstOrDefault(stage => !stage.HideCount && stage.Percent < 100)

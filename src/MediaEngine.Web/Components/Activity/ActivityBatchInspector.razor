@@ -1,0 +1,180 @@
+@namespace MediaEngine.Web.Components.Activity
+@using MediaEngine.Contracts.Activity
+@using MediaEngine.Contracts.Paging
+@inject UIOrchestratorService Orchestrator
+
+<section class="batch-inspector" aria-label="@($"{LensLabel} for this operation")">
+    @if (_loading)
+    {
+        <AppProgressBar Indeterminate="true" />
+    }
+    else if (Lens == "overview")
+    {
+        <div class="batch-inspector__metrics">
+            @foreach (var metric in SummaryMetrics)
+            {
+                <article><span class="@metric.Tone"><MudIcon Icon="@metric.Icon" /></span><div><small>@metric.Label</small><strong>@metric.Value.ToString("N0")</strong>@if (!string.IsNullOrWhiteSpace(metric.Detail)) { <em>@metric.Detail</em> }</div></article>
+            }
+        </div>
+        <p class="batch-inspector__note">Choose Media, Enrichment, or Data &amp; Downloads above to focus every expanded operation on that information.</p>
+    }
+    else if (Lens == "media")
+    {
+        @if (_groups.Count > 0)
+        {
+            <div class="batch-inspector__media-bars" aria-label="Media in this operation">
+                @foreach (var media in _groups.Where(group => group.ItemCount > 0 || group.TitleCount > 0))
+                {
+                    <div class="batch-inspector__media-row"><span><AppMaterialIcon Icon="@ActivityDisplay.MediaIcon(media.MediaType)" Size="MudBlazor.Size.Small" />@ActivityDisplay.NormalizeMediaType(media.MediaType)</span><AppProgressBar Value="@MediaPercent(media)" ShowValue="false" /><strong>@Math.Max(media.ItemCount, media.TitleCount).ToString("N0")</strong></div>
+                }
+            </div>
+        }
+
+        @if (_itemPage?.Items.Count > 0)
+        {
+            <div class="batch-inspector__item-table">
+                <div class="batch-inspector__item-head"><span>Item</span><span>Type</span><span>Result</span><span></span></div>
+                @foreach (var item in _itemPage.Items)
+                {
+                    var open = _expandedItem == item.AssetId;
+                    <article class="batch-inspector__item" @key="item.AssetId">
+                        <div class="batch-inspector__item-row">
+                            <span><AppMaterialIcon Icon="@ActivityDisplay.MediaIcon(item.MediaType)" Size="MudBlazor.Size.Small" /><span><strong>@item.Title</strong><small>@item.SourcePath</small></span></span>
+                            <span>@ActivityDisplay.NormalizeMediaType(item.MediaType)</span>
+                            @if (item.ReviewCount > 0) { <a class="is-warning" href="/settings/review"><MudIcon Icon="@Icons.Material.Outlined.RateReview" />Needs review</a> }
+                            else if (item.AlertCount > 0) { <span class="is-danger"><MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" />Failed</span> }
+                            else { <span class="is-success"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />Complete</span> }
+                            @if (item.AssetId is { } assetId)
+                            {
+                                <AppIconButton Icon="@(open ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)" AriaLabel="@($"{(open ? "Hide" : "Show")} details for {item.Title}")" Tooltip="@($"{(open ? "Hide" : "Show")} item details")" Size="AppControlSize.Compact" OnClick="@(() => ToggleItemAsync(assetId))" />
+                            }
+                        </div>
+                        @if (open) { <div class="batch-inspector__item-detail">@RenderItemDetail(item)</div> }
+                    </article>
+                }
+            </div>
+            @if (_itemPage.HasMore)
+            {
+                <p class="batch-inspector__note">Showing the first @(_itemPage.Items.Count.ToString("N0")) of @((_itemPage.TotalCount ?? _itemPage.Items.Count).ToString("N0")) media items. Narrow the page-level media filter to inspect a specific type.</p>
+            }
+        }
+        else
+        {
+            <p class="batch-inspector__note">No media items match the current page filters.</p>
+        }
+    }
+    else if (Lens == "enrichment")
+    {
+        <div class="batch-inspector__fact-list">
+            @foreach (var target in EnrichmentTargets)
+            {
+                <article class="batch-inspector__fact-row"><MudIcon Icon="@target.Icon" /><span><strong>@target.Label</strong><small>@target.Detail</small></span><b>@target.Count.ToString("N0")</b></article>
+            }
+        </div>
+        @if (EnrichmentTargets.Count == 0)
+        {
+            <p class="batch-inspector__note">No enrichment work was recorded for this operation.</p>
+        }
+    }
+    else
+    {
+        <div class="batch-inspector__data-grid">
+            <article><small>Processing duration</small><strong>@DurationLabel</strong></article>
+            <article><small>Files inspected</small><strong>@Batch.FilesDiscoveredCount.ToString("N0")</strong></article>
+            <article><small>Media items</small><strong>@MediaItemCount.ToString("N0")</strong></article>
+            <article><small>Provider operations</small><strong>@(_insights?.ProviderOperationCount.ToString("N0") ?? "0")</strong></article>
+            <article><small>Waiting or retrying</small><strong>@(_insights?.RetryCount.ToString("N0") ?? "0")</strong></article>
+            <article><small>Provider failures</small><strong>@(_insights?.ProviderFailureCount.ToString("N0") ?? "0")</strong></article>
+        </div>
+        @if (_insights?.Providers.Count > 0)
+        {
+            <section class="batch-inspector__providers"><h4>Provider activity</h4>@foreach (var provider in _insights.Providers) { <div><strong>@provider.Provider</strong><span>@provider.OperationCount.ToString("N0") operations</span><span>@provider.RetryCount.ToString("N0") waiting or retrying</span><span>@provider.FailureCount.ToString("N0") failed</span></div> }</section>
+        }
+        <p class="batch-inspector__note">Download size is omitted when the operation did not record a reliable byte count.</p>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ActivityBatchSummaryDto Batch { get; set; } = new();
+    [Parameter] public string Lens { get; set; } = "overview";
+    [Parameter] public string? MediaType { get; set; }
+
+    private bool _loading;
+    private Guid _loadedBatchId;
+    private string? _loadedLens;
+    private string? _loadedMediaType;
+    private List<ActivityMediaTypeGroupDto> _groups = [];
+    private PagedResponse<ActivityBatchItemDto>? _itemPage;
+    private ActivityBatchInsightsDto? _insights;
+    private readonly Dictionary<Guid, ActivityBatchItemDetailDto?> _itemDetails = [];
+    private Guid? _expandedItem;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedBatchId == Batch.BatchId && _loadedLens == Lens && _loadedMediaType == MediaType) return;
+        if (_loadedBatchId != Batch.BatchId)
+        {
+            _groups = [];
+            _itemPage = null;
+            _insights = null;
+            _itemDetails.Clear();
+            _expandedItem = null;
+        }
+
+        _loadedBatchId = Batch.BatchId;
+        _loadedLens = Lens;
+        _loadedMediaType = MediaType;
+        _loading = Lens != "overview";
+        try
+        {
+            if (Lens == "media")
+            {
+                var groupsTask = Orchestrator.GetActivityBatchGroupsAsync(Batch.BatchId);
+                var itemsTask = Orchestrator.GetActivityBatchItemsAsync(Batch.BatchId, MediaType, 0, 25, "title", "asc");
+                await Task.WhenAll(groupsTask, itemsTask);
+                _groups = groupsTask.Result;
+                _itemPage = itemsTask.Result;
+            }
+            else if (Lens is "enrichment" or "data")
+            {
+                _insights = await Orchestrator.GetActivityBatchInsightsAsync(Batch.BatchId);
+            }
+        }
+        finally { _loading = false; }
+    }
+
+    private int MediaItemCount => Math.Max(Batch.ItemCount, Math.Max(Batch.TitleCount, Batch.ItemsIdentifiedCount));
+    private string LensLabel => Lens switch { "media" => "Media", "enrichment" => "Enrichment", "data" => "Data and downloads", _ => "Overview" };
+    private string DurationLabel => StringHelpers.FirstNonBlankOr("In progress", Batch.DurationLabel);
+    private IReadOnlyList<SummaryMetric> SummaryMetrics =>
+    [
+        new("Files checked", Batch.FilesDiscoveredCount, null, Icons.Material.Outlined.FolderOpen, "primary"),
+        new("Media items", MediaItemCount, $"{Batch.ItemsIdentifiedCount:N0} identified", Icons.Material.Outlined.VideoLibrary, "primary"),
+        new("Need review", Batch.ReviewCount, null, Icons.Material.Outlined.RateReview, "warning"),
+        new("Failed", Batch.FailureCount, null, Icons.Material.Outlined.ErrorOutline, "danger"),
+        new("People enriched", Batch.PeopleCount, "unique people", Icons.Material.Outlined.People, "primary"),
+        new("Metadata updated", Batch.MetadataUpdatedCount, null, Icons.Material.Outlined.Description, "primary")
+    ];
+    private IReadOnlyList<EnrichmentTarget> EnrichmentTargets
+    {
+        get
+        {
+            var insight = _insights ?? new ActivityBatchInsightsDto();
+            return new[]
+            {
+                new EnrichmentTarget("People", Batch.PeopleCount, "unique people", Icons.Material.Outlined.People),
+                new EnrichmentTarget("Artwork", insight.ArtworkCount, "artwork operations", Icons.Material.Outlined.Image),
+                new EnrichmentTarget("Relationships", insight.RelationshipCount, "series, collections, and connections", Icons.Material.Outlined.AccountTree),
+                new EnrichmentTarget("Metadata", Batch.MetadataUpdatedCount, "updated canonical facts", Icons.Material.Outlined.Description),
+                new EnrichmentTarget("Identification", Batch.ItemsIdentifiedCount, "resolved media identities", Icons.Material.Outlined.Search),
+                new EnrichmentTarget("Subtitles", insight.SubtitleCount, "subtitle operations", Icons.Material.Outlined.Subtitles),
+                new EnrichmentTarget("Lyrics", insight.LyricsCount, "lyrics operations", Icons.Material.Outlined.Lyrics)
+            }.Where(target => target.Count > 0).ToList();
+        }
+    }
+    private async Task ToggleItemAsync(Guid assetId) { if (_expandedItem == assetId) { _expandedItem = null; return; } _expandedItem = assetId; if (!_itemDetails.ContainsKey(assetId)) _itemDetails[assetId] = await Orchestrator.GetActivityBatchItemDetailAsync(Batch.BatchId, assetId); }
+    private RenderFragment RenderItemDetail(ActivityBatchItemDto item) => builder => { builder.OpenComponent<ActivityBatchItemInspector>(0); builder.AddAttribute(1, nameof(ActivityBatchItemInspector.Item), item); builder.AddAttribute(2, nameof(ActivityBatchItemInspector.Detail), item.AssetId is { } id ? _itemDetails.GetValueOrDefault(id) : null); builder.CloseComponent(); };
+    private double MediaPercent(ActivityMediaTypeGroupDto group) => Math.Max(7, Math.Max(group.ItemCount, group.TitleCount) * 100d / Math.Max(1, _groups.Max(value => Math.Max(value.ItemCount, value.TitleCount))));
+    private sealed record SummaryMetric(string Label, int Value, string? Detail, string Icon, string Tone);
+    private sealed record EnrichmentTarget(string Label, int Count, string Detail, string Icon);
+}

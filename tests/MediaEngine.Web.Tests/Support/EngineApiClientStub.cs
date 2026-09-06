@@ -456,6 +456,8 @@ internal class EngineApiClientStub : DispatchProxy
                 HasMore: false));
         _handlers[nameof(IEngineApiClient.GetActivityBatchGroupsAsync)] =
             _ => Task.FromResult(new List<ActivityMediaTypeGroupDto>());
+        _handlers[nameof(IEngineApiClient.GetActivityBatchInsightsAsync)] =
+            _ => Task.FromResult<ActivityBatchInsightsDto?>(new ActivityBatchInsightsDto());
         _handlers[nameof(IEngineApiClient.GetActivityBatchItemsAsync)] =
             _ => Task.FromResult<PagedResponse<ActivityBatchItemDto>?>(new PagedResponse<ActivityBatchItemDto>(
                 [],
