@@ -2,13 +2,22 @@
 @using MediaEngine.Contracts.Activity
 @using MediaEngine.Contracts.Paging
 @using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.AspNetCore.Components.Rendering
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
 
 <div class="activity-audit">
+    @if (_requestedRunId.HasValue)
+    {
+        <section class="activity-audit__scope" aria-label="Selected operation">
+            <div><MudIcon Icon="@Icons.Material.Outlined.FilterCenterFocus" /><span><strong>Viewing one operation</strong><small>This link opens the exact run, even when it falls outside the current date range.</small></span></div>
+            <AppButton Href="/settings/activity" Label="Back to all activity" ButtonStyle="AppButtonStyle.Text" StartIcon="@Icons.Material.Outlined.ArrowBack" />
+        </section>
+    }
+
     <details class="activity-audit__filter-disclosure" open="@(!DeviceContext.IsMobile)">
-        <summary><span>Filter activity</span><small>@DateRangeLabel</small></summary>
+        <summary><span>Filter activity</span><small>@FilterSummary</small></summary>
         <AppFilterBar Search="@_query.Search"
                       SearchChanged="@OnSearchChanged"
                       OnSearchDebounced="@OnSearchDebounced"
@@ -16,83 +25,77 @@
                       Loading="@_loading"
                       OnRefresh="@LoadOperationsAsync"
                       Class="activity-audit__filters">
-            <AppSelect Value="@_query.EventType" ValueChanged="@OnActivityTypeChanged" Options="@ActivityTypeOptions" Label="Activity type" Class="activity-audit__filter" />
-            <AppSelect Value="@_query.Source" ValueChanged="@OnSourceChanged" Options="@SourceOptions" Label="Source" Class="activity-audit__filter" />
-            <AppSelect Value="@_query.Status" ValueChanged="@OnStatusChanged" Options="@StatusOptions" Label="Result" Class="activity-audit__filter" />
-            <AppSelect Value="@_query.MediaType" ValueChanged="@OnMediaTypeChanged" Options="@MediaTypeOptions" Label="Media type" Class="activity-audit__filter" />
             <AppSelect Value="@_dateRange" ValueChanged="@OnDateRangeChanged" Options="@DateRangeOptions" Label="Date" Class="activity-audit__filter" />
+            <AppSelect Value="@_statusFilter" ValueChanged="@OnStatusChanged" Options="@StatusOptions" Label="Result" Class="activity-audit__filter" />
+            @if (HasActiveFilters)
+            {
+                <AppButton Label="Clear filters" ButtonStyle="AppButtonStyle.Text" OnClick="@ClearFiltersAsync" />
+            }
         </AppFilterBar>
     </details>
 
-    <nav class="activity-audit__lenses" aria-label="Activity detail">
-        @foreach (var lens in Lenses)
-        {
-            <AppNativeButton Type="button" Class="@LensClass(lens.Key)" OnClick="@(_ => SelectLens(lens.Key))">@lens.Label</AppNativeButton>
-        }
-    </nav>
-
-    @if (_loading && _operations.Count == 0)
+    @if (_loading && DisplayOperations.Count == 0)
     {
         <AppProgressBar Indeterminate="true" Class="activity-audit__progress" />
     }
-    else if (!string.IsNullOrWhiteSpace(_error) && _operations.Count == 0)
+    else if (!string.IsNullOrWhiteSpace(_error) && DisplayOperations.Count == 0)
     {
         <AppAlert Tone="AppUiTone.Warning">@_error</AppAlert>
     }
-    else if (_operations.Count == 0)
+    else if (DisplayOperations.Count == 0)
     {
         <AppEmptyState Title="No operations" Message="No activity operations match the current filters." />
     }
     else
     {
-        <div class="activity-audit__layout">
-            <div>
-                <div class="activity-run-list">
-                    @foreach (var operation in _operations)
-                    {
-                        var expanded = _expandedOperation == operation.BatchId;
-                        <article class="activity-run-card @StatusClass(operation.Status)" @key="operation.BatchId">
-                            <div class="activity-run-card__header">
-                                <span class="activity-run-card__status-icon" role="img" aria-label="@ActivityDisplay.StatusText(operation.Status)"><MudIcon Icon="@StatusIcon(operation.Status)" /></span>
-                                <div class="activity-run-card__identity">
-                                    <div><h3>@OperationTitle(operation)</h3></div>
-                                    <p><span>@FormatDate(operation.StartedAt)</span><span>@Duration(operation)</span><span class="activity-run-card__id">Batch @ShortId(operation.BatchId)</span></p>
-                                </div>
-                                <div class="activity-run-card__badges">
-                                    <span><MudIcon Icon="@Icons.Material.Outlined.VideoLibrary" />@MediaItemCount(operation).ToString("N0") media items</span>
-                                    @if (operation.ReviewCount > 0) { <span class="is-review"><MudIcon Icon="@Icons.Material.Outlined.RateReview" />@operation.ReviewCount.ToString("N0") need review</span> }
-                                    @if (operation.WarningCount > 0) { <span class="is-warning"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />@operation.WarningCount.ToString("N0") warnings</span> }
-                                    @if (operation.FailureCount > 0) { <span class="is-danger"><MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" />@operation.FailureCount.ToString("N0") failures</span> }
-                                </div>
-                                @if (!DeviceContext.IsMobile)
-                                {
-                                <div class="activity-audit__expand-wrap">
-                                    <AppIconButton Icon="@(expanded ? Icons.Material.Outlined.KeyboardArrowUp : Icons.Material.Outlined.KeyboardArrowDown)"
-                                                   Size="AppControlSize.Compact" Class="activity-audit__expand"
-                                                   Tooltip="@($"{(expanded ? "Collapse" : "Expand")} {OperationTitle(operation)}")"
-                                                   AriaLabel="@($"{(expanded ? "Collapse" : "Expand")} {OperationTitle(operation)}")"
-                                                   OnClick="@(() => ToggleOperationAsync(operation))" />
-                                </div>
-                                }
-                            </div>
-                            <p class="activity-run-card__summary">@OperationSummary(operation)</p>
-                            <div class="activity-run-card__media">
-                                @foreach (var media in operation.MediaTypes)
-                                {
-                                    <span class="activity-audit__media-count @ActivityDisplay.MediaToneClass(media.MediaType)"><AppMaterialIcon Icon="@ActivityDisplay.MediaIcon(media.MediaType)" Size="MudBlazor.Size.Small" /><strong>@media.Count.ToString("N0")</strong>@ActivityDisplay.NormalizeMediaType(media.MediaType)</span>
-                                }
-                            </div>
-                            @if (expanded)
-                            {
-                                <ActivityBatchInspector Batch="@operation" Lens="@_lens" MediaType="@_query.MediaType" />
-                            }
-                        </article>
-                    }
-                </div>
-
-                <AppCompactPager Offset="@_query.Offset" Limit="@_query.Limit" HasMore="@(_page?.HasMore == true)" TotalCount="@_page?.TotalCount" Loading="@_loading" OffsetChanged="@OnPageChanged" />
+        <div class="activity-run-list" role="list">
+            <div class="activity-run-list__head" aria-hidden="true">
+                <span>Operation</span><span>Started</span><span>Duration</span><span>Files</span><span>Media items</span><span>Inspect</span><span></span>
             </div>
+            @foreach (var operation in DisplayOperations)
+            {
+                var selectedPanel = _expandedOperation == operation.BatchId ? _selectedPanel : null;
+                <article class="activity-run-card @StatusClass(operation.Status)" @key="operation.BatchId" role="listitem">
+                    <div class="activity-run-card__row">
+                        <span class="activity-run-card__status-icon" role="img" aria-label="@ActivityDisplay.StatusText(operation.Status)"><MudIcon Icon="@StatusIcon(operation.Status)" /></span>
+                        <AppNativeButton Type="button" Class="activity-run-card__identity" AriaLabel="@($"Show summary for {OperationTitle(operation)}")" OnClick="@(_ => TogglePanelAsync(operation, "overview"))" aria-expanded="@(selectedPanel is not null)" aria-controls="@PanelId(operation)">
+                            <strong>@OperationTitle(operation)</strong>
+                            @OperationSignals(operation)
+                        </AppNativeButton>
+                        <time><span class="activity-run-card__mobile-label">Started</span>@FormatDate(operation.StartedAt)</time>
+                        <span class="activity-run-card__fact is-duration"><span class="activity-run-card__mobile-label">Duration</span>@Duration(operation)</span>
+                        <span class="activity-run-card__fact is-files"><span class="activity-run-card__mobile-label">Files</span>@operation.FilesDiscoveredCount.ToString("N0")</span>
+                        <span class="activity-run-card__fact is-media"><span class="activity-run-card__mobile-label">Media items</span>@MediaItemCount(operation).ToString("N0")</span>
+                        @if (!DeviceContext.IsMobile)
+                        {
+                            <div class="activity-run-card__inspect" aria-label="Inspect operation">
+                                @InspectionButton(operation, "media", Icons.Material.Outlined.VideoLibrary, "Media", MediaItemCount(operation))
+                                @InspectionButton(operation, "enrichment", Icons.Material.Outlined.AutoAwesome, "Enrichment", operation.EnrichmentOperationCount)
+                                @InspectionButton(operation, "data", Icons.Material.Outlined.CloudDownload, "Data", null)
+                                @if (AttentionCount(operation) > 0)
+                                {
+                                    @InspectionButton(operation, "attention", Icons.Material.Outlined.WarningAmber, "Attention", AttentionCount(operation))
+                                }
+                            </div>
+                            <AppIconButton Icon="@(selectedPanel is null ? Icons.Material.Outlined.KeyboardArrowDown : Icons.Material.Outlined.KeyboardArrowUp)"
+                                           Size="AppControlSize.Compact" Class="activity-audit__expand"
+                                           Tooltip="@($"{(selectedPanel is null ? "Show" : "Hide")} operation summary")"
+                                           AriaLabel="@($"{(selectedPanel is null ? "Show" : "Hide")} summary for {OperationTitle(operation)}")"
+                                           OnClick="@(() => TogglePanelAsync(operation, "overview"))" />
+                        }
+                    </div>
+                    @if (selectedPanel is not null)
+                    {
+                        <ActivityBatchInspector Id="@PanelId(operation)" Batch="@operation" Panel="@selectedPanel" OnClose="@ClosePanelAsync" />
+                    }
+                </article>
+            }
         </div>
+
+        @if (!_requestedRunId.HasValue)
+        {
+            <AppCompactPager Offset="@_query.Offset" Limit="@_query.Limit" HasMore="@(_page?.HasMore == true)" TotalCount="@_page?.TotalCount" Loading="@_loading" OffsetChanged="@OnPageChanged" />
+        }
     }
 </div>
 
@@ -100,97 +103,137 @@
     private readonly ActivityAuditQuery _query = new() { Sort = "started", SortDirection = "desc", Start = DateTimeOffset.Now.AddDays(-7) };
     private PagedResponse<ActivityBatchSummaryDto>? _page;
     private List<ActivityBatchSummaryDto> _operations = [];
+    private ActivityBatchSummaryDto? _requestedOperation;
+    private Guid? _requestedRunId;
     private Guid? _expandedOperation;
+    private string _selectedPanel = "overview";
     private bool _loading = true;
     private string? _error;
     private string _dateRange = "7d";
-    private string _lens = "overview";
-    private string DateRangeLabel => DateRangeOptions.First(option => option.Value == _dateRange).Label;
-    private List<AppSelectOption> _sourceOptions = [new("", "All sources")];
-    private IReadOnlyList<AppSelectOption> SourceOptions => _sourceOptions;
-    private static readonly IReadOnlyList<ActivityLens> Lenses = [new("overview", "Overview"), new("media", "Media"), new("enrichment", "Enrichment"), new("data", "Data & Downloads")];
+    private string _statusFilter = "all";
+    private int _loadRevision;
+    private IReadOnlyList<ActivityBatchSummaryDto> DisplayOperations => _requestedRunId.HasValue
+        ? _requestedOperation is null ? [] : [_requestedOperation]
+        : _operations;
+    private bool HasActiveFilters => !string.IsNullOrWhiteSpace(_query.Search) || !string.IsNullOrWhiteSpace(_query.Status) || _dateRange != "7d";
+    private string FilterSummary => _requestedRunId.HasValue ? "Selected run" : HasActiveFilters ? "Filtered" : "Last 7 days";
 
-    private static readonly IReadOnlyList<AppSelectOption> ActivityTypeOptions = [new("", "All activity"), new("MetadataHydrated", "Metadata updates"), new("PersonHydrated", "People hydration"), new("ReviewItemCreated", "Review activity"), new("BatchCompleted", "Completed scans")];
-    private static readonly IReadOnlyList<AppSelectOption> MediaTypeOptions = [new("", "All media types"), new("Movies", "Movies"), new("TV", "TV"), new("Music", "Music"), new("Books", "Books"), new("Audiobooks", "Audiobooks"), new("Comics", "Comics")];
-    private static readonly IReadOnlyList<AppSelectOption> StatusOptions = [new("", "All results"), new("running", "Running"), new("completed", "Completed"), new("failed", "Failed"), new("abandoned", "Interrupted")];
+    private static readonly IReadOnlyList<AppSelectOption> StatusOptions = [new("all", "All results"), new("running", "Running"), new("completed", "Completed"), new("failed", "Failed"), new("abandoned", "Interrupted")];
     private static readonly IReadOnlyList<AppSelectOption> DateRangeOptions = [new("today", "Today"), new("7d", "Last 7 days"), new("30d", "Last 30 days"), new("all", "All time")];
 
     protected override async Task OnInitializedAsync()
     {
-        if (ResolveRunId() is { } runId)
-            _query.Search = runId.ToString("N");
-        else if (ResolveSearch() is { Length: > 0 } search)
+        _requestedRunId = ResolveRunId();
+        if (_requestedRunId is { } runId)
+        {
+            _requestedOperation = await Orchestrator.GetActivityBatchAsync(runId);
+            if (_requestedOperation is not null)
+            {
+                _expandedOperation = runId;
+                _selectedPanel = ResolvePanel();
+            }
+            else
+            {
+                _error = "That operation could not be found. It may have expired or the link may be invalid.";
+            }
+            _loading = false;
+            return;
+        }
+
+        if (ResolveSearch() is { Length: > 0 } search)
             _query.Search = search;
         await LoadOperationsAsync();
-        if (ResolveRunId() is { } selected && _operations.FirstOrDefault(operation => operation.BatchId == selected) is { } operation)
-            await ToggleOperationAsync(operation);
     }
 
     private async Task LoadOperationsAsync()
     {
+        if (_requestedRunId.HasValue) return;
+        var revision = ++_loadRevision;
         _loading = true;
         _error = null;
         try
         {
-            _page = await Orchestrator.GetActivityBatchesAsync(_query);
-            _operations = _page?.Items.GroupBy(operation => operation.BatchId).Select(group => group.First()).ToList() ?? [];
-            if (string.IsNullOrWhiteSpace(_query.Source))
-                _sourceOptions = new[] { new AppSelectOption("", "All sources") }.Concat(_operations.Where(operation => !string.IsNullOrWhiteSpace(operation.Source)).Select(operation => operation.Source!).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(source => source).Select(source => new AppSelectOption(source, SourceName(source)))).ToList();
+            var page = await Orchestrator.GetActivityBatchesAsync(_query);
+            if (revision != _loadRevision) return;
+            _page = page;
+            _operations = page?.Items.GroupBy(operation => operation.BatchId).Select(group => group.First()).ToList() ?? [];
+            if (_expandedOperation.HasValue && _operations.All(operation => operation.BatchId != _expandedOperation))
+                await ClosePanelAsync();
         }
         catch (Exception ex)
         {
+            if (revision != _loadRevision) return;
             _error = $"Activity operations could not load: {ex.Message}";
             _operations = [];
         }
-        finally { _loading = false; }
+        finally { if (revision == _loadRevision) _loading = false; }
     }
 
-    private Task ToggleOperationAsync(ActivityBatchSummaryDto operation)
+    private Task TogglePanelAsync(ActivityBatchSummaryDto operation, string panel)
     {
-        if (_expandedOperation == operation.BatchId) { _expandedOperation = null; return Task.CompletedTask; }
+        if (_expandedOperation == operation.BatchId && _selectedPanel == panel)
+            return ClosePanelAsync();
         _expandedOperation = operation.BatchId;
+        _selectedPanel = panel;
         return Task.CompletedTask;
     }
 
+    private Task ClosePanelAsync() { _expandedOperation = null; _selectedPanel = "overview"; return Task.CompletedTask; }
     private async Task OnSearchChanged(string? value) { _query.Search = value; _query.Offset = 0; await Task.CompletedTask; }
     private async Task OnSearchDebounced(string _) { _query.Offset = 0; await LoadOperationsAsync(); }
-    private async Task OnActivityTypeChanged(string? value) { _query.EventType = EmptyToNull(value); _query.Offset = 0; await LoadOperationsAsync(); }
-    private async Task OnMediaTypeChanged(string? value) { _query.MediaType = EmptyToNull(value); _query.Offset = 0; await LoadOperationsAsync(); }
-    private async Task OnStatusChanged(string? value) { _query.Status = EmptyToNull(value); _query.Offset = 0; await LoadOperationsAsync(); }
-    private async Task OnSourceChanged(string? value) { _query.Source = EmptyToNull(value); _query.Offset = 0; await LoadOperationsAsync(); }
+    private async Task OnStatusChanged(string? value) { _statusFilter = string.IsNullOrWhiteSpace(value) ? "all" : value; _query.Status = _statusFilter == "all" ? null : _statusFilter; _query.Offset = 0; await LoadOperationsAsync(); }
     private async Task OnDateRangeChanged(string? value) { _dateRange = string.IsNullOrWhiteSpace(value) ? "7d" : value; _query.Start = _dateRange switch { "today" => DateTimeOffset.Now.Date, "30d" => DateTimeOffset.Now.AddDays(-30), "all" => null, _ => DateTimeOffset.Now.AddDays(-7) }; _query.Offset = 0; await LoadOperationsAsync(); }
     private async Task OnPageChanged(int offset) { _query.Offset = offset; await LoadOperationsAsync(); }
-    private void SelectLens(string lens) => _lens = lens;
+    private async Task ClearFiltersAsync() { _query.Search = null; _query.Status = null; _statusFilter = "all"; _dateRange = "7d"; _query.Start = DateTimeOffset.Now.AddDays(-7); _query.Offset = 0; await LoadOperationsAsync(); }
 
     private Guid? ResolveRunId() { var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query); return query.TryGetValue("runId", out var raw) && Guid.TryParse(raw.FirstOrDefault(), out var id) ? id : null; }
+    private string ResolvePanel() { var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query); var panel = query.TryGetValue("detail", out var raw) ? raw.FirstOrDefault()?.ToLowerInvariant() : null; return panel is "media" or "enrichment" or "data" or "attention" ? panel : "overview"; }
     private string? ResolveSearch() { var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query); return query.TryGetValue("search", out var raw) ? raw.FirstOrDefault() : null; }
     private static string? EmptyToNull(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
-    private static string ShortId(Guid id) => id.ToString("N")[..8];
+    private static string PanelId(ActivityBatchSummaryDto operation) => $"activity-operation-{operation.BatchId:N}";
     private static string FormatDate(DateTimeOffset value) => value.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
-    private static string FormatActivityDate(string value) => DateTimeOffset.TryParse(value, out var date) ? date.ToLocalTime().ToString("MMM d") : "Recent";
     private static string SourceName(string? source) { if (string.IsNullOrWhiteSpace(source)) return "Library"; var trimmed = source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar); return Path.GetFileName(trimmed) is { Length: > 0 } label ? label : source; }
-    private static string OperationTitle(ActivityBatchSummaryDto operation)
+    private static string OperationTitle(ActivityBatchSummaryDto operation) { if (operation.MediaTypeCount > 1 || operation.Source?.Contains("Multiple", StringComparison.OrdinalIgnoreCase) == true) return "Library Ingestion — New Items"; if (operation.MediaTypes.Count == 1) return $"Library Ingestion — {ActivityDisplay.NormalizeMediaType(operation.MediaTypes[0].MediaType)}"; if (!string.IsNullOrWhiteSpace(operation.Category)) return $"Library Ingestion — {operation.Category}"; var source = SourceName(operation.Source); return source.Equals("Library", StringComparison.OrdinalIgnoreCase) ? "Library Ingestion" : $"Library Ingestion — {source}"; }
+    private static RenderFragment OperationSignals(ActivityBatchSummaryDto operation) => builder =>
     {
-        if (operation.MediaTypeCount > 1 || operation.Source?.Contains("Multiple", StringComparison.OrdinalIgnoreCase) == true)
-            return "Library Ingestion — New Items";
-        if (operation.MediaTypes.Count == 1)
-            return $"Library Ingestion — {ActivityDisplay.NormalizeMediaType(operation.MediaTypes[0].MediaType)}";
-        if (!string.IsNullOrWhiteSpace(operation.Category))
-            return $"Library Ingestion — {operation.Category}";
-        var source = SourceName(operation.Source);
-        return source.Equals("Library", StringComparison.OrdinalIgnoreCase) ? "Library Ingestion" : $"Library Ingestion — {source}";
+        var sequence = 0;
+        builder.OpenElement(sequence++, "span");
+        builder.AddAttribute(sequence++, "class", "activity-run-card__signals");
+        if (operation.Status?.ToLowerInvariant() is "running" or "active" or "processing") AddSignal(builder, ref sequence, "is-active", Icons.Material.Outlined.Sync, "In progress");
+        if (operation.Status?.ToLowerInvariant() is "abandoned" or "interrupted") AddSignal(builder, ref sequence, "is-warning", Icons.Material.Outlined.WarningAmber, "Interrupted");
+        if (operation.Status?.ToLowerInvariant() is "failed") AddSignal(builder, ref sequence, "is-danger", Icons.Material.Outlined.ErrorOutline, "Failed");
+        if (operation.ReviewCount > 0) AddSignal(builder, ref sequence, "is-warning", Icons.Material.Outlined.RateReview, $"{operation.ReviewCount:N0} need review");
+        if (operation.WarningCount > 0) AddSignal(builder, ref sequence, "is-warning", Icons.Material.Outlined.WarningAmber, $"{operation.WarningCount:N0} warnings");
+        if (operation.FailureCount > 0) AddSignal(builder, ref sequence, "is-danger", Icons.Material.Outlined.ErrorOutline, $"{operation.FailureCount:N0} failures");
+        builder.CloseElement();
+    };
+    private static void AddSignal(RenderTreeBuilder builder, ref int sequence, string cssClass, string icon, string text)
+    {
+        builder.OpenElement(sequence++, "span");
+        builder.AddAttribute(sequence++, "class", cssClass);
+        builder.OpenComponent<MudIcon>(sequence++);
+        builder.AddAttribute(sequence++, nameof(MudIcon.Icon), icon);
+        builder.CloseComponent();
+        builder.AddContent(sequence++, text);
+        builder.CloseElement();
     }
-    private static int MediaItemCount(ActivityBatchSummaryDto operation) => Math.Max(operation.ItemCount, Math.Max(operation.TitleCount, operation.ItemsIdentifiedCount));
-    private static string OperationSummary(ActivityBatchSummaryDto operation) => $"Checked {operation.FilesDiscoveredCount:N0} files · {operation.ItemsIdentifiedCount:N0} identified · {operation.MetadataUpdatedCount:N0} metadata updates · {operation.EnrichmentOperationCount:N0} enrichment operations";
-    private static string Duration(ActivityBatchSummaryDto operation) => StringHelpers.FirstNonBlankOr("", operation.DurationLabel, operation.CompletedAt.HasValue ? "Finished" : "In progress");
-    private string LensClass(string key) => $"activity-audit__lens {(_lens == key ? "is-active" : null)}";
+    private static int MediaItemCount(ActivityBatchSummaryDto operation) => operation.ItemCount;
+    private static int AttentionCount(ActivityBatchSummaryDto operation) => operation.ReviewCount + operation.WarningCount + operation.FailureCount;
+    private static string Duration(ActivityBatchSummaryDto operation) => StringHelpers.FirstNonBlankOr("In progress", operation.DurationLabel);
+    private string InspectionClass(ActivityBatchSummaryDto operation, string panel) => $"activity-run-card__inspection {(operation.BatchId == _expandedOperation && _selectedPanel == panel ? "is-selected" : null)} {(panel == "attention" ? "is-attention" : null)}";
+    private RenderFragment InspectionButton(ActivityBatchSummaryDto operation, string panel, string icon, string label, int? count) => builder =>
+    {
+        var selected = operation.BatchId == _expandedOperation && _selectedPanel == panel;
+        builder.OpenComponent<AppNativeButton>(0);
+        builder.AddAttribute(1, nameof(AppNativeButton.Type), "button");
+        builder.AddAttribute(2, nameof(AppNativeButton.Class), InspectionClass(operation, panel));
+        builder.AddAttribute(3, nameof(AppNativeButton.AriaLabel), $"{label} summary for {OperationTitle(operation)}");
+        builder.AddAttribute(4, nameof(AppNativeButton.OnClick), EventCallback.Factory.Create<MouseEventArgs>(this, () => TogglePanelAsync(operation, panel)));
+        builder.AddAttribute(5, "aria-expanded", selected);
+        builder.AddAttribute(6, "aria-controls", PanelId(operation));
+        builder.AddAttribute(7, nameof(AppNativeButton.ChildContent), (RenderFragment)(content => { content.OpenComponent<MudIcon>(0); content.AddAttribute(1, nameof(MudIcon.Icon), icon); content.CloseComponent(); content.OpenElement(2, "span"); content.AddContent(3, label); content.CloseElement(); if (count.HasValue) { content.OpenElement(4, "strong"); content.AddContent(5, count.Value.ToString("N0")); content.CloseElement(); } }));
+        builder.CloseComponent();
+    };
     private static string StatusClass(string? status) => $"is-{(string.IsNullOrWhiteSpace(status) ? "unknown" : status.ToLowerInvariant())}";
     private static string StatusIcon(string? status) => status?.ToLowerInvariant() switch { "completed" => Icons.Material.Outlined.CheckCircle, "failed" => Icons.Material.Outlined.ErrorOutline, "abandoned" or "interrupted" => Icons.Material.Outlined.WarningAmber, "running" or "active" or "processing" => Icons.Material.Outlined.Sync, _ => Icons.Material.Outlined.Schedule };
-    private static string FriendlyEvent(string value) { if (string.IsNullOrWhiteSpace(value)) return "Activity"; var builder = new System.Text.StringBuilder(value.Length + 8); for (var i = 0; i < value.Length; i++) { if (i > 0 && char.IsUpper(value[i]) && !char.IsWhiteSpace(value[i - 1])) builder.Append(' '); builder.Append(value[i] == '.' || value[i] == '_' ? ' ' : value[i]); } return builder.ToString(); }
-    private static string FriendlyResult(string value) => value.Replace('_', ' ');
-    private static string EventDuration(double? seconds) => seconds is null ? "—" : TimeSpan.FromSeconds(Math.Max(0, seconds.Value)) switch { var span when span.TotalMinutes >= 1 => $"{(int)span.TotalMinutes}m {span.Seconds}s", var span => $"{span.TotalSeconds:F1}s" };
-    private static AppUiTone EventTone(string severity) => severity.ToLowerInvariant() switch { "success" => AppUiTone.Success, "warning" => AppUiTone.Warning, "error" => AppUiTone.Error, _ => AppUiTone.Neutral };
-
-    private sealed record ActivityLens(string Key, string Label);
-
 }

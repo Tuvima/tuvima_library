@@ -9,13 +9,13 @@
 <div class="tl-page ingestion-operations">
     @if (!DeviceContext.IsMobile)
     {
-    <div class="ingestion-operations__toolbar">
-        <AppButton Href="/settings/metadata/ingestion-flow" Label="Processing settings" StartIcon="@Icons.Material.Outlined.Settings" />
-        <AppButton Href="/settings/activity" Label="View activity" StartIcon="@Icons.Material.Outlined.ReceiptLong" />
-        <MudTooltip Text="Start an extra scan of every watched folder. File monitoring, scheduled scans, and queued processing continue automatically." Placement="Placement.Bottom">
-            <AppButton Label="Scan all folders" StartIcon="@Icons.Material.Outlined.PlayArrow" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(Dashboard.IsLoading || Dashboard.IsScanStarting || IsRunning)" Loading="@Dashboard.IsScanStarting" OnClick="ScanNowAsync" />
-        </MudTooltip>
-    </div>
+        <div class="ingestion-operations__toolbar">
+            <AppButton Href="/settings/metadata/ingestion-flow" Label="Processing settings" StartIcon="@Icons.Material.Outlined.Settings" />
+            <AppButton Href="/settings/activity" Label="View activity" StartIcon="@Icons.Material.Outlined.ReceiptLong" />
+            <MudTooltip Text="Start an extra scan of every watched folder. File monitoring and scheduled processing continue automatically." Placement="Placement.Bottom">
+                <AppButton Label="Scan all folders" StartIcon="@Icons.Material.Outlined.PlayArrow" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(Dashboard.IsLoading || Dashboard.IsScanStarting || IsRunning)" Loading="@Dashboard.IsScanStarting" OnClick="ScanNowAsync" />
+            </MudTooltip>
+        </div>
     }
 
     @if (Dashboard.IsLoading && Dashboard.Snapshot is null)
@@ -33,9 +33,10 @@
                 <div class="ingestion-current__identity">
                     <span class="ingestion-current__pulse" aria-hidden="true"><MudIcon Icon="@CurrentIcon" /></span>
                     <div>
-                        <div class="ingestion-current__kicker"><strong>Current run</strong></div>
+                        <div class="ingestion-current__kicker"><strong>@RunScopeLabel</strong></div>
                         <h2>@Model.Heading</h2>
                         <p>@CurrentHeadline</p>
+                        <small class="ingestion-current__phase-summary">@CurrentPhaseSummary</small>
                     </div>
                 </div>
                 <div class="ingestion-current__facts-wrap">
@@ -51,63 +52,57 @@
                     }
                 </div>
             </div>
+        </AppPanel>
 
-            <div class="ingestion-current__overall" aria-label="Overall current run progress">
-                <div><span>@OverallProgressLabel</span><strong>@OverallProgressPercent.ToString("0")%</strong></div>
-                <AppProgressBar Value="@OverallProgressPercent" ShowValue="false" />
-                <small>@OverallProgressDetail</small>
-            </div>
-
-            @if (IsRunning)
-            {
-                @if (ActiveActivityGroups.Count > 0)
-                {
-                    <section class="ingestion-current__work" aria-label="Work happening now">
-                        @foreach (var activity in ActiveActivityGroups)
-                        {
-                            <article>
-                                <span aria-hidden="true"><MudIcon Icon="@ActivityIcon(activity.StageKey)" /></span>
-                                <div><strong>@ActivityLabel(activity)</strong><small>@ActivityProgressCounts(activity)</small><AppProgressBar Value="@ActivityPercent(activity)" ShowValue="false" /></div>
-                                <i aria-hidden="true"></i>
-                            </article>
-                        }
-                    </section>
-                }
-                else
-                {
-                    <div class="ingestion-current__now">
-                        <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" aria-hidden="true" />
-                        <div><strong>@Model.CurrentStep</strong><span>@CurrentWorkSummary</span></div>
-                        <time>@Model.TimestampLine</time>
-                    </div>
-                }
-            }
-
+        <AppPanel Class="tl-card ingestion-pipeline">
             <div class="ingestion-stage-strip" aria-label="Ingestion stages">
                 @foreach (var phase in Phases)
                 {
-                    <div class="@PhaseClass(phase)">
-                        <span class="ingestion-stage__icon" aria-hidden="true"><MudIcon Icon="@phase.Icon" /></span>
-                        <div><strong>@phase.Label</strong><small>@phase.Description</small></div>
-                        <span class="ingestion-stage__state">@phase.StatusLabel</span>
-                    </div>
+                    <button type="button" class="@PhaseClass(phase)" aria-label="@($"Show {phase.Label} status: {phase.StatusLabel}")" @onclick="@(() => SelectPhase(phase.Key))" aria-expanded="@(_selectedPhaseKey == phase.Key)" aria-controls="ingestion-stage-detail">
+                        <span class="ingestion-stage__icon" aria-hidden="true"><MudIcon Icon="@phase.Icon" /><span class="ingestion-stage__status-mark"><MudIcon Icon="@PhaseStatusIcon(phase.Status)" /></span></span>
+                        <span class="ingestion-stage__copy"><strong>@phase.Label</strong><small>@phase.Description</small></span>
+                    </button>
                 }
             </div>
 
-            <details class="ingestion-stage-mobile">
+            <details class="ingestion-stage-mobile" open="@IsRunning">
                 <summary>Stages <span>@ActivePhaseSummary</span></summary>
                 <div class="ingestion-stage-mobile__rows">
                     @foreach (var phase in Phases)
                     {
-                        <div class="@PhaseClass(phase)">
-                            <span class="ingestion-stage__icon" aria-hidden="true"><MudIcon Icon="@phase.Icon" /></span>
-                            <div><strong>@phase.Label</strong><small>@phase.Description</small></div>
-                            <span class="ingestion-stage__state">@phase.StatusLabel</span>
-                        </div>
+                        <button type="button" class="@PhaseClass(phase)" aria-label="@($"Show {phase.Label} status: {phase.StatusLabel}")" @onclick="@(() => SelectPhase(phase.Key))" aria-expanded="@(_selectedPhaseKey == phase.Key)" aria-controls="ingestion-stage-detail">
+                            <span class="ingestion-stage__icon" aria-hidden="true"><MudIcon Icon="@phase.Icon" /><span class="ingestion-stage__status-mark"><MudIcon Icon="@PhaseStatusIcon(phase.Status)" /></span></span>
+                            <span class="ingestion-stage__copy"><strong>@phase.Label</strong><small>@phase.Description</small></span>
+                        </button>
                     }
                 </div>
             </details>
 
+            <section id="ingestion-stage-detail" class="@($"ingestion-stage-detail is-phase-{SelectedPhase.Key}")" aria-label="@($"{SelectedPhase.Label} details")">
+                <header><div><MudIcon Icon="@SelectedPhase.Icon" /><span><strong>@SelectedPhase.Label</strong><small>@SelectedPhaseDetail</small></span></div>@if (_hasManualPhaseSelection && IsRunning) { <AppButton Label="Follow current stage" ButtonStyle="AppButtonStyle.Text" OnClick="@FollowCurrentPhase" /> }</header>
+                @if (SelectedPhaseActivities.Count > 0)
+                {
+                    <div class="ingestion-stage-detail__work">
+                        @foreach (var activity in SelectedPhaseActivities)
+                        {
+                            <article>
+                                <span aria-hidden="true"><MudIcon Icon="@ActivityIcon(activity.StageKey)" /></span>
+                                <div><strong>@ActivityLabel(activity)</strong><small>@ActivityDescription(activity.StageKey)</small><em>@ActivityProgressCounts(activity)</em>@if (activity.TotalCount > 0) { <AppProgressBar Value="@ActivityPercent(activity)" ShowValue="false" /> }</div>
+                                @if (activity.ActiveCount > 0) { <i aria-hidden="true"></i> }
+                            </article>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <dl class="ingestion-stage-detail__facts">
+                        @foreach (var fact in SelectedPhaseFacts)
+                        {
+                            <div><dt>@fact.Label</dt><dd>@fact.Value</dd></div>
+                        }
+                    </dl>
+                }
+            </section>
         </AppPanel>
 
         <section class="ingestion-metrics" aria-label="Current run outcomes">
@@ -125,43 +120,6 @@
         </section>
 
         <div class="ingestion-overview-grid">
-            <AppPanel Class="tl-card ingestion-summary">
-                <div class="ingestion-section-heading">
-                    <div><h3>@(IsRunning ? "Work in progress" : "Recent runs")</h3><p>@(IsRunning ? "Grouped by the kind of work Tuvima is doing." : "The latest library updates and their outcomes.")</p></div>
-                    <AppButton Href="@CurrentActivityHref" Label="View all activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
-                </div>
-                @if (IsRunning && ActiveActivityGroups.Count > 0)
-                {
-                    <div class="ingestion-work-groups">
-                        @foreach (var activity in ActiveActivityGroups)
-                        {
-                            <div class="ingestion-work-group">
-                                <span aria-hidden="true"><MudIcon Icon="@ActivityIcon(activity.StageKey)" /></span>
-                                <div><strong>@ActivityLabel(activity)</strong><small>@ActivityDescription(activity.StageKey)</small><span>@ActivityProgressCounts(activity)</span><AppProgressBar Value="@ActivityPercent(activity)" ShowValue="false" /></div>
-                                <i aria-hidden="true"></i>
-                            </div>
-                        }
-                    </div>
-                }
-                else if (RecentBatches.Count > 0)
-                {
-                    <div class="ingestion-run-list">
-                        @foreach (var batch in RecentBatches)
-                        {
-                            <a class="ingestion-run" href="@RunActivityHref(batch)">
-                                <span class="ingestion-run__icon" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.Storage" /></span>
-                                <div><strong>@BatchTitle(batch)</strong><small>@BatchSummary(batch)</small></div>
-                                <time>@FormatRelative(batch.StartedAt)</time>
-                            </a>
-                        }
-                    </div>
-                }
-                else
-                {
-                    <AppEmptyState Title="No ingestion activity yet" Message="Start a scan when your library folders are ready." />
-                }
-            </AppPanel>
-
             <AppPanel Class="tl-card ingestion-media-mix">
                 <div class="ingestion-section-heading"><div><h3>Media in this run</h3><p>@MediaMixSummary</p></div></div>
                 @if (MediaMix.Count > 0)
@@ -187,118 +145,118 @@
                 {
                     <section class="ingestion-next__attention" aria-label="Needs attention">
                         <div><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /><strong>Needs attention</strong></div>
-                        @if (FailedCount > 0) { <a href="@CurrentActivityHref"><span>@FailedCount.ToString("N0") failed @Pluralize("operation", FailedCount)</span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></a> }
+                        @if (FailedCount > 0) { <a href="@ActivityAttentionHref"><span>@FailedCount.ToString("N0") failed @Pluralize("operation", FailedCount)</span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></a> }
                         @if (ReviewCount > 0) { <a href="/settings/review"><span>@ReviewCount.ToString("N0") @Pluralize("item", ReviewCount) need review</span><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></a> }
                     </section>
                 }
             </AppPanel>
         </div>
 
+        <AppPanel Class="tl-card ingestion-recent">
+            <div class="ingestion-section-heading"><div><h3>Recent runs</h3><p>The latest library updates and their outcomes.</p></div><AppButton Href="/settings/activity" Label="View all activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" /></div>
+            @if (RecentBatches.Count > 0)
+            {
+                <div class="ingestion-run-list">
+                    @foreach (var batch in RecentBatches)
+                    {
+                        <a class="ingestion-run" href="@RunActivityHref(batch)"><span class="ingestion-run__icon" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.Storage" /></span><div><strong>@BatchTitle(batch)</strong><small>@BatchSummary(batch)</small></div><time>@FormatRelative(batch.StartedAt)</time></a>
+                    }
+                </div>
+            }
+            else
+            {
+                <AppEmptyState Title="No ingestion activity yet" Message="New files are detected automatically. Scan all folders when you want an extra check." />
+            }
+        </AppPanel>
     }
 </div>
 
 @code {
-    protected override async Task OnInitializedAsync() { Dashboard.OnChanged += OnDashboardChanged; await Dashboard.InitializeAsync(); }
+    private string? _selectedPhaseKey;
+    private bool _hasManualPhaseSelection;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Dashboard.OnChanged += OnDashboardChanged;
+        await Dashboard.InitializeAsync();
+        _selectedPhaseKey = CurrentPhase.Key;
+    }
 
     private LibraryUpdateStatusViewModel Model => Dashboard.LibraryUpdateStatus;
     private bool IsRunning => Model.PageState == LibraryUpdatePageState.Running;
-    private IReadOnlyList<IngestionReviewReasonDto> ReviewReasons => Dashboard.Snapshot?.ReviewReasons ?? [];
-    private IReadOnlyList<IngestionOperationsBatchDto> RecentBatches => Dashboard.Snapshot?.RecentBatches.Take(4).ToList() ?? [];
-    private IngestionOperationsBatchDto? DisplayBatch => RecentBatches
-        .Where(batch => IsActiveStatus(batch.Status))
-        .OrderByDescending(batch => batch.OutstandingOperations > 0)
-        .ThenByDescending(batch => Math.Max(batch.TotalFiles, batch.ProcessedFiles))
-        .ThenByDescending(batch => batch.StartedAt)
-        .FirstOrDefault()
-        ?? RecentBatches.FirstOrDefault();
-    private IReadOnlyList<IngestionCurrentActivityDto> ActiveActivityGroups => Dashboard.CurrentActivities.Where(activity => activity.ActiveCount > 0 || activity.QueuedCount > 0).Take(4).ToList();
+    private IReadOnlyList<IngestionOperationsBatchDto> RecentBatches => Dashboard.Snapshot?.RecentBatches.Take(5).ToList() ?? [];
+    private IngestionOperationsBatchDto? DisplayBatch => RecentBatches.Where(batch => IsActiveStatus(batch.Status)).OrderByDescending(batch => batch.OutstandingOperations > 0).ThenByDescending(batch => Math.Max(batch.TotalFiles, batch.ProcessedFiles)).ThenByDescending(batch => batch.StartedAt).FirstOrDefault() ?? RecentBatches.FirstOrDefault();
+    private IReadOnlyList<IngestionCurrentActivityDto> ActiveActivityGroups => Dashboard.CurrentActivities.Where(activity => activity.ActiveCount > 0 || activity.QueuedCount > 0).Take(8).ToList();
     private int ReviewCount => DisplayBatch?.ReviewCount ?? (IsRunning ? 0 : Model.ReviewItems);
     private int FailedCount => DisplayBatch?.FailedCount ?? (IsRunning ? 0 : Dashboard.Snapshot?.Summary.FailedJobs ?? 0);
     private int ProviderWaitCount => Dashboard.ProviderActivity.Sum(provider => Math.Max(0, provider.WaitingRequests));
     private int CurrentActiveCount => DisplayBatch is null ? Model.ActiveItems : Math.Max(0, DisplayBatch.ActiveOperations);
     private int CurrentQueuedCount => DisplayBatch is null ? Model.QueuedItems : Math.Max(0, DisplayBatch.QueuedOperations);
     private int RetryWaitingCount => Math.Max(0, DisplayBatch?.RetryWaitingOperations ?? 0);
-    private string CurrentHeadline => IsRunning
-        ? ActiveWorkHeadline
-        : DisplayBatch?.CompletedAt is { } completedAt
-            ? $"Last scan completed {FormatRelative(completedAt)}"
-            : Model.MainLine;
-    private string ActiveWorkHeadline => ActiveActivityGroups.Count > 0
-        ? string.Join(" · ", ActiveActivityGroups.Select(ActivityLabel).Distinct(StringComparer.OrdinalIgnoreCase).Take(3))
-        : Model.CurrentStep;
+    private string CurrentHeadline => IsRunning ? ActiveWorkHeadline : DisplayBatch?.CompletedAt is { } completedAt ? $"Last scan completed {FormatRelative(completedAt)}" : Model.MainLine;
+    private string ActiveWorkHeadline => ActiveActivityGroups.Count > 0 ? string.Join(" · ", ActiveActivityGroups.Select(ActivityLabel).Distinct(StringComparer.OrdinalIgnoreCase).Take(3)) : Model.CurrentStep;
     private string RunScopeLabel => IsRunning ? "Current run" : DisplayBatch is null ? "No run yet" : "Last run";
     private string ElapsedLabel => DisplayBatch?.DurationSeconds is { } seconds ? FormatDuration(seconds) : IsRunning && DisplayBatch is not null ? FormatDuration((int)Math.Max(0, (DateTimeOffset.UtcNow - DisplayBatch.StartedAt).TotalSeconds)) : "—";
-    private string CurrentWorkSummary => Model.SecondaryLine ?? (Model.QueuedItems > 0 ? $"{Model.QueuedItems:N0} tasks remain queued." : "Working through the current phase.");
     private string CurrentActivityHref => DisplayBatch is null ? "/settings/activity" : $"/settings/activity?runId={DisplayBatch.BatchId:D}";
+    private string ActivityAttentionHref => DisplayBatch is null ? "/settings/activity" : $"/settings/activity?runId={DisplayBatch.BatchId:D}&detail=attention";
     private string CurrentStateClass => $"is-{Model.PageState.ToString().ToLowerInvariant()}";
-    private string ActivePhaseSummary => Phases.FirstOrDefault(phase => phase.Status == LibraryUpdateStepStatus.InProgress)?.Label ?? Model.StatusLabel;
+    private string CurrentPhaseSummary => IsRunning ? $"{ActivePhaseSummary} · {CurrentActiveCount:N0} active · {CurrentQueuedCount:N0} queued" : DisplayBatch is null ? "Waiting for library activity" : $"{DisplayBatch.RegisteredCount:N0} identified · {DisplayBatch.ReviewCount:N0} need review · {DisplayBatch.FailedCount:N0} failed";
     private string CurrentIcon => Model.PageState switch { LibraryUpdatePageState.Running => Icons.Material.Outlined.Sync, LibraryUpdatePageState.Failed => Icons.Material.Outlined.ErrorOutline, LibraryUpdatePageState.Interrupted => Icons.Material.Outlined.WarningAmber, LibraryUpdatePageState.StatusUnavailable => Icons.Material.Outlined.CloudOff, _ => Icons.Material.Outlined.CheckCircle };
-    private double OverallProgressPercent => Math.Clamp(Dashboard.OverallProgress.Percent, 0, 100);
-    private string OverallProgressLabel => IsRunning ? "Overall run progress" : Model.PageState == LibraryUpdatePageState.Complete ? "Run complete" : "Latest run progress";
-    private int ActivePhaseNumber => Math.Max(1, Phases.ToList().FindIndex(phase => phase.Status == LibraryUpdateStepStatus.InProgress) + 1);
-    private string OverallProgressDetail
-    {
-        get
-        {
-            if (!IsRunning)
-                return DisplayBatch is null
-                    ? "No work is currently running."
-                    : $"{DisplayBatch.RegisteredCount:N0} matched · {DisplayBatch.ReviewCount:N0} need review · {DisplayBatch.FailedCount:N0} failed";
-
-            var measured = ActiveActivityGroups.Where(activity => activity.TotalCount > 0).ToList();
-            if (measured.Count > 0)
-                return $"Stage {ActivePhaseNumber} of {Phases.Count}: {ActivePhaseSummary} · {measured.Sum(activity => Math.Min(activity.ProcessedCount, activity.TotalCount)):N0} of {measured.Sum(activity => activity.TotalCount):N0} current-stage tasks complete";
-
-            return $"Stage {ActivePhaseNumber} of {Phases.Count}: {ActivePhaseSummary} · {CurrentActiveCount:N0} active · {CurrentQueuedCount:N0} queued";
-        }
-    }
 
     private IReadOnlyList<PhaseViewModel> Phases =>
     [
-        Phase("Discover", "Find and read new or changed files", Icons.Material.Outlined.FolderOpen, Combine(Model.Steps.Take(2))),
-        Phase("Identify", "Match titles to trusted metadata", Icons.Material.Outlined.Search, StatusAt(Model.Steps, 2)),
-        Phase("Enrich", "Add artwork, people, and details", Icons.Material.Outlined.AutoAwesome, StatusAt(Model.Steps, 3)),
-        Phase("Organize", "Update library groups and relationships", Icons.Material.Outlined.AccountTree, StatusAt(Model.Steps, 4)),
+        Phase("discover", "Discover", "Find and read new or changed files", Icons.Material.Outlined.FolderOpen, Combine([DisplayStepStatus(0), DisplayStepStatus(1)])),
+        Phase("identify", "Identify", "Match titles to trusted metadata", Icons.Material.Outlined.Search, DisplayStepStatus(2)),
+        Phase("enrich", "Enrich", "Add artwork, people, and details", Icons.Material.Outlined.AutoAwesome, DisplayStepStatus(3)),
+        Phase("organize", "Organize", "Update library groups and relationships", Icons.Material.Outlined.AccountTree, DisplayStepStatus(4)),
     ];
+    private PhaseViewModel CurrentPhase => Phases.FirstOrDefault(phase => phase.Status == LibraryUpdateStepStatus.InProgress) ?? Phases.LastOrDefault(phase => phase.Status == LibraryUpdateStepStatus.Complete) ?? Phases[0];
+    private PhaseViewModel SelectedPhase => Phases.FirstOrDefault(phase => phase.Key == _selectedPhaseKey) ?? CurrentPhase;
+    private string ActivePhaseSummary => CurrentPhase.Label;
+    private IReadOnlyList<IngestionCurrentActivityDto> SelectedPhaseActivities => ActiveActivityGroups.Where(activity => PhaseKeyForActivity(activity.StageKey) == SelectedPhase.Key).ToList();
+    private string SelectedPhaseDetail => SelectedPhase.Key switch { "discover" => "Files entering this run and the scope being checked.", "identify" => "Titles being matched to trusted library identities.", "enrich" => "Metadata, artwork, and people being added.", _ => "Library placement, collections, and relationships being finalized." };
+    private IReadOnlyList<StageFact> SelectedPhaseFacts => SelectedPhase.Key switch
+    {
+        "discover" => [new("Files checked", (DisplayBatch?.ProcessedFiles ?? Model.ProcessedFiles).ToString("N0")), new("Files in scope", DisplayBatch is null ? "Unavailable" : Math.Max(DisplayBatch.TotalFiles, DisplayBatch.ProcessedFiles).ToString("N0"))],
+        "identify" => [new("Identified", (DisplayBatch?.RegisteredCount ?? Model.AddedOrUpdatedCount).ToString("N0")), new("Need review", ReviewCount.ToString("N0"))],
+        "enrich" => [new("People enriched", (DisplayBatch?.PeopleGeneratedCount ?? 0).ToString("N0")), new("Artwork recorded", (DisplayBatch?.ArtworkDownloadedCount ?? 0).ToString("N0")), new("Metadata updated", (DisplayBatch?.MetadataUpdatedCount ?? 0).ToString("N0"))],
+        _ => [new("Active", SelectedPhase.Status == LibraryUpdateStepStatus.InProgress ? CurrentActiveCount.ToString("N0") : "0"), new("Queued", SelectedPhase.Status == LibraryUpdateStepStatus.InProgress ? CurrentQueuedCount.ToString("N0") : "0")],
+    };
 
     private IReadOnlyList<OutcomeMetric> OutcomeMetrics =>
     [
         new("Files checked", DisplayBatch?.ProcessedFiles ?? Model.ProcessedFiles, Icons.Material.Outlined.Description, "is-primary", null),
         new("Added or updated", DisplayBatch?.RegisteredCount ?? Model.AddedOrUpdatedCount, Icons.Material.Outlined.Add, "is-success", null),
         new("Need review", ReviewCount, Icons.Material.Outlined.PendingActions, "is-warning", "/settings/review"),
-        new("Failed", FailedCount, Icons.Material.Outlined.ErrorOutline, "is-danger", CurrentActivityHref),
+        new("Failed", FailedCount, Icons.Material.Outlined.ErrorOutline, "is-danger", ActivityAttentionHref),
     ];
-
-    private IReadOnlyList<MediaMetric> MediaMix => DisplayBatch is null ? [] : new[]
-    {
-        new MediaMetric("Movies", DisplayBatch.MoviesCount, Icons.Material.Outlined.Movie), new MediaMetric("TV shows", DisplayBatch.TvShowsCount, Icons.Material.Outlined.Tv),
-        new MediaMetric("Books", DisplayBatch.BooksCount, Icons.Material.Outlined.MenuBook), new MediaMetric("Audiobooks", DisplayBatch.AudiobooksCount, Icons.Material.Outlined.Headphones),
-        new MediaMetric("Music", DisplayBatch.MusicCount, Icons.Material.Outlined.MusicNote), new MediaMetric("Comics", DisplayBatch.ComicsCount, Icons.Material.Outlined.AutoStories),
-    }.Where(metric => metric.Count > 0).ToList();
-
-    private string MediaMixSummary => DisplayBatch is null || MediaMix.Count == 0
-        ? "Media counts appear as files are classified."
-        : $"{RunScopeLabel} · {MediaMix.Sum(metric => metric.Count):N0} items across {MediaMix.Count:N0} {Pluralize("media type", MediaMix.Count)}";
-
+    private IReadOnlyList<MediaMetric> MediaMix => DisplayBatch is null ? [] : new[] { new MediaMetric("Movies", DisplayBatch.MoviesCount, Icons.Material.Outlined.Movie), new MediaMetric("TV shows", DisplayBatch.TvShowsCount, Icons.Material.Outlined.Tv), new MediaMetric("Books", DisplayBatch.BooksCount, Icons.Material.Outlined.MenuBook), new MediaMetric("Audiobooks", DisplayBatch.AudiobooksCount, Icons.Material.Outlined.Headphones), new MediaMetric("Music", DisplayBatch.MusicCount, Icons.Material.Outlined.MusicNote), new MediaMetric("Comics", DisplayBatch.ComicsCount, Icons.Material.Outlined.AutoStories) }.Where(metric => metric.Count > 0).ToList();
+    private string MediaMixSummary => DisplayBatch is null || MediaMix.Count == 0 ? "Media counts appear as files are classified." : $"{RunScopeLabel} · {MediaMix.Sum(metric => metric.Count):N0} items across {MediaMix.Count:N0} {Pluralize("media type", MediaMix.Count)}";
     private string NextWorkTitle => Model.QueuedItems > 0 ? $"{Model.QueuedItems:N0} queued {Pluralize("task", Model.QueuedItems)}" : ProviderWaitCount > 0 ? "Waiting for a provider" : "No queued work";
     private string NextWorkText => Model.QueuedItems > 0 ? "Tuvima will continue automatically." : ProviderWaitCount > 0 ? $"{ProviderWaitCount:N0} {Pluralize("request", ProviderWaitCount)} waiting for capacity." : "Scheduled refreshes run according to metadata policy.";
-    private string AttentionTitle => FailedCount > 0 ? $"{FailedCount:N0} failed {Pluralize("operation", FailedCount)}" : ReviewCount > 0 ? $"{ReviewCount:N0} {Pluralize("item", ReviewCount)} need review" : "A metadata provider is busy";
-    private string AttentionText => FailedCount > 0 ? "Open Activity to see what failed and whether it will retry." : ReviewCount > 0 ? "These items need a decision before Tuvima can finish their identity." : "Tuvima is waiting and will resume automatically.";
-    private string AttentionHref => ReviewCount > 0 && FailedCount == 0 ? "/settings/review" : CurrentActivityHref;
-    private string AttentionIcon => FailedCount > 0 ? Icons.Material.Outlined.ErrorOutline : ReviewCount > 0 ? Icons.Material.Outlined.RateReview : Icons.Material.Outlined.Schedule;
-    private string AttentionActionLabel => ReviewCount > 0 && FailedCount == 0 ? "Review" : "View activity";
 
-    private static PhaseViewModel Phase(string label, string description, string icon, LibraryUpdateStepStatus status) => new(label, description, icon, status, status switch { LibraryUpdateStepStatus.Complete => "Complete", LibraryUpdateStepStatus.InProgress => "Active", LibraryUpdateStepStatus.NeedsReview => "Needs review", _ => "Up next" });
+    private void SelectPhase(string key) { _selectedPhaseKey = key; _hasManualPhaseSelection = true; }
+    private void FollowCurrentPhase() { _selectedPhaseKey = CurrentPhase.Key; _hasManualPhaseSelection = false; }
+    private void OnDashboardChanged() { if (!_hasManualPhaseSelection) _selectedPhaseKey = CurrentPhase.Key; _ = InvokeAsync(StateHasChanged); }
+    private static string PhaseKeyForActivity(string? key) => key?.ToLowerInvariant() switch { "scan" or "discover" or "file" or "ingestion" => "discover", "identity" or "wikidata" or "retail" or "match" => "identify", "relationships" or "relationship" or "universe" or "organize" or "collections" => "organize", _ => "enrich" };
+    private static string PhaseStatusIcon(LibraryUpdateStepStatus status) => status switch { LibraryUpdateStepStatus.Complete => Icons.Material.Outlined.Check, LibraryUpdateStepStatus.InProgress => Icons.Material.Outlined.Sync, LibraryUpdateStepStatus.NeedsReview => Icons.Material.Outlined.WarningAmber, _ => Icons.Material.Outlined.Schedule };
+    private static PhaseViewModel Phase(string key, string label, string description, string icon, LibraryUpdateStepStatus status) => new(key, label, description, icon, status, status switch { LibraryUpdateStepStatus.Complete => "Complete", LibraryUpdateStepStatus.InProgress => "Active", LibraryUpdateStepStatus.NeedsReview => "Needs review", _ => "Up next" });
+    private LibraryUpdateStepStatus DisplayStepStatus(int index)
+    {
+        if (!IsRunning && DisplayBatch is not null && string.Equals(DisplayBatch.Status, "completed", StringComparison.OrdinalIgnoreCase))
+            return DisplayBatch.ReviewCount > 0 && index == 2 ? LibraryUpdateStepStatus.NeedsReview : LibraryUpdateStepStatus.Complete;
+        return StatusAt(Model.Steps, index);
+    }
     private static LibraryUpdateStepStatus StatusAt(IReadOnlyList<LibraryUpdateStepViewModel> steps, int index) => index < steps.Count ? steps[index].Status : LibraryUpdateStepStatus.Pending;
-    private static LibraryUpdateStepStatus Combine(IEnumerable<LibraryUpdateStepViewModel> steps) { var values = steps.Select(step => step.Status).ToList(); if (values.Contains(LibraryUpdateStepStatus.InProgress)) return LibraryUpdateStepStatus.InProgress; if (values.Contains(LibraryUpdateStepStatus.NeedsReview)) return LibraryUpdateStepStatus.NeedsReview; return values.Count > 0 && values.All(status => status == LibraryUpdateStepStatus.Complete) ? LibraryUpdateStepStatus.Complete : LibraryUpdateStepStatus.Pending; }
-    private static string PhaseClass(PhaseViewModel phase) => $"ingestion-stage is-{phase.Status.ToString().ToLowerInvariant()}";
+    private static LibraryUpdateStepStatus Combine(IEnumerable<LibraryUpdateStepStatus> statuses) { var values = statuses.ToList(); if (values.Contains(LibraryUpdateStepStatus.InProgress)) return LibraryUpdateStepStatus.InProgress; if (values.Contains(LibraryUpdateStepStatus.NeedsReview)) return LibraryUpdateStepStatus.NeedsReview; return values.Count > 0 && values.All(status => status == LibraryUpdateStepStatus.Complete) ? LibraryUpdateStepStatus.Complete : LibraryUpdateStepStatus.Pending; }
+    private string PhaseClass(PhaseViewModel phase) => $"ingestion-stage is-{phase.Status.ToString().ToLowerInvariant()} {(SelectedPhase.Key == phase.Key ? "is-selected" : null)}";
     private static string BatchTitle(IngestionOperationsBatchDto batch) => !string.IsNullOrWhiteSpace(batch.MediaType) ? $"Library scan — {batch.MediaType}" : !string.IsNullOrWhiteSpace(batch.Source) ? $"Library scan — {Path.GetFileName(batch.Source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))}" : "Library scan";
     private static string BatchSummary(IngestionOperationsBatchDto batch) => !string.IsNullOrWhiteSpace(batch.Summary) ? batch.Summary : $"{batch.ProcessedFiles:N0} files checked · {batch.RegisteredCount:N0} added or updated";
     private static string RunActivityHref(IngestionOperationsBatchDto batch) => $"/settings/activity?runId={batch.BatchId:D}";
     private static bool IsActiveStatus(string? status) => status is not null && status.ToLowerInvariant() is "running" or "queued" or "processing" or "active";
     private static string ActivityLabel(IngestionCurrentActivityDto activity) => string.IsNullOrWhiteSpace(activity.Message) ? "Updating library details" : activity.Message;
     private static string ActivityCounts(IngestionCurrentActivityDto activity) { var parts = new List<string>(); if (activity.ActiveCount > 0) parts.Add($"{activity.ActiveCount:N0} active"); if (activity.QueuedCount > 0) parts.Add($"{activity.QueuedCount:N0} queued"); if (activity.ProcessedCount > 0) parts.Add($"{activity.ProcessedCount:N0} completed"); return parts.Count == 0 ? "In progress" : string.Join(" · ", parts); }
-    private static string ActivityProgressCounts(IngestionCurrentActivityDto activity) => activity.TotalCount > 0 ? $"{Math.Min(activity.ProcessedCount, activity.TotalCount):N0} / {activity.TotalCount:N0}" : ActivityCounts(activity);
+    private static string ActivityProgressCounts(IngestionCurrentActivityDto activity) => activity.TotalCount > 0 ? $"{Math.Min(activity.ProcessedCount, activity.TotalCount):N0} of {activity.TotalCount:N0} complete" : ActivityCounts(activity);
     private static double ActivityPercent(IngestionCurrentActivityDto activity) => activity.TotalCount > 0 ? Math.Clamp(activity.ProcessedCount * 100d / activity.TotalCount, 0, 100) : 0;
     private static string ActivityDescription(string? key) => key?.ToLowerInvariant() switch { "artwork" => "Downloading posters, covers, and supported artwork", "people" => "Matching and enriching credited people", "relationships" or "universe" => "Building series, collections, and connections", "wikidata" or "identity" => "Resolving trusted canonical identities", "metadata" => "Updating titles, facts, and descriptions", "subtitles" => "Finding and storing subtitle tracks", "lyrics" => "Finding and storing lyrics", _ => "Processing library enrichment work" };
     private static string ActivityIcon(string? key) => key?.ToLowerInvariant() switch { "artwork" => Icons.Material.Outlined.Image, "people" => Icons.Material.Outlined.People, "relationships" or "universe" => Icons.Material.Outlined.AccountTree, "wikidata" or "identity" => Icons.Material.Outlined.Search, _ => Icons.Material.Outlined.AutoAwesome };
@@ -306,12 +264,11 @@
     private static string FormatDuration(int seconds) => TimeSpan.FromSeconds(Math.Max(0, seconds)) switch { var span when span.TotalHours >= 1 => $"{(int)span.TotalHours}h {span.Minutes}m", var span when span.TotalMinutes >= 1 => $"{(int)span.TotalMinutes}m {span.Seconds}s", var span => $"{span.Seconds}s" };
     private static string FormatRelative(DateTimeOffset value) { var elapsed = DateTimeOffset.UtcNow - value.ToUniversalTime(); return elapsed.TotalMinutes switch { < 1 => "just now", < 60 => $"{(int)elapsed.TotalMinutes}m ago", < 1440 => $"{(int)elapsed.TotalHours}h ago", _ => $"{(int)elapsed.TotalDays}d ago" }; }
     private static string Pluralize(string value, int count) => count == 1 ? value : value + "s";
-    private static AppUiTone StatusTone(string? tone) => tone?.ToLowerInvariant() switch { "success" => AppUiTone.Success, "warning" => AppUiTone.Warning, "error" or "danger" => AppUiTone.Error, "primary" or "info" => AppUiTone.Primary, _ => AppUiTone.Neutral };
     private Task ScanNowAsync() => Dashboard.ScanNowAsync();
-    private void OnDashboardChanged() => _ = InvokeAsync(StateHasChanged);
     public async ValueTask DisposeAsync() { Dashboard.OnChanged -= OnDashboardChanged; await Dashboard.StopAsync(); }
 
-    private sealed record PhaseViewModel(string Label, string Description, string Icon, LibraryUpdateStepStatus Status, string StatusLabel);
+    private sealed record PhaseViewModel(string Key, string Label, string Description, string Icon, LibraryUpdateStepStatus Status, string StatusLabel);
+    private sealed record StageFact(string Label, string Value);
     private sealed record OutcomeMetric(string Label, int Value, string Icon, string Tone, string? Href);
     private sealed record MediaMetric(string Label, int Count, string Icon);
 }

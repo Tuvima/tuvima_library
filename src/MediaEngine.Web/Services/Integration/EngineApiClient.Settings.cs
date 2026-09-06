@@ -914,6 +914,16 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public async Task<ActivityBatchSummaryDto?> GetActivityBatchAsync(
+        Guid batchId,
+        CancellationToken ct = default)
+    {
+        return await GetAsync<ActivityBatchSummaryDto>(
+            "Activity operation",
+            $"/activity/batches/{batchId:D}",
+            ct: ct);
+    }
+
     public async Task<ActivityBatchInsightsDto?> GetActivityBatchInsightsAsync(
         Guid batchId,
         CancellationToken ct = default)

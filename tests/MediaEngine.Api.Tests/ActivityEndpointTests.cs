@@ -24,6 +24,8 @@ public sealed class ActivityEndpointTests
 
         Assert.Contains("IActivityBatchReadService", endpoints, StringComparison.Ordinal);
         Assert.Contains("\"/batches\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("\"/batches/{batchId:guid}\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("GetActivityBatch", endpoints, StringComparison.Ordinal);
         Assert.Contains("\"/batches/{batchId:guid}/groups\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("\"/batches/{batchId:guid}/insights\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("GetActivityBatchInsights", endpoints, StringComparison.Ordinal);

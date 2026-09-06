@@ -55,6 +55,22 @@ public static class ActivityEndpoints
         .Produces<PagedResponse<ActivityBatchSummaryDto>>(StatusCodes.Status200OK)
         .RequireAdminOrStandardUser();
 
+        group.MapGet("/batches/{batchId:guid}", async (
+            Guid batchId,
+            IActivityBatchReadService readService,
+            CancellationToken ct) =>
+        {
+            var batch = await readService.GetBatchAsync(batchId, ct);
+            return batch is null
+                ? ApiErrors.NotFound($"No activity operation found for batch '{batchId}'.")
+                : Results.Ok(batch);
+        })
+        .WithName("GetActivityBatch")
+        .WithSummary("Returns one exact activity operation regardless of the current history date range.")
+        .Produces<ActivityBatchSummaryDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAdminOrStandardUser();
+
         group.MapGet("/batches/{batchId:guid}/groups", async (
             Guid batchId,
             IActivityBatchReadService readService,

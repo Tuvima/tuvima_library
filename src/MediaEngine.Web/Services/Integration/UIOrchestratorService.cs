@@ -502,6 +502,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         ActivityAuditQuery query, CancellationToken ct = default)
         => _api.GetActivityBatchesAsync(query, ct);
 
+    public Task<ActivityBatchSummaryDto?> GetActivityBatchAsync(
+        Guid batchId, CancellationToken ct = default)
+        => _api.GetActivityBatchAsync(batchId, ct);
+
     public Task<List<ActivityMediaTypeGroupDto>> GetActivityBatchGroupsAsync(
         Guid batchId, CancellationToken ct = default)
         => _api.GetActivityBatchGroupsAsync(batchId, ct);

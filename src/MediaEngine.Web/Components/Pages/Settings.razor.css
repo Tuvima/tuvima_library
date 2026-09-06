@@ -791,6 +791,25 @@
 }
 
 @media (max-width: 600px) {
+    .settings-operations-navigation {
+        justify-content: space-between;
+        gap: 0;
+    }
+
+    .settings-operations-navigation a {
+        min-width: 0;
+        padding-inline: 5px;
+        font-size: .78rem;
+        white-space: nowrap;
+    }
+
+    .settings-operations-navigation__count {
+        min-width: 18px;
+        height: 18px;
+        margin-left: 4px;
+        padding-inline: 5px;
+    }
+
     .settings-page-canvas ::deep .settings-experience-grid {
         grid-template-columns: 1fr;
     }

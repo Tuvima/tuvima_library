@@ -12,7 +12,7 @@ tags:
 
 # Ingestion and Activity Experience Plan
 
-Status: implemented, September 5, 2026. This document records the accepted product and lifecycle contract.
+Status: partially implemented; remediation required, September 5, 2026. The [Operations Simplicity Remediation Plan](operations-simplicity-remediation-plan-2026-09-05.md) supersedes the page-level detail lenses and presentation decisions below. Remaining lifecycle and verification requirements must be demonstrated before this plan can be considered complete.
 
 ## Product outcome
 

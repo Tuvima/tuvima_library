@@ -23,6 +23,17 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         _db = db;
     }
 
+    public async Task<ActivityBatchSummaryDto?> GetBatchAsync(
+        Guid batchId,
+        CancellationToken ct = default)
+    {
+        var page = await GetBatchesAsync(
+            new ActivityBatchQuery(batchId.ToString("N"), null, null, null, null, null, null, 0, 2, "started", "desc"),
+            ct).ConfigureAwait(false);
+
+        return page.Items.SingleOrDefault(batch => batch.BatchId == batchId);
+    }
+
     private static string ActivityMediaTypeSql(
         string primaryMediaTypeExpression,
         string secondaryMediaTypeExpression,
@@ -264,10 +275,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 NULL AS DurationLabel,
                 COALESCE(ljr.MediaTypeCount, 0) AS MediaTypeCount,
                 COALESCE(ljr.TitleCount, 0) AS TitleCount,
-                CASE
-                    WHEN pb.files_total > 0 THEN pb.files_total
-                    ELSE MAX(COALESCE(mor.OperationItemCount, 0), COALESCE(ilr.LogItemCount, 0))
-                END AS ItemCount,
+                COALESCE(ljr.TitleCount, 0) AS ItemCount,
                 COALESCE(ar.EventCount, 0) + COALESCE(oer.EventCount, 0) AS EventCount,
                 COALESCE(pr.PeopleCount, 0) AS PeopleCount,
                 MAX(
@@ -440,7 +448,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             )
             SELECT
                 @batchId AS BatchId,
-                CASE WHEN scoped.needs_review = 1 THEN @reviewGroup ELSE scoped.media_type END AS MediaType,
+                scoped.media_type AS MediaType,
                 COUNT(DISTINCT scoped.entity_id) AS TitleCount,
                 COUNT(DISTINCT scoped.entity_id) AS ItemCount,
                 COUNT(DISTINCT sa.id) AS EventCount,
@@ -458,8 +466,8 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 ON sa.ingestion_run_id = @batchId
                AND sa.entity_id = scoped.entity_id
             LEFT JOIN person_media_links pml ON pml.media_asset_id = scoped.entity_id
-            GROUP BY CASE WHEN scoped.needs_review = 1 THEN @reviewGroup ELSE scoped.media_type END
-            ORDER BY CASE WHEN MediaType = @reviewGroup THEN 0 ELSE 1 END, TitleCount DESC, MediaType ASC;
+            GROUP BY scoped.media_type
+            ORDER BY TitleCount DESC, MediaType ASC;
             """, new { batchId, reviewGroup = ReviewGroupMediaType }).ConfigureAwait(false)).AsList();
 
         if (rows.Count > 0)
@@ -468,9 +476,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         var fallback = await conn.QueryFirstOrDefaultAsync<ActivityMediaTypeGroupDto>("""
             SELECT
                 b.id AS BatchId,
-                CASE WHEN b.files_review > 0 THEN @reviewGroup ELSE COALESCE(NULLIF(b.category, ''), 'Unknown') END AS MediaType,
+                COALESCE(NULLIF(b.category, ''), 'Unknown') AS MediaType,
                 0 AS TitleCount,
-                CASE WHEN b.files_total > 0 THEN b.files_total ELSE b.files_processed END AS ItemCount,
+                0 AS ItemCount,
                 0 AS EventCount,
                 0 AS PeopleCount,
                 b.files_review AS ReviewCount,
@@ -562,10 +570,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                           OR LOWER(COALESCE(lj.state, '')) IN ('retailmatchambiguous', 'qidneedsreview', 'retailmatchedneedsreview', 'lowconfidence')
                       ))
                       OR (@mediaType <> @reviewGroup
-                          AND LOWER(COALESCE(media_type, 'Unknown')) = LOWER(@mediaType)
-                          AND COALESCE(rf.review_count, 0) = 0
-                          AND LOWER(COALESCE(lj.state, '')) NOT LIKE '%review%'
-                          AND LOWER(COALESCE(lj.state, '')) NOT IN ('retailmatchambiguous', 'qidneedsreview', 'retailmatchedneedsreview', 'lowconfidence'))
+                          AND LOWER(COALESCE(media_type, 'Unknown')) = LOWER(@mediaType))
                   )
             ),
             latest_operations AS (
@@ -790,10 +795,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                       OR LOWER(COALESCE(lj.state, '')) IN ('retailmatchambiguous', 'qidneedsreview', 'retailmatchedneedsreview', 'lowconfidence')
                   ))
                   OR (@mediaType <> @reviewGroup
-                      AND LOWER(COALESCE(lj.media_type, 'Unknown')) = LOWER(@mediaType)
-                      AND COALESCE(rf.review_count, 0) = 0
-                      AND LOWER(COALESCE(lj.state, '')) NOT LIKE '%review%'
-                      AND LOWER(COALESCE(lj.state, '')) NOT IN ('retailmatchambiguous', 'qidneedsreview', 'retailmatchedneedsreview', 'lowconfidence'))
+                      AND LOWER(COALESCE(lj.media_type, 'Unknown')) = LOWER(@mediaType))
               );
             """, new { batchId, mediaType = filterMediaType, reviewGroup = ReviewGroupMediaType }).ConfigureAwait(false);
 

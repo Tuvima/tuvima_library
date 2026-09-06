@@ -41,6 +41,7 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
             Limit: 10);
 
         var batches = await service.GetBatchesAsync(query);
+        var exactBatch = await service.GetBatchAsync(seed.BatchId);
         var groups = await service.GetGroupsAsync(seed.BatchId);
         var insights = await service.GetInsightsAsync(seed.BatchId);
         var items = await service.GetItemsAsync(seed.BatchId, "Needs Review", 0, 10, "title", "asc");
@@ -58,6 +59,8 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
             Limit: 10));
 
         var batch = Assert.Single(batches.Items);
+        Assert.NotNull(exactBatch);
+        Assert.Equal(seed.BatchId, exactBatch.BatchId);
         Assert.Equal(seed.BatchId, batch.BatchId);
         Assert.Equal("completed", batch.Status);
         Assert.Equal(1, batch.MediaTypeCount);
@@ -77,11 +80,11 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         Assert.Equal(seed.BatchId, insights.BatchId);
 
         var group = Assert.Single(groups);
-        Assert.Equal("Needs Review", group.MediaType);
+        Assert.Equal("Movies", group.MediaType);
         Assert.Equal(1, group.TitleCount);
         Assert.Equal(1, group.PeopleCount);
         Assert.Equal(1, group.ReviewCount);
-        Assert.Empty(movieItems.Items);
+        Assert.Single(movieItems.Items);
 
         var item = Assert.Single(items.Items);
         Assert.Equal(seed.AssetId, item.AssetId);
@@ -152,6 +155,38 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         Assert.Equal("The Expanse - S01E01 - Dulcinea", item.Title);
         Assert.NotNull(detail);
         Assert.Equal("The Expanse - S01E01 - Dulcinea", detail.Title);
+    }
+
+    [Fact]
+    public async Task ActivityBatchReadService_DoesNotPresentUnclassifiedFilesAsMediaItems()
+    {
+        var batchId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        using (var conn = _db.CreateConnection())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                INSERT INTO ingestion_batches (
+                    id, status, source_path, category, files_total, files_processed,
+                    files_registered, files_review, files_no_match, files_failed,
+                    started_at, completed_at, created_at, updated_at)
+                VALUES (
+                    $batchId, 'completed', 'C:/watch/books', 'Books', 7, 7,
+                    0, 0, 0, 0, $now, $now, $now, $now);
+                """;
+            AddGuid(cmd, "$batchId", batchId);
+            cmd.Parameters.AddWithValue("$now", now.ToString("O"));
+            cmd.ExecuteNonQuery();
+        }
+
+        var service = new ActivityBatchReadService(_db);
+        var batch = await service.GetBatchAsync(batchId);
+        var group = Assert.Single(await service.GetGroupsAsync(batchId));
+
+        Assert.NotNull(batch);
+        Assert.Equal(7, batch.FilesDiscoveredCount);
+        Assert.Equal(0, batch.ItemCount);
+        Assert.Equal(0, group.ItemCount);
     }
 
     private ActivitySeed SeedActivityBatch()

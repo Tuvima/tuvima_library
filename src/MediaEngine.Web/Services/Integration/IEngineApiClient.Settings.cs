@@ -231,6 +231,10 @@ public partial interface IEngineApiClient
         ActivityAuditQuery query,
         CancellationToken ct = default);
 
+    Task<ActivityBatchSummaryDto?> GetActivityBatchAsync(
+        Guid batchId,
+        CancellationToken ct = default);
+
     Task<List<ActivityMediaTypeGroupDto>> GetActivityBatchGroupsAsync(
         Guid batchId,
         CancellationToken ct = default);

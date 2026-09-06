@@ -6,6 +6,10 @@ namespace MediaEngine.Application.Services;
 
 public interface IActivityBatchReadService
 {
+    Task<ActivityBatchSummaryDto?> GetBatchAsync(
+        Guid batchId,
+        CancellationToken ct = default);
+
     Task<PagedResponse<ActivityBatchSummaryDto>> GetBatchesAsync(
         ActivityBatchQuery query,
         CancellationToken ct = default);

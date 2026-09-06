@@ -326,6 +326,10 @@
   input maxHops | default=4 | shape=a55c372cd3166c75252ed2c89a97613bcbf070662810c6de8de63bebabf716c4
   response | shape=36496e2958a2af363e329c72874d73fee4b5b00100964185e4cf746599fca7e0
 
+[method] GetActivityBatchAsync
+  input batchId | default=required | shape=23c91dbfe78898b3bcd60f3f3d70fe800646117006a807de3b3d788e8a1d7981
+  response | shape=a7d305f123a527dc9fd7406696667abbb09c756c749156f7ff872f8b81198f1e
+
 [method] GetActivityBatchGroupsAsync
   input batchId | default=required | shape=23c91dbfe78898b3bcd60f3f3d70fe800646117006a807de3b3d788e8a1d7981
   response | shape=3d6f9173247280ffd373f7845dfa3a3985d997b4609c8bcd33152b9b560288e9

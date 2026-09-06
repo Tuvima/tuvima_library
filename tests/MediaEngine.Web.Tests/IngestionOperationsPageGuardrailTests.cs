@@ -33,7 +33,12 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.DoesNotContain("Overall batch", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Finishing current work", source, StringComparison.Ordinal);
         Assert.Contains("Added or updated", source, StringComparison.Ordinal);
-        Assert.Contains("Work in progress", source, StringComparison.Ordinal);
+        Assert.Contains("ingestion-stage-detail", source, StringComparison.Ordinal);
+        Assert.Contains("PhaseStatusIcon", source, StringComparison.Ordinal);
+        Assert.Contains("is-phase-{SelectedPhase.Key}", source, StringComparison.Ordinal);
+        Assert.Contains("Follow current stage", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("OverallProgressPercent", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Overall run progress", source, StringComparison.Ordinal);
         Assert.Contains("Media in this run", source, StringComparison.Ordinal);
         Assert.DoesNotContain("RecentBatches.OrderByDescending", source, StringComparison.Ordinal);
         Assert.Contains("batch.OutstandingOperations > 0", source, StringComparison.Ordinal);
@@ -41,6 +46,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Single(Regex.Matches(source, "Label=\"Scan all folders\""));
         Assert.DoesNotContain("Label=\"Refresh\"", source, StringComparison.Ordinal);
         Assert.Contains("ingestion-stage-mobile", source, StringComparison.Ordinal);
+        Assert.Contains("Href=\"/settings/activity\" Label=\"View all activity\"", source, StringComparison.Ordinal);
         Assert.Contains("View processing details", dashboardSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<IngestionActivityList", source, StringComparison.Ordinal);
         Assert.Contains("ShouldRender", dashboardSource, StringComparison.Ordinal);
