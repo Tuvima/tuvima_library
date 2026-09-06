@@ -246,6 +246,9 @@ public partial interface IEngineApiClient
     Task<PagedResponse<ActivityBatchItemDto>?> GetActivityBatchItemsAsync(
         Guid batchId,
         string? mediaType = null,
+        string? search = null,
+        string? status = null,
+        string? source = null,
         int offset = 0,
         int limit = 25,
         string? sort = null,
@@ -255,6 +258,15 @@ public partial interface IEngineApiClient
     Task<ActivityBatchItemDetailDto?> GetActivityBatchItemDetailAsync(
         Guid batchId,
         Guid assetId,
+        CancellationToken ct = default);
+
+    Task<PagedResponse<ActivityTechnicalEventDto>?> GetActivityBatchEventsAsync(
+        Guid batchId,
+        string? search = null,
+        string? eventType = null,
+        string? result = null,
+        int offset = 0,
+        int limit = 25,
         CancellationToken ct = default);
 
     Task<PagedResponse<ActivityPersonAuditDto>?> GetActivityPeopleAsync(

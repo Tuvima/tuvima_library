@@ -3,6 +3,8 @@
     width: 100%;
     min-width: 0;
     padding: var(--tl-space-6, 24px) clamp(18px, 2.5vw, 36px) var(--tl-space-8, 32px);
+    max-width: 1680px;
+    margin-inline: auto;
 }
 
 .settings-page-canvas {

@@ -25,10 +25,22 @@ public interface IActivityBatchReadService
     Task<PagedResponse<ActivityBatchItemDto>> GetItemsAsync(
         Guid batchId,
         string? mediaType,
+        string? search,
+        string? status,
+        string? source,
         int offset,
         int limit,
         string? sort,
         string? sortDirection,
+        CancellationToken ct = default);
+
+    Task<PagedResponse<ActivityTechnicalEventDto>> GetEventsAsync(
+        Guid batchId,
+        string? search,
+        string? eventType,
+        string? result,
+        int offset,
+        int limit,
         CancellationToken ct = default);
 
     Task<ActivityBatchItemDetailDto?> GetItemDetailAsync(

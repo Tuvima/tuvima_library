@@ -30,6 +30,7 @@ MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityBatchItemD
   Evidence: System.Collections.Generic.List<MediaEngine.Contracts.Activity.ActivityEvidenceDto> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityBatchItemDto
+  TotalFilteredCount: System.Int32 | nullability=not-null | accessors=get,set
   BatchId: System.Guid | nullability=not-null | accessors=get,set
   AssetId: System.Guid? | nullability=nullable | accessors=get,set
   Title: System.String | nullability=not-null | accessors=get,set
@@ -145,6 +146,17 @@ MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityProviderSu
 MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityStatsResponse
   TotalEntries: System.Int64 | nullability=not-null | accessors=get,set
   RetentionDays: System.Int32 | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityTechnicalEventDto
+  EventId: System.Int64 | nullability=not-null | accessors=get,set
+  OccurredAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
+  EventType: System.String | nullability=not-null | accessors=get,set
+  Item: System.String | nullability=nullable | accessors=get,set
+  EntityType: System.String | nullability=nullable | accessors=get,set
+  Result: System.String | nullability=not-null | accessors=get,set
+  Detail: System.String | nullability=nullable | accessors=get,set
+  BatchId: System.Guid | nullability=not-null | accessors=get,set
+  TechnicalDetails: System.String | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityTimelineEventDto
   OccurredAt: System.DateTimeOffset | nullability=not-null | accessors=get,set

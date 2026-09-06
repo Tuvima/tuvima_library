@@ -855,6 +855,9 @@ public sealed partial class EngineApiClient
     public async Task<PagedResponse<ActivityBatchItemDto>?> GetActivityBatchItemsAsync(
         Guid batchId,
         string? mediaType = null,
+        string? search = null,
+        string? status = null,
+        string? source = null,
         int offset = 0,
         int limit = 25,
         string? sort = null,
@@ -866,6 +869,9 @@ public sealed partial class EngineApiClient
             var query = new ActivityAuditQuery
             {
                 MediaType = mediaType,
+                Search = search,
+                Status = status,
+                Source = source,
                 Offset = offset,
                 Limit = limit,
                 Sort = sort,
@@ -912,6 +918,29 @@ public sealed partial class EngineApiClient
             _logger.LogWarning(ex, "GET /activity/batches/{BatchId}/items/{AssetId} failed", batchId, assetId);
             return null;
         }
+    }
+
+    public Task<PagedResponse<ActivityTechnicalEventDto>?> GetActivityBatchEventsAsync(
+        Guid batchId,
+        string? search = null,
+        string? eventType = null,
+        string? result = null,
+        int offset = 0,
+        int limit = 25,
+        CancellationToken ct = default)
+    {
+        var query = new ActivityAuditQuery
+        {
+            Search = search,
+            EventType = eventType,
+            Status = result,
+            Offset = offset,
+            Limit = limit,
+        };
+        return GetAsync<PagedResponse<ActivityTechnicalEventDto>>(
+            "Activity technical events",
+            BuildActivityQueryPath($"/activity/batches/{batchId:D}/events", query),
+            ct: ct);
     }
 
     public async Task<ActivityBatchSummaryDto?> GetActivityBatchAsync(

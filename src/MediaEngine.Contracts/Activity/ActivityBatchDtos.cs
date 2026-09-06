@@ -160,6 +160,9 @@ public sealed class ActivityProviderSummaryDto
 
 public sealed class ActivityBatchItemDto
 {
+    [JsonIgnore]
+    public int TotalFilteredCount { get; set; }
+
     [JsonPropertyName("batch_id")]
     public Guid BatchId { get; set; }
 
@@ -231,6 +234,36 @@ public sealed class ActivityBatchItemDto
 
     [JsonPropertyName("last_activity_at")]
     public DateTimeOffset? LastActivityAt { get; set; }
+}
+
+public sealed class ActivityTechnicalEventDto
+{
+    [JsonPropertyName("event_id")]
+    public long EventId { get; set; }
+
+    [JsonPropertyName("occurred_at")]
+    public DateTimeOffset OccurredAt { get; set; }
+
+    [JsonPropertyName("event_type")]
+    public string EventType { get; set; } = "";
+
+    [JsonPropertyName("item")]
+    public string? Item { get; set; }
+
+    [JsonPropertyName("entity_type")]
+    public string? EntityType { get; set; }
+
+    [JsonPropertyName("result")]
+    public string Result { get; set; } = "Completed";
+
+    [JsonPropertyName("detail")]
+    public string? Detail { get; set; }
+
+    [JsonPropertyName("correlation_id")]
+    public Guid BatchId { get; set; }
+
+    [JsonPropertyName("technical_details")]
+    public string? TechnicalDetails { get; set; }
 }
 
 public sealed class ActivityBatchItemDetailDto

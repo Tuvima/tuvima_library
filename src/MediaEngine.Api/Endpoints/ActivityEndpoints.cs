@@ -100,6 +100,9 @@ public static class ActivityEndpoints
             Guid batchId,
             IActivityBatchReadService readService,
             string? mediaType,
+            string? search,
+            string? status,
+            string? source,
             int? offset,
             int? limit,
             string? sort,
@@ -107,11 +110,29 @@ public static class ActivityEndpoints
             CancellationToken ct) =>
         {
             var page = PagedRequest.From(offset, limit, defaultLimit: 25, maxLimit: 100);
-            return Results.Ok(await readService.GetItemsAsync(batchId, mediaType, page.Offset, page.Limit, sort, sortDirection, ct));
+            return Results.Ok(await readService.GetItemsAsync(batchId, mediaType, search, status, source, page.Offset, page.Limit, sort, sortDirection, ct));
         })
         .WithName("GetActivityBatchItems")
         .WithSummary("Returns paged title/item rows for one ingestion batch.")
         .Produces<PagedResponse<ActivityBatchItemDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrStandardUser();
+
+        group.MapGet("/batches/{batchId:guid}/events", async (
+            Guid batchId,
+            IActivityBatchReadService readService,
+            string? search,
+            string? eventType,
+            string? status,
+            int? offset,
+            int? limit,
+            CancellationToken ct) =>
+        {
+            var page = PagedRequest.From(offset, limit, defaultLimit: 25, maxLimit: 100);
+            return Results.Ok(await readService.GetEventsAsync(batchId, search, eventType, status, page.Offset, page.Limit, ct));
+        })
+        .WithName("GetActivityBatchEvents")
+        .WithSummary("Returns a filtered, paged technical event log for one durable batch.")
+        .Produces<PagedResponse<ActivityTechnicalEventDto>>(StatusCodes.Status200OK)
         .RequireAdminOrStandardUser();
 
         group.MapGet("/batches/{batchId:guid}/items/{assetId:guid}", async (

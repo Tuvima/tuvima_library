@@ -518,12 +518,25 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<PagedResponse<ActivityBatchItemDto>?> GetActivityBatchItemsAsync(
         Guid batchId,
         string? mediaType = null,
+        string? search = null,
+        string? status = null,
+        string? source = null,
         int offset = 0,
         int limit = 25,
         string? sort = null,
         string? sortDirection = null,
         CancellationToken ct = default)
-        => _api.GetActivityBatchItemsAsync(batchId, mediaType, offset, limit, sort, sortDirection, ct);
+        => _api.GetActivityBatchItemsAsync(batchId, mediaType, search, status, source, offset, limit, sort, sortDirection, ct);
+
+    public Task<PagedResponse<ActivityTechnicalEventDto>?> GetActivityBatchEventsAsync(
+        Guid batchId,
+        string? search = null,
+        string? eventType = null,
+        string? result = null,
+        int offset = 0,
+        int limit = 25,
+        CancellationToken ct = default)
+        => _api.GetActivityBatchEventsAsync(batchId, search, eventType, result, offset, limit, ct);
 
     public Task<ActivityBatchItemDetailDto?> GetActivityBatchItemDetailAsync(
         Guid batchId,

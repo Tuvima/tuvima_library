@@ -494,6 +494,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
     public async Task<PagedResponse<ActivityBatchItemDto>> GetItemsAsync(
         Guid batchId,
         string? mediaType,
+        string? search,
+        string? status,
+        string? source,
         int offset,
         int limit,
         string? sort,
@@ -504,6 +507,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
 
         var page = PagedRequest.From(offset, limit, DefaultLimit, MaxLimit);
         var filterMediaType = string.IsNullOrWhiteSpace(mediaType) ? null : mediaType.Trim();
+        var filterSearch = string.IsNullOrWhiteSpace(search) ? null : $"%{search.Trim().ToLowerInvariant()}%";
+        var filterStatus = string.IsNullOrWhiteSpace(status) ? null : status.Trim().ToLowerInvariant();
+        var filterSource = string.IsNullOrWhiteSpace(source) ? null : $"%{source.Trim().ToLowerInvariant()}%";
         var orderBy = BuildItemOrderBy(sort, sortDirection);
         var itemTitleSql = ActivityDisplayTitleSql(
             "COALESCE(NULLIF(scoped.media_type, ''), NULLIF(w.media_type, ''), 'Unknown')",
@@ -680,6 +686,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                  )
             )
             SELECT
+                COUNT(*) OVER() AS TotalFilteredCount,
                 @batchId AS BatchId,
                 scoped.entity_id AS AssetId,
                 {itemTitleSql} AS Title,
@@ -740,12 +747,28 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             LEFT JOIN artwork_rollup ar ON ar.entity_id = scoped.entity_id
             LEFT JOIN cover_candidates cc ON cc.entity_id = scoped.entity_id AND cc.rn = 1
             LEFT JOIN provider_candidates pc ON pc.entity_id = scoped.entity_id AND pc.rn = 1
+            WHERE (
+                    @search IS NULL
+                    OR LOWER({itemTitleSql}) LIKE @search
+                    OR LOWER(COALESCE(mo.source_path, ma.file_path_root, '')) LIKE @search
+                    OR LOWER(COALESCE(pc.Provider, '')) LIKE @search
+                )
+              AND (@source IS NULL OR LOWER(COALESCE(mo.source_path, ma.file_path_root, '')) LIKE @source)
+              AND (
+                    @status IS NULL
+                    OR (@status = 'review' AND scoped.needs_review = 1)
+                    OR (@status = 'failed' AND mo.status IN ('failed_terminal', 'dead_lettered'))
+                    OR (@status = 'completed' AND scoped.needs_review = 0 AND COALESCE(mo.status, scoped.state, '') NOT IN ('failed_terminal', 'dead_lettered'))
+                )
             ORDER BY {orderBy}
             LIMIT @limitPlusOne OFFSET @offset;
             """, new
             {
                 batchId,
                 mediaType = filterMediaType,
+                search = filterSearch,
+                status = filterStatus,
+                source = filterSource,
                 reviewGroup = ReviewGroupMediaType,
                 offset = page.Offset,
                 limitPlusOne = page.Limit + 1,
@@ -759,47 +782,88 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             row.DurationLabel = FormatDurationLabel(row.DurationSeconds, row.DurationLabel);
         }
 
-        var total = await conn.ExecuteScalarAsync<int>($"""
-            WITH latest_jobs AS (
-                SELECT
-                    ij.entity_id,
-                    {ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")} AS media_type,
-                    ij.state,
-                    ROW_NUMBER() OVER (
-                        PARTITION BY ij.entity_id
-                        ORDER BY ij.updated_at DESC, ij.created_at DESC
-                    ) AS rn
-                FROM identity_jobs ij
-                LEFT JOIN media_assets ma ON ma.id = ij.entity_id
-                LEFT JOIN editions e ON e.id = ma.edition_id
-                LEFT JOIN works w ON w.id = e.work_id
-                WHERE ij.ingestion_run_id = @batchId
-                  AND ij.entity_id IS NOT NULL
-            ),
-            review_flags AS (
-                SELECT entity_id, COUNT(*) AS review_count
-                FROM review_queue
-                WHERE status = 'Pending'
-                  AND review_ready_at IS NOT NULL
-                GROUP BY entity_id
-            )
-            SELECT COUNT(*)
-            FROM latest_jobs lj
-            LEFT JOIN review_flags rf ON rf.entity_id = lj.entity_id
-            WHERE lj.rn = 1
-              AND (
-                  @mediaType IS NULL
-                  OR (@mediaType = @reviewGroup AND (
-                      COALESCE(rf.review_count, 0) > 0
-                      OR LOWER(COALESCE(lj.state, '')) LIKE '%review%'
-                      OR LOWER(COALESCE(lj.state, '')) IN ('retailmatchambiguous', 'qidneedsreview', 'retailmatchedneedsreview', 'lowconfidence')
-                  ))
-                  OR (@mediaType <> @reviewGroup
-                      AND LOWER(COALESCE(lj.media_type, 'Unknown')) = LOWER(@mediaType))
-              );
-            """, new { batchId, mediaType = filterMediaType, reviewGroup = ReviewGroupMediaType }).ConfigureAwait(false);
+        var total = rows.FirstOrDefault()?.TotalFilteredCount ?? 0;
 
         return PagedResponse<ActivityBatchItemDto>.FromPage(rows, page, total);
+    }
+
+    public Task<PagedResponse<ActivityBatchItemDto>> GetItemsAsync(
+        Guid batchId,
+        string? mediaType,
+        int offset,
+        int limit,
+        string? sort,
+        string? sortDirection,
+        CancellationToken ct = default) =>
+        GetItemsAsync(batchId, mediaType, null, null, null, offset, limit, sort, sortDirection, ct);
+
+    public async Task<PagedResponse<ActivityTechnicalEventDto>> GetEventsAsync(
+        Guid batchId,
+        string? search,
+        string? eventType,
+        string? result,
+        int offset,
+        int limit,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var page = PagedRequest.From(offset, limit, DefaultLimit, MaxLimit);
+        var searchPattern = string.IsNullOrWhiteSpace(search) ? null : $"%{search.Trim().ToLowerInvariant()}%";
+        var typePattern = string.IsNullOrWhiteSpace(eventType) ? null : $"%{eventType.Trim().ToLowerInvariant()}%";
+        var resultFilter = string.IsNullOrWhiteSpace(result) ? null : result.Trim().ToLowerInvariant();
+
+        using var conn = _db.CreateConnection();
+        var rows = (await conn.QueryAsync<ActivityTechnicalEventRow>("""
+            SELECT
+                COUNT(*) OVER() AS TotalFilteredCount,
+                id AS EventId,
+                occurred_at AS OccurredAt,
+                action_type AS EventType,
+                collection_name AS Item,
+                entity_type AS EntityType,
+                CASE
+                    WHEN LOWER(action_type) LIKE '%fail%' OR LOWER(action_type) LIKE '%error%' THEN 'Failed'
+                    WHEN LOWER(action_type) LIKE '%warn%' OR LOWER(action_type) LIKE '%review%' THEN 'Attention'
+                    ELSE 'Completed'
+                END AS Result,
+                detail AS Detail,
+                ingestion_run_id AS BatchId,
+                changes_json AS TechnicalDetails
+            FROM system_activity
+            WHERE ingestion_run_id = @batchId
+              AND (@search IS NULL OR LOWER(COALESCE(collection_name, '') || ' ' || COALESCE(detail, '') || ' ' || COALESCE(changes_json, '') || ' ' || action_type) LIKE @search)
+              AND (@eventType IS NULL OR LOWER(action_type) LIKE @eventType)
+              AND (@result IS NULL OR LOWER(CASE
+                    WHEN LOWER(action_type) LIKE '%fail%' OR LOWER(action_type) LIKE '%error%' THEN 'Failed'
+                    WHEN LOWER(action_type) LIKE '%warn%' OR LOWER(action_type) LIKE '%review%' THEN 'Attention'
+                    ELSE 'Completed'
+                  END) = @result)
+            ORDER BY occurred_at ASC, id ASC
+            LIMIT @limitPlusOne OFFSET @offset;
+            """, new
+            {
+                batchId,
+                search = searchPattern,
+                eventType = typePattern,
+                result = resultFilter,
+                offset = page.Offset,
+                limitPlusOne = page.Limit + 1,
+            }).ConfigureAwait(false)).AsList();
+
+        var total = rows.FirstOrDefault()?.TotalFilteredCount ?? 0;
+        var events = rows.Select(row => new ActivityTechnicalEventDto
+        {
+            EventId = row.EventId,
+            OccurredAt = row.OccurredAt,
+            EventType = row.EventType,
+            Item = row.Item,
+            EntityType = row.EntityType,
+            Result = row.Result,
+            Detail = row.Detail,
+            BatchId = row.BatchId,
+            TechnicalDetails = row.TechnicalDetails,
+        }).ToList();
+        return PagedResponse<ActivityTechnicalEventDto>.FromPage(events, page, total);
     }
 
     public async Task<ActivityBatchItemDetailDto?> GetItemDetailAsync(
@@ -1280,6 +1344,8 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             "qid" or "wikidata" or "wikidataqid" => "WikidataQid",
             "people" or "peoplecount" => "PeopleCount",
             "duration" => "COALESCE(DurationSeconds, 0)",
+            "mediatype" => "MediaType",
+            "recent" => "LastActivityAt",
             _ => "Title",
         };
 
@@ -1509,6 +1575,20 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         public Guid BatchId { get; set; }
         public string MediaType { get; set; } = "Unknown";
         public int Count { get; set; }
+    }
+
+    private sealed class ActivityTechnicalEventRow
+    {
+        public int TotalFilteredCount { get; set; }
+        public long EventId { get; set; }
+        public DateTimeOffset OccurredAt { get; set; }
+        public string EventType { get; set; } = "";
+        public string? Item { get; set; }
+        public string? EntityType { get; set; }
+        public string Result { get; set; } = "Completed";
+        public string? Detail { get; set; }
+        public Guid BatchId { get; set; }
+        public string? TechnicalDetails { get; set; }
     }
 
 }

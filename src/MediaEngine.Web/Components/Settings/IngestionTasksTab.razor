@@ -52,16 +52,23 @@
                     }
                 </div>
             </div>
+            @if (IsRunning)
+            {
+                <div class="ingestion-current__progress">
+                    <AppProgressBar Indeterminate="@(!HasReliableOverallProgress)" Value="@OverallProgress" ShowValue="false" />
+                    <span>@OverallProgressLabel</span>
+                </div>
+            }
         </AppPanel>
 
         <AppPanel Class="tl-card ingestion-pipeline">
-            <div class="ingestion-stage-strip" aria-label="Ingestion stages">
+            <div class="ingestion-stage-strip @PipelineTrackClass" aria-label="Ingestion stages">
                 @foreach (var phase in Phases)
                 {
-                    <button type="button" class="@PhaseClass(phase)" aria-label="@($"Show {phase.Label} status: {phase.StatusLabel}")" @onclick="@(() => SelectPhase(phase.Key))" aria-expanded="@(_selectedPhaseKey == phase.Key)" aria-controls="ingestion-stage-detail">
+                    <AppNativeButton Type="button" Class="@PhaseClass(phase)" AriaLabel="@($"Show {phase.Label} status: {phase.StatusLabel}")" OnClick="@(_ => SelectPhase(phase.Key))" aria-expanded="@(_selectedPhaseKey == phase.Key)" aria-controls="ingestion-stage-detail">
                         <span class="ingestion-stage__icon" aria-hidden="true"><MudIcon Icon="@phase.Icon" /><span class="ingestion-stage__status-mark"><MudIcon Icon="@PhaseStatusIcon(phase.Status)" /></span></span>
                         <span class="ingestion-stage__copy"><strong>@phase.Label</strong><small>@phase.Description</small></span>
-                    </button>
+                    </AppNativeButton>
                 }
             </div>
 
@@ -70,10 +77,10 @@
                 <div class="ingestion-stage-mobile__rows">
                     @foreach (var phase in Phases)
                     {
-                        <button type="button" class="@PhaseClass(phase)" aria-label="@($"Show {phase.Label} status: {phase.StatusLabel}")" @onclick="@(() => SelectPhase(phase.Key))" aria-expanded="@(_selectedPhaseKey == phase.Key)" aria-controls="ingestion-stage-detail">
+                        <AppNativeButton Type="button" Class="@PhaseClass(phase)" AriaLabel="@($"Show {phase.Label} status: {phase.StatusLabel}")" OnClick="@(_ => SelectPhase(phase.Key))" aria-expanded="@(_selectedPhaseKey == phase.Key)" aria-controls="ingestion-stage-detail">
                             <span class="ingestion-stage__icon" aria-hidden="true"><MudIcon Icon="@phase.Icon" /><span class="ingestion-stage__status-mark"><MudIcon Icon="@PhaseStatusIcon(phase.Status)" /></span></span>
                             <span class="ingestion-stage__copy"><strong>@phase.Label</strong><small>@phase.Description</small></span>
-                        </button>
+                        </AppNativeButton>
                     }
                 </div>
             </details>
@@ -133,7 +140,7 @@
                 }
                 else
                 {
-                    <p class="ingestion-empty-copy">Media counts will appear after files are classified.</p>
+                    <div class="ingestion-empty-copy"><MudIcon Icon="@Icons.Material.Outlined.BarChart" /><strong>No media scanned in this run</strong><span>Media counts will appear after files are classified.</span></div>
                 }
             </AppPanel>
 
@@ -159,7 +166,7 @@
                 <div class="ingestion-run-list">
                     @foreach (var batch in RecentBatches)
                     {
-                        <a class="ingestion-run" href="@RunActivityHref(batch)"><span class="ingestion-run__icon" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.Storage" /></span><div><strong>@BatchTitle(batch)</strong><small>@BatchSummary(batch)</small></div><time>@FormatRelative(batch.StartedAt)</time></a>
+                        <a class="ingestion-run" href="@RunActivityHref(batch)"><span class="ingestion-run__icon" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.Storage" /></span><div><strong>@BatchTitle(batch)</strong><small>@BatchSummary(batch)</small></div><span class="ingestion-run__result @BatchResultClass(batch)"><MudIcon Icon="@BatchResultIcon(batch)" />@BatchResultLabel(batch)</span><time>@FormatRelative(batch.StartedAt)</time><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></a>
                     }
                 </div>
             }
@@ -202,6 +209,11 @@
     private string CurrentStateClass => $"is-{Model.PageState.ToString().ToLowerInvariant()}";
     private string CurrentPhaseSummary => IsRunning ? $"{ActivePhaseSummary} · {CurrentActiveCount:N0} active · {CurrentQueuedCount:N0} queued" : DisplayBatch is null ? "Waiting for library activity" : $"{DisplayBatch.RegisteredCount:N0} identified · {DisplayBatch.ReviewCount:N0} need review · {DisplayBatch.FailedCount:N0} failed";
     private string CurrentIcon => Model.PageState switch { LibraryUpdatePageState.Running => Icons.Material.Outlined.Sync, LibraryUpdatePageState.Failed => Icons.Material.Outlined.ErrorOutline, LibraryUpdatePageState.Interrupted => Icons.Material.Outlined.WarningAmber, LibraryUpdatePageState.StatusUnavailable => Icons.Material.Outlined.CloudOff, _ => Icons.Material.Outlined.CheckCircle };
+    private bool HasReliableOverallProgress => IsRunning && DisplayBatch?.StageProgress.Count >= 4 && DisplayBatch.StageProgress.All(stage => stage.TotalFiles > 0 && !stage.IsStale);
+    private double OverallProgress => HasReliableOverallProgress ? DisplayBatch!.StageProgress.Take(4).Average(stage => Math.Clamp(stage.PercentComplete, 0, 100)) : 0;
+    private int CurrentStageNumber => Math.Max(1, Array.FindIndex(Phases.ToArray(), phase => phase.Key == CurrentPhase.Key) + 1);
+    private string OverallProgressLabel => HasReliableOverallProgress ? $"{OverallProgress:0}% of the full run · Stage {CurrentStageNumber} of 4: {CurrentPhase.Label}" : $"Stage {CurrentStageNumber} of 4 · {CurrentPhase.Label} · {CurrentActiveCount:N0} active · {CurrentQueuedCount:N0} queued";
+    private string PipelineTrackClass => $"is-progress-{Math.Clamp(Phases.TakeWhile(phase => phase.Status == LibraryUpdateStepStatus.Complete).Count(), 0, 4)}";
 
     private IReadOnlyList<PhaseViewModel> Phases =>
     [
@@ -252,6 +264,9 @@
     private string PhaseClass(PhaseViewModel phase) => $"ingestion-stage is-{phase.Status.ToString().ToLowerInvariant()} {(SelectedPhase.Key == phase.Key ? "is-selected" : null)}";
     private static string BatchTitle(IngestionOperationsBatchDto batch) => !string.IsNullOrWhiteSpace(batch.MediaType) ? $"Library scan — {batch.MediaType}" : !string.IsNullOrWhiteSpace(batch.Source) ? $"Library scan — {Path.GetFileName(batch.Source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))}" : "Library scan";
     private static string BatchSummary(IngestionOperationsBatchDto batch) => !string.IsNullOrWhiteSpace(batch.Summary) ? batch.Summary : $"{batch.ProcessedFiles:N0} files checked · {batch.RegisteredCount:N0} added or updated";
+    private static string BatchResultLabel(IngestionOperationsBatchDto batch) => batch.Status?.ToLowerInvariant() switch { "running" or "active" or "processing" => "In progress", "failed" => "Failed", "interrupted" or "abandoned" => "Interrupted", _ => "Completed" };
+    private static string BatchResultClass(IngestionOperationsBatchDto batch) => batch.Status?.ToLowerInvariant() switch { "failed" => "is-danger", "interrupted" or "abandoned" => "is-warning", "running" or "active" or "processing" => "is-active", _ => "is-success" };
+    private static string BatchResultIcon(IngestionOperationsBatchDto batch) => batch.Status?.ToLowerInvariant() switch { "failed" => Icons.Material.Outlined.ErrorOutline, "interrupted" or "abandoned" => Icons.Material.Outlined.WarningAmber, "running" or "active" or "processing" => Icons.Material.Outlined.Sync, _ => Icons.Material.Outlined.CheckCircle };
     private static string RunActivityHref(IngestionOperationsBatchDto batch) => $"/settings/activity?runId={batch.BatchId:D}";
     private static bool IsActiveStatus(string? status) => status is not null && status.ToLowerInvariant() is "running" or "queued" or "processing" or "active";
     private static string ActivityLabel(IngestionCurrentActivityDto activity) => string.IsNullOrWhiteSpace(activity.Message) ? "Updating library details" : activity.Message;

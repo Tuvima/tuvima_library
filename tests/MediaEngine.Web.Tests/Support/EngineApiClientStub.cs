@@ -466,6 +466,12 @@ internal class EngineApiClientStub : DispatchProxy
                 Offset: 0,
                 Limit: 25,
                 HasMore: false));
+        _handlers[nameof(IEngineApiClient.GetActivityBatchEventsAsync)] =
+            _ => Task.FromResult<PagedResponse<ActivityTechnicalEventDto>?>(new PagedResponse<ActivityTechnicalEventDto>(
+                [],
+                Offset: 0,
+                Limit: 25,
+                HasMore: false));
         _handlers[nameof(IEngineApiClient.GetActivityBatchItemDetailAsync)] =
             _ => Task.FromResult<ActivityBatchItemDetailDto?>(null);
         _handlers[nameof(IEngineApiClient.GetActivityPeopleAsync)] =

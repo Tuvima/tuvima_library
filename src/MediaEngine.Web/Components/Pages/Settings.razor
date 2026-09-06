@@ -548,7 +548,13 @@
     private string GetHeroTitle()
     {
         if (IsOperationsWorkspace)
-            return "Operations";
+            return _activeSection switch
+            {
+                SettingsSection.Ingestion => "Ingestion",
+                SettingsSection.Review => "Needs Review",
+                SettingsSection.ActivityLogs => "Activity & Audit",
+                _ => "Operations",
+            };
 
         if (_activeSection != SettingsSection.Providers || string.IsNullOrWhiteSpace(Detail))
             return SettingsNav.GetItem(_activeSection).Label;
@@ -567,12 +573,12 @@
         SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",
         SettingsSection.Libraries => "Manage structured libraries and review each profile's Personal Space bridge.",
         SettingsSection.ImportFolders => "Manage watched intake locations before media is routed into a destination library.",
-        SettingsSection.Ingestion => "Monitor ingestion, enrichment, and processing health.",
+        SettingsSection.Ingestion => "Scan, match, enrich, and organize your media library.",
         SettingsSection.Network => "Manage how devices reach Tuvima at home and away without exposing unnecessary technical detail.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
         SettingsSection.Providers => GetMetadataDescription(),
         SettingsSection.ActivityLogs => IsOperationsWorkspace
-            ? "Monitor ingestion, enrichment, and processing health."
+            ? "View and explore library activity, ingestion runs, and system changes."
             : "See meaningful system activity and important administrative changes.",
         SettingsSection.LocalAi => "Manage local intelligence features while keeping technical details out of the way.",
         SettingsSection.Plugins => "Manage installed extensions and keep plugin health under control.",

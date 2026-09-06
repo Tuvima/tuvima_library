@@ -46,6 +46,8 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         var insights = await service.GetInsightsAsync(seed.BatchId);
         var items = await service.GetItemsAsync(seed.BatchId, "Needs Review", 0, 10, "title", "asc");
         var movieItems = await service.GetItemsAsync(seed.BatchId, "Movies", 0, 10, "title", "asc");
+        var searchedItems = await service.GetItemsAsync(seed.BatchId, "Movies", "Dune", "review", "watch/movies", 0, 10, "title", "asc");
+        var events = await service.GetEventsAsync(seed.BatchId, "Dune", "Media", "completed", 0, 25);
         var detail = await service.GetItemDetailAsync(seed.BatchId, seed.AssetId);
         var people = await service.GetPeopleAsync(new ActivityBatchQuery(
             Search: $"batch:{seed.BatchId:D}",
@@ -85,6 +87,9 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         Assert.Equal(1, group.PeopleCount);
         Assert.Equal(1, group.ReviewCount);
         Assert.Single(movieItems.Items);
+        Assert.Single(searchedItems.Items);
+        Assert.Equal(1, events.TotalCount);
+        Assert.All(events.Items, evt => Assert.Equal(seed.BatchId, evt.BatchId));
 
         var item = Assert.Single(items.Items);
         Assert.Equal(seed.AssetId, item.AssetId);
