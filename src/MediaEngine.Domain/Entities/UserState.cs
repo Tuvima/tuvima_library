@@ -15,6 +15,7 @@ namespace MediaEngine.Domain.Entities;
 /// </summary>
 public sealed class UserState
 {
+    public long Revision { get; set; }
     /// <summary>Identity of the user this state belongs to.</summary>
     public Guid UserId { get; set; }
 

@@ -338,10 +338,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("var tvPlaybackEpisode = tvInProgressEpisode ??", source);
         Assert.Contains("var tvInProgressEpisode = entityType == DetailEntityType.TvShow", source);
         Assert.Contains("Tagline = entityType == DetailEntityType.TvShow", source);
-        Assert.Contains("tvPlaybackEpisode?.Description", source);
+        Assert.Contains("tvInProgressEpisode?.Description", source);
         Assert.Contains("tvInProgressEpisode?.BackgroundUrl", source);
         Assert.Contains("entityType == DetailEntityType.TvShow ? heroSummary : longDescription", source);
-        Assert.Contains("GetValue(values, \"wikipedia_extract\")", source);
+        Assert.DoesNotContain("GetValue(values, \"wikipedia_extract\")", source);
         Assert.Contains("currentWorkId ?? tvPlaybackEpisodeId", source);
         Assert.Contains("FormatTrackDuration(StringHelpers.FirstNonBlankOr(", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Rating)", source);
@@ -360,7 +360,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("entityType == DetailEntityType.TvEpisode ? \"background\" : \"cover\"", source);
         Assert.Contains("useEpisodeArtwork = entityType == DetailEntityType.TvEpisode ? 1 : 0", source);
         Assert.Contains("entityType == DetailEntityType.TvShow", source);
-        Assert.Contains("? StringHelpers.FirstNonBlankOr(string.Empty, work.BackgroundUrl, work.ArtworkUrl)", source);
+        Assert.Contains("? work.BackgroundUrl", source);
         Assert.Contains(": work.ArtworkUrl", source);
     }
 
@@ -377,7 +377,7 @@ public sealed class DetailComposerServiceTests
         var resolverStart = source.IndexOf("ResolveDisplayTitleOverride(IReadOnlyDictionary", StringComparison.Ordinal);
         var resolverEnd = source.IndexOf("LoadCanonicalMapAsync", resolverStart, StringComparison.Ordinal);
         Assert.DoesNotContain("\"display_title\"", source[resolverStart..resolverEnd]);
-        Assert.Contains("return $\"{season}:{episode}\";", source, StringComparison.Ordinal);
+        Assert.Contains("return $\"work:{work.Id}\";", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -439,7 +439,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("PositionSort = positionSort", source);
         Assert.DoesNotContain("?? index + 1", source);
         Assert.Contains("Guid.TryParse(selectedContainerId, out var showId)", source);
-        Assert.Contains("workId,\n                profileId))?.SequencePlacement", source);
+        Assert.Contains("workId,\n                profileId);", source);
         Assert.Contains(".Where(work => expectedTotal is > 0 || work.IsOwned)", source);
         Assert.Contains("selectedGroup?.HasAuthoritativeTotal == true", source);
         Assert.Contains("HasAuthoritativeTotal = mainSequenceExpectedTotal.HasValue", source);
@@ -508,7 +508,7 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("collectionId = GuidSql.ToBlob(collectionId)", source, StringComparison.Ordinal);
         Assert.Contains("rootWorkId = rootWorkId.HasValue ? GuidSql.ToBlob(rootWorkId.Value) : null", source, StringComparison.Ordinal);
-        Assert.Contains("defaultOwnerUserId = GuidSql.ToBlob(DefaultOwnerUserId)", source, StringComparison.Ordinal);
+        Assert.Contains("defaultOwnerUserId = GuidSql.ToBlob(profileId ?? DefaultOwnerUserId)", source, StringComparison.Ordinal);
         Assert.Contains("GuidSql.FromDb(bytes).ToString(\"D\")", source, StringComparison.Ordinal);
         Assert.Contains("(string?)StringValue(row.WorkDisplayOverridesJson)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("collectionId = collectionId.ToString()", source, StringComparison.Ordinal);
@@ -1253,7 +1253,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Lane = DetailLane(entityType)", source);
         Assert.Contains("StringHelpers.FirstNonBlankOr(string.Empty, characterSummary, roleSummary)", source);
         Assert.Contains("ShouldShowContributorGroup(entityType, group)", source);
-        Assert.Contains("return group.GroupType is CreditGroupType.Directors or CreditGroupType.Cast;", source);
+        Assert.Contains("return await BuildTvCreditsAsync(workId, ct);", source);
         Assert.Contains("textCredits.Concat(SplitCastGroups(credits))", source);
         Assert.Contains("Title = \"Actors\"", source);
         Assert.Contains("CreditGroupType.Directors", source);

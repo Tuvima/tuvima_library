@@ -43,7 +43,7 @@
                     <h2>@SynopsisHeading</h2>
                 }
                 <p class="@SynopsisClass"
-                   data-ai-summary-slot="tldr"
+                   data-ai-summary-slot="@(AllowAiSummary ? "tldr" : null)"
                    aria-live="polite">@Synopsis</p>
                 @SynopsisTrailingContent
             </div>
@@ -59,6 +59,7 @@
     [Parameter] public string? LogoUrl { get; set; }
     [Parameter] public string? Subtitle { get; set; }
     [Parameter] public string? SecondaryTitleText { get; set; }
+    [Parameter] public bool AllowAiSummary { get; set; } = true;
     [Parameter] public string? Synopsis { get; set; }
     [Parameter] public string? SynopsisHeading { get; set; }
     [Parameter] public string SynopsisClass { get; set; } = "tl-detail-hero__tagline tl-detail-hero__tagline--ai";

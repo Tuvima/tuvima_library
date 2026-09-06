@@ -269,7 +269,7 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
     }
 
     /// <inheritdoc/>
-    public Task<MediaAsset?> FindFirstByWorkIdAsync(Guid workId, CancellationToken ct = default)
+    public Task<MediaAsset?> FindFirstByWorkIdAsync(Guid workId, CancellationToken ct = default, Guid? profileId = null)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -285,10 +285,12 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
                    ma.orphaned_at    AS OrphanedAt
             FROM   media_assets ma
             JOIN   editions e ON e.id = ma.edition_id
+            LEFT JOIN user_states us ON us.asset_id=ma.id AND us.user_id=@profileId
             WHERE  e.work_id = @workId
-              AND  ma.status = 'Normal'
+              AND  ma.status = 'Normal' AND ma.is_orphaned=0
+            ORDER BY us.last_accessed DESC, ma.id
             LIMIT  1;
-            """, new { workId });
+            """, new { workId, profileId });
 
         return Task.FromResult(row is null ? null : (MediaAsset?)ToAsset(row));
     }

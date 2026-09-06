@@ -29,7 +29,7 @@ namespace MediaEngine.Api.Services.Details.Internals;
 
 internal sealed partial class DetailCompositionOrchestrator
 {
-    private async Task<IReadOnlyList<OwnedFormatViewModel>> LoadOwnedFormatsAsync(Guid workId, LibraryItemDetail detail, CancellationToken ct)
+    private async Task<IReadOnlyList<OwnedFormatViewModel>> LoadOwnedFormatsAsync(Guid workId, LibraryItemDetail detail, CancellationToken ct, Guid? profileId = null)
     {
         using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<OwnedFormatRow>(new CommandDefinition(
@@ -52,7 +52,7 @@ internal sealed partial class DetailCompositionOrchestrator
               AND ma.status = 'Normal'
             ORDER BY COALESCE(e.format_label, ''), ma.file_path_root;
             """,
-            new { workId, defaultOwnerUserId = DefaultOwnerUserId },
+            new { workId, defaultOwnerUserId = profileId ?? DefaultOwnerUserId },
             cancellationToken: ct))).ToList();
 
         if (rows.Count == 0)
@@ -94,7 +94,7 @@ internal sealed partial class DetailCompositionOrchestrator
 
     private async Task<WorkContributorResult> BuildWorkContributorsAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, CancellationToken ct)
     {
-        var cast = entityType is DetailEntityType.Movie or DetailEntityType.TvEpisode or DetailEntityType.TvSeason or DetailEntityType.TvShow
+        var cast = entityType is DetailEntityType.Movie or DetailEntityType.TvSeason or DetailEntityType.TvShow
             ? await _personCredits.BuildForWorkAsync(workId, ct)
             : [];
 
@@ -109,6 +109,8 @@ internal sealed partial class DetailCompositionOrchestrator
         IReadOnlyDictionary<string, string> canonicalValues,
         CancellationToken ct)
     {
+        if (entityType == DetailEntityType.TvEpisode)
+            return await BuildTvCreditsAsync(workId, ct);
         var groups = new List<CreditGroupViewModel>();
         async Task AddTextCreditAsync(string title, CreditGroupType type, string? value, string role, string canonicalArrayKey)
         {
@@ -119,7 +121,7 @@ internal sealed partial class DetailCompositionOrchestrator
             }
 
             var credits = new List<EntityCreditViewModel>();
-            foreach (var entry in entries.Take(24))
+            foreach (var entry in entries)
             {
                 var name = entry.Name;
                 var qid = NormalizeQid(entry.Qid);
@@ -236,7 +238,7 @@ internal sealed partial class DetailCompositionOrchestrator
     {
         if (entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode)
         {
-            return group.GroupType is CreditGroupType.Directors or CreditGroupType.Cast;
+            return true;
         }
 
         if (entityType == DetailEntityType.Audiobook)

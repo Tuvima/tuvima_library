@@ -19,6 +19,7 @@ public sealed class DetailPageViewModel
     public PersonDetailFacts? PersonDetails { get; init; }
     public DetailFactsViewModel? Facts { get; init; }
 
+    public bool UsesEpisodeArtwork { get; init; }
     public ArtworkSet Artwork { get; init; } = new();
     public HeroBrandViewModel? HeroBrand { get; init; }
     public ProgressViewModel? Progress { get; init; }
@@ -32,9 +33,11 @@ public sealed class DetailPageViewModel
     public IReadOnlyList<MetadataPill> Metadata { get; init; } = [];
     public IReadOnlyList<DetailAction> PrimaryActions { get; init; } = [];
     public IReadOnlyList<DetailAction> SecondaryActions { get; init; } = [];
-    public IReadOnlyList<DetailAction> OverflowActions { get; init; } = [];
+    public MediaEngine.Contracts.Progress.PersonalStatusInfo? PersonalStatus { get; set; }
+    public IReadOnlyList<DetailAction> OverflowActions { get; set; } = [];
 
     public IReadOnlyList<CreditGroupViewModel> ContributorGroups { get; init; } = [];
+    public IReadOnlyList<CreditGroupViewModel> FullContributorGroups { get; init; } = [];
     public IReadOnlyList<EntityCreditViewModel> PreviewContributors { get; init; } = [];
     public IReadOnlyList<CharacterGroupViewModel> CharacterGroups { get; init; } = [];
     public IReadOnlyList<EntityCreditViewModel> PreviewCharacters { get; init; } = [];
@@ -549,6 +552,7 @@ public sealed class ChapterSyncRowViewModel
 
 public sealed class EntityCreditViewModel
 {
+    public IReadOnlyList<int> Seasons { get; init; } = [];
     public string EntityId { get; init; } = string.Empty;
     public RelatedEntityType EntityType { get; init; }
     public string DisplayName { get; init; } = string.Empty;

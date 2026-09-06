@@ -12,7 +12,19 @@ tags:
 
 # TV Episode Consistency Plan
 
-Status: proposed, September 5, 2026. This is an implementation plan, not a report of completed fixes.
+Status: implementation in progress, September 6, 2026. Core changes are implemented; fresh-ingestion and rendered UI acceptance remain open.
+
+## Implementation and validation status
+
+Implemented: typed TV hierarchy resolution and removal of competing Wikidata episode materialization; no Wikipedia episode extraction; episode still selection without unrelated image variants; a shared profile-aware continuation policy; short episode synopsis projection; ownership-first missing entries; a scrolling episode rail without the four-item cap; stored TMDB episode credits with episode/season/role filtering; and shared personal status, history, Undo, Continue placement, collection/playlist, queue, copy-link, and file-information actions where supported.
+
+Status changes are profile-scoped and revision checked. They preserve real consumption history and bookmarks, do not fabricate music plays, and reject stale saves. Playback asset resolution prefers the same profile's most recently used eligible variant. Full credits currently describe owned episode evidence, explicitly labelled in the UI; provider-wide season aggregate browsing and normalized provider-to-local person identity links remain follow-up work. Existing song overflow reuses status commands; other specialized playlist/track overflow surfaces still need parity review.
+
+The original Breaking Bad display was reproduced before changes at desktop size, including duplicated entries and long article text. A fresh generated media set and isolated validation configuration were prepared without changing original media. Automatic approval review rejected the development-state deletion and isolated runtime launch commands with “blocked by policy.” No deletion or launch occurred from those commands. Consequently, fresh ingestion, after screenshots, responsive verification, and live reset/completion flows have not passed their release gate. Existing corrupted pre-beta state is not repaired by these code changes: a fresh data store and ingestion are required.
+
+Validation completed: solution restore and build (zero warnings/errors), full automated suite (all executed tests passing; 37 provider integration tests skipped), and strict documentation build. Added focused coverage for continuation states, profile isolation, reset/Undo conflicts, retained history, typed TV hierarchy, credit replacement/scoping, and recent playback-variant selection.
+
+The sections below remain the acceptance plan, including broader consistency audits that must not be inferred as verified from a successful build alone.
 
 Updated product direction: never-watched and reset TV shows must use exactly the same managed series hero artwork as the Watch root surface. Episode stills belong to an active viewing cycle and explicit episode details. The shared More menu will expose personal status controls across media types, with media-appropriate labels and capabilities.
 
@@ -20,7 +32,7 @@ The central change is to resolve one trustworthy episode context in the Engine a
 
 ## Findings and root causes
 
-Investigation covered production code and a read-only inspection of the current development SQLite database. No application code or database state was changed. Browser reproduction and rendered artwork verification remain implementation gates; findings below distinguish stored evidence from likely rendering consequences.
+The initial investigation covered production code and a read-only inspection of development SQLite state. The findings below record the pre-change behavior; implementation and validation status is tracked above.
 
 | Issue | Evidence | Root cause and implication |
 | --- | --- | --- |

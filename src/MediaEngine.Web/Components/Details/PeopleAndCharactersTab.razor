@@ -3,10 +3,22 @@
 
 <div class="tl-detail-tab-panel tl-credits-detail-tab-panel">
     <section class="tl-detail-panel tl-credits-detail-card">
-        @if (ContributorGroups.Count > 0)
+        @if (SeasonOptions.Count > 2 || EpisodeContributorGroups is not null)
         {
-            <ContributorsSection Groups="ContributorGroups" Embedded="true" />
+            <AppSelect Value="@_season" ValueChanged="@((string? value) => _season = value ?? "all")"
+                       Options="@SeasonOptions" aria-label="Credit season" />
         }
+        @if (RoleOptions.Count > 2)
+        {
+            <AppSegmentedControl Options="@RoleOptions" Value="@(_role ?? "all")"
+                ValueChanged="@((string value) => _role = value == "all" ? null : value)" AriaLabel="Credit role" />
+        }
+        @if (FilteredGroups.Count > 0)
+        {
+            <ContributorsSection Groups="FilteredGroups" Embedded="true" />
+        }
+        @if (FilteredGroups.Count == 0) { <p>No credits available for this selection.</p> }
+        @if (ContributorGroups.SelectMany(g => g.Credits).Any(c => c.Seasons.Count > 0)) { <p>Season coverage reflects credits on episodes in your library.</p> }
         @if (IncludeCharacters && CharacterGroups.Count > 0)
         {
             <CharactersSection Groups="CharacterGroups" />
@@ -17,5 +29,27 @@
 @code {
     [Parameter] public IReadOnlyList<CreditGroupViewModel> ContributorGroups { get; set; } = [];
     [Parameter] public IReadOnlyList<CharacterGroupViewModel> CharacterGroups { get; set; } = [];
+    [Parameter] public IReadOnlyList<CreditGroupViewModel>? EpisodeContributorGroups { get; set; }
+    [Parameter] public string? EpisodeId { get; set; }
+    private string? _loadedEpisode;
+    protected override void OnParametersSet() {
+        if (_loadedEpisode == EpisodeId) return;
+        _loadedEpisode = EpisodeId;
+        _season = EpisodeContributorGroups is null ? "all" : "episode";
+        _role = null;
+    }
+    private string _season = "all";
+    private string? _role;
+    private IReadOnlyList<AppSelectOption> RoleOptions => new[] { new AppSelectOption("all", "All roles") }
+        .Concat(ContributorGroups.Select(g => new AppSelectOption(g.GroupType.ToString(), g.Title))).ToList();
+    private IReadOnlyList<AppSelectOption> SeasonOptions => new[] { new AppSelectOption("all", "All seasons") }
+        .Concat(EpisodeContributorGroups is null ? Array.Empty<AppSelectOption>() : new[] { new AppSelectOption("episode", "This episode") })
+        .Concat(ContributorGroups.SelectMany(g => g.Credits).SelectMany(c => c.Seasons).Distinct().Order()
+            .Select(s => new AppSelectOption(s.ToString(), s == 0 ? "Specials" : $"Season {s}"))).ToList();
+    private IReadOnlyList<CreditGroupViewModel> FilteredGroups => (_season == "episode" ? EpisodeContributorGroups ?? [] : ContributorGroups).Select(g => new CreditGroupViewModel {
+        Title = g.Title, GroupType = g.GroupType, IsInitiallyExpanded = true,
+        Credits = g.Credits.Where(c => (_role is null || g.GroupType.ToString() == _role)
+            && (_season is "all" or "episode" || c.Seasons.Any(s => s.ToString() == _season))).ToList(),
+    }).Where(g => g.Credits.Count > 0).ToList();
     [Parameter] public bool IncludeCharacters { get; set; } = true;
 }

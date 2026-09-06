@@ -33,7 +33,8 @@ internal sealed partial class DetailCompositionOrchestrator
         Guid collectionId,
         Guid? rootWorkId,
         CancellationToken ct,
-        IReadOnlyList<Guid>? resolvedWorkIds = null)
+        IReadOnlyList<Guid>? resolvedWorkIds = null,
+        Guid? profileId = null)
     {
         using var conn = _db.CreateConnection();
         var displayYearSql = MediaDateSql.DisplayOriginalYear(
@@ -138,6 +139,7 @@ internal sealed partial class DetailCompositionOrchestrator
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key = 'hero_state' LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key = 'banner_state' LIMIT 1)) AS TEXT) AS BackgroundState,
                    MAX(us.progress_pct) AS ProgressPercent,
+                   MAX(us.last_accessed) AS LastAccessed,
                    CASE WHEN MAX(ma.id) IS NULL THEN 0 ELSE 1 END AS HasAsset,
                    CAST(COALESCE(w.ownership, 'Owned') AS TEXT) AS Ownership,
                    COALESCE(w.is_catalog_only, 0) AS IsCatalogOnly
@@ -145,8 +147,13 @@ internal sealed partial class DetailCompositionOrchestrator
             LEFT JOIN works p ON p.id = w.parent_work_id
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             LEFT JOIN collection_items ci ON ci.work_id = w.id AND ci.collection_id = @collectionId
-            LEFT JOIN editions e ON e.work_id = w.id
-            LEFT JOIN media_assets ma ON ma.edition_id = e.id
+            LEFT JOIN media_assets ma ON ma.id = (
+                SELECT candidate.id FROM media_assets candidate
+                JOIN editions edition ON edition.id=candidate.edition_id
+                LEFT JOIN user_states progress ON progress.asset_id=candidate.id AND progress.user_id=@defaultOwnerUserId
+                WHERE edition.work_id=w.id AND candidate.status='Normal' AND candidate.is_orphaned=0
+                ORDER BY progress.last_accessed DESC, candidate.id LIMIT 1
+            )
             LEFT JOIN user_states us ON us.asset_id = ma.id
                                     AND us.user_id = @defaultOwnerUserId
             WHERE w.collection_id = @collectionId
@@ -175,7 +182,7 @@ internal sealed partial class DetailCompositionOrchestrator
             {
                 collectionId = GuidSql.ToBlob(collectionId),
                 rootWorkId = rootWorkId.HasValue ? GuidSql.ToBlob(rootWorkId.Value) : null,
-                defaultOwnerUserId = GuidSql.ToBlob(DefaultOwnerUserId),
+                defaultOwnerUserId = GuidSql.ToBlob(profileId ?? DefaultOwnerUserId),
                 resolvedWorkIds = resolvedWorkIds is { Count: > 0 }
                     ? resolvedWorkIds.Select(GuidSql.ToBlob).ToArray()
                     : [GuidSql.ToBlob(Guid.Empty)],
@@ -210,7 +217,7 @@ internal sealed partial class DetailCompositionOrchestrator
                 StringValue(row.AssetId),
                 StringValue(row.CoverState)),
             ResolveCollectionArtworkUrl(StringValue(row.BackgroundUrl), StringValue(row.AssetId), "background", StringValue(row.BackgroundState)),
-            StringValue(row.AssetId))).ToList();
+            StringValue(row.AssetId)) { LastAccessed = StringValue(row.LastAccessed) }).ToList();
 
         // Dynamic collections can include an owned work before its edition and
         // asset rows have been linked into this query. The canonical work detail
@@ -497,11 +504,7 @@ internal sealed partial class DetailCompositionOrchestrator
         if (entityType == DetailEntityType.TvEpisode)
         {
             return FirstSelectedText(
-                (MetadataFieldConstants.EpisodeDescription, GetValue(canonicalValues, MetadataFieldConstants.EpisodeDescription)),
-                ("episode_overview", GetValue(canonicalValues, "episode_overview")),
-                (MetadataFieldConstants.Description, detail.Description),
-                (MetadataFieldConstants.Description, GetValue(canonicalValues, MetadataFieldConstants.Description)),
-                ("overview", GetValue(canonicalValues, "overview")));
+                (MetadataFieldConstants.EpisodeDescription, GetValue(canonicalValues, MetadataFieldConstants.EpisodeDescription)));
         }
 
         if (entityType == DetailEntityType.ComicIssue)

@@ -1385,6 +1385,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
   SourceLinks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.ExternalSourceLinkViewModel> | nullability=not-null | accessors=get,init
   PersonDetails: MediaEngine.Contracts.Details.PersonDetailFacts | nullability=nullable | accessors=get,init
   Facts: MediaEngine.Contracts.Details.DetailFactsViewModel | nullability=nullable | accessors=get,init
+  UsesEpisodeArtwork: System.Boolean | nullability=not-null | accessors=get,init
   Artwork: MediaEngine.Contracts.Details.ArtworkSet | nullability=not-null | accessors=get,init
   HeroBrand: MediaEngine.Contracts.Details.HeroBrandViewModel | nullability=nullable | accessors=get,init
   Progress: MediaEngine.Contracts.Details.ProgressViewModel | nullability=nullable | accessors=get,init
@@ -1396,8 +1397,10 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
   Metadata: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MetadataPill> | nullability=not-null | accessors=get,init
   PrimaryActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
   SecondaryActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
-  OverflowActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
+  PersonalStatus: MediaEngine.Contracts.Progress.PersonalStatusInfo | nullability=nullable | accessors=get,set
+  OverflowActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,set
   ContributorGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.CreditGroupViewModel> | nullability=not-null | accessors=get,init
+  FullContributorGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.CreditGroupViewModel> | nullability=not-null | accessors=get,init
   PreviewContributors: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.EntityCreditViewModel> | nullability=not-null | accessors=get,init
   CharacterGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.CharacterGroupViewModel> | nullability=not-null | accessors=get,init
   PreviewCharacters: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.EntityCreditViewModel> | nullability=not-null | accessors=get,init
@@ -1429,6 +1432,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailTab
   IsAdminOnly: System.Boolean | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.EntityCreditViewModel
+  Seasons: System.Collections.Generic.IReadOnlyList<System.Int32> | nullability=not-null | accessors=get,init
   EntityId: System.String | nullability=not-null | accessors=get,init
   EntityType: MediaEngine.Contracts.Details.RelatedEntityType | nullability=not-null | accessors=get,init
   DisplayName: System.String | nullability=not-null | accessors=get,init
@@ -4524,10 +4528,38 @@ MediaEngine.Contracts.Progress.MediaEngine.Contracts.Progress.JourneyItemDto
   ExtendedProperties: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,init
   HeroUrl: System.String | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Progress.MediaEngine.Contracts.Progress.PersonalStatusAction
+
+MediaEngine.Contracts.Progress.MediaEngine.Contracts.Progress.PersonalStatusCommandResult
+  CommandId: System.Guid | nullability=not-null | accessors=get,init
+  AffectedCount: System.Int32 | nullability=not-null | accessors=get,init
+  Revision: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Progress.MediaEngine.Contracts.Progress.PersonalStatusHistoryItem
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  Command: System.String | nullability=not-null | accessors=get,init
+  ChangedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  Undone: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Progress.MediaEngine.Contracts.Progress.PersonalStatusInfo
+  Revision: System.String | nullability=not-null | accessors=get,init
+  OwnedCount: System.Int32 | nullability=not-null | accessors=get,init
+  StartedCount: System.Int32 | nullability=not-null | accessors=get,init
+  CompletedCount: System.Int32 | nullability=not-null | accessors=get,init
+  Hidden: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Progress.MediaEngine.Contracts.Progress.PersonalStatusRequest
+  CommandId: System.Guid | nullability=not-null | accessors=get,init
+  EntityType: MediaEngine.Contracts.Details.DetailEntityType | nullability=not-null | accessors=get,init
+  TargetId: System.Guid | nullability=not-null | accessors=get,init
+  Action: MediaEngine.Contracts.Progress.PersonalStatusAction | nullability=not-null | accessors=get,init
+  ExpectedRevision: System.String | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Progress.MediaEngine.Contracts.Progress.ProgressUpdateRequest
   UserId: System.String | nullability=nullable | accessors=get,init
   ProgressPct: System.Double | nullability=not-null | accessors=get,init
   ExtendedProperties: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=nullable | accessors=get,init
+  ExpectedRevision: System.Int64 | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Progress.MediaEngine.Contracts.Progress.UserStateResponse
   UserId: System.Guid | nullability=not-null | accessors=get,init
@@ -4536,6 +4568,7 @@ MediaEngine.Contracts.Progress.MediaEngine.Contracts.Progress.UserStateResponse
   ProgressPct: System.Double | nullability=not-null | accessors=get,init
   LastAccessed: System.DateTime? | nullability=nullable | accessors=get,init
   ExtendedProperties: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,init
+  Revision: System.Int64 | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Reading.MediaEngine.Contracts.Reading.AlignmentJobDto
   Id: System.Guid | nullability=not-null | accessors=get,set

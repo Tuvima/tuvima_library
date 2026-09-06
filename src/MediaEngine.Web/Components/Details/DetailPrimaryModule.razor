@@ -17,20 +17,9 @@
                     <div class="tl-detail-primary-module__controls">
                         @if (ShowRoleFilter)
                         {
-                            <div class="tl-detail-primary-module__role-filters"
-                                 aria-label="Filter works by role">
-                                @foreach (var role in RoleOptions)
-                                {
-                                    <AppNativeButton Type="button"
-                                                     Class="@RoleFilterClass(role.Key)"
-                                                     OnClick="@(() => SelectRole(role.Key))"
-                                                     aria-pressed="@(_selectedRole == role.Key)"
-                                                     title="@($"{role.Label} ({role.Count})")">
-                                        <MudIcon Icon="@RoleIcon(role.Key)" Size="Size.Small" />
-                                        <span class="tl-detail-primary-module__filter-label">@role.Label</span>
-                                    </AppNativeButton>
-                                }
-                            </div>
+                            <AppSegmentedControl Options="@RoleOptions.Select(role => new AppSelectOption(role.Key, role.Label, RoleIcon(role.Key))).ToList()"
+                                                 Value="@_selectedRole" ValueChanged="SelectRole"
+                                                 AriaLabel="Filter works by role" />
                         }
 
                         @if (ShowRoleFilter && ShowLaneFilters)

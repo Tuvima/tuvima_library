@@ -181,6 +181,7 @@ public sealed class JourneyReadService : IJourneyReadService
            AND cv_desc_w.key = 'description'
         WHERE us.user_id = @userId
           AND us.progress_pct > 0.0
-          AND us.progress_pct < 100.0
+          AND us.progress_pct < 99.5
+          AND COALESCE(json_extract(us.extended_properties, '$.hide_continue'), 'false') <> 'true'
         """;
 }

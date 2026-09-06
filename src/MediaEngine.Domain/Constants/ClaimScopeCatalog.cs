@@ -136,6 +136,7 @@ public static class ClaimScopeCatalog
                 [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
                 [MetadataFieldConstants.CastMember]  = ClaimScope.Parent,
                 [MetadataFieldConstants.Year]        = ClaimScope.Parent,  // show start year
+                ["first_air_date"]                    = ClaimScope.Parent,
                 [MetadataFieldConstants.Description] = ClaimScope.Parent,
                 [MetadataFieldConstants.Cover]       = ClaimScope.Parent,
                 [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,

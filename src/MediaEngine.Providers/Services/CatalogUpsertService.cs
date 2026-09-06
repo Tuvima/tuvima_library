@@ -50,6 +50,10 @@ public sealed class CatalogUpsertService
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(childEntitiesJson)) return 0;
 
+        // TV catalogue membership lives in scoped provider manifests. Materializing
+        // unassigned episode ordinals here can overwrite a season at that ordinal.
+        if (childMediaType == MediaType.TV) return 0;
+
         ChildEntityPayload? payload;
         try
         {
@@ -68,7 +72,6 @@ public sealed class CatalogUpsertService
         var children = childMediaType switch
         {
             MediaType.Music => payload.Tracks,
-            MediaType.TV => payload.GetTvEpisodes(),
             MediaType.Comics => payload.Issues,
             _ => null,
         };
@@ -231,7 +234,6 @@ public sealed class CatalogUpsertService
         {
             case MediaType.TV:
                 Add(fields, MetadataFieldConstants.EpisodeTitle, child.Title);
-                Add(fields, MetadataFieldConstants.EpisodeDescription, child.Description);
                 Add(fields, MetadataFieldConstants.AirDate, child.AirDate ?? child.ReleaseDate);
                 if (child.SeasonNumber is { } seasonNumber)
                     Add(fields, MetadataFieldConstants.SeasonNumber, seasonNumber.ToString());

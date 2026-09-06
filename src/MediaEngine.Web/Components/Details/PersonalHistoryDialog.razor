@@ -1,0 +1,22 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Progress
+<AppDialog>
+    <DialogContent>
+        <p>Playback, reading, and manual status changes for this profile.</p>
+        @if (Items.Count == 0) { <p>No history recorded.</p> }
+        @foreach (var item in Items)
+        {
+            <p>@Label(item.Command) &#183; @item.ChangedAt.ToLocalTime().ToString("g") @(item.Undone ? "(Undone)" : "")</p>
+        }
+    </DialogContent>
+    <DialogActions><AppButton OnClick="@(() => Dialog.Close())">Close</AppButton></DialogActions>
+</AppDialog>
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public IReadOnlyList<PersonalStatusHistoryItem> Items { get; set; } = [];
+    private static string Label(string command) => command switch {
+        "Read" => "Reading session", "Played" => "Playback session",
+        "Complete" => "Marked complete", "Reset" => "Marked unstarted", "HideContinue" => "Hidden from Continue",
+        "ShowContinue" => "Restored to Continue", _ => command,
+    };
+}

@@ -1,0 +1,48 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Progress
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient Api
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@if (_status is { OwnedCount: > 0 } status)
+{
+    @if (status.CompletedCount < status.OwnedCount) {
+        <AppMenuItem Label="Mark as listened" OnClick="@(() => ChangeAsync(PersonalStatusAction.Complete))" />
+    }
+    @if (status.StartedCount > 0) {
+        <AppMenuItem Label="Mark as unlistened" OnClick="@(() => ChangeAsync(PersonalStatusAction.Reset))" />
+    }
+    <AppMenuItem Label="Listening history" OnClick="HistoryAsync" />
+    <AppMenuItem Label="Add to playlist" OnClick="PlaylistAsync" />
+}
+@code {
+    [Parameter] public Guid WorkId { get; set; }
+    private PersonalStatusInfo? _status;
+    protected override async Task OnInitializedAsync() {
+        // Album and individual track commands both use owned music scope; tracks have no detail route.
+        _status = await Api.GetPersonalStatusAsync(DetailEntityType.MusicAlbum, WorkId);
+    }
+    private async Task ChangeAsync(PersonalStatusAction action) {
+        if (_status is null) return;
+        try {
+            var result = await Api.ChangePersonalStatusAsync(new(Guid.NewGuid(), DetailEntityType.MusicAlbum, WorkId, action, _status.Revision));
+            Snackbar.Add("Listening status updated.", Severity.Success, options => {
+                options.Action = "Undo";
+                options.OnClick = async _ => {
+                    try { await Api.UndoPersonalStatusAsync(result.CommandId); }
+                    catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+                };
+            });
+        } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+    private async Task HistoryAsync() {
+        try {
+            var items = await Api.GetPersonalHistoryAsync(DetailEntityType.MusicAlbum, WorkId);
+            await Dialogs.ShowAsync<PersonalHistoryDialog>("Listening history",new DialogParameters<PersonalHistoryDialog> { { d => d.Items, items } });
+        } catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+    }
+    private Task PlaylistAsync() => Dialogs.ShowAsync<MediaMembershipDialog>("Add to playlist",new DialogParameters<MediaMembershipDialog> {
+        { d => d.Playlist, true }, { d => d.WorkIds, new[] { WorkId } },
+    });
+}

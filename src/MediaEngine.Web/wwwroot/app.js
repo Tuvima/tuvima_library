@@ -2079,3 +2079,10 @@ window.playbackTools = window.playbackTools || {
         });
     }
 };
+
+// Scroll the existing episode rail without changing the rendered item set.
+window.scrollSequenceItem = (id, index) => {
+    const rail = document.getElementById(id);
+    const item = rail?.children[index];
+    if (item) rail.scrollTo({ left: item.offsetLeft - rail.offsetLeft, behavior: 'smooth' });
+};

@@ -158,6 +158,7 @@ internal sealed partial class DetailCompositionOrchestrator
         string? BackgroundUrl,
         string? AssetId)
     {
+        public string? LastAccessed { get; init; }
         public double? SequenceSort { get; init; }
         public string? SequenceLabel { get; init; }
         public string? MembershipScope { get; init; }

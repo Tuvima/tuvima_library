@@ -497,6 +497,8 @@ public sealed partial class EngineApiClient
         }
     }
 
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid Profile, Guid Asset),long> _progressRevisions = new();
+
     public async Task<bool> SaveProgressAsync(
         Guid assetId, Guid? userId = null, double progressPct = 0,
         Dictionary<string, string>? extendedProperties = null,
@@ -506,12 +508,16 @@ public sealed partial class EngineApiClient
         {
             var body = new
             {
+                expected_revision = _progressRevisions.GetValueOrDefault((_progressProfile?.ProfileId ?? Guid.Empty, assetId)),
                 user_id = userId?.ToString(),
                 progress_pct = progressPct,
                 extended_properties = extendedProperties,
             };
             var resp = await _http.PutAsJsonAsync($"/api/v1/progress/{assetId}", body, ct);
-            return resp.IsSuccessStatusCode;
+            if (!resp.IsSuccessStatusCode) return false;
+            var saved = await resp.Content.ReadFromJsonAsync<UserStateResponse>(ct);
+            if (saved is not null) _progressRevisions[(_progressProfile?.ProfileId ?? Guid.Empty, assetId)] = saved.Revision;
+            return true;
         }
         catch (Exception ex)
         {
@@ -531,10 +537,15 @@ public sealed partial class EngineApiClient
             // returns null cleanly without throwing HttpRequestException.
             var resp = await _http.GetAsync($"/api/v1/progress/{assetId}", ct);
             if (resp.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _progressRevisions.TryRemove((_progressProfile?.ProfileId ?? Guid.Empty, assetId), out _);
                 return null;
+            }
 
             resp.EnsureSuccessStatusCode();
-            return await resp.Content.ReadFromJsonAsync<UserStateResponse>(ct);
+            var state = await resp.Content.ReadFromJsonAsync<UserStateResponse>(ct);
+            if (state is not null) _progressRevisions[(_progressProfile?.ProfileId ?? Guid.Empty, assetId)] = state.Revision;
+            return state;
         }
         catch (Exception ex)
         {

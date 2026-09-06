@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=694; api=0; web-client=86
+# scopes: contracts=699; api=0; web-client=86
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchInsightsDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -1694,6 +1694,7 @@
   SourceLinks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.ExternalSourceLinkViewModel> | json=sourceLinks | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PersonDetails: MediaEngine.Contracts.Details.PersonDetailFacts | json=personDetails | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Facts: MediaEngine.Contracts.Details.DetailFactsViewModel | json=facts | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  UsesEpisodeArtwork: System.Boolean | json=usesEpisodeArtwork | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Artwork: MediaEngine.Contracts.Details.ArtworkSet | json=artwork | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   HeroBrand: MediaEngine.Contracts.Details.HeroBrandViewModel | json=heroBrand | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Progress: MediaEngine.Contracts.Details.ProgressViewModel | json=progress | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -1705,8 +1706,10 @@
   Metadata: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MetadataPill> | json=metadata | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PrimaryActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | json=primaryActions | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SecondaryActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | json=secondaryActions | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  OverflowActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | json=overflowActions | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PersonalStatus: MediaEngine.Contracts.Progress.PersonalStatusInfo | json=personalStatus | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OverflowActions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | json=overflowActions | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ContributorGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.CreditGroupViewModel> | json=contributorGroups | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FullContributorGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.CreditGroupViewModel> | json=fullContributorGroups | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PreviewContributors: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.EntityCreditViewModel> | json=previewContributors | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CharacterGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.CharacterGroupViewModel> | json=characterGroups | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PreviewCharacters: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.EntityCreditViewModel> | json=previewCharacters | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -1718,7 +1721,7 @@
   IdentityStatus: MediaEngine.Contracts.Details.CanonicalIdentityStatus | json=identityStatus | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LibraryStatus: MediaEngine.Contracts.Details.LibraryStatus | json=libraryStatus | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IsAdminView: System.Boolean | json=isAdminView | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"id":"sample","entityType":0,"presentationContext":0,"editorTarget":null,"title":"sample","subtitle":"sample","tagline":"sample","secondaryTitleText":"sample","secondaryTitleTextKind":"sample","secondaryTitleTextHasMore":true,"description":"sample","descriptionAttribution":null,"sourceLinks":[],"personDetails":null,"facts":null,"artwork":null,"heroBrand":null,"progress":null,"ownedFormats":[],"multiFormatState":0,"readingListeningSync":null,"syncCapability":null,"sequencePlacement":null,"metadata":[],"primaryActions":[],"secondaryActions":[],"overflowActions":[],"contributorGroups":[],"previewContributors":[],"characterGroups":[],"previewCharacters":[],"relationshipStrip":[],"tabs":[],"mediaGroups":[],"primaryModule":null,"musicAlbumCompanion":null,"identityStatus":0,"libraryStatus":0,"isAdminView":true}
+  sample={"id":"sample","entityType":0,"presentationContext":0,"editorTarget":null,"title":"sample","subtitle":"sample","tagline":"sample","secondaryTitleText":"sample","secondaryTitleTextKind":"sample","secondaryTitleTextHasMore":true,"description":"sample","descriptionAttribution":null,"sourceLinks":[],"personDetails":null,"facts":null,"usesEpisodeArtwork":true,"artwork":null,"heroBrand":null,"progress":null,"ownedFormats":[],"multiFormatState":0,"readingListeningSync":null,"syncCapability":null,"sequencePlacement":null,"metadata":[],"primaryActions":[],"secondaryActions":[],"personalStatus":null,"overflowActions":[],"contributorGroups":[],"fullContributorGroups":[],"previewContributors":[],"characterGroups":[],"previewCharacters":[],"relationshipStrip":[],"tabs":[],"mediaGroups":[],"primaryModule":null,"musicAlbumCompanion":null,"identityStatus":0,"libraryStatus":0,"isAdminView":true}
 
 [contracts] MediaEngine.Contracts.Details.DetailPresentationContext
   kind=enum | converter=default | number-handling=default | unmapped=default
@@ -1767,6 +1770,7 @@
 
 [contracts] MediaEngine.Contracts.Details.EntityCreditViewModel
   kind=class | converter=default | number-handling=default | unmapped=default
+  Seasons: System.Collections.Generic.IReadOnlyList<System.Int32> | json=seasons | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   EntityId: System.String | json=entityId | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   EntityType: MediaEngine.Contracts.Details.RelatedEntityType | json=entityType | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DisplayName: System.String | json=displayName | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -1782,7 +1786,7 @@
   IsCanonical: System.Boolean | json=isCanonical | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SourceName: System.String | json=sourceName | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SourceId: System.String | json=sourceId | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"entityId":"sample","entityType":0,"displayName":"sample","imageUrl":"sample","fallbackInitials":"sample","primaryRole":"sample","secondaryRole":"sample","characterName":"sample","characterEntityId":"sample","characterImageUrl":"sample","sortOrder":7,"isPrimary":true,"isCanonical":true,"sourceName":"sample","sourceId":"sample"}
+  sample={"seasons":[],"entityId":"sample","entityType":0,"displayName":"sample","imageUrl":"sample","fallbackInitials":"sample","primaryRole":"sample","secondaryRole":"sample","characterName":"sample","characterEntityId":"sample","characterImageUrl":"sample","sortOrder":7,"isPrimary":true,"isCanonical":true,"sourceName":"sample","sourceId":"sample"}
 
 [contracts] MediaEngine.Contracts.Details.ExternalSourceLinkViewModel
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5409,11 +5413,48 @@
   ExtendedProperties: System.Collections.Generic.Dictionary<System.String, System.String> | json=extendedProperties | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   HeroUrl: System.String | json=heroUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
+[contracts] MediaEngine.Contracts.Progress.PersonalStatusAction
+  kind=enum | converter=default | number-handling=default | unmapped=default
+  enum Complete=0 | json=0
+  enum Reset=1 | json=1
+  enum HideContinue=2 | json=2
+  enum ShowContinue=3 | json=3
+
+[contracts] MediaEngine.Contracts.Progress.PersonalStatusCommandResult
+  kind=class | converter=default | number-handling=default | unmapped=default
+  CommandId: System.Guid | json=commandId | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AffectedCount: System.Int32 | json=affectedCount | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Revision: System.String | json=revision | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Progress.PersonalStatusHistoryItem
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Id: System.Guid | json=id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Command: System.String | json=command | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ChangedAt: System.DateTimeOffset | json=changedAt | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Undone: System.Boolean | json=undone | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Progress.PersonalStatusInfo
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Revision: System.String | json=revision | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OwnedCount: System.Int32 | json=ownedCount | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  StartedCount: System.Int32 | json=startedCount | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CompletedCount: System.Int32 | json=completedCount | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Hidden: System.Boolean | json=hidden | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Progress.PersonalStatusRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  CommandId: System.Guid | json=commandId | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EntityType: MediaEngine.Contracts.Details.DetailEntityType | json=entityType | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TargetId: System.Guid | json=targetId | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Action: MediaEngine.Contracts.Progress.PersonalStatusAction | json=action | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ExpectedRevision: System.String | json=expectedRevision | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
 [contracts] MediaEngine.Contracts.Progress.ProgressUpdateRequest
   kind=class | converter=default | number-handling=default | unmapped=default
   UserId: System.String | json=user_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ProgressPct: System.Double | json=progress_pct | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ExtendedProperties: System.Collections.Generic.Dictionary<System.String, System.String> | json=extended_properties | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ExpectedRevision: System.Int64 | json=expected_revision | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.Progress.UserStateResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5423,6 +5464,7 @@
   ProgressPct: System.Double | json=progress_pct | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LastAccessed: System.DateTime? | json=last_accessed | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ExtendedProperties: System.Collections.Generic.Dictionary<System.String, System.String> | json=extended_properties | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Revision: System.Int64 | json=revision | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.Reading.AlignmentJobDto
   kind=class | converter=default | number-handling=default | unmapped=default

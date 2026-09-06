@@ -71,11 +71,7 @@ public sealed partial class ReconciliationAdapter
                 // adapter can group directly from the manifest. Any episode that
                 // still arrives without a usable Parent is surfaced under an
                 // "Unassigned" pseudo-season instead of triggering extra fetches.
-                var episodeDescriptions = await FetchWikipediaExtractsAsync(
-                    manifest.Children.Skip(Math.Min(manifest.PrimaryCount, manifest.Children.Count)).Select(c => c.Qid),
-                    language,
-                    ct).ConfigureAwait(false);
-                var projection = BuildTvManifestProjection(manifest, episodeDescriptions);
+                var projection = BuildTvManifestProjection(manifest);
                 claims.Add(new ProviderClaim(MetadataFieldConstants.SeasonCount,       projection.SeasonCount.ToString(),  ClaimConfidence.WikidataProperty));
                 claims.Add(new ProviderClaim(MetadataFieldConstants.EpisodeCount,      projection.EpisodeCount.ToString(), ClaimConfidence.WikidataProperty));
                 claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, projection.JsonBlob,               ClaimConfidence.WikidataProperty));

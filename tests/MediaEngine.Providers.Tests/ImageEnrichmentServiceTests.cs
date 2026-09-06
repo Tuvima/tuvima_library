@@ -233,7 +233,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     public async Task EnrichWorkImagesAsync_TvSeasonAndEpisodeArt_AttachesToResolvedChildWorks()
     {
         var show = await _works.InsertParentAsync(MediaType.TV, "show:the-expanse", null, null);
-        var season = await _works.InsertChildAsync(MediaType.TV, show, 1);
+        var season = await _works.InsertParentAsync(MediaType.TV, $"season:{show}:1", show, 1);
         var episode = await _works.InsertChildAsync(MediaType.TV, season, 2);
         var asset = await SeedAssetForExistingWorkAsync(episode, Path.Combine("TV", "The Expanse", "Season 01", "The Expanse - s01e02 - Episode.mkv"));
 
@@ -281,7 +281,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task EnrichWorkImagesAsync_TvEpisodeStill_AttachesWhenEpisodeIsDirectShowChild()
+    public async Task EnrichWorkImagesAsync_TvEpisodeStill_DoesNotGuessSeasonForDirectShowChild()
     {
         var show = await _works.InsertParentAsync(MediaType.TV, "show:direct-episode", null, null);
         var episode = await _works.InsertChildAsync(MediaType.TV, show, 2);
@@ -312,16 +312,14 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
 
         await service.EnrichWorkImagesAsync(asset.AssetId, "QSHOW");
 
-        var episodeStill = Assert.Single(await _entityAssets.GetByEntityAsync(episode.ToString(), "EpisodeStill"));
-        Assert.Equal("Episode", episodeStill.OwnerScope);
-        Assert.True(File.Exists(episodeStill.LocalImagePath));
+        Assert.Empty(await _entityAssets.GetByEntityAsync(episode.ToString(), "EpisodeStill"));
     }
 
     [Fact]
     public async Task EnrichWorkImagesAsync_TvEpisodeStill_DoesNotUseTmdbUrlCanonicalFallback()
     {
         var show = await _works.InsertParentAsync(MediaType.TV, "show:tmdb-fallback", null, null);
-        var season = await _works.InsertChildAsync(MediaType.TV, show, 1);
+        var season = await _works.InsertParentAsync(MediaType.TV, $"season:{show}:1", show, 1);
         var episode = await _works.InsertChildAsync(MediaType.TV, season, 2);
         var asset = await SeedAssetForExistingWorkAsync(episode, Path.Combine("TV", "Fallback Show", "Season 01", "Fallback - s01e02.mkv"));
 

@@ -350,3 +350,5 @@ The AGPL also keeps improvements available to the community. Anyone distributing
 [Request a Feature](https://github.com/Tuvima/tuvima_library/issues)
 
 </div>
+
+TV episode details and shared personal status controls are being consolidated. See the [TV episode consistency plan](docs/proposals/tv-episode-consistency-plan-2026-09-05.md) for implemented behavior, fresh-ingestion requirements, and outstanding runtime validation.

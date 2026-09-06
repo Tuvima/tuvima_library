@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Reading;
@@ -195,9 +197,11 @@ public static class ReadEndpoints
         group.MapGet("/resolve/{workId:guid}", async (
             Guid workId,
             IMediaAssetRepository assetRepo,
+            ClaimsPrincipal user,
             CancellationToken ct) =>
         {
-            var asset = await assetRepo.FindFirstByWorkIdAsync(workId, ct);
+            Guid? profileId = Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.ActiveProfileId), out var profile) ? profile : null;
+            var asset = await assetRepo.FindFirstByWorkIdAsync(workId, ct, profileId);
             if (asset is null)
                 return ApiErrors.NotFound($"No readable asset found for Work '{workId}'.");
 

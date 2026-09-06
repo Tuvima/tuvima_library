@@ -1,0 +1,46 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Models.ViewDTOs
+@inject IEngineApiClient Api
+@inject UIOrchestratorService Orchestrator
+<AppDialog>
+    <DialogContent>
+        @if (_loading) { <p>Loading available destinations...</p> }
+        else if (_options.Count == 0) { <p>No editable manual @(Playlist ? "playlists" : "collections") are available.</p> }
+        else { <AppSelect Value="@_selected" ValueChanged="@((string? value) => _selected = value)" Options="@_options" aria-label="Destination" /> }
+        @if (_error is not null) { <p role="alert">@_error</p> }
+    </DialogContent>
+    <DialogActions>
+        <AppButton OnClick="@(() => Dialog.Cancel())">Cancel</AppButton>
+        <AppButton Disabled="@(_saving || _selected is null)" OnClick="SaveAsync">Add</AppButton>
+    </DialogActions>
+</AppDialog>
+@code {
+    [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
+    [Parameter] public bool Playlist { get; set; }
+    [Parameter] public IReadOnlyList<Guid> WorkIds { get; set; } = [];
+    private IReadOnlyList<AppSelectOption> _options = [];
+    private string? _selected;
+    private string? _error;
+    private bool _loading = true, _saving;
+    protected override async Task OnInitializedAsync() {
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        var collections = await Api.GetManagedCollectionsAsync();
+        _options = collections.Where(c => c.CanEdit && c.Resolution.Equals("materialized", StringComparison.OrdinalIgnoreCase)
+            && (Playlist ? c.CollectionType == "Playlist" : profile?.Role == "Administrator" && c.CollectionType == "Custom"))
+            .Select(c => new AppSelectOption(c.Id.ToString("D"), c.Name)).ToList();
+        _loading = false;
+    }
+    private async Task SaveAsync() {
+        if (!Guid.TryParse(_selected, out var id)) return;
+        _saving = true;
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        try {
+            foreach (var work in WorkIds.Distinct())
+                if (!await Api.AddCollectionItemAsync(id, work, profile?.Id))
+                    throw new InvalidOperationException("Some items could not be added. Already-added items are retained; retrying will not duplicate them.");
+            Dialog.Close(DialogResult.Ok(true));
+        } catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+}

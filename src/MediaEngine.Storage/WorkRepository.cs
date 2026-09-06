@@ -89,6 +89,10 @@ public sealed class WorkRepository : IWorkRepository
             FROM   works
             WHERE  parent_work_id = @parentId
               AND  ordinal        = @ordinal
+              AND (media_type <> 'TV' OR work_kind = CASE
+                WHEN EXISTS (SELECT 1 FROM works parent WHERE parent.id=@parentId
+                    AND parent.media_type='TV' AND parent.work_kind='parent' AND parent.parent_work_id IS NULL)
+                THEN 'parent' ELSE 'child' END)
             LIMIT  1;
             """;
 

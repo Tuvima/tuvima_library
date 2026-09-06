@@ -35,6 +35,21 @@ public sealed class CatalogUpsertServiceTests
         Assert.Equal(claims.InsertedClaims.Count, canonicals.UpsertedValues.Count);
     }
 
+    [Fact]
+    public async Task TvCataloguePayload_CannotCreateOrOverwriteSeasonWorks()
+    {
+        var works = new FakeWorkRepository();
+        var claims = new CountingMetadataClaimRepository();
+        var canonicals = new CountingCanonicalValueRepository();
+        var service = new CatalogUpsertService(works, claims: claims, canonicals: canonicals);
+        const string payload = """{"seasons":[{"season_number":1,"episodes":[{"episode_number":1,"title":"Pilot"}]}],"unassigned_episodes":[{"episode_number":1,"title":"Pilot","description":"Long encyclopedia plot"}]}""";
+        for (var i = 0; i < 2; i++)
+            Assert.Equal(0, await service.UpsertChildrenAsync(Guid.NewGuid(), MediaType.TV, payload));
+        Assert.Equal(0, works.InsertedChildren);
+        Assert.Equal(0, claims.InsertBatchCalls);
+        Assert.Equal(0, canonicals.UpsertBatchCalls);
+    }
+
     private sealed class FakeWorkRepository : IWorkRepository
     {
         public int InsertedChildren { get; private set; }

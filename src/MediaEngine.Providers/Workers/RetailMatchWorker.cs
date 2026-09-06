@@ -48,6 +48,7 @@ public sealed partial class RetailMatchWorker
     private readonly IPipelineExecutionSnapshotProvider? _configurationSnapshots;
     private readonly IBridgeIdRepository _bridgeIdRepo;
     private readonly IWorkRepository _workRepo;
+    private readonly ITvEpisodeCreditRepository? _episodeCredits;
     private readonly WorkClaimRouter _claimRouter;
     private readonly IHttpClientFactory _httpFactory;
     private readonly PostPipelineService _postPipeline;
@@ -106,7 +107,8 @@ public sealed partial class RetailMatchWorker
         IPipelineExecutionSnapshotProvider? configurationSnapshots = null,
         MusicBrainzReleaseClient? musicBrainzReleaseClient = null,
         PersonEnrichmentWorker? personEnrichment = null,
-        ImageDownloadCoordinator? imageDownloadCoordinator = null)
+        ImageDownloadCoordinator? imageDownloadCoordinator = null,
+        ITvEpisodeCreditRepository? episodeCredits = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -123,6 +125,7 @@ public sealed partial class RetailMatchWorker
         _configurationSnapshots = configurationSnapshots;
         _bridgeIdRepo = bridgeIdRepo;
         _workRepo = workRepo;
+        _episodeCredits = episodeCredits;
         _claimRouter = claimRouter;
         _httpFactory = httpFactory;
         _postPipeline = postPipeline;

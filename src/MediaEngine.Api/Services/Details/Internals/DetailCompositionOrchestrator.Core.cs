@@ -98,7 +98,7 @@ internal sealed partial class DetailCompositionOrchestrator
             _profiles,
             ct);
 
-        return entityType switch
+        var model = entityType switch
         {
             DetailEntityType.Person => await BuildPersonAsync(id, entityType, context, isAdminView, actionAuthorization, ct),
             DetailEntityType.BookSeries => await BuildBookSeriesAsync(id, context, isAdminView, actionAuthorization, favoriteWorkIds, profileId, selectedContainerId, ct),
@@ -117,5 +117,8 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, actionAuthorization, ct),
             _ => await BuildWorkAsync(id, entityType, context, isAdminView, actionAuthorization, selectedContainerId, favoriteWorkIds, profileId, ct),
         };
+        if (model is not null && profileId.HasValue)
+            await AddPersonalActionsAsync(model, profileId.Value, ct);
+        return model;
     }
 }

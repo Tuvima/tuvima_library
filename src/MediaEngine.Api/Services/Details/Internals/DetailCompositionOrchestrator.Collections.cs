@@ -159,7 +159,7 @@ internal sealed partial class DetailCompositionOrchestrator
                     collectionId,
                     rootWorkId,
                     ct,
-                    resolvedCollectionItems.Select(item => item.WorkId).Distinct().ToList());
+                    resolvedCollectionItems.Select(item => item.WorkId).Distinct().ToList(), profileId);
         if (entityType == DetailEntityType.Collection && resolvedCollectionItems.Count > 0)
         {
             ownedWorks = NormalizeStandardCollectionWorks(ownedWorks, resolvedCollectionItems);
@@ -179,8 +179,28 @@ internal sealed partial class DetailCompositionOrchestrator
             ? MergeMusicAlbumManifestTracks(ownedWorks, values, row.CoverUrl)
             : ownedWorks;
 
+        if (entityType == DetailEntityType.TvShow)
+        {
+            works = DeduplicateTvEpisodeSummaries(works.Where(work => work.IsOwned).ToList());
+            var episodes = new List<CollectionWorkSummary>();
+            foreach (var episode in works)
+            {
+                var episodeId = Guid.Parse(episode.Id);
+                var episodeValues = await LoadWorkAndAssetCanonicalMapAsync(episodeId, ct);
+                var overrides = await LoadWorkDisplayOverridesAsync(episodeId, ct);
+                episodes.Add(episode with
+                {
+                    Description = FirstText(ResolveDisplayOverride(overrides, "description"),
+                        GetValue(episodeValues, MetadataFieldConstants.EpisodeDescription)),
+                    BackgroundUrl = GetValue(episodeValues, "episode_still_url"),
+                    Year = FirstText(GetValue(episodeValues, "air_date"), GetValue(episodeValues, "release_date")),
+                });
+            }
+            works = episodes;
+        }
+
         var tvInProgressEpisode = entityType == DetailEntityType.TvShow
-            ? SelectInProgressTvEpisode(works)
+            ? SelectActiveTvEpisode(works)
             : null;
         var tvPlaybackEpisode = tvInProgressEpisode ?? (entityType == DetailEntityType.TvShow
             ? SelectFirstOwnedTvEpisode(works)
@@ -200,18 +220,10 @@ internal sealed partial class DetailCompositionOrchestrator
             .Take(8)
             .ToList();
         var longDescription = entityType == DetailEntityType.TvShow
-            ? FirstText(
-                GetValue(values, "wikipedia_extract"),
-                GetValue(values, MetadataFieldConstants.Description),
-                GetValue(values, "overview"),
-                GetValue(values, "plot_summary"),
-                row.Description)
-            : FirstText(
-                GetValue(values, MetadataFieldConstants.Description),
-                GetValue(values, "overview"),
-                GetValue(values, "plot_summary"),
-                row.Description);
-        var heroSummary = BuildHeroSummary(values);
+            ? GetValue(values, MetadataFieldConstants.ShortDescription)
+            : FirstText(GetValue(values, MetadataFieldConstants.Description),
+                GetValue(values, "overview"), GetValue(values, "plot_summary"), row.Description);
+        var heroSummary = entityType == DetailEntityType.TvShow ? longDescription : BuildHeroSummary(values);
         // Episode artwork must never stand in for show artwork. An unenriched TV show
         // deliberately falls back to its own cover (or the generated placeholder).
         var allowChildArtworkFallback = entityType != DetailEntityType.TvShow;
@@ -244,10 +256,22 @@ internal sealed partial class DetailCompositionOrchestrator
                 GetValue(values, "poster_url"),
                 GetValue(values, "poster"),
                 fallbackCover);
+        if (tvInProgressEpisode is not null)
+        {
+            collectionBackdrop = tvInProgressEpisode.BackgroundUrl;
+            collectionBanner = null;
+            collectionCover = tvInProgressEpisode.BackgroundUrl;
+        }
         var collectionLogo = StringHelpers.FirstNonBlankOr(string.Empty, row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
         IReadOnlyList<CreditGroupViewModel> contributorGroups = IsStructuralContainer(entityType)
             ? []
             : await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
+        var fullContributorGroups = entityType == DetailEntityType.TvShow
+            ? await BuildTvCreditsAsync(rootWorkId ?? collectionId, ct) : contributorGroups;
+        if (entityType == DetailEntityType.TvShow)
+            contributorGroups = tvInProgressEpisode is not null
+                ? await BuildTvCreditsAsync(Guid.Parse(tvInProgressEpisode.Id), ct) : fullContributorGroups;
+
         var musicAlbumCompanion = entityType == DetailEntityType.MusicAlbum
             ? await BuildMusicAlbumCompanionAsync(
                 rootWorkId ?? collectionId,
@@ -283,7 +307,7 @@ internal sealed partial class DetailCompositionOrchestrator
         var sequencePlacement = BuildCollectionSequencePlacement(
             sequenceCollectionId,
             entityType,
-            StringHelpers.FirstNonBlankOr(collectionTitle, manifest?.SeriesLabel, collectionTitle)!,
+            entityType == DetailEntityType.TvShow ? collectionTitle : StringHelpers.FirstNonBlankOr(collectionTitle, manifest?.SeriesLabel, collectionTitle)!,
             StringHelpers.FirstNonBlank(manifest?.SeriesQid, row.WikidataQid),
             entityType == DetailEntityType.TvShow ? heroSummary : longDescription,
             displayWorks,
@@ -309,12 +333,20 @@ internal sealed partial class DetailCompositionOrchestrator
                     : BuildCollectionEditorTarget(collectionId, entityType, rootWorkId)
                 : null,
             Title = collectionTitle,
-            Subtitle = BuildCollectionSubtitle(entityType, displayWorks, values),
+            Subtitle = entityType == DetailEntityType.TvShow ? ResolveTvContext(works) switch {
+                { Reason: TvEpisodeSelectionReason.AllOwnedCompleted } => "All owned episodes watched",
+                { Reason: TvEpisodeSelectionReason.RemainingOwned } => "Earlier owned episodes remain unwatched",
+                { HasGap: true } => "Next available episode - intervening episodes are not in the library",
+                _ => BuildCollectionSubtitle(entityType, displayWorks, values),
+            } : BuildCollectionSubtitle(entityType, displayWorks, values),
             Tagline = entityType == DetailEntityType.TvShow
-                ? tvPlaybackEpisode?.Description
+                ? tvInProgressEpisode?.Description ?? heroSummary
                 : heroSummary,
+            UsesEpisodeArtwork = tvInProgressEpisode is not null,
             Description = longDescription,
-            DescriptionAttribution = BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
+            DescriptionAttribution = entityType == DetailEntityType.TvShow
+                ? new DescriptionAttributionViewModel { SourceName = "TMDB", SourceTitle = "Series synopsis", SourceUrl = GetValue(values, "tmdb_id") is { } tmdbId ? $"https://www.themoviedb.org/tv/{tmdbId}" : null }
+                : BuildWikipediaDescriptionAttribution(longDescription, GetValue(values, "wikipedia_url")),
             SourceLinks = BuildExternalSourceLinks(row.WikidataQid, GetValue(values, "wikipedia_url"), null, values),
             Facts = BuildCollectionFacts(entityType, displayWorks, values, contributorGroups, row.WikidataQid),
             Artwork = artwork,
@@ -329,6 +361,7 @@ internal sealed partial class DetailCompositionOrchestrator
             OverflowActions = BuildOverflowActions(collectionId, entityType, actionAuthorization),
             SequencePlacement = sequencePlacement,
             ContributorGroups = contributorGroups,
+            FullContributorGroups = fullContributorGroups,
             PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
             CharacterGroups = characterGroups,
             PreviewCharacters = characterGroups.SelectMany(g => g.Characters).Take(12).ToList(),

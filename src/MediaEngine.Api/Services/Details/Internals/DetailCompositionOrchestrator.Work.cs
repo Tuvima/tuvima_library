@@ -48,7 +48,7 @@ internal sealed partial class DetailCompositionOrchestrator
         }
 
         var entityType = requestedType == DetailEntityType.Work ? InferWorkEntityType(detail.MediaType, detail) : requestedType;
-        var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct);
+        var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct, profileId);
         var values = await LoadWorkCanonicalMapAsync(workId, detail, ct);
         var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
         var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
@@ -73,14 +73,13 @@ internal sealed partial class DetailCompositionOrchestrator
             artworkFallback.SquareUrl);
         var backdropUrl = entityType == DetailEntityType.TvEpisode
             ? StringHelpers.FirstNonBlankOr(string.Empty,
-                artworkFallback.BackgroundUrl,
-                detail.BackgroundUrl,
-                detail.HeroUrl)
+                GetValue(values, "episode_still_url"))
             : StringHelpers.FirstNonBlankOr(string.Empty,
                 detail.BackgroundUrl,
                 detail.HeroUrl,
                 artworkFallback.BackgroundUrl);
-        var bannerUrl = StringHelpers.FirstNonBlankOr(string.Empty, detail.BannerUrl, artworkFallback.BannerUrl);
+        var bannerUrl = entityType == DetailEntityType.TvEpisode ? null : StringHelpers.FirstNonBlankOr(string.Empty, detail.BannerUrl, artworkFallback.BannerUrl);
+        if (entityType == DetailEntityType.TvEpisode) foregroundArtworkUrl = backdropUrl;
 
         var artwork = BuildArtwork(
             entityType,
@@ -90,7 +89,7 @@ internal sealed partial class DetailCompositionOrchestrator
             foregroundArtworkUrl,
             null,
             values,
-            ownedCoverUrls,
+            entityType == DetailEntityType.TvEpisode ? [] : ownedCoverUrls,
             ownedFormats.Count,
             detail.ArtworkSource);
 
@@ -104,10 +103,11 @@ internal sealed partial class DetailCompositionOrchestrator
                 ct)
             ?? ownedCoverUrls.FirstOrDefault(IsManagedArtworkUrl);
         SequencePlacementViewModel? sequencePlacement = null;
+        IReadOnlyList<CreditGroupViewModel> fullContributorGroups = contributorGroups;
         if (entityType == DetailEntityType.TvEpisode
             && Guid.TryParse(selectedContainerId, out var showId))
         {
-            sequencePlacement = (await BuildCollectionAsync(
+            var showModel = await BuildCollectionAsync(
                 showId,
                 DetailEntityType.TvShow,
                 context,
@@ -116,7 +116,11 @@ internal sealed partial class DetailCompositionOrchestrator
                 favoriteWorkIds,
                 ct,
                 workId,
-                profileId))?.SequencePlacement;
+                profileId);
+            sequencePlacement = showModel?.SequencePlacement;
+            if (sequencePlacement is null || !sequencePlacement.OrderedItems.Any(item => item.Id == workId.ToString("D") && item.IsOwned))
+                return null;
+            fullContributorGroups = showModel!.FullContributorGroups;
         }
 
         sequencePlacement ??= await BuildSequencePlacementAsync(
@@ -138,7 +142,7 @@ internal sealed partial class DetailCompositionOrchestrator
         var displayGenre = ResolveDisplayOverride(displayOverrides, MetadataFieldConstants.Genre);
         if (!string.IsNullOrWhiteSpace(displayGenre))
             values[MetadataFieldConstants.Genre] = displayGenre;
-        var semanticTagline = StringHelpers.FirstNonBlank(displayTagline, GetValue(values, MetadataFieldConstants.Tagline));
+        var semanticTagline = entityType == DetailEntityType.TvEpisode ? null : StringHelpers.FirstNonBlank(displayTagline, GetValue(values, MetadataFieldConstants.Tagline));
         var semanticSubtitle = entityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.ComicIssue or DetailEntityType.Work
             ? StringHelpers.FirstNonBlank(displaySubtitle, GetValue(values, MetadataFieldConstants.Subtitle))
             : null;
@@ -171,6 +175,7 @@ internal sealed partial class DetailCompositionOrchestrator
             DescriptionAttribution = descriptionAttribution,
             SourceLinks = BuildExternalSourceLinks(detail.WikidataQid, GetValue(values, "wikipedia_url"), sequencePlacement, values),
             Facts = BuildWorkFacts(detail, entityType, values, contributorGroups),
+            UsesEpisodeArtwork = entityType == DetailEntityType.TvEpisode,
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(
                 entityType,
@@ -192,6 +197,7 @@ internal sealed partial class DetailCompositionOrchestrator
             SecondaryActions = BuildSecondaryActions(workId, entityType, favoriteWorkIds.Contains(workId), ownedFormats),
             OverflowActions = BuildOverflowActions(workId, entityType, actionAuthorization),
             ContributorGroups = contributorGroups,
+            FullContributorGroups = fullContributorGroups,
             PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
             CharacterGroups = characters,
             PreviewCharacters = characters.SelectMany(g => g.Characters).Take(12).ToList(),

@@ -26,6 +26,7 @@ namespace MediaEngine.Web.Services.Integration;
 public sealed partial class EngineApiClient : IEngineApiClient, IDisposable
 {
     private readonly HttpClient _http;
+    private readonly IActiveProfileAccessor? _progressProfile;
     private readonly ILogger<EngineApiClient> _logger;
     private readonly StreamingServiceLogoResolver _streamingServiceLogos;
     private readonly EngineApiFailureState _failureState;
@@ -37,9 +38,11 @@ public sealed partial class EngineApiClient : IEngineApiClient, IDisposable
         ILogger<EngineApiClient> logger,
         StreamingServiceLogoResolver? streamingServiceLogos = null,
         ILoggerFactory? loggerFactory = null,
-        EngineApiFailureState? failureState = null)
+        EngineApiFailureState? failureState = null,
+        IActiveProfileAccessor? progressProfile = null)
     {
         _http = http;
+        _progressProfile = progressProfile;
         _logger = logger;
         _streamingServiceLogos = streamingServiceLogos ?? new StreamingServiceLogoResolver();
         _failureState = failureState ?? new EngineApiFailureState();

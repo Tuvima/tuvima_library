@@ -2,6 +2,8 @@
 @using System.Globalization
 @using System.Text.RegularExpressions
 @using MediaEngine.Contracts.Details
+@using Microsoft.JSInterop
+@using MediaEngine.Contracts.Progress
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.MediaEditor
 @using MediaEngine.Web.Models.ViewDTOs
@@ -17,6 +19,8 @@
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
+@inject IJSRuntime Js
+@inject IDialogService Dialogs
 
 @if (Model is not null)
 {
@@ -117,7 +121,9 @@
             }
             else if (CurrentActiveTab is "contributors" or "people" or "credits" or "cast")
             {
-                <PeopleAndCharactersTab ContributorGroups="Model.ContributorGroups"
+                <PeopleAndCharactersTab ContributorGroups="@(Model.FullContributorGroups.Count > 0 ? Model.FullContributorGroups : Model.ContributorGroups)"
+                                        EpisodeId="@(Model.EntityType == DetailEntityType.TvEpisode ? Model.Id : null)"
+                                        EpisodeContributorGroups="@(Model.EntityType == DetailEntityType.TvEpisode ? Model.ContributorGroups : null)"
                                         CharacterGroups="Model.CharacterGroups"
                                         IncludeCharacters="IncludeCharactersInPeopleTab" />
             }
@@ -201,12 +207,50 @@
 
     private async Task HandleDetailActionAsync(DetailAction action)
     {
+        if (Model is null) return;
         if (action.Key == "read")
         {
             await OpenReaderAsync(action);
             return;
         }
 
+        if (action.Key is "play-next" or "add-queue")
+        {
+            var tracks = Model.MediaGroups.SelectMany(g => g.Items)
+                .Where(item => item.EntityType == DetailEntityType.Work && item.IsOwned)
+                .OrderBy(TrackSortKey).Select(ToQueueItem).Where(item => item.WorkId != Guid.Empty).ToList();
+            if (action.Key == "play-next") tracks.Reverse();
+            foreach (var track in tracks) await Playback.AddQueueItemAsync(track, next: action.Key == "play-next");
+            Snackbar.Add($"Added {tracks.Count} tracks to the queue.", Severity.Success);
+            return;
+        }
+        if (action.Key is "add-playlist" or "add-collection")
+        {
+            IReadOnlyList<Guid> works = action.Key == "add-playlist"
+                ? Model.MediaGroups.SelectMany(g => g.Items).Where(item => item.IsOwned && Guid.TryParse(item.Id, out _))
+                    .OrderBy(TrackSortKey).Select(item => Guid.Parse(item.Id)).Distinct().ToList()
+                : [Guid.Parse(Model.EditorTarget?.EntityId ?? Model.Id)];
+            await Dialogs.ShowAsync<MediaMembershipDialog>(action.Label, new DialogParameters<MediaMembershipDialog> {
+                { d => d.Playlist, action.Key == "add-playlist" }, { d => d.WorkIds, works },
+            });
+            return;
+        }
+        if (action.Key.StartsWith("status-", StringComparison.Ordinal))
+        {
+            await HandlePersonalStatusAsync(action);
+            return;
+        }
+        if (action.Key == "copy-link")
+        {
+            try { await Js.InvokeVoidAsync("navigator.clipboard.writeText", Nav.Uri); Snackbar.Add("Library link copied.", Severity.Success); }
+            catch { Snackbar.Add("The browser could not copy the link.", Severity.Error); }
+            return;
+        }
+        if (action.Key == "file-information")
+        {
+            await SetActiveTabAsync("details");
+            return;
+        }
         if (action.Key is "edit-media" or "edit")
         {
             await OpenMediaEditorAsync();
@@ -269,6 +313,42 @@
         }
 
         await OnActionSelected.InvokeAsync(action);
+    }
+
+    private bool _changingPersonalStatus;
+    private async Task HandlePersonalStatusAsync(DetailAction action)
+    {
+        if (Model?.PersonalStatus is not { } status || _changingPersonalStatus) return;
+        _changingPersonalStatus = true;
+        try
+        {
+            if (action.Key == "status-history")
+            {
+                var items = await ApiClient.GetPersonalHistoryAsync(Model.EntityType, Guid.Parse(Model.Id));
+                await Dialogs.ShowAsync<PersonalHistoryDialog>(action.Label,
+                    new DialogParameters<PersonalHistoryDialog> { { d => d.Items, items } });
+                return;
+            }
+            var command = action.Key switch {
+                "status-complete" => PersonalStatusAction.Complete,
+                "status-reset" => PersonalStatusAction.Reset,
+                "status-hide" => PersonalStatusAction.HideContinue,
+                "status-show" => PersonalStatusAction.ShowContinue,
+                _ => throw new InvalidOperationException("Unknown personal status action."),
+            };
+            var result = await ApiClient.ChangePersonalStatusAsync(new(Guid.NewGuid(), Model.EntityType,
+                Guid.Parse(Model.Id), command, status.Revision));
+            await RefreshCurrentDetailAsync();
+            Snackbar.Add($"Status updated for {result.AffectedCount} owned item(s).", Severity.Success, options => {
+                options.Action = "Undo";
+                options.OnClick = async _ => {
+                    try { await ApiClient.UndoPersonalStatusAsync(result.CommandId); await RefreshCurrentDetailAsync(); }
+                    catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+                };
+            });
+        }
+        catch (Exception ex) { Snackbar.Add(ex.Message, Severity.Error); }
+        finally { _changingPersonalStatus = false; }
     }
 
     private async Task OpenMediaEditorAsync()
@@ -443,7 +523,7 @@
             return;
 
         var profile = await Orchestrator.GetActiveProfileAsync();
-        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext, profileId: profile?.Id);
+        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext, containerId: Model.EntityType == DetailEntityType.TvEpisode ? Model.SequencePlacement?.ContainerId : null, profileId: profile?.Id);
         if (updated is not null)
         {
             Model = updated;
@@ -457,7 +537,7 @@
             return;
 
         var profile = await Orchestrator.GetActiveProfileAsync();
-        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext, profileId: profile?.Id);
+        var updated = await ApiClient.GetDetailPageAsync(Model.EntityType, entityId, Model.PresentationContext, containerId: Model.EntityType == DetailEntityType.TvEpisode ? Model.SequencePlacement?.ContainerId : null, profileId: profile?.Id);
         if (updated is not null)
         {
             Model = updated;

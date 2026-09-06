@@ -599,7 +599,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-placement--long", source);
         Assert.Contains("LongSequenceThreshold = 6", source);
         Assert.Contains("PortraitWindowSize = 6", source);
-        Assert.Contains("LandscapeWindowSize = 4", source);
+        Assert.DoesNotContain("LandscapeWindowSize", source);
+        Assert.Contains("IsSeasonContainer ? ActiveItems", source);
         Assert.Contains("nextStart + (VisibleCount / 2)", source);
         Assert.Contains("SequenceItemTitleClass", source);
         Assert.Contains("is-very-long", source);
@@ -667,14 +668,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("-webkit-line-clamp: 4", styles);
         Assert.Contains("a.tl-series-item", styles);
         Assert.Contains("padding-bottom: 1.4rem", styles);
-        Assert.Contains("tl-series-episode-play", source);
-        Assert.DoesNotContain("tl-series-episode-details-overlay", source);
-        Assert.Contains("tl-series-episode-title-link", source);
-        Assert.Contains("tl-series-episode-edit", source);
-        Assert.Contains("<AppIconButton Icon=\"@Icons.Material.Outlined.Edit\"", source);
-        Assert.Contains("Tooltip=\"@($\"Edit {SequenceItemTitle(item)}\")\"", source);
-        Assert.Contains("Icons.Material.Outlined.Edit", source);
-        Assert.Contains("OnEditItem.InvokeAsync(item)", source);
+        Assert.DoesNotContain("tl-series-episode-play", source);
+        Assert.DoesNotContain("tl-series-episode-edit", source);
+        Assert.Contains("@SequenceItemContent(item, previousItem)", source);
         Assert.DoesNotContain("Icons.Material.Outlined.MoreVert", source);
         Assert.Contains("EpisodeDetailRoute", source);
         Assert.Contains("tl-series-item__description", source);
@@ -836,7 +832,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("MetadataFieldConstants.ShortDescription", source);
         Assert.Contains("GetValue(canonicalValues, \"tldr\")", source);
         Assert.DoesNotContain("BuildFallbackHeroSummary", source);
-        Assert.Contains("data-ai-summary-slot=\"tldr\"", heroContent);
+        Assert.Contains("data-ai-summary-slot=\"@(AllowAiSummary ? \"tldr\" : null)\"", heroContent);
         Assert.Contains("tl-detail-hero__tagline--ai", heroContent);
         Assert.Contains("model.SecondaryTitleTextKind", presentation);
         Assert.Contains("model.SecondaryTitleText", presentation);
@@ -978,7 +974,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("&& HasMultipleOwnedLanes", primaryModule);
         Assert.Contains("LaneOptions.Count(option => option.Key != \"all\") > 1", primaryModule);
         Assert.Contains("RoleOptions.Count(option => option.Key != \"all\") > 1", primaryModule);
-        Assert.Contains("tl-detail-primary-module__role-filters", primaryModule);
+        Assert.Contains("<AppSegmentedControl", primaryModule);
         Assert.DoesNotContain("<AppSelect Value=\"@_selectedRole\"", primaryModule);
         Assert.Contains("ownedLanes.Count == 1 ? ownedLanes[0].Key : \"all\"", primaryModule);
         Assert.Contains("DetailEntityType.Audiobook => \"square\"", primaryModule);

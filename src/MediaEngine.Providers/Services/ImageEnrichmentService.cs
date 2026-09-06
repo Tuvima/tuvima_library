@@ -545,12 +545,12 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             else
             {
                 _logger.LogDebug(
-                    "[IMAGE-ENRICH] No season work found for show {ShowWorkId} season {Season}; trying direct episode child lookup",
+                    "[IMAGE-ENRICH] No season work found for show {ShowWorkId} season {Season}; episode artwork remains unresolved",
                     showWorkId,
                     episodeGroup.Key.SeasonOrdinal);
             }
 
-            episodeWorkId ??= await _workRepo.FindChildByOrdinalAsync(showWorkId, episodeGroup.Key.EpisodeOrdinal, ct);
+
             if (!episodeWorkId.HasValue)
             {
                 _logger.LogDebug(

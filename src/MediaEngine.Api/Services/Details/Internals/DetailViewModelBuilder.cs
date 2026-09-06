@@ -64,24 +64,20 @@ internal static class DetailViewModelBuilder
             GetValue(values, "clear_logo"),
             GetValue(values, "logo_url"),
             GetValue(values, "logo"));
-        var heroSmallUrl = StringHelpers.FirstNonBlank(
-            GetValue(values, "background_url_s"),
-            GetValue(values, "banner_url_s"),
-            GetValue(values, "episode_still_url_s"),
-            GetValue(values, "poster_url_s"),
-            GetValue(values, "cover_url_s"));
-        var heroMediumUrl = StringHelpers.FirstNonBlank(
-            GetValue(values, "background_url_m"),
-            GetValue(values, "banner_url_m"),
-            GetValue(values, "episode_still_url_m"),
-            GetValue(values, "poster_url_m"),
-            GetValue(values, "cover_url_m"));
-        var heroLargeUrl = StringHelpers.FirstNonBlank(
-            GetValue(values, "background_url_l"),
-            GetValue(values, "banner_url_l"),
-            GetValue(values, "episode_still_url_l"),
-            GetValue(values, "poster_url_l"),
-            GetValue(values, "cover_url_l"));
+        // Renditions must belong to the selected asset, never to another scope's
+        // generic background. Otherwise largeUrl/srcset can replace an episode still.
+        var selectedImage = StringHelpers.FirstNonBlank(backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl);
+        string? Variant(string size)
+        {
+            if (string.IsNullOrWhiteSpace(selectedImage)) return null;
+            var baseUrl = selectedImage.Split('?')[0];
+            return baseUrl.StartsWith("/stream/artwork/", StringComparison.OrdinalIgnoreCase)
+                ? $"{baseUrl}?size={size}"
+                : selectedImage;
+        }
+        var heroSmallUrl = Variant("s");
+        var heroMediumUrl = Variant("m");
+        var heroLargeUrl = Variant("l");
         var heroArtwork = HeroArtworkResolver.Resolve(
             entityType,
             backdropUrl,

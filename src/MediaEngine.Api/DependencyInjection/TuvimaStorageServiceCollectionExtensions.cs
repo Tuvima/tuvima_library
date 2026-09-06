@@ -151,6 +151,8 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<IIngestionLogRepository, IngestionLogRepository>();
         services.AddSingleton<IResolverCacheRepository, ResolverCacheRepository>();
         services.AddSingleton<IUserStateStore, UserStateRepository>();
+        services.AddSingleton<IPersonalStatusRepository, PersonalStatusRepository>();
+        services.AddSingleton<ITvEpisodeCreditRepository, TvEpisodeCreditRepository>();
 
         services.AddSingleton<CollectionBackfillService>();
         services.AddSingleton<LibraryReconciliationService>();

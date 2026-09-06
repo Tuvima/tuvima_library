@@ -253,6 +253,7 @@ public sealed class DisplayJourneyProjectionReader
             LEFT JOIN canonical_values cv_track_a ON cv_track_a.entity_id = ma.id AND cv_track_a.key = 'track_number'
             LEFT JOIN canonical_values cv_accent_w ON cv_accent_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_accent_w.key = 'artwork_accent_hex'
             WHERE us.progress_pct > 0 AND us.progress_pct < 99.5
+              AND COALESCE(json_extract(us.extended_properties, '$.hide_continue'), 'false') <> 'true'
               AND w.work_kind != 'parent'
               AND {visibleWorkPredicate}
               AND {visibleAssetPredicate}

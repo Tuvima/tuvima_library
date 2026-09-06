@@ -34,7 +34,7 @@ internal static class CoverArtWorkerTestFactory
         public Task<bool> UpdateContentHashAsync(Guid id, string contentHash, CancellationToken ct = default) => Task.FromResult(false);
         public Task DeleteAsync(Guid id, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<MediaAsset>> ListByStatusAsync(AssetStatus status, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<MediaAsset>>([]);
-        public Task<MediaAsset?> FindFirstByWorkIdAsync(Guid workId, CancellationToken ct = default) => Task.FromResult<MediaAsset?>(null);
+        public Task<MediaAsset?> FindFirstByWorkIdAsync(Guid workId, CancellationToken ct = default, Guid? profileId = null) => Task.FromResult<MediaAsset?>(null);
         public Task<HashSet<string>> GetAllFilePathsAsync(CancellationToken ct = default) => Task.FromResult(new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         public Task<IReadOnlyList<StaleRetagAsset>> GetStaleForRetagAsync(IReadOnlyDictionary<string, string> expectedHashesByMediaType, int batchSize, long nowEpochSeconds, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<StaleRetagAsset>>([]);
         public Task UpdateWritebackHashAsync(Guid assetId, string newHash, CancellationToken ct = default) => Task.CompletedTask;

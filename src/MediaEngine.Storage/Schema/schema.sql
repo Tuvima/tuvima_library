@@ -1771,6 +1771,7 @@ CREATE INDEX IF NOT EXISTS idx_profile_sequence_preferences_container
     ON profile_sequence_preferences(media_type, container_key, profile_id);
 
 CREATE TABLE IF NOT EXISTS user_states (
+    revision INTEGER NOT NULL DEFAULT 0,
     user_id             BLOB NOT NULL,
     asset_id            BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
     content_hash        TEXT,
@@ -2454,3 +2455,38 @@ WHERE credit.credit_key != 'author'
       AND collective_person.id != person.id
 );
 
+
+-- Exact episode participation; replacement is atomic and isolated from show enrichment.
+CREATE TABLE IF NOT EXISTS tv_episode_credits (
+    work_id BLOB PRIMARY KEY REFERENCES works(id) ON DELETE CASCADE,
+    show_work_id BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    provider_episode_id TEXT NOT NULL,
+    season INTEGER NOT NULL,
+    episode INTEGER NOT NULL,
+    credits_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ix_tv_episode_credits_show ON tv_episode_credits(show_work_id, season, episode);
+
+CREATE TABLE IF NOT EXISTS personal_status_commands (
+    id BLOB PRIMARY KEY,
+    profile_id BLOB NOT NULL,
+    target_id BLOB NOT NULL,
+    media_type TEXT NOT NULL,
+    command TEXT NOT NULL,
+    changed_at TEXT NOT NULL,
+    snapshot_json TEXT NOT NULL,
+    undone INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS ix_personal_status_history ON personal_status_commands(profile_id, target_id, changed_at);
+
+CREATE TABLE IF NOT EXISTS consumption_history (
+    id BLOB PRIMARY KEY,
+    profile_id BLOB NOT NULL,
+    asset_id BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
+    session_key TEXT NOT NULL,
+    experience TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    progress_pct REAL NOT NULL,
+    UNIQUE(profile_id, asset_id, session_key)
+);

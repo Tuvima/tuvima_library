@@ -123,23 +123,9 @@ public sealed class HierarchyResolver
         if (season is null)
             return await FindOrCreateChildAsync(MediaType.TV, showId, episode, episode, epTitle, ct);
 
-        var existingSeason = await _works.FindChildByOrdinalAsync(showId, season.Value, ct);
-        Guid seasonId;
-        if (existingSeason is { } s)
-        {
-            seasonId = s;
-        }
-        else
-        {
-            // Season parents use a parent_key derived from show + season for
-            // diagnostics; the find-or-create lookup actually goes through
-            // parent_work_id + ordinal because two shows can share season 1.
-            var seasonKey = MakeKey(show, $"S{season:D2}");
-            seasonId = await _works.GetOrCreateParentAsync(
-                MediaType.TV, seasonKey, showId, season, season, ct);
-            _logger?.LogDebug("HierarchyResolver: created Season {Season} parent {SeasonId} under show {ShowId}",
-                season, seasonId, showId);
-        }
+        var seasonKey = MakeKey(show, $"S{season:D2}");
+        var seasonId = await _works.GetOrCreateParentAsync(
+            MediaType.TV, seasonKey, showId, season, season, ct);
 
         // Level 3: Episode child under the season.
         return await FindOrCreateChildAsync(MediaType.TV, seasonId, episode, episode, epTitle, ct);

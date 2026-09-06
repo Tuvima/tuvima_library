@@ -205,7 +205,7 @@ public sealed partial class RetailMatchWorker
         var seasonGroups = groupJobs
             .GroupBy(j => jobHints[j.EntityId].GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
                 ?? jobHints[j.EntityId].GetValueOrDefault("season")
-                ?? "1")
+                ?? string.Empty)
             .ToList();
 
         // Build a flat episode list across all seasons needed.
@@ -214,7 +214,7 @@ public sealed partial class RetailMatchWorker
         {
             var season = seasonGroup.Key;
             if (!int.TryParse(season, out var seasonNumber))
-                seasonNumber = 1;
+                continue;
 
             var episodes = await _tmdbClient.FetchSeasonEpisodesAsync(tvId, seasonNumber, tmdbApiKey, lang, country, ct);
             foreach (var ep in episodes)
@@ -236,7 +236,7 @@ public sealed partial class RetailMatchWorker
             {
                 await ApplyTvEpisodeAsync(
                     job, hints, allEpisodes, tvId, showPosterPath, matchedShowName, showDetails,
-                    tmdbProvider, retailAcceptThreshold, retailAmbiguousThreshold, ct);
+                    tmdbProvider, retailAcceptThreshold, retailAmbiguousThreshold, tmdbApiKey, lang, country, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -262,7 +262,7 @@ public sealed partial class RetailMatchWorker
         IExternalMetadataProvider? tmdbProvider,
         double retailAcceptThreshold,
         double retailAmbiguousThreshold,
-        CancellationToken ct)
+        string tmdbApiKey, string language, string country, CancellationToken ct)
     {
         // For TV scoring: prefer episode_title over the generic title claim.
         // VideoProcessor sets title = episode_title when available, but fileHints may
@@ -479,6 +479,17 @@ public sealed partial class RetailMatchWorker
 
             if (lineage is not null)
             {
+                if (_episodeCredits is not null
+                    && int.TryParse(candidateSeasonNum, out var creditSeason)
+                    && int.TryParse(candidateEpisodeNum, out var creditEpisode))
+                {
+                    var evidence = await _tmdbClient.FetchEpisodeCreditsAsync(tvId, creditSeason,
+                        creditEpisode, tmdbApiKey, language, country, ct);
+                    if (evidence is not null)
+                        await _episodeCredits.ReplaceAsync(new TvEpisodeCredits(lineage.WorkId,
+                            lineage.RootParentWorkId, bestEpisode["id"]!.ToString(), creditSeason,
+                            creditEpisode, ParseEpisodeCredits(evidence)), ct);
+                }
                 await DownloadAndPersistTmdbEpisodeStillAsync(
                     bestEpisode,
                     lineage.TargetForSelfScope,
@@ -582,8 +593,6 @@ public sealed partial class RetailMatchWorker
 
         var airDate = episode["air_date"]?.GetValue<string>();
         Add(MetadataFieldConstants.AirDate, airDate, 0.90);
-        if (!string.IsNullOrWhiteSpace(airDate) && airDate.Length >= 4)
-            Add(MetadataFieldConstants.Year, airDate[..4], 0.85);
 
         Add(MetadataFieldConstants.SeasonNumber,
             episode["season_number"]?.GetValue<long?>()?.ToString() ?? season, 0.90);
@@ -608,6 +617,22 @@ public sealed partial class RetailMatchWorker
         AddTvEpisodeGuestStarClaims(claims, episode);
 
         return claims;
+    }
+
+    internal static IReadOnlyList<TvPersonCredit> ParseEpisodeCredits(JsonNode evidence)
+    {
+        var credits = new List<TvPersonCredit>();
+        foreach (var kind in new[] { "cast", "guest_stars", "crew" })
+        foreach (var person in evidence[kind]?.AsArray() ?? [])
+        {
+            if (person is null || string.IsNullOrWhiteSpace(person["name"]?.ToString())) continue;
+            credits.Add(new TvPersonCredit(person["id"]?.ToString() ?? string.Empty,
+                person["credit_id"]?.ToString() ?? string.Empty, person["name"]!.ToString(),
+                kind == "crew" ? person["job"]?.ToString() ?? "Crew" : "Actor",
+                person["character"]?.ToString(), BuildTmdbOriginalImageUrl(person["profile_path"]?.ToString()),
+                person["order"]?.GetValue<int?>() ?? credits.Count));
+        }
+        return credits.DistinctBy(c => (c.PersonId, c.Job, c.Character)).OrderBy(c => c.Order).ToList();
     }
 
     private static IReadOnlyList<ProviderClaim> BuildTmdbSeasonManifestClaims(
@@ -692,6 +717,7 @@ public sealed partial class RetailMatchWorker
             showDetails?["number_of_episodes"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.95);
 
         var firstAirDate = showDetails?["first_air_date"]?.GetValue<string>();
+        Add("first_air_date", firstAirDate, 0.95);
         if (!string.IsNullOrWhiteSpace(firstAirDate) && firstAirDate.Length >= 4)
             Add(MetadataFieldConstants.Year, firstAirDate[..4], 0.85);
 
@@ -786,7 +812,7 @@ public sealed partial class RetailMatchWorker
         var job = crewNode?["job"]?.GetValue<string>() ?? string.Empty;
         var department = crewNode?["department"]?.GetValue<string>() ?? string.Empty;
 
-        if (job.Contains("Director", StringComparison.OrdinalIgnoreCase))
+        if (job.Equals("Director", StringComparison.OrdinalIgnoreCase))
         {
             return MetadataFieldConstants.Director;
         }

@@ -226,6 +226,9 @@ public sealed class PlayerService
         var profileId = ResolveProfileId(heartbeat.ProfileId);
         var deviceId = NormalizeDeviceId(heartbeat.DeviceId);
         var client = NormalizeClient(heartbeat.Client);
+        var activeSession = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
+        if (heartbeat.SessionId.HasValue && activeSession is not null && activeSession.SessionId != heartbeat.SessionId.Value)
+            return await GetStateAsync(profileId, deviceId, client, ct);
         if (heartbeat.Connection is not null)
         {
             _connectionContexts[profileId] = NormalizeConnection(heartbeat.Connection);
@@ -648,6 +651,8 @@ public sealed class PlayerService
         }
 
         var prior = await _userStates.GetAsync(profileId, assetId, ct);
+        if (sessionId.HasValue && prior?.ExtendedProperties.GetValueOrDefault("blocked_player_session_id") == sessionId.Value.ToString("D"))
+            return;
         if (ShouldPreservePriorResume(
             prior,
             positionSeconds,
@@ -683,8 +688,11 @@ public sealed class PlayerService
             extended["player_session_id"] = sessionId.Value.ToString("D");
         }
 
+        foreach (var key in new[] { "hide_continue", "status_changed_at", "blocked_player_session_id" })
+            if (prior?.ExtendedProperties.TryGetValue(key, out var value) == true) extended[key] = value;
         await _userStates.SaveAsync(new UserState
         {
+            Revision = prior?.Revision ?? 0,
             UserId = profileId,
             AssetId = assetId,
             ContentHash = asset.ContentHash,

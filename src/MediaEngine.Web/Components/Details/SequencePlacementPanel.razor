@@ -119,6 +119,7 @@
                        Disabled="@(!CanPageLeft)"
                        OnClick="PageLeft" />
         <AppCssElement Tag="div"
+                       id="@_episodeStripId"
                        Class="tl-series-detail__strip"
                        Css="@SequenceGridStyle"
                        aria-label="@($"{Placement.ContainerTitle} order")">
@@ -127,15 +128,7 @@
                 var item = VisibleItems[index];
                 var previousItem = index > 0 ? VisibleItems[index - 1] : null;
                 var route = SequenceItemRoute(item);
-                if (IsSeasonContainer)
-                {
-                    <article class="@SequenceItemClass(item)"
-                             aria-current="@(item.IsCurrent ? "page" : null)"
-                             aria-label="@SequenceItemAccessibilityLabel(item)">
-                        @SequenceItemContent(item, previousItem)
-                    </article>
-                }
-                else if (route is not null)
+                if (route is not null)
                 {
                     <a class="@SequenceItemClass(item)"
                        href="@route"
@@ -405,21 +398,13 @@ else
                        aria-label="@($"Previous {Placement.ItemPluralLabel.ToLowerInvariant()}")"
                        Disabled="@(!CanPageLeft)"
                        OnClick="PageLeft" />
-        <AppCssElement Tag="div" Class="tl-series-strip" Css="@SequenceGridStyle" aria-label="@($"{Placement.ContainerTitle} order")">
+        <AppCssElement Tag="div" id="@_episodeStripId" Class="tl-series-strip" Css="@SequenceGridStyle" aria-label="@($"{Placement.ContainerTitle} order")">
             @for (var index = 0; index < VisibleItems.Count; index++)
             {
                 var item = VisibleItems[index];
                 var previousItem = index > 0 ? VisibleItems[index - 1] : null;
                 var route = SequenceItemRoute(item);
-                if (IsSeasonContainer)
-                {
-                    <article class="@SequenceItemClass(item)"
-                             aria-current="@(item.IsCurrent ? "page" : null)"
-                             aria-label="@SequenceItemAccessibilityLabel(item)">
-                        @SequenceItemContent(item, previousItem)
-                    </article>
-                }
-                else if (route is not null)
+                if (route is not null)
                 {
                     <a class="@SequenceItemClass(item)"
                        href="@route"
@@ -469,7 +454,7 @@ else
 
     private const int LongSequenceThreshold = 6;
     private const int PortraitWindowSize = 6;
-    private const int LandscapeWindowSize = 4;
+
     private string? _placementKey;
     private string? _selectedGroupKey;
     private string? _jumpSelectionValue;
@@ -641,12 +626,12 @@ else
     };
     private string LowerContainerLabel => StringHelpers.FirstNonBlank(Placement.ContainerLabel, "sequence")!.ToLowerInvariant();
     private string SequenceGridStyle => $"--series-count:{Math.Max(1, VisibleItems.Count)};";
-    private int VisibleWindowSize => IsSeasonContainer ? LandscapeWindowSize : PortraitWindowSize;
+    private int VisibleWindowSize => PortraitWindowSize;
     private int VisibleCount => Math.Min(ActiveItems.Count, VisibleWindowSize);
     private int WindowStart => Math.Clamp(_windowCenterIndex - (VisibleCount / 2), 0, Math.Max(0, ActiveItems.Count - VisibleCount));
-    private IReadOnlyList<SequenceItemViewModel> VisibleItems => ActiveItems.Skip(WindowStart).Take(VisibleCount).ToList();
-    private bool CanPageLeft => WindowStart > 0;
-    private bool CanPageRight => WindowStart + VisibleCount < ActiveItems.Count;
+    private IReadOnlyList<SequenceItemViewModel> VisibleItems => IsSeasonContainer ? ActiveItems : ActiveItems.Skip(WindowStart).Take(VisibleCount).ToList();
+    private bool CanPageLeft => !IsSeasonContainer && WindowStart > 0;
+    private bool CanPageRight => !IsSeasonContainer && WindowStart + VisibleCount < ActiveItems.Count;
     private string LeftArrowClass => $"tl-series-carousel__arrow tl-series-carousel__arrow--left{(CanPageLeft ? string.Empty : " is-hidden")}";
     private string RightArrowClass => $"tl-series-carousel__arrow tl-series-carousel__arrow--right{(CanPageRight ? string.Empty : " is-hidden")}";
     private IReadOnlyList<SequenceContainerOptionViewModel> DistinctAvailableContainers => BuildDistinctContainerOptions(Placement.AvailableContainers);
@@ -794,6 +779,11 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        if (_scrollToCurrentEpisode)
+        {
+            _scrollToCurrentEpisode = false;
+            await Js.InvokeVoidAsync("scrollSequenceItem", _episodeStripId, _windowCenterIndex);
+        }
         if (!_needsSeriesDescriptionMeasurement
             || Compact
             || !IsSeasonContainer
@@ -951,8 +941,12 @@ else
             selected?.SourceContainerId);
     }
 
+    private bool _scrollToCurrentEpisode;
+    private readonly string _episodeStripId = "episodes-" + Guid.NewGuid().ToString("N");
+
     private void ResetWindowToCurrentItem()
     {
+        _scrollToCurrentEpisode = IsSeasonContainer;
         var currentIndex = ActiveItems.ToList().FindIndex(item => item.IsCurrent);
         _windowCenterIndex = Math.Max(0, currentIndex);
         _jumpSelectionValue = ShowJumpSelector && currentIndex >= 0
@@ -960,7 +954,7 @@ else
             : null;
     }
 
-    private void SelectJump(string? value)
+    private async Task SelectJump(string? value)
     {
         if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var index)
             || index < 0
@@ -971,6 +965,8 @@ else
 
         _jumpSelectionValue = value;
         _windowCenterIndex = index;
+        if (IsSeasonContainer)
+            await Js.InvokeVoidAsync("scrollSequenceItem", _episodeStripId, index);
     }
 
     private void PageLeft()
@@ -1024,7 +1020,7 @@ else
 
     private string? SequenceItemRoute(SequenceItemViewModel item)
     {
-        if (!item.IsOwned || item.IsCurrent)
+        if (!item.IsOwned || (!IsSeasonContainer && item.IsCurrent))
             return null;
 
         if (!string.IsNullOrWhiteSpace(item.Route))
@@ -1050,9 +1046,9 @@ else
 
         <div class="tl-series-item__frame">
             <div class="tl-series-item__art">
-                @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                @if (item.IsOwned && !string.IsNullOrWhiteSpace(item.ArtworkUrl))
                 {
-                    <img src="@item.ArtworkUrl" alt="@item.Title" />
+                    <img src="@item.ArtworkUrl" alt="@item.Title" loading="lazy" decoding="async" />
                 }
                 else
                 {
@@ -1071,49 +1067,20 @@ else
                         </div>
                     }
                 }
-                @if (!IsSeasonContainer && item.ProgressState == LibraryProgressState.Completed)
+                @if (item.ProgressState == LibraryProgressState.Completed)
                 {
                     <span class="tl-series-item__completed-badge" title="Completed">
                         <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" />
                         <span class="sr-only">Completed</span>
                     </span>
                 }
-                @if (IsSeasonContainer && item.IsOwned)
-                {
-                    @if (SequenceItemRoute(item) is { } playRoute)
-                    {
-                        <a class="tl-series-episode-play"
-                           href="@playRoute"
-                           aria-label="@EpisodeWatchLabel(item)"
-                           title="@EpisodeWatchLabel(item)">
-                            <MudIcon Icon="@Icons.Material.Outlined.PlayArrow" Size="Size.Large" />
-                        </a>
-                    }
-                }
+
             </div>
         </div>
         @if (IsSeasonContainer)
         {
             <div class="tl-series-item__title-row">
-                @if (EpisodeDetailRoute(item) is { } detailRoute)
-                {
-                    <a class="@SequenceItemTitleClass(item) tl-series-episode-title-link"
-                       href="@detailRoute"
-                       aria-label="@($"Open {SequenceItemTitle(item)}")">
-                        @SequenceItemDisplayTitle(item)
-                    </a>
-                    <AppIconButton Icon="@Icons.Material.Outlined.Edit"
-                                   Size="Size.Small"
-                                   Color="Color.Inherit"
-                                   Class="tl-series-episode-edit"
-                                   Tooltip="@($"Edit {SequenceItemTitle(item)}")"
-                                   AriaLabel="@($"Edit {SequenceItemTitle(item)}")"
-                                   OnClick="@(() => OnEditItem.InvokeAsync(item))" />
-                }
-                else
-                {
-                    <div class="@SequenceItemTitleClass(item)">@SequenceItemDisplayTitle(item)</div>
-                }
+                <div class="@SequenceItemTitleClass(item)">@SequenceItemDisplayTitle(item)</div>
             </div>
         }
         else
@@ -1133,7 +1100,7 @@ else
                 }
             </div>
         }
-        @if (IsSeasonContainer && !string.IsNullOrWhiteSpace(item.Description))
+        @if (IsSeasonContainer && item.IsOwned && !string.IsNullOrWhiteSpace(item.Description))
         {
             <div class="tl-series-item__description-wrap">
                 <p class="tl-series-item__description">@item.Description</p>

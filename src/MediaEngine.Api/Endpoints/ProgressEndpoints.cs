@@ -1,3 +1,5 @@
+using MediaEngine.Api.Services.Details;
+using MediaEngine.Domain.Models;
 using System.Security.Claims;
 using MediaEngine.Contracts.Authentication;
 using MediaEngine.Api.Http;
@@ -48,6 +50,7 @@ public static class ProgressEndpoints
 
             var state = new UserState
             {
+                Revision = body.ExpectedRevision,
                 UserId = ResolveUserId(user),
                 AssetId = assetId,
                 ContentHash = asset.ContentHash,
@@ -56,7 +59,8 @@ public static class ProgressEndpoints
                 ExtendedProperties = body.ExtendedProperties ?? [],
             };
 
-            await stateStore.SaveAsync(state, ct);
+            try { await stateStore.SaveAsync(state, ct); }
+            catch (StateRevisionConflictException ex) { return ApiErrors.Conflict(ex.Message); }
             return Results.Ok(MapStateResponse(state));
         })
         .Produces<UserStateResponse>(StatusCodes.Status200OK)
@@ -93,6 +97,43 @@ public static class ProgressEndpoints
         .Produces<IReadOnlyList<JourneyItemDto>>(StatusCodes.Status200OK)
         .RequireClientScope(ClientApiScopes.ProgressRead);
 
+        group.MapGet("/status/{entityType}/{targetId:guid}", async (
+            MediaEngine.Contracts.Details.DetailEntityType entityType, Guid targetId, ClaimsPrincipal user,
+            IPersonalStatusRepository repository, CancellationToken ct) => {
+            var status = await repository.ReadAsync(ResolveUserId(user), new PersonalStatusTarget(targetId,
+                PersonalStatusPolicy.MediaTypeFor(entityType)), ct);
+            return Results.Ok(new PersonalStatusInfo(status.Revision, status.OwnedCount, status.StartedCount, status.CompletedCount, status.Hidden));
+        }).Produces<PersonalStatusInfo>(StatusCodes.Status200OK)
+          .RequireClientScope(ClientApiScopes.ProgressRead);
+
+        group.MapPost("/status", async (PersonalStatusRequest body, ClaimsPrincipal user,
+            IPersonalStatusRepository repository, CancellationToken ct) => {
+            try {
+                var result=await repository.ExecuteAsync(ResolveUserId(user),
+                    new PersonalStatusTarget(body.TargetId,PersonalStatusPolicy.MediaTypeFor(body.EntityType)),
+                    (PersonalStatusCommand)body.Action,body.CommandId,body.ExpectedRevision,ct);
+                return Results.Ok(new PersonalStatusCommandResult(result.CommandId,result.AffectedCount,result.Revision));
+            } catch(StateRevisionConflictException ex) { return ApiErrors.Conflict(ex.Message); }
+              catch(InvalidOperationException ex) { return ApiErrors.BadRequest(ex.Message); }
+        }).Produces<PersonalStatusCommandResult>(StatusCodes.Status200OK)
+          .RequireClientScope(ClientApiScopes.ProgressWrite);
+        group.MapPost("/status/{commandId:guid}/undo", async (Guid commandId,ClaimsPrincipal user,
+            IPersonalStatusRepository repository,CancellationToken ct) => {
+            try { var result=await repository.UndoAsync(ResolveUserId(user),commandId,ct);
+                return Results.Ok(new PersonalStatusCommandResult(result.CommandId,result.AffectedCount,result.Revision));
+            } catch(StateRevisionConflictException ex) { return ApiErrors.Conflict(ex.Message); }
+              catch(InvalidOperationException ex) { return ApiErrors.BadRequest(ex.Message); }
+        }).Produces<PersonalStatusCommandResult>(StatusCodes.Status200OK)
+          .RequireClientScope(ClientApiScopes.ProgressWrite);
+        group.MapGet("/status/{entityType}/{targetId:guid}/history", async (
+            MediaEngine.Contracts.Details.DetailEntityType entityType,Guid targetId,ClaimsPrincipal user,
+            IPersonalStatusRepository repository,CancellationToken ct) => {
+            var items=await repository.HistoryAsync(ResolveUserId(user),new PersonalStatusTarget(targetId,
+                PersonalStatusPolicy.MediaTypeFor(entityType)),ct);
+            return Results.Ok(items.Select(r=>new PersonalStatusHistoryItem(r.Id,r.Command,r.ChangedAt,r.Undone)));
+        }).Produces<IReadOnlyList<PersonalStatusHistoryItem>>(StatusCodes.Status200OK)
+          .RequireClientScope(ClientApiScopes.ProgressRead);
+
         return app;
     }
 
@@ -107,7 +148,7 @@ public static class ProgressEndpoints
         ContentHash: s.ContentHash,
         ProgressPct: s.ProgressPct,
         LastAccessed: s.LastAccessed.UtcDateTime,
-        ExtendedProperties: s.ExtendedProperties);
+        ExtendedProperties: s.ExtendedProperties) { Revision = s.Revision };
 
     private static JourneyItemDto MapJourneyItem(JourneyItemResponse source) => new(
         source.AssetId,

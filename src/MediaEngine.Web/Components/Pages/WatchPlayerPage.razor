@@ -63,6 +63,7 @@ else
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "restart")] public bool Restart { get; set; }
     [Parameter] public Guid WorkId { get; set; }
     [SupplyParameterFromQuery(Name = "collectionId")] public Guid? CollectionId { get; set; }
     [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
@@ -102,7 +103,7 @@ else
         _loadError = null;
         StateHasChanged();
 
-        if (Playback.IsVideoMode && Playback.CurrentItem?.WorkId == WorkId)
+        if (!Restart && Playback.IsVideoMode && Playback.CurrentItem?.WorkId == WorkId)
         {
             _detail = await ApiClient.GetLibraryItemDetailAsync(WorkId);
             Playback.SetVideoExpanded(true);
@@ -163,7 +164,7 @@ else
             Duration = _detail.Runtime,
             AssetId = assetId,
             StreamUrl = manifest.DirectStreamUrl ?? $"/stream/{assetId.Value:D}",
-            InitialPositionSeconds = manifest.Resume?.PositionSeconds,
+            InitialPositionSeconds = Restart ? 0 : manifest.Resume?.PositionSeconds,
             Manifest = manifest,
         };
 

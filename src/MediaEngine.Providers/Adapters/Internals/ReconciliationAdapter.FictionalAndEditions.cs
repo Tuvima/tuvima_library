@@ -151,8 +151,7 @@ public sealed partial class ReconciliationAdapter
     }
 
     internal static TvManifestProjection BuildTvManifestProjection(
-        ChildEntityManifest manifest,
-        IReadOnlyDictionary<string, string>? episodeDescriptions = null)
+        ChildEntityManifest manifest)
     {
         ArgumentNullException.ThrowIfNull(manifest);
 
@@ -167,20 +166,19 @@ public sealed partial class ReconciliationAdapter
         for (var seasonIndex = 0; seasonIndex < seasons.Count; seasonIndex++)
         {
             var season = seasons[seasonIndex];
-            var seasonNumber = season.Ordinal ?? seasonIndex + 1;
+            var seasonNumber = season.Ordinal;
             var episodeNodes = new List<object>();
 
             foreach (var episode in episodes.Where(e => e.Parent == seasonNumber))
             {
                 assignedEpisodeQids.Add(episode.Qid);
-                var episodeNumber = episode.Ordinal ?? episodeNodes.Count + 1;
+                var episodeNumber = episode.Ordinal;
                 episodeNodes.Add(new
                 {
                     qid = episode.Qid,
                     title = episode.Title,
                     ordinal = episodeNumber,
                     episode_number = episodeNumber,
-                    description = GetChildDescription(episode.Qid, episodeDescriptions),
                     air_date = episode.ReleaseDate?.ToString("yyyy-MM-dd"),
                     duration_minutes = episode.Duration is { } d ? (int?)Math.Round(d.TotalMinutes) : null,
                     director = episode.Creators?.GetValueOrDefault("Director"),
@@ -206,14 +204,13 @@ public sealed partial class ReconciliationAdapter
             var unassignedNodes = new List<object>(unassigned.Count);
             foreach (var episode in unassigned)
             {
-                var fallbackOrdinal = episode.Ordinal ?? unassignedNodes.Count + 1;
+                var fallbackOrdinal = episode.Ordinal;
                 unassignedNodes.Add(new
                 {
                     qid = episode.Qid,
                     title = episode.Title,
                     ordinal = fallbackOrdinal,
                     episode_number = fallbackOrdinal,
-                    description = GetChildDescription(episode.Qid, episodeDescriptions),
                     air_date = episode.ReleaseDate?.ToString("yyyy-MM-dd"),
                     duration_minutes = episode.Duration is { } d ? (int?)Math.Round(d.TotalMinutes) : null,
                     director = episode.Creators?.GetValueOrDefault("Director"),

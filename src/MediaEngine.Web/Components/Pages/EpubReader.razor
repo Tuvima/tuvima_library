@@ -710,6 +710,8 @@
         InvokeAsync(StateHasChanged);
     }
 
+    private readonly string _readerSessionId = Guid.NewGuid().ToString("D");
+
     private async Task AutoSaveProgress()
     {
         try
@@ -719,6 +721,7 @@
 
             var extProps = new Dictionary<string, string>
             {
+                ["reader_session_id"] = _readerSessionId,
                 ["chapter_index"] = _currentChapterIndex.ToString(),
                 ["page_in_chapter"] = _currentPageInChapter.ToString(),
                 ["total_pages_in_chapter"] = _totalPagesInChapter.ToString(),

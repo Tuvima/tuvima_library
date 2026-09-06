@@ -154,7 +154,7 @@
         get
         {
             var paragraphs = new List<string>();
-            if (ShowSeriesDescription)
+            if (ShowSeriesDescription && !IsTv)
                 paragraphs.AddRange(OverviewParagraphs(Model.SequencePlacement?.ContainerDescription));
 
             paragraphs.AddRange(OverviewParagraphs(Model.Description));

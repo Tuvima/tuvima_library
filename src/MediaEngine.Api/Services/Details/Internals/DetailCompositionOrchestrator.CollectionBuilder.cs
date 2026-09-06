@@ -200,7 +200,7 @@ internal sealed partial class DetailCompositionOrchestrator
             }
 
             var titleKey = NormalizeSeriesTitle(item.ItemLabel);
-            if (!string.IsNullOrWhiteSpace(titleKey) && byTitle.TryGetValue(titleKey, out var titledWork) && consumed.Add(titledWork.Id))
+            if (entityType != DetailEntityType.TvShow && !string.IsNullOrWhiteSpace(titleKey) && byTitle.TryGetValue(titleKey, out var titledWork) && consumed.Add(titledWork.Id))
             {
                 result.Add(ApplyManifestPlacement(titledWork, item));
                 continue;
@@ -493,7 +493,7 @@ internal sealed partial class DetailCompositionOrchestrator
             ManifestPlaceholderMediaType(entityType, item.MediaType),
             item.SortOrder is { } sortOrder ? (int)Math.Round(sortOrder, MidpointRounding.AwayFromZero) : null,
             StringHelpers.FirstNonBlankOr(string.Empty, item.ItemLabel, item.ItemQid, "Missing from library"),
-            item.ItemDescription,
+            entityType == DetailEntityType.TvShow ? null : item.ItemDescription,
             season,
             entityType == DetailEntityType.TvShow ? item.RawOrdinal : null,
             null,
@@ -580,7 +580,7 @@ internal sealed partial class DetailCompositionOrchestrator
             var positionSort = work.SequenceSort ?? TryParseSeriesPositionSort(positionLabel) ?? work.Ordinal;
             var positionNumber = ToDisplayPositionNumber(positionSort) ?? TryParseInt(positionLabel);
             var season = entityType == DetailEntityType.TvShow
-                ? StringHelpers.FirstNonBlankOr(string.Empty, NormalizeEpisodeKey(work.Season), "1")
+                ? StringHelpers.FirstNonBlankOr(string.Empty, NormalizeEpisodeKey(work.Season), "unknown")
                 : null;
             var scopeGroup = ManifestScopeGroup(work.MembershipScope);
             var groupKey = season is null ? scopeGroup.Key : $"season-{season}";
@@ -591,10 +591,10 @@ internal sealed partial class DetailCompositionOrchestrator
                 Id = work.Id,
                 EntityType = itemType,
                 Title = work.Title,
-                Description = work.Description,
+                Description = entityType == DetailEntityType.TvShow && !work.IsOwned ? null : work.Description,
                 Duration = FormatTrackDuration(work.Duration),
-                ArtworkUrl = entityType == DetailEntityType.TvShow
-                    ? StringHelpers.FirstNonBlankOr(string.Empty, work.BackgroundUrl, work.ArtworkUrl)
+                ArtworkUrl = entityType == DetailEntityType.TvShow && !work.IsOwned ? null : entityType == DetailEntityType.TvShow
+                    ? work.BackgroundUrl
                     : work.ArtworkUrl,
                 Route = work.IsOwned ? BuildWorkRoute(work) : null,
                 PublicationDate = work.Year,
@@ -716,7 +716,7 @@ internal sealed partial class DetailCompositionOrchestrator
     }
 
     private static string SeasonDisplayTitle(string season)
-        => string.Equals(season, "0", StringComparison.OrdinalIgnoreCase) ? "Specials" : $"Season {season}";
+        => season == "unknown" ? "Unassigned" : season == "0" ? "Specials" : $"Season {season}";
 
     private static string? ProviderManifestSeasonNumber(string? containerId)
     {
@@ -808,10 +808,10 @@ internal sealed partial class DetailCompositionOrchestrator
 
         if (!string.IsNullOrWhiteSpace(season) || !string.IsNullOrWhiteSpace(episode))
         {
-            return $"{season}:{episode}";
+            return !string.IsNullOrWhiteSpace(season) && !string.IsNullOrWhiteSpace(episode) ? $"{season}:{episode}" : $"work:{work.Id}";
         }
 
-        return NormalizeTextKey(work.Title);
+        return $"work:{work.Id}";
     }
 
     private static string NormalizeEpisodeKey(string? value)
@@ -1151,34 +1151,39 @@ internal sealed partial class DetailCompositionOrchestrator
         IReadOnlyList<CollectionWorkSummary> works,
         ProgressViewModel? heroProgress)
     {
-        var episode = SelectInProgressTvEpisode(works) ?? SelectFirstOwnedTvEpisode(works);
+        var episode = SelectActiveTvEpisode(works) ?? SelectFirstOwnedTvEpisode(works);
         if (episode is null || !Guid.TryParse(episode.Id, out var episodeId))
         {
             return BuildWatchActions(null, heroProgress);
         }
 
+        if (works.Where(work => work.IsOwned).All(work => work.ProgressPercent >= 99.5))
+            return [new DetailAction { Key = "watch", Label = $"Rewatch {FormatSeasonEpisode(episode.Season ?? "?", episode.Episode ?? "?")}",
+                Route = $"/watch/player/{episodeId:D}?restart=true", Icon = "play_arrow" }];
+
         return BuildWatchActions(
             $"/watch/player/{episodeId:D}",
             heroProgress,
-            FormatSeasonEpisode(StringHelpers.FirstNonBlankOr(string.Empty, episode.Season, "1"), StringHelpers.FirstNonBlankOr(string.Empty, episode.Episode, "1")));
+            FormatSeasonEpisode(episode.Season ?? "?", episode.Episode ?? "?"));
     }
 
-    private static CollectionWorkSummary? SelectInProgressTvEpisode(IReadOnlyList<CollectionWorkSummary> works)
-        => works
-            .Where(work => work.IsOwned
-                           && InferMediaItemEntityType(work) == DetailEntityType.TvEpisode
-                           && work.ProgressPercent is > 0 and < 99.5)
-            .OrderByDescending(work => work.ProgressPercent)
-            .FirstOrDefault();
+    private static TvEpisodePlaybackContext ResolveTvContext(IReadOnlyList<CollectionWorkSummary> works)
+        => TvEpisodeContextResolver.Resolve(works.Where(work => work.IsOwned)
+            .Select(work => new TvEpisodePlaybackCandidate(work.Id, TryParseInt(work.Season), TryParseInt(work.Episode),
+                work.ProgressPercent ?? 0, work.LastAccessed)));
 
+    private static CollectionWorkSummary? SelectInProgressTvEpisode(IReadOnlyList<CollectionWorkSummary> works)
+    {
+        var context = ResolveTvContext(works);
+        return context.Reason == TvEpisodeSelectionReason.Resume ? works.FirstOrDefault(w => w.Id == context.Target?.Id) : null;
+    }
+    private static CollectionWorkSummary? SelectActiveTvEpisode(IReadOnlyList<CollectionWorkSummary> works)
+    {
+        var context = ResolveTvContext(works);
+        return context.UsesEpisodeArtwork ? works.FirstOrDefault(w => w.Id == context.Target?.Id) : null;
+    }
     private static CollectionWorkSummary? SelectFirstOwnedTvEpisode(IReadOnlyList<CollectionWorkSummary> works)
-        => works
-            .Where(work => work.IsOwned && InferMediaItemEntityType(work) == DetailEntityType.TvEpisode)
-            .OrderBy(work => TryParseSeriesPositionSort(work.Season) ?? double.MaxValue)
-            .ThenBy(work => TryParseSeriesPositionSort(work.Episode) ?? double.MaxValue)
-            .ThenBy(work => work.Ordinal ?? int.MaxValue)
-            .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
+        => works.FirstOrDefault(w => w.Id == ResolveTvContext(works).Target?.Id);
 
     private async Task<IReadOnlyList<CreditGroupViewModel>> BuildCollectionCreditsAsync(
         Guid collectionId,
