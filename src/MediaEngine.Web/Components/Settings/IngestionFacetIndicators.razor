@@ -1,0 +1,39 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Ingestion
+
+<div class="ingestion-facets" aria-label="Enrichment status">
+    @foreach (var facet in Facets)
+    {
+        @if (!facet.State.State.Equals("notApplicable", StringComparison.OrdinalIgnoreCase))
+        {
+            <MudTooltip Text="@facet.State.Label" Placement="Placement.Top">
+                <span class="ingestion-facet is-@facet.State.State.ToLowerInvariant()" aria-label="@facet.State.Label">
+                    <MudIcon Icon="@facet.Icon" />
+                    <MudIcon Icon="@StateIcon(facet.State.State)" Class="ingestion-facet__state" />
+                </span>
+            </MudTooltip>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IngestionMediaGroupDto Item { get; set; } = new();
+
+    private IReadOnlyList<(string Icon, IngestionFacetStateDto State)> Facets =>
+    [
+        (Icons.Material.Outlined.Groups, Item.People),
+        (Icons.Material.Outlined.Image, Item.Artwork),
+        (Icons.Material.Outlined.Description, Item.Metadata),
+        (Icons.Material.Outlined.AccountTree, Item.Relationships),
+        (Item.MediaType == "Music" ? Icons.Material.Outlined.Lyrics : Icons.Material.Outlined.ClosedCaption, Item.TextTracks),
+    ];
+
+    private static string StateIcon(string state) => state.ToLowerInvariant() switch
+    {
+        "complete" => Icons.Material.Outlined.CheckCircle,
+        "active" => Icons.Material.Outlined.RadioButtonUnchecked,
+        "attention" => Icons.Material.Outlined.WarningAmber,
+        "failed" => Icons.Material.Outlined.ErrorOutline,
+        _ => Icons.Material.Outlined.Schedule,
+    };
+}

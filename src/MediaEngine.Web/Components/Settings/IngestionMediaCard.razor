@@ -1,0 +1,57 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Ingestion
+
+<AppNativeButton Type="button"
+                 Class="ingestion-media-card"
+                 AriaLabel="@($"Open ingestion details for {Item.Title}. {Item.StatusLabel}")"
+                 OnClick="@(_ => OnOpen.InvokeAsync(Item))">
+    <span class="ingestion-media-card__art">
+        <AppMediaArtwork ImageUrl="@Item.CoverUrl" Alt="" FallbackIcon="@MediaIcon(Item.MediaType)" />
+    </span>
+    <span class="ingestion-media-card__body">
+        <strong title="@Item.Title">@Item.Title</strong>
+        <small><MudIcon Icon="@MediaIcon(Item.MediaType)" />@DisplaySubtitle</small>
+        <span class="ingestion-media-card__status is-@Item.Availability">@ProgressLabel</span>
+        @if (HasProgress)
+        {
+            <AppProgressBar Value="@ProgressValue" ShowValue="false" Class="ingestion-media-card__progress" />
+        }
+        <IngestionFacetIndicators Item="Item" />
+    </span>
+</AppNativeButton>
+
+@code {
+    [Parameter, EditorRequired] public IngestionMediaGroupDto Item { get; set; } = new();
+    [Parameter] public EventCallback<IngestionMediaGroupDto> OnOpen { get; set; }
+
+    private bool HasProgress => Item.ChildExpected is > 0 && Item.ChildCompleted >= 0;
+    private double ProgressValue => Item.ChildExpected is > 0 ? Math.Clamp(Item.ChildCompleted * 100d / Item.ChildExpected.Value, 0, 100) : 0;
+    private string DisplaySubtitle => string.IsNullOrWhiteSpace(Item.Subtitle) ? FriendlyType(Item.MediaType) : Item.Subtitle;
+    private string ProgressLabel => Item.ChildUnit is not null
+        ? Item.ChildExpected is > 0
+            ? $"{Item.ChildCompleted:N0} / {Item.ChildExpected:N0} {Item.ChildUnit} added"
+            : $"{Item.ChildCompleted:N0} {Item.ChildUnit} added · {Item.StatusLabel}"
+        : Item.StatusLabel;
+
+    internal static string FriendlyType(string mediaType) => mediaType switch
+    {
+        "TV" => "TV Show",
+        "Music" => "Album",
+        "Movies" => "Movie",
+        "Audiobooks" => "Audiobook",
+        "Comics" => "Comic",
+        "Books" => "Book",
+        _ => mediaType,
+    };
+
+    internal static string MediaIcon(string mediaType) => mediaType switch
+    {
+        "TV" => Icons.Material.Outlined.Tv,
+        "Music" => Icons.Material.Outlined.Album,
+        "Movies" => Icons.Material.Outlined.Movie,
+        "Audiobooks" => Icons.Material.Outlined.Headphones,
+        "Comics" => Icons.Material.Outlined.CollectionsBookmark,
+        "Books" => Icons.Material.Outlined.MenuBook,
+        _ => Icons.Material.Outlined.PlayCircle,
+    };
+}

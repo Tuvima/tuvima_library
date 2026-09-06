@@ -308,7 +308,7 @@ public sealed class DatabaseBackupService
             throw new InvalidDataException($"Backup manifest version '{manifestVersion}' is unsupported.");
         }
 
-        if (!string.Equals(databaseEpoch, "guid-blob-v4-client-auth", StringComparison.Ordinal))
+        if (!string.Equals(databaseEpoch, "guid-blob-v5-user-state-revision", StringComparison.Ordinal))
         {
             throw new InvalidDataException($"Backup database epoch '{databaseEpoch}' is unsupported.");
         }

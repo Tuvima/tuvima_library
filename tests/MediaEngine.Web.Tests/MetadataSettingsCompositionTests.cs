@@ -80,14 +80,14 @@ public sealed class MetadataSettingsCompositionTests
     }
 
     [Fact]
-    public void EnrichmentRefreshSchedule_MovedToOperationalIngestionPage()
+    public void EnrichmentRefreshSchedule_DoesNotCompeteWithMediaFirstIngestionPage()
     {
         var metadata = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
         var ingestion = Read("src/MediaEngine.Web/Components/Settings/IngestionTasksTab.razor");
         var schedule = Read("src/MediaEngine.Web/Components/Settings/EnrichmentRefreshSchedulePanel.razor");
 
         Assert.DoesNotContain("<EnrichmentRefreshSchedulePanel", metadata, StringComparison.Ordinal);
-        Assert.Contains("<EnrichmentRefreshSchedulePanel", ingestion, StringComparison.Ordinal);
+        Assert.DoesNotContain("<EnrichmentRefreshSchedulePanel", ingestion, StringComparison.Ordinal);
         Assert.Contains("GetEnrichmentRefreshScheduleAsync", schedule, StringComparison.Ordinal);
         Assert.Contains("QueueEnrichmentRefreshNowAsync", schedule, StringComparison.Ordinal);
     }

@@ -71,6 +71,10 @@ public sealed class DatabaseConnection : IDatabaseConnection
     /// <inheritdoc/>
     public void InitializeSchema()
     {
+        // The epoch guard may need to move an incompatible pre-beta database.
+        // Release the shared connection first so Windows does not keep the file locked.
+        _connection?.Dispose();
+        _connection = null;
         StorageEpochGuard.EnsureCurrentOrReset(_databasePath);
         var conn = Open();
         _schemaInitializer.Initialize(conn);

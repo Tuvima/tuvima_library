@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Contracts.Ingestion;
 
 namespace MediaEngine.Contracts.Activity;
 
@@ -72,6 +73,12 @@ public sealed class ActivityBatchSummaryDto
 
     [JsonPropertyName("media_types")]
     public List<ActivityMediaTypeCountDto> MediaTypes { get; set; } = [];
+
+    [JsonPropertyName("added_group_count")]
+    public int AddedGroupCount { get; set; }
+
+    [JsonPropertyName("added_preview")]
+    public List<IngestionMediaGroupDto> AddedPreview { get; set; } = [];
 }
 
 public sealed class ActivityMediaTypeGroupDto

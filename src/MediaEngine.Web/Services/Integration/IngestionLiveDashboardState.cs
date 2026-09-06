@@ -22,6 +22,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     private Task? _snapshotRefreshTask;
     private Task? _liveNotifyTask;
     private string? _lastSnapshotSignature;
+    private string? _lastPresentationSignature;
     private DateTimeOffset _lastLiveNotifyAt = DateTimeOffset.MinValue;
     private int _loadInProgress;
     private bool _loadAgainRequested;
@@ -43,6 +44,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     public event Action? OnChanged;
 
     public IngestionOperationsSnapshotDto? Snapshot { get; private set; }
+    public IngestionPresentationSnapshotDto? Presentation { get; private set; }
     public IReadOnlyList<ActivityEntryResponse> RecentActivity { get; private set; } = [];
     public IReadOnlyList<ReviewItemViewModel> PendingReviews { get; private set; } = [];
     public IReadOnlyDictionary<string, int> OperationsSummary { get; private set; } =
@@ -144,13 +146,15 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         try
         {
             var snapshotTask = _api.GetIngestionOperationsSnapshotAsync(ct);
+            var presentationTask = _api.GetIngestionPresentationAsync(ct);
             var activityTask = _api.GetRecentActivityAsync(50, ct);
             var reviewTask = _api.GetPendingReviewsAsync(200, ct);
             var operationSummaryTask = _api.GetMediaOperationsSummaryAsync(ct);
             var capabilitySummaryTask = _api.GetCapabilitySummaryAsync(ct);
-            await Task.WhenAll(snapshotTask, activityTask, reviewTask, operationSummaryTask, capabilitySummaryTask);
+            await Task.WhenAll(snapshotTask, presentationTask, activityTask, reviewTask, operationSummaryTask, capabilitySummaryTask);
 
             Snapshot = MergeSnapshot(Snapshot, snapshotTask.Result);
+            Presentation = MergePresentation(Presentation, presentationTask.Result);
             RecentActivity = activityTask.Result
                 .Where(IsUsefulActivity)
                 .Take(12)
@@ -182,8 +186,11 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
                 QueueFilter,
                 QueueSort,
                 ExpandedOperationId);
-            var changed = !string.Equals(_lastSnapshotSignature, nextSignature, StringComparison.Ordinal);
+            var presentationSignature = BuildPresentationSignature(Presentation);
+            var changed = !string.Equals(_lastSnapshotSignature, nextSignature, StringComparison.Ordinal)
+                || !string.Equals(_lastPresentationSignature, presentationSignature, StringComparison.Ordinal);
             _lastSnapshotSignature = nextSignature;
+            _lastPresentationSignature = presentationSignature;
             if (changed)
             {
                 LastUpdated = DateTimeOffset.Now;
@@ -205,6 +212,47 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
             if (shouldNotify)
                 Notify();
         }
+    }
+
+    private static string BuildPresentationSignature(IngestionPresentationSnapshotDto? value)
+    {
+        if (value is null) return "none";
+        return string.Join('|',
+            value.Status,
+            value.FilesDiscovered,
+            value.FilesProcessed,
+            value.LibraryGroups,
+            value.ReadyGroups,
+            value.FinishingGroups,
+            value.ReviewGroups,
+            value.ActiveOperations,
+            value.QueuedOperations,
+            value.RetryWaitingOperations,
+            string.Join(',', value.CurrentMedia.Select(item => $"{item.BatchId:N}:{item.GroupId:N}:{item.Availability}:{item.StatusLabel}:{item.ChildCompleted}:{item.UpdatedAt:O}")),
+            string.Join(',', value.RecentDays.Select(day => $"{day.Date:O}:{day.TotalCount}")));
+    }
+
+    private static IngestionPresentationSnapshotDto? MergePresentation(
+        IngestionPresentationSnapshotDto? current,
+        IngestionPresentationSnapshotDto? next)
+    {
+        if (next is null) return current;
+        if (current is null) return next;
+
+        var existing = current.CurrentMedia.ToDictionary(item => (item.BatchId, item.GroupId));
+        var stable = new List<IngestionMediaGroupDto>();
+        foreach (var item in current.CurrentMedia)
+        {
+            var updated = next.CurrentMedia.FirstOrDefault(candidate => candidate.BatchId == item.BatchId && candidate.GroupId == item.GroupId);
+            if (updated is not null) stable.Add(updated);
+        }
+        foreach (var item in next.CurrentMedia)
+        {
+            if (!existing.ContainsKey((item.BatchId, item.GroupId))) stable.Add(item);
+        }
+
+        next.CurrentMedia = stable.Take(Math.Max(1, next.CurrentMedia.Count)).ToList();
+        return next;
     }
 
     private static IngestionOperationsSnapshotDto? MergeSnapshot(

@@ -12,7 +12,7 @@ internal static class BackupManifestWriter
         {
             schema_version = "1.0",
             created_at = DateTimeOffset.UtcNow,
-            database_epoch = "guid-blob-v4-client-auth",
+            database_epoch = "guid-blob-v5-user-state-revision",
             includes_secrets = false,
             note = "Provider secrets are intentionally excluded. Re-enter credentials after restore if needed.",
         });

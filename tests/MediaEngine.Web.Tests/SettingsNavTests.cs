@@ -62,6 +62,18 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
+    public void SettingsPage_GatesClientSideAdministratorNavigationOnElevation()
+    {
+        var settingsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
+
+        Assert.Contains("@inject IAdministratorElevationNavigationService Elevation", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("protected override async Task OnParametersSetAsync()", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("await EnsureElevationForCurrentRouteAsync()", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("await Elevation.EnsureElevatedAsync()", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("IsAdministrator && !_adminElevationResolved", settingsSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void RouteFor_Overview_UsesProfileSettingsUrl()
     {
         Assert.Equal("/settings/profile", SettingsNav.RouteFor(SettingsSection.Overview));

@@ -35,6 +35,84 @@ public static class IngestionEndpoints
         .Produces<IngestionOperationsSnapshotDto>(StatusCodes.Status200OK)
         .RequireAdminOrStandardUser();
 
+        group.MapGet("/presentation", async (
+            IIngestionPresentationReadService readService,
+            int? currentLimit,
+            int? recentDayLimit,
+            int? recentItemsPerDay,
+            CancellationToken ct) => Results.Ok(await readService.GetSnapshotAsync(
+                currentLimit ?? 8,
+                recentDayLimit ?? 3,
+                recentItemsPerDay ?? 9,
+                ct)))
+        .WithName("GetIngestionPresentation")
+        .WithSummary("Returns the bounded media-centric Ingestion page projection.")
+        .Produces<IngestionPresentationSnapshotDto>(StatusCodes.Status200OK)
+        .RequireAdminOrStandardUser();
+
+        group.MapGet("/media-groups", async (
+            IIngestionPresentationReadService readService,
+            int? offset,
+            int? limit,
+            CancellationToken ct) =>
+        {
+            var page = PagedRequest.From(offset, limit, 50, 100);
+            return Results.Ok(await readService.GetCurrentMediaAsync(page.Offset, page.Limit, ct));
+        })
+        .WithName("GetCurrentIngestionMediaGroups")
+        .WithSummary("Returns paged media groups currently entering the library.")
+        .Produces<PagedResponse<IngestionMediaGroupDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrStandardUser();
+
+        group.MapGet("/recent-additions", async (
+            IIngestionPresentationReadService readService,
+            string? search,
+            string? lane,
+            DateTimeOffset? start,
+            DateTimeOffset? end,
+            int? offset,
+            int? limit,
+            CancellationToken ct) =>
+        {
+            var page = PagedRequest.From(offset, limit, 50, 100);
+            return Results.Ok(await readService.GetRecentAdditionsAsync(search, lane, start, end, page.Offset, page.Limit, ct));
+        })
+        .WithName("GetRecentIngestionAdditions")
+        .WithSummary("Returns paged, event-scoped media additions across completed runs.")
+        .Produces<PagedResponse<IngestionMediaGroupDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrStandardUser();
+
+        group.MapGet("/batches/{batchId:guid}/media-groups/{groupId:guid}", async (
+            Guid batchId,
+            Guid groupId,
+            IIngestionPresentationReadService readService,
+            CancellationToken ct) =>
+        {
+            var item = await readService.GetMediaGroupAsync(batchId, groupId, ct);
+            return item is null ? ApiErrors.NotFound("That ingestion media group was not found.") : Results.Ok(item);
+        })
+        .WithName("GetIngestionMediaGroup")
+        .WithSummary("Returns one pinned ingestion media group.")
+        .Produces<IngestionMediaGroupDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAdminOrStandardUser();
+
+        group.MapGet("/batches/{batchId:guid}/media-groups/{groupId:guid}/children", async (
+            Guid batchId,
+            Guid groupId,
+            IIngestionPresentationReadService readService,
+            int? offset,
+            int? limit,
+            CancellationToken ct) =>
+        {
+            var page = PagedRequest.From(offset, limit, 50, 100);
+            return Results.Ok(await readService.GetChildrenAsync(batchId, groupId, page.Offset, page.Limit, ct));
+        })
+        .WithName("GetIngestionMediaGroupChildren")
+        .WithSummary("Returns lazy, paged tracks, episodes, issues, or parts for an ingestion group.")
+        .Produces<PagedResponse<IngestionMediaChildDto>>(StatusCodes.Status200OK)
+        .RequireAdminOrStandardUser();
+
         group.MapPost("/assets/{assetId:guid}/reread-metadata", async (
             Guid assetId,
             IIngestionEngine engine,

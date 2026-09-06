@@ -1,0 +1,85 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Ingestion
+@using MediaEngine.Contracts.Paging
+@inject IEngineApiClient Api
+@implements IDisposable
+
+<section class="ingestion-paged-view" aria-labelledby="ingestion-paged-title">
+    <header><div><h2 id="ingestion-paged-title">@Title</h2><p>@Subtitle</p></div><AppButton Href="/settings/ingestion" Label="Back to Ingestion" StartIcon="@Icons.Material.Outlined.ArrowBack" /></header>
+    @if (!Mode.Equals("current", StringComparison.OrdinalIgnoreCase))
+    {
+        <div class="ingestion-paged-view__filters">
+            <AppTextField Value="@_search" ValueChanged="OnSearchChanged" OnDebounceIntervalElapsed="OnSearchDebounced" DebounceInterval="350" Placeholder="Search recently added media…" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
+            <AppSelect Value="@_lane" ValueChanged="OnLaneChanged" Options="LaneOptions" Label="Media" />
+        </div>
+    }
+    @if (_loading && _page is null)
+    {
+        <AppProgressBar Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <AppAlert Tone="AppUiTone.Warning">@_error</AppAlert>
+    }
+    else if (_page?.Items.Count > 0)
+    {
+        <div class="ingestion-paged-view__grid">
+            @foreach (var item in _page.Items)
+            {
+                <IngestionMediaCard Item="item" OnOpen="OnOpen" @key="(item.BatchId, item.GroupId)" />
+            }
+        </div>
+        <AppCompactPager Offset="@_page.Offset" Limit="@_page.Limit" HasMore="@_page.HasMore" TotalCount="@_page.TotalCount" Loading="@_loading" OffsetChanged="LoadAsync" />
+    }
+    else
+    {
+        <AppEmptyState Title="No media found" Message="No library additions match these filters." />
+    }
+</section>
+
+@code {
+    [Parameter] public string Mode { get; set; } = "history";
+    [Parameter] public DateOnly? Date { get; set; }
+    [Parameter] public EventCallback<IngestionMediaGroupDto> OnOpen { get; set; }
+
+    private PagedResponse<IngestionMediaGroupDto>? _page;
+    private string? _search;
+    private string _lane = "all";
+    private bool _loading;
+    private string? _error;
+    private int _revision;
+    private CancellationTokenSource? _loadCts;
+    private static readonly IReadOnlyList<AppSelectOption> LaneOptions = [new("all", "All"), new("Read", "Read"), new("Watch", "Watch"), new("Listen", "Listen")];
+    private string Title => Mode.Equals("current", StringComparison.OrdinalIgnoreCase) ? "Being Added Now" : "Recently Added";
+    private string Subtitle => Mode.Equals("current", StringComparison.OrdinalIgnoreCase) ? "All grouped media currently being processed." : "Media that entered the library, grouped by its addition event.";
+
+    protected override Task OnParametersSetAsync() => LoadAsync(0);
+    private Task OnSearchChanged(string? value) { _search = value; return Task.CompletedTask; }
+    private Task OnSearchDebounced(string _) => LoadAsync(0);
+    private async Task OnLaneChanged(string? value) { _lane = value ?? "all"; await LoadAsync(0); }
+
+    private async Task LoadAsync(int offset)
+    {
+        var revision = ++_revision; _loading = true; _error = null;
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+        try
+        {
+            var page = Mode.Equals("current", StringComparison.OrdinalIgnoreCase)
+                ? await Api.GetCurrentIngestionMediaAsync(offset, 50, ct)
+                : await Api.GetRecentIngestionAdditionsAsync(_search, _lane, Date?.ToDateTime(TimeOnly.MinValue), Date?.ToDateTime(TimeOnly.MaxValue), offset, 50, ct);
+            if (revision == _revision) _page = page;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        catch (Exception ex) { if (revision == _revision) _error = $"Media history could not load: {ex.Message}"; }
+        finally { if (revision == _revision) _loading = false; }
+    }
+
+    public void Dispose()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+    }
+}

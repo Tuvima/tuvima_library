@@ -222,6 +222,8 @@ builder.Services.AddTransient<ViewProfileAssertionHandler>(services => new ViewP
     services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken()));
 builder.Services.AddScoped<DashboardIdentityClient>();
 builder.Services.AddScoped<AdministratorElevationNavigationService>();
+builder.Services.AddScoped<IAdministratorElevationNavigationService>(services =>
+    services.GetRequiredService<AdministratorElevationNavigationService>());
 builder.Services.AddSingleton(new ViewMediaGrantService(mediaGrantKey, mediaGrantLifetime));
 builder.Services.AddHttpClient<EngineApiClient>(ConfigureEngineClient)
     .AddHttpMessageHandler<ViewProfileAssertionHandler>()

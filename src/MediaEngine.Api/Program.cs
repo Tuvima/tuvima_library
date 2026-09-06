@@ -140,7 +140,6 @@ DatabaseBackupService.ApplyPendingRestore(configDirectory, dbPath, backupDirecto
 builder.Services.AddSingleton<IDatabaseConnection>(_ =>
 {
     var database = new DatabaseConnection(dbPath);
-    database.Open();
     database.InitializeSchema();
     database.RunStartupChecks();
     return database;

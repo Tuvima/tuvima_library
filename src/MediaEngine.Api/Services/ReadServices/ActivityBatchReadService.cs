@@ -16,11 +16,13 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
     private const int MaxLimit = 100;
     private const string ReviewGroupMediaType = "Needs Review";
     private readonly IDatabaseConnection _db;
+    private readonly IIngestionPresentationReadService _presentation;
 
-    public ActivityBatchReadService(IDatabaseConnection db)
+    public ActivityBatchReadService(IDatabaseConnection db, IIngestionPresentationReadService? presentation = null)
     {
         ArgumentNullException.ThrowIfNull(db);
         _db = db;
+        _presentation = presentation ?? new IngestionPresentationReadService(db);
     }
 
     public async Task<ActivityBatchSummaryDto?> GetBatchAsync(
@@ -335,6 +337,17 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 MediaTypes = mediaTypes,
             };
         }).ToList();
+
+        var previews = await _presentation
+            .GetBatchMediaPreviewsAsync(items.Select(item => item.BatchId).ToArray(), 6, ct)
+            .ConfigureAwait(false);
+        foreach (var item in items)
+        {
+            if (!previews.TryGetValue(item.BatchId, out var preview))
+                continue;
+            item.AddedGroupCount = preview.TotalCount ?? preview.Items.Count;
+            item.AddedPreview = preview.Items.ToList();
+        }
 
         var total = await conn.ExecuteScalarAsync<int>(
             $"SELECT COUNT(*) FROM ingestion_batches b {whereSql};",
@@ -1420,8 +1433,33 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
 
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
-            clauses.Add("LOWER(b.status) = LOWER(@status)");
-            parameters.Add("status", query.Status.Trim());
+            var status = query.Status.Trim().ToLowerInvariant();
+            if (status == "attention")
+            {
+                clauses.Add("""
+                    (
+                        b.files_review > 0 OR b.files_failed > 0
+                        OR EXISTS (
+                            SELECT 1 FROM media_operations attention_mo
+                            WHERE attention_mo.batch_id = b.id
+                              AND attention_mo.status IN ('retry_waiting','failed_retryable','failed_terminal','dead_lettered','interrupted')
+                        )
+                    )
+                    """);
+            }
+            else if (status == "interrupted")
+            {
+                clauses.Add("LOWER(b.status) IN ('abandoned','interrupted')");
+            }
+            else if (status == "running")
+            {
+                clauses.Add("LOWER(b.status) IN ('running','processing','active','queued')");
+            }
+            else
+            {
+                clauses.Add("LOWER(b.status) = @status");
+                parameters.Add("status", status);
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(query.Source))
@@ -1441,7 +1479,12 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     LEFT JOIN works w ON w.id = e.work_id
                     WHERE ij.ingestion_run_id = b.id
                       AND ij.entity_id IS NOT NULL
-                      AND LOWER({ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")}) = LOWER(@mediaType)
+                      AND (
+                        LOWER(@mediaType) = 'read' AND LOWER({ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")}) IN ('books','comics')
+                        OR LOWER(@mediaType) = 'watch' AND LOWER({ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")}) IN ('movies','tv')
+                        OR LOWER(@mediaType) = 'listen' AND LOWER({ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")}) IN ('music','audiobooks')
+                        OR LOWER(@mediaType) NOT IN ('read','watch','listen') AND LOWER({ActivityMediaTypeSql("w.media_type", "ij.media_type", "ma.file_path_root", "e.format_label")}) = LOWER(@mediaType)
+                      )
                 )
                 """);
             parameters.Add("mediaType", query.MediaType.Trim());

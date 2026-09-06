@@ -2,9 +2,14 @@ using Microsoft.AspNetCore.Components;
 
 namespace MediaEngine.Web.Services.Integration;
 
+public interface IAdministratorElevationNavigationService
+{
+    Task<bool> EnsureElevatedAsync(CancellationToken ct = default);
+}
+
 public sealed class AdministratorElevationNavigationService(
     DashboardIdentityClient identity,
-    NavigationManager navigation)
+    NavigationManager navigation) : IAdministratorElevationNavigationService
 {
     public async Task<bool> EnsureElevatedAsync(CancellationToken ct = default)
     {

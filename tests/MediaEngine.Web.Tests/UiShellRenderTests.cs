@@ -61,6 +61,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Services.AddScoped<MediaReactionService>();
         Services.AddScoped<FavoriteService>();
         Services.AddScoped<MediaEditorLauncherService>();
+        Services.AddSingleton<IAdministratorElevationNavigationService>(new AlwaysElevatedNavigationService());
     }
 
     [Fact]
@@ -826,6 +827,11 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.DoesNotContain(".listen-page--audiobooks ::deep .listen-now-panel", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-page--audiobooks {\r\n    grid-template-columns", css, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-page--audiobooks {\n    grid-template-columns", css, StringComparison.Ordinal);
+    }
+
+    private sealed class AlwaysElevatedNavigationService : IAdministratorElevationNavigationService
+    {
+        public Task<bool> EnsureElevatedAsync(CancellationToken ct = default) => Task.FromResult(true);
     }
 
     [Fact]

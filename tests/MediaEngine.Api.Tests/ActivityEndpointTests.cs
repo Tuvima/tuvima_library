@@ -33,6 +33,9 @@ public sealed class ActivityEndpointTests
         Assert.Contains("GetActivityBatchEvents", endpoints, StringComparison.Ordinal);
         Assert.Contains("\"/batches/{batchId:guid}/items\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("\"/batches/{batchId:guid}/items/{assetId:guid}\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("\"/summary\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("\"/batches/{batchId:guid}/presentation\"", endpoints, StringComparison.Ordinal);
+        Assert.Contains("\"/batches/{batchId:guid}/media-groups\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("\"/people\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("PagedResponse<ActivityBatchSummaryDto>", endpoints, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<IActivityBatchReadService", registrations, StringComparison.Ordinal);

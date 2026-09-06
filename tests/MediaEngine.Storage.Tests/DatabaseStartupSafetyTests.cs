@@ -110,7 +110,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v4-client-auth", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v5-user-state-revision", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
 
         (string Table, string Column)[] internalGuidColumns =
         [
@@ -544,7 +544,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v4-client-auth", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v5-user-state-revision", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.True(TableExists(conn, "review_queue"));
     }
 
@@ -570,14 +570,14 @@ public sealed class DatabaseStartupSafetyTests
             using var command = conn.CreateCommand();
             command.CommandText = """
                 CREATE TABLE storage_metadata (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL);
-                INSERT INTO storage_metadata (key, value) VALUES ('storage_epoch', 'guid-blob-v1');
+                INSERT INTO storage_metadata (key, value) VALUES ('storage_epoch', 'guid-blob-v4-client-auth');
                 CREATE TABLE local_items (id BLOB NOT NULL PRIMARY KEY, library_id BLOB NOT NULL);
                 """;
             command.ExecuteNonQuery();
         }
 
         var exception = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
-        Assert.Contains("guid-blob-v4-client-auth", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("guid-blob-v5-user-state-revision", exception.Message, StringComparison.Ordinal);
         Assert.Contains("not migrated in place", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -601,13 +601,47 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v4-client-auth", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v5-user-state-revision", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("BLOB", ColumnType(conn, "metadata_providers", "id"));
         Assert.True(TableExists(conn, "review_queue"));
 
         var backupPattern = $"{Path.GetFileName(fixture.Path)}.legacy-text-guid.*.bak";
         var backupDir = Path.GetDirectoryName(fixture.Path)!;
         Assert.NotEmpty(Directory.GetFiles(backupDir, backupPattern));
+    }
+
+    [Fact]
+    public void OpenPreviousEpochDatabase_IsReleasedBeforeExplicitReset()
+    {
+        using var fixture = TempDatabase.Create();
+        using (var conn = new SqliteConnection($"Data Source={fixture.Path};Pooling=False"))
+        {
+            conn.Open();
+            using var command = conn.CreateCommand();
+            command.CommandText = """
+                CREATE TABLE storage_metadata (key TEXT NOT NULL PRIMARY KEY, value TEXT NOT NULL);
+                INSERT INTO storage_metadata (key, value) VALUES ('storage_epoch', 'guid-blob-v4-client-auth');
+                CREATE TABLE user_states (user_id BLOB NOT NULL, asset_id BLOB NOT NULL, PRIMARY KEY (user_id, asset_id));
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        fixture.Database.Open();
+        var previous = Environment.GetEnvironmentVariable("TUVIMA_STORAGE_RESET");
+        try
+        {
+            Environment.SetEnvironmentVariable("TUVIMA_STORAGE_RESET", "1");
+            fixture.Database.InitializeSchema();
+            fixture.Database.RunStartupChecks();
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("TUVIMA_STORAGE_RESET", previous);
+        }
+
+        using var current = fixture.Database.CreateConnection();
+        Assert.Equal("guid-blob-v5-user-state-revision", Scalar(current, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("INTEGER", ColumnType(current, "user_states", "revision"));
     }
 
     [Fact]

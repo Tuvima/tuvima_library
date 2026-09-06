@@ -3,6 +3,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Activity;
+using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -18,6 +19,14 @@ public static class ActivityEndpoints
     {
         var group = app.MapGroup("/activity")
             .WithTags("Activity");
+
+        group.MapGet("/summary", async (
+            IIngestionPresentationReadService readService,
+            CancellationToken ct) => Results.Ok(await readService.GetActivitySummaryAsync(ct)))
+        .WithName("GetActivityHistorySummary")
+        .WithSummary("Returns the compact Activity and Audit history summary.")
+        .Produces<ActivityHistorySummaryDto>(StatusCodes.Status200OK)
+        .RequireAdminOrStandardUser();
 
         group.MapGet("/batches", async (
             IActivityBatchReadService readService,
@@ -69,6 +78,37 @@ public static class ActivityEndpoints
         .WithSummary("Returns one exact activity operation regardless of the current history date range.")
         .Produces<ActivityBatchSummaryDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAdminOrStandardUser();
+
+        group.MapGet("/batches/{batchId:guid}/presentation", async (
+            Guid batchId,
+            IIngestionPresentationReadService readService,
+            CancellationToken ct) =>
+        {
+            var presentation = await readService.GetBatchPresentationAsync(batchId, ct);
+            return presentation is null
+                ? ApiErrors.NotFound($"No activity operation found for batch '{batchId}'.")
+                : Results.Ok(presentation);
+        })
+        .WithName("GetActivityBatchPresentation")
+        .WithSummary("Returns the human-readable expanded presentation for one durable batch.")
+        .Produces<ActivityBatchPresentationDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAdminOrStandardUser();
+
+        group.MapGet("/batches/{batchId:guid}/media-groups", async (
+            Guid batchId,
+            IIngestionPresentationReadService readService,
+            int? offset,
+            int? limit,
+            CancellationToken ct) =>
+        {
+            var page = PagedRequest.From(offset, limit, 50, 100);
+            return Results.Ok(await readService.GetBatchMediaAsync(batchId, page.Offset, page.Limit, ct));
+        })
+        .WithName("GetActivityBatchMediaGroups")
+        .WithSummary("Returns paged, event-scoped media groups produced by one batch.")
+        .Produces<PagedResponse<IngestionMediaGroupDto>>(StatusCodes.Status200OK)
         .RequireAdminOrStandardUser();
 
         group.MapGet("/batches/{batchId:guid}/groups", async (

@@ -4,10 +4,9 @@ namespace MediaEngine.Storage;
 
 internal static class StorageEpochGuard
 {
-    // v4 establishes the authoritative client-device and token-family model.
-    // Pre-beta databases are rebuilt rather than retaining caller-supplied device
-    // identity or long-lived native credentials.
-    public const string CurrentEpoch = "guid-blob-v4-client-auth";
+    // v5 makes optimistic user-state revisions part of the required schema.
+    // Pre-beta databases are rebuilt instead of being migrated in place.
+    public const string CurrentEpoch = "guid-blob-v5-user-state-revision";
     public const string ResetEnvironmentVariable = "TUVIMA_STORAGE_RESET";
 
     public static void EnsureCurrentOrReset(string databasePath)

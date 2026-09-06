@@ -795,6 +795,89 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public async Task<IngestionPresentationSnapshotDto?> GetIngestionPresentationAsync(CancellationToken ct = default)
+    {
+        var result = await GetAsync<IngestionPresentationSnapshotDto>(
+            "Ingestion presentation", "ingestion/presentation", ct: ct).ConfigureAwait(false);
+        NormalizePresentationUrls(result?.CurrentMedia);
+        if (result is not null)
+            foreach (var day in result.RecentDays) NormalizePresentationUrls(day.Items);
+        return result;
+    }
+
+    public Task<PagedResponse<IngestionMediaGroupDto>?> GetCurrentIngestionMediaAsync(int offset = 0, int limit = 50, CancellationToken ct = default) =>
+        GetPresentationPageAsync($"ingestion/media-groups?offset={Math.Max(0, offset)}&limit={Math.Clamp(limit, 1, 100)}", ct);
+
+    public Task<PagedResponse<IngestionMediaGroupDto>?> GetRecentIngestionAdditionsAsync(
+        string? search = null, string? lane = null, DateTimeOffset? start = null, DateTimeOffset? end = null,
+        int offset = 0, int limit = 50, CancellationToken ct = default)
+    {
+        var values = new List<string>
+        {
+            $"offset={Math.Max(0, offset)}",
+            $"limit={Math.Clamp(limit, 1, 100)}",
+        };
+        if (!string.IsNullOrWhiteSpace(search)) values.Add($"search={Uri.EscapeDataString(search)}");
+        if (!string.IsNullOrWhiteSpace(lane)) values.Add($"lane={Uri.EscapeDataString(lane)}");
+        if (start.HasValue) values.Add($"start={Uri.EscapeDataString(start.Value.ToString("O"))}");
+        if (end.HasValue) values.Add($"end={Uri.EscapeDataString(end.Value.ToString("O"))}");
+        return GetPresentationPageAsync($"ingestion/recent-additions?{string.Join('&', values)}", ct);
+    }
+
+    public async Task<IngestionMediaGroupDto?> GetIngestionMediaGroupAsync(Guid batchId, Guid groupId, CancellationToken ct = default)
+    {
+        var result = await GetAsync<IngestionMediaGroupDto>(
+            "Ingestion media group",
+            $"ingestion/batches/{batchId:D}/media-groups/{groupId:D}",
+            ct: ct).ConfigureAwait(false);
+        NormalizePresentationUrl(result);
+        return result;
+    }
+
+    public Task<PagedResponse<IngestionMediaChildDto>?> GetIngestionMediaChildrenAsync(
+        Guid batchId, Guid groupId, int offset = 0, int limit = 50, CancellationToken ct = default)
+        => GetAsync<PagedResponse<IngestionMediaChildDto>>(
+            "Ingestion media children",
+            $"ingestion/batches/{batchId:D}/media-groups/{groupId:D}/children?offset={Math.Max(0, offset)}&limit={Math.Clamp(limit, 1, 100)}",
+            ct: ct);
+
+    public async Task<ActivityHistorySummaryDto?> GetActivityHistorySummaryAsync(CancellationToken ct = default)
+        => await GetAsync<ActivityHistorySummaryDto>(
+            "Activity history summary", "activity/summary", ct: ct).ConfigureAwait(false);
+
+    public async Task<ActivityBatchPresentationDto?> GetActivityBatchPresentationAsync(Guid batchId, CancellationToken ct = default)
+    {
+        var result = await GetAsync<ActivityBatchPresentationDto>(
+            "Activity batch presentation",
+            $"activity/batches/{batchId:D}/presentation",
+            ct: ct).ConfigureAwait(false);
+        NormalizePresentationUrls(result?.AddedPreview);
+        return result;
+    }
+
+    public Task<PagedResponse<IngestionMediaGroupDto>?> GetActivityBatchMediaGroupsAsync(Guid batchId, int offset = 0, int limit = 50, CancellationToken ct = default) =>
+        GetPresentationPageAsync($"activity/batches/{batchId:D}/media-groups?offset={Math.Max(0, offset)}&limit={Math.Clamp(limit, 1, 100)}", ct);
+
+    private async Task<PagedResponse<IngestionMediaGroupDto>?> GetPresentationPageAsync(string path, CancellationToken ct)
+    {
+        var result = await GetAsync<PagedResponse<IngestionMediaGroupDto>>(
+            "Ingestion presentation page", path, ct: ct).ConfigureAwait(false);
+        NormalizePresentationUrls(result?.Items);
+        return result;
+    }
+
+    private void NormalizePresentationUrls(IEnumerable<IngestionMediaGroupDto>? items)
+    {
+        if (items is null) return;
+        foreach (var item in items) NormalizePresentationUrl(item);
+    }
+
+    private void NormalizePresentationUrl(IngestionMediaGroupDto? item)
+    {
+        if (item is not null && !string.IsNullOrWhiteSpace(item.CoverUrl))
+            item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+    }
+
     /// <inheritdoc/>
     public async Task<IReadOnlyList<OperationDto>> GetMediaOperationsAsync(
         string? queueName = null, int limit = 100, CancellationToken ct = default)

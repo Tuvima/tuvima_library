@@ -22,7 +22,12 @@ public sealed class IngestionOperationsContractTests
             "IngestionEndpoints.cs"));
 
         Assert.Contains("/operations", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("/presentation", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("/media-groups", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("/recent-additions", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("/media-groups/{groupId:guid}/children", endpointSource, StringComparison.Ordinal);
         Assert.Contains("IIngestionOperationsStatusService", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("IIngestionPresentationReadService", endpointSource, StringComparison.Ordinal);
         Assert.Contains("GetIngestionOperationsSnapshot", endpointSource, StringComparison.Ordinal);
     }
 

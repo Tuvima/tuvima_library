@@ -9,6 +9,7 @@
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
+@inject IAdministratorElevationNavigationService Elevation
 @inject IJSRuntime JS
 @implements IDisposable
 
@@ -182,6 +183,8 @@
     private string _currentRole = "Administrator";
     private ProfileViewModel? _activeProfile;
     private bool _profileRoleLoaded;
+    private bool _adminElevationResolved;
+    private string? _elevationRouteKey;
 
     private int _reviewCount;
     private SystemStatusViewModel? _systemStatus;
@@ -217,7 +220,9 @@
         ? $"{GetHeroTitle()} - Tuvima Library"
         : $"{GetSubsectionLabel()} - {GetHeroTitle()} - Tuvima Library";
     private bool ShouldDeferForRoleResolution =>
-        !_profileRoleLoaded && SettingsNav.GetItem(_activeSection).AdminOnly;
+        SettingsNav.GetItem(_activeSection).AdminOnly
+        && (!_profileRoleLoaded
+            || (IsAdministrator && !_adminElevationResolved));
     private bool IsEngineUnavailableForCurrentSection =>
         !_shellStateLoading
         && _systemStatus is null
@@ -256,6 +261,11 @@
         ResolveSectionAndNormalize();
         await LoadActiveProfileRoleAsync();
         ResolveSectionAndNormalize();
+        if (!await EnsureElevationForCurrentRouteAsync())
+        {
+            return;
+        }
+
         await LoadShellStateAsync();
 
         Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
@@ -263,10 +273,11 @@
         DeviceContext.OnChanged += OnDeviceContextChanged;
     }
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
         ResolveSectionAndNormalize();
         _scrollToTopPending = true;
+        await EnsureElevationForCurrentRouteAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -338,6 +349,41 @@
         {
             _profileRoleLoaded = true;
         }
+    }
+
+    private bool IsAdministrator =>
+        string.Equals(_currentRole, "Administrator", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<bool> EnsureElevationForCurrentRouteAsync()
+    {
+        if (!_profileRoleLoaded)
+        {
+            return true;
+        }
+
+        if (!IsAdministrator || !SettingsNav.GetItem(_activeSection).AdminOnly)
+        {
+            _adminElevationResolved = true;
+            _elevationRouteKey = null;
+            return true;
+        }
+
+        var routeKey = new Uri(Nav.Uri).PathAndQuery;
+        if (_adminElevationResolved
+            && string.Equals(_elevationRouteKey, routeKey, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        _adminElevationResolved = false;
+        if (!await Elevation.EnsureElevatedAsync())
+        {
+            return false;
+        }
+
+        _elevationRouteKey = routeKey;
+        _adminElevationResolved = true;
+        return true;
     }
 
     private void ResolveSectionAndNormalize()
@@ -569,12 +615,12 @@
         SettingsSection.Privacy => "Personal history and export controls are not yet available.",
         SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",
         SettingsSection.Libraries => "Manage structured libraries and review each profile's Personal Space bridge.",
-        SettingsSection.Ingestion => "Scan, match, enrich, and organize your media library.",
+        SettingsSection.Ingestion => "See what is being added now and what recently entered the library.",
         SettingsSection.Network => "Manage how devices reach Tuvima at home and away without exposing unnecessary technical detail.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
         SettingsSection.Providers => GetMetadataDescription(),
         SettingsSection.ActivityLogs => IsOperationsWorkspace
-            ? "View and explore library activity, ingestion runs, and system changes."
+            ? "Review completed ingestion runs and what was added to the library."
             : "See meaningful system activity and important administrative changes.",
         SettingsSection.LocalAi => "Manage local intelligence features while keeping technical details out of the way.",
         SettingsSection.Plugins => "Manage installed extensions and keep plugin health under control.",

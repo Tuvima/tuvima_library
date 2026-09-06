@@ -80,6 +80,8 @@ MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityBatchSumma
   WarningCount: System.Int32 | nullability=not-null | accessors=get,set
   FailureCount: System.Int32 | nullability=not-null | accessors=get,set
   MediaTypes: System.Collections.Generic.List<MediaEngine.Contracts.Activity.ActivityMediaTypeCountDto> | nullability=not-null | accessors=get,set
+  AddedGroupCount: System.Int32 | nullability=not-null | accessors=get,set
+  AddedPreview: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionMediaGroupDto> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityDetailFieldDto
   Label: System.String | nullability=not-null | accessors=get,set
@@ -2006,6 +2008,35 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.UniversalSearchSecti
   TotalCount: System.Int32 | nullability=not-null | accessors=get,init
   SeeAllRoute: System.String | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.ActivityBatchMilestoneDto
+  Label: System.String | nullability=not-null | accessors=get,set
+  State: System.String | nullability=not-null | accessors=get,set
+  Detail: System.String | nullability=nullable | accessors=get,set
+  OccurredAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.ActivityBatchPresentationDto
+  BatchId: System.Guid | nullability=not-null | accessors=get,set
+  DisplayName: System.String | nullability=not-null | accessors=get,set
+  Summary: System.String | nullability=not-null | accessors=get,set
+  FilesProcessed: System.Int32? | nullability=nullable | accessors=get,set
+  GroupsAdded: System.Int32? | nullability=nullable | accessors=get,set
+  PeopleUpdated: System.Int32? | nullability=nullable | accessors=get,set
+  ArtworkAdded: System.Int32? | nullability=nullable | accessors=get,set
+  TextTracksAdded: System.Int32? | nullability=nullable | accessors=get,set
+  ItemsNeedingFollowUp: System.Int32? | nullability=nullable | accessors=get,set
+  AddedPreview: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionMediaGroupDto> | nullability=not-null | accessors=get,set
+  AddedTotal: System.Int32 | nullability=not-null | accessors=get,set
+  FollowUp: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionAttentionItemDto> | nullability=not-null | accessors=get,set
+  Timeline: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.ActivityBatchMilestoneDto> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.ActivityHistorySummaryDto
+  CompletedRunsThisWeek: System.Int32 | nullability=not-null | accessors=get,set
+  ItemsAddedToday: System.Int32 | nullability=not-null | accessors=get,set
+  ItemsNeedingFollowUp: System.Int32 | nullability=not-null | accessors=get,set
+  LastActivityAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+  LastFilesProcessed: System.Int32? | nullability=nullable | accessors=get,set
+  LastGroupsAdded: System.Int32? | nullability=nullable | accessors=get,set
+
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.BatchAttentionCountResponse
   count: System.Int32 | nullability=not-null | accessors=get,init
 
@@ -2035,6 +2066,13 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionActivit
   CompletedPreview: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
   PendingPreview: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
   ReviewPreview: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionAttentionItemDto
+  Kind: System.String | nullability=not-null | accessors=get,set
+  Count: System.Int32 | nullability=not-null | accessors=get,set
+  Label: System.String | nullability=not-null | accessors=get,set
+  Description: System.String | nullability=nullable | accessors=get,set
+  Route: System.String | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionBatchItemResponse
   Id: System.Guid | nullability=not-null | accessors=get,set
@@ -2101,6 +2139,40 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionExpecte
   ExpectedDuplicate: System.Int32 | nullability=not-null | accessors=get,set
   ExpectedSkipped: System.Int32 | nullability=not-null | accessors=get,set
   ExpectedCorrupt: System.Int32 | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionFacetStateDto
+  State: System.String | nullability=not-null | accessors=get,set
+  Label: System.String | nullability=nullable | accessors=get,set
+
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionMediaChildDto
+  Id: System.Guid | nullability=not-null | accessors=get,set
+  Title: System.String | nullability=not-null | accessors=get,set
+  SequenceLabel: System.String | nullability=nullable | accessors=get,set
+  Status: System.String | nullability=not-null | accessors=get,set
+  DurationLabel: System.String | nullability=nullable | accessors=get,set
+
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionMediaGroupDto
+  GroupId: System.Guid | nullability=not-null | accessors=get,set
+  BatchId: System.Guid | nullability=not-null | accessors=get,set
+  WorkId: System.Guid? | nullability=nullable | accessors=get,set
+  EditionId: System.Guid? | nullability=nullable | accessors=get,set
+  MediaType: System.String | nullability=not-null | accessors=get,set
+  Title: System.String | nullability=not-null | accessors=get,set
+  Subtitle: System.String | nullability=nullable | accessors=get,set
+  CoverUrl: System.String | nullability=nullable | accessors=get,set
+  Availability: System.String | nullability=not-null | accessors=get,set
+  StatusLabel: System.String | nullability=not-null | accessors=get,set
+  ChildCompleted: System.Int32 | nullability=not-null | accessors=get,set
+  ChildExpected: System.Int32? | nullability=nullable | accessors=get,set
+  ChildUnit: System.String | nullability=nullable | accessors=get,set
+  DetailRoute: System.String | nullability=nullable | accessors=get,set
+  People: MediaEngine.Contracts.Ingestion.IngestionFacetStateDto | nullability=not-null | accessors=get,set
+  Artwork: MediaEngine.Contracts.Ingestion.IngestionFacetStateDto | nullability=not-null | accessors=get,set
+  Metadata: MediaEngine.Contracts.Ingestion.IngestionFacetStateDto | nullability=not-null | accessors=get,set
+  Relationships: MediaEngine.Contracts.Ingestion.IngestionFacetStateDto | nullability=not-null | accessors=get,set
+  TextTracks: MediaEngine.Contracts.Ingestion.IngestionFacetStateDto | nullability=not-null | accessors=get,set
+  AddedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionOperationsBatchDto
   BatchId: System.Guid | nullability=not-null | accessors=get,set
@@ -2191,6 +2263,26 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionPipelin
   TotalCount: System.Int32 | nullability=not-null | accessors=get,set
   Helper: System.String | nullability=not-null | accessors=get,set
 
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionPresentationSnapshotDto
+  IsRunning: System.Boolean | nullability=not-null | accessors=get,set
+  Status: System.String | nullability=not-null | accessors=get,set
+  FilesDiscovered: System.Int32 | nullability=not-null | accessors=get,set
+  FilesProcessed: System.Int32 | nullability=not-null | accessors=get,set
+  LibraryGroups: System.Int32 | nullability=not-null | accessors=get,set
+  ReadyGroups: System.Int32 | nullability=not-null | accessors=get,set
+  FinishingGroups: System.Int32 | nullability=not-null | accessors=get,set
+  ReviewGroups: System.Int32 | nullability=not-null | accessors=get,set
+  ActiveOperations: System.Int32 | nullability=not-null | accessors=get,set
+  QueuedOperations: System.Int32 | nullability=not-null | accessors=get,set
+  RetryWaitingOperations: System.Int32 | nullability=not-null | accessors=get,set
+  StartedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+  LastActivityAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+  CurrentMedia: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionMediaGroupDto> | nullability=not-null | accessors=get,set
+  CurrentMediaTotal: System.Int32 | nullability=not-null | accessors=get,set
+  Attention: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionAttentionItemDto> | nullability=not-null | accessors=get,set
+  RecentDays: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionRecentDayDto> | nullability=not-null | accessors=get,set
+  GeneratedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
+
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionProviderActivityDto
   ProviderName: System.String | nullability=not-null | accessors=get,set
   ActiveRequests: System.Int32 | nullability=not-null | accessors=get,set
@@ -2215,6 +2307,11 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionProvide
   LastSuccessfulCall: System.DateTimeOffset? | nullability=nullable | accessors=get,set
   LastError: System.String | nullability=nullable | accessors=get,set
   Warning: System.String | nullability=nullable | accessors=get,set
+
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionRecentDayDto
+  Date: System.DateOnly | nullability=not-null | accessors=get,set
+  TotalCount: System.Int32 | nullability=not-null | accessors=get,set
+  Items: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionMediaGroupDto> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionReviewReasonDto
   Key: System.String | nullability=not-null | accessors=get,set

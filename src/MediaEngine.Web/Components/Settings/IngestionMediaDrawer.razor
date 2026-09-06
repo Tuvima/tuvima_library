@@ -1,0 +1,140 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Ingestion
+@using MediaEngine.Contracts.Paging
+@using System.Globalization
+@inject IEngineApiClient Api
+@implements IDisposable
+
+@if (Item is not null)
+{
+    <div class="ingestion-drawer" role="dialog" aria-modal="true" aria-labelledby="ingestion-drawer-title" @onkeydown="OnKeyDown">
+        <AppNativeButton Type="button" Class="ingestion-drawer__backdrop" AriaLabel="Close ingestion details" OnClick="@(_ => Close.InvokeAsync())" />
+        <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
+            <aside class="ingestion-drawer__surface">
+                <header>
+                    <span><MudIcon Icon="@IngestionMediaCard.MediaIcon(Item.MediaType)" />@IngestionMediaCard.FriendlyType(Item.MediaType)</span>
+                    <AppNativeButton Type="button" Class="ingestion-drawer__close" AriaLabel="Close ingestion details" OnClick="@(_ => Close.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.Close" /></AppNativeButton>
+                </header>
+
+                <div class="ingestion-drawer__body">
+                    <section class="ingestion-drawer__identity">
+                        <span class="ingestion-drawer__cover"><AppMediaArtwork ImageUrl="@Item.CoverUrl" Alt="" FallbackIcon="@IngestionMediaCard.MediaIcon(Item.MediaType)" /></span>
+                        <div><h2 id="ingestion-drawer-title">@Item.Title</h2><p>@Item.Subtitle</p><small>@IngestionMediaCard.FriendlyType(Item.MediaType)</small></div>
+                    </section>
+
+                    <section class="ingestion-drawer__progress" aria-label="Addition progress">
+                        <strong>@ProgressLabel</strong>
+                        @if (Item.ChildExpected is > 0)
+                        {
+                            <AppProgressBar Value="@ProgressValue" ShowValue="false" />
+                        }
+                        <span class="is-@Item.Availability">@Item.StatusLabel</span>
+                    </section>
+
+                    <section class="ingestion-drawer__states" aria-label="Media processing status">
+                        @foreach (var state in States)
+                        {
+                            @if (!state.Value.State.Equals("notApplicable", StringComparison.OrdinalIgnoreCase))
+                            {
+                                <div><MudIcon Icon="@StateIcon(state.Value.State)" Class="@($"is-{state.Value.State.ToLowerInvariant()}")" /><span>@state.Key</span><small>@StateCopy(state.Value.State)</small></div>
+                            }
+                        }
+                    </section>
+
+                    @if (!string.IsNullOrWhiteSpace(Item.ChildUnit))
+                    {
+                        <section class="ingestion-drawer__children">
+                            <header><h3>@ChildHeading</h3></header>
+                            @if (_loading)
+                            {
+                                <AppProgressBar Indeterminate="true" />
+                            }
+                            else if (_children?.Items.Count > 0)
+                            {
+                                <ol start="@(_children.Offset + 1)">
+                                    @foreach (var child in _children.Items)
+                                    {
+                                        <li><span>@child.SequenceLabel</span><strong>@child.Title</strong><small>@child.DurationLabel</small><MudIcon Icon="@ChildIcon(child.Status)" Class="@($"is-{child.Status}")" /></li>
+                                    }
+                                </ol>
+                                <AppCompactPager Offset="@_children.Offset" Limit="@_children.Limit" HasMore="@_children.HasMore" TotalCount="@_children.TotalCount" Loading="@_loading" OffsetChanged="LoadChildrenAsync" />
+                            }
+                            else
+                            {
+                                <p>Child details will appear as files are identified.</p>
+                            }
+                        </section>
+                    }
+                </div>
+
+                <footer>
+                    <AppButton Href="@($"/settings/activity?runId={Item.BatchId:D}")" Label="View full activity" StartIcon="@Icons.Material.Outlined.ReceiptLong" />
+                    @if (!string.IsNullOrWhiteSpace(Item.DetailRoute))
+                    {
+                        <AppButton Href="@Item.DetailRoute" Label="Open item" StartIcon="@Icons.Material.Outlined.OpenInNew" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" />
+                    }
+                </footer>
+            </aside>
+        </MudFocusTrap>
+    </div>
+}
+
+@code {
+    [Parameter] public IngestionMediaGroupDto? Item { get; set; }
+    [Parameter] public EventCallback Close { get; set; }
+
+    private Guid? _loadedGroup;
+    private Guid? _loadedBatch;
+    private bool _loading;
+    private PagedResponse<IngestionMediaChildDto>? _children;
+    private CancellationTokenSource? _loadCts;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Item is null || (_loadedGroup == Item.GroupId && _loadedBatch == Item.BatchId)) return;
+        _loadedGroup = Item.GroupId;
+        _loadedBatch = Item.BatchId;
+        _children = null;
+        if (!string.IsNullOrWhiteSpace(Item.ChildUnit)) await LoadChildrenAsync(0);
+    }
+
+    private async Task LoadChildrenAsync(int offset)
+    {
+        if (Item is null) return;
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+        _loading = true;
+        try { _children = await Api.GetIngestionMediaChildrenAsync(Item.BatchId, Item.GroupId, offset, 50, ct); }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+        finally { _loading = false; }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape") await Close.InvokeAsync();
+    }
+
+    private IReadOnlyDictionary<string, IngestionFacetStateDto> States => new Dictionary<string, IngestionFacetStateDto>
+    {
+        ["Media identified"] = Item!.Metadata,
+        ["Artwork"] = Item.Artwork,
+        ["People and credits"] = Item.People,
+        [Item.MediaType == "Music" ? "Lyrics" : "Subtitles"] = Item.TextTracks,
+        ["Relationships"] = Item.Relationships,
+    };
+
+    private double ProgressValue => Item?.ChildExpected is > 0 ? Math.Clamp(Item.ChildCompleted * 100d / Item.ChildExpected.Value, 0, 100) : 0;
+    private string ProgressLabel => Item?.ChildUnit is null ? Item?.StatusLabel ?? "Adding" : Item.ChildExpected is > 0 ? $"{Item.ChildCompleted:N0} / {Item.ChildExpected:N0} {Item.ChildUnit} added" : $"{Item.ChildCompleted:N0} {Item.ChildUnit} added";
+    private string ChildHeading => $"{CultureInfo.CurrentCulture.TextInfo.ToTitleCase(Item!.ChildUnit!)} ({Item.ChildCompleted:N0}{(Item.ChildExpected is > 0 ? $" of {Item.ChildExpected:N0}" : "")})";
+    private static string StateCopy(string state) => state.ToLowerInvariant() switch { "complete" => "Complete", "active" => "In progress…", "attention" => "Waiting to retry", "failed" => "Failed", _ => "Queued" };
+    private static string StateIcon(string state) => state.ToLowerInvariant() switch { "complete" => Icons.Material.Outlined.CheckCircle, "active" => Icons.Material.Outlined.RadioButtonUnchecked, "attention" => Icons.Material.Outlined.WarningAmber, "failed" => Icons.Material.Outlined.ErrorOutline, _ => Icons.Material.Outlined.Schedule };
+    private static string ChildIcon(string state) => state switch { "complete" => Icons.Material.Outlined.CheckCircle, "review" => Icons.Material.Outlined.WarningAmber, "failed" => Icons.Material.Outlined.ErrorOutline, "active" => Icons.Material.Outlined.RadioButtonUnchecked, _ => Icons.Material.Outlined.Schedule };
+
+    public void Dispose()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+    }
+}

@@ -133,6 +133,29 @@ public partial interface IEngineApiClient
     /// <summary>GET /ingestion/operations — Ingestion dashboard snapshot.</summary>
     Task<IngestionOperationsSnapshotDto?> GetIngestionOperationsSnapshotAsync(CancellationToken ct = default);
 
+    Task<IngestionPresentationSnapshotDto?> GetIngestionPresentationAsync(CancellationToken ct = default);
+
+    Task<PagedResponse<IngestionMediaGroupDto>?> GetCurrentIngestionMediaAsync(
+        int offset = 0, int limit = 50, CancellationToken ct = default);
+
+    Task<PagedResponse<IngestionMediaGroupDto>?> GetRecentIngestionAdditionsAsync(
+        string? search = null, string? lane = null, DateTimeOffset? start = null, DateTimeOffset? end = null,
+        int offset = 0, int limit = 50, CancellationToken ct = default);
+
+    Task<IngestionMediaGroupDto?> GetIngestionMediaGroupAsync(
+        Guid batchId, Guid groupId, CancellationToken ct = default);
+
+    Task<PagedResponse<IngestionMediaChildDto>?> GetIngestionMediaChildrenAsync(
+        Guid batchId, Guid groupId, int offset = 0, int limit = 50, CancellationToken ct = default);
+
+    Task<ActivityHistorySummaryDto?> GetActivityHistorySummaryAsync(CancellationToken ct = default);
+
+    Task<ActivityBatchPresentationDto?> GetActivityBatchPresentationAsync(
+        Guid batchId, CancellationToken ct = default);
+
+    Task<PagedResponse<IngestionMediaGroupDto>?> GetActivityBatchMediaGroupsAsync(
+        Guid batchId, int offset = 0, int limit = 50, CancellationToken ct = default);
+
     /// <summary>GET /operations — durable media operations by queue order.</summary>
     Task<IReadOnlyList<OperationDto>> GetMediaOperationsAsync(
         string? queueName = null, int limit = 100, CancellationToken ct = default);
