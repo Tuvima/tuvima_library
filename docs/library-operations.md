@@ -1,6 +1,6 @@
 ---
 title: "Library Admin Pages"
-summary: "Understand the Settings pages for libraries, ingestion, providers, activity, review, source folders, provider health, and recent batches."
+summary: "Understand the Settings pages for libraries, ingestion, providers, review, source folders, provider health, and batch history."
 audience: "user"
 category: "guide"
 product_area: "ingestion"
@@ -12,7 +12,7 @@ tags:
 
 # Library Admin Pages
 
-**Libraries**, Ingestion, Metadata Providers, Activity & Audit,
+**Libraries**, Ingestion, Metadata Providers, Needs Review,
 and Developer Tools are first-class Settings pages for the part of Tuvima Library
 that turns folders into registered media. Structured destinations and the single
 View storage root live at `/settings/libraries`; profile Personal Space sources
@@ -74,7 +74,7 @@ Stages 1 and 2 are sequential for each file. Stage 3 starts after Stage 2. Stage
 
 Review is not shown as a progress row. The top **Need Review** metric is the source of truth for the current pending review total, and it shows a batch delta such as `+15 this batch` when the latest batch created new review items. Recent batch rows repeat that review count beside matched, people, artwork, and metadata totals.
 
-The right side of the page is a recent-batches panel. It pins the active batch to the top, shows status, timing, file totals, media-type chips, and artifact totals, and links each batch to `/settings/activity?batchId={batchId}` for the detailed activity view.
+The Ingestion page ends with Batch history. It initially loads the three newest runs, supports search and quick outcome filters, and appends older runs in bounded server-paged groups. Selecting a batch opens its shared filterable media browser at `/settings/ingestion?runId={batchId}&view=all`.
 
 ## Live Refresh
 

@@ -172,7 +172,7 @@ The pipeline is designed to fail safely:
 
 ## Watching Operations
 
-**Settings > Operations > Ingestion** is the live admin summary at `/settings/ingestion`. It answers what is happening now, whether the pipeline is waiting, and whether anything needs attention. **Needs Review** is the human decision queue. **Activity & Audit** is the historical view: it groups completed and active runs, then lets an administrator inspect the batch through the shared Overview, Media, Enrichment, or Data & Downloads lens.
+**Settings > Operations > Ingestion** is the single operational surface at `/settings/ingestion`. It answers what is happening now, whether the pipeline is waiting, whether anything needs attention, and what completed in earlier batches. **Needs Review** remains the human decision queue.
 
 It shows real application state from the Engine:
 
@@ -186,11 +186,11 @@ It shows real application state from the Engine:
 
 File progress and run completion are deliberately separate. The Files checked outcome reports intake volume, while the prominent overall bar combines measurable pipeline stages for the logical run. It stays below completion while a stage is active and shows the current stage's own task count beneath it. The run stays active while required identity, artwork, people, relationship, or organization operations remain outstanding.
 
-While work is active, the Dashboard updates from SignalR `BatchProgress` and `IngestionProgress` events and polls the operations snapshot more frequently. When idle, it polls less often. If a signal is not tracked yet, the page says so instead of inventing a count. The top navigation activity indicator opens Ingestion for ingestion, identity, and enrichment work; Activity & Audit remains the destination for detailed history. The page has no manual status-refresh control because this synchronization is automatic. Its one **Scan all folders** action starts an extra scan of watched folders; folder monitoring, schedules, and queued processing continue automatically.
+While work is active, the Dashboard updates from SignalR `BatchProgress` and `IngestionProgress` events and polls the operations snapshot more frequently. When idle, it polls less often. If a signal is not tracked yet, the page says so instead of inventing a count. The top navigation activity indicator opens Ingestion for authorized system work. The page has no manual status-refresh control because this synchronization is automatic. Its one **Scan all folders** action starts an extra scan of watched folders; folder monitoring, schedules, and queued processing continue automatically.
 
-Activity & Audit presents one operation-first view rather than a separate timeline. One page-level lens controls every expanded batch. Media rows expand into concise semantic item sections, while Enrichment and Data & Downloads use compact server-side aggregates. The normal page does not request or render the raw operation event stream. A durable ingestion batch remains the same Activity entry when the Engine restarts and resumes its outstanding work; later watcher debounce windows join the active batch instead of creating duplicate entries, and a scan across multiple configured source folders uses one batch ID.
+Batch history loads the three newest runs first. Search and All, Completed, Needs attention, and Failed quick filters query the server, while **Show older** appends another bounded page. Selecting a run opens the shared searchable, sortable media browser without loading raw technical records. A durable ingestion batch retains the same identity when the Engine restarts and resumes its outstanding work; later watcher debounce windows join the active batch instead of creating duplicate entries, and a scan across multiple configured source folders uses one batch ID.
 
-On a phone, Ingestion keeps current state, active and queued operation counts, attention, stages, and four outcome summaries visible in a read-only layout. Activity & Audit shows compact operation cards without loading desktop investigation panels. Needs Review resolution is reserved for desktop and tablet, while its unresolved count remains visible beside Operations. All responsive summaries use the same state and counts as desktop.
+On a phone, Ingestion keeps current state, active and queued operation counts, attention, and compact batch rows visible. Needs Review resolution is reserved for desktop and tablet, while its unresolved count remains visible beside Operations. All responsive summaries use the same state and counts as desktop.
 - if Wikidata finds no QID, the item can still remain usable without forcing a bad identity
 - if artwork is still unresolved, the item stays out of the main browse surfaces until that question is settled
 

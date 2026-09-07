@@ -24,7 +24,6 @@ public enum SettingsSection
     Access,
     Server,
 
-    ActivityLogs,
     Review,
     ProviderTester,
     EnrichmentTester,
@@ -125,7 +124,6 @@ public static class SettingsNav
             [SettingsSection.Ingestion] = Complete(),
             [SettingsSection.Providers] = Complete(),
             [SettingsSection.Review] = Complete(),
-            [SettingsSection.ActivityLogs] = Complete(),
             [SettingsSection.Network] = Complete(),
             [SettingsSection.Server] = Complete(),
             [SettingsSection.LocalAi] = Complete(),
@@ -159,7 +157,6 @@ public static class SettingsNav
         new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.SettingsSuggest, "Operations", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Providers, "administration", "metadata", Icons.Material.Outlined.Storage, "Metadata", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.DesktopOnly),
-        new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, [], "sqlite", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Network, "administration", "network", Icons.Material.Outlined.WifiTethering, "Network & Remote Access", true, null, [], "json+runtime", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
@@ -181,7 +178,6 @@ public static class SettingsNav
                 SettingsSection.AdminOverview,
                 SettingsSection.Libraries,
                 SettingsSection.Ingestion,
-                SettingsSection.ActivityLogs,
                 SettingsSection.Review,
                 SettingsSection.Providers,
                 SettingsSection.Network,
@@ -220,7 +216,6 @@ public static class SettingsNav
                 new("providers", "Providers", Icons.Material.Outlined.Dns),
                 new("ingestion-flow", "Ingestion Flow", Icons.Material.Outlined.AccountTree),
             ],
-            [SettingsSection.ActivityLogs] = [],
             [SettingsSection.LocalAi] =
             [
                 new("models", "Models & Runtime", Icons.Material.Outlined.Storage),
@@ -288,7 +283,6 @@ public static class SettingsNav
         SettingsSection.Libraries,
         SettingsSection.Ingestion,
         SettingsSection.Review,
-        SettingsSection.ActivityLogs,
         SettingsSection.Delivery,
         SettingsSection.Access,
         SettingsSection.Server,
@@ -365,7 +359,6 @@ public static class SettingsNav
         {
             SettingsSection.Libraries => string.IsNullOrWhiteSpace(normalized),
             SettingsSection.Providers => normalized is "" or "providers",
-            SettingsSection.ActivityLogs => string.IsNullOrWhiteSpace(normalized),
             SettingsSection.Network => normalized is "" or "overview",
             SettingsSection.Delivery or SettingsSection.Access or SettingsSection.LocalAi or SettingsSection.Plugins =>
                 string.IsNullOrWhiteSpace(normalized),
@@ -403,8 +396,7 @@ public static class SettingsNav
         {
             return section is SettingsSection.Overview
                 or SettingsSection.Playback
-                or SettingsSection.Review
-                or SettingsSection.ActivityLogs;
+                or SettingsSection.Review;
         }
 
         return section is SettingsSection.Overview or SettingsSection.Playback;

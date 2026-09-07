@@ -1,0 +1,289 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Activity
+@using MediaEngine.Contracts.Paging
+@using Microsoft.AspNetCore.WebUtilities
+@inject UIOrchestratorService Orchestrator
+@inject NavigationManager Nav
+@implements IDisposable
+
+<section class="ingestion-batch-history" aria-labelledby="batch-history-title">
+    <header class="ingestion-batch-history__title">
+        <div>
+            <h2 id="batch-history-title">Batch history</h2>
+            <p>Review completed scans and what they added to the library.</p>
+        </div>
+    </header>
+
+    <div class="ingestion-batch-history__filters">
+        <AppTextField Value="@_search"
+                      ValueChanged="OnSearchChanged"
+                      OnDebounceIntervalElapsed="OnSearchDebounced"
+                      DebounceInterval="350"
+                      Placeholder="Search batches, titles, or content…"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Outlined.Search" />
+        <div class="ingestion-batch-history__quick-filters" role="group" aria-label="Filter batch history">
+            @foreach (var option in StatusOptions)
+            {
+                <AppNativeButton Type="button"
+                                 Class="@StatusClass(option.Value)"
+                                 OnClick="@(_ => SetStatusAsync(option.Value))">@option.Label</AppNativeButton>
+            }
+        </div>
+    </div>
+
+    @if (_loading && _operations.Count == 0)
+    {
+        <AppProgressBar Indeterminate="true" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error) && _operations.Count == 0)
+    {
+        <AppAlert Tone="AppUiTone.Warning">@_error</AppAlert>
+    }
+    else if (_operations.Count == 0)
+    {
+        <AppEmptyState Title="No batches found" Message="No ingestion runs match this search and filter." />
+    }
+    else
+    {
+        <p class="ingestion-batch-history__count">
+            Showing @_operations.Count.ToString("N0") of @(_totalCount?.ToString("N0") ?? _operations.Count.ToString("N0")) batches
+        </p>
+        <div class="ingestion-batch-ledger" aria-label="Ingestion batch history">
+            @foreach (var operation in _operations)
+            {
+                <article class="ingestion-batch @ResultClass(operation)" @key="operation.BatchId">
+                    <AppNativeButton Type="button"
+                                     Class="ingestion-batch__row"
+                                     OnClick="@(_ => OpenBatch(operation))"
+                                     AriaLabel="@($"View media added by {OperationTitle(operation)}")">
+                        <time>
+                            <strong>@DateHeading(operation.StartedAt)</strong>
+                            <span>@operation.StartedAt.ToLocalTime().ToString("MMM d, yyyy")</span>
+                            <small>@operation.StartedAt.ToLocalTime().ToString("h:mm tt")</small>
+                        </time>
+                        <span class="ingestion-batch__state" aria-label="@ResultLabel(operation)"><MudIcon Icon="@ResultIcon(operation)" /></span>
+                        <span class="ingestion-batch__identity">
+                            <strong>@OperationTitle(operation)</strong>
+                            <small>@OperationSummary(operation)</small>
+                            <em><MudIcon Icon="@Icons.Material.Outlined.Description" />@operation.FilesDiscoveredCount.ToString("N0") files processed <MudIcon Icon="@Icons.Material.Outlined.Storage" />@operation.AddedGroupCount.ToString("N0") library items added</em>
+                        </span>
+                        <span class="ingestion-batch__covers" aria-hidden="true">
+                            @foreach (var item in operation.AddedPreview)
+                            {
+                                <span><AppMediaArtwork ImageUrl="@item.CoverUrl" Alt="" FallbackIcon="@MediaIcon(item.MediaType)" /></span>
+                            }
+                            @if (operation.AddedGroupCount > operation.AddedPreview.Count)
+                            {
+                                <b>+@(operation.AddedGroupCount - operation.AddedPreview.Count)<small>more</small></b>
+                            }
+                        </span>
+                        <span class="ingestion-batch__action">View media<MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></span>
+                    </AppNativeButton>
+                </article>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <AppAlert Tone="AppUiTone.Warning">@_error</AppAlert>
+        }
+
+        @if (_hasMore)
+        {
+            <div class="ingestion-batch-history__more">
+                <AppButton Label="Show older"
+                           ButtonStyle="AppButtonStyle.Outlined"
+                           EndIcon="@Icons.Material.Outlined.ExpandMore"
+                           Loading="@_loading"
+                           Disabled="@_loading"
+                           OnClick="ShowOlderAsync" />
+            </div>
+        }
+    }
+</section>
+
+@code {
+    private const int InitialBatchCount = 3;
+    private const int OlderBatchCount = 10;
+    private readonly List<ActivityBatchSummaryDto> _operations = [];
+    private string? _search;
+    private string _status = "all";
+    private int? _totalCount;
+    private bool _hasMore;
+    private bool _loading = true;
+    private string? _error;
+    private int _loadRevision;
+    private CancellationTokenSource? _loadCts;
+
+    private static readonly IReadOnlyList<AppSelectOption> StatusOptions =
+    [
+        new("all", "All"),
+        new("completed", "Completed"),
+        new("attention", "Needs attention"),
+        new("failed", "Failed"),
+    ];
+
+    protected override Task OnInitializedAsync()
+    {
+        var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
+        _search = query.TryGetValue("q", out var rawSearch) ? rawSearch.FirstOrDefault() : null;
+        return LoadAsync(reset: true);
+    }
+
+    private Task OnSearchChanged(string? value)
+    {
+        _search = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnSearchDebounced(string _) => LoadAsync(reset: true);
+
+    private async Task SetStatusAsync(string status)
+    {
+        if (string.Equals(_status, status, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _status = status;
+        await LoadAsync(reset: true);
+    }
+
+    private Task ShowOlderAsync() => LoadAsync(reset: false);
+
+    private async Task LoadAsync(bool reset)
+    {
+        var revision = ++_loadRevision;
+        _loading = true;
+        _error = null;
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+        var offset = reset ? 0 : _operations.Count;
+        var limit = reset ? InitialBatchCount : OlderBatchCount;
+        var query = new ActivityAuditQuery
+        {
+            Search = _search,
+            Status = _status == "all" ? null : _status,
+            Sort = "started",
+            SortDirection = "desc",
+            Offset = offset,
+            Limit = limit,
+        };
+
+        try
+        {
+            var page = await Orchestrator.GetActivityBatchesAsync(query, ct);
+            if (revision != _loadRevision)
+                return;
+
+            var items = page?.Items
+                .GroupBy(operation => operation.BatchId)
+                .Select(group => group.First())
+                .ToList() ?? [];
+            if (reset)
+                _operations.Clear();
+            _operations.AddRange(items.Where(item => _operations.All(existing => existing.BatchId != item.BatchId)));
+            _totalCount = page?.TotalCount;
+            _hasMore = page?.HasMore == true;
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            if (revision == _loadRevision)
+                _error = $"Batch history could not load: {ex.Message}";
+        }
+        finally
+        {
+            if (revision == _loadRevision)
+                _loading = false;
+        }
+    }
+
+    private void OpenBatch(ActivityBatchSummaryDto operation) =>
+        Nav.NavigateTo($"/settings/ingestion?runId={operation.BatchId:D}&view=all");
+
+    private string StatusClass(string value) =>
+        $"ingestion-batch-history__filter {(value.Equals(_status, StringComparison.OrdinalIgnoreCase) ? "is-active" : null)}";
+
+    private static string DateHeading(DateTimeOffset value)
+    {
+        var date = value.ToLocalTime().Date;
+        return date == DateTime.Today
+            ? "Today"
+            : date == DateTime.Today.AddDays(-1)
+                ? "Yesterday"
+                : value.ToLocalTime().ToString("MMMM d, yyyy");
+    }
+
+    private static string OperationTitle(ActivityBatchSummaryDto operation)
+    {
+        if (!string.IsNullOrWhiteSpace(operation.Category))
+            return operation.Category.EndsWith("import", StringComparison.OrdinalIgnoreCase)
+                ? operation.Category
+                : $"{operation.Category} import";
+        if (operation.MediaTypeCount > 1)
+            return "Mixed media scan";
+        return operation.MediaTypes.Count == 1
+            ? $"{LaneFor(operation.MediaTypes[0].MediaType)} import"
+            : "Library scan";
+    }
+
+    private static string OperationSummary(ActivityBatchSummaryDto operation) =>
+        operation.FailureCount > 0
+            ? "Ingestion completed with failures."
+            : operation.ReviewCount > 0
+                ? "Ingestion completed; some items need follow-up."
+                : "Ingestion completed successfully.";
+
+    private static string LaneFor(string media) => media.ToLowerInvariant() switch
+    {
+        var value when value.Contains("book") || value.Contains("comic") => "Read",
+        var value when value.Contains("movie") || value.Contains("tv") => "Watch",
+        var value when value.Contains("music") || value.Contains("audio") => "Listen",
+        _ => "Media",
+    };
+
+    private static string ResultLabel(ActivityBatchSummaryDto operation) => operation.Status?.ToLowerInvariant() switch
+    {
+        "running" or "active" or "processing" => "In progress",
+        "failed" => "Failed",
+        "abandoned" or "interrupted" => "Interrupted",
+        _ => "Completed",
+    };
+
+    private static string ResultClass(ActivityBatchSummaryDto operation) => operation.Status?.ToLowerInvariant() switch
+    {
+        "failed" => "is-danger",
+        "abandoned" or "interrupted" => "is-warning",
+        "running" or "active" or "processing" => "is-active",
+        _ => operation.ReviewCount > 0 ? "is-warning" : "is-success",
+    };
+
+    private static string ResultIcon(ActivityBatchSummaryDto operation) => operation.Status?.ToLowerInvariant() switch
+    {
+        "failed" => Icons.Material.Outlined.ErrorOutline,
+        "abandoned" or "interrupted" => Icons.Material.Outlined.WarningAmber,
+        "running" or "active" or "processing" => Icons.Material.Outlined.Sync,
+        _ => operation.ReviewCount > 0 ? Icons.Material.Outlined.WarningAmber : Icons.Material.Outlined.CheckCircle,
+    };
+
+    private static string MediaIcon(string media) => media switch
+    {
+        "Music" => Icons.Material.Outlined.Album,
+        "TV" => Icons.Material.Outlined.Tv,
+        "Movies" => Icons.Material.Outlined.Movie,
+        "Books" => Icons.Material.Outlined.MenuBook,
+        "Audiobooks" => Icons.Material.Outlined.Headphones,
+        "Comics" => Icons.Material.Outlined.CollectionsBookmark,
+        _ => Icons.Material.Outlined.PlayCircle,
+    };
+
+    public void Dispose()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+    }
+}

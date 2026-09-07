@@ -71,7 +71,7 @@ public sealed class Wave5AccessibilityGuardrailTests
     {
         var plugins = Read("src/MediaEngine.Web/Components/Settings/PluginSettingsTab.razor");
         var metadata = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
-        var activity = Read("src/MediaEngine.Web/Components/Activity/ActivityMediaTypeAuditGroup.razor");
+        var batchHistory = Read("src/MediaEngine.Web/Components/Settings/IngestionBatchHistory.razor");
 
         Assert.Contains("<AppButton Label=\"Configure\"", plugins);
         Assert.DoesNotContain("role=\"button\"", plugins);
@@ -79,7 +79,8 @@ public sealed class Wave5AccessibilityGuardrailTests
         Assert.Contains("aria-label=\"Used for\"", metadata);
         Assert.Contains("role=\"table\"", metadata);
         Assert.DoesNotContain("role=\"button\"", metadata);
-        Assert.Contains("HandleItemKeyDownAsync", activity);
+        Assert.Contains("<AppNativeButton Type=\"button\"", batchHistory);
+        Assert.Contains("AriaLabel=\"@($\"View media added by", batchHistory);
     }
 
     [Fact]

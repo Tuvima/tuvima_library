@@ -18,7 +18,7 @@ public sealed class DashboardReliabilityGuardrailTests
     [InlineData(@"src\MediaEngine.Web\Components\Library\LibraryConfigurableTable.razor", "@key=\"item.EntityId\"")]
     [InlineData(@"src\MediaEngine.Web\Shared\MainLayout.razor", "@key=\"link.Path\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Settings\SettingsReviewQueueTab.razor", "@key=\"item.Id\"")]
-    [InlineData(@"src\MediaEngine.Web\Components\Activity\ActivityBatchExplorer.razor", "@key=\"operation.BatchId\"")]
+    [InlineData(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor", "@key=\"operation.BatchId\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Settings\IngestionLiveDashboard.razor", "@key=\"StageDetailKey(detail)\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Settings\ProviderTesterToolTab.razor", "@key=\"resultKey\"")]
     public void HighRiskListComponents_UseStableKeys(string relativePath, string expectedKey)

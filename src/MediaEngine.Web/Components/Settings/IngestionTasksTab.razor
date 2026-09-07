@@ -9,7 +9,11 @@
 @implements IAsyncDisposable
 
 <div class="tl-page ingestion-operations">
-    @if (IsPagedView)
+    @if (IsHistoricalBatchView && _runId is { } batchId)
+    {
+        <IngestionMediaPagedView Mode="batch" BatchId="batchId" BackHref="/settings/ingestion" OnOpen="OpenDrawer" />
+    }
+    else if (IsCurrentPagedView)
     {
         <IngestionMediaPagedView Mode="@PagedViewMode" OnOpen="OpenDrawer" />
     }
@@ -58,7 +62,7 @@
                 {
                     <details class="ingestion-processing-details">
                         <summary>Processing details</summary>
-                        <p>Tuvima is handling @Model.ActiveOperations.ToString("N0") active and @Model.QueuedOperations.ToString("N0") queued background tasks. Technical events remain available in Activity &amp; Audit.</p>
+                        <p>Tuvima is handling @Model.ActiveOperations.ToString("N0") active and @Model.QueuedOperations.ToString("N0") queued background tasks. Completed work remains available in Batch history below.</p>
                     </details>
                 }
             </AppPanel>
@@ -95,7 +99,7 @@
             </section>
         }
 
-        <ActivityBatchExplorer Compact="true" />
+        <IngestionBatchHistory />
     }
 </div>
 
@@ -106,8 +110,11 @@
     private bool _drawerRefreshInFlight;
     private int _drawerRevision;
     private string? _view;
+    private Guid? _runId;
+    private Guid? _requestedItemId;
     private IngestionPresentationSnapshotDto Model => Dashboard.Presentation!;
-    private bool IsPagedView => _view == "all";
+    private bool IsHistoricalBatchView => _view == "all" && _runId.HasValue;
+    private bool IsCurrentPagedView => _view == "all" && !_runId.HasValue;
     private string PagedViewMode => "current";
     private bool HasFileIntakeProgress => Model.FilesDiscovered > 0 && Model.FilesProcessed >= 0;
     private double FileIntakeProgress => HasFileIntakeProgress ? Math.Clamp(Model.FilesProcessed * 100d / Model.FilesDiscovered, 0, 100) : 0;
@@ -127,21 +134,58 @@
         await Dashboard.InitializeAsync();
     }
 
-    protected override void OnParametersSet() => ResolveQuery();
+    protected override async Task OnParametersSetAsync()
+    {
+        ResolveQuery();
+        await LoadRequestedItemAsync();
+    }
 
     private void ResolveQuery()
     {
         var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
         _view = query.TryGetValue("view", out var rawView) ? rawView.FirstOrDefault()?.ToLowerInvariant() : null;
+        _runId = query.TryGetValue("runId", out var rawRunId) && Guid.TryParse(rawRunId.FirstOrDefault(), out var runId)
+            ? runId
+            : null;
+        _requestedItemId = query.TryGetValue("itemId", out var rawItemId) && Guid.TryParse(rawItemId.FirstOrDefault(), out var itemId)
+            ? itemId
+            : null;
     }
 
     private Task ScanNowAsync() => Dashboard.ScanNowAsync();
-    private Task OpenDrawer(IngestionMediaGroupDto item) { _drawerRevision++; _selectedItem = item; return Task.CompletedTask; }
-    private Task CloseDrawer() { _drawerRevision++; _selectedItem = null; return Task.CompletedTask; }
+    private Task OpenDrawer(IngestionMediaGroupDto item)
+    {
+        _drawerRevision++;
+        _selectedItem = item;
+        if (IsHistoricalBatchView)
+        {
+            _requestedItemId = item.GroupId;
+            Nav.NavigateTo(Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
+            {
+                ["itemId"] = item.GroupId,
+            }));
+        }
+        return Task.CompletedTask;
+    }
+
+    private Task CloseDrawer()
+    {
+        _drawerRevision++;
+        _selectedItem = null;
+        _requestedItemId = null;
+        if (IsHistoricalBatchView)
+        {
+            Nav.NavigateTo(Nav.GetUriWithQueryParameters(new Dictionary<string, object?>
+            {
+                ["itemId"] = null,
+            }), replace: true);
+        }
+        return Task.CompletedTask;
+    }
 
     private void OnDashboardChanged()
     {
-        if (_selectedItem is not null && Dashboard.Presentation is not null)
+        if (_selectedItem is not null && Dashboard.Presentation is not null && !IsHistoricalBatchView)
         {
             var updated = Dashboard.Presentation.CurrentMedia.FirstOrDefault(item => item.BatchId == _selectedItem.BatchId && item.GroupId == _selectedItem.GroupId);
             if (updated is not null)
@@ -150,6 +194,21 @@
                 _ = RefreshPinnedDrawerAsync(_selectedItem.BatchId, _selectedItem.GroupId, _drawerRevision);
         }
         _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadRequestedItemAsync()
+    {
+        var revision = ++_drawerRevision;
+        if (_runId is not { } runId || _requestedItemId is not { } itemId)
+        {
+            if (_requestedItemId is null)
+                _selectedItem = null;
+            return;
+        }
+
+        var item = await Api.GetIngestionMediaGroupAsync(runId, itemId);
+        if (revision == _drawerRevision && _runId == runId && _requestedItemId == itemId)
+            _selectedItem = item;
     }
 
     private async Task RefreshPinnedDrawerAsync(Guid batchId, Guid groupId, int revision)

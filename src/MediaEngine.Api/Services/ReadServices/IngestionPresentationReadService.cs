@@ -62,7 +62,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Count = operationFacts.RetryWaiting,
                 Label = $"{operationFacts.RetryWaiting:N0} {Pluralize("item", operationFacts.RetryWaiting)} waiting on provider data",
                 Description = "Tuvima will retry automatically",
-                Route = batchFacts.BatchId is { } batchId ? $"/settings/activity?runId={batchId:D}" : "/settings/activity",
+                Route = batchFacts.BatchId is { } batchId ? $"/settings/ingestion?runId={batchId:D}&view=all" : "/settings/ingestion",
             });
         }
 
@@ -74,7 +74,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Count = operationFacts.TextTrackWaiting,
                 Label = $"{operationFacts.TextTrackWaiting:N0} lyrics or subtitles in queue",
                 Description = "Fetching from providers",
-                Route = batchFacts.BatchId is { } batchId ? $"/settings/activity?runId={batchId:D}" : "/settings/activity",
+                Route = batchFacts.BatchId is { } batchId ? $"/settings/ingestion?runId={batchId:D}&view=all" : "/settings/ingestion",
             });
         }
 
@@ -258,7 +258,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Kind = "failure",
                 Count = batch.FailureCount,
                 Label = $"{batch.FailureCount:N0} {Pluralize("item", batch.FailureCount)} failed",
-                Route = $"/settings/activity?runId={batchId:D}&detail=technical",
+                Route = $"/settings/ingestion?runId={batchId:D}&view=all",
             });
         }
 

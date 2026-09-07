@@ -21,7 +21,7 @@ public static class DisplayFormat
     /// Normalizes the sign via <see cref="TimeSpan.Duration()"/> first.
     /// Originally duplicated (identical formatting logic) in
     /// Components/Settings/OverviewTab.razor and, via
-    /// <see cref="FormatDurationHoursMinutesOrNull"/>, Components/Activity/ActivityBatchExplorer.razor.
+    /// <see cref="FormatDurationHoursMinutesOrNull"/>, Components/Settings/IngestionBatchHistory.razor.
     /// </summary>
     public static string FormatDurationHoursMinutes(TimeSpan duration)
     {
@@ -34,7 +34,7 @@ public static class DisplayFormat
     /// <summary>
     /// Nullable-seconds overload of <see cref="FormatDurationHoursMinutes(TimeSpan)"/>;
     /// returns <c>null</c> when <paramref name="seconds"/> is missing or not positive.
-    /// Originally private in Components/Activity/ActivityBatchExplorer.razor.
+    /// Originally private in Components/Settings/IngestionBatchHistory.razor.
     /// </summary>
     public static string? FormatDurationHoursMinutesOrNull(double? seconds)
         => seconds is > 0 ? FormatDurationHoursMinutes(TimeSpan.FromSeconds(seconds.Value)) : null;
@@ -163,9 +163,7 @@ public static class DisplayFormat
     /// <summary>
     /// Splits a snake_case/kebab-case/camelCase identifier into title-cased words
     /// (e.g. "tmdb_id" -&gt; "TMDB ID", "MediaTypeAudit" -&gt; "Media Type Audit"),
-    /// with a few domain-specific acronym fixups (API/QID/TMDB). Originally
-    /// byte-identical private copies in Components/Activity/ActivityDisplay.cs
-    /// and ProviderCatalogueService.
+    /// with a few domain-specific acronym fixups (API/QID/TMDB).
     /// </summary>
     public static string SplitWords(string value)
     {

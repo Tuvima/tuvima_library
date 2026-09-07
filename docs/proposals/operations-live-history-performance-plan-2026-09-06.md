@@ -12,7 +12,7 @@ tags:
 
 # Operations live and historical ingestion plan
 
-Status: implementation in progress, September 6, 2026. Server-side paging, shared historical/live cards, URL state, and the primary responsive layout are implemented. A sustained real-ingestion observation and the full multi-sample browser performance matrix remain outstanding.
+Status: implementation in progress, updated September 7, 2026. Server-side paging, shared historical/live cards, URL state, and the primary responsive layout are implemented. Product review consolidated batch history into Ingestion and removed the separate Activity & Audit route. A sustained real-ingestion observation and the full multi-sample browser performance matrix remain outstanding.
 
 Initial implementation evidence:
 
@@ -22,7 +22,7 @@ Initial implementation evidence:
 - Operations artwork URLs request small renditions for history previews and medium renditions for grids; browser image decoding is asynchronous.
 - Expanded batch media now uses the same `IngestionMediaCard`, facet renderer, and Operations drawer as live ingestion.
 - Selecting a finished batch now opens that shared media browser directly. Search, lane, newest/oldest sort, Cards/List, page, and selected-item state are encoded in the URL and survive refresh/navigation.
-- Ingestion shows the three most recent batches beneath live work and links to the complete Activity history. Both surfaces use the same batch rows, and there is one batch detail destination.
+- Ingestion shows the three most recent batches beneath live work, provides search and quick outcome filters, and appends ten older rows at a time. There is one batch list and one batch detail destination.
 - Historical child labels use only batch-scoped facts. Catalogue totals are no longer presented as ingestion denominators, and a facet says queued only when a durable queued operation exists.
 - Completed child counts use distinct media identities instead of asset rows or track positions. Duplicate Queen assets therefore report five tracks added, while a single-part audiobook such as Dune no longer shows a vague files-added line.
 - Groups without a real display title are withheld even when artwork has arrived; internal `Identifying media` placeholders no longer enter finished media lists or counts.
@@ -36,10 +36,10 @@ This proposal updates the remaining presentation and verification work described
 An administrator can see real ingestion progress, quickly open a large previous run, and browse exactly what that run added. Large history must remain responsive while a new ingestion is running.
 
 - Image 1 defines the shared View All composition: prominent search, scope and filters, compact totals, artwork-led cards, and paging. Its example counts and arbitrary file/chapter denominators are illustrative, not product rules.
-- Image 2 defines compact completed-run rows and the restrained summary/filter hierarchy. Keep the actual Tuvima Operations shell and paired Ingestion / Activity & Audit navigation; do not reproduce the mockup's alternative global sidebar.
+- Image 2 defines compact completed-run rows and the restrained summary/filter hierarchy within the single Ingestion page; do not reproduce the mockup's alternative global sidebar.
 - Image 3 defines live card hierarchy: dominant correctly proportioned artwork, thin state accent, title/byline/type, truthful child progress, and small labeled facet indicators. Apply the attached written semantic color rules where the images differ.
 - Use existing tokens and Material Outlined icon helpers. Processing and finishing details use blue/purple; ready uses green; ordinary waits use muted neutral colors; actionable review uses amber; terminal failures use red. Text and icons always accompany color. No status pills or large colored backgrounds.
-- Preserve administrative jobs and operation/category/record drilldown within Activity & Audit. Finished ingestions are its primary view, not a replacement for other audit history. Human milestones belong inside the expanded run, not a new page-level timeline mode.
+- Preserve durable audit facts in backend records and expose relevant details from the selected batch or diagnostics. Do not add a separate page-level timeline mode.
 
 ## What repository inspection established
 
@@ -125,8 +125,8 @@ Use these canonical URLs; replace current internal links without adding legacy a
 | --- | --- |
 | Live summary | `/settings/ingestion` |
 | Live View All | `/settings/ingestion?view=all` |
-| Finished list | `/settings/activity` |
-| Historical batch | `/settings/activity?runId=<guid>&view=all` |
+| Batch history | `/settings/ingestion` |
+| Historical batch | `/settings/ingestion?runId=<guid>&view=all` |
 | Selected group | Add `itemId=<groupGuid>` and explicit `runId` when needed in live scope |
 
 Serialize `q`, `lane`, `status`, `sort`, `page`, `layout`, and list date range in query state. Route/source selects navigate to the appropriate live or run scope. Keep any retained Recently Added day browse explicitly date-scoped; it must not masquerade as one completed run. Query changes are observed after initialization. Push meaningful navigation and replace debounced search updates to avoid filling browser history. Back/Forward/refresh restore the expanded run, filters, page, layout, and drawer; closing the drawer removes only its selection parameters. Guard asynchronous responses when switching runs quickly.

@@ -122,7 +122,6 @@ public sealed class SettingsNavTests
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Overview));
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Playback));
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.AdminOverview));
-        Assert.Empty(SettingsNav.GetSubsections(SettingsSection.ActivityLogs));
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Review));
         Assert.Empty(SettingsNav.GetSubsections(SettingsSection.Server));
     }
@@ -138,7 +137,6 @@ public sealed class SettingsNavTests
         Assert.False(SettingsNav.IsMobileRouteAvailable(SettingsSection.Network, "advanced"));
         Assert.True(SettingsNav.IsMobileRouteAvailable(SettingsSection.Providers, "providers"));
         Assert.False(SettingsNav.IsMobileRouteAvailable(SettingsSection.Providers, "providers", "tmdb"));
-        Assert.True(SettingsNav.IsMobileRouteAvailable(SettingsSection.ActivityLogs));
     }
 
     [Theory]
@@ -153,7 +151,6 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Delivery, "/settings/delivery")]
     [InlineData(SettingsSection.Access, "/settings/access")]
     [InlineData(SettingsSection.Server, "/settings/backup-recovery")]
-    [InlineData(SettingsSection.ActivityLogs, "/settings/activity")]
     [InlineData(SettingsSection.Review, "/settings/review")]
     [InlineData(SettingsSection.ProviderTester, "/settings/provider-tester")]
     [InlineData(SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
@@ -226,6 +223,7 @@ public sealed class SettingsNavTests
     [InlineData("users")]
     [InlineData("security")]
     [InlineData("api-keys")]
+    [InlineData("activity")]
     public void ResolveRoute_RemovedAliasesAreUnknown(string alias)
     {
         var resolution = SettingsNav.ResolveRoute(alias, "Administrator");
@@ -290,7 +288,6 @@ public sealed class SettingsNavTests
             "System Overview",
             "Libraries",
             "Operations",
-            "Activity & Audit",
             "Needs Review",
             "Metadata",
             "Network & Remote Access",
@@ -323,7 +320,6 @@ public sealed class SettingsNavTests
 
     [Theory]
     [InlineData("review", SettingsSection.Review, "/settings/review")]
-    [InlineData("activity", SettingsSection.ActivityLogs, "/settings/activity")]
     [InlineData("provider-tester", SettingsSection.ProviderTester, "/settings/provider-tester")]
     [InlineData("enrichment-tester", SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
     public void ResolveRoute_SecondaryRoutes_StillResolveForAdmins(string segment, SettingsSection expectedSection, string expectedRoute)
@@ -376,7 +372,7 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void Curator_SeesPersonalReviewAndAuditButNotServerAdministration()
+    public void Curator_SeesPersonalReviewButNotServerAdministration()
     {
         var visible = SettingsNav.TreeGroups
             .SelectMany(group => SettingsNav.FilteredTreeItems(group, "StandardUser"))
@@ -386,7 +382,6 @@ public sealed class SettingsNavTests
         Assert.Contains(SettingsSection.Overview, visible);
         Assert.Contains(SettingsSection.Playback, visible);
         Assert.Contains(SettingsSection.Review, visible);
-        Assert.Contains(SettingsSection.ActivityLogs, visible);
         Assert.DoesNotContain(SettingsSection.Server, visible);
         Assert.DoesNotContain(SettingsSection.Providers, visible);
     }

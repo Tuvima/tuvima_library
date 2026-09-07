@@ -199,7 +199,7 @@
         : "main-content-with-topbar";
     private string MainContainerClass => IsCinematicShell ? "px-0 py-0" : "py-6 px-0";
     private bool CanViewReview => SettingsNav.IsVisible(SettingsSection.Review, _profileRole);
-    private bool CanViewSystemActivity => SettingsNav.IsVisible(SettingsSection.ActivityLogs, _profileRole);
+    private bool CanViewSystemActivity => SettingsNav.IsVisible(SettingsSection.Ingestion, _profileRole);
     private IReadOnlyList<ShellNavLink> IntentDockLinks => DeviceContext.Settings.Shell.IntentDockItems
         .Select(item => _intentDockCatalog.TryGetValue(item, out var link) ? link : (ShellNavLink?)null)
         .Where(link => link.HasValue)

@@ -79,10 +79,7 @@
         if (!CanOpenSystemActivity)
             return;
 
-        var destination = Snapshot.Primary?.Kind is ShellActivityKind.Ingestion or ShellActivityKind.Enrichment
-            ? "/settings/ingestion"
-            : "/settings/activity";
-        Nav.NavigateTo(destination);
+        Nav.NavigateTo("/settings/ingestion");
     }
 
     private static string FormatActivity(ShellActivityItem activity) => activity.ProgressPercent is { } progress

@@ -55,9 +55,6 @@
                         <span class="settings-operations-navigation__count">@_reviewCount</span>
                     }
                 </a>
-                <a href="/settings/activity"
-                   class="@(IsOperationsView(SettingsSection.ActivityLogs) ? "is-active" : null)"
-                   aria-current="@(IsOperationsView(SettingsSection.ActivityLogs) ? "page" : null)">Activity &amp; Audit</a>
             </nav>
         }
 
@@ -148,9 +145,6 @@
                         case SettingsSection.Server:
                             <BackupRecoveryPanel />
                             break;
-                        case SettingsSection.ActivityLogs:
-                            <ActivityTab Subsection="@_activeSubsection" />
-                            break;
                         case SettingsSection.Review:
                             <SettingsReviewQueueTab />
                             break;
@@ -214,7 +208,7 @@
             .ToList();
 
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
-    private bool IsOperationsSection => _activeSection is SettingsSection.Ingestion or SettingsSection.Review or SettingsSection.ActivityLogs;
+    private bool IsOperationsSection => _activeSection is SettingsSection.Ingestion or SettingsSection.Review;
     private bool IsOperationsWorkspace => IsOperationsSection && SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole);
     private string BrowserTitle => string.IsNullOrWhiteSpace(_activeSubsection)
         ? $"{GetHeroTitle()} - Tuvima Library"
@@ -511,7 +505,7 @@
     private IReadOnlyList<SettingsItemDef> GetVisibleTreeItems(SettingsTreeGroupDef group) =>
         SettingsNav.FilteredTreeItems(group, _currentRole)
             .Where(item => !DeviceContext.IsMobile || SettingsNav.IsVisibleOnMobile(item.Value))
-            .Where(item => item.Value is not SettingsSection.ActivityLogs and not SettingsSection.Review || !SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole))
+            .Where(item => item.Value is not SettingsSection.Review || !SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole))
             .Where(IsItemEnabledByUiSettings)
             .ToList();
 
@@ -595,7 +589,6 @@
             {
                 SettingsSection.Ingestion => "Ingestion",
                 SettingsSection.Review => "Needs Review",
-                SettingsSection.ActivityLogs => "Activity & Audit",
                 _ => "Operations",
             };
 
@@ -619,9 +612,6 @@
         SettingsSection.Network => "Manage how devices reach Tuvima at home and away without exposing unnecessary technical detail.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
         SettingsSection.Providers => GetMetadataDescription(),
-        SettingsSection.ActivityLogs => IsOperationsWorkspace
-            ? "Review completed ingestion runs and what was added to the library."
-            : "See meaningful system activity and important administrative changes.",
         SettingsSection.LocalAi => "Manage local intelligence features while keeping technical details out of the way.",
         SettingsSection.Plugins => "Manage installed extensions and keep plugin health under control.",
         SettingsSection.Delivery => "Manage server-side playback quality, transcoding, storage, and delivery health.",

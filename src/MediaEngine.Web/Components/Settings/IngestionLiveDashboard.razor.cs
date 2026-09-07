@@ -824,10 +824,10 @@ public partial class IngestionLiveDashboard
         return "Update";
     }
 
-    private static string BatchActivityHref(IngestionOperationsBatchDto batch) =>
+    private static string BatchHistoryHref(IngestionOperationsBatchDto batch) =>
         batch.BatchId == Guid.Empty
-            ? "/settings/activity"
-            : $"/settings/activity?runId={batch.BatchId:D}";
+            ? "/settings/ingestion"
+            : $"/settings/ingestion?runId={batch.BatchId:D}&view=all";
 
     private string BatchCardClass(IngestionOperationsBatchDto batch)
     {

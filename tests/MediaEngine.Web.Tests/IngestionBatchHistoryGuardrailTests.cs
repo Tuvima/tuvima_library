@@ -1,0 +1,36 @@
+namespace MediaEngine.Web.Tests;
+
+public sealed class IngestionBatchHistoryGuardrailTests
+{
+    [Fact]
+    public void Ingestion_ComposesOnePagedBatchHistoryAndDetailRoute()
+    {
+        var ingestion = Read(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor");
+        var history = Read(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor");
+        var historyCss = Read(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor.css");
+        var pagedMedia = Read(@"src\MediaEngine.Web\Components\Settings\IngestionMediaPagedView.razor");
+        var settings = Read(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
+        var settingsNav = Read(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
+
+        Assert.Contains("<IngestionBatchHistory", ingestion, StringComparison.Ordinal);
+        Assert.Contains("Mode=\"batch\"", ingestion, StringComparison.Ordinal);
+        Assert.Contains("runId", ingestion, StringComparison.Ordinal);
+        Assert.Contains("GetActivityBatchesAsync", history, StringComparison.Ordinal);
+        Assert.Contains("InitialBatchCount = 3", history, StringComparison.Ordinal);
+        Assert.Contains("OlderBatchCount = 10", history, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Show older\"", history, StringComparison.Ordinal);
+        Assert.Contains("Search batches, titles, or content", history, StringComparison.Ordinal);
+        Assert.Contains("Needs attention", history, StringComparison.Ordinal);
+        Assert.Contains("GroupBy(operation => operation.BatchId)", history, StringComparison.Ordinal);
+        Assert.Contains("/settings/ingestion?runId=", history, StringComparison.Ordinal);
+        Assert.Contains("view=all", history, StringComparison.Ordinal);
+        Assert.Contains("GetActivityBatchMediaGroupsAsync", pagedMedia, StringComparison.Ordinal);
+        Assert.Contains("@media(max-width:900px)", historyCss, StringComparison.Ordinal);
+        Assert.DoesNotContain("Activity &amp; Audit", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("ActivityLogs", settingsNav, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"activity\"", settingsNav, StringComparison.Ordinal);
+    }
+
+    private static string Read(string relativePath) =>
+        File.ReadAllText(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath)));
+}

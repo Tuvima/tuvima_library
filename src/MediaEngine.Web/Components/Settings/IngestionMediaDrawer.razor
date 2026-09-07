@@ -71,7 +71,7 @@
                 </div>
 
                 <footer>
-                    <AppButton Href="@($"/settings/activity?runId={Item.BatchId:D}&view=all")" Label="View batch" StartIcon="@Icons.Material.Outlined.ReceiptLong" />
+                    <AppButton Href="@($"/settings/ingestion?runId={Item.BatchId:D}&view=all")" Label="View batch" StartIcon="@Icons.Material.Outlined.ReceiptLong" />
                     @if (!string.IsNullOrWhiteSpace(Item.DetailRoute))
                     {
                         <AppButton Href="@Item.DetailRoute" Label="Open item" StartIcon="@Icons.Material.Outlined.OpenInNew" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" />

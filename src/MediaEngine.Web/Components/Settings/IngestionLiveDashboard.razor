@@ -134,10 +134,10 @@
                                    title="Start the scan again after a failed update."
                                    OnClick="OnScanNow" />
                     </MudTooltip>
-                    <MudTooltip Text="Open the activity log for ingestion work." Placement="Placement.Bottom">
-                        <AppButton Label="View Activity"
-                                   Href="/settings/activity"
-                                   title="Open the activity log for ingestion work."
+                    <MudTooltip Text="Open batch history for ingestion work." Placement="Placement.Bottom">
+                        <AppButton Label="View batch history"
+                                   Href="/settings/ingestion"
+                                   title="Open batch history for ingestion work."
                                    EndIcon="@Icons.Material.Outlined.ChevronRight" />
                     </MudTooltip>
                 </div>
@@ -257,7 +257,7 @@
                                 </span>
                             </AppNativeButton>
                             <a class="library-update-batch__activity"
-                               href="@BatchActivityHref(batch)"
+                               href="@BatchHistoryHref(batch)"
                                title="@BatchActivityTooltip(batch)"
                                aria-label="@BatchActivityTooltip(batch)">
                                 <MudTooltip Text="@BatchActivityTooltip(batch)" Placement="Placement.Top">

@@ -73,7 +73,7 @@
     private string Title => Mode.ToLowerInvariant() switch { "current" => "Being Added Now", "batch" => "Added in this batch", _ => "Recently Added" };
     private string Subtitle => Mode.ToLowerInvariant() switch { "current" => "All grouped media currently being processed.", "batch" => "Browse the media groups recorded for this ingestion run.", _ => "Media that entered the library, grouped by its addition event." };
     private string ResolvedBackHref => BackHref ?? "/settings/ingestion";
-    private string BackLabel => Mode.Equals("batch", StringComparison.OrdinalIgnoreCase) ? "Back to activity" : "Back to Ingestion";
+    private string BackLabel => "Back to Ingestion";
 
     protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
 
