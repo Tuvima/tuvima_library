@@ -46,12 +46,16 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
 
         var service = new IngestionPresentationReadService(_db);
         var page = await service.GetCurrentMediaAsync(0, 50);
+        var snapshot = await service.GetSnapshotAsync();
 
         Assert.Equal(5, page.TotalCount);
+        Assert.Equal(5, snapshot.CurrentMediaTotal);
+        Assert.Equal(5, snapshot.ReadyGroups);
         var one = Assert.Single(page.Items, item => item.GroupId == completeAlbum);
         Assert.Equal(17, one.ChildCompleted);
         Assert.Equal(17, one.ChildExpected);
         Assert.Equal("tracks", one.ChildUnit);
+        Assert.Equal("notApplicable", one.Relationships.State);
 
         var partial = Assert.Single(page.Items, item => item.GroupId == partialAlbum);
         Assert.Equal(14, partial.ChildCompleted);
@@ -84,6 +88,62 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         Assert.Equal(2, page.TotalCount);
         Assert.Equal(2, page.Items.Select(item => item.GroupId).Distinct().Count());
         Assert.All(page.Items, item => Assert.Equal("The Same Title", item.Title));
+    }
+
+    [Fact]
+    public async Task CurrentMedia_CountsDistinctTracksInsteadOfDuplicateAssetsOrTrackNumbers()
+    {
+        var batchId = AddBatch("running", 6, 6);
+        var albumId = AddContainer("Music", "A Night at the Opera", expectedKey: "track_count", expectedValue: "12");
+        AddChildren(batchId, albumId, "Music", "Song", 5, "track_number");
+
+        using (var conn = _db.CreateConnection())
+        {
+            var child = conn.QuerySingle<ChildIdentity>("""
+                SELECT w.id AS WorkId, e.id AS EditionId
+                FROM works w
+                JOIN editions e ON e.work_id = w.id
+                WHERE w.parent_work_id = @albumId
+                ORDER BY w.id
+                LIMIT 1;
+                """, new { albumId });
+            var duplicateAssetId = Guid.NewGuid();
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            conn.Execute("""
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, presented_at)
+                VALUES (@duplicateAssetId, @editionId, @hash, @path, @now);
+                """, new
+            {
+                duplicateAssetId,
+                editionId = child.EditionId,
+                hash = $"hash-{duplicateAssetId:N}",
+                path = $"C:/watch/{duplicateAssetId:N}.media",
+                now,
+            });
+            InsertLog(conn, Guid.NewGuid(), batchId, duplicateAssetId, "Music", "Duplicate encoding", now);
+        }
+
+        var service = new IngestionPresentationReadService(_db);
+        var item = Assert.Single((await service.GetCurrentMediaAsync(0, 50)).Items);
+
+        Assert.Equal(5, item.ChildCompleted);
+        Assert.Equal(12, item.ChildExpected);
+        Assert.Equal("tracks", item.ChildUnit);
+    }
+
+    [Fact]
+    public async Task CurrentMedia_PagesGroupsBeforeProjectingDetails()
+    {
+        var batchId = AddBatch("running", 75, 75);
+        for (var index = 1; index <= 75; index++)
+            AddStandalone(batchId, "Movies", $"Current Movie {index:00}");
+
+        var service = new IngestionPresentationReadService(_db);
+        var page = await service.GetCurrentMediaAsync(50, 50);
+
+        Assert.Equal(75, page.TotalCount);
+        Assert.Equal(25, page.Items.Count);
+        Assert.False(page.HasMore);
     }
 
     [Fact]
@@ -129,6 +189,72 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task HistoricalBatch_DoesNotUseCatalogueTotalsAsRunDenominators()
+    {
+        var batchId = AddBatch("completed", 3, 3);
+        var album = AddContainer("Music", "Partial Album", expectedKey: "track_count", expectedValue: "17");
+        AddChildren(batchId, album, "Music", "Track", 3, "track_number");
+        using (var conn = _db.CreateConnection())
+            conn.Execute("UPDATE media_assets SET presented_at = @now;", new { now = DateTimeOffset.UtcNow.ToString("O") });
+
+        var service = new IngestionPresentationReadService(_db);
+        var page = await service.GetBatchMediaAsync(batchId, 0, 50);
+
+        var item = Assert.Single(page.Items);
+        Assert.Equal(3, item.ChildCompleted);
+        Assert.Null(item.ChildExpected);
+        Assert.Equal("tracks", item.ChildUnit);
+    }
+
+    [Fact]
+    public async Task BatchMedia_AppliesSearchAndLaneBeforePaging()
+    {
+        var batchId = AddBatch("completed", 61, 61);
+        for (var index = 1; index <= 60; index++)
+            AddStandalone(batchId, "Movies", $"Movie {index:00}", presented: true);
+        AddStandalone(batchId, "Books", "The Needle Book", presented: true);
+
+        var service = new IngestionPresentationReadService(_db);
+        var page = await service.GetBatchMediaAsync(batchId, 0, 50, "needle", "Read", "newest");
+
+        var item = Assert.Single(page.Items);
+        Assert.Equal("The Needle Book", item.Title);
+        Assert.Equal("Books", item.MediaType);
+        Assert.Equal(1, page.TotalCount);
+    }
+
+    [Fact]
+    public async Task BatchMedia_HidesArtworkBearingGroupsUntilTheyHaveARealTitle()
+    {
+        var batchId = AddBatch("completed", 1, 1);
+        var workId = AddStandalone(batchId, "Books", "Temporary detection", presented: true);
+        using (var conn = _db.CreateConnection())
+        {
+            conn.Execute("DELETE FROM canonical_values WHERE entity_id = @workId AND key = 'title';", new { workId });
+            conn.Execute("UPDATE ingestion_log SET detected_title = NULL, normalized_title = NULL WHERE ingestion_run_id = @batchId;", new { batchId });
+            conn.Execute("""
+                INSERT INTO entity_assets (
+                    id, entity_id, entity_type, asset_type, local_image_path,
+                    aspect_class, asset_class, storage_location, owner_scope,
+                    is_preferred, created_at)
+                VALUES (
+                    @id, @workId, 'Work', 'CoverArt', 'C:/test/premature-cover.jpg',
+                    'Portrait', 'Artwork', 'Central', 'Work', 1, @now);
+                """, new { id = Guid.NewGuid(), workId, now = DateTimeOffset.UtcNow.ToString("O") });
+        }
+
+        var service = new IngestionPresentationReadService(_db);
+        var page = await service.GetBatchMediaAsync(batchId, 0, 50);
+        var presentation = await service.GetBatchPresentationAsync(batchId);
+
+        Assert.Empty(page.Items);
+        Assert.Equal(0, page.TotalCount);
+        Assert.NotNull(presentation);
+        Assert.Empty(presentation.AddedPreview);
+        Assert.Equal(0, presentation.AddedTotal);
+    }
+
+    [Fact]
     public async Task RecentAdditions_DoesNotTreatLaterReprocessingAsANewAddition()
     {
         var additionBatch = AddBatch("completed", 1, 1);
@@ -163,6 +289,87 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
 
         var item = Assert.Single(page.Items);
         Assert.Equal(additionBatch, item.BatchId);
+    }
+
+    [Fact]
+    public async Task RecentAdditions_AppliesSearchAndLaneBeforeBuildingThePage()
+    {
+        var batchId = AddBatch("completed", 61, 61);
+        for (var index = 1; index <= 60; index++)
+            AddStandalone(batchId, "Movies", $"Movie {index:00}", presented: true);
+        AddStandalone(batchId, "Books", "The Needle Book", presented: true);
+
+        var service = new IngestionPresentationReadService(_db);
+        var page = await service.GetRecentAdditionsAsync("needle", "Read", null, null, 0, 50);
+
+        var item = Assert.Single(page.Items);
+        Assert.Equal("The Needle Book", item.Title);
+        Assert.Equal("Books", item.MediaType);
+        Assert.Equal(1, page.TotalCount);
+    }
+
+    [Fact]
+    public async Task OperationsArtwork_UsesSmallPreviewAndMediumGridRenditions()
+    {
+        var batchId = AddBatch("completed", 1, 1);
+        var workId = AddStandalone(batchId, "Books", "Sized Artwork", presented: true);
+        var artworkId = Guid.NewGuid();
+        using (var conn = _db.CreateConnection())
+        {
+            conn.Execute("""
+                INSERT INTO entity_assets (
+                    id, entity_id, entity_type, asset_type, local_image_path,
+                    aspect_class, asset_class, storage_location, owner_scope,
+                    is_preferred, created_at)
+                VALUES (
+                    @artworkId, @workId, 'Work', 'CoverArt', 'C:/test/cover.jpg',
+                    'Portrait', 'Artwork', 'Central', 'Work', 1, @now);
+                """, new { artworkId, workId, now = DateTimeOffset.UtcNow.ToString("O") });
+        }
+
+        var service = new IngestionPresentationReadService(_db);
+        var presentation = await service.GetBatchPresentationAsync(batchId);
+        var page = await service.GetBatchMediaAsync(batchId, 0, 50);
+
+        Assert.NotNull(presentation);
+        Assert.EndsWith($"/stream/artwork/{artworkId:D}?size=s", Assert.Single(presentation.AddedPreview).CoverUrl);
+        Assert.EndsWith($"/stream/artwork/{artworkId:D}?size=m", Assert.Single(page.Items).CoverUrl);
+    }
+
+    [Fact]
+    public async Task ActivitySummary_CountsGroupedAdditionsWithoutBuildingMediaCards()
+    {
+        var batchId = AddBatch("completed", 17, 17);
+        var album = AddContainer("Music", "One Album", expectedKey: "track_count", expectedValue: "17");
+        AddChildren(batchId, album, "Music", "Track", 17, "track_number");
+        using (var conn = _db.CreateConnection())
+            conn.Execute("UPDATE media_assets SET presented_at = @now;", new { now = DateTimeOffset.UtcNow.ToString("O") });
+
+        var service = new IngestionPresentationReadService(_db);
+        var summary = await service.GetActivitySummaryAsync();
+
+        Assert.Equal(1, summary.ItemsAddedToday);
+        Assert.Equal(1, summary.LastGroupsAdded);
+    }
+
+    [Fact]
+    public async Task Snapshot_BoundsRecentDayCardsWhileKeepingDayTotals()
+    {
+        var firstDay = DateTimeOffset.UtcNow.AddDays(-2);
+        var secondDay = DateTimeOffset.UtcNow.AddDays(-1);
+        var firstBatch = AddBatch("completed", 4, 4, firstDay);
+        var secondBatch = AddBatch("completed", 5, 5, secondDay);
+        for (var index = 1; index <= 4; index++)
+            AddStandalone(firstBatch, "Books", $"Earlier Book {index}", presented: true, occurredAt: firstDay);
+        for (var index = 1; index <= 5; index++)
+            AddStandalone(secondBatch, "Movies", $"Recent Movie {index}", presented: true, occurredAt: secondDay);
+
+        var service = new IngestionPresentationReadService(_db);
+        var snapshot = await service.GetSnapshotAsync(currentLimit: 8, recentDayLimit: 2, recentItemsPerDay: 2);
+
+        Assert.Equal(2, snapshot.RecentDays.Count);
+        Assert.All(snapshot.RecentDays, day => Assert.Equal(2, day.Items.Count));
+        Assert.Equal([5, 4], snapshot.RecentDays.Select(day => day.TotalCount).ToArray());
     }
 
     private Guid AddBatch(string status, int total, int processed, DateTimeOffset? occurredAt = null)
@@ -231,13 +438,18 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         }
     }
 
-    private Guid AddStandalone(Guid batchId, string mediaType, string title, bool presented = false)
+    private Guid AddStandalone(
+        Guid batchId,
+        string mediaType,
+        string title,
+        bool presented = false,
+        DateTimeOffset? occurredAt = null)
     {
         var workId = Guid.NewGuid();
         var editionId = Guid.NewGuid();
         var assetId = Guid.NewGuid();
         var logId = Guid.NewGuid();
-        var now = DateTimeOffset.UtcNow.ToString("O");
+        var now = (occurredAt ?? DateTimeOffset.UtcNow).ToString("O");
         using var conn = _db.CreateConnection();
         conn.Execute("INSERT INTO works (id, media_type, work_kind) VALUES (@workId, @mediaType, 'standalone');", new { workId, mediaType });
         conn.Execute("INSERT INTO editions (id, work_id, format_label) VALUES (@editionId, @workId, 'Test');", new { editionId, workId });
@@ -257,5 +469,11 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
                 @logId, @path, @assetId, @hash, 'registered', @mediaType,
                 @title, @title, @batchId, @now, @now);
             """, new { logId, path = $"C:/watch/{assetId:N}.media", assetId, hash = $"hash-{assetId:N}", mediaType, title, batchId, now });
+    }
+
+    private sealed class ChildIdentity
+    {
+        public Guid WorkId { get; init; }
+        public Guid EditionId { get; init; }
     }
 }

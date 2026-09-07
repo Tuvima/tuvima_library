@@ -1,10 +1,10 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Contracts.Ingestion
 
-<div class="ingestion-media-card-shell">
+<div class="ingestion-media-card-shell is-@Item.Availability">
 <AppNativeButton Type="button"
                  Class="ingestion-media-card"
-                 AriaLabel="@($"Open ingestion details for {Item.Title}. {Item.StatusLabel}")"
+                 AriaLabel="@CardAriaLabel"
                  OnClick="@(_ => OnOpen.InvokeAsync(Item))">
     <span class="ingestion-media-card__art">
         <AppMediaArtwork ImageUrl="@Item.CoverUrl" Alt="" FallbackIcon="@MediaIcon(Item.MediaType)" />
@@ -12,7 +12,10 @@
     <span class="ingestion-media-card__body">
         <strong title="@Item.Title">@Item.Title</strong>
         <small><MudIcon Icon="@MediaIcon(Item.MediaType)" /><span title="@DisplaySubtitle">@DisplaySubtitle</span></small>
-        <span class="ingestion-media-card__status is-@Item.Availability">@ProgressLabel</span>
+        @if (!string.IsNullOrWhiteSpace(ProgressLabel))
+        {
+            <span class="ingestion-media-card__status is-@Item.Availability">@ProgressLabel</span>
+        }
         @if (HasProgress)
         {
             <AppProgressBar Value="@ProgressValue" ShowValue="false" Class="ingestion-media-card__progress" />
@@ -29,11 +32,18 @@
     private bool HasProgress => Item.ChildExpected is > 0 && Item.ChildCompleted >= 0;
     private double ProgressValue => Item.ChildExpected is > 0 ? Math.Clamp(Item.ChildCompleted * 100d / Item.ChildExpected.Value, 0, 100) : 0;
     private string DisplaySubtitle => string.IsNullOrWhiteSpace(Item.Subtitle) ? FriendlyType(Item.MediaType) : Item.Subtitle;
-    private string ProgressLabel => Item.ChildUnit is not null
+    private string? ProgressLabel => Item.ChildUnit is not null
         ? Item.ChildExpected is > 0
             ? $"{Item.ChildCompleted:N0} / {Item.ChildExpected:N0} {Item.ChildUnit} added"
-            : $"{Item.ChildCompleted:N0} {Item.ChildUnit} added · {Item.StatusLabel}"
-        : Item.StatusLabel;
+            : $"{Item.ChildCompleted:N0} {DisplayChildUnit(Item.ChildCompleted)} added"
+        : Item.Availability.Equals("ready", StringComparison.OrdinalIgnoreCase) ? null : Item.StatusLabel;
+    private string CardAriaLabel => Item.Availability.Equals("ready", StringComparison.OrdinalIgnoreCase)
+        ? $"Open ingestion details for {Item.Title}"
+        : $"Open ingestion details for {Item.Title}. {Item.StatusLabel}";
+
+    private string DisplayChildUnit(int count) => count == 1 && Item.ChildUnit!.EndsWith('s')
+        ? Item.ChildUnit[..^1]
+        : Item.ChildUnit!;
 
     internal static string FriendlyType(string mediaType) => mediaType switch
     {

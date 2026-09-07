@@ -47,6 +47,9 @@ public interface IIngestionPresentationReadService
         Guid batchId,
         int offset,
         int limit,
+        string? search = null,
+        string? lane = null,
+        string? sort = null,
         CancellationToken ct = default);
 
     Task<IReadOnlyDictionary<Guid, PagedResponse<IngestionMediaGroupDto>>> GetBatchMediaPreviewsAsync(

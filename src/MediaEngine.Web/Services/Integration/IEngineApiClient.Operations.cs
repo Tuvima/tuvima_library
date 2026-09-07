@@ -154,7 +154,13 @@ public partial interface IEngineApiClient
         Guid batchId, CancellationToken ct = default);
 
     Task<PagedResponse<IngestionMediaGroupDto>?> GetActivityBatchMediaGroupsAsync(
-        Guid batchId, int offset = 0, int limit = 50, CancellationToken ct = default);
+        Guid batchId,
+        int offset = 0,
+        int limit = 50,
+        string? search = null,
+        string? lane = null,
+        string? sort = null,
+        CancellationToken ct = default);
 
     /// <summary>GET /operations — durable media operations by queue order.</summary>
     Task<IReadOnlyList<OperationDto>> GetMediaOperationsAsync(

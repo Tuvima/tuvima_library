@@ -2,7 +2,7 @@
 .ingestion-facet{position:relative;display:grid;place-items:center;width:1.55rem;height:1.55rem;color:var(--mud-palette-text-secondary);border-radius:50%}
 .ingestion-facet ::deep>.mud-icon-root{font-size:1.05rem}
 .ingestion-facet__state{position:absolute!important;right:-.25rem;bottom:-.2rem;font-size:.65rem!important;background:var(--app-surface);border-radius:50%}
-.ingestion-facet.is-complete .ingestion-facet__state{color:var(--mud-palette-success)}
+.ingestion-facet.is-complete{color:var(--mud-palette-success);background:color-mix(in srgb,var(--mud-palette-success) 12%,transparent)}.ingestion-facet.is-complete .ingestion-facet__state{color:var(--mud-palette-success)}
 .ingestion-facet.is-active{color:var(--mud-palette-primary)}
 .ingestion-facet.is-active .ingestion-facet__state{animation:ingestion-facet-spin 1.1s linear infinite}
 .ingestion-facet.is-attention,.ingestion-facet.is-attention .ingestion-facet__state{color:var(--mud-palette-warning)}

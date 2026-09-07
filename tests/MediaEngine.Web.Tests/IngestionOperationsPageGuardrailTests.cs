@@ -23,14 +23,14 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionMediaCard", source, StringComparison.Ordinal);
-        Assert.Contains("<RecentlyAddedDateRow", source, StringComparison.Ordinal);
+        Assert.Contains("<ActivityBatchExplorer Compact=\"true\"", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionMediaDrawer", source, StringComparison.Ordinal);
         Assert.Contains("RefreshPinnedDrawerAsync", source, StringComparison.Ordinal);
         Assert.Contains("_selectedItem.BatchId == batchId", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionMediaPagedView", source, StringComparison.Ordinal);
         Assert.Contains("Adding media", source, StringComparison.Ordinal);
         Assert.Contains("Being Added Now", source, StringComparison.Ordinal);
-        Assert.Contains("Recently Added", source, StringComparison.Ordinal);
+        Assert.Contains("Recent batches", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Activity\ActivityBatchExplorer.razor")), StringComparison.Ordinal);
         Assert.Contains("Processing details", source, StringComparison.Ordinal);
         Assert.Contains("File intake", source, StringComparison.Ordinal);
         Assert.DoesNotContain("file checks complete", source, StringComparison.Ordinal);
@@ -44,7 +44,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Single(Regex.Matches(source, "Label=\"Scan All Folders\""));
         Assert.DoesNotContain("Label=\"Refresh\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<EnrichmentRefreshSchedulePanel", source, StringComparison.Ordinal);
-        Assert.Contains("Href=\"/settings/activity\" Label=\"View Activity\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("settings/ingestion?view=history", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<IngestionActivityList", source, StringComparison.Ordinal);
         Assert.Contains("BuildSnapshotSignature", stateSource, StringComparison.Ordinal);
         Assert.Contains("MergeSnapshot(Snapshot, snapshotTask.Result)", stateSource, StringComparison.Ordinal);

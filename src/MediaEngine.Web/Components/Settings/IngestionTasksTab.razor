@@ -11,7 +11,7 @@
 <div class="tl-page ingestion-operations">
     @if (IsPagedView)
     {
-        <IngestionMediaPagedView Mode="@_view" Date="@_date" OnOpen="OpenDrawer" />
+        <IngestionMediaPagedView Mode="@PagedViewMode" OnOpen="OpenDrawer" />
     }
     else if (Dashboard.IsLoading && Dashboard.Presentation is null)
     {
@@ -24,7 +24,6 @@
     else
     {
         <div class="ingestion-operations__toolbar">
-            <AppButton Href="/settings/activity" Label="View Activity" StartIcon="@Icons.Material.Outlined.ReceiptLong" />
             @if (!DeviceContext.IsMobile)
             {
                 <MudTooltip Text="Start an extra scan of every watched folder. Automatic watching continues in the background." Placement="Placement.Bottom">
@@ -79,7 +78,7 @@
         @if (Model.IsRunning)
         {
             <section class="ingestion-section" aria-labelledby="being-added-title">
-                <header><div><h2 id="being-added-title">Being Added Now</h2><p><i aria-hidden="true"></i>@Model.CurrentMediaTotal.ToString("N0") items currently being processed</p></div>@if (Model.CurrentMediaTotal > Model.CurrentMedia.Count) { <AppButton Href="/settings/ingestion?view=current" Label="View all" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ArrowForward" /> }</header>
+                <header><div><h2 id="being-added-title">Being Added Now</h2><p><i aria-hidden="true"></i>@Model.CurrentMediaTotal.ToString("N0") items currently being processed</p></div>@if (Model.CurrentMediaTotal > Model.CurrentMedia.Count) { <AppButton Href="/settings/ingestion?view=all" Label="View all" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ArrowForward" /> }</header>
                 @if (Model.CurrentMedia.Count > 0)
                 {
                     <div class="ingestion-media-grid">
@@ -96,22 +95,7 @@
             </section>
         }
 
-        <section class="ingestion-section ingestion-recent" aria-labelledby="recently-added-title">
-            <header><div><h2 id="recently-added-title">Recently Added</h2><p>Items from earlier completed runs, grouped by day.</p></div><AppButton Href="/settings/ingestion?view=history" Label="View all" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ArrowForward" /></header>
-            @if (Model.RecentDays.Count > 0)
-            {
-                <div class="recent-additions-list">
-                    @foreach (var day in Model.RecentDays)
-                    {
-                        <RecentlyAddedDateRow Day="day" />
-                    }
-                </div>
-            }
-            else
-            {
-                <AppEmptyState Title="Nothing has been added yet" Message="New media will appear here after its first successful library update." />
-            }
-        </section>
+        <ActivityBatchExplorer Compact="true" />
     }
 </div>
 
@@ -122,9 +106,9 @@
     private bool _drawerRefreshInFlight;
     private int _drawerRevision;
     private string? _view;
-    private DateOnly? _date;
     private IngestionPresentationSnapshotDto Model => Dashboard.Presentation!;
-    private bool IsPagedView => _view is "current" or "history";
+    private bool IsPagedView => _view == "all";
+    private string PagedViewMode => "current";
     private bool HasFileIntakeProgress => Model.FilesDiscovered > 0 && Model.FilesProcessed >= 0;
     private double FileIntakeProgress => HasFileIntakeProgress ? Math.Clamp(Model.FilesProcessed * 100d / Model.FilesDiscovered, 0, 100) : 0;
     private string FileIntakeLabel => HasFileIntakeProgress ? $"File intake · {Model.FilesProcessed:N0} / {Model.FilesDiscovered:N0} files processed" : "File intake · counting discovered files";
@@ -149,7 +133,6 @@
     {
         var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
         _view = query.TryGetValue("view", out var rawView) ? rawView.FirstOrDefault()?.ToLowerInvariant() : null;
-        _date = query.TryGetValue("date", out var rawDate) && DateOnly.TryParse(rawDate.FirstOrDefault(), out var date) ? date : null;
     }
 
     private Task ScanNowAsync() => Dashboard.ScanNowAsync();

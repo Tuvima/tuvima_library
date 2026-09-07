@@ -3,28 +3,44 @@
 @using MediaEngine.Contracts.Ingestion
 @using MediaEngine.Contracts.Paging
 @using Microsoft.AspNetCore.WebUtilities
+@using Microsoft.AspNetCore.Components.Routing
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient Api
 @inject NavigationManager Nav
 @implements IDisposable
 
-<div class="activity-audit">
-    <header class="activity-audit__title"><h2>Finished Batches</h2><p>Review completed ingestion runs and what was added to the library.</p></header>
-
-    @if (_summary is not null)
+<div class="activity-audit @(Compact ? "is-compact" : null)">
+    @if (!IsRunMediaView)
     {
-        <section class="activity-summary" aria-label="Activity summary">
-            <div class="activity-summary__identity"><span><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></span><div><h3>Library is up to date</h3><p>@SummaryCopy</p><small>Recent ingestion runs and their media remain available below.</small></div></div>
-            <dl>
-                <div><MudIcon Icon="@Icons.Material.Outlined.Storage" /><dd>@_summary.CompletedRunsThisWeek.ToString("N0")</dd><dt>Completed runs<br />this week</dt></div>
-                <div><MudIcon Icon="@Icons.Material.Outlined.AddCircleOutline" /><dd>@_summary.ItemsAddedToday.ToString("N0")</dd><dt>Items added<br />today</dt></div>
-                <div class="is-attention"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /><dd>@_summary.ItemsNeedingFollowUp.ToString("N0")</dd><dt>Items need<br />follow-up</dt></div>
-            </dl>
-        </section>
+        <header class="activity-audit__title">
+            <div><h2>@(Compact ? "Recent batches" : "Finished Batches")</h2><p>@(Compact ? "The latest scans and what they added to the library." : "Review completed ingestion runs and what was added to the library.")</p></div>
+            @if (Compact)
+            {
+                <AppButton Href="/settings/activity" Label="View all activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ArrowForward" />
+            }
+        </header>
     }
 
-    @if (!_requestedRunId.HasValue)
+    @if (IsRunMediaView && _requestedRunId is { } mediaRunId)
     {
+        <IngestionMediaPagedView Mode="batch" BatchId="mediaRunId" BackHref="/settings/activity" OnOpen="OpenMedia" />
+    }
+    else
+    {
+        @if (!Compact && _summary is not null)
+        {
+            <section class="activity-summary" aria-label="Activity summary">
+                <div class="activity-summary__identity"><span><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></span><div><h3>Library is up to date</h3><p>@SummaryCopy</p><small>Recent ingestion runs and their media remain available below.</small></div></div>
+                <dl>
+                    <div><MudIcon Icon="@Icons.Material.Outlined.Storage" /><dd>@_summary.CompletedRunsThisWeek.ToString("N0")</dd><dt>Completed runs<br />this week</dt></div>
+                    <div><MudIcon Icon="@Icons.Material.Outlined.AddCircleOutline" /><dd>@_summary.ItemsAddedToday.ToString("N0")</dd><dt>Items added<br />today</dt></div>
+                    <div class="is-attention"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /><dd>@_summary.ItemsNeedingFollowUp.ToString("N0")</dd><dt>Items need<br />follow-up</dt></div>
+                </dl>
+            </section>
+        }
+
+        @if (!Compact)
+        {
         <div class="activity-audit__filters">
             <AppTextField Value="@_query.Search" ValueChanged="OnSearchChanged" OnDebounceIntervalElapsed="OnSearchDebounced" DebounceInterval="350" Placeholder="Search batches, titles, or content…" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search" />
             <AppSelect Value="@_dateRange" ValueChanged="OnDateRangeChanged" Options="DateRangeOptions" Label="Date range" />
@@ -36,13 +52,9 @@
             </div>
             <AppSelect Value="@_status" ValueChanged="OnStatusChanged" Options="StatusOptions" Label="Status" />
         </div>
-    }
-    else
-    {
-        <AppButton Href="/settings/activity" Label="All finished batches" StartIcon="@Icons.Material.Outlined.ArrowBack" />
-    }
+        }
 
-    @if (_loading && DisplayOperations.Count == 0)
+        @if (_loading && DisplayOperations.Count == 0)
     {
         <AppProgressBar Indeterminate="true" />
     }
@@ -56,13 +68,15 @@
     }
     else
     {
-        <p class="activity-audit__count">Showing @DisplayOperations.Count.ToString("N0") of @(_page?.TotalCount?.ToString("N0") ?? DisplayOperations.Count.ToString("N0")) batches</p>
+        @if (!Compact)
+        {
+            <p class="activity-audit__count">Showing @DisplayOperations.Count.ToString("N0") of @(_page?.TotalCount?.ToString("N0") ?? DisplayOperations.Count.ToString("N0")) batches</p>
+        }
         <section class="activity-ledger" aria-label="Finished ingestion batches">
             @foreach (var operation in DisplayOperations)
             {
-                var open = _expandedOperation == operation.BatchId;
-                <article class="activity-operation @ResultClass(operation) @(open ? "is-open" : null)" @key="operation.BatchId">
-                    <AppNativeButton Type="button" Class="activity-operation__row" OnClick="@(_ => ToggleOperationAsync(operation))" aria-expanded="@open" aria-controls="@PanelId(operation)">
+                <article class="activity-operation @ResultClass(operation)" @key="operation.BatchId">
+                    <AppNativeButton Type="button" Class="activity-operation__row" OnClick="@(_ => OpenBatchAsync(operation))" AriaLabel="@($"View media added by {OperationTitle(operation)}")">
                         <time><strong>@DateHeading(operation.StartedAt)</strong><span>@operation.StartedAt.ToLocalTime().ToString("MMM d, yyyy")</span><small>@operation.StartedAt.ToLocalTime().ToString("h:mm tt")</small></time>
                         <span class="activity-operation__state" aria-label="@ResultLabel(operation)"><MudIcon Icon="@ResultIcon(operation)" /></span>
                         <span class="activity-operation__identity"><strong>@OperationTitle(operation)</strong><small>@OperationSummary(operation)</small><em><MudIcon Icon="@Icons.Material.Outlined.Description" />@operation.FilesDiscoveredCount.ToString("N0") files processed <MudIcon Icon="@Icons.Material.Outlined.Storage" />@operation.AddedGroupCount.ToString("N0") library items added</em></span>
@@ -76,53 +90,64 @@
                                 <b>+@(operation.AddedGroupCount - operation.AddedPreview.Count)<small>more</small></b>
                             }
                         </span>
-                        <span class="activity-operation__action">@(open ? "Hide details" : "View details")<MudIcon Icon="@(open ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ChevronRight)" /></span>
+                        <span class="activity-operation__action">View media<MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></span>
                     </AppNativeButton>
-                    @if (open)
-                    {
-                        <ActivityBatchInspector Id="@PanelId(operation)" Batch="@operation" />
-                    }
                 </article>
             }
         </section>
-        @if (!_requestedRunId.HasValue)
+        @if (!Compact)
         {
             <AppCompactPager Offset="@_query.Offset" Limit="@_query.Limit" HasMore="@(_page?.HasMore == true)" TotalCount="@_page?.TotalCount" Loading="@_loading" OffsetChanged="OnPageChanged" />
+        }
         }
     }
 </div>
 
+<IngestionMediaDrawer Item="@_selectedItem" Close="CloseMedia" />
+
 @code {
+    [Parameter] public bool Compact { get; set; }
+
     private readonly ActivityAuditQuery _query = new() { Sort = "started", SortDirection = "desc", Start = DateTimeOffset.Now.AddDays(-30), Limit = 25 };
     private PagedResponse<ActivityBatchSummaryDto>? _page;
     private List<ActivityBatchSummaryDto> _operations = [];
-    private ActivityBatchSummaryDto? _requestedOperation;
     private ActivityHistorySummaryDto? _summary;
     private Guid? _requestedRunId;
-    private Guid? _expandedOperation;
+    private Guid? _requestedItemId;
+    private IngestionMediaGroupDto? _selectedItem;
     private bool _loading = true;
     private string? _error;
     private string _dateRange = "30d";
     private string _lane = "all";
     private string _status = "all";
     private int _loadRevision;
+    private int _itemRevision;
     private CancellationTokenSource? _loadCts;
-    private IReadOnlyList<ActivityBatchSummaryDto> DisplayOperations => _requestedRunId.HasValue ? _requestedOperation is null ? [] : [_requestedOperation] : _operations;
+    private string? _currentLocation;
+    private IReadOnlyList<ActivityBatchSummaryDto> DisplayOperations => _operations;
+    private bool IsRunMediaView => _requestedRunId.HasValue;
     private static readonly IReadOnlyList<AppSelectOption> DateRangeOptions = [new("7d", "Last 7 days"), new("30d", "Last 30 days"), new("all", "All time")];
     private static readonly IReadOnlyList<AppSelectOption> LaneOptions = [new("all", "All"), new("Read", "Read"), new("Watch", "Watch"), new("Listen", "Listen")];
     private static readonly IReadOnlyList<AppSelectOption> StatusOptions = [new("all", "All statuses"), new("completed", "Completed"), new("running", "Running"), new("attention", "Attention"), new("failed", "Failed"), new("interrupted", "Interrupted")];
 
     protected override async Task OnInitializedAsync()
     {
-        _requestedRunId = ResolveRunId();
-        _summary = await Api.GetActivityHistorySummaryAsync();
-        if (_requestedRunId is { } runId)
+        if (Compact)
         {
-            _requestedOperation = await Orchestrator.GetActivityBatchAsync(runId);
-            if (_requestedOperation is not null) _expandedOperation = runId; else _error = "That operation could not be found.";
+            _query.Limit = 3;
+            _query.Start = null;
+        }
+        Nav.LocationChanged += OnLocationChanged;
+        _currentLocation = Nav.Uri;
+        ResolveQueryState();
+        if (IsRunMediaView)
+        {
+            await LoadRequestedItemAsync();
             _loading = false;
             return;
         }
+        if (!Compact)
+            _summary = await Api.GetActivityHistorySummaryAsync();
         await LoadOperationsAsync();
     }
 
@@ -138,16 +163,33 @@
         finally { if (revision == _loadRevision) _loading = false; }
     }
 
-    private Task ToggleOperationAsync(ActivityBatchSummaryDto operation) { _expandedOperation = _expandedOperation == operation.BatchId ? null : operation.BatchId; return Task.CompletedTask; }
+    private Task OpenBatchAsync(ActivityBatchSummaryDto operation)
+    {
+        Nav.NavigateTo($"/settings/activity?runId={operation.BatchId:D}&view=all");
+        return Task.CompletedTask;
+    }
     private Task OnSearchChanged(string? value) { _query.Search = value; return Task.CompletedTask; }
-    private Task OnSearchDebounced(string _) { _query.Offset = 0; return LoadOperationsAsync(); }
-    private async Task OnDateRangeChanged(string? value) { _dateRange = value ?? "30d"; _query.Start = _dateRange switch { "7d" => DateTimeOffset.Now.AddDays(-7), "all" => null, _ => DateTimeOffset.Now.AddDays(-30) }; _query.Offset = 0; await LoadOperationsAsync(); }
-    private async Task OnLaneChanged(string value) { _lane = value; _query.MediaType = value == "all" ? null : value; _query.Offset = 0; await LoadOperationsAsync(); }
-    private async Task OnStatusChanged(string? value) { _status = value ?? "all"; _query.Status = _status == "all" ? null : _status; _query.Offset = 0; await LoadOperationsAsync(); }
-    private async Task OnPageChanged(int offset) { _query.Offset = offset; await LoadOperationsAsync(); }
+    private Task OnSearchDebounced(string _) { NavigateQuery(new Dictionary<string, object?> { ["q"] = _query.Search, ["page"] = null }, replace: true); return Task.CompletedTask; }
+    private Task OnDateRangeChanged(string? value) { NavigateQuery(new Dictionary<string, object?> { ["range"] = value is null or "30d" ? null : value, ["page"] = null }); return Task.CompletedTask; }
+    private Task OnLaneChanged(string value) { NavigateQuery(new Dictionary<string, object?> { ["lane"] = value == "all" ? null : value, ["page"] = null }); return Task.CompletedTask; }
+    private Task OnStatusChanged(string? value) { NavigateQuery(new Dictionary<string, object?> { ["status"] = value is null or "all" ? null : value, ["page"] = null }); return Task.CompletedTask; }
+    private Task OnPageChanged(int offset) { NavigateQuery(new Dictionary<string, object?> { ["page"] = offset == 0 ? null : offset / _query.Limit + 1 }); return Task.CompletedTask; }
     private Guid? ResolveRunId() { var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query); return query.TryGetValue("runId", out var raw) && Guid.TryParse(raw.FirstOrDefault(), out var id) ? id : null; }
+    private Task OpenMedia(IngestionMediaGroupDto item)
+    {
+        _selectedItem = item;
+        _requestedItemId = item.GroupId;
+        NavigateQuery(new Dictionary<string, object?> { ["itemId"] = item.GroupId });
+        return Task.CompletedTask;
+    }
+    private Task CloseMedia()
+    {
+        _selectedItem = null;
+        _requestedItemId = null;
+        NavigateQuery(new Dictionary<string, object?> { ["itemId"] = null }, replace: true);
+        return Task.CompletedTask;
+    }
     private string SummaryCopy => $"Last activity {FormatRelative(_summary!.LastActivityAt)} · {_summary.LastFilesProcessed?.ToString("N0") ?? "—"} files processed · {_summary.LastGroupsAdded?.ToString("N0") ?? "—"} media groups added";
-    private static string PanelId(ActivityBatchSummaryDto operation) => $"activity-operation-{operation.BatchId:N}";
     private static string DateHeading(DateTimeOffset value) { var date = value.ToLocalTime().Date; return date == DateTime.Today ? "Today" : date == DateTime.Today.AddDays(-1) ? "Yesterday" : value.ToLocalTime().ToString("MMMM d, yyyy"); }
     private static string OperationTitle(ActivityBatchSummaryDto operation) { if (!string.IsNullOrWhiteSpace(operation.Category)) return operation.Category.EndsWith("import", StringComparison.OrdinalIgnoreCase) ? operation.Category : $"{operation.Category} import"; if (operation.MediaTypeCount > 1) return "Mixed media scan"; return operation.MediaTypes.Count == 1 ? $"{LaneFor(operation.MediaTypes[0].MediaType)} import" : "Library scan"; }
     private static string OperationSummary(ActivityBatchSummaryDto operation) => operation.FailureCount > 0 ? "Ingestion completed with failures." : operation.ReviewCount > 0 ? "Ingestion completed; some items need follow-up." : "Ingestion completed successfully.";
@@ -158,5 +200,59 @@
     private static string ResultIcon(ActivityBatchSummaryDto operation) => operation.Status?.ToLowerInvariant() switch { "failed" => Icons.Material.Outlined.ErrorOutline, "abandoned" or "interrupted" => Icons.Material.Outlined.WarningAmber, "running" or "active" or "processing" => Icons.Material.Outlined.Sync, _ => operation.ReviewCount > 0 ? Icons.Material.Outlined.WarningAmber : Icons.Material.Outlined.CheckCircle };
     private static string MediaIcon(string media) => media switch { "Music" => Icons.Material.Outlined.Album, "TV" => Icons.Material.Outlined.Tv, "Movies" => Icons.Material.Outlined.Movie, "Books" => Icons.Material.Outlined.MenuBook, "Audiobooks" => Icons.Material.Outlined.Headphones, "Comics" => Icons.Material.Outlined.CollectionsBookmark, _ => Icons.Material.Outlined.PlayCircle };
     private static string FormatRelative(DateTimeOffset? value) { if (!value.HasValue) return "unknown"; var elapsed = DateTimeOffset.UtcNow - value.Value.ToUniversalTime(); return elapsed.TotalMinutes < 1 ? "just now" : elapsed.TotalHours < 1 ? $"{(int)elapsed.TotalMinutes} minutes ago" : elapsed.TotalDays < 1 ? $"{(int)elapsed.TotalHours} hours ago" : value.Value.ToLocalTime().ToString("MMM d"); }
-    public void Dispose() { _loadCts?.Cancel(); _loadCts?.Dispose(); }
+    private void ResolveQueryState()
+    {
+        _requestedRunId = ResolveRunId();
+        var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
+        _requestedItemId = query.TryGetValue("itemId", out var rawItem) && Guid.TryParse(rawItem.FirstOrDefault(), out var itemId) ? itemId : null;
+        _query.Search = query.TryGetValue("q", out var rawSearch) ? rawSearch.FirstOrDefault() : null;
+        _dateRange = query.TryGetValue("range", out var rawRange) ? rawRange.FirstOrDefault() ?? "30d" : "30d";
+        _query.Start = _dateRange switch { "7d" => DateTimeOffset.Now.AddDays(-7), "all" => null, _ => DateTimeOffset.Now.AddDays(-30) };
+        _lane = query.TryGetValue("lane", out var rawLane) ? rawLane.FirstOrDefault() ?? "all" : "all";
+        _query.MediaType = _lane == "all" ? null : _lane;
+        _status = query.TryGetValue("status", out var rawStatus) ? rawStatus.FirstOrDefault() ?? "all" : "all";
+        _query.Status = _status == "all" ? null : _status;
+        var page = query.TryGetValue("page", out var rawPage) && int.TryParse(rawPage.FirstOrDefault(), out var parsedPage) ? Math.Max(1, parsedPage) : 1;
+        _query.Offset = (page - 1) * _query.Limit;
+    }
+
+    private void NavigateQuery(IReadOnlyDictionary<string, object?> changes, bool replace = false) =>
+        Nav.NavigateTo(Nav.GetUriWithQueryParameters(changes), replace: replace);
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        if (string.Equals(_currentLocation, args.Location, StringComparison.Ordinal)) return;
+        _currentLocation = args.Location;
+        _ = InvokeAsync(ApplyLocationAsync);
+    }
+
+    private async Task ApplyLocationAsync()
+    {
+        ResolveQueryState();
+        if (IsRunMediaView)
+        {
+            await LoadRequestedItemAsync();
+            _loading = false;
+            StateHasChanged();
+            return;
+        }
+
+        await LoadOperationsAsync();
+    }
+
+    private async Task LoadRequestedItemAsync()
+    {
+        var revision = ++_itemRevision;
+        if (_requestedRunId is not { } runId || _requestedItemId is not { } itemId)
+        {
+            _selectedItem = null;
+            return;
+        }
+
+        var item = await Api.GetIngestionMediaGroupAsync(runId, itemId);
+        if (revision == _itemRevision && _requestedRunId == runId && _requestedItemId == itemId)
+            _selectedItem = item;
+    }
+
+    public void Dispose() { Nav.LocationChanged -= OnLocationChanged; _loadCts?.Cancel(); _loadCts?.Dispose(); }
 }

@@ -855,8 +855,25 @@ public sealed partial class EngineApiClient
         return result;
     }
 
-    public Task<PagedResponse<IngestionMediaGroupDto>?> GetActivityBatchMediaGroupsAsync(Guid batchId, int offset = 0, int limit = 50, CancellationToken ct = default) =>
-        GetPresentationPageAsync($"activity/batches/{batchId:D}/media-groups?offset={Math.Max(0, offset)}&limit={Math.Clamp(limit, 1, 100)}", ct);
+    public Task<PagedResponse<IngestionMediaGroupDto>?> GetActivityBatchMediaGroupsAsync(
+        Guid batchId,
+        int offset = 0,
+        int limit = 50,
+        string? search = null,
+        string? lane = null,
+        string? sort = null,
+        CancellationToken ct = default)
+    {
+        var query = new Dictionary<string, string?>
+        {
+            ["offset"] = Math.Max(0, offset).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["limit"] = Math.Clamp(limit, 1, 100).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["search"] = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+            ["lane"] = string.IsNullOrWhiteSpace(lane) || lane.Equals("all", StringComparison.OrdinalIgnoreCase) ? null : lane,
+            ["sort"] = sort?.Equals("oldest", StringComparison.OrdinalIgnoreCase) == true ? "oldest" : null,
+        };
+        return GetPresentationPageAsync(Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString($"activity/batches/{batchId:D}/media-groups", query), ct);
+    }
 
     private async Task<PagedResponse<IngestionMediaGroupDto>?> GetPresentationPageAsync(string path, CancellationToken ct)
     {

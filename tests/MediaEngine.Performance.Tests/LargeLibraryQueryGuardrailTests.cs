@@ -1,16 +1,20 @@
 using System.Diagnostics;
 using Dapper;
+using MediaEngine.Api.Services.ReadServices;
 using Microsoft.Data.Sqlite;
+using Xunit.Abstractions;
 
 namespace MediaEngine.Performance.Tests;
 
 public sealed class LargeLibraryQueryGuardrailTests : IClassFixture<LargeLibraryFixture>
 {
     private readonly LargeLibraryFixture _fixture;
+    private readonly ITestOutputHelper _output;
 
-    public LargeLibraryQueryGuardrailTests(LargeLibraryFixture fixture)
+    public LargeLibraryQueryGuardrailTests(LargeLibraryFixture fixture, ITestOutputHelper output)
     {
         _fixture = fixture;
+        _output = output;
     }
 
     [Fact]
@@ -66,6 +70,27 @@ public sealed class LargeLibraryQueryGuardrailTests : IClassFixture<LargeLibrary
         Assert.Contains(indexes, sql => sql.Contains(
             "persons (name COLLATE NOCASE)",
             StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    [Trait("Category", "Performance")]
+    public async Task HistoricalIngestion_DeepPageStaysResponsiveAtTenThousandGroups()
+    {
+        var batchId = _fixture.SeedIngestionBatch(10_000);
+        var service = new IngestionPresentationReadService(_fixture.Database);
+
+        await service.GetBatchMediaAsync(batchId, 0, 50);
+
+        var timer = Stopwatch.StartNew();
+        var page = await service.GetBatchMediaAsync(batchId, 9_950, 50);
+        timer.Stop();
+        _output.WriteLine("Historical ingestion deep page: {0:F0} ms", timer.Elapsed.TotalMilliseconds);
+
+        Assert.Equal(10_000, page.TotalCount);
+        Assert.Equal(50, page.Items.Count);
+        Assert.False(page.HasMore);
+        Assert.True(timer.Elapsed < TimeSpan.FromSeconds(2),
+            $"Historical ingestion deep page took {timer.Elapsed.TotalMilliseconds:F0} ms.");
     }
 
     private sealed class QueryPlanRow

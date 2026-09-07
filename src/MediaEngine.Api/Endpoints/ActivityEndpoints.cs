@@ -99,12 +99,15 @@ public static class ActivityEndpoints
         group.MapGet("/batches/{batchId:guid}/media-groups", async (
             Guid batchId,
             IIngestionPresentationReadService readService,
+            string? search,
+            string? lane,
+            string? sort,
             int? offset,
             int? limit,
             CancellationToken ct) =>
         {
             var page = PagedRequest.From(offset, limit, 50, 100);
-            return Results.Ok(await readService.GetBatchMediaAsync(batchId, page.Offset, page.Limit, ct));
+            return Results.Ok(await readService.GetBatchMediaAsync(batchId, page.Offset, page.Limit, search, lane, sort, ct));
         })
         .WithName("GetActivityBatchMediaGroups")
         .WithSummary("Returns paged, event-scoped media groups produced by one batch.")

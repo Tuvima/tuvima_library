@@ -12,7 +12,22 @@ tags:
 
 # Operations live and historical ingestion plan
 
-Status: proposed, September 6, 2026. Repository inspection completed; implementation and runtime performance validation remain outstanding. This document plans the user's request. Imperatives in the attached specification are requirements for the proposed implementation, not authorization to implement during this planning task.
+Status: implementation in progress, September 6, 2026. Server-side paging, shared historical/live cards, URL state, and the primary responsive layout are implemented. A sustained real-ingestion observation and the full multi-sample browser performance matrix remain outstanding.
+
+Initial implementation evidence:
+
+- Historical batch pages now select a bounded page of group identities before loading title, artwork, facets, children, and operations. Operation projection is limited to entities represented on that page.
+- Finished-batch previews select at most the requested preview groups per listed batch. Expanded detail loads six preview groups instead of constructing every group in the run.
+- Cross-run Recently Added filtering and paging now occur before expensive media-card projection. Activity summary counts use aggregate SQL rather than rebuilding all historical cards.
+- Operations artwork URLs request small renditions for history previews and medium renditions for grids; browser image decoding is asynchronous.
+- Expanded batch media now uses the same `IngestionMediaCard`, facet renderer, and Operations drawer as live ingestion.
+- Selecting a finished batch now opens that shared media browser directly. Search, lane, newest/oldest sort, Cards/List, page, and selected-item state are encoded in the URL and survive refresh/navigation.
+- Ingestion shows the three most recent batches beneath live work and links to the complete Activity history. Both surfaces use the same batch rows, and there is one batch detail destination.
+- Historical child labels use only batch-scoped facts. Catalogue totals are no longer presented as ingestion denominators, and a facet says queued only when a durable queued operation exists.
+- Completed child counts use distinct media identities instead of asset rows or track positions. Duplicate Queen assets therefore report five tracks added, while a single-part audiobook such as Dune no longer shows a vague files-added line.
+- Groups without a real display title are withheld even when artwork has arrived; internal `Identifying media` placeholders no longer enter finished media lists or counts.
+- Green, blue, purple, amber, and red state accents are implemented on the shared media cards and finished-run rows. Completed metadata and artwork indicators are green, and ready cards omit the redundant `Ready` label. Authenticated browser inspection confirmed working small history thumbnails, medium grid renditions, responsive type alignment, 50-card DOM bounds, truthful labels, and the computed state colors.
+- A dedicated 10,000-group completed-run fixture measured a warm deep 50-group page at 256–473 ms across local runs and enforces the existing two-second performance guardrail. The broader 30-sample/browser matrix below is still required before the full plan is complete.
 
 This proposal updates the remaining presentation and verification work described in the September 5 Operations proposals. Existing lifecycle, audit, authorization, and recovery requirements remain applicable.
 
@@ -37,7 +52,7 @@ These are source findings, not measured attribution of the reported lag.
 | Live and history summaries load full history | `GetSnapshotAsync` loads current and historical groups; `GetActivitySummaryAsync` loads all historical groups for a few totals. `ActivityBatchExplorer` awaits that summary before loading its list or requested run. |
 | Group projection repeats expensive work | `LoadRowsAsync` includes broad latest-log/operation window queries and per-row metadata subqueries. `BuildGroup` filters the complete operations list for every group. Query plans must establish which scans SQLite actually performs. |
 | Operations images request unsized artwork | `BuildGroup` emits `/stream/artwork/{id}`. The stream endpoint supports `size=s/m/l`, but missing renditions currently fall back to the original. Merely adding a query parameter is insufficient validation. |
-| Full grids differ | `IngestionMediaPagedView` uses `IngestionMediaCard`; `ActivityBatchInspector` renders its own historical media grid. Shared cards/facets/drawer and pagers already exist and should be extended. |
+| Full grids differed | Before implementation, live ingestion used `IngestionMediaPagedView` while Activity rendered a separate historical grid. The shared cards, facets, drawer, and pager needed to serve both routes. |
 | URL state is incomplete | History parses `runId` during initialization, but row expansion and View All remain local state. Live uses `view=current/history`; paging/filter state is local, and `OnParametersSetAsync` reloads page zero. |
 | Live refresh has concrete gaps to test | Presentation signatures omit artwork, expected count, and facet fields; group timestamps derive from file/log timestamps. Reconnect currently notifies without explicitly refreshing. Trailing debounce can defer refresh during continuous events. The backend sorts by `UpdatedAt` before selecting the visible set, limiting what the client can stabilize. |
 | Historical results are reconstructed | Addition membership is inferred from logs and `presented_at`, then joined to current catalogue and operation state. Later metadata changes, pruning, or deletion can alter the reconstructed history. |
@@ -96,11 +111,11 @@ Deliverable: a real or representative ingestion visibly advances album and TV ch
 
 ### 4. Finish the shared surfaces and URL state
 
-Extend `IngestionMediaPagedView` to accept a typed live/run scope and use it from both Ingestion and `ActivityBatchInspector`. Reuse `IngestionMediaCard`, `IngestionFacetIndicators`, and `IngestionMediaDrawer`. Extract run row/preview pieces only where this removes repeated markup; reuse central media/icon formatting.
+Extend `IngestionMediaPagedView` to accept a typed live/run scope and use it from both live Ingestion and Activity's historical run route. Reuse `IngestionMediaCard`, `IngestionFacetIndicators`, and `IngestionMediaDrawer`. Extract run row/preview pieces only where this removes repeated markup; reuse central media/icon formatting.
 
-- Live summary: compact truthful totals, eight active/recent cards with larger art, one Scan now action, operational waits distinct from actionable attention.
+- Live summary: compact truthful totals, eight active cards with larger art, one Scan now action, operational waits distinct from actionable attention, then the three latest batch rows with a link to complete Activity history.
 - Finished list: 25 paged rows with date/time, result icon/text, run name, files processed/media added, five small covers and remainder count, and View details.
-- Expanded row: one open run at a time, persistent header, copyable batch ID, concise summary, supported metrics only, six to eight media previews, relevant follow-up, human milestones, and lazy paged technical records.
+- Finished batch selection: open the shared historical media browser directly. Keep run-level technical records out of the primary browse flow; individual card details remain available in the Operations drawer.
 - View All: identical cards and filters for both scopes, 50 groups per page, accurate range/total, page navigation, search, source/run, All/Read/Watch/Listen, applicable status, and sorting. Implement the mockup's Cards/List control as two layouts over the same query and row model.
 - Keep one semantic card target opening its Operations drawer; the drawer provides canonical media navigation and supported review context. Provide loading, empty, unavailable/deleted, error/retry, and disconnected states.
 
@@ -111,8 +126,7 @@ Use these canonical URLs; replace current internal links without adding legacy a
 | Live summary | `/settings/ingestion` |
 | Live View All | `/settings/ingestion?view=all` |
 | Finished list | `/settings/activity` |
-| Expanded run | `/settings/activity?runId=<guid>` |
-| Historical View All | `/settings/activity?runId=<guid>&view=all` |
+| Historical batch | `/settings/activity?runId=<guid>&view=all` |
 | Selected group | Add `itemId=<groupGuid>` and explicit `runId` when needed in live scope |
 
 Serialize `q`, `lane`, `status`, `sort`, `page`, `layout`, and list date range in query state. Route/source selects navigate to the appropriate live or run scope. Keep any retained Recently Added day browse explicitly date-scoped; it must not masquerade as one completed run. Query changes are observed after initialization. Push meaningful navigation and replace debounced search updates to avoid filling browser history. Back/Forward/refresh restore the expanded run, filters, page, layout, and drawer; closing the drawer removes only its selection parameters. Guard asynchronous responses when switching runs quickly.

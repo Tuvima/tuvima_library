@@ -28,7 +28,10 @@
                         {
                             <AppProgressBar Value="@ProgressValue" ShowValue="false" />
                         }
-                        <span class="is-@Item.Availability">@Item.StatusLabel</span>
+                        @if (!Item.Availability.Equals("ready", StringComparison.OrdinalIgnoreCase))
+                        {
+                            <span class="is-@Item.Availability">@Item.StatusLabel</span>
+                        }
                     </section>
 
                     <section class="ingestion-drawer__states" aria-label="Media processing status">
@@ -68,7 +71,7 @@
                 </div>
 
                 <footer>
-                    <AppButton Href="@($"/settings/activity?runId={Item.BatchId:D}")" Label="View full activity" StartIcon="@Icons.Material.Outlined.ReceiptLong" />
+                    <AppButton Href="@($"/settings/activity?runId={Item.BatchId:D}&view=all")" Label="View batch" StartIcon="@Icons.Material.Outlined.ReceiptLong" />
                     @if (!string.IsNullOrWhiteSpace(Item.DetailRoute))
                     {
                         <AppButton Href="@Item.DetailRoute" Label="Open item" StartIcon="@Icons.Material.Outlined.OpenInNew" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" />
@@ -126,8 +129,9 @@
     };
 
     private double ProgressValue => Item?.ChildExpected is > 0 ? Math.Clamp(Item.ChildCompleted * 100d / Item.ChildExpected.Value, 0, 100) : 0;
-    private string ProgressLabel => Item?.ChildUnit is null ? Item?.StatusLabel ?? "Adding" : Item.ChildExpected is > 0 ? $"{Item.ChildCompleted:N0} / {Item.ChildExpected:N0} {Item.ChildUnit} added" : $"{Item.ChildCompleted:N0} {Item.ChildUnit} added";
+    private string ProgressLabel => Item?.ChildUnit is null ? Item?.StatusLabel ?? "Adding" : Item.ChildExpected is > 0 ? $"{Item.ChildCompleted:N0} / {Item.ChildExpected:N0} {Item.ChildUnit} added" : $"{Item.ChildCompleted:N0} {DisplayChildUnit(Item.ChildUnit, Item.ChildCompleted)} added";
     private string ChildHeading => $"{CultureInfo.CurrentCulture.TextInfo.ToTitleCase(Item!.ChildUnit!)} ({Item.ChildCompleted:N0}{(Item.ChildExpected is > 0 ? $" of {Item.ChildExpected:N0}" : "")})";
+    private static string DisplayChildUnit(string unit, int count) => count == 1 && unit.EndsWith('s') ? unit[..^1] : unit;
     private static string StateCopy(string state) => state.ToLowerInvariant() switch { "complete" => "Complete", "active" => "In progress…", "attention" => "Waiting to retry", "failed" => "Failed", _ => "Queued" };
     private static string StateIcon(string state) => state.ToLowerInvariant() switch { "complete" => Icons.Material.Outlined.CheckCircle, "active" => Icons.Material.Outlined.RadioButtonUnchecked, "attention" => Icons.Material.Outlined.WarningAmber, "failed" => Icons.Material.Outlined.ErrorOutline, _ => Icons.Material.Outlined.Schedule };
     private static string ChildIcon(string state) => state switch { "complete" => Icons.Material.Outlined.CheckCircle, "review" => Icons.Material.Outlined.WarningAmber, "failed" => Icons.Material.Outlined.ErrorOutline, "active" => Icons.Material.Outlined.RadioButtonUnchecked, _ => Icons.Material.Outlined.Schedule };

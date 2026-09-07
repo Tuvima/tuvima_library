@@ -228,9 +228,24 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
             value.ActiveOperations,
             value.QueuedOperations,
             value.RetryWaitingOperations,
-            string.Join(',', value.CurrentMedia.Select(item => $"{item.BatchId:N}:{item.GroupId:N}:{item.Availability}:{item.StatusLabel}:{item.ChildCompleted}:{item.UpdatedAt:O}")),
+            string.Join(',', value.CurrentMedia.Select(item => string.Join(':',
+                item.BatchId.ToString("N"),
+                item.GroupId.ToString("N"),
+                item.Availability,
+                item.StatusLabel,
+                item.ChildCompleted,
+                item.ChildExpected,
+                item.CoverUrl,
+                FacetSignature(item.People),
+                FacetSignature(item.Artwork),
+                FacetSignature(item.Metadata),
+                FacetSignature(item.Relationships),
+                FacetSignature(item.TextTracks),
+                item.UpdatedAt.ToString("O")))),
             string.Join(',', value.RecentDays.Select(day => $"{day.Date:O}:{day.TotalCount}")));
     }
+
+    private static string FacetSignature(IngestionFacetStateDto value) => $"{value.State}/{value.Label}";
 
     private static IngestionPresentationSnapshotDto? MergePresentation(
         IngestionPresentationSnapshotDto? current,
@@ -614,9 +629,11 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
             DebounceSnapshotRefresh();
     }
 
-    private void OnConnectionStateChanged(EngineConnectionState _)
+    private void OnConnectionStateChanged(EngineConnectionState state)
     {
         Notify();
+        if (state == EngineConnectionState.Online)
+            DebounceSnapshotRefresh();
     }
 
     private void DebounceSnapshotRefresh()
@@ -638,15 +655,10 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
             {
                 await _snapshotRefreshSignal.WaitAsync(ct).ConfigureAwait(false);
 
-                bool receivedMoreSignals;
-                do
+                await Task.Delay(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
+                while (_snapshotRefreshSignal.Wait(0))
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(1), ct).ConfigureAwait(false);
-                    receivedMoreSignals = false;
-                    while (_snapshotRefreshSignal.Wait(0))
-                        receivedMoreSignals = true;
                 }
-                while (receivedMoreSignals);
 
                 await LoadAsync(ct).ConfigureAwait(false);
             }

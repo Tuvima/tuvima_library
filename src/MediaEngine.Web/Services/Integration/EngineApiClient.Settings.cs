@@ -823,8 +823,11 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<PagedResponse<ActivityBatchSummaryDto>>(
+            var page = await _http.GetFromJsonAsync<PagedResponse<ActivityBatchSummaryDto>>(
                 BuildActivityQueryPath("/activity/batches", query), ct);
+            if (page is not null)
+                foreach (var batch in page.Items) NormalizePresentationUrls(batch.AddedPreview);
+            return page;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -947,10 +950,12 @@ public sealed partial class EngineApiClient
         Guid batchId,
         CancellationToken ct = default)
     {
-        return await GetAsync<ActivityBatchSummaryDto>(
+        var batch = await GetAsync<ActivityBatchSummaryDto>(
             "Activity operation",
             $"/activity/batches/{batchId:D}",
             ct: ct);
+        NormalizePresentationUrls(batch?.AddedPreview);
+        return batch;
     }
 
     public async Task<ActivityBatchInsightsDto?> GetActivityBatchInsightsAsync(

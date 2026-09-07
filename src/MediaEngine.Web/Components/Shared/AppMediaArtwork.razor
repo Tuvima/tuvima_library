@@ -3,7 +3,7 @@
 <div class="@RootClass" style="@RootStyle">
     @if (!string.IsNullOrWhiteSpace(ImageUrl))
     {
-        <img src="@ImageUrl" alt="@Alt" class="app-media-artwork__image" loading="lazy" />
+        <img src="@ImageUrl" alt="@Alt" class="app-media-artwork__image" loading="lazy" decoding="async" />
     }
     else
     {

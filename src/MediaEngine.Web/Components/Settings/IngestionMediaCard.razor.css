@@ -1,5 +1,10 @@
 .ingestion-media-card-shell{width:100%;min-width:0;max-width:22rem;display:flex}
 .ingestion-media-card-shell ::deep .ingestion-media-card{display:flex!important;flex-direction:column;align-items:stretch;height:100%;width:100%;min-width:0;padding:0!important;text-align:left;color:inherit;background:var(--app-surface-elevated,var(--app-surface));border:1px solid var(--app-border);border-radius:.65rem;overflow:hidden;transition:border-color .16s ease,box-shadow .16s ease}
+.ingestion-media-card-shell.is-adding ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-info)}
+.ingestion-media-card-shell.is-finishing ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-primary)}
+.ingestion-media-card-shell.is-ready ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-success)}
+.ingestion-media-card-shell.is-review ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-warning)}
+.ingestion-media-card-shell.is-failed ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-error)}
 .ingestion-media-card-shell ::deep .ingestion-media-card:hover,.ingestion-media-card-shell ::deep .ingestion-media-card:focus-visible{border-color:var(--mud-palette-primary);box-shadow:0 0 0 1px color-mix(in srgb,var(--mud-palette-primary) 55%,transparent),0 10px 30px rgba(0,0,0,.25)}
 .ingestion-media-card__art{display:block;flex:none;width:100%;min-width:0;aspect-ratio:2/2.55;background:var(--app-glass-inner-bg);overflow:hidden}
 .ingestion-media-card__art ::deep .app-media-artwork{width:100%;height:100%}
