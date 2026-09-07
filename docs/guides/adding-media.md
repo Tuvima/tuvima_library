@@ -41,6 +41,11 @@ For large existing libraries, start with one media lane at a time. It is easier 
 
 Open **Settings > Ingestion** to monitor progress.
 
+**Being Added Now** and the full media list use responsive cover cards that fill
+the available row width. Each card shows its available cover immediately, with
+a placeholder while artwork is unavailable. Long titles stay within the card;
+hover over a title or contributor to read the full text.
+
 ## Supported Formats
 
 | Lane | Media | Formats |

@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Contracts.Ingestion
 
+<div class="ingestion-media-card-shell">
 <AppNativeButton Type="button"
                  Class="ingestion-media-card"
                  AriaLabel="@($"Open ingestion details for {Item.Title}. {Item.StatusLabel}")"
@@ -10,7 +11,7 @@
     </span>
     <span class="ingestion-media-card__body">
         <strong title="@Item.Title">@Item.Title</strong>
-        <small><MudIcon Icon="@MediaIcon(Item.MediaType)" />@DisplaySubtitle</small>
+        <small><MudIcon Icon="@MediaIcon(Item.MediaType)" /><span title="@DisplaySubtitle">@DisplaySubtitle</span></small>
         <span class="ingestion-media-card__status is-@Item.Availability">@ProgressLabel</span>
         @if (HasProgress)
         {
@@ -19,6 +20,7 @@
         <IngestionFacetIndicators Item="Item" />
     </span>
 </AppNativeButton>
+</div>
 
 @code {
     [Parameter, EditorRequired] public IngestionMediaGroupDto Item { get; set; } = new();
