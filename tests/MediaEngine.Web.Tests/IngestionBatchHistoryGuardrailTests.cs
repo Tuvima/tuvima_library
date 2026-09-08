@@ -8,6 +8,7 @@ public sealed class IngestionBatchHistoryGuardrailTests
         var ingestion = Read(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor");
         var history = Read(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor");
         var historyCss = Read(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor.css");
+        var batchDisplay = Read(@"src\MediaEngine.Web\Components\Settings\IngestionBatchDisplay.cs");
         var pagedMedia = Read(@"src\MediaEngine.Web\Components\Settings\IngestionMediaPagedView.razor");
         var settings = Read(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
         var settingsNav = Read(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
@@ -22,8 +23,11 @@ public sealed class IngestionBatchHistoryGuardrailTests
         Assert.Contains("Search batches, titles, or content", history, StringComparison.Ordinal);
         Assert.Contains("Needs attention", history, StringComparison.Ordinal);
         Assert.Contains("GroupBy(operation => operation.BatchId)", history, StringComparison.Ordinal);
-        Assert.Contains("/settings/ingestion?runId=", history, StringComparison.Ordinal);
-        Assert.Contains("view=all", history, StringComparison.Ordinal);
+        Assert.Contains("IngestionBatchDisplay.HasMedia(operation)", history, StringComparison.Ordinal);
+        Assert.Contains("ButtonStyle=\"AppButtonStyle.Filled\"", history, StringComparison.Ordinal);
+        Assert.Contains("No media added", history, StringComparison.Ordinal);
+        Assert.Contains("/settings/ingestion?runId=", batchDisplay, StringComparison.Ordinal);
+        Assert.Contains("view=all", batchDisplay, StringComparison.Ordinal);
         Assert.Contains("GetActivityBatchMediaGroupsAsync", pagedMedia, StringComparison.Ordinal);
         Assert.Contains("@media(max-width:900px)", historyCss, StringComparison.Ordinal);
         Assert.DoesNotContain("Activity &amp; Audit", settings, StringComparison.Ordinal);

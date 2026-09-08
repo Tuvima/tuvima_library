@@ -171,6 +171,10 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                         {
                             Id = l.Id,
                             Name = l.Name,
+                            PreserveOriginals = l.OrganizationPolicy.PreserveOriginals,
+                            OrganizationMode = l.OrganizationPolicy.Mode,
+                            CustomOrganizationTemplate = l.OrganizationPolicy.CustomTemplate,
+                            DuplicatePolicy = l.DuplicatePolicy,
                             Kind = l.Kind,
                             Area = l.Area,
                             Presentation = l.Presentation,

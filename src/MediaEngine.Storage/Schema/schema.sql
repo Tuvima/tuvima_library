@@ -535,6 +535,12 @@ CREATE TABLE IF NOT EXISTS view_personal_spaces (
     updated_at          TEXT NOT NULL
 );
 
+-- Storage labels are immutable reservations, independent of login names.
+CREATE TABLE IF NOT EXISTS view_storage_labels (
+    personal_space_id BLOB NOT NULL PRIMARY KEY,
+    label TEXT NOT NULL UNIQUE COLLATE NOCASE
+);
+
 CREATE TABLE IF NOT EXISTS view_sources (
     id                  BLOB NOT NULL PRIMARY KEY,
     personal_space_id   BLOB NOT NULL REFERENCES view_personal_spaces(id) ON DELETE CASCADE,

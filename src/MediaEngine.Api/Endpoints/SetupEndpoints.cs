@@ -95,15 +95,18 @@ public static class SetupEndpoints
 
         group.MapPut("/libraries", async (
             UpdateLibrariesRequest request, HttpContext context, ClaimsPrincipal user,
-            SetupSessionService sessions, IConfigurationLoader configuration, CancellationToken ct) =>
+            SetupSessionService sessions, IConfigurationLoader configuration, MediaEngine.Api.Services.Settings.ServerFolderBrowserService folders, MediaEngine.Ingestion.Contracts.IFileOrganizer organizer, CancellationToken ct) =>
         {
             if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
             var config = SettingsContractMapper.ToStorage(request);
             var error = SettingsEndpoints.ValidateViewStorage(config)
+                ?? SettingsEndpoints.ValidateViewRootChange(configuration.LoadLibraries(), config)
                 ?? SettingsEndpoints.ValidateConfiguredPaths(config);
             if (error is not null) return ApiErrors.BadRequest(error);
             var validationErrors = JsonConfigValidator.Validate(config, "libraries.json");
             if (validationErrors.Count > 0) return ApiErrors.BadRequest(string.Join(" ", validationErrors));
+            var sourceError = SettingsEndpoints.ValidateLibrarySources(config, folders, organizer);
+            if (sourceError is not null) return ApiErrors.BadRequest(sourceError);
             configuration.SaveLibraries(config);
             return Results.Ok(SettingsContractMapper.ToContract(config));
         }).Produces<LibrariesConfigurationDto>()

@@ -42,7 +42,8 @@ public sealed record ViewPersonalSpace(
     Guid OwnerProfileId,
     Guid LibraryId,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string StorageLabel = "");
 
 public enum ViewSourceType
 {

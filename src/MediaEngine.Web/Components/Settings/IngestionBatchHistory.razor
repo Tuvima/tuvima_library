@@ -53,10 +53,7 @@
             @foreach (var operation in _operations)
             {
                 <article class="ingestion-batch @ResultClass(operation)" @key="operation.BatchId">
-                    <AppNativeButton Type="button"
-                                     Class="ingestion-batch__row"
-                                     OnClick="@(_ => OpenBatch(operation))"
-                                     AriaLabel="@($"View media added by {OperationTitle(operation)}")">
+                    <div class="ingestion-batch__row">
                         <time>
                             <strong>@DateHeading(operation.StartedAt)</strong>
                             <span>@operation.StartedAt.ToLocalTime().ToString("MMM d, yyyy")</span>
@@ -64,22 +61,54 @@
                         </time>
                         <span class="ingestion-batch__state" aria-label="@ResultLabel(operation)"><MudIcon Icon="@ResultIcon(operation)" /></span>
                         <span class="ingestion-batch__identity">
-                            <strong>@OperationTitle(operation)</strong>
-                            <small>@OperationSummary(operation)</small>
-                            <em><MudIcon Icon="@Icons.Material.Outlined.Description" />@operation.FilesDiscoveredCount.ToString("N0") files processed <MudIcon Icon="@Icons.Material.Outlined.Storage" />@operation.AddedGroupCount.ToString("N0") library items added</em>
+                            <strong>@IngestionBatchDisplay.Title(operation)</strong>
+                            <small>@IngestionBatchDisplay.Summary(operation)</small>
+                            <em>
+                                <span><MudIcon Icon="@Icons.Material.Outlined.Description" />@IngestionBatchDisplay.FilesChecked(operation)</span>
+                                <span><MudIcon Icon="@Icons.Material.Outlined.Storage" />@IngestionBatchDisplay.AddedOutcome(operation)</span>
+                            </em>
                         </span>
-                        <span class="ingestion-batch__covers" aria-hidden="true">
-                            @foreach (var item in operation.AddedPreview)
+                        <span class="ingestion-batch__covers @(operation.AddedPreview.Count == 0 ? "is-empty" : null)" aria-hidden="true">
+                            @if (operation.AddedPreview.Count == 0)
                             {
-                                <span><AppMediaArtwork ImageUrl="@item.CoverUrl" Alt="" FallbackIcon="@MediaIcon(item.MediaType)" /></span>
+                                <span class="ingestion-batch__empty-art"><MudIcon Icon="@Icons.Material.Outlined.Inventory2" /></span>
                             }
-                            @if (operation.AddedGroupCount > operation.AddedPreview.Count)
+                            else
                             {
-                                <b>+@(operation.AddedGroupCount - operation.AddedPreview.Count)<small>more</small></b>
+                                @foreach (var item in operation.AddedPreview)
+                                {
+                                    <span><AppMediaArtwork ImageUrl="@item.CoverUrl" Alt="" FallbackIcon="@MediaIcon(item.MediaType)" /></span>
+                                }
+                                @if (operation.AddedGroupCount > operation.AddedPreview.Count)
+                                {
+                                    <b>+@(operation.AddedGroupCount - operation.AddedPreview.Count)<small>more</small></b>
+                                }
                             }
                         </span>
-                        <span class="ingestion-batch__action">View media<MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></span>
-                    </AppNativeButton>
+                        <span class="ingestion-batch__action">
+                            @if (IngestionBatchDisplay.HasMedia(operation))
+                            {
+                                <AppButton Href="@IngestionBatchDisplay.MediaHref(operation)"
+                                           Label="View media"
+                                           aria-label="@($"View media added by {IngestionBatchDisplay.Title(operation)}")"
+                                           ButtonStyle="AppButtonStyle.Filled"
+                                           Tone="AppUiTone.Primary"
+                                           EndIcon="@Icons.Material.Outlined.ChevronRight" />
+                            }
+                            else if (operation.ReviewCount > 0)
+                            {
+                                <AppButton Href="/settings/review"
+                                           Label="Review items"
+                                           ButtonStyle="AppButtonStyle.Outlined"
+                                           Tone="AppUiTone.Warning"
+                                           EndIcon="@Icons.Material.Outlined.ChevronRight" />
+                            }
+                            else
+                            {
+                                <span class="ingestion-batch__no-media"><MudIcon Icon="@Icons.Material.Outlined.CheckCircleOutline" />No media added</span>
+                            }
+                        </span>
+                    </div>
                 </article>
             }
         </div>
@@ -202,9 +231,6 @@
         }
     }
 
-    private void OpenBatch(ActivityBatchSummaryDto operation) =>
-        Nav.NavigateTo($"/settings/ingestion?runId={operation.BatchId:D}&view=all");
-
     private string StatusClass(string value) =>
         $"ingestion-batch-history__filter {(value.Equals(_status, StringComparison.OrdinalIgnoreCase) ? "is-active" : null)}";
 
@@ -218,40 +244,14 @@
                 : value.ToLocalTime().ToString("MMMM d, yyyy");
     }
 
-    private static string OperationTitle(ActivityBatchSummaryDto operation)
-    {
-        if (!string.IsNullOrWhiteSpace(operation.Category))
-            return operation.Category.EndsWith("import", StringComparison.OrdinalIgnoreCase)
-                ? operation.Category
-                : $"{operation.Category} import";
-        if (operation.MediaTypeCount > 1)
-            return "Mixed media scan";
-        return operation.MediaTypes.Count == 1
-            ? $"{LaneFor(operation.MediaTypes[0].MediaType)} import"
-            : "Library scan";
-    }
-
-    private static string OperationSummary(ActivityBatchSummaryDto operation) =>
-        operation.FailureCount > 0
-            ? "Ingestion completed with failures."
-            : operation.ReviewCount > 0
-                ? "Ingestion completed; some items need follow-up."
-                : "Ingestion completed successfully.";
-
-    private static string LaneFor(string media) => media.ToLowerInvariant() switch
-    {
-        var value when value.Contains("book") || value.Contains("comic") => "Read",
-        var value when value.Contains("movie") || value.Contains("tv") => "Watch",
-        var value when value.Contains("music") || value.Contains("audio") => "Listen",
-        _ => "Media",
-    };
-
     private static string ResultLabel(ActivityBatchSummaryDto operation) => operation.Status?.ToLowerInvariant() switch
     {
         "running" or "active" or "processing" => "In progress",
         "failed" => "Failed",
         "abandoned" or "interrupted" => "Interrupted",
-        _ => "Completed",
+        _ => operation.FailureCount > 0
+            ? "Completed with failures"
+            : operation.ReviewCount > 0 ? "Completed; needs attention" : "Completed",
     };
 
     private static string ResultClass(ActivityBatchSummaryDto operation) => operation.Status?.ToLowerInvariant() switch
@@ -259,7 +259,9 @@
         "failed" => "is-danger",
         "abandoned" or "interrupted" => "is-warning",
         "running" or "active" or "processing" => "is-active",
-        _ => operation.ReviewCount > 0 ? "is-warning" : "is-success",
+        _ => operation.FailureCount > 0
+            ? "is-danger"
+            : operation.ReviewCount > 0 ? "is-warning" : "is-success",
     };
 
     private static string ResultIcon(ActivityBatchSummaryDto operation) => operation.Status?.ToLowerInvariant() switch
@@ -267,7 +269,9 @@
         "failed" => Icons.Material.Outlined.ErrorOutline,
         "abandoned" or "interrupted" => Icons.Material.Outlined.WarningAmber,
         "running" or "active" or "processing" => Icons.Material.Outlined.Sync,
-        _ => operation.ReviewCount > 0 ? Icons.Material.Outlined.WarningAmber : Icons.Material.Outlined.CheckCircle,
+        _ => operation.FailureCount > 0
+            ? Icons.Material.Outlined.ErrorOutline
+            : operation.ReviewCount > 0 ? Icons.Material.Outlined.WarningAmber : Icons.Material.Outlined.CheckCircle,
     };
 
     private static string MediaIcon(string media) => media switch

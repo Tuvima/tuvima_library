@@ -36,9 +36,32 @@
             </div>
         </nav>
 
+        <AppBreadcrumbs Class="settings-breadcrumbs">
+            @for (var index = 0; index < Breadcrumbs.Count; index++)
+            {
+                var breadcrumb = Breadcrumbs[index];
+                if (index > 0)
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" aria-hidden="true" />
+                }
+                @if (!string.IsNullOrWhiteSpace(breadcrumb.Href))
+                {
+                    <a href="@breadcrumb.Href">@breadcrumb.Label</a>
+                }
+                else
+                {
+                    <span aria-current="page" title="@breadcrumb.Label">@breadcrumb.Label</span>
+                }
+            }
+        </AppBreadcrumbs>
+
+        @if (_activeSection != SettingsSection.Libraries)
+        {
         <SidebarPageHeader Eyebrow="@GetHeroEyebrow()"
                            Title="@GetHeroTitle()"
-                           Subtitle="@GetSectionDescription(_activeSection)" />
+                           Subtitle="@GetSectionDescription(_activeSection)"
+                           Actions="@HeaderActions" />
+        }
 
         @if (IsOperationsWorkspace)
         {
@@ -113,7 +136,7 @@
                             }
                             else
                             {
-                                <LibrariesTab Subsection="@_activeSubsection" DetailTab="@DetailTab" />
+                                <LibrariesTab Subsection="@_activeSubsection" Scope="@LibraryScope" LibraryNameChanged="OnLibraryNameChanged" />
                             }
                             break;
                         case SettingsSection.Ingestion:
@@ -170,7 +193,11 @@
     [Parameter] public string? Section { get; set; }
     [Parameter] public string? Subsection { get; set; }
     [Parameter] public string? Detail { get; set; }
-    [SupplyParameterFromQuery(Name = "tab")] public string? DetailTab { get; set; }
+    [SupplyParameterFromQuery(Name = "scope")] public string? LibraryScope { get; set; }
+    private string? _libraryBreadcrumbName;
+    private string? _libraryBreadcrumbRoute;
+    private void OnLibraryNameChanged(string name) => _libraryBreadcrumbName = name;
+    [SupplyParameterFromQuery(Name = "runId")] public Guid? IngestionRunId { get; set; }
 
     private SettingsSection _activeSection = SettingsSection.Overview;
     private string _activeSubsection = string.Empty;
@@ -189,6 +216,9 @@
     private string _drawerTitle = string.Empty;
     private ElementReference _contentElement;
     private bool _scrollToTopPending;
+    private Guid? _loadedBreadcrumbBatchId;
+    private string? _batchBreadcrumbLabel;
+    private int _breadcrumbLoadRevision;
     private IReadOnlyList<SettingsTreeGroupDef> VisibleTreeGroups =>
         SettingsNav.FilteredTreeGroups(_currentRole).ToList();
 
@@ -208,9 +238,15 @@
             .ToList();
 
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
+    private RenderFragment? HeaderActions => _activeSection == SettingsSection.Ingestion && IngestionRunId is null
+        ? @<IngestionScanAction />
+        : null;
+    private IReadOnlyList<SettingsBreadcrumb> Breadcrumbs => BuildBreadcrumbs();
     private bool IsOperationsSection => _activeSection is SettingsSection.Ingestion or SettingsSection.Review;
     private bool IsOperationsWorkspace => IsOperationsSection && SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole);
-    private string BrowserTitle => string.IsNullOrWhiteSpace(_activeSubsection)
+    private string BrowserTitle => _activeSection == SettingsSection.Libraries
+        ? $"{(string.IsNullOrWhiteSpace(_activeSubsection) ? "Libraries" : _activeSubsection == "new" ? "Add Library" : _activeSubsection == "view" ? "View" : _libraryBreadcrumbName ?? "Library")} - Tuvima Library"
+        : string.IsNullOrWhiteSpace(_activeSubsection)
         ? $"{GetHeroTitle()} - Tuvima Library"
         : $"{GetSubsectionLabel()} - {GetHeroTitle()} - Tuvima Library";
     private bool ShouldDeferForRoleResolution =>
@@ -270,8 +306,14 @@
     protected override async Task OnParametersSetAsync()
     {
         ResolveSectionAndNormalize();
+        if (_activeSection == SettingsSection.Libraries && _libraryBreadcrumbRoute != _activeSubsection)
+        {
+            _libraryBreadcrumbRoute = _activeSubsection;
+            _libraryBreadcrumbName = null;
+        }
         _scrollToTopPending = true;
         await EnsureElevationForCurrentRouteAsync();
+        await LoadBatchBreadcrumbAsync();
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -362,7 +404,7 @@
             return true;
         }
 
-        var routeKey = new Uri(Nav.Uri).PathAndQuery;
+        var routeKey = new Uri(Nav.Uri).AbsolutePath;
         if (_adminElevationResolved
             && string.Equals(_elevationRouteKey, routeKey, StringComparison.Ordinal))
         {
@@ -462,6 +504,7 @@
 
     private static bool IsLibraryRouteSegment(string? value) =>
         string.Equals(value, "new", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "view", StringComparison.OrdinalIgnoreCase)
         || Guid.TryParse(value, out _);
 
     private static bool IsValidDetailRoute(SettingsSection section, string subsection, string? detail)
@@ -580,6 +623,109 @@
         }
     }
 
+    private IReadOnlyList<SettingsBreadcrumb> BuildBreadcrumbs()
+    {
+        var breadcrumbs = new List<SettingsBreadcrumb>
+        {
+            new("Settings", SettingsNav.RouteFor(SettingsSection.Overview)),
+        };
+
+        breadcrumbs.Add(new SettingsBreadcrumb(
+            CurrentGroup.Label,
+            SettingsNav.RouteFor(CurrentGroup.DefaultSection)));
+
+        if (IsOperationsSection)
+        {
+            breadcrumbs.Add(new SettingsBreadcrumb("Operations", "/settings/ingestion"));
+            if (_activeSection == SettingsSection.Review)
+            {
+                breadcrumbs.Add(new SettingsBreadcrumb("Needs Review", null));
+            }
+            else if (IngestionRunId.HasValue)
+            {
+                breadcrumbs.Add(new SettingsBreadcrumb("Ingestion", "/settings/ingestion"));
+                breadcrumbs.Add(new SettingsBreadcrumb(_batchBreadcrumbLabel ?? "Selected batch", null));
+            }
+            else
+            {
+                breadcrumbs.Add(new SettingsBreadcrumb("Ingestion", null));
+            }
+
+            return breadcrumbs;
+        }
+
+        if (_activeSection == SettingsSection.Libraries)
+        {
+            var overview = LibraryScope is "read" or "watch" or "listen" or "view"
+                ? $"/settings/libraries?scope={LibraryScope}" : "/settings/libraries";
+            breadcrumbs.Add(new SettingsBreadcrumb("Libraries", string.IsNullOrWhiteSpace(_activeSubsection) ? null : overview));
+            if (!string.IsNullOrWhiteSpace(_activeSubsection))
+                breadcrumbs.Add(new SettingsBreadcrumb(_activeSubsection == "new" ? "Add Library" : _activeSubsection == "view" ? "View" : _libraryBreadcrumbName ?? "Library", null));
+            return breadcrumbs;
+        }
+
+        var hasNestedLocation = !string.IsNullOrWhiteSpace(_activeSubsection) || !string.IsNullOrWhiteSpace(Detail);
+        breadcrumbs.Add(new SettingsBreadcrumb(
+            GetHeroTitle(),
+            hasNestedLocation ? SettingsNav.RouteFor(_activeSection) : null));
+
+        if (!string.IsNullOrWhiteSpace(_activeSubsection))
+        {
+            var subsectionLabel = SettingsNav.ResolveSubsection(_activeSection, _activeSubsection)?.Label
+                                  ?? FormatRouteLabel(_activeSubsection);
+            breadcrumbs.Add(new SettingsBreadcrumb(
+                subsectionLabel,
+                string.IsNullOrWhiteSpace(Detail)
+                    ? null
+                    : SettingsNav.RouteFor(_activeSection, _activeSubsection)));
+        }
+
+        if (!string.IsNullOrWhiteSpace(Detail))
+            breadcrumbs.Add(new SettingsBreadcrumb(GetDetailBreadcrumbLabel(), null));
+
+        return breadcrumbs;
+    }
+
+    private async Task LoadBatchBreadcrumbAsync()
+    {
+        if (_activeSection != SettingsSection.Ingestion || IngestionRunId is not { } batchId)
+        {
+            _loadedBreadcrumbBatchId = null;
+            _batchBreadcrumbLabel = null;
+            return;
+        }
+
+        if (_loadedBreadcrumbBatchId == batchId)
+            return;
+
+        var revision = ++_breadcrumbLoadRevision;
+        _loadedBreadcrumbBatchId = batchId;
+        _batchBreadcrumbLabel = "Selected batch";
+        try
+        {
+            var batch = await Orchestrator.GetActivityBatchAsync(batchId);
+            if (revision != _breadcrumbLoadRevision || batch is null)
+                return;
+
+            var started = batch.StartedAt.ToLocalTime();
+            _batchBreadcrumbLabel = $"{IngestionBatchDisplay.Title(batch)} · {started:MMM d, yyyy, h:mm tt}";
+        }
+        catch
+        {
+            // The detail view owns its unavailable state; retain a stable breadcrumb fallback.
+        }
+    }
+
+    private string GetDetailBreadcrumbLabel() => _activeSection switch
+    {
+        SettingsSection.Providers => Detail!.ToUpperInvariant(),
+        SettingsSection.Libraries => "Library details",
+        _ => FormatRouteLabel(Detail!),
+    };
+
+    private static string FormatRouteLabel(string value) =>
+        System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('-', ' '));
+
     private string GetHeroEyebrow() => CurrentGroup.Label;
 
     private string GetHeroTitle()
@@ -607,7 +753,7 @@
         SettingsSection.Playback => "Set the defaults that shape how you watch, listen, and read.",
         SettingsSection.Privacy => "Personal history and export controls are not yet available.",
         SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",
-        SettingsSection.Libraries => "Manage structured libraries and review each profile's Personal Space bridge.",
+        SettingsSection.Libraries => "Manage structured libraries and storage roots.",
         SettingsSection.Ingestion => "See what is being added now and what recently entered the library.",
         SettingsSection.Network => "Manage how devices reach Tuvima at home and away without exposing unnecessary technical detail.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
@@ -624,6 +770,8 @@
     };
 
     private bool IsOperationsView(SettingsSection section) => _activeSection == section;
+
+    private sealed record SettingsBreadcrumb(string Label, string? Href);
 
     private string GetMetadataDescription()
     {

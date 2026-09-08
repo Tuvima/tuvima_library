@@ -7,6 +7,19 @@ namespace MediaEngine.Storage;
 
 public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : IViewPersonalSpaceRepository
 {
+    public Task<(int Sources, int Items)> GetInventoryAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var connection = database.CreateConnection();
+        var sources = connection.ExecuteScalar<int>(new CommandDefinition("SELECT COUNT(*) FROM view_sources;", cancellationToken: ct));
+        var items = connection.ExecuteScalar<int>(new CommandDefinition("""
+            SELECT COUNT(DISTINCT lif.file_id) FROM local_item_files lif
+            JOIN local_items li ON li.id = lif.item_id
+            WHERE lif.role = 'primary' AND li.trashed_at IS NULL;
+            """, cancellationToken: ct));
+        return Task.FromResult((sources, items));
+    }
+
     public Task<ViewPersonalSpace?> GetByOwnerAsync(Guid ownerProfileId, CancellationToken ct = default) =>
         GetSingleAsync("owner_profile_id", ownerProfileId, ct);
 
@@ -19,6 +32,7 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
         using var connection = database.CreateConnection();
         var rows = connection.Query<SpaceRow>(new CommandDefinition("""
             SELECT id AS Id, owner_profile_id AS OwnerProfileId, library_id AS LibraryId,
+                   (SELECT label FROM view_storage_labels WHERE personal_space_id = view_personal_spaces.id) AS StorageLabel,
                    created_at AS CreatedAt, updated_at AS UpdatedAt
               FROM view_personal_spaces ORDER BY owner_profile_id;
             """, cancellationToken: ct));
@@ -44,6 +58,7 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
 
             var existing = connection.QuerySingleOrDefault<SpaceRow>(new CommandDefinition("""
                 SELECT id AS Id, owner_profile_id AS OwnerProfileId, library_id AS LibraryId,
+                   (SELECT label FROM view_storage_labels WHERE personal_space_id = view_personal_spaces.id) AS StorageLabel,
                        created_at AS CreatedAt, updated_at AS UpdatedAt
                   FROM view_personal_spaces
                  WHERE owner_profile_id = @ownerProfileId OR library_id = @libraryId;
@@ -64,7 +79,18 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
                     (id, owner_profile_id, library_id, created_at, updated_at)
                 VALUES (@id, @ownerProfileId, @libraryId, @now, @now);
                 """, new { id, ownerProfileId, libraryId, now }, transaction, cancellationToken: token));
-            return new ViewPersonalSpace(id, ownerProfileId, libraryId, now, now);
+            var displayName = connection.ExecuteScalar<string>(new CommandDefinition(
+                "SELECT display_name FROM profiles WHERE id = @ownerProfileId;",
+                new { ownerProfileId }, transaction, cancellationToken: token)) ?? "profile";
+            var label = ViewStorageNames.FromDisplayName(displayName);
+            if (connection.ExecuteScalar<long>(new CommandDefinition(
+                "SELECT COUNT(*) FROM view_storage_labels WHERE label = @label COLLATE NOCASE;",
+                new { label }, transaction, cancellationToken: token)) > 0)
+                label += "-" + ownerProfileId.ToString("N");
+            connection.Execute(new CommandDefinition(
+                "INSERT INTO view_storage_labels (personal_space_id, label) VALUES (@id, @label);",
+                new { id, label }, transaction, cancellationToken: token));
+            return new ViewPersonalSpace(id, ownerProfileId, libraryId, now, now, label);
         }, ct);
     }
 
@@ -236,6 +262,7 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
         using var connection = database.CreateConnection();
         var row = connection.QuerySingleOrDefault<SpaceRow>(new CommandDefinition($"""
             SELECT id AS Id, owner_profile_id AS OwnerProfileId, library_id AS LibraryId,
+                   (SELECT label FROM view_storage_labels WHERE personal_space_id = view_personal_spaces.id) AS StorageLabel,
                    created_at AS CreatedAt, updated_at AS UpdatedAt
               FROM view_personal_spaces WHERE {column} = @value;
             """, new { value }, cancellationToken: ct));
@@ -257,7 +284,7 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
     }
 
     private static ViewPersonalSpace Map(SpaceRow row) => new(
-        row.Id, row.OwnerProfileId, row.LibraryId, ParseDate(row.CreatedAt), ParseDate(row.UpdatedAt));
+        row.Id, row.OwnerProfileId, row.LibraryId, ParseDate(row.CreatedAt), ParseDate(row.UpdatedAt), row.StorageLabel);
 
     private static ViewSource Map(SourceRow row) => new(
         row.Id, row.PersonalSpaceId, ParseSourceType(row.SourceType), row.Name, row.SourceKey,
@@ -326,6 +353,7 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
 
     private sealed class SpaceRow
     {
+        public string StorageLabel { get; init; } = "";
         public Guid Id { get; init; } public Guid OwnerProfileId { get; init; } public Guid LibraryId { get; init; }
         public string CreatedAt { get; init; } = string.Empty; public string UpdatedAt { get; init; } = string.Empty;
     }

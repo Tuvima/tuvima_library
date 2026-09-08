@@ -22,7 +22,11 @@ applicable, and understand where the result appears.
 
 In the Dashboard, open **Settings > Libraries**.
 
-Create or select a library, then confirm:
+Select **Add library** to use three steps: **Choose type**, **Add folders**, and **Review**. Structured Media creates one Books, Comics, Movies, TV Shows, Music, or Audiobooks library. Personal Media configures the shared View storage root; it does not add a structured library.
+
+Folder selection shows approved storage locations, path breadcrumbs, access checks, and any overlapping libraries. Manual paths receive the same validation. Nothing is committed until the final action.
+
+Open an existing library to manage **Folders**, **Organization**, **File Handling**, and **Advanced Settings** on one page. The breadcrumb retains the library name and a link back to Libraries, including the selected Read/Watch/Listen/View filter. Confirm:
 
 - **Source folder** - where files already live or where new files appear for Tuvima to scan.
 - **Primary destination** - the managed source where organized files can live after intake.
@@ -31,7 +35,9 @@ Create or select a library, then confirm:
 - **Library kind** - catalogued for administrator-created Read, Watch, and Listen libraries.
 - **Metadata policy** - enriched for known catalogue works.
 
-Save the settings when they look correct.
+Save the settings when they look correct. **Protect existing files** starts on. Existing-library sources stay read-only regardless of this setting. Naming changes apply to eligible new imports; saving settings does not reorganize existing files. Filename collisions preserve the existing file and give the incoming file a unique name.
+
+Personal Media uses one Personal Space per enabled profile. A populated View root cannot be changed through this page because relocation is not available.
 
 ## Step 2 - Add Test Media
 
@@ -54,8 +60,7 @@ Supported formats are listed in [Media Types](../reference/media-types.md).
 ## Step 3 - Begin The Correct Intake Path
 
 For a catalogued Read, Watch, or Listen library, start the administrator scan
-from **Settings > Libraries** when importing an existing folder. Then
-open **Settings > Ingestion**.
+using **Scan now** in **Settings > Operations** when importing an existing folder. The same page shows progress.
 
 For View, select the owning profile and open `/view`. The profile's Personal
 Space is the user-facing destination; sources and devices are provenance, not
@@ -140,3 +145,10 @@ Tuvima only shows real data returned by the Engine. Empty shelves, unavailable A
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
 - [How to Resolve Review Items](../guides/resolving-reviews.md)
 - [Troubleshooting](../guides/troubleshooting.md)
+
+
+### Immediate folder changes and View storage
+
+Use **Add folder** inside the Folders section. Its final confirmation saves the addition; no page-wide Save is needed. Detaching a folder requires confirmation and leaves its files on disk. When detaching a primary that still serves other managed folders, choose its replacement in the confirmation dialog. Names and custom templates use their own Apply dialog.
+
+Open **Libraries > View** for profile-owned sources. Attach existing folders read-only, or create an empty managed folder under a chosen profile. New browser uploads use `View/Profiles/<profile-label>/Timeline`; managed mixed folders use `Folders/<folder-label>`. Labels stay fixed when display names change. Shared is a reserved destination at this stage; family contributions and physical keeper promotion are not yet available. Existing source files are not relocated by this settings update.

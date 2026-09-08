@@ -8,7 +8,13 @@
 @implements IDisposable
 
 <section class="ingestion-paged-view" aria-labelledby="ingestion-paged-title">
-    <header><div><h2 id="ingestion-paged-title">@Title</h2><p>@Subtitle</p></div><AppButton Href="@ResolvedBackHref" Label="@BackLabel" StartIcon="@Icons.Material.Outlined.ArrowBack" /></header>
+    <header>
+        <div><h2 id="ingestion-paged-title">@Title</h2><p>@Subtitle</p></div>
+        @if (Mode.Equals("current", StringComparison.OrdinalIgnoreCase))
+        {
+            <AppButton Href="/settings/ingestion" Label="Back to Ingestion" StartIcon="@Icons.Material.Outlined.ArrowBack" />
+        }
+    </header>
     @if (!Mode.Equals("current", StringComparison.OrdinalIgnoreCase))
     {
         <div class="ingestion-paged-view__filters">
@@ -53,7 +59,6 @@
     [Parameter] public string Mode { get; set; } = "history";
     [Parameter] public Guid? BatchId { get; set; }
     [Parameter] public DateOnly? Date { get; set; }
-    [Parameter] public string? BackHref { get; set; }
     [Parameter] public EventCallback<IngestionMediaGroupDto> OnOpen { get; set; }
 
     private PagedResponse<IngestionMediaGroupDto>? _page;
@@ -72,9 +77,6 @@
     private static readonly IReadOnlyList<AppSelectOption> SortOptions = [new("newest", "Date added (newest)"), new("oldest", "Date added (oldest)")];
     private string Title => Mode.ToLowerInvariant() switch { "current" => "Being Added Now", "batch" => "Added in this batch", _ => "Recently Added" };
     private string Subtitle => Mode.ToLowerInvariant() switch { "current" => "All grouped media currently being processed.", "batch" => "Browse the media groups recorded for this ingestion run.", _ => "Media that entered the library, grouped by its addition event." };
-    private string ResolvedBackHref => BackHref ?? "/settings/ingestion";
-    private string BackLabel => "Back to Ingestion";
-
     protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
 
     protected override Task OnParametersSetAsync()

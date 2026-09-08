@@ -297,6 +297,7 @@ public sealed partial class IngestionEngine
                     {
                         var resolvedSource = _libraryFolderResolver?.ResolveSourceForPath(candidate.Path);
                         var deleteAllowed = resolvedSource is not null
+                            && resolvedSource.Library.DuplicatePolicy == MediaEngine.Domain.Configuration.LibraryDuplicatePolicies.SkipExact
                             && _sourceMutationPolicyGate?.Evaluate(new SourceMutationRequest
                             {
                                 Source = FileSourceMutationPolicyFactory.Create(
@@ -795,7 +796,7 @@ public sealed partial class IngestionEngine
         // Calculate the relative path once for the gate (needed for the "Other" check).
         string? gateRelativePath = _options.AutoOrganize
             && !string.IsNullOrWhiteSpace(_options.LibraryRoot)
-            ? _organizer.CalculatePath(candidate, _options.ResolveTemplate(candidate.DetectedMediaType?.ToString()))
+            ? LibraryOrganizationPath.Calculate(_organizer, candidate, context.Library, _options.ResolveTemplate(candidate.DetectedMediaType?.ToString()))
             : null;
 
         var candidateCanonicals = candidate.Metadata

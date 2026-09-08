@@ -1,0 +1,141 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.LocalAssets
+@using System.Text.Json
+@inject IEngineApiClient ApiClient
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<div class="library-detail">
+    <header class="library-detail__header"><div><h1>View</h1><p>Personal photos, videos, documents, and recordings · Local files</p></div></header>
+    <AppCard Class="libraries-card">
+        <div class="libraries-card__heading"><div><h3>Folders</h3><p>Choose the central root and attach additional folders to their owning profiles.</p></div>
+            <AppButton Label="Add folder" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(ReadOnly || _busy)" OnClick="@(() => _adding = !_adding)" />
+        </div>
+        <div class="libraries-example"><span>Personal storage root</span><code>@RootPath</code>
+            <AppButton Label="Choose root" ButtonStyle="AppButtonStyle.Outlined" Disabled="@(ReadOnly || _busy)" OnClick="ChooseRootAsync" />
+        </div>
+        <div class="libraries-example"><span>Reserved family archive</span><code>@Path.Combine(RootPath, "Shared")</code><span>Reserved destination; personal files are not moved here automatically.</span></div>
+        @if (_adding)
+        {
+            <div class="libraries-form-grid">
+                <AppSelect Label="Owner profile" Value="@_owner" ValueChanged="@((string? value) => _owner = value)" Options="@OwnerOptions" Disabled="@_busy" />
+                <AppTextField Label="Folder name" Value="@_name" ValueChanged="@((string? value) => _name = value ?? string.Empty)" ReadOnly="@_busy" />
+                <AppSelect Label="Folder management" Value="@_mode" ValueChanged="@((string? value) => { _mode = value ?? "linked"; _path = null; })" Options="@ModeOptions" Disabled="@_busy" />
+                @if (_mode == "linked")
+                {
+                    <AppButton Label="Choose existing folder" ButtonStyle="AppButtonStyle.Outlined" Disabled="@_busy" OnClick="ChooseSourceAsync" />
+                    <code>@(_path ?? "No folder selected")</code>
+                    <AppSwitchRow Label="Include subfolders" Value="@_recursive" ValueChanged="@((bool value) => _recursive = value)" Disabled="@_busy" />
+                }
+            </div>
+            <p>@(_mode == "linked" ? "Files remain where they are and are indexed read-only." : "Create an empty managed folder in this profile’s Personal Space. Existing files are not moved.")</p>
+            <AppActionBar><AppButton Label="Cancel" ButtonStyle="AppButtonStyle.Text" Disabled="@_busy" OnClick="@(() => _adding = false)" /><AppButton Label="Add folder" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_busy" Disabled="@(_busy || string.IsNullOrWhiteSpace(_owner) || string.IsNullOrWhiteSpace(_name) || (_mode == "linked" && _path is null))" OnClick="AddAsync" /></AppActionBar>
+        }
+        @if (_loading) { <p role="status">Loading personal sources…</p> }
+        @if (_error is not null) { <AppAlert Tone="AppUiTone.Error">@_error</AppAlert> }
+        @foreach (var profile in _profiles)
+        {
+            <div class="view-source-group">
+                <h4>@profile.DisplayName</h4>
+                @if (!_reviews.TryGetValue(profile.Id, out var review)) { <p>Sources unavailable.</p> }
+                else if (review.PersonalSpace is null) { <p>Personal Space not provisioned.</p> }
+                else
+                {
+                    <code>@review.PersonalSpace.RootPath</code>
+                    @foreach (var source in review.Sources)
+                    {
+                        <div class="view-source-row" @key="source.Id">
+                            <span><strong>@source.Name</strong><code>@source.Location</code></span>
+                            <span>@(source.StorageMode == "linked" ? "Read-only · Keep existing layout" : "Managed · Keep existing layout")</span>
+                            <span>@(source.IncludeSubdirectories ? "Includes subfolders" : "This folder only")</span>
+                            <AppStatusBadge Text="@(source.Enabled ? "Indexing enabled" : "Disabled")" Tone="AppUiTone.Neutral" />
+                            <AppIconButton Icon="@Icons.Material.Outlined.Delete" AriaLabel="@($"Detach {source.Name}")" Tooltip="Detach folder; keep files" Disabled="@(ReadOnly || _busy || source.SourceType == "browser_upload")" OnClick="@(() => DetachAsync(profile.Id, source))" />
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </AppCard>
+    <AppCard Class="libraries-card"><h3>Organization</h3><p>Linked folders preserve their existing structure. Managed folder imports preserve relative folders and original names. Changing the central root does not relocate existing media.</p></AppCard>
+    <AppCard Class="libraries-card"><h3>File Handling</h3><p>Detaching a folder leaves its originals on disk. Linked originals are read-only. Additional managed folders are separate destinations; adding one does not copy or move existing media.</p></AppCard>
+    <AppCard Class="libraries-card"><h3>Personal Spaces &amp; Sharing</h3><p>Each enabled profile owns one Personal Space. Access to shared content, personal contributions, and Gallery sharing are independent permissions.</p><a href="/settings/access">Manage profiles and access</a></AppCard>
+    <details class="library-detail__advanced"><summary><strong>Local Processing &amp; Advanced</strong></summary><p>View indexes local file details, capture dates, available location metadata, and supported thumbnails. Personal media does not use external catalog providers or the Review Queue.</p></details>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public LibrariesConfigurationDto Configuration { get; set; } = default!;
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public EventCallback RootChanged { get; set; }
+    private List<ProfileViewModel> _profiles = [];
+    private readonly Dictionary<Guid, ViewPersonalSpaceAdminReviewDto> _reviews = [];
+    private bool _loading = true, _busy, _adding, _recursive = true;
+    private string? _owner, _path, _error;
+    private string _name = string.Empty, _mode = "linked";
+    private string RootPath => Path.Combine(Configuration.StorageLocations.FirstOrDefault(x => x.Id == Configuration.ViewStorage.StorageLocationId)?.Path ?? "", Configuration.ViewStorage.RelativeRoot);
+    private IReadOnlyList<AppSelectOption> OwnerOptions => _profiles.Select(p => new AppSelectOption(p.Id.ToString(), p.DisplayName)).ToList();
+    private static readonly IReadOnlyList<AppSelectOption> ModeOptions = [new("linked", "Existing folder — read-only"), new("managed", "New managed folder")];
+
+    protected override async Task OnInitializedAsync() => await LoadSourcesAsync();
+    private async Task LoadSourcesAsync()
+    {
+        _loading = true;
+        _profiles = await ApiClient.GetProfilesAsync();
+        var results = await Task.WhenAll(_profiles.Select(async p => (p.Id, Review: await ApiClient.GetViewProfileSourcesAsync(p.Id))));
+        _reviews.Clear();
+        foreach (var (id, review) in results) if (review is not null) _reviews[id] = review;
+        _loading = false;
+    }
+    private async Task ChooseSourceAsync()
+    {
+        var selected = await PickAsync(_path ?? "", ServerFolderSelectionModes.PersonalSpaceExisting);
+        if (selected is not null) _path = selected.Path;
+    }
+    private async Task ChooseRootAsync()
+    {
+        var selected = await PickAsync(RootPath, ServerFolderSelectionModes.PersonalSpaceManaged);
+        if (selected is null) return;
+        _busy = true;
+        try
+        {
+            var saved = await ApiClient.MutateLibraryAsync(new LibraryMutationRequest
+            {
+                ExpectedViewStorage = Configuration.ViewStorage,
+                ViewStorage = new ViewStorageDto { StorageLocationId = selected.StorageLocationId, RelativeRoot = string.IsNullOrWhiteSpace(selected.RelativePath) ? "." : selected.RelativePath },
+            });
+            if (saved is null) _error = ApiClient.LastError ?? "Root could not be saved.";
+            else { _error = null; Snackbar.Add("View root saved.", Severity.Success); await RootChanged.InvokeAsync(); await LoadSourcesAsync(); }
+        }
+        finally { _busy = false; }
+    }
+    private async Task<ServerFolderValidationResultDto?> PickAsync(string path, string mode)
+    {
+        var dialog = await DialogService.ShowAsync<ServerFolderPicker>(string.Empty, new DialogParameters<ServerFolderPicker>
+        {
+            { x => x.InitialPath, path }, { x => x.SelectionMode, mode },
+        }, new DialogOptions { MaxWidth = MaxWidth.ExtraExtraLarge, CloseButton = false, CloseOnEscapeKey = true });
+        return await dialog.Result is { Canceled: false, Data: ServerFolderValidationResultDto result } ? result : null;
+    }
+    private async Task AddAsync()
+    {
+        if (!Guid.TryParse(_owner, out var owner) || _busy) return;
+        _busy = true;
+        try
+        {
+            var result = await ApiClient.CreateViewProfileSourceAsync(owner, new CreateViewSourceRequest(_name, _mode, _path, _recursive));
+            if (result is null) _error = ApiClient.LastError ?? "Folder could not be added.";
+            else { _adding = false; _error = null; _name = ""; _path = null; await LoadSourcesAsync(); Snackbar.Add("Folder saved. Indexing runs separately.", Severity.Success); }
+        }
+        finally { _busy = false; }
+    }
+    private async Task DetachAsync(Guid owner, ViewSourceAdminDto source)
+    {
+        if (await DialogService.ShowMessageBoxAsync("Detach folder?", $"Detach {source.Name}? Original files remain at {source.Location}.", yesText: "Detach folder", cancelText: "Cancel") != true) return;
+        _busy = true;
+        try
+        {
+            if (await ApiClient.DeleteViewProfileSourceAsync(owner, source.Id)) { await LoadSourcesAsync(); Snackbar.Add("Folder detached. Files kept.", Severity.Success); }
+            else _error = ApiClient.LastError ?? "Folder could not be detached.";
+        }
+        finally { _busy = false; }
+    }
+}

@@ -74,6 +74,14 @@ internal static class SettingsContractMapper
     internal static LibrariesConfiguration ToStorage(UpdateLibrariesRequest value)
     {
         var result = Convert<LibrariesConfiguration>(value);
+        // Probe details belong to the response, never to persisted configuration.
+        result.StorageLocations = value.StorageLocations.Select(location => new ServerStorageLocationConfig
+        {
+            Id = location.Id,
+            Label = location.Label,
+            Path = location.Path,
+            AllowWrite = location.AllowWrite,
+        }).ToList();
         result.Libraries ??= [];
         result.ViewStorage ??= new ViewStorageConfig();
         result.PersonalLibraryPolicy ??= new PersonalLibraryPolicyConfig();

@@ -13,6 +13,36 @@ namespace MediaEngine.Ingestion.Tests;
 /// </summary>
 public class FileOrganizerTests
 {
+    [Theory]
+    [InlineData("Collection/Original.epub", "Collection/Original.epub")]
+    [InlineData(".data/staging/Collection/Original.epub", "Collection/Original.epub")]
+    public void KeepOriginalNamesPreservesSourceStructureWithoutStagingFolders(string input, string expected)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "library-naming-test");
+        var candidate = BuildCandidate(Path.Combine(root, input), MediaType.Books);
+        var library = new LibraryFolderEntry
+        {
+            OrganizationMode = MediaEngine.Domain.Configuration.LibraryOrganizationModes.KeepOriginalNames,
+            Sources = [new LibrarySourceEntry { Path = root }],
+        };
+        var result = MediaEngine.Ingestion.Services.LibraryOrganizationPath.Calculate(CreateOrganizer(), candidate, library, "{Title}.{Extension}");
+        Assert.Equal(expected, result.Replace('\\', '/'));
+    }
+
+    [Fact]
+    public void LibraryCustomNamingOverridesTheGlobalTemplate()
+    {
+        var candidate = BuildCandidate(Path.Combine(Path.GetTempPath(), "original.epub"), MediaType.Books,
+            new() { ["title"] = "Dune" });
+        var library = new LibraryFolderEntry
+        {
+            OrganizationMode = MediaEngine.Domain.Configuration.LibraryOrganizationModes.Custom,
+            CustomOrganizationTemplate = "Custom/{Title}.{Extension}",
+        };
+        var result = MediaEngine.Ingestion.Services.LibraryOrganizationPath.Calculate(CreateOrganizer(), candidate, library, "Global/{Title}.{Extension}");
+        Assert.Equal("Custom/Dune.epub", result.Replace('\\', '/'));
+    }
+
     private static FileOrganizer CreateOrganizer() =>
         new(Microsoft.Extensions.Logging.Abstractions.NullLogger<FileOrganizer>.Instance);
 

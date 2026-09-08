@@ -135,6 +135,8 @@ public partial interface IEngineApiClient
 
     /// <summary>GET /settings/libraries — complete schema 4 library, storage-root, and incoming-source configuration.</summary>
     Task<LibrariesConfigurationDto?> GetLibrariesAsync(CancellationToken ct = default);
+    Task<ViewStorageSummaryDto?> GetViewStorageSummaryAsync(CancellationToken ct = default);
+    Task<LibrariesConfigurationDto?> MutateLibraryAsync(LibraryMutationRequest request, CancellationToken ct = default);
 
     /// <summary>PUT /settings/libraries — replace schema 4 library, storage-root, and incoming-source configuration.</summary>
     Task<LibrariesConfigurationDto?> UpdateLibrariesAsync(UpdateLibrariesRequest request, CancellationToken ct = default);

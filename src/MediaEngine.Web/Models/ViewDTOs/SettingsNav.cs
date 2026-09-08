@@ -357,7 +357,7 @@ public static class SettingsNav
         var normalized = subsection?.Trim().ToLowerInvariant() ?? string.Empty;
         return section switch
         {
-            SettingsSection.Libraries => string.IsNullOrWhiteSpace(normalized),
+            SettingsSection.Libraries => string.IsNullOrWhiteSpace(normalized) || normalized == "view" || Guid.TryParse(normalized, out _),
             SettingsSection.Providers => normalized is "" or "providers",
             SettingsSection.Network => normalized is "" or "overview",
             SettingsSection.Delivery or SettingsSection.Access or SettingsSection.LocalAi or SettingsSection.Plugins =>

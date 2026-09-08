@@ -11,6 +11,28 @@ public sealed class SourceMutationPolicyGateTests
     [Theory]
     [InlineData(SourceMutationKind.Move)]
     [InlineData(SourceMutationKind.Rename)]
+    [InlineData(SourceMutationKind.Delete)]
+    [InlineData(SourceMutationKind.MetadataWriteback)]
+    public void ProtectedManagedOriginals_DenyMutationButAllowIncomingStaging(SourceMutationKind mutation)
+    {
+        var root = NewRoot();
+        var source = new LibrarySourceConfig
+        {
+            Id = "source", Path = root, ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
+            AccessMode = LibrarySourceAccessModes.Writable, ParticipatesInOrganization = true, WritebackOverride = true,
+        };
+        var library = new LibraryFolderConfig { Id = "library", Sources = [source] };
+        var policy = FileSourceMutationPolicyFactory.Create(library, source, allowDelete: true);
+        Assert.False(_gate.Evaluate(new SourceMutationRequest { Source = policy, Mutation = mutation, Path = Path.Combine(root, "owned.txt") }).Allowed);
+        Assert.True(_gate.Evaluate(new SourceMutationRequest { Source = policy, Mutation = mutation, Path = Path.Combine(root, ".data", "staging", "incoming.txt") }).Allowed);
+        Assert.True(_gate.Evaluate(new SourceMutationRequest { Source = policy, Mutation = SourceMutationKind.UseAsDestination, Path = Path.Combine(root, "new.txt") }).Allowed);
+        // A similarly named user folder is not the Engine's staging area.
+        Assert.False(_gate.Evaluate(new SourceMutationRequest { Source = policy, Mutation = mutation, Path = Path.Combine(root, ".data", "staging-other", "owned.txt") }).Allowed);
+    }
+
+    [Theory]
+    [InlineData(SourceMutationKind.Move)]
+    [InlineData(SourceMutationKind.Rename)]
     [InlineData(SourceMutationKind.MetadataWriteback)]
     [InlineData(SourceMutationKind.Delete)]
     [InlineData(SourceMutationKind.UseAsDestination)]

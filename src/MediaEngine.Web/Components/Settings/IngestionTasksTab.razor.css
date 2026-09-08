@@ -1,13 +1,405 @@
-.ingestion-operations{display:grid;gap:1.15rem}.ingestion-operations__toolbar{display:flex;justify-content:flex-end;gap:.75rem;margin-top:-.25rem}
-.ingestion-summary-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(17rem,22rem);gap:.85rem}.ingestion-summary-layout:not(:has(.ingestion-attention)){grid-template-columns:1fr}
-.ingestion-current{padding:1.25rem!important}.ingestion-current__top{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:1.15rem;align-items:start}.ingestion-current__icon{display:grid;place-items:center;width:3.8rem;height:3.8rem;color:var(--mud-palette-primary);background:color-mix(in srgb,var(--mud-palette-primary) 15%,transparent);border-radius:1rem}.ingestion-current__icon ::deep .mud-icon-root{font-size:2.2rem}.ingestion-current.is-active .ingestion-current__icon ::deep .mud-icon-root{animation:ingestion-summary-spin 2.2s linear infinite}.ingestion-current.is-idle .ingestion-current__icon{color:var(--mud-palette-success);background:color-mix(in srgb,var(--mud-palette-success) 13%,transparent)}
-.ingestion-current__copy h2{margin:.05rem 0 .3rem;font-size:1.45rem}.ingestion-current__copy>p{margin:0;color:var(--mud-palette-text-secondary)}.ingestion-current__progress{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.75rem;align-items:center;margin-top:1.1rem}.ingestion-current__progress>span{font-size:.72rem;color:var(--mud-palette-text-secondary)}
-.ingestion-current__facts{display:grid;grid-template-columns:repeat(2,minmax(6.5rem,1fr));gap:.75rem 1.2rem;margin:0;padding-left:1.2rem;border-left:1px solid var(--app-border)}.ingestion-current__facts>div{display:grid;grid-template-columns:1fr auto;gap:.6rem}.ingestion-current__facts dt{font-size:.7rem;color:var(--mud-palette-text-secondary)}.ingestion-current__facts dd{margin:0;font-size:.78rem;font-weight:700}
-.ingestion-processing-details{margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--app-border);font-size:.78rem;color:var(--mud-palette-text-secondary)}.ingestion-processing-details summary{cursor:pointer;color:var(--mud-palette-primary-text)}.ingestion-processing-details p{margin:.6rem 0 0}
-.ingestion-attention{padding:0!important;overflow:hidden}.ingestion-attention>header{display:flex;align-items:center;gap:.55rem;padding:.9rem 1rem;border-bottom:1px solid var(--app-border);color:var(--mud-palette-warning)}.ingestion-attention h3{margin:0;font-size:1rem}.ingestion-attention>a{display:grid;grid-template-columns:1.5rem minmax(0,1fr) 1.2rem;gap:.55rem;align-items:center;min-height:3.5rem;padding:.55rem 1rem;color:inherit;text-decoration:none;border-bottom:1px solid var(--app-border)}.ingestion-attention>a:last-child{border:0}.ingestion-attention>a:hover,.ingestion-attention>a:focus-visible{background:var(--app-glass-inner-bg)}.ingestion-attention>a span{display:grid}.ingestion-attention>a strong{font-size:.78rem}.ingestion-attention>a small{color:var(--mud-palette-text-secondary);font-size:.7rem}
-.ingestion-section{display:grid;gap:.75rem}.ingestion-section>header{display:flex;align-items:end;justify-content:space-between;gap:1rem}.ingestion-section h2{margin:0;font-size:1.16rem}.ingestion-section header p{display:flex;align-items:center;gap:.45rem;margin:.18rem 0 0;color:var(--mud-palette-text-secondary);font-size:.75rem}.ingestion-section header p>i{width:.5rem;height:.5rem;background:var(--mud-palette-success);border-radius:50%}
-.ingestion-media-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:.7rem}.ingestion-grouping-state{display:flex;align-items:center;gap:.75rem;min-height:5rem;padding:1rem;color:var(--mud-palette-text-secondary);border:1px dashed var(--app-border);border-radius:.6rem}.ingestion-grouping-state>span{display:grid}.ingestion-grouping-state ::deep>.mud-icon-root{color:var(--mud-palette-primary);animation:ingestion-summary-spin 2s linear infinite}
-@keyframes ingestion-summary-spin{to{transform:rotate(360deg)}}
-@media(prefers-reduced-motion:reduce){.ingestion-current.is-active .ingestion-current__icon ::deep .mud-icon-root,.ingestion-grouping-state ::deep>.mud-icon-root{animation:none}}
-@media(max-width:1000px){.ingestion-summary-layout{grid-template-columns:1fr}.ingestion-current__top{grid-template-columns:auto minmax(0,1fr)}.ingestion-current__facts{grid-column:1/-1;padding:1rem 0 0;border-left:0;border-top:1px solid var(--app-border)}}
-@media(max-width:600px){.ingestion-operations__toolbar{justify-content:stretch}.ingestion-current{padding:1rem!important}.ingestion-current__top{grid-template-columns:2.8rem minmax(0,1fr)}.ingestion-current__icon{width:2.8rem;height:2.8rem}.ingestion-current__facts{grid-template-columns:1fr}.ingestion-current__progress{grid-template-columns:1fr}.ingestion-media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ingestion-section>header{align-items:start}.ingestion-section header p{max-width:18rem}}
+.ingestion-operations {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.ingestion-summary-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(18rem, 24rem);
+    gap: 1rem;
+}
+
+.ingestion-summary-layout:not(:has(.ingestion-attention)) {
+    grid-template-columns: 1fr;
+}
+
+.ingestion-current {
+    position: relative;
+    overflow: hidden;
+    padding: 1.5rem !important;
+}
+
+.ingestion-current.is-active::after {
+    position: absolute;
+    inset: 0;
+    border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 44%, transparent);
+    border-radius: inherit;
+    box-shadow: inset 0 0 28px color-mix(in srgb, var(--mud-palette-primary) 8%, transparent);
+    content: "";
+    pointer-events: none;
+    animation: ingestion-summary-breathe 2.8s ease-in-out infinite;
+}
+
+.ingestion-current__top {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(18rem, .52fr);
+    gap: 1.4rem;
+    align-items: start;
+}
+
+.ingestion-current__icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 4.5rem;
+    height: 4.5rem;
+    color: var(--mud-palette-primary);
+    background: color-mix(in srgb, var(--mud-palette-primary) 13%, transparent);
+    border-radius: 1rem;
+}
+
+.ingestion-current__icon::before {
+    position: absolute;
+    inset: .5rem;
+    border: 3px solid color-mix(in srgb, var(--mud-palette-primary) 24%, transparent);
+    border-top-color: var(--mud-palette-primary);
+    border-radius: 50%;
+    content: "";
+    opacity: 0;
+}
+
+.ingestion-current__icon ::deep .mud-icon-root {
+    font-size: 2.15rem;
+}
+
+.ingestion-current.is-active .ingestion-current__icon::before {
+    opacity: 1;
+    animation: ingestion-summary-spin 1.6s linear infinite;
+}
+
+.ingestion-current.is-active .ingestion-current__icon ::deep .mud-icon-root {
+    animation: ingestion-summary-spin 2.2s linear infinite reverse;
+}
+
+.ingestion-current.is-idle .ingestion-current__icon {
+    color: var(--mud-palette-success);
+    background: color-mix(in srgb, var(--mud-palette-success) 13%, transparent);
+}
+
+.ingestion-current__copy h2 {
+    margin: .02rem 0 .28rem;
+    color: var(--tl-text-primary);
+    font-family: var(--font-ui, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif);
+    font-size: clamp(1.45rem, 1.65vw, 1.75rem);
+    font-weight: 700;
+    line-height: 1.16;
+    letter-spacing: -.018em;
+}
+
+.ingestion-current__lead,
+.ingestion-current__summary {
+    margin: 0;
+    color: var(--mud-palette-text-secondary);
+    line-height: 1.45;
+}
+
+.ingestion-current__lead {
+    font-size: .92rem;
+}
+
+.ingestion-current__summary {
+    margin-top: .72rem;
+    color: var(--tl-text-primary);
+    font-size: .82rem;
+    font-weight: 700;
+}
+
+.ingestion-current__progress {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: .8rem;
+    align-items: center;
+    margin-top: 1.1rem;
+}
+
+.ingestion-current__progress > span {
+    color: var(--mud-palette-text-secondary);
+    font-size: .73rem;
+    white-space: nowrap;
+}
+
+.ingestion-current.is-active ::deep .ingestion-current__progress-bar:not(.app-progress-bar--indeterminate) .app-progress-bar__fill {
+    background-image: linear-gradient(90deg,
+        var(--app-progress-accent, var(--app-primary)) 0%,
+        color-mix(in srgb, var(--app-progress-accent, var(--app-primary)) 64%, white) 48%,
+        var(--app-progress-accent, var(--app-primary)) 100%);
+    background-size: 220% 100%;
+    animation: ingestion-progress-shimmer 1.7s linear infinite;
+}
+
+.ingestion-current__facts {
+    display: grid;
+    gap: .7rem;
+    margin: 0;
+    padding-left: 1.35rem;
+    border-left: 1px solid var(--app-border);
+}
+
+.ingestion-current__facts > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem;
+    align-items: center;
+}
+
+.ingestion-current__facts dt {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    color: var(--mud-palette-text-secondary);
+    font-size: .76rem;
+}
+
+.ingestion-current__facts dt ::deep .mud-icon-root {
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--tl-text-muted);
+    font-size: 1.1rem;
+}
+
+.ingestion-current__facts dd {
+    margin: 0;
+    color: var(--tl-text-primary);
+    font-size: .82rem;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ingestion-processing-details {
+    margin-top: 1rem;
+    padding-top: .8rem;
+    color: var(--mud-palette-text-secondary);
+    border-top: 1px solid var(--app-border);
+    font-size: .78rem;
+}
+
+.ingestion-processing-details summary {
+    color: var(--mud-palette-primary-text);
+    cursor: pointer;
+}
+
+.ingestion-processing-details p {
+    margin: .6rem 0 0;
+}
+
+.ingestion-attention {
+    overflow: hidden;
+    padding: 0 !important;
+}
+
+.ingestion-attention > header {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: 1rem 1.1rem;
+    color: var(--mud-palette-warning);
+    border-bottom: 1px solid var(--app-border);
+}
+
+.ingestion-attention h3 {
+    margin: 0;
+    font-size: 1.08rem;
+}
+
+.ingestion-attention > a {
+    display: grid;
+    grid-template-columns: 1.5rem minmax(0, 1fr) 1.2rem;
+    gap: .6rem;
+    align-items: center;
+    min-height: 3.75rem;
+    padding: .65rem 1.1rem;
+    color: inherit;
+    text-decoration: none;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.ingestion-attention > a:last-child {
+    border: 0;
+}
+
+.ingestion-attention > a:hover,
+.ingestion-attention > a:focus-visible {
+    background: var(--app-glass-inner-bg);
+}
+
+.ingestion-attention > a span {
+    display: grid;
+}
+
+.ingestion-attention > a strong {
+    font-size: .8rem;
+}
+
+.ingestion-attention > a small {
+    color: var(--mud-palette-text-secondary);
+    font-size: .71rem;
+}
+
+.ingestion-section {
+    display: grid;
+    gap: .8rem;
+}
+
+.ingestion-section > header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.ingestion-section h2 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.ingestion-section header p {
+    display: flex;
+    align-items: center;
+    gap: .48rem;
+    margin: .2rem 0 0;
+    color: var(--mud-palette-text-secondary);
+    font-size: .76rem;
+}
+
+.ingestion-live-dot {
+    position: relative;
+    width: .5rem;
+    height: .5rem;
+    background: var(--mud-palette-success);
+    border-radius: 50%;
+}
+
+.ingestion-live-dot::after {
+    position: absolute;
+    inset: -.28rem;
+    border: 1px solid color-mix(in srgb, var(--mud-palette-success) 70%, transparent);
+    border-radius: inherit;
+    content: "";
+    animation: ingestion-live-pulse 1.8s ease-out infinite;
+}
+
+.ingestion-media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    gap: .7rem;
+}
+
+.ingestion-grouping-state {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    min-height: 5rem;
+    padding: 1rem;
+    color: var(--mud-palette-text-secondary);
+    border: 1px dashed var(--app-border);
+    border-radius: .6rem;
+}
+
+.ingestion-grouping-state > span {
+    display: grid;
+}
+
+.ingestion-grouping-state ::deep > .mud-icon-root {
+    color: var(--mud-palette-primary);
+    animation: ingestion-summary-spin 2s linear infinite;
+}
+
+@keyframes ingestion-summary-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes ingestion-summary-breathe {
+    0%, 100% { opacity: .48; }
+    50% { opacity: 1; }
+}
+
+@keyframes ingestion-progress-shimmer {
+    to { background-position: -220% 0; }
+}
+
+@keyframes ingestion-live-pulse {
+    0% { opacity: .8; transform: scale(.55); }
+    75%, 100% { opacity: 0; transform: scale(1.35); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ingestion-current.is-active::after,
+    .ingestion-current.is-active .ingestion-current__icon::before,
+    .ingestion-current.is-active .ingestion-current__icon ::deep .mud-icon-root,
+    .ingestion-current.is-active ::deep .ingestion-current__progress-bar .app-progress-bar__fill,
+    .ingestion-live-dot::after,
+    .ingestion-grouping-state ::deep > .mud-icon-root {
+        animation: none;
+    }
+
+    .ingestion-current.is-active ::deep .ingestion-current__progress-bar.app-progress-bar--indeterminate .app-progress-bar__fill {
+        transform: translateX(90%);
+    }
+}
+
+@media (max-width: 1100px) {
+    .ingestion-summary-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .ingestion-current__top {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .ingestion-current__facts {
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 1rem 0 0;
+        border-top: 1px solid var(--app-border);
+        border-left: 0;
+    }
+}
+
+@media (max-width: 600px) {
+    .ingestion-current {
+        padding: 1rem !important;
+    }
+
+    .ingestion-current__top {
+        grid-template-columns: 3rem minmax(0, 1fr);
+        gap: .9rem;
+    }
+
+    .ingestion-current__icon {
+        width: 3rem;
+        height: 3rem;
+    }
+
+    .ingestion-current__icon::before {
+        inset: .34rem;
+    }
+
+    .ingestion-current__copy h2 {
+        font-size: 1.35rem;
+    }
+
+    .ingestion-current__facts {
+        grid-template-columns: 1fr;
+    }
+
+    .ingestion-current__progress {
+        grid-template-columns: 1fr;
+    }
+
+    .ingestion-current__progress > span {
+        white-space: normal;
+    }
+
+    .ingestion-media-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ingestion-section > header {
+        align-items: start;
+    }
+
+    .ingestion-section header p {
+        max-width: 18rem;
+    }
+}

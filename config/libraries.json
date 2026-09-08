@@ -18,15 +18,6 @@
     "storage_location_id": "media",
     "relative_root": "View"
   },
-  "personal_library_policy": {
-    "allow_mobile_backup": true,
-    "allow_browser_upload": true,
-    "allow_drag_and_drop": true,
-    "allow_connected_device_import": true,
-    "allow_managed_storage": true,
-    "allow_existing_folder_attachment": true,
-    "default_visibility": "private"
-  },
   "libraries": [
     {
       "id": "11111111-1111-4111-8111-111111111111",
@@ -36,7 +27,9 @@
       "area": "read",
       "presentation": "catalogue",
       "metadata_policy": "enriched",
-      "media_types": ["Books"],
+      "media_types": [
+        "Books"
+      ],
       "sources": [
         {
           "id": "11111111-aaaa-4111-8111-111111111111",
@@ -48,15 +41,28 @@
           "access_mode": "writable",
           "writeback_override": null,
           "participates_in_organization": true,
-          "intake_role": "direct"
+          "intake_role": "direct",
+          "notes": null,
+          "device_id": null,
+          "profile_id": null
         }
       ],
       "primary_destination_source_id": "11111111-aaaa-4111-8111-111111111111",
+      "owner_profile_id": null,
       "visibility": "household",
       "authorized_profile_ids": [],
-      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "accepted_intake_modes": [
+        "incoming_folder",
+        "drag_and_drop",
+        "browser_upload"
+      ],
       "duplicate_policy": "skip_exact",
-      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
+      "organization_policy": {
+        "mode": "tuvima_standard",
+        "custom_template": null,
+        "preserve_originals": true
+      },
+      "notes": null
     },
     {
       "id": "22222222-2222-4222-8222-222222222222",
@@ -66,7 +72,9 @@
       "area": "listen",
       "presentation": "catalogue",
       "metadata_policy": "enriched",
-      "media_types": ["Audiobooks"],
+      "media_types": [
+        "Audiobooks"
+      ],
       "sources": [
         {
           "id": "22222222-aaaa-4222-8222-222222222222",
@@ -78,15 +86,28 @@
           "access_mode": "writable",
           "writeback_override": null,
           "participates_in_organization": true,
-          "intake_role": "direct"
+          "intake_role": "direct",
+          "notes": null,
+          "device_id": null,
+          "profile_id": null
         }
       ],
       "primary_destination_source_id": "22222222-aaaa-4222-8222-222222222222",
+      "owner_profile_id": null,
       "visibility": "household",
       "authorized_profile_ids": [],
-      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "accepted_intake_modes": [
+        "incoming_folder",
+        "drag_and_drop",
+        "browser_upload"
+      ],
       "duplicate_policy": "skip_exact",
-      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
+      "organization_policy": {
+        "mode": "tuvima_standard",
+        "custom_template": null,
+        "preserve_originals": true
+      },
+      "notes": null
     },
     {
       "id": "33333333-3333-4333-8333-333333333333",
@@ -96,7 +117,9 @@
       "area": "watch",
       "presentation": "catalogue",
       "metadata_policy": "enriched",
-      "media_types": ["TV"],
+      "media_types": [
+        "TV"
+      ],
       "sources": [
         {
           "id": "33333333-aaaa-4333-8333-333333333333",
@@ -108,15 +131,28 @@
           "access_mode": "writable",
           "writeback_override": null,
           "participates_in_organization": true,
-          "intake_role": "direct"
+          "intake_role": "direct",
+          "notes": null,
+          "device_id": null,
+          "profile_id": null
         }
       ],
       "primary_destination_source_id": "33333333-aaaa-4333-8333-333333333333",
+      "owner_profile_id": null,
       "visibility": "household",
       "authorized_profile_ids": [],
-      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "accepted_intake_modes": [
+        "incoming_folder",
+        "drag_and_drop",
+        "browser_upload"
+      ],
       "duplicate_policy": "skip_exact",
-      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
+      "organization_policy": {
+        "mode": "tuvima_standard",
+        "custom_template": null,
+        "preserve_originals": true
+      },
+      "notes": null
     },
     {
       "id": "44444444-4444-4444-8444-444444444444",
@@ -126,7 +162,9 @@
       "area": "watch",
       "presentation": "catalogue",
       "metadata_policy": "enriched",
-      "media_types": ["Movies"],
+      "media_types": [
+        "Movies"
+      ],
       "sources": [
         {
           "id": "44444444-aaaa-4444-8444-444444444444",
@@ -138,15 +176,28 @@
           "access_mode": "writable",
           "writeback_override": null,
           "participates_in_organization": true,
-          "intake_role": "direct"
+          "intake_role": "direct",
+          "notes": null,
+          "device_id": null,
+          "profile_id": null
         }
       ],
       "primary_destination_source_id": "44444444-aaaa-4444-8444-444444444444",
+      "owner_profile_id": null,
       "visibility": "household",
       "authorized_profile_ids": [],
-      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "accepted_intake_modes": [
+        "incoming_folder",
+        "drag_and_drop",
+        "browser_upload"
+      ],
       "duplicate_policy": "skip_exact",
-      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
+      "organization_policy": {
+        "mode": "tuvima_standard",
+        "custom_template": null,
+        "preserve_originals": true
+      },
+      "notes": null
     },
     {
       "id": "55555555-5555-4555-8555-555555555555",
@@ -156,7 +207,9 @@
       "area": "listen",
       "presentation": "catalogue",
       "metadata_policy": "enriched",
-      "media_types": ["Music"],
+      "media_types": [
+        "Music"
+      ],
       "sources": [
         {
           "id": "55555555-aaaa-4555-8555-555555555555",
@@ -168,15 +221,28 @@
           "access_mode": "writable",
           "writeback_override": null,
           "participates_in_organization": true,
-          "intake_role": "direct"
+          "intake_role": "direct",
+          "notes": null,
+          "device_id": null,
+          "profile_id": null
         }
       ],
       "primary_destination_source_id": "55555555-aaaa-4555-8555-555555555555",
+      "owner_profile_id": null,
       "visibility": "household",
       "authorized_profile_ids": [],
-      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "accepted_intake_modes": [
+        "incoming_folder",
+        "drag_and_drop",
+        "browser_upload"
+      ],
       "duplicate_policy": "skip_exact",
-      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
+      "organization_policy": {
+        "mode": "tuvima_standard",
+        "custom_template": null,
+        "preserve_originals": true
+      },
+      "notes": null
     },
     {
       "id": "66666666-6666-4666-8666-666666666666",
@@ -186,7 +252,9 @@
       "area": "read",
       "presentation": "catalogue",
       "metadata_policy": "enriched",
-      "media_types": ["Comics"],
+      "media_types": [
+        "Comics"
+      ],
       "sources": [
         {
           "id": "66666666-aaaa-4666-8666-666666666666",
@@ -198,15 +266,37 @@
           "access_mode": "writable",
           "writeback_override": null,
           "participates_in_organization": true,
-          "intake_role": "direct"
+          "intake_role": "direct",
+          "notes": null,
+          "device_id": null,
+          "profile_id": null
         }
       ],
       "primary_destination_source_id": "66666666-aaaa-4666-8666-666666666666",
+      "owner_profile_id": null,
       "visibility": "household",
       "authorized_profile_ids": [],
-      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "accepted_intake_modes": [
+        "incoming_folder",
+        "drag_and_drop",
+        "browser_upload"
+      ],
       "duplicate_policy": "skip_exact",
-      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
+      "organization_policy": {
+        "mode": "tuvima_standard",
+        "custom_template": null,
+        "preserve_originals": true
+      },
+      "notes": null
     }
-  ]
+  ],
+  "personal_library_policy": {
+    "allow_mobile_backup": true,
+    "allow_browser_upload": true,
+    "allow_drag_and_drop": true,
+    "allow_connected_device_import": true,
+    "allow_managed_storage": true,
+    "allow_existing_folder_attachment": true,
+    "default_visibility": "private"
+  }
 }

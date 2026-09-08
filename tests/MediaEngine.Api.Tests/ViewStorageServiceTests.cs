@@ -58,10 +58,10 @@ public sealed class ViewStorageServiceTests : IDisposable
         Assert.Equal(ViewSourceStorageMode.Managed, source.StorageMode);
         Assert.Equal("Browser uploads", source.Name);
         Assert.Equal(
-            Path.Combine(_service.GetRootPath(), "profiles", profileId.ToString("N")),
+            Path.Combine(_service.GetRootPath(), "Profiles", first.StorageLabel),
             _service.GetProfileRoot(first));
         Assert.Equal(
-            Path.Combine(_service.GetProfileRoot(first), "sources", source.Id.ToString("N")),
+            Path.Combine(_service.GetProfileRoot(first), "Timeline"),
             _service.GetSourcePath(first, source));
         Assert.True(Directory.Exists(_service.GetSourcePath(first, source)));
     }
@@ -82,6 +82,49 @@ public sealed class ViewStorageServiceTests : IDisposable
         Assert.Equal(ViewSourceStorageMode.Managed, source.StorageMode);
         Assert.True(File.Exists(original));
         Assert.Equal("original bytes", await File.ReadAllTextAsync(copy));
+    }
+
+    [Fact]
+    public async Task ProfileLabelsAreUniqueStableAndSeparateFromShared()
+    {
+        var firstId = await AddProfileAsync();
+        var secondId = await AddProfileAsync();
+        var first = await _service.EnsurePersonalSpaceAsync(firstId);
+        var second = await _service.EnsurePersonalSpaceAsync(secondId);
+        Assert.NotEqual(first.StorageLabel, second.StorageLabel);
+        Assert.StartsWith("View-owner", first.StorageLabel);
+        var profiles = new ProfileRepository(_database);
+        var profile = (await profiles.GetByIdAsync(firstId))!;
+        profile.DisplayName = "Different display name";
+        await profiles.UpdateAsync(profile);
+        Assert.Equal(_service.GetProfileRoot(first), _service.GetProfileRoot(await _service.EnsurePersonalSpaceAsync(firstId)));
+        Assert.Equal(Path.Combine(_service.GetRootPath(), "Shared"), _service.GetSharedRoot());
+        Assert.False(ViewStorageService.Contains(_service.GetProfileRoot(first), _service.GetSharedRoot()));
+    }
+
+    [Fact]
+    public async Task NestedLinkedRootsCannotRegisterAnotherOwnerForTheSameTree()
+    {
+        var first = await _service.EnsurePersonalSpaceAsync(await AddProfileAsync());
+        var second = await _service.EnsurePersonalSpaceAsync(await AddProfileAsync());
+        var parent = Directory.CreateDirectory(Path.Combine(_root, "archive"));
+        var child = Directory.CreateDirectory(Path.Combine(parent.FullName, "Home Movies"));
+        await _service.AddLinkedSourceAsync(first, "Archive", parent.FullName, true);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.AddLinkedSourceAsync(second, "Movies", child.FullName, true));
+        Assert.True(Directory.Exists(child.FullName));
+    }
+
+    [Fact]
+    public async Task ManagedSourceCannotEscapeItsProfileEvenWithinTheViewRoot()
+    {
+        var first = await _service.EnsurePersonalSpaceAsync(await AddProfileAsync());
+        var second = await _service.EnsurePersonalSpaceAsync(await AddProfileAsync());
+        var source = Assert.Single(await _spaces.GetSourcesAsync(first.Id));
+        Assert.Throws<InvalidOperationException>(() => _service.GetSourcePath(first,
+            source with { RelativePath = $"Profiles/{second.StorageLabel}/Timeline" }));
+        Assert.Throws<InvalidOperationException>(() => _service.GetSourcePath(first,
+            source with { RelativePath = "Shared/Timeline" }));
     }
 
     [Fact]

@@ -18,6 +18,8 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void IngestionTab_UsesCentralLiveDashboardStateAndComponents()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor"));
+        var scanAction = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionScanAction.razor"));
+        var styles = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor.css"));
         var stateSource = ReadIngestionDashboardStateSource();
         var orchestratorSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\UIOrchestratorService.cs"));
 
@@ -30,6 +32,11 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("<IngestionMediaPagedView", source, StringComparison.Ordinal);
         Assert.Contains("Adding media", source, StringComparison.Ordinal);
         Assert.Contains("Being Added Now", source, StringComparison.Ordinal);
+        Assert.Contains("Model.IsRunning ? \"is-active\" : \"is-idle\"", source, StringComparison.Ordinal);
+        Assert.Contains("aria-busy", source, StringComparison.Ordinal);
+        Assert.Contains("ingestion-summary-breathe", styles, StringComparison.Ordinal);
+        Assert.Contains("ingestion-progress-shimmer", styles, StringComparison.Ordinal);
+        Assert.Contains("prefers-reduced-motion: reduce", styles, StringComparison.Ordinal);
         Assert.Contains("Batch history", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor")), StringComparison.Ordinal);
         Assert.Contains("Processing details", source, StringComparison.Ordinal);
         Assert.Contains("File intake", source, StringComparison.Ordinal);
@@ -41,7 +48,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.DoesNotContain("Follow current stage", source, StringComparison.Ordinal);
         Assert.DoesNotContain("OverallProgressPercent", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Overall run progress", source, StringComparison.Ordinal);
-        Assert.Single(Regex.Matches(source, "Label=\"Scan All Folders\""));
+        Assert.Single(Regex.Matches(scanAction, "Label=\"Scan All Folders\""));
         Assert.DoesNotContain("Label=\"Refresh\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<EnrichmentRefreshSchedulePanel", source, StringComparison.Ordinal);
         Assert.DoesNotContain("settings/ingestion?view=history", source, StringComparison.Ordinal);

@@ -288,6 +288,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                     + CASE WHEN pb.status IN ('abandoned', 'interrupted') THEN 0 ELSE pb.files_failed END
                     + COALESCE(mor.OperationFailureCount, 0) AS AlertCount,
                 pb.files_total AS FilesDiscoveredCount,
+                pb.files_processed AS FilesProcessedCount,
                 pb.files_registered AS ItemsIdentifiedCount,
                 COALESCE(ar.MetadataUpdatedCount, 0) AS MetadataUpdatedCount,
                 COALESCE(mor.EnrichmentOperationCount, 0) AS EnrichmentOperationCount,
@@ -329,6 +330,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 ReviewCount = row.ReviewCount,
                 AlertCount = row.AlertCount,
                 FilesDiscoveredCount = row.FilesDiscoveredCount,
+                FilesProcessedCount = row.FilesProcessedCount,
                 ItemsIdentifiedCount = row.ItemsIdentifiedCount,
                 MetadataUpdatedCount = row.MetadataUpdatedCount,
                 EnrichmentOperationCount = row.EnrichmentOperationCount,
@@ -1606,6 +1608,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         public int ReviewCount { get; set; }
         public int AlertCount { get; set; }
         public int FilesDiscoveredCount { get; set; }
+        public int FilesProcessedCount { get; set; }
         public int ItemsIdentifiedCount { get; set; }
         public int MetadataUpdatedCount { get; set; }
         public int EnrichmentOperationCount { get; set; }

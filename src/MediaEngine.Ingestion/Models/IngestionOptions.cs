@@ -16,6 +16,12 @@ public sealed class LibraryFolderEntry
 
     public string Name { get; init; } = string.Empty;
 
+    public bool PreserveOriginals { get; init; } = true;
+    public string OrganizationMode { get; init; } = LibraryOrganizationModes.TuvimaStandard;
+    public string? CustomOrganizationTemplate { get; init; }
+
+    public string DuplicatePolicy { get; init; } = LibraryDuplicatePolicies.SkipExact;
+
     public string Kind { get; init; } = LibraryKinds.Catalogued;
 
     public string MetadataPolicy { get; init; } = LibraryMetadataPolicies.Enriched;

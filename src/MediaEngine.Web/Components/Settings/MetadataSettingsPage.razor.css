@@ -30,9 +30,6 @@
 .metadata-role-copy { color:var(--tl-text-secondary); font-size:.8rem; line-height:1.4; }
 .metadata-provider-action { text-align:right; white-space:nowrap; }
 
-.metadata-detail ::deep .app-breadcrumbs { display:flex; align-items:center; gap:8px; color:var(--tl-text-muted); font-size:.78rem; }
-.metadata-detail ::deep .app-breadcrumbs a { color:var(--tl-text-secondary); text-decoration:none; }
-.metadata-detail ::deep .app-breadcrumbs > * + *::before { content:"/"; margin-right:8px; color:var(--tl-text-faint); }
 .metadata-provider-detail-heading { display:flex; align-items:center; justify-content:space-between; gap:var(--tl-space-4); padding-bottom:var(--tl-space-4); border-bottom:1px solid var(--tl-border-subtle); }
 .metadata-provider-detail-title { display:flex; align-items:center; gap:var(--tl-space-3); }
 .metadata-provider-detail-title h2 { margin:0; color:var(--tl-text-primary); font-size:1.65rem; }

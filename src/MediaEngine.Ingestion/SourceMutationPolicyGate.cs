@@ -38,6 +38,13 @@ public sealed class SourceMutationPolicyGate : ISourceMutationPolicyGate
         if (!request.Source.IsWritable)
             return SourceMutationDecision.Deny("The managed source is not writable.");
 
+        // Tuvima's staging area contains incoming files, not owned library originals.
+        // A protected destination may receive imports but its existing media stays intact.
+        if (request.Source.ProtectExistingFiles
+            && request.Mutation != SourceMutationKind.UseAsDestination
+            && !PathSafety.IsContainedBy(path!, Path.Combine(root!, ".data", "staging")))
+            return SourceMutationDecision.Deny("Existing files are protected by this library's policy.");
+
         bool permitted = request.Mutation switch
         {
             SourceMutationKind.Move => request.Source.AllowMove,

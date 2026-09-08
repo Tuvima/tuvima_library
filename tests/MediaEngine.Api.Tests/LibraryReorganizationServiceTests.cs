@@ -9,6 +9,23 @@ namespace MediaEngine.Api.Tests;
 public sealed class LibraryReorganizationServiceTests
 {
     [Fact]
+    public void ProtectedOriginals_BlockReorganizationWithoutTouchingFiles()
+    {
+        using var fixture = new Fixture();
+        var original = fixture.Write("owned.txt", "owned content");
+        var destination = Path.Combine(fixture.LibraryRoot, "renamed.txt");
+        var configuration = fixture.Configuration.LoadLibraries();
+        configuration.Libraries[0].OrganizationPolicy.PreserveOriginals = true;
+        fixture.Configuration.SaveLibraries(configuration);
+
+        var plan = fixture.Service.CreatePlan(fixture.LibraryId, fixture.Request(original, destination));
+
+        Assert.NotNull(plan);
+        Assert.False(plan.CanExecute);
+        Assert.Equal("owned content", File.ReadAllText(original));
+        Assert.False(File.Exists(destination));
+    }
+    [Fact]
     public void DryRunDoesNotMutateAndExactFingerprintExecutesOnce()
     {
         using var fixture = new Fixture();
@@ -118,6 +135,7 @@ public sealed class LibraryReorganizationServiceTests
                     {
                         Id = LibraryId.ToString("D"),
                         Name = "Managed Movies library",
+                        OrganizationPolicy = new LibraryOrganizationPolicyConfig { PreserveOriginals = false },
                         Category = "Movies",
                         Kind = LibraryKinds.Catalogued,
                         Area = LibraryAreas.Watch,

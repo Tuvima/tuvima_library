@@ -385,10 +385,7 @@ public static class JsonConfigValidator
             }
 
             AddNoUnmappedProperties(library.UnmappedProperties, prefix, errors);
-            if (library.Sources.Count == 0)
-            {
-                errors.Add($"{prefix}.sources must contain at least one source.");
-            }
+
 
             for (var sourceIndex = 0; sourceIndex < library.Sources.Count; sourceIndex++)
             {

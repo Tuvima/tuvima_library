@@ -247,6 +247,7 @@ public sealed class DatabaseStartupSafetyTests
             ("view_personal_spaces", "id"),
             ("view_personal_spaces", "owner_profile_id"),
             ("view_personal_spaces", "library_id"),
+            ("view_storage_labels", "personal_space_id"),
             ("view_sources", "id"),
             ("view_sources", "personal_space_id"),
             ("view_devices", "id"),

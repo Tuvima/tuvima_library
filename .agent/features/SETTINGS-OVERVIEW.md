@@ -42,3 +42,15 @@ The canonical destinations are:
 ## Product owner summary
 
 Settings now matches the product's intended information architecture: a short personal area, a complete administration area, and advanced tools kept out of the everyday path. Each page owns its own smaller tabs, and unsupported controls are no longer shown as fake settings.
+
+
+## Libraries page contract
+
+The Libraries overview keeps All/Read/Watch/Listen scope in the URL and shares its column layout with each semantic row link. Details are one page with Folders, Organization, File Handling, and Advanced Settings. The Settings shell supplies the breadcrumb, including the library name. Add Library uses three steps for Structured Media or the shared Personal Media root. The folder picker keeps independent storage/path breadcrumbs, grouped conflicts, and current access checks. Save validates paths again; populated View roots cannot be switched because relocation is not implemented.
+
+
+### Libraries settings and readable View storage
+
+Libraries now includes All/Read/Watch/Listen/View filters, a single View summary row, and a dedicated View settings page. Scope changes filter the mounted list without repeated library loads or filesystem probes. Add folder belongs inside Folders and saves immediately; detachment asks for confirmation and keeps files. Names and custom templates use focused Apply dialogs, while other library settings save individually with conflict detection. There is no page-wide Save. Breadcrumbs remain shell-owned and retain the selected scope.
+
+New Personal Spaces use `View/Profiles/<stable-readable-label>/Timeline` and named managed folders beneath `Folders`. Persisted label reservations survive profile deletion so another profile cannot silently inherit the former folder. Display-name changes do not rename storage. `View/Shared` is reserved beside Profiles; household ownership, calendar organization controls, and physical promotion into Shared are still pending and must not be presented as implemented. Existing obsolete View source state fails closed rather than moving originals or using compatibility paths. View source additions queue reconciliation in its dedicated hosted worker.

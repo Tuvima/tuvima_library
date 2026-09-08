@@ -36,6 +36,8 @@ Choose the folders Tuvima Library should watch and it builds a rich, browsable l
 
 Not every file needs an online identity. View gives each enabled profile one Personal Space for photos, short videos, documents, audio notes, home videos, lectures, and other local media. Multiple folders and devices can feed that same space without becoming separate browsing destinations. Personal media bypasses retail providers and Wikidata; its local index supports date browsing, search, favorites, archive and trash state, Galleries, compound files, duplicate sources, and available file metadata while source policy continues to protect originals.
 
+Library settings includes View alongside Read, Watch, and Listen. Folder additions save immediately and removal confirms detachment without deleting files. New personal storage uses readable, stable per-profile folders under `View/Profiles`, with a separate reserved `View/Shared` destination. The family keeper workflow and calendar organization remain planned; see [the phased View plan](docs/proposals/view-phased-delivery-plan-2026-09-07.md).
+
 See the [Beta Roadmap](https://tuvima.github.io/tuvima_library/product/beta-roadmap/) for the architectural priority order and the post-beta photo-intelligence boundary.
 
 ## See Tuvima Library
@@ -300,7 +302,7 @@ dotnet run --project src/MediaEngine.Web
 ```
 
 Then open `http://localhost:5016` and add governed sources in **Settings >
-Libraries**. Catalogued Read/Watch/Listen sources can be scanned from the
+Libraries**. Add library uses Choose type, Add folders, and Review for Structured or Personal Media. Each library has one settings page, with breadcrumbs retained throughout. Catalogued Read/Watch/Listen sources can be scanned from the
 administration workflow. Personal sources feed the active profile's single
 View Personal Space; the user-facing View experience does not ask you to choose
 among source folders or expose an ordinary scan action in Photos.

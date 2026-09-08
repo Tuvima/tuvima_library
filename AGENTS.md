@@ -407,3 +407,19 @@ TV detail uses one profile-aware continuation policy: unstarted/reset shows reta
 TMDB episode credits are stored separately from show aggregates; full credits support episode, season, and role filtering. Season coverage currently reflects owned episode evidence. More exposes media-appropriate personal completion/reset, history, Undo, Continue visibility, and applicable queue/playlist/collection utilities independently of metadata-edit permission. Revision checks prevent stale progress writes from reversing a reset; bookmarks, genuine consumption history, and music play counts are preserved.
 
 These changes require fresh pre-beta ingestion. Runtime and responsive visual acceptance are pending; see the TV episode consistency proposal for validation status and remaining scope.
+
+
+## Libraries settings navigation and safety (September 2026)
+
+Libraries keeps one Settings-shell breadcrumb, with configured library names and URL-backed Read/Watch/Listen scope when returning to the overview. Library details consolidate Folders, Organization, File Handling, and Advanced Settings; do not restore detail tabs. Header and list rows share one full-width column grid.
+
+Add Library has exactly three steps: Choose type, Add folders, Review. Structured Media creates one catalogued library. Personal Media configures the existing shared View root and provisions enabled profiles through View services. It must never add user-facing personal library rows. Folder selection retains separate path breadcrumbs and revalidates at confirmation and save. Changing a populated View root is rejected; no relocation is implied.
+
+Existing-file protection applies to managed originals through the shared mutation gate. Incoming staging files and destination use remain eligible; existing-library sources remain read-only. Naming and duplicate policies must be enforced by ingestion, with unique-name filename collisions preserving existing files.
+
+
+### Libraries settings and readable View storage
+
+Libraries now includes All/Read/Watch/Listen/View filters, a single View summary row, and a dedicated View settings page. Scope changes filter the mounted list without repeated library loads or filesystem probes. Add folder belongs inside Folders and saves immediately; detachment asks for confirmation and keeps files. Names and custom templates use focused Apply dialogs, while other library settings save individually with conflict detection. There is no page-wide Save. Breadcrumbs remain shell-owned and retain the selected scope.
+
+New Personal Spaces use `View/Profiles/<stable-readable-label>/Timeline` and named managed folders beneath `Folders`. Persisted label reservations survive profile deletion so another profile cannot silently inherit the former folder. Display-name changes do not rename storage. `View/Shared` is reserved beside Profiles; household ownership, calendar organization controls, and physical promotion into Shared are still pending and must not be presented as implemented. Existing obsolete View source state fails closed rather than moving originals or using compatibility paths. View source additions queue reconciliation in its dedicated hosted worker.

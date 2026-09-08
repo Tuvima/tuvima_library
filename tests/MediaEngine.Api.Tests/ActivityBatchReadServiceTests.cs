@@ -75,6 +75,7 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         Assert.NotNull(batch.DurationLabel);
         Assert.Equal("Movies", Assert.Single(batch.MediaTypes).MediaType);
         Assert.Equal(1, batch.FilesDiscoveredCount);
+        Assert.Equal(1, batch.FilesProcessedCount);
         Assert.Equal(1, batch.ItemsIdentifiedCount);
         Assert.Equal(0, batch.WarningCount);
         Assert.Equal(0, batch.FailureCount);
@@ -187,11 +188,46 @@ public sealed class ActivityBatchReadServiceTests : IDisposable
         var service = new ActivityBatchReadService(_db);
         var batch = await service.GetBatchAsync(batchId);
         var group = Assert.Single(await service.GetGroupsAsync(batchId));
+        var mediaPage = await new IngestionPresentationReadService(_db)
+            .GetBatchMediaAsync(batchId, 0, 50);
 
         Assert.NotNull(batch);
         Assert.Equal(7, batch.FilesDiscoveredCount);
+        Assert.Equal(7, batch.FilesProcessedCount);
+        Assert.Equal(0, batch.AddedGroupCount);
         Assert.Equal(0, batch.ItemCount);
         Assert.Equal(0, group.ItemCount);
+        Assert.Equal(0, mediaPage.TotalCount);
+        Assert.Empty(mediaPage.Items);
+    }
+
+    [Fact]
+    public async Task ActivityBatchReadService_KeepsDiscoveredAndProcessedCountsDistinct()
+    {
+        var batchId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        using (var conn = _db.CreateConnection())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                INSERT INTO ingestion_batches (
+                    id, status, source_path, category, files_total, files_processed,
+                    files_registered, files_review, files_no_match, files_failed,
+                    started_at, completed_at, created_at, updated_at)
+                VALUES (
+                    $batchId, 'interrupted', 'C:/watch/mixed', 'Mixed', 38, 12,
+                    0, 0, 0, 0, $now, $now, $now, $now);
+                """;
+            AddGuid(cmd, "$batchId", batchId);
+            cmd.Parameters.AddWithValue("$now", now.ToString("O"));
+            cmd.ExecuteNonQuery();
+        }
+
+        var batch = await new ActivityBatchReadService(_db).GetBatchAsync(batchId);
+
+        Assert.NotNull(batch);
+        Assert.Equal(38, batch.FilesDiscoveredCount);
+        Assert.Equal(12, batch.FilesProcessedCount);
     }
 
     private ActivitySeed SeedActivityBatch()

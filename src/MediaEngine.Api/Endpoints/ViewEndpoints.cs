@@ -225,14 +225,27 @@ public static class ViewEndpoints
         group.MapPost("/admin/profiles/{profileId:guid}/sources", async (
             Guid profileId, CreateViewSourceRequest request, IProfileService profiles,
             ViewStorageService storage, ViewSourceIndexingHostedService indexing,
-            ViewLibraryService viewLibrary, CancellationToken ct) =>
+            ViewLibraryService viewLibrary, IViewProfileRepository policies, MediaEngine.Api.Services.Settings.ServerFolderBrowserService folders, CancellationToken ct) =>
         {
             if (await profiles.GetProfileAsync(profileId, ct) is null)
                 return ApiErrors.NotFound($"Profile '{profileId}' not found.");
             if (string.IsNullOrWhiteSpace(request.Name))
                 return ApiErrors.BadRequest("A source name is required.");
+            if (!(await policies.GetPolicyAsync(profileId, ct)).ViewEnabled)
+                return ApiErrors.BadRequest("Enable View for this profile before adding a source.");
+            if (request.StorageMode is not ("linked" or "managed"))
+                return ApiErrors.BadRequest("Choose managed or linked storage.");
             try
             {
+                if (!string.IsNullOrWhiteSpace(request.Path))
+                {
+                    var validation = folders.Validate(new MediaEngine.Contracts.Settings.ValidateServerFolderRequest
+                    {
+                        ManualPath = request.Path,
+                        SelectionMode = MediaEngine.Contracts.Settings.ServerFolderSelectionModes.PersonalSpaceExisting,
+                    });
+                    if (!validation.CanSelect) return ApiErrors.BadRequest(validation.Issues.First(x => x.Severity == "error").Message);
+                }
                 var space = await storage.EnsurePersonalSpaceAsync(profileId, ct);
                 var source = string.Equals(request.StorageMode, "linked", StringComparison.OrdinalIgnoreCase)
                     ? await storage.AddLinkedSourceAsync(space, request.Name, request.Path ?? string.Empty,
@@ -242,12 +255,12 @@ public static class ViewEndpoints
                             $"managed:{Guid.NewGuid():N}", ct)
                         : await storage.ImportFolderAsync(space, request.Name, request.Path, ct);
                 await indexing.RefreshSourcesAsync(ct);
-                if (!string.IsNullOrWhiteSpace(request.Path))
-                    await viewLibrary.ScanAsync(space.LibraryId, ct);
+                // The hosted worker owns reconciliation and its cancellation lifetime.
+                indexing.RequestReconcile(space.LibraryId);
                 return Results.Ok(ToAdminSource(space, source, storage));
             }
             catch (Exception exception) when (exception is ArgumentException or InvalidOperationException
-                                               or DirectoryNotFoundException or NotSupportedException)
+                                               or IOException or UnauthorizedAccessException or NotSupportedException or MediaEngine.Api.Services.Settings.ServerFolderAccessException)
             {
                 return ApiErrors.Unprocessable(exception.Message);
             }

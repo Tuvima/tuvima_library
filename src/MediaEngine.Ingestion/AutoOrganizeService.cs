@@ -193,7 +193,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         };
 
         var template = _options.ResolveTemplate(mediaType?.ToString());
-        var relative = _organizer.CalculatePath(synth, template);
+        var relative = LibraryOrganizationPath.Calculate(_organizer, synth, owningLibrary, template);
 
         // Evaluate all promotion guards through the centralized gate.
         // AutoOrganizeService runs post-hydration so media type is always resolved;
@@ -344,7 +344,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             DetectedMediaType = mediaType,
         };
         var checkTemplate = _options.ResolveTemplate(mediaType?.ToString());
-        var checkRelative = _organizer.CalculatePath(checkSynth, checkTemplate);
+        var checkRelative = LibraryOrganizationPath.Calculate(_organizer, checkSynth, _libraryResolver?.ResolveById(asset.LibraryId ?? ""), checkTemplate);
         var newDest = Path.Combine(libraryRoot, checkRelative);
 
         if (string.Equals(asset.FilePathRoot, newDest, StringComparison.OrdinalIgnoreCase))

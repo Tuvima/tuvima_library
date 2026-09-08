@@ -4,6 +4,7 @@ namespace MediaEngine.Domain.Contracts;
 
 public interface IViewPersonalSpaceRepository
 {
+    Task<(int Sources, int Items)> GetInventoryAsync(CancellationToken ct = default);
     Task<ViewPersonalSpace?> GetByOwnerAsync(Guid ownerProfileId, CancellationToken ct = default);
     Task<ViewPersonalSpace?> GetByLibraryAsync(Guid libraryId, CancellationToken ct = default);
     Task<IReadOnlyList<ViewPersonalSpace>> GetAllAsync(CancellationToken ct = default);

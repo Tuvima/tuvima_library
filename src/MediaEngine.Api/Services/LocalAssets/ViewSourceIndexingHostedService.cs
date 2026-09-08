@@ -2,6 +2,8 @@ using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion;
 using MediaEngine.Ingestion.Models;
+using System.Threading.Channels;
+using System.Collections.Concurrent;
 
 namespace MediaEngine.Api.Services.LocalAssets;
 
@@ -29,6 +31,13 @@ public sealed class ViewSourceIndexingHostedService(
     private readonly object _lifecycleLock = new();
     private readonly List<IViewSourceWatcher> _watchers = [];
     private DebounceQueue? _queue;
+    private readonly Channel<Guid> _scanRequests = Channel.CreateUnbounded<Guid>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly ConcurrentDictionary<Guid, byte> _pendingScans = new();
+
+    public void RequestReconcile(Guid libraryId)
+    {
+        if (_pendingScans.TryAdd(libraryId, 0)) _scanRequests.Writer.TryWrite(libraryId);
+    }
     private IReadOnlyList<ViewSourceWatch> _sources = [];
     private bool _resourcesDisposed;
 
@@ -135,6 +144,7 @@ public sealed class ViewSourceIndexingHostedService(
 
         // Directory enumeration can be expensive. Keep it off the hosted-service
         // startup path so Kestrel does not wait for an existing photo archive.
+        foreach (var libraryId in _sources.Select(source => source.LibraryId).Distinct()) RequestReconcile(libraryId);
         var reconciliation = Task.Run(
             () => ReconcileExistingFilesAsync(stoppingToken),
             CancellationToken.None);
@@ -200,8 +210,9 @@ public sealed class ViewSourceIndexingHostedService(
 
     private async Task ReconcileExistingFilesAsync(CancellationToken ct)
     {
-        foreach (var libraryId in _sources.Select(source => source.LibraryId).Distinct())
+        await foreach (var libraryId in _scanRequests.Reader.ReadAllAsync(ct))
         {
+            _pendingScans.TryRemove(libraryId, out _);
             ct.ThrowIfCancellationRequested();
             try
             {

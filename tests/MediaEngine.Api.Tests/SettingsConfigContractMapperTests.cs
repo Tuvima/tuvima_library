@@ -13,6 +13,28 @@ public sealed class SettingsConfigContractMapperTests
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     [Fact]
+    public void Libraries_ProbeDetailsAreNeverPersistedAsUnknownConfiguration()
+    {
+        var stored = SettingsContractMapper.ToStorage(new UpdateLibrariesRequest
+        {
+            StorageLocations = [new ServerStorageLocationDto
+            {
+                Id = "media", Label = "Media storage", Path = @"C:\Media", AllowWrite = true,
+                AvailableBytes = 123456, FileSystem = "NTFS",
+            }],
+        });
+        var location = Assert.Single(stored.StorageLocations);
+        Assert.Equal("media", location.Id);
+        Assert.Equal("Media storage", location.Label);
+        Assert.Equal(@"C:\Media", location.Path);
+        Assert.True(location.AllowWrite);
+        Assert.Null(location.UnmappedProperties);
+        var json = JsonSerializer.Serialize(stored, JsonOptions);
+        Assert.DoesNotContain("available_bytes", json);
+        Assert.DoesNotContain("file_system", json);
+    }
+
+    [Fact]
     public void MediaTypes_RoundTripEveryFieldAndAuthoritativeDefaultExtension()
     {
         var storage = new MediaTypeConfiguration();

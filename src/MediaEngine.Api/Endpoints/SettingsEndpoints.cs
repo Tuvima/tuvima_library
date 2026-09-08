@@ -99,6 +99,7 @@ public static class SettingsEndpoints
     public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder app)
     {
         var grp = app.MapGroup("/settings").WithTags("Settings");
+        grp.MapLibraryMutations();
 
         grp.MapGet("/security/auth", (IConfigurationLoader configLoader) =>
         {
@@ -201,28 +202,38 @@ public static class SettingsEndpoints
         .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
-        grp.MapPut("/libraries", (UpdateLibrariesRequest request, IConfigurationLoader configLoader) =>
+        grp.MapPut("/libraries", async (UpdateLibrariesRequest request, IConfigurationLoader configLoader, MediaEngine.Api.Services.LocalAssets.ViewStorageService viewStorage, IProfileRepository profiles, IViewProfileRepository viewProfiles, MediaEngine.Api.Services.Settings.ServerFolderBrowserService folders, MediaEngine.Ingestion.Contracts.IFileOrganizer organizer, CancellationToken ct) =>
         {
-            var config = SettingsContractMapper.ToStorage(request);
-            var viewError = ValidateViewStorage(config);
-            if (viewError is not null)
+            await LibraryMutationEndpoints.WriteGate.WaitAsync(ct);
+            try
             {
-                return ApiErrors.BadRequest(viewError);
-            }
-            var pathError = ValidateConfiguredPaths(config);
-            if (pathError is not null)
-            {
-                return ApiErrors.BadRequest(pathError);
-            }
+                var config = SettingsContractMapper.ToStorage(request);
+                var viewError = ValidateViewStorage(config) ?? ValidateViewRootChange(configLoader.LoadLibraries(), config);
+                if (viewError is not null)
+                {
+                    return ApiErrors.BadRequest(viewError);
+                }
+                var pathError = ValidateConfiguredPaths(config);
+                if (pathError is not null)
+                {
+                    return ApiErrors.BadRequest(pathError);
+                }
 
-            var validationErrors = JsonConfigValidator.Validate(config, "libraries.json");
-            if (validationErrors.Count > 0)
-            {
-                return ApiErrors.BadRequest(string.Join(" ", validationErrors));
-            }
+                var validationErrors = JsonConfigValidator.Validate(config, "libraries.json");
+                if (validationErrors.Count > 0)
+                {
+                    return ApiErrors.BadRequest(string.Join(" ", validationErrors));
+                }
 
-            configLoader.SaveLibraries(config);
-            return Results.Ok(SettingsContractMapper.ToContract(config));
+                var sourceError = ValidateLibrarySources(config, folders, organizer);
+                if (sourceError is not null) return ApiErrors.BadRequest(sourceError);
+                configLoader.SaveLibraries(config);
+                foreach (var profile in await profiles.GetAllAsync(ct))
+                    if ((await viewProfiles.GetPolicyAsync(profile.Id, ct)).ViewEnabled)
+                        await viewStorage.EnsurePersonalSpaceAsync(profile.Id, ct);
+                return Results.Ok(SettingsContractMapper.ToContract(config));
+            }
+            finally { LibraryMutationEndpoints.WriteGate.Release(); }
         })
         .WithName("UpdateLibraries")
         .WithSummary("Replaces schema 6 catalogued libraries, the single View root, and approved storage.")
@@ -957,6 +968,7 @@ public static class SettingsEndpoints
         {
             var config = configLoader.LoadMediaTypes();
             return Results.Ok(SettingsContractMapper.ToContract(config));
+
         })
         .WithName("GetMediaTypes")
         .WithSummary("Load media type definitions including icons, extensions, and category folders.")
@@ -1025,6 +1037,7 @@ public static class SettingsEndpoints
             configLoader.SaveMediaTypes(config);
 
             return Results.Ok(SettingsContractMapper.ToContract(config));
+
         })
         .WithName("AddMediaType")
         .WithSummary("Add a custom media type definition.")
@@ -1414,10 +1427,65 @@ public static class SettingsEndpoints
         return null;
     }
 
+    internal static string? ValidateLibrarySources(LibrariesConfiguration config,
+        MediaEngine.Api.Services.Settings.ServerFolderBrowserService folders,
+        MediaEngine.Ingestion.Contracts.IFileOrganizer organizer)
+    {
+        try
+        {
+            foreach (var library in config.Libraries)
+            {
+                if (library.OrganizationPolicy.Mode == LibraryOrganizationModes.Custom
+                    && organizer.ValidateTemplate(library.OrganizationPolicy.CustomTemplate ?? "", out var templateError) is null)
+                    return $"{library.Name}: {templateError}";
+                foreach (var source in library.Sources)
+                {
+                    var validation = folders.Validate(new MediaEngine.Contracts.Settings.ValidateServerFolderRequest
+                    {
+                        ManualPath = source.Path, CurrentSourceId = source.Id,
+                        SelectionMode = source.IsManaged ? MediaEngine.Contracts.Settings.ServerFolderSelectionModes.ManagedLibrary : MediaEngine.Contracts.Settings.ServerFolderSelectionModes.ExistingLibrary,
+                    }, config);
+                    if (!validation.CanSelect) return validation.Issues.First(issue => issue.Severity == "error").Message;
+                }
+            }
+            var rootValidation = folders.Validate(new MediaEngine.Contracts.Settings.ValidateServerFolderRequest
+            {
+                StorageLocationId = config.ViewStorage.StorageLocationId,
+                RelativePath = config.ViewStorage.RelativeRoot,
+                SelectionMode = MediaEngine.Contracts.Settings.ServerFolderSelectionModes.PersonalSpaceManaged,
+            }, config);
+            return rootValidation.CanSelect ? null : rootValidation.Issues.First(issue => issue.Severity == "error").Message;
+        }
+        catch (Exception exception) when (exception is MediaEngine.Api.Services.Settings.ServerFolderAccessException or ArgumentException or IOException)
+        {
+            return exception.Message;
+        }
+    }
+
+    internal static string? ValidateViewRootChange(LibrariesConfiguration current, LibrariesConfiguration proposed)
+    {
+        try
+        {
+            static string Root(LibrariesConfiguration value) => Path.GetFullPath(Path.Combine(
+                value.StorageLocations.First(location => location.Id == value.ViewStorage.StorageLocationId).Path,
+                value.ViewStorage.RelativeRoot));
+            var before = Root(current);
+            var after = Root(proposed);
+            if (!string.Equals(before, after, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
+                && Directory.Exists(before) && Directory.EnumerateFileSystemEntries(before).Any())
+                return "The current View root contains Personal Space folders. Changing roots would leave those files behind. Keep the current root; relocation is not available.";
+            return null;
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            return $"View storage could not be checked: {exception.Message}";
+        }
+    }
+
     internal static string? ValidateViewStorage(LibrariesConfiguration config)
     {
         if (!string.Equals(config.SchemaVersion, "6.0", StringComparison.Ordinal))
-            return "libraries.json must use schema_version 5.0.";
+            return "libraries.json must use schema_version 6.0.";
         if (config.Libraries.Any(library =>
                 string.Equals(library.Kind, LibraryKinds.Personal, StringComparison.OrdinalIgnoreCase)))
             return "Personal Spaces are profile-owned and must not be configured as libraries.";

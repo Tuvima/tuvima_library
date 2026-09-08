@@ -12,11 +12,13 @@ public sealed class ViewStorageService(
     IConfigurationLoader configuration,
     IViewPersonalSpaceRepository spaces)
 {
+    private static readonly SemaphoreSlim ManagedSourceGate = new(1, 1);
+
     public string GetRootPath()
     {
         var settings = configuration.LoadLibraries();
         if (!string.Equals(settings.SchemaVersion, "6.0", StringComparison.Ordinal))
-            throw new InvalidOperationException("View storage requires libraries.json schema_version 5.0.");
+            throw new InvalidOperationException("View storage requires libraries.json schema_version 6.0.");
         if (settings.Libraries.Any(library =>
                 string.Equals(library.Kind, LibraryKinds.Personal, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidOperationException(
@@ -38,8 +40,14 @@ public sealed class ViewStorageService(
         return Path.TrimEndingDirectorySeparator(root);
     }
 
-    public string GetProfileRoot(ViewPersonalSpace space) =>
-        ResolveManagedRelativePath($"profiles/{space.OwnerProfileId:N}");
+    public string GetProfileRoot(ViewPersonalSpace space)
+    {
+        if (!ViewStorageNames.IsValid(space.StorageLabel))
+            throw new InvalidOperationException("This Personal Space uses obsolete storage state. Recreate its disposable index and explicitly reimport originals; files are not relocated automatically.");
+        return ResolveManagedRelativePath($"Profiles/{space.StorageLabel}");
+    }
+
+    public string GetSharedRoot() => ResolveManagedRelativePath("Shared");
 
     public string GetSourcePath(ViewPersonalSpace space, ViewSource source)
     {
@@ -52,7 +60,9 @@ public sealed class ViewStorageService(
 
         if (string.IsNullOrWhiteSpace(source.RelativePath))
             throw new InvalidOperationException($"Managed View source '{source.Name}' has no relative path.");
-        return ResolveManagedRelativePath(source.RelativePath);
+        var path = ResolveManagedRelativePath(source.RelativePath);
+        EnsureContained(GetProfileRoot(space), path, "A personal source must remain inside its owning profile folder.");
+        return path;
     }
 
     public async Task<ViewPersonalSpace> EnsurePersonalSpaceAsync(Guid ownerProfileId, CancellationToken ct = default)
@@ -61,6 +71,7 @@ public sealed class ViewStorageService(
         var space = await spaces.GetByOwnerAsync(ownerProfileId, ct)
             ?? await spaces.CreateAsync(ownerProfileId, Guid.NewGuid(), ct);
         Directory.CreateDirectory(GetProfileRoot(space));
+        Directory.CreateDirectory(GetSharedRoot());
 
         var policy = configuration.LoadLibraries().PersonalLibraryPolicy;
         if (policy.AllowBrowserUpload)
@@ -76,28 +87,38 @@ public sealed class ViewStorageService(
         string sourceKey,
         CancellationToken ct = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(name);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceKey);
-        var existing = (await spaces.GetSourcesAsync(space.Id, ct)).FirstOrDefault(candidate =>
-            string.Equals(candidate.SourceKey, sourceKey, StringComparison.OrdinalIgnoreCase));
-        if (existing is not null)
+        await ManagedSourceGate.WaitAsync(ct);
+        try
         {
-            Directory.CreateDirectory(GetSourcePath(space, existing));
-            return existing;
-        }
+            ArgumentException.ThrowIfNullOrWhiteSpace(name);
+            ArgumentException.ThrowIfNullOrWhiteSpace(sourceKey);
+            var existing = (await spaces.GetSourcesAsync(space.Id, ct)).FirstOrDefault(candidate =>
+                string.Equals(candidate.SourceKey, sourceKey, StringComparison.OrdinalIgnoreCase));
+            if (existing is not null)
+            {
+                Directory.CreateDirectory(GetSourcePath(space, existing));
+                return existing;
+            }
 
-        var now = DateTimeOffset.UtcNow;
-        var id = Guid.NewGuid();
-        var source = new ViewSource(
-            id, space.Id, sourceType, name.Trim(), sourceKey.Trim(), null, now, now,
-            ViewSourceStorageMode.Managed,
-            $"profiles/{space.OwnerProfileId:N}/sources/{id:N}",
-            ExternalPath: null,
-            IncludeSubdirectories: true,
-            Enabled: true);
-        source = await spaces.UpsertSourceAsync(source, ct);
-        Directory.CreateDirectory(GetSourcePath(space, source));
-        return source;
+            var now = DateTimeOffset.UtcNow;
+            var id = Guid.NewGuid();
+            var relative = sourceType == ViewSourceType.BrowserUpload
+                ? $"Profiles/{space.StorageLabel}/Timeline"
+                : $"Profiles/{space.StorageLabel}/Folders/{ViewStorageNames.FromDisplayName(name)}";
+            if (sourceType != ViewSourceType.BrowserUpload && Directory.Exists(ResolveManagedRelativePath(relative)))
+                relative += "-" + id.ToString("N");
+            var source = new ViewSource(
+                id, space.Id, sourceType, name.Trim(), sourceKey.Trim(), null, now, now,
+                ViewSourceStorageMode.Managed,
+                relative,
+                ExternalPath: null,
+                IncludeSubdirectories: true,
+                Enabled: true);
+            source = await spaces.UpsertSourceAsync(source, ct);
+            Directory.CreateDirectory(GetSourcePath(space, source));
+            return source;
+        }
+        finally { ManagedSourceGate.Release(); }
     }
 
     public async Task<ViewSource> AddLinkedSourceAsync(
@@ -112,16 +133,19 @@ public sealed class ViewStorageService(
         if (!configuration.LoadLibraries().PersonalLibraryPolicy.AllowExistingFolderAttachment)
             throw new InvalidOperationException("Linking an existing folder to View is disabled by policy.");
         var fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+        EnsureNoReparsePoints(fullPath);
         if (!Directory.Exists(fullPath))
             throw new DirectoryNotFoundException($"Linked View folder '{fullPath}' does not exist.");
-        if (IsWithin(GetRootPath(), fullPath))
+        if (IsWithin(GetRootPath(), fullPath) || IsWithin(fullPath, GetRootPath()))
             throw new InvalidOperationException("Folders inside the managed View root are created as managed sources, not linked sources.");
 
-        var sources = await spaces.GetSourcesAsync(space.Id, ct);
+        var sources = new List<ViewSource>();
+        foreach (var other in await spaces.GetAllAsync(ct))
+            sources.AddRange(await spaces.GetSourcesAsync(other.Id, ct));
         if (sources.Any(candidate => candidate.StorageMode == ViewSourceStorageMode.Linked
             && !string.IsNullOrWhiteSpace(candidate.ExternalPath)
-            && string.Equals(Path.GetFullPath(candidate.ExternalPath), fullPath, PathComparison)))
-            throw new InvalidOperationException("This folder is already linked to the Personal Space.");
+            && (IsWithin(candidate.ExternalPath, fullPath) || IsWithin(fullPath, candidate.ExternalPath))))
+            throw new InvalidOperationException("This folder overlaps an existing View source. Open the existing source rather than registering it again.");
 
         var now = DateTimeOffset.UtcNow;
         return await spaces.UpsertSourceAsync(new ViewSource(
@@ -142,13 +166,14 @@ public sealed class ViewStorageService(
         var origin = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourcePath));
         if (!Directory.Exists(origin))
             throw new DirectoryNotFoundException($"Import folder '{origin}' does not exist.");
-        if (IsWithin(GetRootPath(), origin))
+        EnsureNoReparsePoints(origin);
+        if (IsWithin(GetRootPath(), origin) || IsWithin(origin, GetRootPath()))
             throw new InvalidOperationException("A folder already inside the View root does not need to be imported.");
 
         var source = await EnsureManagedSourceAsync(
             space, name, ViewSourceType.Folder, $"import:{Guid.NewGuid():N}", ct);
         var destination = GetSourcePath(space, source);
-        foreach (var file in Directory.EnumerateFiles(origin, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(origin, "*", new EnumerationOptions { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = false }))
         {
             ct.ThrowIfCancellationRequested();
             var info = new FileInfo(file);
@@ -195,7 +220,15 @@ public sealed class ViewStorageService(
         var root = GetRootPath();
         var result = Path.GetFullPath(Path.Combine(root, relative));
         EnsureContained(root, result, "Managed View paths must remain within the View root.");
+        EnsureNoReparsePoints(result);
         return Path.TrimEndingDirectorySeparator(result);
+    }
+
+    private static void EnsureNoReparsePoints(string path)
+    {
+        for (var directory = new DirectoryInfo(path); directory is not null; directory = directory.Parent)
+            if (directory.Exists && (directory.Attributes & FileAttributes.ReparsePoint) != 0)
+                throw new InvalidOperationException("View storage cannot traverse symbolic links or junctions.");
     }
 
     private static void EnsureContained(string root, string path, string message)

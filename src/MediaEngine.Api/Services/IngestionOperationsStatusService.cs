@@ -216,6 +216,23 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             GROUP BY source_path
             """)).ToDictionary(r => r.SourcePath, StringComparer.OrdinalIgnoreCase);
 
+        // Folder inventory comes from owned assets, independently of batch history.
+        foreach (var library in _configLoader.LoadLibraries().Libraries)
+        {
+            foreach (var source in library.Sources)
+            {
+                if (string.IsNullOrWhiteSpace(source.Path)) continue;
+                var root = source.Path.Replace('\\', '/').TrimEnd('/') + "/";
+                var row = folderStats.GetValueOrDefault(source.Path) ?? new FolderStatsRow { SourcePath = source.Path };
+                row.ItemCount = conn.ExecuteScalar<long>("""
+                    SELECT COUNT(*) FROM media_assets
+                    WHERE is_orphaned = 0 AND library_id = @LibraryId
+                      AND substr(replace(file_path_root, char(92), '/'), 1, length(@Root)) = @Root COLLATE NOCASE
+                    """, new { LibraryId = library.Id, Root = root });
+                folderStats[source.Path] = row;
+            }
+        }
+
         var activeJobs = new List<IngestionOperationsJobDto>();
         foreach (var batch in recentBatches
             .Where(batch => ActiveBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase))

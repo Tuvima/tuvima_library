@@ -9,6 +9,26 @@ namespace MediaEngine.Api.Tests;
 public sealed class ServerFolderBrowserServiceTests
 {
     [Fact]
+    public void ProspectivePersonalRootValidatesWithoutCreatingFolders()
+    {
+        using var fixture = new Fixture();
+        var result = fixture.Service.Validate(new ValidateServerFolderRequest
+        {
+            StorageLocationId = "media", RelativePath = "NewView/profiles",
+            SelectionMode = ServerFolderSelectionModes.PersonalSpaceManaged,
+        });
+        Assert.True(result.CanSelect);
+        Assert.False(result.Exists);
+        Assert.True(result.HasWrite);
+        Assert.False(Directory.Exists(Path.Combine(fixture.AllowedRoot, "NewView")));
+        Assert.False(fixture.Service.Validate(new ValidateServerFolderRequest
+        {
+            StorageLocationId = "media", RelativePath = "NewView",
+            SelectionMode = ServerFolderSelectionModes.ManagedLibrary,
+        }).CanSelect);
+    }
+
+    [Fact]
     public void BrowseListsOnlyDirectoriesBeneathApprovedRoot()
     {
         using var fixture = new Fixture();
@@ -121,6 +141,7 @@ public sealed class ServerFolderBrowserServiceTests
         });
 
         Assert.Contains(exact.Issues, issue => issue.Code == "already_configured");
+        Assert.Contains(exact.Issues, issue => issue.LibraryName == "Movies");
         Assert.Contains(child.Issues, issue => issue.Code == "inside_configured_source");
     }
 

@@ -384,6 +384,9 @@ public sealed class ServerFolderValidationIssueDto
     [JsonPropertyName("message")]
     public string Message { get; init; } = string.Empty;
 
+    [JsonPropertyName("library_name")]
+    public string? LibraryName { get; init; }
+
     [JsonPropertyName("severity")]
     public string Severity { get; init; } = "error";
 }

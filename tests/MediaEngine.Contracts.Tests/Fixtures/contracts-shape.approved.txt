@@ -74,6 +74,7 @@ MediaEngine.Contracts.Activity.MediaEngine.Contracts.Activity.ActivityBatchSumma
   ReviewCount: System.Int32 | nullability=not-null | accessors=get,set
   AlertCount: System.Int32 | nullability=not-null | accessors=get,set
   FilesDiscoveredCount: System.Int32 | nullability=not-null | accessors=get,set
+  FilesProcessedCount: System.Int32 | nullability=not-null | accessors=get,set
   ItemsIdentifiedCount: System.Int32 | nullability=not-null | accessors=get,set
   MetadataUpdatedCount: System.Int32 | nullability=not-null | accessors=get,set
   EnrichmentOperationCount: System.Int32 | nullability=not-null | accessors=get,set
@@ -5350,6 +5351,12 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryLaneGroupDi
   SeeAllRoute: System.String | nullability=nullable | accessors=get,set
   MinimumSeriesItems: System.Int32? | nullability=nullable | accessors=get,set
 
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryMutationRequest
+  Library: MediaEngine.Contracts.Settings.LibraryFolderDto | nullability=nullable | accessors=get,init
+  ExpectedLibrary: MediaEngine.Contracts.Settings.LibraryFolderDto | nullability=nullable | accessors=get,init
+  ViewStorage: MediaEngine.Contracts.Settings.ViewStorageDto | nullability=nullable | accessors=get,init
+  ExpectedViewStorage: MediaEngine.Contracts.Settings.ViewStorageDto | nullability=nullable | accessors=get,init
+
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryOrganizationPolicyDto
   Mode: System.String | nullability=not-null | accessors=get,set
   CustomTemplate: System.String | nullability=nullable | accessors=get,set
@@ -5764,6 +5771,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerFolderSelect
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerFolderValidationIssueDto
   Code: System.String | nullability=not-null | accessors=get,init
   Message: System.String | nullability=not-null | accessors=get,init
+  LibraryName: System.String | nullability=nullable | accessors=get,init
   Severity: System.String | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerFolderValidationResultDto
@@ -5939,6 +5947,10 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ValidateServerFold
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ViewStorageDto
   StorageLocationId: System.String | nullability=not-null | accessors=get,set
   RelativeRoot: System.String | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ViewStorageSummaryDto
+  Sources: System.Int32 | nullability=not-null | accessors=get,init
+  Items: System.Int32 | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupAdministratorRequest
   Email: System.String | nullability=not-null | accessors=get,init

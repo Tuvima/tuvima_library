@@ -73,7 +73,9 @@ public sealed class ServerFolderBrowserService(
         };
     }
 
-    public ServerFolderValidationResultDto Validate(ValidateServerFolderRequest request)
+    public ServerFolderValidationResultDto Validate(ValidateServerFolderRequest request) => Validate(request, configuration.LoadLibraries());
+
+    public ServerFolderValidationResultDto Validate(ValidateServerFolderRequest request, LibrariesConfiguration configurationSnapshot)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (!ServerFolderSelectionModes.IsValid(request.SelectionMode))
@@ -81,7 +83,6 @@ public sealed class ServerFolderBrowserService(
             throw new ServerFolderAccessException("The requested folder selection mode is not supported.");
         }
 
-        var configurationSnapshot = configuration.LoadLibraries();
         var location = string.IsNullOrWhiteSpace(request.ManualPath)
             ? FindLocation(configurationSnapshot, request.StorageLocationId)
             : FindLocationForManualPath(configurationSnapshot, request.ManualPath);
@@ -90,8 +91,8 @@ public sealed class ServerFolderBrowserService(
         try
         {
             resolved = string.IsNullOrWhiteSpace(request.ManualPath)
-                ? ResolveSelection(location, request.RelativePath)
-                : ResolveManualSelection(location, request.ManualPath);
+                ? ResolveSelection(location, request.RelativePath, request.SelectionMode == ServerFolderSelectionModes.PersonalSpaceManaged)
+                : ResolveManualSelection(location, request.ManualPath, request.SelectionMode == ServerFolderSelectionModes.PersonalSpaceManaged);
         }
         catch (ServerFolderAccessException exception)
         {
@@ -108,8 +109,11 @@ public sealed class ServerFolderBrowserService(
             };
         }
 
-        var hasRead = ProbeRead(resolved.Path);
-        var hasWrite = location.AllowWrite && ProbeWrite(resolved.Path);
+        var exists = Directory.Exists(resolved.Path);
+        var accessPath = resolved.Path;
+        while (!Directory.Exists(accessPath)) accessPath = Path.GetDirectoryName(accessPath)!;
+        var hasRead = ProbeRead(accessPath);
+        var hasWrite = location.AllowWrite && ProbeWrite(accessPath);
         if (!location.AllowWrite && ServerFolderSelectionModes.RequiresWrite(request.SelectionMode))
         {
             issues.Add(Issue("storage_location_read_only", "This storage location is not approved for server-side writes."));
@@ -133,7 +137,7 @@ public sealed class ServerFolderBrowserService(
             StorageLocationId = location.Id,
             RelativePath = RelativeFor(location, request.ManualPath, request.RelativePath),
             Path = resolved.Path,
-            Exists = true,
+            Exists = exists,
             HasRead = hasRead,
             HasWrite = hasWrite,
             AvailableBytes = availableBytes,
@@ -197,7 +201,7 @@ public sealed class ServerFolderBrowserService(
             ?? throw new ServerFolderAccessException("This path is outside the server storage locations approved for Tuvima.");
     }
 
-    private static ResolvedSelection ResolveManualSelection(ServerStorageLocationConfig location, string manualPath)
+    private static ResolvedSelection ResolveManualSelection(ServerStorageLocationConfig location, string manualPath, bool allowCreate = false)
     {
         if (!TryResolveLocationRoot(location, out var root, out var rootError))
         {
@@ -205,7 +209,7 @@ public sealed class ServerFolderBrowserService(
         }
 
         var candidate = Path.TrimEndingDirectorySeparator(Path.GetFullPath(manualPath.Trim()));
-        if (!IsWithin(root, candidate) || !Directory.Exists(candidate))
+        if (!IsWithin(root, candidate) || (!allowCreate && !Directory.Exists(candidate)) || File.Exists(candidate))
         {
             throw new ServerFolderAccessException("Tuvima cannot access this folder inside an approved server storage location.");
         }
@@ -230,7 +234,7 @@ public sealed class ServerFolderBrowserService(
         return relative == "." ? string.Empty : relative;
     }
 
-    private static ResolvedSelection ResolveSelection(ServerStorageLocationConfig location, string? relativePath)
+    private static ResolvedSelection ResolveSelection(ServerStorageLocationConfig location, string? relativePath, bool allowCreate = false)
     {
         if (!TryResolveLocationRoot(location, out var root, out var rootError))
         {
@@ -249,7 +253,7 @@ public sealed class ServerFolderBrowserService(
             throw new ServerFolderAccessException("Folder navigation cannot leave the approved storage location.");
         }
 
-        if (!Directory.Exists(candidate))
+        if ((!allowCreate && !Directory.Exists(candidate)) || File.Exists(candidate))
         {
             throw new ServerFolderAccessException("Tuvima cannot access this folder from the server.");
         }
@@ -388,15 +392,15 @@ public sealed class ServerFolderBrowserService(
             var configuredPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(source.Path));
             if (PathEquals(configuredPath, selected.Path))
             {
-                issues.Add(Issue("already_configured", $"This folder is already configured for {source.Label}."));
+                issues.Add(new ServerFolderValidationIssueDto { Code = "already_configured", Message = $"This folder is already configured for {source.Label}.", LibraryName = source.Label });
             }
             else if (IsWithin(configuredPath, selected.Path))
             {
-                issues.Add(Issue("inside_configured_source", $"This folder is inside a source already configured for {source.Label}."));
+                issues.Add(new ServerFolderValidationIssueDto { Code = "inside_configured_source", Message = $"This folder is inside a source already configured for {source.Label}.", LibraryName = source.Label });
             }
             else if (IsWithin(selected.Path, configuredPath))
             {
-                issues.Add(Issue("contains_configured_source", $"This folder contains a source already configured for {source.Label}."));
+                issues.Add(new ServerFolderValidationIssueDto { Code = "contains_configured_source", Message = $"This folder contains a source already configured for {source.Label}.", LibraryName = source.Label });
             }
         }
     }

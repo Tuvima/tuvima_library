@@ -54,7 +54,7 @@
                         <div class="server-folder-picker__manual-controls">
                             <AppTextField Label="Server path"
                                           Value="@_manualPath"
-                                          ValueChanged="@(value => _manualPath = value ?? string.Empty)"
+                                          ValueChanged="ManualPathChanged"
                                           Placeholder="/media/movies" />
                             <AppButton Label="Validate path"
                                        ButtonStyle="AppButtonStyle.Outlined"
@@ -78,7 +78,7 @@
                                              Class="server-folder-picker__breadcrumb"
                                              AriaLabel="Storage location root"
                                              OnClick="@(_ => NavigateAsync(string.Empty))">
-                                <MudIcon Icon="@Icons.Material.Outlined.Home" />
+                                <MudIcon Icon="@Icons.Material.Outlined.Storage" /><span>@_activeLocation?.Label</span>
                             </AppNativeButton>
                             @foreach (var crumb in Breadcrumbs)
                             {
@@ -176,6 +176,7 @@
                     </div>
                 }
 
+                @if (_validation is { CanSelect: true, Exists: false }) { <AppAlert Tone="AppUiTone.Info">This View folder will be created when storage is saved.</AppAlert> }
                 @if (!string.IsNullOrWhiteSpace(_error))
                 {
                     <AppAlert Tone="AppUiTone.Error">@_error</AppAlert>
@@ -183,7 +184,16 @@
                 @if (_validation?.Issues.Count > 0)
                 {
                     <div class="server-folder-picker__issues" aria-live="assertive">
-                        @foreach (var issue in _validation.Issues)
+                        @if (_validation.Issues.Any(issue => issue.LibraryName is not null))
+                        {
+                            <strong>Already used by other libraries</strong>
+                            <p>Choose a folder that does not overlap these configured sources.</p>
+                            <div class="server-folder-picker__conflicts">
+                                @foreach (var name in _validation.Issues.Where(issue => issue.LibraryName is not null).Select(issue => issue.LibraryName).Distinct())
+                                { <span>@name</span> }
+                            </div>
+                        }
+                        @foreach (var issue in _validation.Issues.Where(issue => issue.LibraryName is null))
                         {
                             <div><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /><span>@issue.Message</span></div>
                         }
@@ -198,7 +208,7 @@
             <AppButton Label="Select this folder"
                        ButtonStyle="AppButtonStyle.Filled"
                        Tone="AppUiTone.Primary"
-                       Disabled="@(_validation?.CanSelect != true || _validating)"
+                       Disabled="@(_validation?.CanSelect != true || _validating || _loadingBrowse)"
                        OnClick="Confirm" />
         </AppActionBar>
     </FooterContent>
@@ -265,6 +275,13 @@
                     string.Equals(location.Id, initial.StorageLocationId, StringComparison.OrdinalIgnoreCase)) ?? first;
                 _selectedRelativePath = initial.RelativePath;
                 _validation = initial;
+                if (initial is { CanSelect: true, Exists: false })
+                {
+                    _activeLocation = first;
+                    _showManualPath = true;
+                    _manualPath = initial.Path;
+                    return;
+                }
             }
         }
 
@@ -291,6 +308,7 @@
         _browseRequest = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         var token = _browseRequest.Token;
         _loadingBrowse = true;
+        if (!preserveSelection) InvalidateValidation();
         _error = null;
         var request = new BrowseServerFoldersRequest
         {
@@ -333,7 +351,12 @@
         ? NavigateAsync(parent)
         : Task.CompletedTask;
 
-    private Task RefreshAsync() => NavigateAsync(_browse?.RelativePath ?? string.Empty, preserveSelection: true);
+    private async Task RefreshAsync()
+    {
+        InvalidateValidation();
+        await NavigateAsync(_browse?.RelativePath ?? string.Empty, preserveSelection: true);
+        await ValidateSelectedAsync();
+    }
 
     private async Task SearchChangedAsync(object? value)
     {
@@ -361,6 +384,7 @@
     private async Task ValidateSelectedAsync()
     {
         if (_activeLocation is null) return;
+        _validation = null;
         var generation = ++_validationGeneration;
         _validationRequest?.Cancel();
         _validationRequest?.Dispose();
@@ -397,37 +421,64 @@
 
     private async Task ValidateManualPathAsync()
     {
+        InvalidateValidation();
+        var generation = _validationGeneration;
+        _validationRequest = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        var token = _validationRequest.Token;
         _validating = true;
         _error = null;
-        var request = new ValidateServerFolderRequest
+        var request = new ValidateServerFolderRequest { ManualPath = _manualPath, SelectionMode = SelectionMode, CurrentSourceId = CurrentSourceId };
+        try
         {
-            ManualPath = _manualPath,
-            SelectionMode = SelectionMode,
-            CurrentSourceId = CurrentSourceId,
-        };
-        _validation = string.IsNullOrWhiteSpace(SetupSession)
-            ? await ApiClient.ValidateServerFolderAsync(request, _lifetime.Token)
-            : await ApiClient.ValidateSetupServerFolderAsync(request, SetupSession, _lifetime.Token);
-        _validating = false;
-        if (_validation is null)
-        {
-            _error = "The server path could not be validated.";
-            return;
+            var validation = string.IsNullOrWhiteSpace(SetupSession)
+                ? await ApiClient.ValidateServerFolderAsync(request, token)
+                : await ApiClient.ValidateSetupServerFolderAsync(request, SetupSession, token);
+            if (generation != _validationGeneration) return;
+            _validation = validation;
+            if (validation is null) { _error = "The server path could not be validated."; return; }
+            _activeLocation = VisibleLocations.FirstOrDefault(location => string.Equals(location.Id, validation.StorageLocationId, StringComparison.OrdinalIgnoreCase));
+            if (_activeLocation is null) { _validation = null; _error = "Choose an approved storage location."; return; }
+            _selectedRelativePath = validation.RelativePath;
         }
-
-        _activeLocation = VisibleLocations.FirstOrDefault(location =>
-            string.Equals(location.Id, _validation.StorageLocationId, StringComparison.OrdinalIgnoreCase));
-        _selectedRelativePath = _validation.RelativePath;
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            // A changed path or closed dialog superseded this request.
+        }
+        finally { if (generation == _validationGeneration) _validating = false; }
     }
 
-    private void ToggleManualPath() => _showManualPath = !_showManualPath;
+    private void InvalidateValidation()
+    {
+        ++_validationGeneration;
+        _validationRequest?.Cancel();
+        _validationRequest?.Dispose();
+        _validationRequest = null;
+        _validation = null;
+        _validating = false;
+    }
+    private void ManualPathChanged(string? value) { _manualPath = value ?? string.Empty; InvalidateValidation(); }
+    private void ToggleManualPath()
+    {
+        CancelSearchDebounce();
+        ++_browseGeneration;
+        _browseRequest?.Cancel();
+        _loadingBrowse = false;
+        _showManualPath = !_showManualPath;
+        _manualPath = _validation?.Path ?? _browse?.DisplayPath ?? "";
+        InvalidateValidation();
+    }
     private void CancelSearchDebounce()
     {
         _searchDebounce?.Cancel();
         _searchDebounce?.Dispose();
         _searchDebounce = null;
     }
-    private void Confirm() { if (_validation?.CanSelect == true) DialogInstance.Close(DialogResult.Ok(_validation)); }
+    private async Task Confirm()
+    {
+        if (_validating || _loadingBrowse || _validation?.CanSelect != true) return;
+        if (_showManualPath) await ValidateManualPathAsync(); else await ValidateSelectedAsync();
+        if (_validation?.CanSelect == true) DialogInstance.Close(DialogResult.Ok(_validation));
+    }
     private void Cancel() => DialogInstance.Cancel();
 
     private IReadOnlyList<BreadcrumbItem> Breadcrumbs

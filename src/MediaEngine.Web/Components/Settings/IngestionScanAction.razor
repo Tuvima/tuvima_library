@@ -1,0 +1,27 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Services.Integration
+@inject IngestionLiveDashboardState Dashboard
+@implements IDisposable
+
+<MudTooltip Text="Start an extra scan of every watched folder. Automatic watching continues in the background."
+            Placement="Placement.Bottom">
+    <AppButton Label="Scan All Folders"
+               StartIcon="@Icons.Material.Outlined.FolderOpen"
+               ButtonStyle="AppButtonStyle.Filled"
+               Tone="AppUiTone.Primary"
+               Disabled="@(Dashboard.IsLoading || Dashboard.IsScanStarting || IsRunning)"
+               Loading="@Dashboard.IsScanStarting"
+               OnClick="ScanNowAsync" />
+</MudTooltip>
+
+@code {
+    private bool IsRunning => Dashboard.Presentation?.IsRunning == true;
+
+    protected override void OnInitialized() => Dashboard.OnChanged += OnDashboardChanged;
+
+    private Task ScanNowAsync() => Dashboard.ScanNowAsync();
+
+    private void OnDashboardChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Dashboard.OnChanged -= OnDashboardChanged;
+}

@@ -56,6 +56,9 @@ public sealed class ActivityBatchSummaryDto
     [JsonPropertyName("files_discovered_count")]
     public int FilesDiscoveredCount { get; set; }
 
+    [JsonPropertyName("files_processed_count")]
+    public int FilesProcessedCount { get; set; }
+
     [JsonPropertyName("items_identified_count")]
     public int ItemsIdentifiedCount { get; set; }
 

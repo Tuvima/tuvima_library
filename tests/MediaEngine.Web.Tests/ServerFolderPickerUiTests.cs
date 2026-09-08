@@ -37,7 +37,7 @@ public sealed class ServerFolderPickerUiTests
         Assert.Contains("ServerFolderSelectionModes.ManagedLibrary", wizard, StringComparison.Ordinal);
         Assert.Contains("ServerFolderSelectionModes.ExistingLibrary", wizard, StringComparison.Ordinal);
         Assert.Contains("DialogParameters<ServerFolderPicker>", users, StringComparison.Ordinal);
-        Assert.Contains("ServerFolderSelectionModes.PersonalSpaceManaged", libraries, StringComparison.Ordinal);
+        Assert.Contains("ServerFolderSelectionModes.PersonalSpaceManaged", Read("src/MediaEngine.Web/Components/Settings/ViewLibrarySettings.razor"), StringComparison.Ordinal);
         Assert.Contains("ServerFolderSelectionModes.PersonalSpaceExisting", users, StringComparison.Ordinal);
     }
 
@@ -50,21 +50,24 @@ public sealed class ServerFolderPickerUiTests
 
         Assert.Contains("IsLibraryRouteSegment", settings, StringComparison.Ordinal);
         Assert.Contains("<AddLibraryWizard />", settings, StringComparison.Ordinal);
-        Assert.Contains("[SupplyParameterFromQuery(Name = \"tab\")] public string? DetailTab", settings, StringComparison.Ordinal);
-        Assert.Contains("<LibrariesTab Subsection=\"@_activeSubsection\" DetailTab=\"@DetailTab\" />", settings, StringComparison.Ordinal);
-        Assert.Contains("Select type", wizard, StringComparison.Ordinal);
+
         Assert.Contains("Add folders", wizard, StringComparison.Ordinal);
         Assert.Contains("Organization", wizard, StringComparison.Ordinal);
         Assert.Contains("Review", wizard, StringComparison.Ordinal);
         Assert.Contains("PrimaryDestinationSourceId", wizard, StringComparison.Ordinal);
-        Assert.Contains("VisibleSteps", wizard, StringComparison.Ordinal);
+        Assert.Contains("Choose type", wizard, StringComparison.Ordinal);
+        Assert.Contains("Personal Media", wizard, StringComparison.Ordinal);
+        Assert.Contains("Save View storage", wizard, StringComparison.Ordinal);
+        Assert.Contains("LibraryNameChanged", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("library-detail__tabs", libraries, StringComparison.Ordinal);
+        Assert.Contains("File Handling", libraries, StringComparison.Ordinal);
+        Assert.DoesNotContain("<NavigationLock", libraries, StringComparison.Ordinal);
+        Assert.Contains("MutateLibraryAsync", libraries, StringComparison.Ordinal);
         Assert.Contains("RequiresPrimaryDestination", wizard, StringComparison.Ordinal);
         Assert.Contains("Existing files will remain unchanged", wizard, StringComparison.Ordinal);
-        Assert.Contains("Overview", libraries, StringComparison.Ordinal);
         Assert.Contains("Folders", libraries, StringComparison.Ordinal);
         Assert.Contains("Organization", libraries, StringComparison.Ordinal);
         Assert.Contains("Advanced", libraries, StringComparison.Ordinal);
-        Assert.Contains("[Parameter] public string? DetailTab", libraries, StringComparison.Ordinal);
     }
 
     private static string Read(string relativePath) =>

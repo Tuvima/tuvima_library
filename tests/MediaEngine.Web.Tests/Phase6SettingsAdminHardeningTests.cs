@@ -55,17 +55,17 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.DoesNotContain("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
 
         Assert.Contains("All libraries", source, StringComparison.Ordinal);
-        Assert.Contains("Personal Space", source, StringComparison.Ordinal);
+        Assert.Contains("Personal Space", ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ViewLibrarySettings.razor"), StringComparison.Ordinal);
         Assert.DoesNotContain("Import folders", source, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Choose a media area", source, StringComparison.Ordinal);
         Assert.Contains("new(\"all\", \"All\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"read\", \"Read\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"watch\", \"Watch\"", source, StringComparison.Ordinal);
         Assert.Contains("new(\"listen\", \"Listen\"", source, StringComparison.Ordinal);
-        Assert.Contains("<h3>View storage</h3>", source, StringComparison.Ordinal);
-        Assert.Contains("profiles\\&lt;profile-id&gt;\\sources\\&lt;source-id&gt;", source, StringComparison.Ordinal);
+        Assert.Contains("<ViewLibrarySettings", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/libraries/view", source, StringComparison.Ordinal);
         Assert.Contains("Not checked", source, StringComparison.Ordinal);
-        Assert.Contains("Folders in this library", source, StringComparison.Ordinal);
+        Assert.Contains("<h3>Folders</h3>", source, StringComparison.Ordinal);
         Assert.Contains("Existing folders stay unchanged", source, StringComparison.Ordinal);
         Assert.Contains("Primary destination", source, StringComparison.Ordinal);
         Assert.Contains("Duplicate handling", source, StringComparison.Ordinal);
@@ -73,9 +73,9 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("DialogParameters<ServerFolderPicker>", source, StringComparison.Ordinal);
         Assert.Contains("GetLibrariesAsync", source, StringComparison.Ordinal);
         Assert.Contains("TestPathAsync", source, StringComparison.Ordinal);
-        Assert.Contains("UpdateLibrariesAsync", source, StringComparison.Ordinal);
-        Assert.Contains("HasUnsavedChanges", source, StringComparison.Ordinal);
-        Assert.Contains("Save Changes", source, StringComparison.Ordinal);
+        Assert.Contains("MutateLibraryAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("HasUnsavedChanges", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Save changes\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetFolderSettingsAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("UpdateFolderSettingsAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SourcePaths", source, StringComparison.Ordinal);

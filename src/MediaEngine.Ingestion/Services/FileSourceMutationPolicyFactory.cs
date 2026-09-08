@@ -40,7 +40,8 @@ public static class FileSourceMutationPolicyFactory
             participates,
             source.WritebackOverride,
             globalMetadataWritebackEnabled,
-            allowDelete);
+            allowDelete,
+            library.PreserveOriginals && source.Role != LibrarySourceRoles.Intake);
     }
 
     public static FileSourceMutationPolicy Create(
@@ -73,7 +74,8 @@ public static class FileSourceMutationPolicyFactory
             participates,
             source.WritebackOverride,
             globalMetadataWritebackEnabled,
-            allowDelete);
+            allowDelete,
+            library.OrganizationPolicy.PreserveOriginals && source.Role != LibrarySourceRoles.Intake);
     }
 
     private static FileSourceMutationPolicy CreateCore(
@@ -85,7 +87,8 @@ public static class FileSourceMutationPolicyFactory
         bool participates,
         bool? writebackOverride,
         bool globalMetadataWritebackEnabled,
-        bool allowDelete)
+        bool allowDelete,
+        bool protectExisting)
         => new()
         {
             LibraryId = libraryId,
@@ -95,6 +98,7 @@ public static class FileSourceMutationPolicyFactory
                 ? FileSourceManagementMode.ManagedByTuvima
                 : FileSourceManagementMode.ExistingLibrary,
             IsWritable = writable,
+            ProtectExistingFiles = protectExisting,
             AllowMove = participates,
             AllowRename = participates,
             AllowMetadataWriteback = managed

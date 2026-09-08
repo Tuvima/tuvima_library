@@ -93,6 +93,7 @@ public sealed class SourceMutationIntegrationTests
                 new LibraryFolderEntry
                 {
                     Id = "library",
+                    PreserveOriginals = false,
                     PrimaryDestinationSourceId = sources.FirstOrDefault()?.Id,
                     Sources = sources,
                 },
