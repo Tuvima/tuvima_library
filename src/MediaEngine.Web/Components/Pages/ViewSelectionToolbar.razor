@@ -25,9 +25,9 @@
                          OnClick="@(() => OnCreateGallery.InvokeAsync())" />
         </AppOverflowMenu>
         <span class="view-selection-toolbar__divider"></span>
-        @if (ShowFamilyLibrary)
+        @if (ShowSharedLibrary)
         {
-            <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnFamilyLibrary.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.FamilyRestroom" />Move/Copy to Family Library</AppNativeButton>
+            <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnSharedLibrary.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.GroupWork" />Submit to Shared Library</AppNativeButton>
         }
         <AppNativeButton Type="button" Class="view-selection-toolbar__action" OnClick="@(_ => OnFavorite.InvokeAsync())"><MudIcon Icon="@Icons.Material.Outlined.FavoriteBorder" />Favorite</AppNativeButton>
         @if (ShowRestore)
@@ -51,8 +51,8 @@
     [Parameter] public IReadOnlyList<ViewGalleryDto> ManualGalleries { get; set; } = [];
     [Parameter] public EventCallback OnClear { get; set; }
     [Parameter] public EventCallback OnFavorite { get; set; }
-    [Parameter] public EventCallback OnFamilyLibrary { get; set; }
-    [Parameter] public bool ShowFamilyLibrary { get; set; }
+    [Parameter] public EventCallback OnSharedLibrary { get; set; }
+    [Parameter] public bool ShowSharedLibrary { get; set; }
     [Parameter] public bool ShowRestore { get; set; }
     [Parameter] public EventCallback OnRestore { get; set; }
     [Parameter] public bool ShowTrash { get; set; } = true;

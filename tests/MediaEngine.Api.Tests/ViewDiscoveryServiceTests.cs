@@ -21,10 +21,9 @@ public sealed class ViewDiscoveryServiceTests
 
         Assert.Equal(ViewAccessOutcome.Allowed, result.Outcome);
         Assert.True(result.Scope!.WasFallback);
-        Assert.Equal(ViewScopeKind.Shared, result.Scope.Kind);
-        Assert.Contains(included.PersonalSpace!.LibraryId, repository.PlaceQuery!.AuthorizedLibraryIds);
-        Assert.Contains(caller.PersonalSpace!.LibraryId, repository.PlaceQuery.AuthorizedLibraryIds);
-        Assert.DoesNotContain(privateProfile.PersonalSpace!.LibraryId, repository.PlaceQuery.AuthorizedLibraryIds);
+        Assert.Equal(ViewScopeKind.Mine, result.Scope.Kind);
+        Assert.Equal([caller.PersonalSpace!.LibraryId], repository.PlaceQuery!.AuthorizedLibraryIds);
+        Assert.False(repository.PlaceQuery.IncludeSharedLibraryAssets);
     }
 
     [Fact]
@@ -107,7 +106,7 @@ public sealed class ViewDiscoveryServiceTests
         var profileId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
         return new ViewScopeStoreEntry(
-            new ViewProfilePolicy(profileId, true, access, include, true, now),
+            new ViewProfilePolicy(profileId, true, access, include, false, true, now),
             new ViewPersonalSpace(Guid.NewGuid(), profileId, Guid.NewGuid(), now, now));
     }
 

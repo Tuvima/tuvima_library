@@ -198,17 +198,6 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
                         SELECT 1 FROM view_gallery_shares vgs
                          WHERE vgs.gallery_id = cvs.gallery_id
                            AND vgs.profile_id = @ViewerProfileId))
-                    OR (cvs.source_kind = 'smart_rule'
-                        AND EXISTS (
-                            SELECT 1 FROM profile_view_policies viewer_policy
-                             WHERE viewer_policy.profile_id = @ViewerProfileId
-                               AND viewer_policy.view_enabled = 1
-                               AND viewer_policy.access_shared_view = 1)
-                        AND EXISTS (
-                            SELECT 1 FROM profile_view_policies owner_policy
-                             WHERE owner_policy.profile_id = cvs.owner_profile_id
-                               AND owner_policy.view_enabled = 1
-                               AND owner_policy.include_in_shared_view = 1))
                    )
              ORDER BY cvs.collection_id, cvs.position, cvs.id;
             """, parameters, cancellationToken: ct));

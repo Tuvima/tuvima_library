@@ -39,8 +39,9 @@ internal static class ProfileContractMapper
     {
         ProfileId = policy.ProfileId,
         ViewEnabled = policy.ViewEnabled,
-        AccessSharedView = policy.AccessSharedView,
-        IncludeInSharedView = policy.IncludeInSharedView,
+        AccessSharedLibrary = policy.AccessSharedLibrary,
+        SubmitToSharedLibrary = policy.SubmitToSharedLibrary,
+        ReviewSharedLibraryContributions = policy.ReviewSharedLibraryContributions,
         AllowGallerySharing = policy.ShareGalleries,
         UpdatedAt = policy.UpdatedAt,
     };
@@ -50,8 +51,9 @@ internal static class ProfileContractMapper
         UpdateViewProfilePolicyRequest request) => new(
             profileId,
             request.ViewEnabled,
-            request.AccessSharedView,
-            request.IncludeInSharedView,
+            request.AccessSharedLibrary,
+            request.SubmitToSharedLibrary,
+            request.ReviewSharedLibraryContributions,
             request.AllowGallerySharing,
             null);
 

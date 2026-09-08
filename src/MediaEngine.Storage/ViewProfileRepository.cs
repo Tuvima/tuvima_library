@@ -14,8 +14,9 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
         using var connection = database.CreateConnection();
         var row = connection.QuerySingleOrDefault<PolicyRow>(new CommandDefinition("""
             SELECT profile_id AS ProfileId, view_enabled AS ViewEnabled,
-                   access_shared_view AS AccessSharedView,
-                   include_in_shared_view AS IncludeInSharedView,
+                   access_shared_library AS AccessSharedLibrary,
+                   submit_to_shared_library AS SubmitToSharedLibrary,
+                   review_shared_library_contributions AS ReviewSharedLibraryContributions,
                    share_galleries AS ShareGalleries, updated_at AS UpdatedAt
               FROM profile_view_policies
              WHERE profile_id = @profileId;
@@ -34,23 +35,25 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
             var now = DateTimeOffset.UtcNow;
             connection.Execute(new CommandDefinition("""
                 INSERT INTO profile_view_policies
-                    (profile_id, view_enabled, access_shared_view, include_in_shared_view,
-                     share_galleries, updated_at)
+                    (profile_id, view_enabled, access_shared_library, submit_to_shared_library,
+                     review_shared_library_contributions, share_galleries, updated_at)
                 VALUES
-                    (@ProfileId, @ViewEnabled, @AccessSharedView, @IncludeInSharedView,
-                     @ShareGalleries, @now)
+                    (@ProfileId, @ViewEnabled, @AccessSharedLibrary, @SubmitToSharedLibrary,
+                     @ReviewSharedLibraryContributions, @ShareGalleries, @now)
                 ON CONFLICT(profile_id) DO UPDATE SET
                     view_enabled = excluded.view_enabled,
-                    access_shared_view = excluded.access_shared_view,
-                    include_in_shared_view = excluded.include_in_shared_view,
+                    access_shared_library = excluded.access_shared_library,
+                    submit_to_shared_library = excluded.submit_to_shared_library,
+                    review_shared_library_contributions = excluded.review_shared_library_contributions,
                     share_galleries = excluded.share_galleries,
                     updated_at = excluded.updated_at;
                 """, new
             {
                 policy.ProfileId,
                 ViewEnabled = policy.ViewEnabled ? 1 : 0,
-                AccessSharedView = policy.AccessSharedView ? 1 : 0,
-                IncludeInSharedView = policy.IncludeInSharedView ? 1 : 0,
+                AccessSharedLibrary = policy.AccessSharedLibrary ? 1 : 0,
+                SubmitToSharedLibrary = policy.SubmitToSharedLibrary ? 1 : 0,
+                ReviewSharedLibraryContributions = policy.ReviewSharedLibraryContributions ? 1 : 0,
                 ShareGalleries = policy.ShareGalleries ? 1 : 0,
                 now,
             }, transaction, cancellationToken: token));
@@ -127,8 +130,9 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
             new { profileId }, transaction, cancellationToken: ct)) != 0;
 
     private static ViewProfilePolicy Map(PolicyRow row) => new(
-        row.ProfileId, row.ViewEnabled != 0, row.AccessSharedView != 0,
-        row.IncludeInSharedView != 0, row.ShareGalleries != 0, ParseDate(row.UpdatedAt));
+        row.ProfileId, row.ViewEnabled != 0, row.AccessSharedLibrary != 0,
+        row.SubmitToSharedLibrary != 0, row.ReviewSharedLibraryContributions != 0,
+        row.ShareGalleries != 0, ParseDate(row.UpdatedAt));
 
     private static ViewProfilePreferences Map(PreferencesRow row) => new(
         row.ProfileId,
@@ -181,8 +185,9 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
     {
         public Guid ProfileId { get; init; }
         public long ViewEnabled { get; init; }
-        public long AccessSharedView { get; init; }
-        public long IncludeInSharedView { get; init; }
+        public long AccessSharedLibrary { get; init; }
+        public long SubmitToSharedLibrary { get; init; }
+        public long ReviewSharedLibraryContributions { get; init; }
         public long ShareGalleries { get; init; }
         public string? UpdatedAt { get; init; }
     }

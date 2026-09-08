@@ -8,7 +8,7 @@ using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.View;
 
-public sealed class ViewFamilyTransferService(
+public sealed class ViewSharedTransferService(
     IDatabaseConnection database,
     ILocalAssetRepository assets,
     ViewStorageService storage)
@@ -16,7 +16,7 @@ public sealed class ViewFamilyTransferService(
     private static readonly SemaphoreSlim TransferGate = new(1, 1);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public ViewFamilyTransferPreviewDto Preview(Guid itemId, string destinationKind, string? folderName,
+    public ViewSharedTransferPreviewDto Preview(Guid itemId, string destinationKind, string? folderName,
         CancellationToken ct = default)
     {
         var item = assets.Find(itemId, ct) ?? throw new KeyNotFoundException("The View item was not found.");
@@ -27,24 +27,25 @@ public sealed class ViewFamilyTransferService(
         var move = files.All(file => string.Equals(file.StorageMode, "managed", StringComparison.Ordinal));
         using var connection = database.CreateConnection();
         var promoted = connection.ExecuteScalar<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM view_family_assets WHERE item_id = @itemId;", new { itemId }, cancellationToken: ct)) > 0;
-        return new ViewFamilyTransferPreviewDto(itemId, move ? "move" : "copy", files.Count,
+            "SELECT COUNT(*) FROM view_shared_assets WHERE item_id = @itemId;", new { itemId }, cancellationToken: ct)) > 0;
+        return new ViewSharedTransferPreviewDto(itemId, move ? "move" : "copy", files.Count,
             files.Sum(file => file.ByteSize), DestinationRoot(item, kind, folderName), kind, move, promoted);
     }
 
-    public async Task<ViewFamilyTransferResultDto> ExecuteAsync(Guid itemId, Guid actorProfileId,
-        string destinationKind, string? folderName, CancellationToken ct = default)
+    public async Task<ViewSharedTransferResultDto> ExecuteAsync(Guid itemId, Guid actorProfileId,
+        string destinationKind, string? folderName, Guid? contributionItemId = null,
+        CancellationToken ct = default)
     {
         await TransferGate.WaitAsync(ct);
         try
         {
             var preview = Preview(itemId, destinationKind, folderName, ct);
             var existing = GetExistingTransfer(itemId, ct);
-            if (preview.AlreadyPromoted && existing?.State == "completed") return ToResult(itemId, existing);
+            if (preview.AlreadyShared && existing?.State == "completed") return ToResult(itemId, existing);
 
             var item = assets.Find(itemId, ct)!;
             var files = GetFiles(itemId, ct);
-            if (preview.AlreadyPromoted && existing?.State == "cleanup_pending")
+            if (preview.AlreadyShared && existing?.State == "cleanup_pending")
                 return await FinishCleanupAsync(item, existing, ct);
 
             var transferId = existing?.Id ?? Guid.NewGuid();
@@ -55,12 +56,13 @@ public sealed class ViewFamilyTransferService(
             var destinationManifest = SerializeDestinations(planned);
             await WriteAsync((connection, transaction) => connection.Execute("""
                 INSERT INTO view_shared_transfers
-                    (id, item_id, operation, state, source_manifest_json, destination_manifest_json,
+                    (id, item_id, contribution_item_id, operation, state, source_manifest_json, destination_manifest_json,
                      error, created_at, updated_at, completed_at)
-                VALUES (@transferId, @itemId, @operation, 'planned', @sourceManifest,
+                VALUES (@transferId, @itemId, @contributionItemId, @operation, 'planned', @sourceManifest,
                         @destinationManifest, NULL, @now, @now, NULL)
                 ON CONFLICT(item_id) DO UPDATE SET
                     operation = excluded.operation,
+                    contribution_item_id = excluded.contribution_item_id,
                     state = excluded.state,
                     source_manifest_json = excluded.source_manifest_json,
                     destination_manifest_json = excluded.destination_manifest_json,
@@ -71,6 +73,7 @@ public sealed class ViewFamilyTransferService(
             {
                 transferId,
                 itemId,
+                contributionItemId,
                 operation = preview.Operation,
                 sourceManifest,
                 destinationManifest,
@@ -83,7 +86,7 @@ public sealed class ViewFamilyTransferService(
                 foreach (var file in planned)
                     await EnsureVerifiedDestinationAsync(file, transferId, ct);
 
-                // Publish household ownership only after every group member is verified at its final path.
+                // Publish Shared Library ownership only after every group member is verified at its final path.
                 await WriteAsync((connection, transaction) =>
                 {
                     foreach (var file in planned)
@@ -105,7 +108,7 @@ public sealed class ViewFamilyTransferService(
                         }, transaction);
                     }
                     connection.Execute("""
-                        INSERT INTO view_family_assets
+                        INSERT INTO view_shared_assets
                             (item_id, original_profile_id, destination_kind, destination_label,
                              promoted_by_profile_id, promoted_at)
                         VALUES (@itemId, @OwnerProfileId, @kind, @label, @actorProfileId, @now)
@@ -135,16 +138,16 @@ public sealed class ViewFamilyTransferService(
                 }, ct);
 
                 if (preview.Operation == "copy")
-                    return new ViewFamilyTransferResultDto(itemId, "completed", "copy", planned.Count,
+                    return new ViewSharedTransferResultDto(itemId, "completed", "copy", planned.Count,
                         planned.Select(file => file.Destination).ToList(), false);
 
                 return await FinishCleanupAsync(item, GetExistingTransfer(itemId, ct)!, ct);
             }
             catch (Exception exception)
             {
-                // Once household ownership is published, retain cleanup_pending so retry only removes
+                // Once Shared Library ownership is published, retain cleanup_pending so retry only removes
                 // known source occurrences after re-verifying their Shared copies.
-                var state = IsFamilyAsset(itemId, CancellationToken.None) ? "cleanup_pending" : "failed";
+                var state = IsSharedLibraryAsset(itemId, CancellationToken.None) ? "cleanup_pending" : "failed";
                 await SetStateAsync(itemId, state, exception.Message, CancellationToken.None);
                 throw;
             }
@@ -152,7 +155,7 @@ public sealed class ViewFamilyTransferService(
         finally { TransferGate.Release(); }
     }
 
-    private async Task<ViewFamilyTransferResultDto> FinishCleanupAsync(
+    private async Task<ViewSharedTransferResultDto> FinishCleanupAsync(
         LocalAssetDto item, ExistingTransfer existing, CancellationToken ct)
     {
         var destinations = ParseDestinations(existing.Manifest);
@@ -214,7 +217,7 @@ public sealed class ViewFamilyTransferService(
             }, transaction);
         }, ct);
 
-        return new ViewFamilyTransferResultDto(item.Id,
+        return new ViewSharedTransferResultDto(item.Id,
             cleanupPending ? "cleanup_pending" : "completed", existing.Operation,
             updated.Count, updated.Select(file => file.Destination).ToList(), cleanupPending);
     }
@@ -248,17 +251,17 @@ public sealed class ViewFamilyTransferService(
             """, new { itemId }, cancellationToken: ct));
     }
 
-    private bool IsFamilyAsset(Guid itemId, CancellationToken ct)
+    private bool IsSharedLibraryAsset(Guid itemId, CancellationToken ct)
     {
         using var connection = database.CreateConnection();
         return connection.ExecuteScalar<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM view_family_assets WHERE item_id = @itemId;", new { itemId }, cancellationToken: ct)) > 0;
+            "SELECT COUNT(*) FROM view_shared_assets WHERE item_id = @itemId;", new { itemId }, cancellationToken: ct)) > 0;
     }
 
-    private static ViewFamilyTransferResultDto ToResult(Guid itemId, ExistingTransfer row)
+    private static ViewSharedTransferResultDto ToResult(Guid itemId, ExistingTransfer row)
     {
         var paths = ParseDestinations(row.Manifest).Select(value => value.Destination).ToList();
-        return new ViewFamilyTransferResultDto(itemId, row.State, row.Operation, paths.Count, paths,
+        return new ViewSharedTransferResultDto(itemId, row.State, row.Operation, paths.Count, paths,
             row.State == "cleanup_pending");
     }
 
@@ -266,7 +269,7 @@ public sealed class ViewFamilyTransferService(
         ExistingTransfer? existing,
         IReadOnlyList<TransferFile> files,
         LocalAssetDto item,
-        ViewFamilyTransferPreviewDto preview,
+        ViewSharedTransferPreviewDto preview,
         Guid transferId)
     {
         var recovered = ParseDestinations(existing?.Manifest);

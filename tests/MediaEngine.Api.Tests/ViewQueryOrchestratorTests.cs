@@ -32,7 +32,8 @@ public sealed class ViewQueryOrchestratorTests
 
         Assert.Equal(ViewAccessOutcome.Allowed, result.Outcome);
         var plan = Assert.IsType<ViewAssetQueryPlan>(backend.Plan);
-        Assert.Equal([included.PersonalSpace!.LibraryId], plan.Scope.LibraryIds);
+        Assert.Empty(plan.Scope.LibraryIds);
+        Assert.True(plan.IncludeSharedLibraryAssets);
         Assert.Equal("lake", plan.Search);
     }
 
@@ -155,7 +156,7 @@ public sealed class ViewQueryOrchestratorTests
     }
 
     [Fact]
-    public async Task FamilyAssetCanBeReadFromSharedWithoutExposingItsOwnersPrivateLibrary()
+    public async Task SharedLibraryAssetCanBeReadOnlyFromSharedScope()
     {
         var caller = State(access: true, include: false);
         var owner = State(access: false, include: false);
@@ -166,7 +167,7 @@ public sealed class ViewQueryOrchestratorTests
             itemId,
             owner.Policy.ProfileId,
             owner.PersonalSpace!.LibraryId,
-            IsFamilyAsset: true);
+            IsSharedLibraryAsset: true);
         var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource));
 
         var shared = await authorization.AuthorizeAsync(
@@ -177,7 +178,7 @@ public sealed class ViewQueryOrchestratorTests
             new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Thumbnail, itemId));
 
         Assert.Equal(ViewAccessOutcome.Allowed, shared.Outcome);
-        Assert.DoesNotContain(owner.PersonalSpace.LibraryId, shared.Scope!.LibraryIds);
+        Assert.Empty(shared.Scope!.LibraryIds);
         Assert.Equal(ViewAccessOutcome.NotFound, mine.Outcome);
     }
 
@@ -186,7 +187,7 @@ public sealed class ViewQueryOrchestratorTests
         var profileId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
         return new ViewScopeStoreEntry(
-            new ViewProfilePolicy(profileId, true, access, include, true, now),
+            new ViewProfilePolicy(profileId, true, access, include, false, true, now),
             new ViewPersonalSpace(Guid.NewGuid(), profileId, Guid.NewGuid(), now, now));
     }
 

@@ -25,25 +25,18 @@ public sealed class ViewScopeResolver(IViewScopeStore store) : IViewScopeResolve
         }
 
         var profiles = await store.GetProfilesAsync(ct).ConfigureAwait(false);
-        var shareable = profiles
-            .Where(IsUsable)
-            .Where(profile => profile.Policy.IncludeInSharedView)
-            .ToList();
+        var enabledProfiles = profiles.Where(IsUsable).ToList();
 
-        var options = BuildOptions(callerState!, shareable);
+        var options = BuildOptions(callerState!);
         var resolved = requested.Kind switch
         {
             ViewScopeKind.Mine => Mine(callerState!),
-            ViewScopeKind.Shared when callerState!.Policy.AccessSharedView => Shared(shareable),
+            ViewScopeKind.Shared when callerState!.Policy.AccessSharedLibrary => Shared(enabledProfiles),
             ViewScopeKind.Profile when requested.ProfileId == caller.ProfileId => Mine(callerState!),
-            ViewScopeKind.Profile when callerState!.Policy.AccessSharedView =>
-                ResolveProfile(requested.ProfileId, shareable),
             _ => null,
         };
 
-        var fallback = callerState!.Policy.AccessSharedView
-            ? Shared(shareable) with { WasFallback = true }
-            : Mine(callerState, fellBack: true);
+        var fallback = Mine(callerState!, fellBack: true);
         return new ViewScopeResolution(resolved ?? fallback, options);
     }
 
@@ -57,28 +50,13 @@ public sealed class ViewScopeResolver(IViewScopeStore store) : IViewScopeResolve
             new HashSet<Guid> { caller.PersonalSpace!.LibraryId },
             fellBack);
 
-    private static ResolvedViewScope Shared(IReadOnlyList<ViewScopeStoreEntry> shareable) =>
+    private static ResolvedViewScope Shared(IReadOnlyList<ViewScopeStoreEntry> _) =>
         new(
             ViewScopeKind.Shared,
             null,
-            shareable.Select(profile => profile.PersonalSpace!.LibraryId).ToHashSet());
+            new HashSet<Guid>());
 
-    private static ResolvedViewScope? ResolveProfile(
-        Guid? requestedProfileId,
-        IReadOnlyList<ViewScopeStoreEntry> shareable)
-    {
-        var profile = shareable.FirstOrDefault(candidate => candidate.Policy.ProfileId == requestedProfileId);
-        return profile is null
-            ? null
-            : new ResolvedViewScope(
-                ViewScopeKind.Profile,
-                profile.Policy.ProfileId,
-                new HashSet<Guid> { profile.PersonalSpace!.LibraryId });
-    }
-
-    private static IReadOnlyList<ViewScopeOption> BuildOptions(
-        ViewScopeStoreEntry caller,
-        IReadOnlyList<ViewScopeStoreEntry> shareable)
+    private static IReadOnlyList<ViewScopeOption> BuildOptions(ViewScopeStoreEntry caller)
     {
         var result = new List<ViewScopeOption>
         {
@@ -86,15 +64,12 @@ public sealed class ViewScopeResolver(IViewScopeStore store) : IViewScopeResolve
                 string.IsNullOrWhiteSpace(caller.DisplayName) ? "Mine" : caller.DisplayName,
                 caller.AvatarColor, caller.AvatarUrl),
         };
-        if (!caller.Policy.AccessSharedView)
+        if (!caller.Policy.AccessSharedLibrary)
         {
             return result;
         }
 
-        result.Add(new ViewScopeOption(ViewScopeKind.Shared, null, "Shared View"));
-        result.AddRange(shareable.Where(profile => profile.Policy.ProfileId != caller.Policy.ProfileId).Select(profile =>
-            new ViewScopeOption(ViewScopeKind.Profile, profile.Policy.ProfileId,
-                profile.DisplayName, profile.AvatarColor, profile.AvatarUrl)));
+        result.Add(new ViewScopeOption(ViewScopeKind.Shared, null, "Shared Library"));
         return result;
     }
 }

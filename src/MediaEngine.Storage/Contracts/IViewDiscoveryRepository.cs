@@ -14,13 +14,15 @@ public sealed record ViewPlaceDiscoveryQuery(
     IReadOnlyCollection<Guid> AuthorizedLibraryIds,
     int Limit = 50,
     string? Search = null,
-    ViewDiscoveryCursor? Cursor = null);
+    ViewDiscoveryCursor? Cursor = null,
+    bool IncludeSharedLibraryAssets = false);
 
 public sealed record ViewPeopleDiscoveryQuery(
     IReadOnlyCollection<Guid> AuthorizedLibraryIds,
     int Limit = 100,
     string? Search = null,
-    ViewDiscoveryCursor? Cursor = null);
+    ViewDiscoveryCursor? Cursor = null,
+    bool IncludeSharedLibraryAssets = false);
 
 public sealed record ViewDiscoveryCursor(int AssetCount, string Key);
 

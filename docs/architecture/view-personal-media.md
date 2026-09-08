@@ -68,10 +68,11 @@ resource and never proof of access.
 
 View supports three typed scopes:
 
-- `Shared` resolves the contributing Personal Spaces the active profile may
-  access.
+- `Shared` resolves only accepted Shared Library assets when the active profile
+  has Shared Library access.
 - `Mine` resolves the active profile's Personal Space.
-- `Profile(profileId)` resolves another profile only when explicitly permitted.
+- `Profile(profileId)` resolves only the active profile; other profile IDs fall
+  back without revealing whether that profile exists.
 
 The scope resolver returns authorized internal Personal Space/library IDs. All
 timeline, search, derivative, original, Gallery, People, Places, and Collection
@@ -80,12 +81,11 @@ lists.
 
 The last selected scope is stored server-side per profile. First use defaults to
 Shared when permitted and Mine otherwise. A saved scope that becomes
-unauthorized falls back to Shared when still permitted, then Mine.
+unauthorized falls back to Mine.
 
-Family Library assets are household-owned records beneath `Shared`. They are
-readable in Shared scope even when the original owner's Personal Space is not
-part of the broader profile aggregation; this does not expose the rest of that
-private Personal Space.
+Shared Library assets are server-owned records beneath `Shared`. Shared queries
+filter on accepted membership instead of aggregating Personal Spaces, so the
+original profile's other private assets remain unavailable.
 
 ## Asset states
 
@@ -159,17 +159,24 @@ through every directory segment. Immersive
 asset, Gallery, person, and place details may intentionally
 omit the section rail.
 
-## Family Library promotion
+## Shared Library contributions
 
-Selecting owned items in Mine can preview and execute promotion to Shared
-Timeline or a named Shared folder. The preview states whether managed originals
-will move or linked read-only originals will copy, together with group count,
-bytes, and destination directories. Compound members are transferred as one
-plan.
+Selecting owned items in Mine can preview a batch for Shared Timeline or a named
+Shared folder. The preview states whether managed originals will eventually
+move or linked read-only originals will copy, together with group count, bytes,
+and destination directories. Submitting creates a pending, revision-bound
+record and does not change files. Contributors can cancel pending work.
+
+An authorized Shared Library curator can accept or decline only the explicitly
+submitted items. A decline is non-mutating. Acceptance records the decision,
+queues transfer work, and exposes per-item progress plus an append-only activity
+record at `/view/contributions/{id}`. The list and detail routes retain the
+`View > Shared Library > Contributions` breadcrumb. A hosted worker resumes
+accepted recoverable work after restart.
 
 The Engine persists source and destination manifests before copying. It copies
 to excluded staging, verifies byte count and SHA-256, finalizes without
-overwrite, and publishes household membership only after every group member is
+overwrite, and publishes Shared Library membership only after every group member is
 usable. Managed-source cleanup occurs after publication and re-verifies both
 copies immediately before deletion. A failed deletion stays `cleanup_pending`
 and retry uses the same manifest; the Engine never deletes the last verified
@@ -244,7 +251,7 @@ still require runtime and visual evidence before release.
   not collapse profiles or Personal Spaces into shared ownership.
 - Favorite, Hidden, Archive, Trash, Restore, Gallery membership, and Gallery
   deletion modify SQLite state only. They do not mutate originals.
-- Existing/read-only sources remain immutable. Family promotion copies them and
+- Existing/read-only sources remain immutable. Shared Library contribution copies them and
   retains the external original. Managed promotion requires an owned item,
   verifies destination containment beneath Shared, and requires an explicit
   consequence preview. The development database reset policy is not file authority.

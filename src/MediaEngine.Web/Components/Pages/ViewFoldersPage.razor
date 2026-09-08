@@ -62,7 +62,7 @@
                 <section class="view-folder-tools" aria-label="Folder controls">
                     <label><MudIcon Icon="@Icons.Material.Outlined.Search" /><AppNativeInput Type="search" Value="@_search" ValueChanged="SearchChanged" Placeholder="Search this source" AriaLabel="Search this folder source" /></label>
                     <AppSwitchRow Label="Include subfolders" Value="@_recursive" ValueChanged="RecursiveChanged" />
-                    @if (!IsFamilySource)
+                    @if (!IsSharedSource)
                     {
                         <AppButton Label="@(_page.Pinned ? "Unpin folder" : "Pin folder")" StartIcon="@Icons.Material.Outlined.PushPin" ButtonStyle="AppButtonStyle.Text" Size="AppControlSize.Compact" OnClick="TogglePinAsync" />
                     }
@@ -136,10 +136,10 @@
     private static string PinnedLocation(ViewFolderPinDto pin) => string.IsNullOrEmpty(pin.RelativePath)
         ? pin.SourceName : $"{pin.SourceName} / {pin.RelativePath}";
     private string RequestScope => Workspace.ScopeKind.ToString().ToLowerInvariant();
-    private static readonly Guid FamilyLibrarySourceId = Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff1");
-    private bool IsFamilySource => SourceId == FamilyLibrarySourceId;
+    private static readonly Guid SharedLibrarySourceId = Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff1");
+    private bool IsSharedSource => SourceId == SharedLibrarySourceId;
     private ViewFolderSourceDto? CurrentSource => _page?.Sources.FirstOrDefault(source => source.SourceId == SourceId);
-    private bool CanSetTimelinePolicy => !IsFamilySource && CurrentSource?.OwnerProfileId == _profileId;
+    private bool CanSetTimelinePolicy => !IsSharedSource && CurrentSource?.OwnerProfileId == _profileId;
     private string TimelinePolicyValue => _page?.IncludeInTimelineOverride switch { true => "include", false => "exclude", _ => "inherit" };
     private async Task TogglePinAsync()
     {

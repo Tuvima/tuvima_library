@@ -32,7 +32,7 @@ public sealed record ViewResourceDescriptor(
     Guid? LibraryId,
     IReadOnlySet<Guid>? SharedWithProfileIds = null,
     IReadOnlySet<Guid>? ContributingProfileIds = null,
-    bool IsFamilyAsset = false);
+    bool IsSharedLibraryAsset = false);
 
 public sealed record ViewResourceRequest(
     ViewScopeRequest Scope,
@@ -111,7 +111,7 @@ public sealed class ViewResourceAuthorizationService(
         var explicitlyShared = resource.SharedWithProfileIds?.Contains(caller.ProfileId) == true;
         var mayContribute = resource.ContributingProfileIds?.Contains(caller.ProfileId) == true;
         if (request.Action == ViewResourceAction.Read
-            && resource.IsFamilyAsset
+            && resource.IsSharedLibraryAsset
             && resolution.Scope.Kind == ViewScopeKind.Shared)
         {
             return ViewAccessDecision.Allowed(resolution.Scope);

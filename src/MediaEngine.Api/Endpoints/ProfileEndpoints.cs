@@ -183,7 +183,7 @@ public static class ProfileEndpoints
                 await viewProfiles.GetPolicyAsync(id, ct)));
         })
         .WithName("UpdateViewProfilePolicy")
-        .WithSummary("Update View access, shared aggregation, and Gallery sharing for a profile.")
+        .WithSummary("Update View, Shared Library contribution, and Gallery-sharing permissions for a profile.")
         .Produces<ViewProfilePolicyDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();

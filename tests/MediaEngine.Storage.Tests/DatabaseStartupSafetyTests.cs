@@ -112,7 +112,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v5-user-state-revision", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v6-shared-library-contributions", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
 
         (string Table, string Column)[] internalGuidColumns =
         [
@@ -268,11 +268,22 @@ public sealed class DatabaseStartupSafetyTests
             ("view_gallery_items", "item_id"),
             ("view_gallery_shares", "gallery_id"),
             ("view_gallery_shares", "profile_id"),
-            ("view_family_assets", "item_id"),
-            ("view_family_assets", "original_profile_id"),
-            ("view_family_assets", "promoted_by_profile_id"),
+            ("view_shared_assets", "item_id"),
+            ("view_shared_assets", "original_profile_id"),
+            ("view_shared_assets", "promoted_by_profile_id"),
+            ("view_shared_contributions", "id"),
+            ("view_shared_contributions", "submitted_by_profile_id"),
+            ("view_shared_contributions", "decided_by_profile_id"),
+            ("view_shared_contribution_items", "id"),
+            ("view_shared_contribution_items", "contribution_id"),
+            ("view_shared_contribution_items", "item_id"),
+            ("view_shared_contribution_items", "original_profile_id"),
+            ("view_shared_contribution_events", "id"),
+            ("view_shared_contribution_events", "contribution_id"),
+            ("view_shared_contribution_events", "actor_profile_id"),
             ("view_shared_transfers", "id"),
             ("view_shared_transfers", "item_id"),
+            ("view_shared_transfers", "contribution_item_id"),
             ("collection_view_sources", "id"),
             ("collection_view_sources", "collection_id"),
             ("collection_view_sources", "owner_profile_id"),
@@ -435,10 +446,18 @@ public sealed class DatabaseStartupSafetyTests
             ("view_folder_pins", "source_id", "view_sources", "id"),
             ("view_folder_timeline_policies", "source_id", "view_sources", "id"),
             ("view_folder_timeline_policies", "updated_by_profile_id", "profiles", "id"),
-            ("view_family_assets", "item_id", "local_items", "id"),
-            ("view_family_assets", "original_profile_id", "profiles", "id"),
-            ("view_family_assets", "promoted_by_profile_id", "profiles", "id"),
+            ("view_shared_assets", "item_id", "local_items", "id"),
+            ("view_shared_assets", "original_profile_id", "profiles", "id"),
+            ("view_shared_assets", "promoted_by_profile_id", "profiles", "id"),
+            ("view_shared_contributions", "submitted_by_profile_id", "profiles", "id"),
+            ("view_shared_contributions", "decided_by_profile_id", "profiles", "id"),
+            ("view_shared_contribution_items", "contribution_id", "view_shared_contributions", "id"),
+            ("view_shared_contribution_items", "item_id", "local_items", "id"),
+            ("view_shared_contribution_items", "original_profile_id", "profiles", "id"),
+            ("view_shared_contribution_events", "contribution_id", "view_shared_contributions", "id"),
+            ("view_shared_contribution_events", "actor_profile_id", "profiles", "id"),
             ("view_shared_transfers", "item_id", "local_items", "id"),
+            ("view_shared_transfers", "contribution_item_id", "view_shared_contribution_items", "id"),
             ("collection_view_sources", "collection_id", "collections", "id"),
             ("collection_view_sources", "owner_profile_id", "profiles", "id"),
             ("collection_view_sources", "gallery_id", "view_galleries", "id"),
@@ -566,7 +585,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v5-user-state-revision", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v6-shared-library-contributions", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.True(TableExists(conn, "review_queue"));
     }
 
@@ -599,7 +618,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         var exception = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
-        Assert.Contains("guid-blob-v5-user-state-revision", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("guid-blob-v6-shared-library-contributions", exception.Message, StringComparison.Ordinal);
         Assert.Contains("not migrated in place", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -623,7 +642,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v5-user-state-revision", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v6-shared-library-contributions", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("BLOB", ColumnType(conn, "metadata_providers", "id"));
         Assert.True(TableExists(conn, "review_queue"));
 
@@ -662,7 +681,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var current = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v5-user-state-revision", Scalar(current, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v6-shared-library-contributions", Scalar(current, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("INTEGER", ColumnType(current, "user_states", "revision"));
     }
 

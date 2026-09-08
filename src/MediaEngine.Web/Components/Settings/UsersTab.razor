@@ -205,12 +205,15 @@
                 <AppSwitchRow @bind-Value="_viewEnabled"
                               Label="View enabled"
                               Description="Show this profile's private personal-media space in View." />
-                <AppSwitchRow @bind-Value="_accessSharedView"
-                              Label="Access Shared View"
-                              Description="Allow this profile to browse the Shared View aggregate." />
-                <AppSwitchRow @bind-Value="_includeInSharedView"
-                              Label="Include in Shared View"
-                              Description="Contribute this profile's eligible personal media to Shared View. This is independent from access." />
+                <AppSwitchRow @bind-Value="_accessSharedLibrary"
+                              Label="Access Shared Library"
+                              Description="Allow this profile to browse accepted server-owned media." />
+                <AppSwitchRow @bind-Value="_submitToSharedLibrary"
+                              Label="Submit to Shared Library"
+                              Description="Allow this profile to submit selected Personal Space items for review." />
+                <AppSwitchRow @bind-Value="_reviewSharedLibraryContributions"
+                              Label="Review Shared Library contributions"
+                              Description="Allow this profile to accept, decline, and retry Shared Library contributions." />
                 <AppSwitchRow @bind-Value="_allowGallerySharing"
                               Label="Allow Gallery Sharing"
                               Description="Allow this profile to share individual Galleries with other profiles." />
@@ -375,8 +378,9 @@
     private ViewPersonalSpaceAdminReviewDto? _viewSources;
     private UserRow? _selectedViewUser;
     private bool _viewEnabled;
-    private bool _accessSharedView;
-    private bool _includeInSharedView;
+    private bool _accessSharedLibrary;
+    private bool _submitToSharedLibrary;
+    private bool _reviewSharedLibraryContributions;
     private bool _allowGallerySharing;
 
     private int AdministratorCount => _allRows.Count(row =>
@@ -504,8 +508,9 @@
         }
 
         _viewEnabled = policy.ViewEnabled;
-        _accessSharedView = policy.AccessSharedView;
-        _includeInSharedView = policy.IncludeInSharedView;
+        _accessSharedLibrary = policy.AccessSharedLibrary;
+        _submitToSharedLibrary = policy.SubmitToSharedLibrary;
+        _reviewSharedLibraryContributions = policy.ReviewSharedLibraryContributions;
         _allowGallerySharing = policy.AllowGallerySharing;
     }
 
@@ -529,8 +534,9 @@
             new UpdateViewProfilePolicyRequest
             {
                 ViewEnabled = _viewEnabled,
-                AccessSharedView = _accessSharedView,
-                IncludeInSharedView = _includeInSharedView,
+                AccessSharedLibrary = _accessSharedLibrary,
+                SubmitToSharedLibrary = _submitToSharedLibrary,
+                ReviewSharedLibraryContributions = _reviewSharedLibraryContributions,
                 AllowGallerySharing = _allowGallerySharing,
             });
         _viewPolicySaving = false;

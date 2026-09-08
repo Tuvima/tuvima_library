@@ -1,6 +1,6 @@
 ﻿-- =============================================================================
 -- Tuvima Library - SQLite initialization script
--- Current storage epoch: guid-blob-v5-user-state-revision
+-- Current storage epoch: guid-blob-v6-shared-library-contributions
 --
 -- Internal UUIDs are stored as 16-byte BLOBs where the current domain model owns
 -- the identifier. External provider identifiers, QIDs, hashes, URLs, and file
@@ -593,9 +593,9 @@ CREATE TABLE IF NOT EXISTS view_folder_timeline_policies (
     PRIMARY KEY (source_id, relative_path)
 );
 
--- A promoted item remains traceable to its originating profile while its
--- durable ownership and physical keeper location belong to the household.
-CREATE TABLE IF NOT EXISTS view_family_assets (
+-- An accepted Shared Library item remains traceable to its originating profile
+-- while its durable physical keeper location belongs to the server library.
+CREATE TABLE IF NOT EXISTS view_shared_assets (
     item_id                BLOB NOT NULL PRIMARY KEY REFERENCES local_items(id) ON DELETE RESTRICT,
     original_profile_id    BLOB REFERENCES profiles(id) ON DELETE SET NULL,
     destination_kind       TEXT NOT NULL CHECK (destination_kind IN ('timeline', 'folder')),
@@ -604,9 +604,64 @@ CREATE TABLE IF NOT EXISTS view_family_assets (
     promoted_at            TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS view_shared_contributions (
+    id                         BLOB NOT NULL PRIMARY KEY,
+    submitted_by_profile_id    BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+    submitted_by_name          TEXT NOT NULL,
+    status                     TEXT NOT NULL CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+    destination_kind           TEXT NOT NULL CHECK (destination_kind IN ('timeline', 'folder')),
+    destination_label          TEXT,
+    note                       TEXT,
+    revision                   INTEGER NOT NULL DEFAULT 1 CHECK (revision > 0),
+    idempotency_key            TEXT NOT NULL,
+    submitted_at               TEXT NOT NULL,
+    decided_at                 TEXT,
+    decided_by_profile_id      BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+    decided_by_name            TEXT,
+    decision_reason            TEXT,
+    updated_at                 TEXT NOT NULL,
+    UNIQUE(submitted_by_profile_id, idempotency_key)
+);
+
+CREATE TABLE IF NOT EXISTS view_shared_contribution_items (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    contribution_id     BLOB NOT NULL REFERENCES view_shared_contributions(id) ON DELETE CASCADE,
+    item_id              BLOB NOT NULL REFERENCES local_items(id) ON DELETE RESTRICT,
+    original_profile_id BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+    original_profile_name TEXT NOT NULL,
+    position            INTEGER NOT NULL,
+    operation           TEXT NOT NULL CHECK (operation IN ('move', 'copy')),
+    source_manifest_json TEXT NOT NULL CHECK (json_valid(source_manifest_json)),
+    execution_state     TEXT NOT NULL CHECK (execution_state IN ('waiting', 'transferring', 'completed', 'cleanup_pending', 'needs_attention', 'failed')),
+    error               TEXT,
+    updated_at          TEXT NOT NULL,
+    UNIQUE(contribution_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_view_shared_contributions_submitter
+    ON view_shared_contributions(submitted_by_profile_id, submitted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_view_shared_contributions_review
+    ON view_shared_contributions(status, submitted_at);
+CREATE INDEX IF NOT EXISTS idx_view_shared_contribution_items_batch
+    ON view_shared_contribution_items(contribution_id, position);
+
+CREATE TABLE IF NOT EXISTS view_shared_contribution_events (
+    id               BLOB NOT NULL PRIMARY KEY,
+    contribution_id  BLOB NOT NULL REFERENCES view_shared_contributions(id) ON DELETE CASCADE,
+    actor_profile_id BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+    actor_name        TEXT NOT NULL,
+    event_type        TEXT NOT NULL,
+    detail            TEXT,
+    occurred_at       TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_view_shared_contribution_events_batch
+    ON view_shared_contribution_events(contribution_id, occurred_at, id);
+
 CREATE TABLE IF NOT EXISTS view_shared_transfers (
     id                     BLOB NOT NULL PRIMARY KEY,
     item_id                BLOB NOT NULL REFERENCES local_items(id) ON DELETE RESTRICT,
+    contribution_item_id   BLOB REFERENCES view_shared_contribution_items(id) ON DELETE SET NULL,
     operation              TEXT NOT NULL CHECK (operation IN ('move', 'copy')),
     state                  TEXT NOT NULL CHECK (state IN ('planned', 'transferring', 'completed', 'cleanup_pending', 'failed')),
     source_manifest_json   TEXT NOT NULL CHECK (json_valid(source_manifest_json)),
@@ -1506,13 +1561,14 @@ CREATE TABLE IF NOT EXISTS identity_audit_events (
 CREATE INDEX IF NOT EXISTS idx_identity_audit_profile_occurred
     ON identity_audit_events(profile_id, occurred_at DESC);
 
--- Administrator-owned View capability policy. Access to Shared View and
--- contribution to Shared View are deliberately independent permissions.
+-- Administrator-owned View capability policy. Viewing, submitting to, and
+-- reviewing the Shared Library are deliberately independent permissions.
 CREATE TABLE IF NOT EXISTS profile_view_policies (
     profile_id              BLOB NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
     view_enabled            INTEGER NOT NULL DEFAULT 1 CHECK (view_enabled IN (0, 1)),
-    access_shared_view      INTEGER NOT NULL DEFAULT 0 CHECK (access_shared_view IN (0, 1)),
-    include_in_shared_view  INTEGER NOT NULL DEFAULT 0 CHECK (include_in_shared_view IN (0, 1)),
+    access_shared_library   INTEGER NOT NULL DEFAULT 0 CHECK (access_shared_library IN (0, 1)),
+    submit_to_shared_library INTEGER NOT NULL DEFAULT 0 CHECK (submit_to_shared_library IN (0, 1)),
+    review_shared_library_contributions INTEGER NOT NULL DEFAULT 0 CHECK (review_shared_library_contributions IN (0, 1)),
     share_galleries         INTEGER NOT NULL DEFAULT 0 CHECK (share_galleries IN (0, 1)),
     updated_at              TEXT NOT NULL
 );
@@ -1735,7 +1791,7 @@ CREATE TABLE IF NOT EXISTS storage_metadata (
 );
 
 INSERT OR REPLACE INTO storage_metadata (key, value)
-VALUES ('storage_epoch', 'guid-blob-v5-user-state-revision');
+VALUES ('storage_epoch', 'guid-blob-v6-shared-library-contributions');
 
 CREATE TABLE IF NOT EXISTS system_activity (
     id           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,

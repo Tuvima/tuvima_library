@@ -20,8 +20,14 @@ public partial interface IEngineApiClient
     Task<bool> ArchiveViewItemAsync(Guid itemId, CancellationToken ct = default);
     Task<bool> TrashViewItemAsync(Guid itemId, CancellationToken ct = default);
     Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default);
-    Task<ViewFamilyTransferPreviewDto?> PreviewViewFamilyTransferAsync(Guid itemId, ViewFamilyTransferRequest request, CancellationToken ct = default);
-    Task<ViewFamilyTransferResultDto?> TransferViewItemToFamilyAsync(Guid itemId, ViewFamilyTransferRequest request, CancellationToken ct = default);
+    Task<ViewSharedContributionPreviewDto?> PreviewViewSharedContributionAsync(ViewSharedContributionPreviewRequest request, CancellationToken ct = default);
+    Task<ViewSharedContributionDto?> SubmitViewSharedContributionAsync(ViewSharedContributionSubmitRequest request, CancellationToken ct = default);
+    Task<ViewSharedContributionPageDto?> GetViewSharedContributionsAsync(string mode = "mine", string? status = null, int offset = 0, int limit = 50, CancellationToken ct = default);
+    Task<ViewSharedContributionDto?> GetViewSharedContributionAsync(Guid contributionId, CancellationToken ct = default);
+    Task<ViewSharedContributionDto?> CancelViewSharedContributionAsync(Guid contributionId, int expectedRevision, CancellationToken ct = default);
+    Task<ViewSharedContributionDto?> DecideViewSharedContributionAsync(Guid contributionId, ViewSharedContributionDecisionRequest request, CancellationToken ct = default);
+    Task<ViewSharedContributionDto?> RetryViewSharedContributionAsync(Guid contributionId, int expectedRevision, CancellationToken ct = default);
+    Task<ViewSharedContributionDto?> AddViewItemsDirectlyToSharedLibraryAsync(ViewSharedDirectAddRequest request, CancellationToken ct = default);
     Task<ViewGalleryListResponse?> GetViewGalleriesAsync(CancellationToken ct = default);
     Task<ViewGalleryDto?> GetViewGalleryAsync(Guid galleryId, CancellationToken ct = default);
     Task<ViewGalleryDto?> CreateViewGalleryAsync(ViewGalleryRequest request, CancellationToken ct = default);

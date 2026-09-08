@@ -120,10 +120,25 @@ public sealed partial class EngineApiClient
     public Task<bool> ArchiveViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "archive", ct);
     public Task<bool> TrashViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "trash", ct);
     public Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "restore", ct);
-    public Task<ViewFamilyTransferPreviewDto?> PreviewViewFamilyTransferAsync(Guid itemId, ViewFamilyTransferRequest request, CancellationToken ct = default) =>
-        PostAsync<ViewFamilyTransferRequest, ViewFamilyTransferPreviewDto>("POST /view/items/{id}/family-preview", $"/view/items/{itemId:D}/family-preview", request, ct: ct);
-    public Task<ViewFamilyTransferResultDto?> TransferViewItemToFamilyAsync(Guid itemId, ViewFamilyTransferRequest request, CancellationToken ct = default) =>
-        PostAsync<ViewFamilyTransferRequest, ViewFamilyTransferResultDto>("POST /view/items/{id}/family", $"/view/items/{itemId:D}/family", request, ct: ct);
+    public Task<ViewSharedContributionPreviewDto?> PreviewViewSharedContributionAsync(ViewSharedContributionPreviewRequest request, CancellationToken ct = default) =>
+        PostAsync<ViewSharedContributionPreviewRequest, ViewSharedContributionPreviewDto>("POST /view/shared/contributions/preview", "/view/shared/contributions/preview", request, ct: ct);
+    public Task<ViewSharedContributionDto?> SubmitViewSharedContributionAsync(ViewSharedContributionSubmitRequest request, CancellationToken ct = default) =>
+        PostAsync<ViewSharedContributionSubmitRequest, ViewSharedContributionDto>("POST /view/shared/contributions", "/view/shared/contributions", request, ct: ct);
+    public Task<ViewSharedContributionPageDto?> GetViewSharedContributionsAsync(string mode = "mine", string? status = null, int offset = 0, int limit = 50, CancellationToken ct = default) =>
+        GetAsync<ViewSharedContributionPageDto>("GET /view/shared/contributions", "/view/shared/contributions", new Dictionary<string, string?>
+        {
+            ["mode"] = mode, ["status"] = status, ["offset"] = offset.ToString(), ["limit"] = limit.ToString(),
+        }, ct: ct);
+    public Task<ViewSharedContributionDto?> GetViewSharedContributionAsync(Guid contributionId, CancellationToken ct = default) =>
+        GetAsync<ViewSharedContributionDto>("GET /view/shared/contributions/{id}", $"/view/shared/contributions/{contributionId:D}", ct: ct);
+    public Task<ViewSharedContributionDto?> CancelViewSharedContributionAsync(Guid contributionId, int expectedRevision, CancellationToken ct = default) =>
+        PostAsync<ViewSharedContributionRevisionRequest, ViewSharedContributionDto>("POST /view/shared/contributions/{id}/cancel", $"/view/shared/contributions/{contributionId:D}/cancel", new(expectedRevision), ct: ct);
+    public Task<ViewSharedContributionDto?> DecideViewSharedContributionAsync(Guid contributionId, ViewSharedContributionDecisionRequest request, CancellationToken ct = default) =>
+        PostAsync<ViewSharedContributionDecisionRequest, ViewSharedContributionDto>("POST /view/shared/contributions/{id}/decision", $"/view/shared/contributions/{contributionId:D}/decision", request, ct: ct);
+    public Task<ViewSharedContributionDto?> RetryViewSharedContributionAsync(Guid contributionId, int expectedRevision, CancellationToken ct = default) =>
+        PostAsync<ViewSharedContributionRevisionRequest, ViewSharedContributionDto>("POST /view/shared/contributions/{id}/retry", $"/view/shared/contributions/{contributionId:D}/retry", new(expectedRevision), ct: ct);
+    public Task<ViewSharedContributionDto?> AddViewItemsDirectlyToSharedLibraryAsync(ViewSharedDirectAddRequest request, CancellationToken ct = default) =>
+        PostAsync<ViewSharedDirectAddRequest, ViewSharedContributionDto>("POST /view/shared/items/direct", "/view/shared/items/direct", request, ct: ct);
     public Task<ViewGalleryListResponse?> GetViewGalleriesAsync(CancellationToken ct = default) =>
         GetAsync<ViewGalleryListResponse>("GET /view/galleries", "/view/galleries", ct: ct);
     public Task<ViewGalleryDto?> GetViewGalleryAsync(Guid galleryId, CancellationToken ct = default) =>

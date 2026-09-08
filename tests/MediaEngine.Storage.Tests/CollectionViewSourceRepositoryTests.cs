@@ -177,13 +177,9 @@ public sealed class CollectionViewSourceRepositoryTests : IDisposable
         Assert.Equal(gallerySource.Id, Assert.Single(
             await _sources.GetAuthorizedProjectionAsync([collectionId], viewer.ProfileId)).SourceId);
 
-        Assert.True(await _profiles.SavePolicyAsync(new ViewProfilePolicy(
-            owner.ProfileId, true, false, true, true, null)));
-        Assert.True(await _profiles.SavePolicyAsync(new ViewProfilePolicy(
-            viewer.ProfileId, true, true, false, false, null)));
         var visible = await _sources.GetAuthorizedProjectionAsync(
             [collectionId], viewer.ProfileId);
-        Assert.Equal([gallerySource.Id, ruleSource.Id], visible.Select(source => source.SourceId));
+        Assert.Equal([gallerySource.Id], visible.Select(source => source.SourceId));
         Assert.All(visible, source => Assert.Equal(owner.ProfileId, source.OwnerProfileId));
         Assert.Empty(await _sources.GetAuthorizedProjectionAsync(
             [collectionId], stranger.ProfileId));

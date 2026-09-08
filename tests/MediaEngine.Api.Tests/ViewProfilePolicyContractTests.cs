@@ -8,21 +8,23 @@ public sealed class ViewProfilePolicyContractTests
     [Theory]
     [InlineData(true, false)]
     [InlineData(false, true)]
-    public void AccessAndInclusionRemainIndependent(bool accessSharedView, bool includeInSharedView)
+    public void SharedLibraryCapabilitiesRemainIndependent(bool accessSharedLibrary, bool submitToSharedLibrary)
     {
         var profileId = Guid.NewGuid();
         var policy = ProfileContractMapper.ToDomain(profileId, new UpdateViewProfilePolicyRequest
         {
             ViewEnabled = true,
-            AccessSharedView = accessSharedView,
-            IncludeInSharedView = includeInSharedView,
+            AccessSharedLibrary = accessSharedLibrary,
+            SubmitToSharedLibrary = submitToSharedLibrary,
+            ReviewSharedLibraryContributions = true,
             AllowGallerySharing = true,
         });
 
         var contract = ProfileContractMapper.ToResponse(policy);
 
-        Assert.Equal(accessSharedView, contract.AccessSharedView);
-        Assert.Equal(includeInSharedView, contract.IncludeInSharedView);
+        Assert.Equal(accessSharedLibrary, contract.AccessSharedLibrary);
+        Assert.Equal(submitToSharedLibrary, contract.SubmitToSharedLibrary);
+        Assert.True(contract.ReviewSharedLibraryContributions);
         Assert.True(contract.AllowGallerySharing);
     }
 }

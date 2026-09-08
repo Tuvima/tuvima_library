@@ -105,7 +105,7 @@
                     <AppButton Label="Choose root" StartIcon="@Icons.Material.Outlined.FolderOpen" ButtonStyle="AppButtonStyle.Outlined" OnClick="ChooseViewRootAsync" />
                     <div class="add-library-wizard__example"><span>Profile folders</span><code>@Path.Combine(ViewRootPath, "Profiles")</code></div>
                     <p>Each profile has a stable named folder containing Timeline uploads and any additional managed Folders.</p>
-                    <div class="add-library-wizard__example"><span>Family Library originals</span><code>@Path.Combine(ViewRootPath, "Shared")</code></div>
+                    <div class="add-library-wizard__example"><span>Shared Library originals</span><code>@Path.Combine(ViewRootPath, "Shared")</code></div>
                     <AppAlert Tone="AppUiTone.Info">Verified keeper promotions from managed Personal Spaces move into Shared after verification; linked read-only sources are copied. Changing this root does not relocate existing files.</AppAlert>
                     @if (_viewValidation is not null) { <AppStatusBadge Text="@(_viewValidation.CanSelect ? "Root validated" : "Root needs attention")" Tone="@(_viewValidation.CanSelect ? AppUiTone.Success : AppUiTone.Warning)" /> }
                     @if (_viewValidation is { CanSelect: false })
@@ -234,7 +234,7 @@
                         <div><dt>Personal Spaces</dt><dd>One per enabled profile</dd></div>
                         <div><dt>New profiles</dt><dd>Provisioned when View access is enabled</dd></div>
                         <div><dt>Profile storage</dt><dd>@Path.Combine(ViewRootPath, "Profiles")</dd></div>
-                        <div><dt>Family Library originals</dt><dd>@Path.Combine(ViewRootPath, "Shared")</dd></div>
+                        <div><dt>Shared Library originals</dt><dd>@Path.Combine(ViewRootPath, "Shared")</dd></div>
                         <div><dt>Existing files</dt><dd>Remain in place; setting the root does not move files into Shared.</dd></div>
                     }
                     else

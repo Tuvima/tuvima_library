@@ -222,11 +222,14 @@ public sealed class ViewProfilePolicyDto
     [JsonPropertyName("view_enabled")]
     public bool ViewEnabled { get; init; }
 
-    [JsonPropertyName("access_shared_view")]
-    public bool AccessSharedView { get; init; }
+    [JsonPropertyName("access_shared_library")]
+    public bool AccessSharedLibrary { get; init; }
 
-    [JsonPropertyName("include_in_shared_view")]
-    public bool IncludeInSharedView { get; init; }
+    [JsonPropertyName("submit_to_shared_library")]
+    public bool SubmitToSharedLibrary { get; init; }
+
+    [JsonPropertyName("review_shared_library_contributions")]
+    public bool ReviewSharedLibraryContributions { get; init; }
 
     [JsonPropertyName("allow_gallery_sharing")]
     public bool AllowGallerySharing { get; init; }
@@ -240,11 +243,14 @@ public sealed class UpdateViewProfilePolicyRequest
     [JsonPropertyName("view_enabled")]
     public bool ViewEnabled { get; init; }
 
-    [JsonPropertyName("access_shared_view")]
-    public bool AccessSharedView { get; init; }
+    [JsonPropertyName("access_shared_library")]
+    public bool AccessSharedLibrary { get; init; }
 
-    [JsonPropertyName("include_in_shared_view")]
-    public bool IncludeInSharedView { get; init; }
+    [JsonPropertyName("submit_to_shared_library")]
+    public bool SubmitToSharedLibrary { get; init; }
+
+    [JsonPropertyName("review_shared_library_contributions")]
+    public bool ReviewSharedLibraryContributions { get; init; }
 
     [JsonPropertyName("allow_gallery_sharing")]
     public bool AllowGallerySharing { get; init; }

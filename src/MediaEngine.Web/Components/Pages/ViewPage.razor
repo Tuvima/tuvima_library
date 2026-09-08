@@ -21,6 +21,7 @@ else
     <header class="view-header"><div class="view-header__identity"><span class="view-header__eyebrow">View</span><h1>Photos</h1><p>@ScopeDescription</p></div><div class="view-header__actions">
         <label><span>Scope</span><AppNativeSelect Value="@SelectedScopeValue" OnChange="ScopeChangedAsync" aria-label="Authorized photo scope">@foreach (var scope in Workspace.Scopes.AvailableScopes) { <option value="@ScopeValue(scope.Kind, scope.ProfileId)">@scope.Label</option> }</AppNativeSelect></label>
         <label><span>Density</span><AppNativeSelect Value="@Workspace.Density.ToString()" OnChange="DensityChangedAsync" aria-label="Timeline density">@foreach (var density in Enum.GetValues<ViewTimelineDensity>()) { <option value="@density">@density</option> }</AppNativeSelect></label>
+        <AppButton Href="/view/contributions" Label="Contributions" StartIcon="@Icons.Material.Outlined.MoveToInbox" ButtonStyle="AppButtonStyle.Text" />
         <label class="view-add-media@(_uploading ? " is-busy" : string.Empty)" aria-disabled="@_uploading"><InputFile class="view-add-media__input" OnChange="UploadMediaAsync" disabled="@_uploading" accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" /><span class="view-add-media__label"><MudIcon Icon="@Icons.Material.Outlined.Add" />@(_uploading ? "Uploading…" : "Add media")</span></label>
     </div></header>
     @if (_uploading) { <section class="view-upload-status" role="status" aria-live="polite"><span>Uploading @_uploadFileName…</span><MudProgressLinear Color="Color.Primary" Indeterminate="true" /></section> }
@@ -30,7 +31,7 @@ else
         <div class="view-filter-controls"><div class="view-kind-tabs" role="tablist" aria-label="Photos quick filters">@foreach (var filter in PrimaryFilters) { <AppNativeButton Type="button" Class="@FilterClass(filter.Key)" AriaLabel="@filter.Value" OnClick="@(_ => SetFilterAsync(filter.Key))">@filter.Value</AppNativeButton> }</div><AppNativeButton Type="button" Class="@($"view-more-filters{(_showMoreFilters ? " is-active" : string.Empty)}")" AriaLabel="More photo filters" OnClick="@(_ => _showMoreFilters = !_showMoreFilters)"><MudIcon Icon="@Icons.Material.Outlined.Tune" />Filters</AppNativeButton></div>
         @if (_showMoreFilters) { <div class="view-kind-tabs view-kind-tabs--secondary" aria-label="More filters"><AppNativeButton Type="button" Class="@FilterClass("hidden")" OnClick="@(_ => SetFilterAsync("hidden"))">Hidden</AppNativeButton><AppNativeButton Type="button" Class="@FilterClass("trash")" OnClick="@(_ => SetFilterAsync("trash"))">Trash</AppNativeButton><AppNativeButton Type="button" Class="@FilterClass("documents")" OnClick="@(_ => SetFilterAsync("documents"))">Documents</AppNativeButton></div> }
     </section>
-    @if (_selected.Count > 0) { <ViewSelectionToolbar Count="@_selected.Count" ManualGalleries="@Workspace.OwnedGalleries.Where(g => g.Kind == ViewGalleryKind.Manual).ToList()" OnClear="ClearSelection" OnAddToGallery="AddSelectionToGalleryAsync" OnCreateGallery="CreateGalleryFromSelectionAsync" OnFamilyLibrary="MoveSelectionToFamilyAsync" ShowFamilyLibrary="@(Workspace.ScopeKind == ViewScopeKind.Mine)" OnFavorite="FavoriteSelectionAsync" OnArchive="ArchiveSelectionAsync" OnRestore="RestoreSelectionAsync" ShowRestore="@(_filter is "archive" or "trash")" OnTrash="TrashSelectionAsync" ShowTrash="@(_filter != "trash")" /> }
+    @if (_selected.Count > 0) { <ViewSelectionToolbar Count="@_selected.Count" ManualGalleries="@Workspace.OwnedGalleries.Where(g => g.Kind == ViewGalleryKind.Manual).ToList()" OnClear="ClearSelection" OnAddToGallery="AddSelectionToGalleryAsync" OnCreateGallery="CreateGalleryFromSelectionAsync" OnSharedLibrary="SubmitSelectionToSharedAsync" ShowSharedLibrary="@(Workspace.ScopeKind == ViewScopeKind.Mine)" OnFavorite="FavoriteSelectionAsync" OnArchive="ArchiveSelectionAsync" OnRestore="RestoreSelectionAsync" ShowRestore="@(_filter is "archive" or "trash")" OnTrash="TrashSelectionAsync" ShowTrash="@(_filter != "trash")" /> }
     @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Photos" Message="Building your personal timeline." /> }
     else if (_page is null) { <AppErrorState Title="Photos could not be loaded" Message="The Engine did not return a timeline." Retry="LoadAsync" /> }
     else if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="@EmptyTitle" Message="@EmptyMessage" /> }
@@ -80,7 +81,7 @@ else
     {
         ViewScopeKind.Mine => "Your private photo and video timeline.",
         ViewScopeKind.Profile => $"Photos and videos shared by {SelectedScopeLabel}.",
-        _ => "Photos and videos available in your Shared View."
+        _ => "Photos and videos in the Shared Library."
     };
     private string SelectedScopeLabel => Workspace.Scopes?.AvailableScopes.FirstOrDefault(scope =>
         scope.Kind == Workspace.ScopeKind && (scope.Kind != ViewScopeKind.Profile || scope.ProfileId == Workspace.ScopeProfileId))?.Label ?? "this profile";
@@ -93,24 +94,17 @@ else
     private static string GalleryResult(AddViewGalleryItemsResponseDto result) => result.AlreadyPresent > 0 ? $"{result.Added} added · {result.AlreadyPresent} already in Gallery" : $"{result.Added} added";
     private Task ArchiveSelectionAsync() => MutateSelectionAsync(ApiClient.ArchiveViewItemAsync, "Archived selected items."); private Task TrashSelectionAsync() => MutateSelectionAsync(ApiClient.TrashViewItemAsync, "Moved selected items to Trash."); private async Task MutateSelectionAsync(Func<Guid, CancellationToken, Task<bool>> action, string message) { foreach (var id in _selected.ToList()) await action(id, default); Snackbar.Add(message, Severity.Success); await LoadAsync(); }
     private Task FavoriteSelectionAsync() => MutateSelectionAsync((id, ct) => ApiClient.SetViewItemFavoriteAsync(id, true, ct), "Favorited selected items.");
-    private async Task MoveSelectionToFamilyAsync()
+    private async Task SubmitSelectionToSharedAsync()
     {
         var ids = _selected.ToList();
-        var dialog = await DialogService.ShowAsync<ViewFamilyTransferDialog>(string.Empty,
-            new DialogParameters<ViewFamilyTransferDialog> { { component => component.ItemIds, ids } },
+        var dialog = await DialogService.ShowAsync<ViewSharedContributionDialog>(string.Empty,
+            new DialogParameters<ViewSharedContributionDialog> { { component => component.ItemIds, ids } },
             new DialogOptions { NoHeader = true, FullWidth = true, MaxWidth = MaxWidth.Medium });
-        if (await dialog.Result is not { Canceled: false, Data: ViewFamilyTransferRequest request }) return;
-        var completed = 0; var cleanupPending = 0;
-        foreach (var id in ids)
-        {
-            var result = await ApiClient.TransferViewItemToFamilyAsync(id, request);
-            if (result is null) { Snackbar.Add(ApiClient.LastError ?? "A Family Library transfer failed.", Severity.Error); break; }
-            completed++; if (result.SourceCleanupPending) cleanupPending++;
-        }
-        Snackbar.Add(cleanupPending > 0
-            ? $"{completed} added to Shared; {cleanupPending} still need personal-source cleanup."
-            : $"{completed} added to the Family Library.", cleanupPending > 0 ? Severity.Warning : Severity.Success);
-        await LoadAsync();
+        if (await dialog.Result is not { Canceled: false, Data: ViewSharedContributionSubmitRequest request }) return;
+        var contribution = await ApiClient.SubmitViewSharedContributionAsync(request);
+        if (contribution is null) { Snackbar.Add(ApiClient.LastError ?? "The contribution could not be submitted.", Severity.Error); return; }
+        Snackbar.Add($"{contribution.Items.Count} items submitted to the Shared Library.", Severity.Success);
+        ClearSelection();
     }
     private Task RestoreSelectionAsync() => MutateSelectionAsync(ApiClient.RestoreViewItemAsync, "Restored selected items to Photos.");
     private async Task ToggleFavoriteAsync() { if (_activeItem is null) return; var value = !_activeItem.Favorite; if (await ApiClient.SetViewItemFavoriteAsync(_activeItem.Id, value)) Replace(_activeItem with { Favorite = value }); } private async Task ArchiveActiveAsync() { if (_activeItem is not null && await ApiClient.ArchiveViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task RestoreActiveAsync() { if (_activeItem is not null && await ApiClient.RestoreViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task TrashActiveAsync() { if (_activeItem is not null && await ApiClient.TrashViewItemAsync(_activeItem.Id)) await RemoveActiveAsync(); } private async Task RemoveActiveAsync() { _activeItem = null; await LoadAsync(); } private void Replace(LocalAssetDto updated) { _activeItem = updated; if (_page is not null) _page = _page with { Items = _page.Items.Select(i => i.Id == updated.Id ? updated : i).ToList() }; }

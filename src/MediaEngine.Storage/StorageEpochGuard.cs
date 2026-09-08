@@ -4,9 +4,11 @@ namespace MediaEngine.Storage;
 
 internal static class StorageEpochGuard
 {
-    // v5 makes optimistic user-state revisions part of the required schema.
+    // v6 replaces the pre-beta family-sharing tables and policy columns with the
+    // Shared Library contribution workflow. Pre-beta databases are rebuilt rather
+    // than carrying both schemas or migrating user state in place.
     // Pre-beta databases are rebuilt instead of being migrated in place.
-    public const string CurrentEpoch = "guid-blob-v5-user-state-revision";
+    public const string CurrentEpoch = "guid-blob-v6-shared-library-contributions";
     public const string ResetEnvironmentVariable = "TUVIMA_STORAGE_RESET";
 
     public static void EnsureCurrentOrReset(string databasePath)

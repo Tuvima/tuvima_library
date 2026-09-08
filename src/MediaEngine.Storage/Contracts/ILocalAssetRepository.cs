@@ -66,7 +66,7 @@ public sealed record LocalAssetTimelineQuery(
     LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active,
     CollectionRuleDefinition? SmartRule = null,
     bool TimelineEligibleOnly = false,
-    bool IncludeFamilyAssets = false);
+    bool IncludeSharedLibraryAssets = false);
 
 public sealed record LocalAssetTimelineCursor(DateTimeOffset EffectiveAt, Guid ItemId);
 

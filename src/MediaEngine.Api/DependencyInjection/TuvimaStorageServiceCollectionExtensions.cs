@@ -54,7 +54,9 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddScoped<IViewQueryOrchestrator, ViewQueryOrchestrator>();
         services.AddScoped<ViewDiscoveryService>();
         services.AddScoped<ViewFolderService>();
-        services.AddSingleton<ViewFamilyTransferService>();
+        services.AddSingleton<ViewSharedTransferService>();
+        services.AddSingleton<ViewSharedContributionService>();
+        services.AddHostedService<ViewSharedContributionHostedService>();
         services.AddSingleton<LibraryReorganizationService>();
         services.AddSingleton<ServerFolderBrowserService>();
         services.AddSingleton<SetupMediaLocationValidationService>();

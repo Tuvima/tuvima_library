@@ -1,0 +1,25 @@
+.view-contributions-page { display: grid; gap: 1rem; padding: 1.25rem; }
+.view-contributions-breadcrumbs { margin-bottom: .25rem; }
+.view-contributions-header, .view-contributions-controls, .view-contribution-card, .view-contribution-detail__summary, .view-contribution-items > div { display: flex; align-items: center; gap: 1rem; }
+.view-contributions-header { justify-content: space-between; }
+.view-contributions-header h1 { margin: .15rem 0; }
+.view-contributions-header p, .view-contribution-card small, .view-contribution-items small { color: var(--tl-text-secondary); }
+.view-contributions-controls { justify-content: space-between; }
+.view-contributions-controls [role=tablist] { display: flex; gap: .5rem; }
+.view-contributions-controls .is-selected { border-color: var(--tl-accent-primary); color: var(--tl-accent-primary); }
+.view-contributions-list, .view-contribution-detail, .view-contribution-items, .view-contribution-events { display: grid; gap: .75rem; }
+.view-contribution-card { width: 100%; text-align: left; padding: 1rem; border: 1px solid var(--tl-border-subtle); border-radius: .75rem; }
+.view-contribution-card__identity { display: grid; flex: 1; }
+.view-contribution-card > span:nth-child(2) { display: grid; justify-items: end; gap: .3rem; }
+.view-contribution-detail__summary { align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.view-contribution-detail__summary > div, .view-contribution-note { display: grid; gap: .25rem; }
+.view-contribution-note { margin-top: 1rem; }
+.view-contribution-note p { margin: 0; }
+.view-contribution-decision { display: grid; grid-template-columns: minmax(12rem, .8fr) minmax(15rem, 1fr) minmax(16rem, 1.2fr); gap: .75rem; align-items: end; margin-top: 1rem; }
+.view-contribution-decision > label { display: grid; gap: .35rem; color: var(--tl-text-secondary); }
+.view-contribution-items > div { padding: .85rem 1rem; border: 1px solid var(--tl-border-subtle); border-radius: .65rem; }
+.view-contribution-items > div > span { display: grid; flex: 1; }
+.view-contribution-items em { color: var(--tl-status-error); font-style: normal; }
+.view-contribution-events > div { border-left: 2px solid var(--tl-border-subtle); padding-left: .85rem; }
+.view-contribution-events span, .view-contribution-events p { color: var(--tl-text-secondary); margin: .15rem 0 0; }
+@media (max-width: 720px) { .view-contributions-page { padding: .75rem; } .view-contributions-header, .view-contributions-controls { align-items: stretch; flex-direction: column; } .view-contribution-detail__summary, .view-contribution-decision { display: grid; grid-template-columns: 1fr; } }

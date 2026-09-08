@@ -34,7 +34,7 @@ public sealed record ViewAssetQueryPlan(
     LocalAssetLifecycleFilter Lifecycle,
     CollectionRuleDefinition? SmartRule,
     bool TimelineEligibleOnly,
-    bool IncludeFamilyAssets);
+    bool IncludeSharedLibraryAssets);
 
 public sealed record ViewQueryResult(
     ViewAccessOutcome Outcome,

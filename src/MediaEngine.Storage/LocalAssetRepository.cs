@@ -195,7 +195,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
     {
         ArgumentNullException.ThrowIfNull(query);
         if ((query.AuthorizedLibraryIds is null || query.AuthorizedLibraryIds.Count == 0)
-            && !query.IncludeFamilyAssets)
+            && !query.IncludeSharedLibraryAssets)
             throw new ArgumentException("At least one resolver-authorized library is required.", nameof(query));
         if (query.AuthorizedLibraryIds?.Any(id => id == Guid.Empty) == true)
             throw new ArgumentException("Authorized library IDs cannot be empty.", nameof(query));
@@ -215,8 +215,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         var libraryPredicate = libraryIds.Length == 0
             ? "0 = 1"
             : string.Join(" OR ", libraryIds.Select((_, index) => $"li.library_id = @LibraryId{index}"));
-        if (query.IncludeFamilyAssets)
-            libraryPredicate = $"({libraryPredicate}) OR EXISTS (SELECT 1 FROM view_family_assets vfa WHERE vfa.item_id = li.id)";
+        if (query.IncludeSharedLibraryAssets)
+            libraryPredicate = $"({libraryPredicate}) OR EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id)";
         var smartRule = query.SmartRule is null
             ? new LocalAssetSmartRuleSql("1 = 1", new DynamicParameters())
             : LocalAssetSmartRuleSqlCompiler.Compile(query.SmartRule);
@@ -260,7 +260,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    0 AS TotalCount
               FROM local_items li
               LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
-              LEFT JOIN view_family_assets vfa ON vfa.item_id = li.id
+              LEFT JOIN view_shared_assets vsa ON vsa.item_id = li.id
              WHERE ({{libraryPredicate}})
                AND ((@HiddenOnly = 1 AND li.hidden = 1)
                     OR (@HiddenOnly = 0 AND (@IncludeHidden = 1 OR li.hidden = 0)))
@@ -280,7 +280,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                       LEFT JOIN view_sources tvs ON tvs.id = tlfs.source_id
                       LEFT JOIN view_source_policies tvsp ON tvsp.source_id = tvs.id
                      WHERE tlif.item_id = li.id
-                       AND (vfa.item_id IS NOT NULL OR COALESCE((
+                       AND (vsa.item_id IS NOT NULL OR COALESCE((
                            SELECT vftp.include_in_timeline
                              FROM view_folder_timeline_policies vftp
                             WHERE vftp.source_id = tvs.id

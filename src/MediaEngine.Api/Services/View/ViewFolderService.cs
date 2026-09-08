@@ -14,7 +14,7 @@ public sealed class ViewFolderService(
     ILocalAssetRepository assets,
     ViewStorageService storage)
 {
-    public static readonly Guid FamilyLibrarySourceId = Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff1");
+    public static readonly Guid SharedLibrarySourceId = Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff1");
 
     public async Task<ViewFolderPageDto> QueryAsync(
         Guid viewerProfileId,
@@ -45,7 +45,7 @@ public sealed class ViewFolderService(
 
         var separator = Path.DirectorySeparatorChar.ToString();
         var prefix = Path.TrimEndingDirectorySeparator(absolute) + Path.DirectorySeparatorChar;
-        var paths = QueryPaths(selected.LibraryId, selected.SourceId, prefix, search, selected.FamilyOnly, ct);
+        var paths = QueryPaths(selected.LibraryId, selected.SourceId, prefix, search, selected.SharedOnly, ct);
         var folderPreferences = GetFolderPreferences(viewerProfileId, selected.SourceId, ct);
         var folders = paths
             .Select(path => path[prefix.Length..])
@@ -63,7 +63,7 @@ public sealed class ViewFolderService(
             .ToList();
 
         var itemIds = QueryItemIds(selected.LibraryId, selected.SourceId, prefix,
-            includeDescendants, search, offset, limit + 1, selected.FamilyOnly, ct);
+            includeDescendants, search, offset, limit + 1, selected.SharedOnly, ct);
         var hasMore = itemIds.Count > limit;
         if (hasMore) itemIds.RemoveAt(itemIds.Count - 1);
         var items = itemIds.Select(id => assets.Find(id, ct)).Where(item => item is not null).Cast<LocalAssetDto>().ToList();
@@ -82,7 +82,7 @@ public sealed class ViewFolderService(
     {
         var selected = (await ConfiguredSourcesAsync(scope, ct)).SingleOrDefault(value => value.SourceId == sourceId)
             ?? throw new KeyNotFoundException("The folder source is unavailable in this View scope.");
-        if (selected.FamilyOnly) throw new ArgumentException("Pin a folder inside an indexed profile source.", nameof(sourceId));
+        if (selected.SharedOnly) throw new ArgumentException("Pin a folder inside an indexed profile source.", nameof(sourceId));
         var normalized = NormalizeRelativePath(relativePath);
         ValidateContainedPath(selected.RootPath, normalized);
         await database.ExecuteWriteAsync((connection, transaction, token) =>
@@ -109,7 +109,7 @@ public sealed class ViewFolderService(
     {
         var selected = (await ConfiguredSourcesAsync(scope, ct)).SingleOrDefault(value => value.SourceId == sourceId)
             ?? throw new KeyNotFoundException("The folder source is unavailable in this View scope.");
-        if (selected.FamilyOnly) throw new ArgumentException("Family Library items always appear in the Shared timeline.", nameof(sourceId));
+        if (selected.SharedOnly) throw new ArgumentException("Shared Library items always appear in the Shared timeline.", nameof(sourceId));
         if (!isAdministrator && selected.Dto.OwnerProfileId != actorProfileId)
             throw new UnauthorizedAccessException("Only the source owner or an administrator can change its Timeline policy.");
         var normalized = NormalizeRelativePath(relativePath);
@@ -148,17 +148,17 @@ public sealed class ViewFolderService(
             var sharedRoot = storage.GetSharedRoot();
             result.Add(new ConfiguredSource(
                 Guid.Empty,
-                FamilyLibrarySourceId,
+                SharedLibrarySourceId,
                 sharedRoot,
-                FamilyOnly: true,
+                SharedOnly: true,
                 new ViewFolderSourceDto(
-                    FamilyLibrarySourceId,
-                    "Family Library",
+                    SharedLibrarySourceId,
+                    "Shared Library",
                     Guid.Empty,
-                    "Household",
+                    "Server",
                     "managed",
                     true,
-                    CountFamilyItems(ct),
+                    CountSharedItems(ct),
                     Directory.Exists(sharedRoot))));
         }
 
@@ -170,7 +170,7 @@ public sealed class ViewFolderService(
             {
                 var root = storage.GetSourcePath(space, source);
                 var count = CountItems(space.LibraryId, source.Id, ct);
-                result.Add(new ConfiguredSource(space.LibraryId, source.Id, root, FamilyOnly: false, new ViewFolderSourceDto(
+                result.Add(new ConfiguredSource(space.LibraryId, source.Id, root, SharedOnly: false, new ViewFolderSourceDto(
                     source.Id, source.Name, space.OwnerProfileId, profile?.DisplayName ?? "Profile",
                     source.StorageMode == ViewSourceStorageMode.Linked ? "linked" : "managed",
                     source.IncludeInTimeline, count, Directory.Exists(root))));
@@ -180,11 +180,11 @@ public sealed class ViewFolderService(
             .ThenBy(value => value.Dto.Name, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
-    private int CountFamilyItems(CancellationToken ct)
+    private int CountSharedItems(CancellationToken ct)
     {
         using var connection = database.CreateConnection();
         return connection.ExecuteScalar<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM view_family_assets;", cancellationToken: ct));
+            "SELECT COUNT(*) FROM view_shared_assets;", cancellationToken: ct));
     }
 
     private int CountItems(Guid libraryId, Guid sourceId, CancellationToken ct)
@@ -201,7 +201,7 @@ public sealed class ViewFolderService(
     private IReadOnlyList<ViewFolderPinDto> GetPins(Guid viewerProfileId,
         IReadOnlyList<ConfiguredSource> configured, CancellationToken ct)
     {
-        var available = configured.Where(value => !value.FamilyOnly).ToDictionary(value => value.SourceId);
+        var available = configured.Where(value => !value.SharedOnly).ToDictionary(value => value.SourceId);
         if (available.Count == 0) return [];
         using var connection = database.CreateConnection();
         return connection.Query<PinRow>(new CommandDefinition("""
@@ -252,7 +252,7 @@ public sealed class ViewFolderService(
     }
 
     private List<string> QueryPaths(Guid libraryId, Guid sourceId, string prefix, string? search,
-        bool familyOnly, CancellationToken ct)
+        bool sharedOnly, CancellationToken ct)
     {
         using var connection = database.CreateConnection();
         return connection.Query<string>(new CommandDefinition("""
@@ -260,9 +260,9 @@ public sealed class ViewFolderService(
               FROM local_file_sources lfs
               JOIN local_item_files lif ON lif.file_id = lfs.file_id
               JOIN local_items li ON li.id = lif.item_id
-             WHERE (@familyOnly = 1
-                    AND EXISTS (SELECT 1 FROM view_family_assets vfa WHERE vfa.item_id = lif.item_id)
-                    OR @familyOnly = 0 AND lfs.library_id = @libraryId AND lfs.source_id = @sourceId)
+             WHERE (@sharedOnly = 1
+                    AND EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = lif.item_id)
+                    OR @sharedOnly = 0 AND lfs.library_id = @libraryId AND lfs.source_id = @sourceId)
                AND lfs.file_path LIKE @pathPrefix ESCAPE '~'
                AND (@search IS NULL OR li.title LIKE @searchLike ESCAPE '~'
                     OR li.primary_file_name LIKE @searchLike ESCAPE '~')
@@ -271,7 +271,7 @@ public sealed class ViewFolderService(
         {
             libraryId,
             sourceId,
-            familyOnly = familyOnly ? 1 : 0,
+            sharedOnly = sharedOnly ? 1 : 0,
             pathPrefix = EscapeLike(prefix) + "%",
             search = NullIfWhiteSpace(search),
             searchLike = "%" + EscapeLike(search?.Trim() ?? string.Empty) + "%",
@@ -279,7 +279,7 @@ public sealed class ViewFolderService(
     }
 
     private List<Guid> QueryItemIds(Guid libraryId, Guid sourceId, string prefix,
-        bool recursive, string? search, int offset, int take, bool familyOnly, CancellationToken ct)
+        bool recursive, string? search, int offset, int take, bool sharedOnly, CancellationToken ct)
     {
         using var connection = database.CreateConnection();
         return connection.Query<Guid>(new CommandDefinition("""
@@ -287,9 +287,9 @@ public sealed class ViewFolderService(
               FROM local_items li
               JOIN local_item_files lif ON lif.item_id = li.id
               JOIN local_file_sources lfs ON lfs.file_id = lif.file_id
-             WHERE (@familyOnly = 1
-                    AND EXISTS (SELECT 1 FROM view_family_assets vfa WHERE vfa.item_id = li.id)
-                    OR @familyOnly = 0 AND lfs.library_id = @libraryId AND lfs.source_id = @sourceId)
+             WHERE (@sharedOnly = 1
+                    AND EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id)
+                    OR @sharedOnly = 0 AND lfs.library_id = @libraryId AND lfs.source_id = @sourceId)
                AND lfs.file_path LIKE @pathPrefix ESCAPE '~'
                AND (@recursive = 1 OR instr(substr(lfs.file_path, length(@prefix) + 1), @separator) = 0)
                AND (@search IS NULL OR li.title LIKE @searchLike ESCAPE '~'
@@ -301,7 +301,7 @@ public sealed class ViewFolderService(
         {
             libraryId,
             sourceId,
-            familyOnly = familyOnly ? 1 : 0,
+            sharedOnly = sharedOnly ? 1 : 0,
             prefix,
             pathPrefix = EscapeLike(prefix) + "%",
             recursive = recursive ? 1 : 0,
@@ -340,7 +340,7 @@ public sealed class ViewFolderService(
     private static string EscapeLike(string value) => value.Replace("~", "~~").Replace("%", "~%").Replace("_", "~_");
 
     private sealed record ConfiguredSource(
-        Guid LibraryId, Guid SourceId, string RootPath, bool FamilyOnly, ViewFolderSourceDto Dto);
+        Guid LibraryId, Guid SourceId, string RootPath, bool SharedOnly, ViewFolderSourceDto Dto);
     private sealed record FolderPreferences(HashSet<string> Pins, Dictionary<string, bool?> TimelinePolicies);
     private sealed class PinRow { public Guid SourceId { get; init; } public string RelativePath { get; init; } = ""; }
     private sealed class TimelinePolicyRow { public string RelativePath { get; init; } = ""; public long IncludeInTimeline { get; init; } }

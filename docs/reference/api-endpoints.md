@@ -159,8 +159,14 @@ unauthorized identifiers return the same not-found shape as missing resources.
 | POST | `/view/items/{id}/archive` | Archive an owned asset without changing its file | Required + asset owner |
 | POST | `/view/items/{id}/trash` | Soft-delete an owned asset without deleting its original | Required + asset owner |
 | POST | `/view/items/{id}/restore` | Restore an archived or trashed owned asset | Required + asset owner |
-| POST | `/view/items/{id}/family-preview` | Preview compound-file count, bytes, Shared destination, and whether promotion will move or copy | Required + asset owner |
-| POST | `/view/items/{id}/family` | Execute or recover an idempotent verified promotion to Shared; reports cleanup-pending separately | Required + asset owner |
+| POST | `/view/shared/contributions/preview` | Preview a selected batch, compound-file totals, destination, and eventual move/copy behavior | Shared submit grant + asset owner |
+| POST | `/view/shared/contributions` | Create an idempotent, revision-bound pending contribution without changing files | Shared submit grant + asset owner |
+| GET | `/view/shared/contributions` | Page the caller's submissions or the curator review queue | Required; curator grant for review mode |
+| GET | `/view/shared/contributions/{id}` | Read an authorized contribution, item states, decision, and activity timeline | Contributor or Shared curator |
+| POST | `/view/shared/contributions/{id}/cancel` | Cancel a caller-owned pending contribution with optimistic revision checking | Contributor |
+| POST | `/view/shared/contributions/{id}/decision` | Accept or decline a pending contribution and queue accepted transfers | Shared curator |
+| POST | `/view/shared/contributions/{id}/retry` | Requeue recoverable accepted item transfers | Shared curator |
+| POST | `/view/shared/items/direct` | Create an auto-accepted contribution for curator-owned items using the same transfer worker | Shared curator + asset owner |
 | GET, POST | `/view/galleries` | List owned/shared Galleries or create an owned Gallery | Required + trusted profile |
 | GET, PUT, DELETE | `/view/galleries/{id}` | Read or manage an authorized Gallery | Required + Gallery permission |
 | GET, POST, DELETE | `/view/galleries/{id}/items` | Page or mutate Manual Gallery membership | Required + Gallery permission |

@@ -14,7 +14,7 @@
         <div class="libraries-example"><span>Personal storage root</span><code>@RootPath</code>
             <AppButton Label="Choose root" ButtonStyle="AppButtonStyle.Outlined" Disabled="@(ReadOnly || _busy)" OnClick="ChooseRootAsync" />
         </div>
-        <div class="libraries-example"><span>Family Library originals</span><code>@Path.Combine(RootPath, "Shared")</code><span>Verified keeper promotions from View are stored here.</span></div>
+        <div class="libraries-example"><span>Shared Library originals</span><code>@Path.Combine(RootPath, "Shared")</code><span>Accepted and verified contributions are stored here.</span></div>
         @if (_adding)
         {
             <div class="libraries-form-grid">

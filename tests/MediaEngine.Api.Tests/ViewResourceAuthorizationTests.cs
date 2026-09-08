@@ -20,7 +20,8 @@ public sealed class ViewResourceAuthorizationTests
                 kind,
                 resourceId,
                 sharedOwner.Policy.ProfileId,
-                sharedOwner.PersonalSpace!.LibraryId));
+                sharedOwner.PersonalSpace!.LibraryId,
+                IsSharedLibraryAsset: true));
 
         var allowed = await service.AuthorizeAsync(
             Identity(caller),
@@ -46,7 +47,7 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceRequest(ViewScopeRequest.Shared, ViewResourceKind.Search, null));
 
         Assert.True(decision.IsAllowed);
-        Assert.Equal([included.PersonalSpace!.LibraryId], decision.Scope!.LibraryIds);
+        Assert.Empty(decision.Scope!.LibraryIds);
     }
 
     [Fact]
@@ -214,7 +215,7 @@ public sealed class ViewResourceAuthorizationTests
         var profileId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
         return new ViewScopeStoreEntry(
-            new ViewProfilePolicy(profileId, true, access, include, true, now),
+            new ViewProfilePolicy(profileId, true, access, include, false, true, now),
             new ViewPersonalSpace(Guid.NewGuid(), profileId, Guid.NewGuid(), now, now));
     }
 

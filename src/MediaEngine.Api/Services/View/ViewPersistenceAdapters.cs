@@ -74,8 +74,8 @@ public sealed class ViewResourcePersistenceService(
         var explicitProfiles = await GetExplicitAssetRecipientsAsync(item.Id, requestingProfileId, ct)
             .ConfigureAwait(false);
         using var connection = database.CreateConnection();
-        var isFamilyAsset = connection.ExecuteScalar<int>(new Dapper.CommandDefinition(
-            "SELECT COUNT(*) FROM view_family_assets WHERE item_id = @itemId;",
+        var isSharedLibraryAsset = connection.ExecuteScalar<int>(new Dapper.CommandDefinition(
+            "SELECT COUNT(*) FROM view_shared_assets WHERE item_id = @itemId;",
             new { itemId = item.Id }, cancellationToken: ct)) > 0;
         return new ViewResourceDescriptor(
             kind,
@@ -83,7 +83,7 @@ public sealed class ViewResourcePersistenceService(
             item.OwnerProfileId,
             item.LibraryId,
             explicitProfiles,
-            IsFamilyAsset: isFamilyAsset);
+            IsSharedLibraryAsset: isSharedLibraryAsset);
     }
 
     private async Task<IReadOnlySet<Guid>> GetExplicitAssetRecipientsAsync(
@@ -119,7 +119,7 @@ public sealed class ViewAssetQueryService(ILocalAssetRepository assets) : IViewA
             plan.Lifecycle,
             plan.SmartRule,
             plan.TimelineEligibleOnly,
-            plan.IncludeFamilyAssets), ct);
+            plan.IncludeSharedLibraryAssets), ct);
         return Task.FromResult(new ViewAssetTimelinePageDto(
             page.Items,
             ViewTimelineCursorCodec.Encode(page.NextCursor),

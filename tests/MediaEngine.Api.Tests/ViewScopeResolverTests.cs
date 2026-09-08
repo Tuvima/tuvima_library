@@ -6,7 +6,7 @@ namespace MediaEngine.Api.Tests;
 public sealed class ViewScopeResolverTests
 {
     [Fact]
-    public async Task AccessAndInclusionAreIndependent()
+    public async Task SharedLibraryAccessDoesNotExposeOtherProfileScopes()
     {
         var caller = State(access: true, include: false);
         var included = State(access: false, include: true);
@@ -18,16 +18,12 @@ public sealed class ViewScopeResolverTests
             ViewScopeRequest.Shared));
 
         Assert.Equal(ViewScopeKind.Shared, resolution.Scope.Kind);
-        Assert.DoesNotContain(caller.PersonalSpace!.LibraryId, resolution.Scope.LibraryIds);
-        Assert.Contains(included.PersonalSpace!.LibraryId, resolution.Scope.LibraryIds);
-        Assert.DoesNotContain(excluded.PersonalSpace!.LibraryId, resolution.Scope.LibraryIds);
-        Assert.Contains(resolution.AvailableScopes, option =>
-            option.Kind == ViewScopeKind.Profile && option.ProfileId == included.Policy.ProfileId);
-        Assert.DoesNotContain(resolution.AvailableScopes, option => option.ProfileId == excluded.Policy.ProfileId);
+        Assert.Empty(resolution.Scope.LibraryIds);
+        Assert.DoesNotContain(resolution.AvailableScopes, option => option.Kind == ViewScopeKind.Profile);
     }
 
     [Fact]
-    public async Task InclusionDoesNotGrantCallerSharedAccess()
+    public async Task SubmissionPermissionDoesNotGrantCallerSharedAccess()
     {
         var caller = State(access: false, include: true);
         var other = State(access: false, include: true);
@@ -44,7 +40,7 @@ public sealed class ViewScopeResolverTests
     }
 
     [Fact]
-    public async Task RevokedSavedProfileScopeFallsBackToSharedWithoutEnumeratingIt()
+    public async Task OtherProfileScopeFallsBackToMineWithoutEnumeratingIt()
     {
         var caller = State(access: true, include: true);
         var revoked = State(access: false, include: false);
@@ -54,7 +50,7 @@ public sealed class ViewScopeResolverTests
             new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"),
             ViewScopeRequest.ForProfile(revoked.Policy.ProfileId)));
 
-        Assert.Equal(ViewScopeKind.Shared, resolution.Scope.Kind);
+        Assert.Equal(ViewScopeKind.Mine, resolution.Scope.Kind);
         Assert.True(resolution.Scope.WasFallback);
         Assert.DoesNotContain(resolution.AvailableScopes, option => option.ProfileId == revoked.Policy.ProfileId);
     }
@@ -78,7 +74,7 @@ public sealed class ViewScopeResolverTests
         var profileId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow;
         return new ViewScopeStoreEntry(
-            new ViewProfilePolicy(profileId, true, access, include, true, now),
+            new ViewProfilePolicy(profileId, true, access, include, false, true, now),
             new ViewPersonalSpace(Guid.NewGuid(), profileId, Guid.NewGuid(), now, now));
     }
 

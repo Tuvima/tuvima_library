@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using MediaEngine.Contracts.LocalAssets;
+using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.View;
@@ -44,7 +45,8 @@ public sealed class ViewDiscoveryService(
             decision.Scope.LibraryIds,
             request.Limit,
             request.Search,
-            ViewDiscoveryCursorCodec.Decode(request.Cursor)), ct);
+            ViewDiscoveryCursorCodec.Decode(request.Cursor),
+            decision.Scope.Kind == ViewScopeKind.Shared), ct);
         var items = page.Items.Select(item => new ViewPlaceDto(
             item.Key,
             item.Name,
@@ -83,7 +85,8 @@ public sealed class ViewDiscoveryService(
             decision.Scope.LibraryIds,
             request.Limit,
             request.Search,
-            ViewDiscoveryCursorCodec.Decode(request.Cursor)), ct);
+            ViewDiscoveryCursorCodec.Decode(request.Cursor),
+            decision.Scope.Kind == ViewScopeKind.Shared), ct);
         var items = page.Items.Select(item => new ViewPersonDto(
             item.Key,
             item.DisplayName,

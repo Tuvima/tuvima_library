@@ -3,37 +3,38 @@
 @namespace MediaEngine.Web.Components.Pages
 @implements IDisposable
 
-<AppDialogShell Title="Family Library" Subtitle="Keep selected originals in the household Shared archive." Size="Medium" OnClose="@(() => Dialog.Cancel())">
+<AppDialogShell Title="Submit to Shared Library" Subtitle="Send selected Personal Space items to a Shared Library curator." Size="Medium" OnClose="@(() => Dialog.Cancel())">
     <ChildContent>
         @if (_loading) { <AppProgressBar Indeterminate="true" /> }
         else if (!string.IsNullOrWhiteSpace(_error)) { <AppAlert Tone="AppUiTone.Error">@_error</AppAlert> }
         else
         {
             <AppAlert Tone="AppUiTone.Info">@Summary</AppAlert>
-            <div role="radiogroup" aria-label="Family Library destination">
+            <div role="radiogroup" aria-label="Shared Library destination">
                 <AppNativeButton Type="button" role="radio" aria-checked="@(_kind == "timeline")" Class="@(_kind == "timeline" ? "is-selected" : null)" OnClick="@(_ => SelectKindAsync("timeline"))"><strong>Shared Timeline</strong><span>Organize by capture year and month.</span></AppNativeButton>
                 <AppNativeButton Type="button" role="radio" aria-checked="@(_kind == "folder")" Class="@(_kind == "folder" ? "is-selected" : null)" OnClick="@(_ => SelectKindAsync("folder"))"><strong>Named Shared folder</strong><span>Keep these files together under Shared/Folders.</span></AppNativeButton>
             </div>
             @if (_kind == "folder") { <AppTextField Label="Shared folder name" Value="@_folderName" ValueChanged="FolderNameChangedAsync" /> }
-            @if (_previews.Count > 0)
+            <AppTextField Label="Note for curators (optional)" Value="@_note" ValueChanged="@(value => _note = value ?? string.Empty)" />
+            @if (_preview is not null)
             {
-                <div><strong>Destination preview</strong>@foreach (var path in _previews.Select(value => value.DestinationRoot).Distinct(StringComparer.OrdinalIgnoreCase)) { <code>@path</code> }</div>
+                <div><strong>Destination preview</strong>@foreach (var path in _preview.Items.Select(value => value.DestinationRoot).Distinct(StringComparer.OrdinalIgnoreCase)) { <code>@path</code> }</div>
             }
-            <p>Managed originals are physically moved after content verification. Linked read-only originals are copied and remain at their source.</p>
+            <p>Nothing moves while the contribution is pending. If accepted, managed originals move after verification; linked originals are copied and remain at their source.</p>
         }
     </ChildContent>
     <FooterContent>
         <AppButton Label="Cancel" ButtonStyle="AppButtonStyle.Text" OnClick="@(() => Dialog.Cancel())" />
-        <AppButton Label="Move or copy to Family Library" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(_loading || _error is not null || _previews.Count == 0 || (_kind == "folder" && string.IsNullOrWhiteSpace(_folderName)))" OnClick="Complete" />
+        <AppButton Label="Submit for review" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(_loading || _error is not null || _preview is null || (_kind == "folder" && string.IsNullOrWhiteSpace(_folderName)))" OnClick="Complete" />
     </FooterContent>
 </AppDialogShell>
 
 @code {
     [CascadingParameter] private IMudDialogInstance Dialog { get; set; } = default!;
     [Parameter] public IReadOnlyCollection<Guid> ItemIds { get; set; } = [];
-    private IReadOnlyList<ViewFamilyTransferPreviewDto> _previews = [];
+    private ViewSharedContributionPreviewDto? _preview;
     private bool _loading = true;
-    private string _kind = "timeline", _folderName = string.Empty;
+    private string _kind = "timeline", _folderName = string.Empty, _note = string.Empty;
     private string? _error;
     private CancellationTokenSource? _previewCts;
     protected override async Task OnInitializedAsync() => await LoadPreviewsAsync();
@@ -41,34 +42,34 @@
     {
         _loading = true;
         _error = null;
-        var previews = new List<ViewFamilyTransferPreviewDto>();
-        foreach (var itemId in ItemIds)
-        {
-            var preview = await ApiClient.PreviewViewFamilyTransferAsync(itemId,
-                new ViewFamilyTransferRequest(_kind, _kind == "folder" ? _folderName.Trim() : null), ct);
-            if (preview is null) { _error = ApiClient.LastError ?? "The transfer could not be previewed."; break; }
-            if (!preview.AlreadyPromoted) previews.Add(preview);
-        }
-        _previews = previews; _loading = false;
-        if (_error is null && previews.Count == 0) _error = "Every selected item is already in the Family Library.";
+        _preview = await ApiClient.PreviewViewSharedContributionAsync(new ViewSharedContributionPreviewRequest(
+            ItemIds.ToList(), _kind, _kind == "folder" ? _folderName.Trim() : null), ct);
+        if (_preview is null) _error = ApiClient.LastError ?? "The contribution could not be previewed.";
+        _loading = false;
     }
     private async Task SelectKindAsync(string kind)
     {
         _kind = kind;
-        if (kind == "folder" && string.IsNullOrWhiteSpace(_folderName)) { _previews = []; _error = null; return; }
+        if (kind == "folder" && string.IsNullOrWhiteSpace(_folderName)) { _preview = null; _error = null; return; }
         await LoadPreviewsAsync();
     }
     private async Task FolderNameChangedAsync(string? value)
     {
         _folderName = value ?? string.Empty;
         _previewCts?.Cancel(); _previewCts?.Dispose();
-        if (string.IsNullOrWhiteSpace(_folderName)) { _previews = []; _error = null; return; }
+        if (string.IsNullOrWhiteSpace(_folderName)) { _preview = null; _error = null; return; }
         var pending = _previewCts = new CancellationTokenSource();
         try { await Task.Delay(250, pending.Token); await LoadPreviewsAsync(pending.Token); }
         catch (OperationCanceledException) { }
     }
-    private string Summary => $"{_previews.Count} items · {_previews.Sum(value => value.FileCount)} files · {FormatBytes(_previews.Sum(value => value.TotalBytes))}. {_previews.Count(value => value.Operation == "move")} move; {_previews.Count(value => value.Operation == "copy")} copy.";
-    private void Complete() => Dialog.Close(DialogResult.Ok(new ViewFamilyTransferRequest(_kind, _kind == "folder" ? _folderName.Trim() : null)));
+    private string Summary => _preview is null ? string.Empty : $"{_preview.Items.Count} items · {_preview.FileCount} files · {FormatBytes(_preview.TotalBytes)}. {_preview.MoveCount} move if accepted; {_preview.CopyCount} copy if accepted.";
+    private void Complete()
+    {
+        if (_preview is null) return;
+        Dialog.Close(DialogResult.Ok(new ViewSharedContributionSubmitRequest(ItemIds.ToList(), _kind,
+            _kind == "folder" ? _folderName.Trim() : null, string.IsNullOrWhiteSpace(_note) ? null : _note.Trim(),
+            _preview.PreviewRevision, Guid.NewGuid().ToString("N"))));
+    }
     private static string FormatBytes(long value) => value >= 1_073_741_824 ? $"{value / 1_073_741_824d:0.##} GB" : value >= 1_048_576 ? $"{value / 1_048_576d:0.##} MB" : $"{value / 1024d:0.##} KB";
     public void Dispose() { _previewCts?.Cancel(); _previewCts?.Dispose(); }
 }

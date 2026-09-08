@@ -14,7 +14,7 @@ tags:
 
 SQLite database located at `.data/database/library.db` (path set in `config/core.json`).
 
-Latest storage epoch: **guid-blob-v2**. Fresh databases are initialized from
+Latest storage epoch: **guid-blob-v6-shared-library-contributions**. Fresh databases are initialized from
 `src/MediaEngine.Storage/Schema/schema.sql`; startup migrations remain
 idempotent inside the current epoch, but obsolete development epochs are not
 read in place.
@@ -29,7 +29,7 @@ read in place.
 
 Startup safety:
 
-- Current databases record `storage_metadata.storage_epoch = guid-blob-v2`.
+- Current databases record `storage_metadata.storage_epoch = guid-blob-v6-shared-library-contributions`.
 - Older epochs, including the legacy TEXT-GUID database and `guid-blob-v1`, are
   rejected on startup.
 - Setting `TUVIMA_STORAGE_RESET=1` or `TUVIMA_STORAGE_RESET=destructive-reingest` renames the legacy database and starts a clean database for reingestion. The old database is kept as a `.legacy-text-guid.<timestamp>.bak` file.
@@ -220,7 +220,7 @@ kind, favorites, and active discovery.
 
 GPS and annotation indexes support Places and evidence-based People discovery.
 
-### Source timeline policy and household originals
+### Source timeline policy and Shared Library originals
 
 `view_source_policies` stores whether each source participates in the Photos
 timeline. Browser uploads default into Timeline; additional linked and managed
@@ -231,14 +231,21 @@ folders remain available in Folders and opt in explicitly.
 validated absolute prefix used by the timeline query; the most-specific
 ancestor rule wins over the source default.
 
-`view_family_assets` marks items whose verified originals are household-owned
-under Shared while retaining the original profile as provenance. This marker
+`view_shared_assets` marks accepted items whose verified originals are owned by
+the Shared Library while retaining the original profile as provenance. This marker
 does not expose the original profile's other private assets.
 
-`view_shared_transfers` is the durable recovery journal for physical Family
-Library promotion. It stores source and destination manifests and one of
+`view_shared_contributions` stores the contributor, decision state, destination,
+note, optimistic revision, idempotency key, curator, and timestamps.
+`view_shared_contribution_items` stores the exact submitted logical items,
+submission-time provenance, source snapshot, transfer operation, execution
+state, and safe error. `view_shared_contribution_events` records the durable
+submission, decision, and transfer activity timeline.
+
+`view_shared_transfers` is the durable recovery journal for physical Shared
+Library transfer. It stores source and destination manifests and one of
 `planned`, `transferring`, `completed`, `cleanup_pending`, or `failed`.
-Household membership is published only after every destination member verifies;
+Shared membership is published only after every destination member verifies;
 managed-source deletion happens afterward and can remain cleanup-pending.
 
 ### Galleries

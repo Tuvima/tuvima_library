@@ -16,10 +16,11 @@ public sealed class ViewProfileSettingsUiTests
         Assert.Contains("No persisted devices are connected.", source, StringComparison.Ordinal);
         Assert.Contains("No placeholder status is shown.", source, StringComparison.Ordinal);
         Assert.Contains("Label=\"View enabled\"", source, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Access Shared View\"", source, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Include in Shared View\"", source, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Access Shared Library\"", source, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Submit to Shared Library\"", source, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Review Shared Library contributions\"", source, StringComparison.Ordinal);
         Assert.Contains("Label=\"Allow Gallery Sharing\"", source, StringComparison.Ordinal);
-        Assert.Equal(4, CountOccurrences(source, "<AppSwitchRow"));
+        Assert.Equal(5, CountOccurrences(source, "<AppSwitchRow"));
         Assert.DoesNotContain("MudSwitch", source, StringComparison.Ordinal);
         Assert.DoesNotContain("quota", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("SourceKey", source, StringComparison.Ordinal);

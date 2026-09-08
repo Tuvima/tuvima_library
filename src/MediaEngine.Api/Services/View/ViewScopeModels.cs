@@ -18,9 +18,8 @@ public sealed record ViewScopeRequest(ViewScopeKind Kind, Guid? ProfileId = null
 public sealed record ViewRequestProfile(Guid ProfileId, string Role);
 
 /// <summary>
-/// Persistence projection used by scope resolution. AccessSharedView controls
-/// what the profile may see; IncludeInSharedView independently controls whether
-/// this profile contributes content to Shared View.
+/// Persistence projection used by scope resolution. Shared Library access and
+/// contribution/review capabilities are independent administrator grants.
 /// </summary>
 public sealed record ViewScopeStoreEntry(
     ViewProfilePolicy Policy,

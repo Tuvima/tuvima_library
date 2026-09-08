@@ -17,13 +17,14 @@ public enum ViewTimelineDensity
 public sealed record ViewProfilePolicy(
     Guid ProfileId,
     bool ViewEnabled,
-    bool AccessSharedView,
-    bool IncludeInSharedView,
+    bool AccessSharedLibrary,
+    bool SubmitToSharedLibrary,
+    bool ReviewSharedLibraryContributions,
     bool ShareGalleries,
     DateTimeOffset? UpdatedAt)
 {
     public static ViewProfilePolicy Default(Guid profileId) =>
-        new(profileId, true, false, false, false, null);
+        new(profileId, true, false, false, false, false, null);
 }
 
 public sealed record ViewProfilePreferences(

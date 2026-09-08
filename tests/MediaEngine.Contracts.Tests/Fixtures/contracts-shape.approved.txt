@@ -2904,28 +2904,6 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewDiscover
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewDiscoveryCapabilityStates
 
-MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewFamilyTransferPreviewDto
-  ItemId: System.Guid | nullability=not-null | accessors=get,init
-  Operation: System.String | nullability=not-null | accessors=get,init
-  FileCount: System.Int32 | nullability=not-null | accessors=get,init
-  TotalBytes: System.Int64 | nullability=not-null | accessors=get,init
-  DestinationRoot: System.String | nullability=not-null | accessors=get,init
-  DestinationKind: System.String | nullability=not-null | accessors=get,init
-  SourceCleanupRequired: System.Boolean | nullability=not-null | accessors=get,init
-  AlreadyPromoted: System.Boolean | nullability=not-null | accessors=get,init
-
-MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewFamilyTransferRequest
-  DestinationKind: System.String | nullability=not-null | accessors=get,init
-  FolderName: System.String | nullability=nullable | accessors=get,init
-
-MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewFamilyTransferResultDto
-  ItemId: System.Guid | nullability=not-null | accessors=get,init
-  State: System.String | nullability=not-null | accessors=get,init
-  Operation: System.String | nullability=not-null | accessors=get,init
-  FilesTransferred: System.Int32 | nullability=not-null | accessors=get,init
-  DestinationPaths: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
-  SourceCleanupPending: System.Boolean | nullability=not-null | accessors=get,init
-
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewFolderBreadcrumbDto
   Label: System.String | nullability=not-null | accessors=get,init
   RelativePath: System.String | nullability=not-null | accessors=get,init
@@ -3129,6 +3107,107 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewScopeOpt
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewScopeResolutionDto
   Scope: MediaEngine.Contracts.LocalAssets.ViewResolvedScopeDto | nullability=not-null | accessors=get,init
   AvailableScopes: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewScopeOptionDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedContributionDecisionRequest
+  Decision: System.String | nullability=not-null | accessors=get,init
+  ExpectedRevision: System.Int32 | nullability=not-null | accessors=get,init
+  Reason: System.String | nullability=nullable | accessors=get,init
+  DestinationKind: System.String | nullability=nullable | accessors=get,init
+  FolderName: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedContributionDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  SubmittedByProfileId: System.Guid? | nullability=nullable | accessors=get,init
+  SubmittedByName: System.String | nullability=not-null | accessors=get,init
+  Status: System.String | nullability=not-null | accessors=get,init
+  DestinationKind: System.String | nullability=not-null | accessors=get,init
+  DestinationLabel: System.String | nullability=nullable | accessors=get,init
+  Note: System.String | nullability=nullable | accessors=get,init
+  Revision: System.Int32 | nullability=not-null | accessors=get,init
+  SubmittedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  DecidedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  DecidedByName: System.String | nullability=nullable | accessors=get,init
+  DecisionReason: System.String | nullability=nullable | accessors=get,init
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewSharedContributionItemDto> | nullability=not-null | accessors=get,init
+  Events: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewSharedContributionEventDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedContributionEventDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  ActorName: System.String | nullability=not-null | accessors=get,init
+  EventType: System.String | nullability=not-null | accessors=get,init
+  Detail: System.String | nullability=nullable | accessors=get,init
+  OccurredAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedContributionItemDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  ItemId: System.Guid | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  MediaKind: System.String | nullability=not-null | accessors=get,init
+  Operation: System.String | nullability=not-null | accessors=get,init
+  ExecutionState: System.String | nullability=not-null | accessors=get,init
+  Error: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedContributionPageDto
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewSharedContributionDto> | nullability=not-null | accessors=get,init
+  Offset: System.Int32 | nullability=not-null | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get,init
+  CanSubmit: System.Boolean | nullability=not-null | accessors=get,init
+  CanReview: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedContributionPreviewDto
+  PreviewRevision: System.String | nullability=not-null | accessors=get,init
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewSharedTransferPreviewDto> | nullability=not-null | accessors=get,init
+  FileCount: System.Int32 | nullability=not-null | accessors=get,init
+  TotalBytes: System.Int64 | nullability=not-null | accessors=get,init
+  MoveCount: System.Int32 | nullability=not-null | accessors=get,init
+  CopyCount: System.Int32 | nullability=not-null | accessors=get,init
+  DestinationKind: System.String | nullability=not-null | accessors=get,init
+  DestinationLabel: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedContributionPreviewRequest
+  ItemIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
+  DestinationKind: System.String | nullability=not-null | accessors=get,init
+  FolderName: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedContributionRevisionRequest
+  ExpectedRevision: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedContributionSubmitRequest
+  ItemIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
+  DestinationKind: System.String | nullability=not-null | accessors=get,init
+  FolderName: System.String | nullability=nullable | accessors=get,init
+  Note: System.String | nullability=nullable | accessors=get,init
+  PreviewRevision: System.String | nullability=not-null | accessors=get,init
+  IdempotencyKey: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedDirectAddRequest
+  ItemIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
+  DestinationKind: System.String | nullability=not-null | accessors=get,init
+  FolderName: System.String | nullability=nullable | accessors=get,init
+  Note: System.String | nullability=nullable | accessors=get,init
+  IdempotencyKey: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedTransferPreviewDto
+  ItemId: System.Guid | nullability=not-null | accessors=get,init
+  Operation: System.String | nullability=not-null | accessors=get,init
+  FileCount: System.Int32 | nullability=not-null | accessors=get,init
+  TotalBytes: System.Int64 | nullability=not-null | accessors=get,init
+  DestinationRoot: System.String | nullability=not-null | accessors=get,init
+  DestinationKind: System.String | nullability=not-null | accessors=get,init
+  SourceCleanupRequired: System.Boolean | nullability=not-null | accessors=get,init
+  AlreadyShared: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedTransferRequest
+  DestinationKind: System.String | nullability=not-null | accessors=get,init
+  FolderName: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSharedTransferResultDto
+  ItemId: System.Guid | nullability=not-null | accessors=get,init
+  State: System.String | nullability=not-null | accessors=get,init
+  Operation: System.String | nullability=not-null | accessors=get,init
+  FilesTransferred: System.Int32 | nullability=not-null | accessors=get,init
+  DestinationPaths: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  SourceCleanupPending: System.Boolean | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSourceAdminDto
   Id: System.Guid | nullability=not-null | accessors=get,init
@@ -4668,15 +4747,17 @@ MediaEngine.Contracts.Profiles.MediaEngine.Contracts.Profiles.UpdateProfileReque
 
 MediaEngine.Contracts.Profiles.MediaEngine.Contracts.Profiles.UpdateViewProfilePolicyRequest
   ViewEnabled: System.Boolean | nullability=not-null | accessors=get,init
-  AccessSharedView: System.Boolean | nullability=not-null | accessors=get,init
-  IncludeInSharedView: System.Boolean | nullability=not-null | accessors=get,init
+  AccessSharedLibrary: System.Boolean | nullability=not-null | accessors=get,init
+  SubmitToSharedLibrary: System.Boolean | nullability=not-null | accessors=get,init
+  ReviewSharedLibraryContributions: System.Boolean | nullability=not-null | accessors=get,init
   AllowGallerySharing: System.Boolean | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Profiles.MediaEngine.Contracts.Profiles.ViewProfilePolicyDto
   ProfileId: System.Guid | nullability=not-null | accessors=get,init
   ViewEnabled: System.Boolean | nullability=not-null | accessors=get,init
-  AccessSharedView: System.Boolean | nullability=not-null | accessors=get,init
-  IncludeInSharedView: System.Boolean | nullability=not-null | accessors=get,init
+  AccessSharedLibrary: System.Boolean | nullability=not-null | accessors=get,init
+  SubmitToSharedLibrary: System.Boolean | nullability=not-null | accessors=get,init
+  ReviewSharedLibraryContributions: System.Boolean | nullability=not-null | accessors=get,init
   AllowGallerySharing: System.Boolean | nullability=not-null | accessors=get,init
   UpdatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
 

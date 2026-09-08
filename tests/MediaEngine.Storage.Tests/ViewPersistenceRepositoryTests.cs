@@ -33,14 +33,16 @@ public sealed class ViewPersistenceRepositoryTests : IDisposable
         Assert.True(await _profiles.SavePolicyAsync(new ViewProfilePolicy(
             ownerId,
             ViewEnabled: true,
-            AccessSharedView: false,
-            IncludeInSharedView: true,
+            AccessSharedLibrary: false,
+            SubmitToSharedLibrary: true,
+            ReviewSharedLibraryContributions: true,
             ShareGalleries: true,
             UpdatedAt: null)));
 
         var policy = await _profiles.GetPolicyAsync(ownerId);
-        Assert.False(policy.AccessSharedView);
-        Assert.True(policy.IncludeInSharedView);
+        Assert.False(policy.AccessSharedLibrary);
+        Assert.True(policy.SubmitToSharedLibrary);
+        Assert.True(policy.ReviewSharedLibraryContributions);
         Assert.True(policy.ShareGalleries);
 
         Assert.True(await _profiles.SavePreferencesAsync(new ViewProfilePreferences(

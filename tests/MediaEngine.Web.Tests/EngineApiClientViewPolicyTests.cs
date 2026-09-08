@@ -29,16 +29,18 @@ public sealed class EngineApiClientViewPolicyTests
         var saved = await client.UpdateViewProfilePolicyAsync(ProfileId, new UpdateViewProfilePolicyRequest
         {
             ViewEnabled = true,
-            AccessSharedView = false,
-            IncludeInSharedView = true,
+            AccessSharedLibrary = false,
+            SubmitToSharedLibrary = true,
+            ReviewSharedLibraryContributions = true,
             AllowGallerySharing = true,
         });
 
         Assert.NotNull(saved);
-        Assert.Contains("\"access_shared_view\":false", requestJson, StringComparison.Ordinal);
-        Assert.Contains("\"include_in_shared_view\":true", requestJson, StringComparison.Ordinal);
-        Assert.False(saved.AccessSharedView);
-        Assert.True(saved.IncludeInSharedView);
+        Assert.Contains("\"access_shared_library\":false", requestJson, StringComparison.Ordinal);
+        Assert.Contains("\"submit_to_shared_library\":true", requestJson, StringComparison.Ordinal);
+        Assert.Contains("\"review_shared_library_contributions\":true", requestJson, StringComparison.Ordinal);
+        Assert.False(saved.AccessSharedLibrary);
+        Assert.True(saved.SubmitToSharedLibrary);
     }
 
     [Fact]
@@ -54,8 +56,9 @@ public sealed class EngineApiClientViewPolicyTests
                     {
                       "profile_id": "{{ProfileId:D}}",
                       "view_enabled": true,
-                      "access_shared_view": true,
-                      "include_in_shared_view": false,
+                      "access_shared_library": true,
+                      "submit_to_shared_library": false,
+                      "review_shared_library_contributions": true,
                       "allow_gallery_sharing": false,
                       "updated_at": null
                     }
@@ -68,8 +71,9 @@ public sealed class EngineApiClientViewPolicyTests
 
         Assert.NotNull(policy);
         Assert.True(policy.ViewEnabled);
-        Assert.True(policy.AccessSharedView);
-        Assert.False(policy.IncludeInSharedView);
+        Assert.True(policy.AccessSharedLibrary);
+        Assert.False(policy.SubmitToSharedLibrary);
+        Assert.True(policy.ReviewSharedLibraryContributions);
     }
 
     [Fact]

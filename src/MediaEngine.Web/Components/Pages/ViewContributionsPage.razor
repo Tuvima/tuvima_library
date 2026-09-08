@@ -1,0 +1,189 @@
+@page "/view/contributions"
+@page "/view/contributions/{ContributionId:guid}"
+@using MediaEngine.Contracts.LocalAssets
+@inject IEngineApiClient ApiClient
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@namespace MediaEngine.Web.Components.Pages
+@implements IDisposable
+
+<PageTitle>Shared Library Contributions - Tuvima</PageTitle>
+<ViewSectionShell>
+    <main class="view-contributions-page">
+        <AppBreadcrumbs Class="view-contributions-breadcrumbs">
+            <a href="/view">View</a><span aria-hidden="true">/</span>
+            <a href="/view?scope=shared">Shared Library</a><span aria-hidden="true">/</span>
+            @if (ContributionId.HasValue)
+            {
+                <a href="/view/contributions">Contributions</a><span aria-hidden="true">/</span>
+                <span aria-current="page">Contribution</span>
+            }
+            else { <span aria-current="page">Contributions</span> }
+        </AppBreadcrumbs>
+
+        <header class="view-contributions-header">
+            <div><span>Shared Library</span><h1>@(ContributionId.HasValue ? "Contribution" : "Contributions")</h1>
+                <p>@(ContributionId.HasValue ? "Review the submitted items, destination, and transfer state." : "Track your submissions and review pending contributions when you are a curator.")</p></div>
+            @if (ContributionId.HasValue) { <AppButton Href="/view/contributions" Label="All contributions" StartIcon="@Icons.Material.Outlined.ArrowBack" ButtonStyle="AppButtonStyle.Text" /> }
+        </header>
+
+        @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading contributions" Message="Reading the Shared Library queue." /> }
+        else if (!string.IsNullOrWhiteSpace(_error)) { <AppErrorState Title="Contributions could not be loaded" Message="@_error" Retry="LoadAsync" /> }
+        else if (_detail is not null) { @ContributionDetail(_detail) }
+        else if (_page is not null)
+        {
+            <div class="view-contributions-controls">
+                <div role="tablist" aria-label="Contribution queue">
+                    <AppNativeButton Type="button" role="tab" aria-selected="@(_mode == "mine")" Class="@ModeClass("mine")" OnClick="@(_ => ChangeModeAsync("mine"))">My submissions</AppNativeButton>
+                    @if (_page.CanReview) { <AppNativeButton Type="button" role="tab" aria-selected="@(_mode == "review")" Class="@ModeClass("review")" OnClick="@(_ => ChangeModeAsync("review"))">Review queue</AppNativeButton> }
+                </div>
+                <AppNativeSelect Value="@_status" OnChange="StatusChangedAsync" aria-label="Contribution status">
+                    <option value="">All statuses</option><option value="pending">Pending</option><option value="accepted">Accepted</option><option value="declined">Declined</option><option value="cancelled">Cancelled</option>
+                </AppNativeSelect>
+            </div>
+            @if (_page.Items.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="No contributions" Message="There are no contributions in this view." /> }
+            else
+            {
+                <section class="view-contributions-list" aria-label="Shared Library contributions">
+                    @foreach (var contribution in _page.Items)
+                    {
+                        <AppNativeButton Type="button" Class="view-contribution-card" OnClick="@(_ => Open(contribution.Id))">
+                            <span class="view-contribution-card__identity"><strong>@contribution.SubmittedByName</strong><small>@contribution.Items.Count item@(contribution.Items.Count == 1 ? "" : "s") · @Destination(contribution)</small></span>
+                            <span><AppStatusBadge Text="@StatusLabel(contribution.Status)" Tone="@StatusTone(contribution.Status)" /><small>@contribution.SubmittedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</small></span>
+                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
+                        </AppNativeButton>
+                    }
+                </section>
+            }
+        }
+    </main>
+</ViewSectionShell>
+
+@code {
+    [Parameter] public Guid? ContributionId { get; set; }
+    private ViewSharedContributionPageDto? _page;
+    private ViewSharedContributionDto? _detail;
+    private bool _loading = true;
+    private string _mode = "mine", _status = string.Empty;
+    private string _decisionKind = "timeline", _decisionFolder = string.Empty, _decisionReason = string.Empty;
+    private string? _error;
+    private CancellationTokenSource? _pollCts;
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true; _error = null; _detail = null;
+        if (ContributionId.HasValue)
+        {
+            var detailTask = ApiClient.GetViewSharedContributionAsync(ContributionId.Value);
+            var capabilityTask = ApiClient.GetViewSharedContributionsAsync("mine", limit: 1);
+            await Task.WhenAll(detailTask, capabilityTask);
+            _detail = await detailTask;
+            _page = await capabilityTask;
+            if (_detail is not null)
+            {
+                _decisionKind = _detail.DestinationKind;
+                _decisionFolder = _detail.DestinationLabel ?? string.Empty;
+                _decisionReason = _detail.DecisionReason ?? string.Empty;
+            }
+            if (_detail is null) _error = ApiClient.LastError ?? "This contribution is unavailable.";
+        }
+        else
+        {
+            _page = await ApiClient.GetViewSharedContributionsAsync(_mode, string.IsNullOrWhiteSpace(_status) ? null : _status);
+            if (_page is null) _error = ApiClient.LastError ?? "The contribution queue is unavailable.";
+        }
+        _loading = false;
+        StartPollingIfNeeded();
+    }
+
+    private RenderFragment ContributionDetail(ViewSharedContributionDto contribution) => @<div class="view-contribution-detail">
+        <AppCard>
+            <div class="view-contribution-detail__summary">
+                <div><span>Submitted by</span><strong>@contribution.SubmittedByName</strong></div>
+                <div><span>Status</span><AppStatusBadge Text="@StatusLabel(contribution.Status)" Tone="@StatusTone(contribution.Status)" /></div>
+                <div><span>Destination</span><strong>@Destination(contribution)</strong></div>
+                <div><span>Submitted</span><strong>@contribution.SubmittedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</strong></div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(contribution.Note)) { <div class="view-contribution-note"><span>Contributor note</span><p>@contribution.Note</p></div> }
+            @if (!string.IsNullOrWhiteSpace(contribution.DecisionReason)) { <div class="view-contribution-note"><span>Curator note</span><p>@contribution.DecisionReason</p></div> }
+            @if (contribution.Status == "pending" && _page?.CanReview == true)
+            {
+                <div class="view-contribution-decision">
+                    <label><span>Accepted destination</span><AppNativeSelect Value="@_decisionKind" OnChange="DecisionKindChanged" aria-label="Accepted Shared Library destination"><option value="timeline">Shared Timeline</option><option value="folder">Named Shared folder</option></AppNativeSelect></label>
+                    @if (_decisionKind == "folder") { <AppTextField Label="Shared folder name" Value="@_decisionFolder" ValueChanged="@(value => _decisionFolder = value ?? string.Empty)" /> }
+                    <AppTextField Label="Curator note (optional)" Value="@_decisionReason" ValueChanged="@(value => _decisionReason = value ?? string.Empty)" />
+                </div>
+            }
+        </AppCard>
+        <section class="view-contribution-items" aria-labelledby="contribution-items-heading"><h2 id="contribution-items-heading">Submitted items</h2>
+            @foreach (var item in contribution.Items) { <div><MudIcon Icon="@MediaIcon(item.MediaKind)" /><span><strong>@item.Title</strong><small>@item.MediaKind · @OperationLabel(item.Operation)</small>@if (!string.IsNullOrWhiteSpace(item.Error)) { <em>@item.Error</em> }</span><AppStatusBadge Text="@ExecutionLabel(item.ExecutionState)" Tone="@ExecutionTone(item.ExecutionState)" /></div> }
+        </section>
+        <section class="view-contribution-events" aria-labelledby="contribution-events-heading"><h2 id="contribution-events-heading">Activity</h2>
+            @foreach (var entry in contribution.Events.Reverse()) { <div><strong>@ExecutionLabel(entry.EventType)</strong><span>@entry.ActorName · @entry.OccurredAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</span>@if (!string.IsNullOrWhiteSpace(entry.Detail)) { <p>@entry.Detail</p> }</div> }
+        </section>
+        <AppActionBar>
+            @if (contribution.Status == "pending" && _page?.CanReview == true)
+            {
+                <AppButton Label="Decline" ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Error" OnClick="@(() => DecideAsync(contribution, "declined"))" />
+                <AppButton Label="Accept and transfer" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="@(() => DecideAsync(contribution, "accepted"))" />
+            }
+            else if (contribution.Status == "pending") { <AppButton Label="Cancel submission" ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Error" OnClick="@(() => CancelAsync(contribution))" /> }
+            @if (contribution.Status == "accepted" && contribution.Items.Any(item => item.ExecutionState is "needs_attention" or "failed" or "cleanup_pending") && _page?.CanReview == true)
+            { <AppButton Label="Retry transfer" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="@(() => RetryAsync(contribution))" /> }
+        </AppActionBar>
+    </div>;
+
+    private async Task ChangeModeAsync(string mode) { _mode = mode; await LoadAsync(); }
+    private async Task StatusChangedAsync(ChangeEventArgs args) { _status = args.Value?.ToString() ?? string.Empty; await LoadAsync(); }
+    private void Open(Guid id) => Navigation.NavigateTo($"/view/contributions/{id:D}");
+    private async Task CancelAsync(ViewSharedContributionDto value) { var result = await ApiClient.CancelViewSharedContributionAsync(value.Id, value.Revision); Mutated(result, "Contribution cancelled."); }
+    private void DecisionKindChanged(ChangeEventArgs args) => _decisionKind = args.Value?.ToString() == "folder" ? "folder" : "timeline";
+    private async Task DecideAsync(ViewSharedContributionDto value, string decision)
+    {
+        if (decision == "accepted" && _decisionKind == "folder" && string.IsNullOrWhiteSpace(_decisionFolder))
+        {
+            Snackbar.Add("Enter a Shared folder name before accepting.", Severity.Error);
+            return;
+        }
+        var result = await ApiClient.DecideViewSharedContributionAsync(value.Id,
+            new(decision, value.Revision, _decisionReason, _decisionKind, _decisionKind == "folder" ? _decisionFolder : null));
+        Mutated(result, decision == "accepted" ? "Contribution accepted." : "Contribution declined.");
+    }
+    private async Task RetryAsync(ViewSharedContributionDto value) { var result = await ApiClient.RetryViewSharedContributionAsync(value.Id, value.Revision); Mutated(result, "Transfer retried."); }
+    private void Mutated(ViewSharedContributionDto? result, string success) { if (result is null) { Snackbar.Add(ApiClient.LastError ?? "The contribution could not be changed.", Severity.Error); return; } _detail = result; Snackbar.Add(success, Severity.Success); StartPollingIfNeeded(); StateHasChanged(); }
+    private void StartPollingIfNeeded()
+    {
+        _pollCts?.Cancel(); _pollCts?.Dispose(); _pollCts = null;
+        if (_detail is null || _detail.Status != "accepted" || _detail.Items.All(IsTerminalExecutionState)) return;
+        _pollCts = new CancellationTokenSource();
+        _ = PollAsync(_detail.Id, _pollCts.Token);
+    }
+    private async Task PollAsync(Guid id, CancellationToken ct)
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                await Task.Delay(1500, ct);
+                var latest = await ApiClient.GetViewSharedContributionAsync(id, ct);
+                if (latest is null) return;
+                _detail = latest;
+                await InvokeAsync(StateHasChanged);
+                if (latest.Items.All(IsTerminalExecutionState)) return;
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+    private string ModeClass(string value) => _mode == value ? "is-selected" : string.Empty;
+    private static string Destination(ViewSharedContributionDto value) => value.DestinationKind == "folder" ? $"Shared folder · {value.DestinationLabel}" : "Shared Timeline";
+    private static string StatusLabel(string value) => char.ToUpperInvariant(value[0]) + value[1..];
+    private static AppUiTone StatusTone(string value) => value switch { "accepted" => AppUiTone.Success, "declined" or "cancelled" => AppUiTone.Neutral, _ => AppUiTone.Warning };
+    private static string ExecutionLabel(string value) => value.Replace('_', ' ');
+    private static bool IsTerminalExecutionState(ViewSharedContributionItemDto item) => item.ExecutionState is "completed" or "needs_attention" or "failed" or "cleanup_pending";
+    private static AppUiTone ExecutionTone(string value) => value switch { "completed" => AppUiTone.Success, "needs_attention" or "failed" => AppUiTone.Error, "cleanup_pending" => AppUiTone.Warning, _ => AppUiTone.Info };
+    private static string OperationLabel(string value) => value == "move" ? "Moves if accepted" : "Copies if accepted";
+    private static string MediaIcon(string value) => value switch { "video" => Icons.Material.Outlined.Movie, "audio" => Icons.Material.Outlined.AudioFile, "document" => Icons.Material.Outlined.Description, _ => Icons.Material.Outlined.Image };
+    public void Dispose() { _pollCts?.Cancel(); _pollCts?.Dispose(); }
+}

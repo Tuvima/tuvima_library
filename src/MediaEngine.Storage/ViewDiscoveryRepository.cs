@@ -42,12 +42,14 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
     {
         ArgumentNullException.ThrowIfNull(query);
         var libraries = Validate(query.AuthorizedLibraryIds, query.Limit, query.Cursor, query.Search);
-        if (libraries.Length == 0)
+        if (libraries.Length == 0 && !query.IncludeSharedLibraryAssets)
             return new ViewPlaceDiscoveryPage([], null, false, false);
 
         ct.ThrowIfCancellationRequested();
         var parameters = Parameters(libraries, query.Limit, query.Search, query.Cursor);
-        var libraryPredicate = LibraryPredicate("li", libraries.Length);
+        var libraryPredicate = query.IncludeSharedLibraryAssets
+            ? "EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id)"
+            : LibraryPredicate("li", libraries.Length);
         using var connection = database.CreateConnection();
         var hasEligibleData = connection.QuerySingle<bool>(new CommandDefinition($$"""
             SELECT EXISTS (
@@ -136,12 +138,14 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
     {
         ArgumentNullException.ThrowIfNull(query);
         var libraries = Validate(query.AuthorizedLibraryIds, query.Limit, query.Cursor, query.Search);
-        if (libraries.Length == 0)
+        if (libraries.Length == 0 && !query.IncludeSharedLibraryAssets)
             return new ViewPeopleDiscoveryPage([], null, false, false);
 
         ct.ThrowIfCancellationRequested();
         var parameters = Parameters(libraries, query.Limit, query.Search, query.Cursor);
-        var libraryPredicate = LibraryPredicate("li", libraries.Length);
+        var libraryPredicate = query.IncludeSharedLibraryAssets
+            ? "EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id)"
+            : LibraryPredicate("li", libraries.Length);
         var evidencePredicate = """
             ((lia.annotation_kind IN ('person_name', 'named_person', 'face_name'))
              OR (lia.annotation_kind IN ('person_identity', 'face_identity')

@@ -250,31 +250,92 @@ public static class ViewEndpoints
         MapLifecycle(group, "trash", LocalAssetLifecycleState.Trashed);
         MapLifecycle(group, "restore", LocalAssetLifecycleState.Active);
 
-        group.MapPost("/items/{id:guid}/family-preview", async (Guid id, ViewFamilyTransferRequest request,
-            IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
-            ViewFamilyTransferService transfers, CancellationToken ct) =>
+        group.MapPost("/shared/contributions/preview", async (ViewSharedContributionPreviewRequest request,
+            IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
-            if (!decision.IsAllowed) return Access(decision.Outcome);
-            try { return Results.Ok(transfers.Preview(id, request.DestinationKind, request.FolderName, ct)); }
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try { return Results.Ok(await contributions.PreviewAsync(caller.ProfileId, request, ct)); }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
             catch (InvalidOperationException exception) { return ApiErrors.Unprocessable(exception.Message); }
             catch (KeyNotFoundException) { return Missing(); }
-        }).WithName("PreviewViewFamilyTransfer").Produces<ViewFamilyTransferPreviewDto>();
+        }).WithName("PreviewViewSharedContribution").Produces<ViewSharedContributionPreviewDto>();
 
-        group.MapPost("/items/{id:guid}/family", async (Guid id, ViewFamilyTransferRequest request,
-            IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
-            ViewFamilyTransferService transfers, CancellationToken ct) =>
+        group.MapPost("/shared/contributions", async (ViewSharedContributionSubmitRequest request,
+            IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
-            if (!decision.IsAllowed || identity.Current is not { } caller) return Access(decision.Outcome);
-            try { return Results.Ok(await transfers.ExecuteAsync(id, caller.ProfileId,
-                request.DestinationKind, request.FolderName, ct)); }
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try { return Results.Ok(await contributions.SubmitAsync(caller.ProfileId, request, ct)); }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
-            catch (Exception exception) when (exception is InvalidOperationException or IOException or UnauthorizedAccessException)
-            { return ApiErrors.Unprocessable(exception.Message); }
+            catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
+            catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
             catch (KeyNotFoundException) { return Missing(); }
-        }).WithName("MoveViewItemToFamilyLibrary").Produces<ViewFamilyTransferResultDto>();
+        }).WithName("SubmitViewSharedContribution").Produces<ViewSharedContributionDto>();
+
+        group.MapGet("/shared/contributions", async (string? mode, string? status, int? offset, int? limit,
+            IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            var page = PagedRequest.From(offset, limit, defaultLimit: 50, maxLimit: 100);
+            try { return Results.Ok(await contributions.ListAsync(caller.ProfileId, mode ?? "mine", status,
+                page.Offset, page.Limit, ct)); }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
+        }).WithName("ListViewSharedContributions").Produces<ViewSharedContributionPageDto>();
+
+        group.MapGet("/shared/contributions/{id:guid}", async (Guid id,
+            IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try { return Results.Ok(await contributions.GetRequiredAsync(caller.ProfileId, id, false, ct)); }
+            catch (UnauthorizedAccessException) { return Missing(); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("GetViewSharedContribution").Produces<ViewSharedContributionDto>();
+
+        group.MapPost("/shared/contributions/{id:guid}/cancel", async (Guid id,
+            ViewSharedContributionRevisionRequest request, IViewRequestProfileContext identity,
+            ViewSharedContributionService contributions, CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try { return Results.Ok(await contributions.CancelAsync(caller.ProfileId, id, request.ExpectedRevision, ct)); }
+            catch (UnauthorizedAccessException) { return Missing(); }
+            catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("CancelViewSharedContribution").Produces<ViewSharedContributionDto>();
+
+        group.MapPost("/shared/contributions/{id:guid}/decision", async (Guid id,
+            ViewSharedContributionDecisionRequest request, IViewRequestProfileContext identity,
+            ViewSharedContributionService contributions, CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try { return Results.Ok(await contributions.DecideAsync(caller.ProfileId, id, request, ct)); }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
+            catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("DecideViewSharedContribution").Produces<ViewSharedContributionDto>();
+
+        group.MapPost("/shared/contributions/{id:guid}/retry", async (Guid id,
+            ViewSharedContributionRevisionRequest request, IViewRequestProfileContext identity,
+            ViewSharedContributionService contributions, CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try { return Results.Ok(await contributions.RetryAsync(caller.ProfileId, id, request.ExpectedRevision, ct)); }
+            catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
+            catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("RetryViewSharedContribution").Produces<ViewSharedContributionDto>();
+
+        group.MapPost("/shared/items/direct", async (ViewSharedDirectAddRequest request,
+            IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try { return Results.Ok(await contributions.AddDirectAsync(caller.ProfileId, request, ct)); }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
+            catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("AddViewItemsDirectlyToSharedLibrary").Produces<ViewSharedContributionDto>();
 
         MapGalleries(group);
 
