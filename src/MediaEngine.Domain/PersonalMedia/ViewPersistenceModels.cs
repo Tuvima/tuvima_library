@@ -74,7 +74,8 @@ public sealed record ViewSource(
     string? RelativePath = null,
     string? ExternalPath = null,
     bool IncludeSubdirectories = true,
-    bool Enabled = true);
+    bool Enabled = true,
+    bool IncludeInTimeline = false);
 
 public enum ViewDeviceBackupState
 {

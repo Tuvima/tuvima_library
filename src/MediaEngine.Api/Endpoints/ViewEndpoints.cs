@@ -4,6 +4,7 @@ using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Api.Services.View;
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Identity.Contracts;
@@ -92,6 +93,71 @@ public static class ViewEndpoints
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
             catch (InvalidOperationException exception) { return ApiErrors.Unprocessable(exception.Message); }
         }).WithName("GetViewAssets").Produces<ViewAssetTimelinePageDto>();
+
+        group.MapGet("/folders", async (string? scope, Guid? scopeProfileId,
+            Guid? sourceId, string? path, bool? recursive, string? q, int? offset, int? limit,
+            IViewRequestProfileContext identity, IViewProfileRepository preferences,
+            IViewResourceAuthorizationService authorization, ViewFolderService folders,
+            CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try
+            {
+                var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
+                var decision = await authorization.AuthorizeAsync(caller,
+                    new ViewResourceRequest(requested, ViewResourceKind.Search, null), ct);
+                if (!decision.IsAllowed || decision.Scope is null) return Access(decision.Outcome);
+                var page = PagedRequest.From(offset, limit, 100, 200);
+                return Results.Ok(await folders.QueryAsync(caller.ProfileId, decision.Scope, sourceId, path,
+                    recursive == true, q, page.Offset, page.Limit, ct));
+            }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("GetViewFolders").Produces<ViewFolderPageDto>();
+
+        group.MapPut("/folders/pin", async (ViewFolderPinRequest request,
+            IViewRequestProfileContext identity,
+            IViewResourceAuthorizationService authorization, ViewFolderService folders,
+            CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try
+            {
+                var requested = ParseScope(request.Scope, request.ScopeProfileId);
+                var decision = await authorization.AuthorizeAsync(caller,
+                    new ViewResourceRequest(requested, ViewResourceKind.Search, null), ct);
+                if (!decision.IsAllowed || decision.Scope is null) return Access(decision.Outcome);
+                await folders.SetPinAsync(caller.ProfileId, decision.Scope, request.SourceId,
+                    request.RelativePath, request.Pinned, ct);
+                return Results.NoContent();
+            }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("SetViewFolderPin")
+            .Produces<Microsoft.AspNetCore.Http.HttpResults.NoContent>(StatusCodes.Status204NoContent);
+
+        group.MapPut("/folders/timeline-policy", async (ViewFolderTimelinePolicyRequest request,
+            IViewRequestProfileContext identity,
+            IViewResourceAuthorizationService authorization, ViewFolderService folders,
+            CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            try
+            {
+                var requested = ParseScope(request.Scope, request.ScopeProfileId);
+                var decision = await authorization.AuthorizeAsync(caller,
+                    new ViewResourceRequest(requested, ViewResourceKind.Search, null), ct);
+                if (!decision.IsAllowed || decision.Scope is null) return Access(decision.Outcome);
+                await folders.SetTimelinePolicyAsync(caller.ProfileId,
+                    string.Equals(caller.Role, AppRoles.Administrator, StringComparison.OrdinalIgnoreCase),
+                    decision.Scope, request.SourceId, request.RelativePath, request.IncludeInTimeline, ct);
+                return Results.NoContent();
+            }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (UnauthorizedAccessException) { return Missing(); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("SetViewFolderTimelinePolicy")
+            .Produces<Microsoft.AspNetCore.Http.HttpResults.NoContent>(StatusCodes.Status204NoContent);
 
         group.MapPost("/uploads", async (IFormFile file,
             IViewRequestProfileContext identity, IViewScopeResolver resolver,
@@ -183,6 +249,33 @@ public static class ViewEndpoints
         MapLifecycle(group, "archive", LocalAssetLifecycleState.Archived);
         MapLifecycle(group, "trash", LocalAssetLifecycleState.Trashed);
         MapLifecycle(group, "restore", LocalAssetLifecycleState.Active);
+
+        group.MapPost("/items/{id:guid}/family-preview", async (Guid id, ViewFamilyTransferRequest request,
+            IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
+            ViewFamilyTransferService transfers, CancellationToken ct) =>
+        {
+            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
+            if (!decision.IsAllowed) return Access(decision.Outcome);
+            try { return Results.Ok(transfers.Preview(id, request.DestinationKind, request.FolderName, ct)); }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (InvalidOperationException exception) { return ApiErrors.Unprocessable(exception.Message); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("PreviewViewFamilyTransfer").Produces<ViewFamilyTransferPreviewDto>();
+
+        group.MapPost("/items/{id:guid}/family", async (Guid id, ViewFamilyTransferRequest request,
+            IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
+            ViewFamilyTransferService transfers, CancellationToken ct) =>
+        {
+            var decision = await AuthorizeOwnedItemAsync(id, identity, authorization, ct);
+            if (!decision.IsAllowed || identity.Current is not { } caller) return Access(decision.Outcome);
+            try { return Results.Ok(await transfers.ExecuteAsync(id, caller.ProfileId,
+                request.DestinationKind, request.FolderName, ct)); }
+            catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
+            catch (Exception exception) when (exception is InvalidOperationException or IOException or UnauthorizedAccessException)
+            { return ApiErrors.Unprocessable(exception.Message); }
+            catch (KeyNotFoundException) { return Missing(); }
+        }).WithName("MoveViewItemToFamilyLibrary").Produces<ViewFamilyTransferResultDto>();
+
         MapGalleries(group);
 
         group.MapGet("/share-targets", async (IViewRequestProfileContext identity,
@@ -250,10 +343,12 @@ public static class ViewEndpoints
                 var source = string.Equals(request.StorageMode, "linked", StringComparison.OrdinalIgnoreCase)
                     ? await storage.AddLinkedSourceAsync(space, request.Name, request.Path ?? string.Empty,
                         request.IncludeSubdirectories, ct)
-                    : string.IsNullOrWhiteSpace(request.Path)
+                        : string.IsNullOrWhiteSpace(request.Path)
                         ? await storage.EnsureManagedSourceAsync(space, request.Name, ViewSourceType.Folder,
                             $"managed:{Guid.NewGuid():N}", ct)
                         : await storage.ImportFolderAsync(space, request.Name, request.Path, ct);
+                if (source.IncludeInTimeline != request.IncludeInTimeline)
+                    source = await storage.UpdateSourceAsync(space, source with { IncludeInTimeline = request.IncludeInTimeline }, ct);
                 await indexing.RefreshSourcesAsync(ct);
                 // The hosted worker owns reconciliation and its cancellation lifetime.
                 indexing.RequestReconcile(space.LibraryId);
@@ -277,7 +372,7 @@ public static class ViewEndpoints
             if (space is null || source is null) return Missing();
             if (string.IsNullOrWhiteSpace(request.Name)) return ApiErrors.BadRequest("A source name is required.");
             source = await spaces.UpsertSourceAsync(source with
-                { Name = request.Name.Trim(), Enabled = request.Enabled }, ct);
+                { Name = request.Name.Trim(), Enabled = request.Enabled, IncludeInTimeline = request.IncludeInTimeline }, ct);
             await indexing.RefreshSourcesAsync(ct);
             return Results.Ok(ToAdminSource(space, source, storage));
         }).WithName("UpdateViewProfileSource").Produces<ViewSourceAdminDto>().RequireAdmin();
@@ -681,7 +776,8 @@ public static class ViewEndpoints
         source.Enabled,
         source.LastActivityAt,
         source.CreatedAt,
-        source.UpdatedAt);
+        source.UpdatedAt,
+        source.IncludeInTimeline);
 
     private static string SourceTypeValue(ViewSourceType value) => value switch
     {

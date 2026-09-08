@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Dapper;
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
@@ -43,7 +44,8 @@ public sealed class ViewScopePersistenceService(
 public sealed class ViewResourcePersistenceService(
     ILocalAssetRepository assets,
     IViewGalleryRepository galleries,
-    IViewPersonalSpaceRepository spaces) : IViewResourceStore
+    IViewPersonalSpaceRepository spaces,
+    IDatabaseConnection database) : IViewResourceStore
 {
     public async Task<ViewResourceDescriptor?> FindAsync(
         ViewResourceKind kind,
@@ -71,12 +73,17 @@ public sealed class ViewResourcePersistenceService(
         if (item is null) return null;
         var explicitProfiles = await GetExplicitAssetRecipientsAsync(item.Id, requestingProfileId, ct)
             .ConfigureAwait(false);
+        using var connection = database.CreateConnection();
+        var isFamilyAsset = connection.ExecuteScalar<int>(new Dapper.CommandDefinition(
+            "SELECT COUNT(*) FROM view_family_assets WHERE item_id = @itemId;",
+            new { itemId = item.Id }, cancellationToken: ct)) > 0;
         return new ViewResourceDescriptor(
             kind,
             item.Id,
             item.OwnerProfileId,
             item.LibraryId,
-            explicitProfiles);
+            explicitProfiles,
+            IsFamilyAsset: isFamilyAsset);
     }
 
     private async Task<IReadOnlySet<Guid>> GetExplicitAssetRecipientsAsync(
@@ -110,7 +117,9 @@ public sealed class ViewAssetQueryService(ILocalAssetRepository assets) : IViewA
             plan.HiddenOnly,
             plan.GalleryId,
             plan.Lifecycle,
-            plan.SmartRule), ct);
+            plan.SmartRule,
+            plan.TimelineEligibleOnly,
+            plan.IncludeFamilyAssets), ct);
         return Task.FromResult(new ViewAssetTimelinePageDto(
             page.Items,
             ViewTimelineCursorCodec.Encode(page.NextCursor),

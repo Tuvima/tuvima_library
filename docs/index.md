@@ -147,8 +147,8 @@ The user-facing Dashboard is organized around current workflows:
 - **Read**, **Watch**, and **Listen** for media lanes and shelves.
 - **Collections** for automatic broader rollups, administrator-curated collections, a cross-lane shelf index, and canonical people.
 - **Search** for cross-library discovery.
-- **View** for one profile-owned Personal Space with exactly Photos, Galleries,
-  People, and Places.
+- **View** for profile-owned Personal Spaces and the household Family Library,
+  with Photos, Folders, Galleries, People, and Places.
 - **Detail pages** for viewing items and launching inline corrections.
 - **Review Queue** for blocked or uncertain items.
 - **Settings/Admin** for configuration and operations.

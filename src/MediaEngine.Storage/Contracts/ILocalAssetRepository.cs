@@ -64,7 +64,9 @@ public sealed record LocalAssetTimelineQuery(
     bool HiddenOnly = false,
     Guid? GalleryId = null,
     LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active,
-    CollectionRuleDefinition? SmartRule = null);
+    CollectionRuleDefinition? SmartRule = null,
+    bool TimelineEligibleOnly = false,
+    bool IncludeFamilyAssets = false);
 
 public sealed record LocalAssetTimelineCursor(DateTimeOffset EffectiveAt, Guid ItemId);
 

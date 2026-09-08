@@ -29,6 +29,9 @@ public sealed class ViewLibraryServiceTests
         Assert.Equal(fixture.OwnerProfileId, item.OwnerProfileId);
         Assert.Equal(fixture.PersonalLibraryId, item.LibraryId);
         Assert.NotEqual(Guid.Empty, item.PersonalSpaceId);
+        var location = Assert.IsType<LocalAssetContentLocation>(fixture.Repository.ResolveContent(item.Id));
+        var relative = Path.GetRelativePath(fixture.PersonalRoot, location.FilePath);
+        Assert.Matches(@"managed-view[\\/]Profiles[\\/][^\\/]+[\\/]Timeline[\\/]\d{4}[\\/]\d{2} - [A-Z][a-z]{2}[\\/][A-Z][a-z]{2} \d{2} - \d{2}\.\d{2}\.\d{2}IMG\.jpg", relative);
     }
 
     [Fact]

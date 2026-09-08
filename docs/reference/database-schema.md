@@ -220,6 +220,27 @@ kind, favorites, and active discovery.
 
 GPS and annotation indexes support Places and evidence-based People discovery.
 
+### Source timeline policy and household originals
+
+`view_source_policies` stores whether each source participates in the Photos
+timeline. Browser uploads default into Timeline; additional linked and managed
+folders remain available in Folders and opt in explicitly.
+
+`view_folder_pins` stores profile-private shortcuts by source and relative path.
+`view_folder_timeline_policies` stores source-owner branch rules with the
+validated absolute prefix used by the timeline query; the most-specific
+ancestor rule wins over the source default.
+
+`view_family_assets` marks items whose verified originals are household-owned
+under Shared while retaining the original profile as provenance. This marker
+does not expose the original profile's other private assets.
+
+`view_shared_transfers` is the durable recovery journal for physical Family
+Library promotion. It stores source and destination manifests and one of
+`planned`, `transferring`, `completed`, `cleanup_pending`, or `failed`.
+Household membership is published only after every destination member verifies;
+managed-source deletion happens afterward and can remain cleanup-pending.
+
 ### Galleries
 
 `view_galleries` stores owner, Personal Space, name/description, kind, optional

@@ -564,6 +564,60 @@ CREATE TABLE IF NOT EXISTS view_sources (
     UNIQUE (personal_space_id, source_key)
 );
 
+-- Timeline inclusion is separate from source registration. Browser uploads
+-- participate by default; additional folders opt in explicitly.
+CREATE TABLE IF NOT EXISTS view_source_policies (
+    source_id            BLOB NOT NULL PRIMARY KEY REFERENCES view_sources(id) ON DELETE CASCADE,
+    include_in_timeline  INTEGER NOT NULL DEFAULT 0 CHECK (include_in_timeline IN (0, 1)),
+    updated_at           TEXT NOT NULL
+);
+
+-- Folder-level View preferences. Pins are private to the profile. Timeline
+-- policies belong to the source and are evaluated from the most-specific
+-- ancestor so a branch can override its source default.
+CREATE TABLE IF NOT EXISTS view_folder_pins (
+    profile_id      BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    source_id       BLOB NOT NULL REFERENCES view_sources(id) ON DELETE CASCADE,
+    relative_path   TEXT NOT NULL,
+    created_at      TEXT NOT NULL,
+    PRIMARY KEY (profile_id, source_id, relative_path)
+);
+
+CREATE TABLE IF NOT EXISTS view_folder_timeline_policies (
+    source_id           BLOB NOT NULL REFERENCES view_sources(id) ON DELETE CASCADE,
+    relative_path       TEXT NOT NULL,
+    absolute_path       TEXT NOT NULL,
+    include_in_timeline INTEGER NOT NULL CHECK (include_in_timeline IN (0, 1)),
+    updated_by_profile_id BLOB NOT NULL REFERENCES profiles(id),
+    updated_at          TEXT NOT NULL,
+    PRIMARY KEY (source_id, relative_path)
+);
+
+-- A promoted item remains traceable to its originating profile while its
+-- durable ownership and physical keeper location belong to the household.
+CREATE TABLE IF NOT EXISTS view_family_assets (
+    item_id                BLOB NOT NULL PRIMARY KEY REFERENCES local_items(id) ON DELETE RESTRICT,
+    original_profile_id    BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+    destination_kind       TEXT NOT NULL CHECK (destination_kind IN ('timeline', 'folder')),
+    destination_label      TEXT,
+    promoted_by_profile_id BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+    promoted_at            TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS view_shared_transfers (
+    id                     BLOB NOT NULL PRIMARY KEY,
+    item_id                BLOB NOT NULL REFERENCES local_items(id) ON DELETE RESTRICT,
+    operation              TEXT NOT NULL CHECK (operation IN ('move', 'copy')),
+    state                  TEXT NOT NULL CHECK (state IN ('planned', 'transferring', 'completed', 'cleanup_pending', 'failed')),
+    source_manifest_json   TEXT NOT NULL CHECK (json_valid(source_manifest_json)),
+    destination_manifest_json TEXT CHECK (destination_manifest_json IS NULL OR json_valid(destination_manifest_json)),
+    error                  TEXT,
+    created_at             TEXT NOT NULL,
+    updated_at             TEXT NOT NULL,
+    completed_at           TEXT,
+    UNIQUE(item_id)
+);
+
 CREATE TABLE IF NOT EXISTS view_devices (
     id                  BLOB NOT NULL PRIMARY KEY,
     personal_space_id   BLOB NOT NULL REFERENCES view_personal_spaces(id) ON DELETE CASCADE,

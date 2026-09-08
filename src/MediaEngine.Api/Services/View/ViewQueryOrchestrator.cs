@@ -1,5 +1,6 @@
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.View;
@@ -31,7 +32,9 @@ public sealed record ViewAssetQueryPlan(
     bool HiddenOnly,
     Guid? GalleryId,
     LocalAssetLifecycleFilter Lifecycle,
-    CollectionRuleDefinition? SmartRule);
+    CollectionRuleDefinition? SmartRule,
+    bool TimelineEligibleOnly,
+    bool IncludeFamilyAssets);
 
 public sealed record ViewQueryResult(
     ViewAccessOutcome Outcome,
@@ -89,7 +92,9 @@ public sealed class ViewQueryOrchestrator(
             request.HiddenOnly,
             smartRule is null ? request.GalleryId : null,
             request.Lifecycle,
-            smartRule);
+            smartRule,
+            request.GalleryId is null && string.IsNullOrWhiteSpace(request.Search),
+            decision.Scope.Kind == ViewScopeKind.Shared);
         var page = await backend.QueryAsync(plan, ct).ConfigureAwait(false);
         return new ViewQueryResult(ViewAccessOutcome.Allowed, page, decision.Scope);
     }

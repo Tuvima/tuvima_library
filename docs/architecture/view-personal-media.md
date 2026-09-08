@@ -20,14 +20,16 @@ Queue workflows.
 
 The product presents one **Personal Space** per enabled profile. A Personal
 Space may use several sources or devices, but those sources describe where
-files came from rather than creating separate user-facing destinations.
-The system has one managed View root. Each profile owns one stable-ID directory
-beneath that root, and each managed source/device owns a stable-ID child
-directory. Existing Personal Space and source identifiers remain useful
-implementation details; profile or source display names never form paths.
+files came from rather than creating separate libraries. The system has one
+managed View root. Each profile owns a directory beneath `Profiles` through a
+collision-safe storage label that remains stable when a display name or login
+changes. `Shared` is a separate household-owned originals tree and never
+masquerades as a profile.
 
-Managed folder import copies files beneath the profile's source directory and
-preserves the original folder. Browser uploads use a built-in managed source.
+Managed folder import copies files beneath the profile's `Folders` directory and
+preserves the original hierarchy and names. Browser uploads use a built-in
+managed Timeline source and organize new files by year, month, capture date,
+time, and media-kind suffix.
 Administrators may link an external folder as an advanced read-only source;
 the link is indexed in place and detaching it deletes only the source record,
 not its files. Sources are persisted Personal Space provenance, not entries in
@@ -80,6 +82,11 @@ The last selected scope is stored server-side per profile. First use defaults to
 Shared when permitted and Mine otherwise. A saved scope that becomes
 unauthorized falls back to Shared when still permitted, then Mine.
 
+Family Library assets are household-owned records beneath `Shared`. They are
+readable in Shared scope even when the original owner's Personal Space is not
+part of the broader profile aggregation; this does not expose the rest of that
+private Personal Space.
+
 ## Asset states
 
 Favorite, Hidden, Archive, and Trash are logical states. Archive removes an
@@ -131,19 +138,43 @@ summaries or previews.
 
 ## View surfaces
 
-Ordinary View routes use the shared section shell and exactly four primary
+Ordinary View routes use the shared section shell and five primary
 destinations:
 
 - `/view` — Photos
+- `/view/folders` — Folders
 - `/view/galleries` — Galleries
 - `/view/people` — People
 - `/view/places` — Places
 
 Shared View, Favorites, Videos, Archive, Recently Added, Hidden, and Trash are
-scopes or filters in the content area. Sources, devices, uploads, backup,
-duplicates, storage, AI configuration, and View administration remain in
-Settings. Immersive asset, Gallery, person, and place details may intentionally
+scopes or filters in the content area. Source configuration, devices, uploads,
+backup, duplicates, storage, AI configuration, and View administration remain
+in Settings. Folders is the authorized browsing projection of configured
+sources and Shared keeper files. Profiles can pin authorized folders as private
+shortcuts. A source owner can set a Photos inclusion rule on any branch;
+descendants inherit the nearest rule before falling back to the source default.
+It keeps source and nested path in the URL and renders a breadcrumb from Folders
+through every directory segment. Immersive
+asset, Gallery, person, and place details may intentionally
 omit the section rail.
+
+## Family Library promotion
+
+Selecting owned items in Mine can preview and execute promotion to Shared
+Timeline or a named Shared folder. The preview states whether managed originals
+will move or linked read-only originals will copy, together with group count,
+bytes, and destination directories. Compound members are transferred as one
+plan.
+
+The Engine persists source and destination manifests before copying. It copies
+to excluded staging, verifies byte count and SHA-256, finalizes without
+overwrite, and publishes household membership only after every group member is
+usable. Managed-source cleanup occurs after publication and re-verifies both
+copies immediately before deletion. A failed deletion stays `cleanup_pending`
+and retry uses the same manifest; the Engine never deletes the last verified
+copy. Named Shared folders preserve original names. Shared Timeline uses the
+same readable calendar convention as personal uploads.
 
 ## People, Places, and AI
 
@@ -213,10 +244,10 @@ still require runtime and visual evidence before release.
   not collapse profiles or Personal Spaces into shared ownership.
 - Favorite, Hidden, Archive, Trash, Restore, Gallery membership, and Gallery
   deletion modify SQLite state only. They do not mutate originals.
-- Existing/read-only sources remain immutable. A future permanent delete or
-  move must pass the existing source-mutation gate, resolve an exact contained
-  path, prove managed/writable policy, and require an explicit destructive
-  confirmation. The development database reset policy is not file authority.
+- Existing/read-only sources remain immutable. Family promotion copies them and
+  retains the external original. Managed promotion requires an owned item,
+  verifies destination containment beneath Shared, and requires an explicit
+  consequence preview. The development database reset policy is not file authority.
 - Derivatives and thumbnails are replaceable cache artifacts. They must never
   overwrite an original or become the only recorded copy of user media.
 
@@ -235,7 +266,7 @@ still require runtime and visual evidence before release.
 
 ### Responsive and accessibility obligations
 
-- The standard View shell exposes exactly four primary links—Photos,
+- The standard View shell exposes five primary links—Photos, Folders,
   Galleries, People, and Places—with one current-page state. Shared View,
   Favorites, Videos, Archive, Hidden, Trash, and Recently Added remain content
   scopes/filters, not extra rail destinations.
@@ -245,7 +276,7 @@ still require runtime and visual evidence before release.
 - Date groups, asset buttons, Gallery cards, and people/place results need
   semantic names that do not depend on thumbnails, color, hover, or map markers.
   Places must always retain an accessible list alternative.
-- Before release, capture and inspect Photos, Galleries, People, and Places at
+- Before release, capture and inspect Photos, Folders, Galleries, People, and Places at
   1920×1080, the normal 1440-pixel desktop width, a tablet width, and a narrow
   mobile width. Verify empty/loading/error states, long names, zoom/text scaling,
   overflow, selection toolbars, dialogs, and reduced-motion behavior. Static

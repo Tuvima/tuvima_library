@@ -194,9 +194,10 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
     public LocalAssetTimelinePage QueryTimeline(LocalAssetTimelineQuery query, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (query.AuthorizedLibraryIds is null || query.AuthorizedLibraryIds.Count == 0)
+        if ((query.AuthorizedLibraryIds is null || query.AuthorizedLibraryIds.Count == 0)
+            && !query.IncludeFamilyAssets)
             throw new ArgumentException("At least one resolver-authorized library is required.", nameof(query));
-        if (query.AuthorizedLibraryIds.Any(id => id == Guid.Empty))
+        if (query.AuthorizedLibraryIds?.Any(id => id == Guid.Empty) == true)
             throw new ArgumentException("Authorized library IDs cannot be empty.", nameof(query));
         if ((query.BeforeEffectiveAt.HasValue) != (query.BeforeItemId.HasValue))
             throw new ArgumentException("Both timeline cursor values are required together.", nameof(query));
@@ -204,14 +205,18 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             throw new ArgumentOutOfRangeException(nameof(query), "Limit must be between 1 and 500.");
         ct.ThrowIfCancellationRequested();
 
-        var libraryIds = query.AuthorizedLibraryIds.Distinct().ToArray();
+        var libraryIds = query.AuthorizedLibraryIds?.Distinct().ToArray() ?? [];
         var mediaKinds = query.MediaKinds?
             .Where(kind => !string.IsNullOrWhiteSpace(kind))
             .Select(NormalizeMediaKind)
             .Distinct(StringComparer.Ordinal)
             .ToArray() ?? [];
         var searchExpression = BuildSearchExpression(query.Search);
-        var libraryPredicate = string.Join(" OR ", libraryIds.Select((_, index) => $"li.library_id = @LibraryId{index}"));
+        var libraryPredicate = libraryIds.Length == 0
+            ? "0 = 1"
+            : string.Join(" OR ", libraryIds.Select((_, index) => $"li.library_id = @LibraryId{index}"));
+        if (query.IncludeFamilyAssets)
+            libraryPredicate = $"({libraryPredicate}) OR EXISTS (SELECT 1 FROM view_family_assets vfa WHERE vfa.item_id = li.id)";
         var smartRule = query.SmartRule is null
             ? new LocalAssetSmartRuleSql("1 = 1", new DynamicParameters())
             : LocalAssetSmartRuleSqlCompiler.Compile(query.SmartRule);
@@ -227,6 +232,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             SearchExpression = searchExpression,
             query.BeforeEffectiveAt,
             query.BeforeItemId,
+            query.TimelineEligibleOnly,
             Take = query.Limit + 1,
         });
         parameters.AddDynamicParams(smartRule.Parameters);
@@ -254,6 +260,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                    0 AS TotalCount
               FROM local_items li
               LEFT JOIN local_item_metadata lm ON lm.item_id = li.id
+              LEFT JOIN view_family_assets vfa ON vfa.item_id = li.id
              WHERE ({{libraryPredicate}})
                AND ((@HiddenOnly = 1 AND li.hidden = 1)
                     OR (@HiddenOnly = 0 AND (@IncludeHidden = 1 OR li.hidden = 0)))
@@ -266,6 +273,24 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                AND (@GalleryId IS NULL OR EXISTS (
                     SELECT 1 FROM view_gallery_items vgi
                      WHERE vgi.gallery_id = @GalleryId AND vgi.item_id = li.id))
+               AND (@TimelineEligibleOnly = 0 OR EXISTS (
+                    SELECT 1
+                      FROM local_item_files tlif
+                      JOIN local_file_sources tlfs ON tlfs.file_id = tlif.file_id AND tlfs.library_id = li.library_id
+                      LEFT JOIN view_sources tvs ON tvs.id = tlfs.source_id
+                      LEFT JOIN view_source_policies tvsp ON tvsp.source_id = tvs.id
+                     WHERE tlif.item_id = li.id
+                       AND (vfa.item_id IS NOT NULL OR COALESCE((
+                           SELECT vftp.include_in_timeline
+                             FROM view_folder_timeline_policies vftp
+                            WHERE vftp.source_id = tvs.id
+                              AND (tlfs.file_path = vftp.absolute_path COLLATE NOCASE
+                                   OR (substr(tlfs.file_path, 1, length(vftp.absolute_path)) = vftp.absolute_path COLLATE NOCASE
+                                       AND substr(tlfs.file_path, length(vftp.absolute_path) + 1, 1) IN ('/', '\')))
+                            ORDER BY length(vftp.absolute_path) DESC
+                            LIMIT 1), tvsp.include_in_timeline,
+                           CASE WHEN tvs.source_type = 'browser_upload' THEN 1 ELSE 0 END) = 1))
+               )
                AND ({{smartRule.Predicate}})
                AND (@SearchExpression IS NULL OR EXISTS (
                     SELECT 1 FROM local_item_search lis

@@ -60,6 +60,26 @@ public sealed partial class EngineApiClient
         return GetAsync<ViewAssetTimelinePageDto>("GET /view/assets", $"/view/assets?{string.Join('&', query)}", ct: ct);
     }
 
+    public Task<ViewFolderPageDto?> GetViewFoldersAsync(ViewFolderQueryOptions options, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        AddQuery(query, "scope", ScopeValue(options.Scope));
+        AddQuery(query, "scopeProfileId", options.Scope == ViewScopeKind.Profile ? options.ScopeProfileId?.ToString("D") : null);
+        AddQuery(query, "sourceId", options.SourceId?.ToString("D"));
+        AddQuery(query, "path", options.RelativePath);
+        AddQuery(query, "recursive", options.IncludeDescendants ? "true" : null);
+        AddQuery(query, "q", options.Search?.Trim());
+        AddQuery(query, "offset", options.Offset > 0 ? options.Offset.ToString(System.Globalization.CultureInfo.InvariantCulture) : null);
+        AddQuery(query, "limit", Math.Clamp(options.Limit, 1, 200).ToString(System.Globalization.CultureInfo.InvariantCulture));
+        return GetAsync<ViewFolderPageDto>("GET /view/folders", $"/view/folders?{string.Join('&', query)}", ct: ct);
+    }
+
+    public Task<bool> SetViewFolderPinAsync(ViewFolderPinRequest request, CancellationToken ct = default) =>
+        PutAsync("PUT /view/folders/pin", "/view/folders/pin", request, ct: ct);
+
+    public Task<bool> SetViewFolderTimelinePolicyAsync(ViewFolderTimelinePolicyRequest request, CancellationToken ct = default) =>
+        PutAsync("PUT /view/folders/timeline-policy", "/view/folders/timeline-policy", request, ct: ct);
+
     public Task<ViewPeoplePageDto?> GetViewPeopleAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default) =>
         GetViewDiscoveryAsync<ViewPeoplePageDto>("people", options, ct);
 
@@ -100,7 +120,10 @@ public sealed partial class EngineApiClient
     public Task<bool> ArchiveViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "archive", ct);
     public Task<bool> TrashViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "trash", ct);
     public Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default) => LifecycleAsync(itemId, "restore", ct);
-
+    public Task<ViewFamilyTransferPreviewDto?> PreviewViewFamilyTransferAsync(Guid itemId, ViewFamilyTransferRequest request, CancellationToken ct = default) =>
+        PostAsync<ViewFamilyTransferRequest, ViewFamilyTransferPreviewDto>("POST /view/items/{id}/family-preview", $"/view/items/{itemId:D}/family-preview", request, ct: ct);
+    public Task<ViewFamilyTransferResultDto?> TransferViewItemToFamilyAsync(Guid itemId, ViewFamilyTransferRequest request, CancellationToken ct = default) =>
+        PostAsync<ViewFamilyTransferRequest, ViewFamilyTransferResultDto>("POST /view/items/{id}/family", $"/view/items/{itemId:D}/family", request, ct: ct);
     public Task<ViewGalleryListResponse?> GetViewGalleriesAsync(CancellationToken ct = default) =>
         GetAsync<ViewGalleryListResponse>("GET /view/galleries", "/view/galleries", ct: ct);
     public Task<ViewGalleryDto?> GetViewGalleryAsync(Guid galleryId, CancellationToken ct = default) =>

@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Globalization;
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
@@ -283,12 +284,8 @@ public sealed class ViewLibraryService(
         var safeName = Path.GetFileName(fileName);
         if (string.IsNullOrWhiteSpace(safeName) || TryCreateCandidate(safeName) is null)
             throw new InvalidDataException("The uploaded file type is not supported by View.");
-        var stem = Path.GetFileNameWithoutExtension(safeName);
         var extension = Path.GetExtension(safeName);
-        var finalPath = Path.Combine(destinationPath, safeName);
-        if (File.Exists(finalPath))
-            finalPath = Path.Combine(destinationPath, $"{stem}-{Guid.NewGuid():N}{extension}");
-        var temporaryPath = finalPath + $".{Guid.NewGuid():N}.uploading";
+        var temporaryPath = Path.Combine(destinationPath, $".{Guid.NewGuid():N}.uploading{extension}");
         try
         {
             await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write,
@@ -296,6 +293,24 @@ public sealed class ViewLibraryService(
             {
                 await content.CopyToAsync(output, ct);
             }
+            var candidate = TryCreateCandidate(temporaryPath)
+                ?? throw new InvalidDataException("The uploaded file type is not supported by View.");
+            var metadata = await ReadMetadataAsync(candidate, ct);
+            var effective = metadata.CapturedAt.ToLocalTime();
+            var calendarDirectory = Path.Combine(destinationPath,
+                effective.Year.ToString("0000", CultureInfo.InvariantCulture),
+                effective.ToString("MM - MMM", CultureInfo.InvariantCulture));
+            Directory.CreateDirectory(calendarDirectory);
+            var typeSuffix = candidate.Type.MediaKind switch
+            {
+                LocalAssetMediaKinds.Image => "IMG",
+                LocalAssetMediaKinds.Video => "VID",
+                LocalAssetMediaKinds.Document => "DOC",
+                LocalAssetMediaKinds.Audio => "AUD",
+                _ => "FILE",
+            };
+            var organizedName = effective.ToString("MMM dd - HH.mm.ss", CultureInfo.InvariantCulture) + typeSuffix + extension;
+            var finalPath = UniqueDestination(calendarDirectory, organizedName);
             File.Move(temporaryPath, finalPath);
             return await IndexPathAsync(space.LibraryId, finalPath, ct)
                 ?? throw new InvalidOperationException("The uploaded file could not be indexed.");
@@ -461,6 +476,19 @@ public sealed class ViewLibraryService(
         }
 
         return result;
+    }
+
+    private static string UniqueDestination(string directory, string fileName)
+    {
+        var candidate = Path.Combine(directory, fileName);
+        if (!File.Exists(candidate)) return candidate;
+        var stem = Path.GetFileNameWithoutExtension(fileName);
+        var extension = Path.GetExtension(fileName);
+        for (var suffix = 2; ; suffix++)
+        {
+            candidate = Path.Combine(directory, $"{stem} ({suffix}){extension}");
+            if (!File.Exists(candidate)) return candidate;
+        }
     }
 
     private static string GetCompoundGroupKey(FileCandidate candidate)

@@ -5,6 +5,7 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 @using Microsoft.AspNetCore.Components.Routing
+@using MediaEngine.Contracts.LocalAssets
 
 <NavigationLock ConfirmExternalNavigation="@HasDraft" OnBeforeInternalNavigation="ConfirmNavigationAsync" />
 
@@ -90,17 +91,45 @@
         else if (_step == 2 && _personal)
         {
             <section class="add-library-wizard__stage">
-                <div class="add-library-wizard__stage-heading"><h3>Choose Personal Media storage</h3><p>This is the single View root for enabled profiles. Existing storage is shown below.</p></div>
-                <div class="add-library-wizard__example"><MudIcon Icon="@Icons.Material.Outlined.Folder" /><span>View root</span><code>@ViewRootPath</code></div>
-                <AppButton Label="Choose root" StartIcon="@Icons.Material.Outlined.FolderOpen" ButtonStyle="AppButtonStyle.Outlined" OnClick="ChooseViewRootAsync" />
-                <div class="add-library-wizard__example"><span>Profile folders</span><code>@Path.Combine(ViewRootPath, "Profiles")</code></div>
-                <p>Each profile has a stable named folder containing Timeline uploads and any additional managed Folders.</p>
-                <div class="add-library-wizard__example"><span>Reserved family archive</span><code>@Path.Combine(ViewRootPath, "Shared")</code></div>
-                <AppAlert Tone="AppUiTone.Info">Add existing archives or empty managed folders from Libraries > View after setup. Changing this root does not move existing personal files.</AppAlert>
-                @if (_viewValidation is not null) { <AppStatusBadge Text="@(_viewValidation.CanSelect ? "Root validated" : "Root needs attention")" Tone="@(_viewValidation.CanSelect ? AppUiTone.Success : AppUiTone.Warning)" /> }
-                @if (_viewValidation is { CanSelect: false })
+                @if (!Embedded)
                 {
-                    <AppAlert Tone="AppUiTone.Warning">@string.Join(" ", _viewValidation.Issues.Select(issue => issue.Message))</AppAlert>
+                    <div class="add-library-wizard__branches" role="radiogroup" aria-label="Personal Media setup action">
+                        <AppNativeButton Type="button" role="radio" aria-checked="@(_personalSetup == "root")" Class="@($"add-library-wizard__branch {(_personalSetup == "root" ? "is-selected" : null)}")" OnClick="@(_ => SetPersonalSetup("root"))"><span><strong>Configure View root</strong><small>Set the one Profiles and Shared storage foundation.</small></span></AppNativeButton>
+                        <AppNativeButton Type="button" role="radio" aria-checked="@(_personalSetup == "source")" Class="@($"add-library-wizard__branch {(_personalSetup == "source" ? "is-selected" : null)}")" OnClick="@(_ => SetPersonalSetup("source"))"><span><strong>Add profile folder</strong><small>Attach an archive or create a managed mixed-media folder.</small></span></AppNativeButton>
+                    </div>
+                }
+                @if (_personalSetup == "root")
+                {
+                    <div class="add-library-wizard__stage-heading"><h3>Choose Personal Media storage</h3><p>This is the single View root for enabled profiles. Existing storage is shown below.</p></div>
+                    <div class="add-library-wizard__example"><MudIcon Icon="@Icons.Material.Outlined.Folder" /><span>View root</span><code>@ViewRootPath</code></div>
+                    <AppButton Label="Choose root" StartIcon="@Icons.Material.Outlined.FolderOpen" ButtonStyle="AppButtonStyle.Outlined" OnClick="ChooseViewRootAsync" />
+                    <div class="add-library-wizard__example"><span>Profile folders</span><code>@Path.Combine(ViewRootPath, "Profiles")</code></div>
+                    <p>Each profile has a stable named folder containing Timeline uploads and any additional managed Folders.</p>
+                    <div class="add-library-wizard__example"><span>Family Library originals</span><code>@Path.Combine(ViewRootPath, "Shared")</code></div>
+                    <AppAlert Tone="AppUiTone.Info">Verified keeper promotions from managed Personal Spaces move into Shared after verification; linked read-only sources are copied. Changing this root does not relocate existing files.</AppAlert>
+                    @if (_viewValidation is not null) { <AppStatusBadge Text="@(_viewValidation.CanSelect ? "Root validated" : "Root needs attention")" Tone="@(_viewValidation.CanSelect ? AppUiTone.Success : AppUiTone.Warning)" /> }
+                    @if (_viewValidation is { CanSelect: false })
+                    {
+                        <AppAlert Tone="AppUiTone.Warning">@string.Join(" ", _viewValidation.Issues.Select(issue => issue.Message))</AppAlert>
+                    }
+                }
+                else
+                {
+                    <div class="add-library-wizard__stage-heading"><h3>Add a View folder</h3><p>Choose the owning profile, storage behavior, and whether its items join Photos.</p></div>
+                    <div class="libraries-form-grid">
+                        <AppSelect Label="Owner profile" Value="@_personalOwner" ValueChanged="@((string? value) => _personalOwner = value)" Options="@PersonalOwnerOptions" />
+                        <AppTextField Label="Folder name" Value="@_personalSourceName" ValueChanged="@((string? value) => _personalSourceName = value ?? string.Empty)" />
+                        <AppSelect Label="Folder management" Value="@_personalSourceMode" ValueChanged="@((string? value) => { _personalSourceMode = value ?? "linked"; _personalSourcePath = null; })" Options="@PersonalSourceModeOptions" />
+                        @if (_personalSourceMode == "linked")
+                        {
+                            <AppButton Label="Choose existing folder" StartIcon="@Icons.Material.Outlined.FolderOpen" ButtonStyle="AppButtonStyle.Outlined" OnClick="ChoosePersonalSourceAsync" />
+                            <code>@(_personalSourcePath ?? "No folder selected")</code>
+                            <AppSwitchRow Label="Include subfolders" Value="@_personalSourceRecursive" ValueChanged="@((bool value) => _personalSourceRecursive = value)" />
+                        }
+                        <AppSwitchRow Label="Show in Photos timeline" Description="The folder remains available under View > Folders when this is off." Value="@_personalSourceTimeline" ValueChanged="@((bool value) => _personalSourceTimeline = value)" />
+                    </div>
+                    <div class="add-library-wizard__example"><span>Resulting path</span><code>@PersonalSourcePreview</code></div>
+                    <AppAlert Tone="AppUiTone.Info">@(_personalSourceMode == "linked" ? "The existing folder is indexed in place and its originals remain read-only." : "Tuvima creates an empty managed folder. Adding it does not move existing media.")</AppAlert>
                 }
             </section>
         }
@@ -197,14 +226,26 @@
         else if (_personal)
         {
             <section class="add-library-wizard__stage">
-                <div class="add-library-wizard__stage-heading"><h3>Review Personal Media storage</h3><p>Nothing is saved until you select Save View storage.</p></div>
+                <div class="add-library-wizard__stage-heading"><h3>Review Personal Media storage</h3><p>Nothing is saved until you confirm this change.</p></div>
                 <dl class="add-library-wizard__review">
-                    <div><dt>Storage root</dt><dd>@ViewRootPath</dd></div>
-                    <div><dt>Personal Spaces</dt><dd>One per enabled profile</dd></div>
-                    <div><dt>New profiles</dt><dd>Provisioned when View access is enabled</dd></div>
-                    <div><dt>Profile storage</dt><dd>@Path.Combine(ViewRootPath, "Profiles")</dd></div>
-                    <div><dt>Reserved family archive</dt><dd>@Path.Combine(ViewRootPath, "Shared")</dd></div>
-                    <div><dt>Existing files</dt><dd>Remain in place; setting the root does not move files into Shared.</dd></div>
+                    @if (_personalSetup == "root")
+                    {
+                        <div><dt>Storage root</dt><dd>@ViewRootPath</dd></div>
+                        <div><dt>Personal Spaces</dt><dd>One per enabled profile</dd></div>
+                        <div><dt>New profiles</dt><dd>Provisioned when View access is enabled</dd></div>
+                        <div><dt>Profile storage</dt><dd>@Path.Combine(ViewRootPath, "Profiles")</dd></div>
+                        <div><dt>Family Library originals</dt><dd>@Path.Combine(ViewRootPath, "Shared")</dd></div>
+                        <div><dt>Existing files</dt><dd>Remain in place; setting the root does not move files into Shared.</dd></div>
+                    }
+                    else
+                    {
+                        <div><dt>Owner</dt><dd>@PersonalOwnerName</dd></div>
+                        <div><dt>Folder</dt><dd>@_personalSourceName</dd></div>
+                        <div><dt>Path</dt><dd>@PersonalSourcePreview</dd></div>
+                        <div><dt>Management</dt><dd>@(_personalSourceMode == "linked" ? "Linked read-only" : "Managed empty folder")</dd></div>
+                        <div><dt>Photos</dt><dd>@(_personalSourceTimeline ? "Included in Timeline" : "Folders only")</dd></div>
+                        <div><dt>Existing files</dt><dd>@(_personalSourceMode == "linked" ? "Indexed in place and unchanged" : "No existing files are moved")</dd></div>
+                    }
                 </dl>
             </section>
         }
@@ -251,7 +292,7 @@
                 }
                 else
                 {
-                    <AppButton Label="@(_personal ? "Save View storage" : "Create library")" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_saving" Disabled="@(_saving || !CanCommit)" OnClick="CreateAsync" />
+                    <AppButton Label="@(_personal ? (_personalSetup == "root" ? "Save View storage" : "Add View folder") : "Create library")" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_saving" Disabled="@(_saving || !CanCommit)" OnClick="CreateAsync" />
                 }
             </div>
         </div>
@@ -321,15 +362,30 @@
     private bool _personal;
     private bool _completed;
     private bool _viewChanged;
+    private string _personalSetup = "root";
+    private string? _personalOwner;
+    private string _personalSourceName = string.Empty;
+    private string _personalSourceMode = "linked";
+    private string? _personalSourcePath;
+    private bool _personalSourceRecursive = true;
+    private bool _personalSourceTimeline;
+    private List<ProfileViewModel> _personalProfiles = [];
+    private readonly Dictionary<Guid, ViewPersonalSpaceAdminReviewDto> _personalReviews = [];
     private string _initialViewLocation = "";
     private string _initialViewRoot = "";
     private ServerFolderValidationResultDto? _viewValidation;
-    private bool HasDraft => !_completed && (_selectedType is not null || _viewChanged);
-    private bool CanCommit => _personal ? _viewValidation?.CanSelect == true : AllFoldersValid && ValidOrganization;
+    private bool HasDraft => !_completed && (_selectedType is not null || _viewChanged || (_personal && _personalSetup == "source"));
+    private bool CanCommit => _personal
+        ? _personalSetup == "root"
+            ? _viewValidation?.CanSelect == true
+            : Guid.TryParse(_personalOwner, out _) && !string.IsNullOrWhiteSpace(_personalSourceName)
+                && (_personalSourceMode == "managed" || !string.IsNullOrWhiteSpace(_personalSourcePath))
+        : AllFoldersValid && ValidOrganization;
     private bool ValidOrganization => !HasManagedSources || _draft.OrganizationPolicy.Mode != "custom" || !string.IsNullOrWhiteSpace(_draft.OrganizationPolicy.CustomTemplate);
     private string ViewRootPath => _configuration is null ? "" : Path.Combine(_configuration.StorageLocations.FirstOrDefault(location => location.Id == _configuration.ViewStorage.StorageLocationId)?.Path ?? "", _configuration.ViewStorage.RelativeRoot);
     private void SelectStructured() { _personal = false; _viewValidation = null; _viewChanged = false; if (_configuration is not null) { _configuration.ViewStorage.StorageLocationId = _initialViewLocation; _configuration.ViewStorage.RelativeRoot = _initialViewRoot; } }
     private void SelectPersonal() { _personal = true; _selectedType = null; _draft = new(); _validation.Clear(); }
+    private void SetPersonalSetup(string value) { _personalSetup = value; _viewChanged = value == "source" || _viewChanged; }
     private async Task ConfirmNavigationAsync(LocationChangingContext context)
     {
         if (HasDraft && await DialogService.ShowMessageBoxAsync("Discard setup?", "Your library setup has not been saved.", yesText: "Discard and leave", cancelText: "Keep editing") != true)
@@ -356,6 +412,19 @@
         var request = new ValidateServerFolderRequest { ManualPath = ViewRootPath, SelectionMode = ServerFolderSelectionModes.PersonalSpaceManaged };
         _viewValidation = Embedded ? await ApiClient.ValidateSetupServerFolderAsync(request, SetupSession) : await ApiClient.ValidateServerFolderAsync(request);
     }
+    private async Task ChoosePersonalSourceAsync()
+    {
+        var parameters = new DialogParameters<ServerFolderPicker>
+        {
+            { component => component.InitialPath, _personalSourcePath ?? string.Empty },
+            { component => component.SelectionMode, ServerFolderSelectionModes.PersonalSpaceExisting },
+            { component => component.HelpText, "Choose an existing folder to index read-only in this profile's View." },
+        };
+        var dialog = await DialogService.ShowAsync<ServerFolderPicker>(string.Empty, parameters,
+            new DialogOptions { MaxWidth = MaxWidth.ExtraExtraLarge, CloseButton = false, CloseOnEscapeKey = true });
+        if (await dialog.Result is { Canceled: false, Data: ServerFolderValidationResultDto selected })
+            _personalSourcePath = selected.Path;
+    }
     private int _step = 1;
 
     protected override async Task OnInitializedAsync()
@@ -366,6 +435,15 @@
         _loadError = _configuration is null ? ApiClient.LastError : null;
         _initialViewLocation = _configuration?.ViewStorage.StorageLocationId ?? "";
         _initialViewRoot = _configuration?.ViewStorage.RelativeRoot ?? "";
+        if (!Embedded)
+        {
+            _personalProfiles = await ApiClient.GetProfilesAsync();
+            _personalOwner = _personalProfiles.FirstOrDefault()?.Id.ToString("D");
+            var reviews = await Task.WhenAll(_personalProfiles.Select(async profile =>
+                (profile.Id, Review: await ApiClient.GetViewProfileSourcesAsync(profile.Id))));
+            foreach (var (profileId, review) in reviews)
+                if (review is not null) _personalReviews[profileId] = review;
+        }
         _loading = false;
     }
 
@@ -532,7 +610,7 @@
     private bool CanContinue => _step switch
     {
         1 => _personal || _selectedType is not null,
-        2 => _personal ? _viewValidation?.CanSelect == true : AllFoldersValid && ValidOrganization,
+        2 => _personal ? CanCommit : AllFoldersValid && ValidOrganization,
         _ => true,
     };
 
@@ -553,7 +631,7 @@
         if (CanContinue && index >= 0 && index < VisibleSteps.Count - 1)
         {
             _step = VisibleSteps[index + 1].Number;
-            if (_personal && _step == 2) await ValidateViewAsync();
+            if (_personal && _personalSetup == "root" && _step == 2) await ValidateViewAsync();
         }
     }
 
@@ -607,6 +685,22 @@
         {
             if (_personal)
             {
+                if (_personalSetup == "source")
+                {
+                    if (!Guid.TryParse(_personalOwner, out var owner)) return;
+                    var created = await ApiClient.CreateViewProfileSourceAsync(owner,
+                        new CreateViewSourceRequest(_personalSourceName, _personalSourceMode,
+                            _personalSourcePath, _personalSourceRecursive, _personalSourceTimeline));
+                    if (created is null)
+                    {
+                        Snackbar.Add(ApiClient.LastError ?? "The View folder could not be added.", Severity.Error);
+                        return;
+                    }
+                    _completed = true;
+                    Snackbar.Add("View folder added. Indexing runs separately.", Severity.Success);
+                    Nav.NavigateTo("/settings/libraries/view");
+                    return;
+                }
                 await ValidateViewAsync();
                 if (_viewValidation?.CanSelect != true) { Snackbar.Add("The View root is no longer valid.", Severity.Error); return; }
             }
@@ -679,5 +773,29 @@
         1 => _draft.Sources.First(source => source.Role == "secondary").Path,
         var count => $"{count} secondary folders",
     };
+    private IReadOnlyList<AppSelectOption> PersonalOwnerOptions => _personalProfiles
+        .Select(profile => new AppSelectOption(profile.Id.ToString("D"), profile.DisplayName)).ToList();
+    private static readonly IReadOnlyList<AppSelectOption> PersonalSourceModeOptions =
+    [
+        new("linked", "Existing folder — read-only"),
+        new("managed", "New managed folder"),
+    ];
+    private string PersonalOwnerName => Guid.TryParse(_personalOwner, out var owner)
+        ? _personalProfiles.FirstOrDefault(profile => profile.Id == owner)?.DisplayName ?? "Profile"
+        : "Profile";
+    private string PersonalSourcePreview
+    {
+        get
+        {
+            if (_personalSourceMode == "linked") return _personalSourcePath ?? "Choose an existing folder";
+            if (!Guid.TryParse(_personalOwner, out var owner)
+                || !_personalReviews.TryGetValue(owner, out var review)
+                || review.PersonalSpace is null)
+                return "The profile's Personal Space will be provisioned before this folder is created.";
+            var safeName = MediaEngine.Domain.PersonalMedia.ViewStorageNames.FromDisplayName(_personalSourceName);
+            return Path.Combine(review.PersonalSpace.RootPath, "Folders",
+                string.IsNullOrWhiteSpace(safeName) ? "<folder-name>" : safeName);
+        }
+    }
     private static string TitleCase(string value) => char.ToUpperInvariant(value[0]) + value[1..];
 }

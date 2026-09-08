@@ -194,17 +194,20 @@ public sealed record ViewSourceAdminDto(
     [property: JsonPropertyName("enabled")] bool Enabled,
     [property: JsonPropertyName("last_activity_at")] DateTimeOffset? LastActivityAt,
     [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
-    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt);
+    [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
+    [property: JsonPropertyName("include_in_timeline")] bool IncludeInTimeline = false);
 
 public sealed record CreateViewSourceRequest(
     [property: JsonPropertyName("name")] string Name,
     [property: JsonPropertyName("storage_mode")] string StorageMode,
     [property: JsonPropertyName("path")] string? Path = null,
-    [property: JsonPropertyName("include_subdirectories")] bool IncludeSubdirectories = true);
+    [property: JsonPropertyName("include_subdirectories")] bool IncludeSubdirectories = true,
+    [property: JsonPropertyName("include_in_timeline")] bool IncludeInTimeline = false);
 
 public sealed record UpdateViewSourceRequest(
     [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("enabled")] bool Enabled);
+    [property: JsonPropertyName("enabled")] bool Enabled,
+    [property: JsonPropertyName("include_in_timeline")] bool IncludeInTimeline = false);
 
 public sealed record ViewDeviceAdminDto(
     [property: JsonPropertyName("id")] Guid Id,

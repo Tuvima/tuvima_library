@@ -113,7 +113,8 @@ public sealed class ViewStorageService(
                 relative,
                 ExternalPath: null,
                 IncludeSubdirectories: true,
-                Enabled: true);
+                Enabled: true,
+                IncludeInTimeline: sourceType == ViewSourceType.BrowserUpload);
             source = await spaces.UpsertSourceAsync(source, ct);
             Directory.CreateDirectory(GetSourcePath(space, source));
             return source;
@@ -151,7 +152,17 @@ public sealed class ViewStorageService(
         return await spaces.UpsertSourceAsync(new ViewSource(
             Guid.NewGuid(), space.Id, ViewSourceType.Folder, name.Trim(), $"linked:{Guid.NewGuid():N}",
             null, now, now, ViewSourceStorageMode.Linked, RelativePath: null, ExternalPath: fullPath,
-            IncludeSubdirectories: includeSubdirectories, Enabled: true), ct);
+            IncludeSubdirectories: includeSubdirectories, Enabled: true, IncludeInTimeline: false), ct);
+    }
+
+    public Task<ViewSource> UpdateSourceAsync(
+        ViewPersonalSpace space,
+        ViewSource source,
+        CancellationToken ct = default)
+    {
+        if (source.PersonalSpaceId != space.Id)
+            throw new InvalidOperationException("A source cannot move between Personal Spaces.");
+        return spaces.UpsertSourceAsync(source, ct);
     }
 
     public async Task<ViewSource> ImportFolderAsync(

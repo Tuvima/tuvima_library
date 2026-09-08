@@ -100,7 +100,7 @@ Items do not appear everywhere immediately.
 - **Listen** shows music and audiobooks.
 - **Search** finds library items across media lanes.
 - **Collections** organizes automatic broader rollups, published curated collections, lane-level shelves, and people when they are backed by real library data.
-- **View** exposes exactly Photos, Galleries, People, and Places. Photos uses
+- **View** exposes Photos, Folders, Galleries, People, and Places. Photos uses
   the saved authorized scope; first use prefers Shared View when permitted and
   Mine otherwise. Revoked saved scopes fall back to Shared when still
   permitted, then Mine. People and Places remain truthful capability states in
@@ -151,4 +151,4 @@ Tuvima only shows real data returned by the Engine. Empty shelves, unavailable A
 
 Use **Add folder** inside the Folders section. Its final confirmation saves the addition; no page-wide Save is needed. Detaching a folder requires confirmation and leaves its files on disk. When detaching a primary that still serves other managed folders, choose its replacement in the confirmation dialog. Names and custom templates use their own Apply dialog.
 
-Open **Libraries > View** for profile-owned sources. Attach existing folders read-only, or create an empty managed folder under a chosen profile. New browser uploads use `View/Profiles/<profile-label>/Timeline`; managed mixed folders use `Folders/<folder-label>`. Labels stay fixed when display names change. Shared is a reserved destination at this stage; family contributions and physical keeper promotion are not yet available. Existing source files are not relocated by this settings update.
+Open **Libraries > View** for profile-owned sources. Attach existing folders read-only, or create an empty managed folder under a chosen profile. New browser uploads use `View/Profiles/<profile-label>/Timeline/<year>/<month>/<date-time><type>.<ext>`; managed mixed folders use `Folders/<folder-label>` and preserve their hierarchy. Labels stay fixed when display names change. Open **View > Folders** to browse each indexed source with a hierarchical breadcrumb. In Mine, select assets and choose **Move/Copy to Family Library**: managed originals move only after their Shared copies verify, while linked read-only originals are copied and retained. Shared scope exposes the resulting Family Library root. Existing files are never relocated merely by changing settings.

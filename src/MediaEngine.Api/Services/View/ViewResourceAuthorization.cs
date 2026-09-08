@@ -31,7 +31,8 @@ public sealed record ViewResourceDescriptor(
     Guid OwnerProfileId,
     Guid? LibraryId,
     IReadOnlySet<Guid>? SharedWithProfileIds = null,
-    IReadOnlySet<Guid>? ContributingProfileIds = null);
+    IReadOnlySet<Guid>? ContributingProfileIds = null,
+    bool IsFamilyAsset = false);
 
 public sealed record ViewResourceRequest(
     ViewScopeRequest Scope,
@@ -109,6 +110,13 @@ public sealed class ViewResourceAuthorizationService(
         // caller. This grants the specific resource, never the owner's Space.
         var explicitlyShared = resource.SharedWithProfileIds?.Contains(caller.ProfileId) == true;
         var mayContribute = resource.ContributingProfileIds?.Contains(caller.ProfileId) == true;
+        if (request.Action == ViewResourceAction.Read
+            && resource.IsFamilyAsset
+            && resolution.Scope.Kind == ViewScopeKind.Shared)
+        {
+            return ViewAccessDecision.Allowed(resolution.Scope);
+        }
+
         if ((request.Action == ViewResourceAction.Read
                 && (explicitlyShared
                 || (request.Kind == ViewResourceKind.Gallery

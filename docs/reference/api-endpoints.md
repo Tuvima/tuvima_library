@@ -147,6 +147,9 @@ unauthorized identifiers return the same not-found shape as missing resources.
 | GET | `/view/scopes` | Resolve the selected/default scope and return only authorized labeled scope options | Required + trusted profile |
 | GET, PUT | `/view/preferences` | Read or persist the active profile's last scope and timeline density | Required + trusted profile |
 | GET | `/view/assets` | Cursor-page authorized mixed local assets by scope, search, kind, state, or Gallery | Required + scope read |
+| GET | `/view/folders` | Page authorized source roots or one indexed folder hierarchy with URL-backed path breadcrumb, scoped search, and optional descendants | Required + scope read |
+| PUT | `/view/folders/pin` | Pin or unpin an authorized folder for the active profile | Required + scope read |
+| PUT | `/view/folders/timeline-policy` | Set or clear the source-owner branch override inherited by the Photos timeline | Source owner or administrator |
 | POST | `/view/uploads` | Upload to the caller's server-resolved Personal Space | Required + Personal Space owner |
 | GET | `/view/items/{id}` | Read authorized personal-asset metadata | Required + asset read |
 | GET | `/view/items/{id}/content` | Stream an authorized original with range support | Required + asset read |
@@ -156,6 +159,8 @@ unauthorized identifiers return the same not-found shape as missing resources.
 | POST | `/view/items/{id}/archive` | Archive an owned asset without changing its file | Required + asset owner |
 | POST | `/view/items/{id}/trash` | Soft-delete an owned asset without deleting its original | Required + asset owner |
 | POST | `/view/items/{id}/restore` | Restore an archived or trashed owned asset | Required + asset owner |
+| POST | `/view/items/{id}/family-preview` | Preview compound-file count, bytes, Shared destination, and whether promotion will move or copy | Required + asset owner |
+| POST | `/view/items/{id}/family` | Execute or recover an idempotent verified promotion to Shared; reports cleanup-pending separately | Required + asset owner |
 | GET, POST | `/view/galleries` | List owned/shared Galleries or create an owned Gallery | Required + trusted profile |
 | GET, PUT, DELETE | `/view/galleries/{id}` | Read or manage an authorized Gallery | Required + Gallery permission |
 | GET, POST, DELETE | `/view/galleries/{id}/items` | Page or mutate Manual Gallery membership | Required + Gallery permission |

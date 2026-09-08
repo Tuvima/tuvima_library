@@ -154,6 +154,33 @@ public sealed class ViewQueryOrchestratorTests
         Assert.Null(backend.Plan);
     }
 
+    [Fact]
+    public async Task FamilyAssetCanBeReadFromSharedWithoutExposingItsOwnersPrivateLibrary()
+    {
+        var caller = State(access: true, include: false);
+        var owner = State(access: false, include: false);
+        var itemId = Guid.NewGuid();
+        var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller, owner));
+        var resource = new ViewResourceDescriptor(
+            ViewResourceKind.Thumbnail,
+            itemId,
+            owner.Policy.ProfileId,
+            owner.PersonalSpace!.LibraryId,
+            IsFamilyAsset: true);
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource));
+
+        var shared = await authorization.AuthorizeAsync(
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"),
+            new ViewResourceRequest(ViewScopeRequest.Shared, ViewResourceKind.Thumbnail, itemId));
+        var mine = await authorization.AuthorizeAsync(
+            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"),
+            new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Thumbnail, itemId));
+
+        Assert.Equal(ViewAccessOutcome.Allowed, shared.Outcome);
+        Assert.DoesNotContain(owner.PersonalSpace.LibraryId, shared.Scope!.LibraryIds);
+        Assert.Equal(ViewAccessOutcome.NotFound, mine.Outcome);
+    }
+
     private static ViewScopeStoreEntry State(bool access, bool include)
     {
         var profileId = Guid.NewGuid();

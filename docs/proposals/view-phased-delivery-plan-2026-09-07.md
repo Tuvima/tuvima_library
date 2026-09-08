@@ -8,7 +8,7 @@ product_area: "view"
 
 # Libraries and View: phased delivery
 
-Status: delivery in progress September 7, 2026. The implementation checkpoint below records completed work; remaining phases are planned. This is the controlling delivery plan for the related Libraries immediate-actions, View storage-organization, and View folder-browsing proposals. Its ownership model, phase order, and physical Shared promotion requirements supersede conflicting earlier details.
+Status: delivery in progress September 8, 2026. The implementation checkpoint below records completed work and the remaining release gates. This is the controlling delivery plan for the related Libraries immediate-actions, View storage-organization, and View folder-browsing proposals. Its ownership model, phase order, and physical Shared promotion requirements supersede conflicting earlier details.
 
 ## Implementation checkpoint
 
@@ -16,7 +16,11 @@ The first Phase 1 increment implements scoped/conflict-aware library edits, sect
 
 Validation: solution restore/build succeeded with zero build warnings/errors; strict documentation build passed. The regression run plus affected-suite reruns passed 3,254 tests, with 37 skipped. One unrelated series-manifest storage test hit a disposed SQLite connection during the full run; the complete 391-test storage suite passed on rerun. The final 910-test Web suite passed after dialog and wizard refinements. Browser checks also verified immediate save success and actual View source attach/detach.
 
-Phase 1 is **not yet complete**: real household-owned source/index authorization and direct imports into Shared, calendar import organization/policy controls, and comprehensive wizard path previews remain outstanding. Primary replacement is selected within the detach confirmation. The current View settings explicitly exposes only supported profile source operations and preserve-layout behavior. Shared reservation is not household retention or a backup-success claim. Phases 2 through 5 remain planned.
+The remaining-phase increment adds the five-destination View shell, authorized indexed Folders with nested URL-backed breadcrumbs and private pins, inherited branch-level Photos inclusion, readable calendar paths for browser uploads, a first-class Family Library folder root, physical keeper promotion, and durable recovery state. Managed originals are deleted only after every Shared compound member verifies; linked originals are copied and retained. Direct profile sign-in, explicit account/profile grants, invitation enrollment, password recovery, rate limiting, and session revocation already satisfy the Phase 3 identity foundation without creating duplicate profile storage.
+
+Validation for this increment: the full solution builds with zero warnings or errors, strict documentation validation passes, and the full regression run passes 3,258 tests with 37 provider/network fixtures skipped as expected.
+
+Phase 4 currently supports owner-approved direct promotion; contributor submission and designated-curator accept/decline queues remain a separate unfinished workflow. Comprehensive large-archive, interruption-at-every-checkpoint, recovery-copy, and browser/mobile acceptance remain release gates. The wizard reviews the concrete Profiles and Shared paths and their transfer consequences; additional source creation remains in Libraries > View.
 
 ## Required product contract
 
@@ -25,7 +29,7 @@ Phase 1 is **not yet complete**: real household-owned source/index authorization
 - Login credentials are separate from profile/storage identity. An optional email/password login resolves directly to the existing profile; it creates no second folder or library. A subordinate profile is not necessarily a minor, and direct login does not grant administrative authority.
 - The Family Library has durable household ownership, designated curators, and a physical Shared destination independent of any profile. Household identity must not be implemented as a fake user profile. Retain catalogued/personal media kinds; household ownership is a scope within personal media, not a third kind.
 - Settings governs configured storage, ownership, indexing and organization policies. View owns everyday Timeline, Folders, Galleries, selections, contributions, and family curation.
-- Accepted promotion from managed personal storage physically relocates the selected file group into Shared. A logical ownership/reference change alone does not satisfy this requirement. Shared is the deliberate keeper archive and a clear filesystem target for offsite backup.
+- Accepted promotion from managed personal storage physically relocates the selected file group into Shared. A logical ownership/reference change alone does not satisfy this requirement. Shared is the deliberate keeper archive with a stable, predictable filesystem layout that administrators can manage with their own storage tools.
 - Preserve shell-owned settings breadcrumbs, wizard breadcrumbs, folder-picker path breadcrumbs, and View's hierarchical folder breadcrumbs.
 
 ## Canonical storage layout
@@ -48,7 +52,7 @@ Using Profiles as an explicit namespace separates profile labels from the reserv
 
 Additional managed or read-only folders can remain elsewhere and have explicit personal or household ownership. Root/profile containers are not redundant recursive sources. Timeline and named folder sources have nonoverlapping scan coverage; indexing separates physical file occurrences from asset identity and device provenance. Readable calendar and preserve-layout policies retain the previous proposal's date, Undated, collision and compound-file rules.
 
-Shared is the canonical destination for retained household originals. Externally linked household sources must be labeled **Linked — outside Shared**, not represented as backed-up keepers. Moving an accepted contribution to a managed destination outside Shared does not satisfy promotion. Thumbnails, transcodes, temporary work, and database internals stay outside the originals tree; excluded transfer staging must not appear as finalized keeper content.
+Shared is the canonical destination for retained household originals. Externally linked household sources must be labeled **Linked — outside Shared**, not represented as Shared originals. Moving an accepted contribution to a managed destination outside Shared does not satisfy promotion. Thumbnails, transcodes, temporary work, and database internals stay outside the originals tree; excluded transfer staging must not appear as finalized keeper content.
 
 ## Phase 1 — Library settings on the final storage foundation
 
@@ -102,11 +106,10 @@ Separate Remove from Gallery, Remove personal reference, Detach source, and Dele
 
 Exit gate: verify same/cross-volume transfers, occupied names, compound files, changed originals, denied cleanup, unavailable destinations, disk-full, concurrent watcher activity, double submissions and process termination at each checkpoint. Accepted keepers must physically exist beneath Shared; completed moves leave no selected personal occurrence. Read-only contributions retain the external original and accurately report copying.
 
-## Phase 5 — Backup readiness and end-to-end acceptance
+## Phase 5 — End-to-end acceptance
 
-- Show Shared as the keeper originals path for offsite backup, with finalized file counts and pending transfer/cleanup state. Personal Profiles and external sources remain separately selectable backup sets; their exclusion is the user's backup choice, not a declaration that they are disposable.
-- Explain that backing up Shared protects its originals and retained sidecars. Galleries, permissions, ownership, provenance and annotations also require Tuvima's application database/configuration backup. The existing application backup does not substitute for a media backup. Do not claim an offsite backup succeeded without an actual backup integration/result; backup automation is outside this plan.
-- Verify recovery using a copied test archive and application backup without altering original media. Validate family Gallery references, profile isolation and retained compound files after recovery.
+- Keep Shared, Profiles, transfer staging, generated derivatives, and application data in clearly separated paths. Tuvima owns this logical layout; administrators choose and operate any storage protection tooling outside the product.
+- Verify transfer recovery using copied test media without altering original sources. Validate Family Library references, profile isolation, and retained compound files after recovery.
 - Run solution restore/build and appropriate regression tests; verify desktop/mobile Library and View journeys, breadcrumbs, latency, account switching, source permissions and transfer recovery. Record actual results and update AGENTS/product documentation to the new implemented contracts.
 
 ## Delivery constraints
@@ -115,4 +118,4 @@ Each phase must expose supported, truthful behavior with no placeholder switches
 
 ## Product-owner summary
 
-First make Libraries fast and simple to configure, backed by one folder per profile and a separate Shared archive. Then build folder browsing and family organization in View, followed by independent profile logins. Finally, accepting a personal item into the family keeper collection physically moves its managed files into Shared, giving offsite backups a clear destination for the household originals worth retaining.
+First make Libraries fast and simple to configure, backed by one folder per profile and a separate Shared archive. Then build folder browsing and family organization in View, followed by independent profile logins. Finally, accepting a personal item into the family keeper collection physically moves its managed files into Shared, leaving administrators with a clear and logically structured filesystem.

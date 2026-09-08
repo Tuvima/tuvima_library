@@ -105,6 +105,9 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
                    storage_mode AS StorageMode, relative_path AS RelativePath,
                    external_path AS ExternalPath, include_subdirectories AS IncludeSubdirectories,
                    enabled AS Enabled,
+                   COALESCE((SELECT include_in_timeline FROM view_source_policies
+                              WHERE source_id = view_sources.id),
+                            CASE WHEN source_type = 'browser_upload' THEN 1 ELSE 0 END) AS IncludeInTimeline,
                    created_at AS CreatedAt, updated_at AS UpdatedAt
               FROM view_sources WHERE personal_space_id = @personalSpaceId
              ORDER BY name COLLATE NOCASE, id;
@@ -164,6 +167,13 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
             }, transaction, cancellationToken: token));
             if (changed == 0)
                 throw new InvalidOperationException("A source identity cannot move between Personal Spaces.");
+            connection.Execute(new CommandDefinition("""
+                INSERT INTO view_source_policies (source_id, include_in_timeline, updated_at)
+                VALUES (@id, @IncludeInTimeline, @now)
+                ON CONFLICT(source_id) DO UPDATE SET
+                    include_in_timeline = excluded.include_in_timeline,
+                    updated_at = excluded.updated_at;
+                """, new { id, source.IncludeInTimeline, now }, transaction, cancellationToken: token));
             return source with { Id = id, Name = source.Name.Trim(), CreatedAt = createdAt, UpdatedAt = now };
         }, ct);
     }
@@ -290,7 +300,7 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
         row.Id, row.PersonalSpaceId, ParseSourceType(row.SourceType), row.Name, row.SourceKey,
         ParseNullableDate(row.LastActivityAt), ParseDate(row.CreatedAt), ParseDate(row.UpdatedAt),
         ParseStorageMode(row.StorageMode), row.RelativePath, row.ExternalPath,
-        row.IncludeSubdirectories, row.Enabled);
+        row.IncludeSubdirectories, row.Enabled, row.IncludeInTimeline);
 
     private static ViewDevice Map(DeviceRow row) => new(
         row.Id, row.PersonalSpaceId, row.SourceId, row.ClientDeviceId, row.Name, row.Make, row.Model,
@@ -364,7 +374,7 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
         public string? SourceKey { get; init; } public string? LastActivityAt { get; init; }
         public string StorageMode { get; init; } = "managed"; public string? RelativePath { get; init; }
         public string? ExternalPath { get; init; } public bool IncludeSubdirectories { get; init; }
-        public bool Enabled { get; init; }
+        public bool Enabled { get; init; } public bool IncludeInTimeline { get; init; }
         public string CreatedAt { get; init; } = string.Empty; public string UpdatedAt { get; init; } = string.Empty;
     }
     private sealed class DeviceRow

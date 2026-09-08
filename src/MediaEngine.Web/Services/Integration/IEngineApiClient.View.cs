@@ -9,6 +9,9 @@ public partial interface IEngineApiClient
     Task<ViewPreferencesDto?> GetViewPreferencesAsync(CancellationToken ct = default);
     Task<ViewPreferencesDto?> UpdateViewPreferencesAsync(ViewScopeKind scope, Guid? scopeProfileId, ViewTimelineDensity timelineDensity, CancellationToken ct = default);
     Task<ViewAssetTimelinePageDto?> GetViewAssetsAsync(ViewAssetQueryOptions options, CancellationToken ct = default);
+    Task<ViewFolderPageDto?> GetViewFoldersAsync(ViewFolderQueryOptions options, CancellationToken ct = default);
+    Task<bool> SetViewFolderPinAsync(ViewFolderPinRequest request, CancellationToken ct = default);
+    Task<bool> SetViewFolderTimelinePolicyAsync(ViewFolderTimelinePolicyRequest request, CancellationToken ct = default);
     Task<ViewPeoplePageDto?> GetViewPeopleAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default);
     Task<ViewPlacesPageDto?> GetViewPlacesAsync(ViewDiscoveryQueryOptions options, CancellationToken ct = default);
     Task<ViewUploadResult> UploadViewMediaAsync(Stream fileStream, string fileName, string? contentType = null, CancellationToken ct = default);
@@ -17,6 +20,8 @@ public partial interface IEngineApiClient
     Task<bool> ArchiveViewItemAsync(Guid itemId, CancellationToken ct = default);
     Task<bool> TrashViewItemAsync(Guid itemId, CancellationToken ct = default);
     Task<bool> RestoreViewItemAsync(Guid itemId, CancellationToken ct = default);
+    Task<ViewFamilyTransferPreviewDto?> PreviewViewFamilyTransferAsync(Guid itemId, ViewFamilyTransferRequest request, CancellationToken ct = default);
+    Task<ViewFamilyTransferResultDto?> TransferViewItemToFamilyAsync(Guid itemId, ViewFamilyTransferRequest request, CancellationToken ct = default);
     Task<ViewGalleryListResponse?> GetViewGalleriesAsync(CancellationToken ct = default);
     Task<ViewGalleryDto?> GetViewGalleryAsync(Guid galleryId, CancellationToken ct = default);
     Task<ViewGalleryDto?> CreateViewGalleryAsync(ViewGalleryRequest request, CancellationToken ct = default);
@@ -53,4 +58,14 @@ public sealed record ViewDiscoveryQueryOptions(
     Guid? ScopeProfileId = null,
     string? Search = null,
     string? Cursor = null,
+    int Limit = 100);
+
+public sealed record ViewFolderQueryOptions(
+    ViewScopeKind Scope = ViewScopeKind.Shared,
+    Guid? ScopeProfileId = null,
+    Guid? SourceId = null,
+    string? RelativePath = null,
+    bool IncludeDescendants = false,
+    string? Search = null,
+    int Offset = 0,
     int Limit = 100);

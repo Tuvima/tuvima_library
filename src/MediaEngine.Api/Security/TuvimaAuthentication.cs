@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.View;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Identity.Contracts;
@@ -51,12 +52,17 @@ public sealed class TuvimaAuthenticationHandler(
     ClientAuthorizationService clientAuthorization,
     IApiKeyLookupCache apiKeys,
     IConfigurationLoader configurationLoader,
+    IConfiguration configuration,
     IWebHostEnvironment environment)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        if (Request.Headers.Authorization.ToString() is { } authorization
+        // Dashboard-to-Engine requests carry a server-held service credential.
+        // Prefer that credential when both headers are present so a stale client
+        // bearer cannot shadow a valid interactive Dashboard session.
+        if (!Request.Headers.ContainsKey(TuvimaAuthDefaults.ServiceHeader)
+            && Request.Headers.Authorization.ToString() is { } authorization
             && authorization.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
             var rawToken = authorization["Bearer ".Length..].Trim();
@@ -96,12 +102,38 @@ public sealed class TuvimaAuthenticationHandler(
                 new(TuvimaClaimTypes.DashboardService, "true"),
             };
 
+            SessionValidationResult? session = null;
             if (Request.Headers.TryGetValue(TuvimaAuthDefaults.SessionHeader, out var sessionValues)
                 && !string.IsNullOrWhiteSpace(sessionValues.ToString()))
             {
-                var session = await identity.ValidateSessionAsync(sessionValues.ToString(), true, Context.RequestAborted).ConfigureAwait(false);
+                session = await identity.ValidateSessionAsync(sessionValues.ToString(), true, Context.RequestAborted).ConfigureAwait(false);
                 if (session is null) return AuthenticateResult.Fail("Invalid or revoked user session.");
                 AddSessionClaims(claims, session);
+            }
+
+            if (session is not null)
+            {
+                // The validated session is the authority for the interactive
+                // Dashboard's active profile. Publish it for View even when the
+                // optional request assertion is absent or arrives before the
+                // circuit-scoped profile accessor has finished initializing.
+                HttpViewRequestProfileContext.SetTrustedProfile(
+                    Context,
+                    new ViewRequestProfile(
+                        session.ActiveProfile.Id,
+                        session.ActiveProfile.Role.ToString()));
+
+                var assertion = ViewProfileAssertion.Verify(
+                    Request,
+                    serviceToken,
+                    session.ActiveProfile.Role.ToString(),
+                    DateTimeOffset.UtcNow,
+                    configuration.GetValue(
+                        "MediaEngine:Security:ViewProfileAssertionMaxSkewSeconds",
+                        ViewProfileAssertion.DefaultMaxClockSkewSeconds));
+                if (assertion is not null
+                    && assertion.ProfileId == session.ActiveProfile.Id)
+                    HttpViewRequestProfileContext.SetTrustedProfile(Context, assertion);
             }
 
             return Success(claims);
