@@ -276,16 +276,16 @@ public sealed class ViewLibraryService(
         var settings = configuration.LoadLibraries();
         if (!settings.PersonalLibraryPolicy.AllowBrowserUpload)
             throw new InvalidOperationException("Browser upload is disabled by administrator policy.");
+        var safeName = Path.GetFileName(fileName);
+        if (string.IsNullOrWhiteSpace(safeName) || TryCreateCandidate(safeName) is null)
+            throw new InvalidDataException("The uploaded file type is not supported by View.");
         var space = await storage.EnsurePersonalSpaceAsync(ownerProfileId, ct);
         var destination = await storage.EnsureManagedSourceAsync(
             space, "Browser uploads", ViewSourceType.BrowserUpload, "builtin:browser-uploads", ct);
         var destinationPath = storage.GetSourcePath(space, destination);
-        Directory.CreateDirectory(destinationPath);
-        var safeName = Path.GetFileName(fileName);
-        if (string.IsNullOrWhiteSpace(safeName) || TryCreateCandidate(safeName) is null)
-            throw new InvalidDataException("The uploaded file type is not supported by View.");
         var extension = Path.GetExtension(safeName);
-        var temporaryPath = Path.Combine(destinationPath, $".{Guid.NewGuid():N}.uploading{extension}");
+        // Stage and inspect first, so rejected or cancelled uploads leave no empty profile tree.
+        var temporaryPath = Path.Combine(Path.GetTempPath(), $"tuvima-{Guid.NewGuid():N}.uploading{extension}");
         try
         {
             await using (var output = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write,
@@ -300,6 +300,7 @@ public sealed class ViewLibraryService(
             var calendarDirectory = Path.Combine(destinationPath,
                 effective.Year.ToString("0000", CultureInfo.InvariantCulture),
                 effective.ToString("MM - MMM", CultureInfo.InvariantCulture));
+            ct.ThrowIfCancellationRequested();
             Directory.CreateDirectory(calendarDirectory);
             var typeSuffix = candidate.Type.MediaKind switch
             {

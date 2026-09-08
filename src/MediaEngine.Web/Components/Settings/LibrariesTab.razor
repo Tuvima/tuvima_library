@@ -246,12 +246,9 @@
     </div>;
 
     private RenderFragment LibraryDetailSurface(LibraryFolderDto library, bool readOnly) => @<div class="library-detail">
-        <header class="library-detail__header">
-            <div class="library-detail__identity">
-                <span class="library-detail__icon @($"is-{library.Area}")"><MudIcon Icon="@LibraryIcon(library)" /></span>
-                <div><h1>@library.Name</h1><p>@TitleCase(library.Area) library · @LibraryDescription(library)</p><AppStatusBadge Text="@TitleCase(library.Area)" Tone="@AreaTone(library.Area)" /></div>
-            </div>
-        </header>
+        <LibraryDetailHeader Title="@library.Name" Description="@($"{TitleCase(library.Area)} library · {LibraryDescription(library)}")" Icon="@LibraryIcon(library)">
+            <AppStatusBadge Text="@TitleCase(library.Area)" Tone="@AreaTone(library.Area)" />
+        </LibraryDetailHeader>
         <div class="libraries-card__heading"><div><h2>Library Settings</h2><p>Manage folders, organization, and file handling for this library.</p></div><AppStatusBadge Text="@LibraryStatus(library)" Tone="@LibraryStatusTone(library)" /></div>
         <AppCard Class="libraries-card">
             <div class="libraries-card__heading"><div><h3>Folders</h3><p>Folders define where media is watched and where new managed imports can be organized.</p></div>

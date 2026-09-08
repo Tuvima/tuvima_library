@@ -43,6 +43,8 @@
                                              Email="@_email" EmailChanged="@((string? value) => _email = value ?? string.Empty)"
                                              Password="@_password" PasswordChanged="@((string? value) => _password = value ?? string.Empty)"
                                              PasswordConfirmation="@_passwordConfirmation" PasswordConfirmationChanged="@((string? value) => _passwordConfirmation = value ?? string.Empty)"
+                                             Pin="@_pin" PinChanged="@((string? value) => _pin = value ?? string.Empty)"
+                                             PinConfirmation="@_pinConfirmation" PinConfirmationChanged="@((string? value) => _pinConfirmation = value ?? string.Empty)"
                                              RecoveryCodes="@_recoveryCodes" RecoveryCodesText="@RecoveryCodesText" RecoveryCodesDownloadUri="@RecoveryCodesDownloadUri"
                                              AdministratorConfigured="@(_status.AdministratorConfigured)" Busy="@_busy" CreateAdministrator="CreateAdministratorAsync"
                                              CopyRecoveryCodes="CopyRecoveryCodesAsync" SignIn="SignIn" />
@@ -50,7 +52,7 @@
                 case "media-locations":
                     <SetupMediaStage Media="@_media" SetupSession="@_setupSession" Busy="@_busy" ShowLibraryWizard="@_showLibraryWizard"
                                      OpenLibraryWizard="@(() => _showLibraryWizard = true)" CancelLibraryWizard="@(() => _showLibraryWizard = false)"
-                                     LibraryCreated="LibraryCreatedAsync" ValidateMedia="ValidateMediaAsync" />
+                                     LibraryCreated="LibraryCreatedAsync" ValidateMedia="ValidateMediaAsync" HasLibraries="@(_setupLibraries?.Libraries.Count > 0)" DeferMedia="DeferMediaAsync" />
                     break;
                 case "providers":
                     <SetupProvidersStage Catalogue="@_providerCatalogue" Libraries="@_setupLibraries" SetupSession="@_setupSession" Busy="@_busy"
@@ -85,6 +87,7 @@
     private string? _setupSession;
     private string _email = string.Empty;
     private string _password = string.Empty;
+    private string _pin = string.Empty, _pinConfirmation = string.Empty;
     private string _passwordConfirmation = string.Empty;
     private string _displayName = "Administrator";
     private IReadOnlyList<string> _recoveryCodes = [];
@@ -172,6 +175,7 @@
             _selectedStep = RequestedStep;
         StateHasChanged();
         await EnsureCurrentStageDataAsync();
+        StateHasChanged();
     }
 
     private async Task EnsureCurrentStageDataAsync()
@@ -181,6 +185,8 @@
             await RunPreflightAsync(automaticallyAdvance: true);
             return;
         }
+        if (CurrentStep == "media-locations" && _setupLibraries is null)
+            _setupLibraries = await ApiClient.GetSetupLibrariesAsync(_setupSession);
         if (CurrentStep == "providers" && !_providersLoaded && !_busy)
         {
             _setupLibraries = await ApiClient.GetSetupLibrariesAsync(_setupSession);
@@ -227,7 +233,7 @@
     private void CancelRestore() { _showRestore = false; _backup = null; }
     private async Task UploadBackupAsync(InputFileChangeEventArgs args) { _busy = true; try { await using var stream = args.File.OpenReadStream(2L * 1024 * 1024 * 1024); _backup = await ApiClient.UploadSetupBackupAsync(stream, args.File.Name, _setupSession ?? string.Empty); if (_backup is null) Snackbar.Add("The backup failed validation.", Severity.Error); } finally { _busy = false; } }
     private async Task ConfirmRestoreAsync() { if (_backup is null || _setupSession is null) return; _busy = true; var result = await ApiClient.ConfirmSetupRestoreAsync(_backup.OperationId, _setupSession); _busy = false; if (result is null) Snackbar.Add("The restore could not be scheduled.", Severity.Error); else Snackbar.Add("Restore scheduled. Tuvima is restarting.", Severity.Info); }
-    private async Task CreateAdministratorAsync() { if (_setupSession is null || !PasswordsMatch) { Snackbar.Add("Enter the same password twice.", Severity.Error); return; } _busy = true; var result = await ApiClient.CreateSetupAdministratorAsync(new SetupAdministratorRequest { Email = _email, Password = _password, DisplayName = _displayName, DeviceId = Guid.NewGuid().ToString("D"), DeviceName = "Setup browser" }, _setupSession); _busy = false; if (result is null) Snackbar.Add("The administrator could not be created.", Severity.Error); else if (result.RecoveryCodes.Count > 0) _recoveryCodes = result.RecoveryCodes; else SignIn(); }
+    private async Task CreateAdministratorAsync() { if (_setupSession is null || !PasswordsMatch) { Snackbar.Add("Enter the same password twice.", Severity.Error); return; } _busy = true; var result = await ApiClient.CreateSetupAdministratorAsync(new SetupAdministratorRequest { Email = _email, Password = _password, Pin = string.IsNullOrEmpty(_pin) ? null : _pin, DisplayName = _displayName, DeviceId = Guid.NewGuid().ToString("D"), DeviceName = "Setup browser" }, _setupSession); _busy = false; if (result is null) Snackbar.Add("The administrator could not be created.", Severity.Error); else if (result.RecoveryCodes.Count > 0) _recoveryCodes = result.RecoveryCodes; else SignIn(); }
     private async Task CopyRecoveryCodesAsync() { await JS.InvokeVoidAsync("navigator.clipboard.writeText", RecoveryCodesText); Snackbar.Add("Recovery codes copied.", Severity.Success); }
     private void SignIn() => Navigation.NavigateTo("/auth/login?returnUrl=%2Fsetup", forceLoad: true);
     private async Task ValidateMediaAsync() { _busy = true; _media = await ApiClient.ValidateSetupMediaLocationsAsync(_setupSession); _busy = false; if (_media?.Passed == true) { _readiness = null; await ReloadAsync(); } }
@@ -235,6 +241,7 @@
     private async Task LoadProvidersAsync() { _busy = true; _providerCatalogue = await ApiClient.GetProviderCatalogueAsync(); _busy = false; }
     private async Task RefreshProvidersAsync() { _providerCatalogue = await ApiClient.GetProviderCatalogueAsync(); }
     private Task SaveProviderResultAsync() => DecideStepAsync("providers", "passed", "Provider setup reviewed. Connected and open providers are ready for configured libraries.");
+    private Task DeferMediaAsync() => DecideStepAsync("media-locations", "deferred", "Media folders can be added later in Settings · Libraries.");
     private Task DeferProviderResultAsync() => DecideStepAsync("providers", "deferred", "Optional provider credential setup deferred; built-in providers remain available.");
     private async Task DecideStepAsync(string step, string status, string detail) { _status = await ApiClient.DecideSetupStepAsync(step, status, detail, _setupSession); _selectedStep = null; _readiness = null; if (_status is null) Snackbar.Add("The setup choice could not be saved.", Severity.Error); else await EnsureCurrentStageDataAsync(); }
     private async Task LoadReadinessAsync() { _busy = true; _readiness = await ApiClient.GetSetupReadinessAsync(_setupSession); _busy = false; }

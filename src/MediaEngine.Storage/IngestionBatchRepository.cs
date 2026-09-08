@@ -264,6 +264,9 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             )
             SELECT
                 COUNT(js.entity_id) AS TotalJobs,
+                (SELECT COUNT(DISTINCT skipped.file_path) FROM ingestion_log skipped
+                    WHERE skipped.ingestion_run_id = @batchId AND skipped.status = 'duplicate'
+                    AND NOT EXISTS (SELECT 1 FROM job_states handled WHERE handled.entity_id = skipped.media_asset_id)) AS FilesSkipped,
                 COALESCE(SUM(CASE WHEN js.state = 'Ready' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
                 COALESCE(SUM(CASE WHEN js.state = 'ReadyWithoutUniverse' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReadyWithoutUniverse,
                 COALESCE(SUM(CASE
@@ -360,6 +363,7 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
         return Task.FromResult(new IngestionBatchProgressSnapshot
         {
             TotalJobs = snapshot.TotalJobs,
+            FilesSkipped = snapshot.FilesSkipped,
             FilesReady = snapshot.FilesReady,
             FilesReadyWithoutUniverse = snapshot.FilesReadyWithoutUniverse,
             FilesReview = snapshot.FilesReview,

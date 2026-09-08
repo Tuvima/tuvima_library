@@ -31,6 +31,7 @@
 @code {
     private DotNetObjectReference<PwaInstallPrompt>? _selfReference;
     private string _state = "unavailable";
+    private readonly string _observerId = Guid.NewGuid().ToString("N");
 
     private string InstallMessage => _state == "ios"
         ? "In Safari, open Share and choose Add to Home Screen."
@@ -42,7 +43,7 @@
             return;
 
         _selfReference = DotNetObjectReference.Create(this);
-        _state = await JS.InvokeAsync<string>("tuvimaPwa.register", _selfReference);
+        _state = await JS.InvokeAsync<string>("tuvimaPwa.register", _selfReference, _observerId, false);
         await InvokeAsync(StateHasChanged);
     }
 
@@ -58,13 +59,13 @@
         _state = await JS.InvokeAsync<string>("tuvimaPwa.install");
     }
 
-    private void Dismiss(MouseEventArgs _) => _state = "dismissed";
+    private async Task Dismiss(MouseEventArgs _) => _state = await JS.InvokeAsync<string>("tuvimaPwa.dismiss");
 
     public async ValueTask DisposeAsync()
     {
         try
         {
-            await JS.InvokeVoidAsync("tuvimaPwa.unregister");
+            await JS.InvokeVoidAsync("tuvimaPwa.unregister", _observerId);
         }
         catch (JSDisconnectedException)
         {

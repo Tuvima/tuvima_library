@@ -413,7 +413,7 @@ These changes require fresh pre-beta ingestion. Runtime and responsive visual ac
 
 Libraries keeps one Settings-shell breadcrumb, with configured library names and URL-backed Read/Watch/Listen scope when returning to the overview. Library details consolidate Folders, Organization, File Handling, and Advanced Settings; do not restore detail tabs. Header and list rows share one full-width column grid.
 
-Add Library has exactly three steps: Choose type, Add folders, Review. Structured Media creates one catalogued library. Personal Media configures the existing shared View root and provisions enabled profiles through View services. It must never add user-facing personal library rows. Folder selection retains separate path breadcrumbs and revalidates at confirmation and save. Changing a populated View root is rejected; no relocation is implied.
+Add Library has exactly three steps: Choose type, Add folders, Review. Structured Media creates one catalogued library. Personal Media configures the existing shared View root and reserves profile identities through View services. It must never add user-facing personal library rows. Folder selection retains separate path breadcrumbs and revalidates at confirmation and save. Changing a populated View root is rejected; no relocation is implied.
 
 Existing-file protection applies to managed originals through the shared mutation gate. Incoming staging files and destination use remain eligible; existing-library sources remain read-only. Naming and duplicate policies must be enforced by ingestion, with unique-name filename collisions preserving existing files.
 
@@ -423,3 +423,14 @@ Existing-file protection applies to managed originals through the shared mutatio
 Libraries now includes All/Read/Watch/Listen/View filters, a single View summary row, and a dedicated View settings page. Scope changes filter the mounted list without repeated library loads or filesystem probes. Add folder belongs inside Folders and saves immediately; detachment asks for confirmation and keeps files. Names and custom templates use focused Apply dialogs, while other library settings save individually with conflict detection. There is no page-wide Save. Breadcrumbs remain shell-owned and retain the selected scope.
 
 New Personal Spaces use `View/Profiles/<stable-readable-label>/Timeline` and named managed folders beneath `Folders`. Persisted label reservations survive profile deletion so another profile cannot silently inherit the former folder. Display-name changes do not rename storage. `View/Shared` is the server-owned Shared Library beside Profiles. Existing obsolete View source state fails closed rather than moving originals or using compatibility paths. View source additions queue reconciliation in its dedicated hosted worker.
+
+
+## Setup, Operations, and View storage (September 2026)
+
+Setup offers an optional 4–12 digit profile PIN alongside the administrator password, live password validation and reveal controls, and readable recovery codes. Media locations can be explicitly deferred and configured later through Libraries. Reloading setup must render fetched stage data after asynchronous initialization.
+
+Operations and the navbar consume the same Engine batch progress definition, including outstanding identity and enrichment work. Live media selection includes identity-job updates, ranks active/recent groups before limiting, and preserves server order on refresh. Comic covers remain issue-scoped. TV and comic ingestion counts never display a provider denominator. Active batches stay above server-filtered historical batches; every historical action is Open batch. Review counts remain visible throughout Settings. Processing details is removed.
+
+View uses a common library-detail header and Folders, Organization, File Handling, Sharing & Access, and Advanced Settings sections. The configurable View library root contains Shared and Profiles; Shared Library is an authorization scope distinct from the physical base. Logical personal-space/source registration never creates directories. Uploads and accepted transfers create destination folders only at actual write time. Merely visiting View or adding a profile must leave unused storage empty.
+
+The install banner records dismissal in browser/site local storage. Subsequent install events and navigation respect it. System Overview offers an independent manual installation action.

@@ -68,7 +68,7 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var tv = Assert.Single(page.Items, item => item.GroupId == show);
         Assert.Equal("Season 2", tv.Subtitle);
         Assert.Equal(10, tv.ChildCompleted);
-        Assert.Equal(10, tv.ChildExpected);
+        Assert.Null(tv.ChildExpected);
 
         var audio = Assert.Single(page.Items, item => item.GroupId == audiobook);
         Assert.Equal("Audiobooks", audio.MediaType);
@@ -387,6 +387,97 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
                 @processed, 0, 0, 0, @time, @completedAt, @time, @time);
             """, new { id, status, total, processed, time = time.ToString("O"), completedAt = status == "completed" ? time.ToString("O") : null });
         return id;
+    }
+
+    [Fact]
+    public async Task SharedBatchProgressStaysIncompleteUntilIdentityFinishes()
+    {
+        var batch = AddBatch("running", 1, 1);
+        var work = AddStandalone(batch, "Books", "Still identifying");
+        using var conn = _db.CreateConnection();
+        var asset = conn.QuerySingle<Guid>("SELECT ma.id FROM media_assets ma JOIN editions e ON e.id=ma.edition_id WHERE e.work_id=@work", new { work });
+        conn.Execute("""
+            INSERT INTO identity_jobs (id,entity_id,entity_type,media_type,ingestion_run_id,state,pass,created_at,updated_at)
+            VALUES (@id,@asset,'MediaAsset','Books',@batch,'Hydrating','Quick',@now,@now);
+            """, new { id = Guid.NewGuid(), asset, batch, now = DateTimeOffset.UtcNow.ToString("O") });
+        var service = new MediaEngine.Providers.Services.BatchProgressService(new IngestionBatchRepository(_db), null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<MediaEngine.Providers.Services.BatchProgressService>.Instance);
+        var active = await service.GetProgressAsync(batch);
+        Assert.NotNull(active);
+        Assert.False(active.IsComplete);
+        Assert.Equal(0, active.ProgressPercent);
+        conn.Execute("UPDATE identity_jobs SET state='Ready';");
+        var complete = await service.GetProgressAsync(batch);
+        Assert.True(complete!.IsComplete);
+        Assert.Equal(100, complete.ProgressPercent);
+        conn.Execute("UPDATE media_assets SET presented_at=NULL; UPDATE ingestion_log SET status='queued_identity'; UPDATE ingestion_batches SET status='completed';");
+        var history = await new IngestionPresentationReadService(_db).GetRecentAdditionsAsync(null,null,null,null,0,50);
+        Assert.Equal(work, Assert.Single(history.Items).GroupId);
+        conn.Execute("""
+            INSERT INTO ingestion_log (id,file_path,status,ingestion_run_id) VALUES (@id,'C:/watch/duplicate.epub','duplicate',@batch);
+            UPDATE ingestion_batches SET files_total=2 WHERE id=@batch;
+            """, new { id = Guid.NewGuid(), batch });
+        var withDuplicate = await service.GetProgressAsync(batch);
+        Assert.True(withDuplicate!.IsComplete);
+        Assert.Equal(2, withDuplicate.FilesProcessed);
+        Assert.Equal(1, withDuplicate.FilesIdentified);
+    }
+
+    [Fact]
+    public async Task HistoricalPagingExcludesActiveAndStillEnrichingBatchesBeforeLimiting()
+    {
+        AddBatch("running", 1, 1);
+        var pending = AddBatch("completed", 1, 1);
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            INSERT INTO identity_jobs (id,entity_id,entity_type,media_type,ingestion_run_id,state,pass,created_at,updated_at)
+            VALUES (@id,@asset,'MediaAsset','Books',@pending,'Hydrating','Quick',@now,@now);
+            """, new { id = Guid.NewGuid(), asset = Guid.NewGuid(), pending, now = DateTimeOffset.UtcNow.ToString("O") });
+        var historical = AddBatch("completed", 1, 1, DateTimeOffset.UtcNow.AddDays(-1));
+        var page = await new ActivityBatchReadService(_db).GetBatchesAsync(new MediaEngine.Application.ReadModels.ActivityBatchQuery(null,null,null,null,null,null,null,0,1,HistoricalOnly: true));
+        Assert.Equal(historical, Assert.Single(page.Items).BatchId);
+        Assert.Equal(1, page.TotalCount);
+        Assert.False(page.HasMore);
+    }
+
+    [Fact]
+    public async Task CurrentPreviewFollowsIdentityActivityAndCountsReadyFiles()
+    {
+        var batch = AddBatch("running", 2, 2);
+        var older = AddStandalone(batch, "Books", "Older intake", occurredAt: DateTimeOffset.UtcNow.AddHours(-1));
+        var newer = AddStandalone(batch, "Books", "Newer intake");
+        using var conn = _db.CreateConnection();
+        var asset = conn.QuerySingle<Guid>("SELECT ma.id FROM media_assets ma JOIN editions e ON e.id = ma.edition_id WHERE e.work_id = @older", new { older });
+        conn.Execute("""
+            INSERT INTO identity_jobs (id,entity_id,entity_type,media_type,ingestion_run_id,state,pass,created_at,updated_at)
+            VALUES (@id,@asset,'MediaAsset','Books',@batch,'Hydrating','Quick',@now,@now);
+            UPDATE ingestion_log SET status = 'queued_identity' WHERE media_asset_id = @asset;
+            """, new { id = Guid.NewGuid(), asset, batch, now = DateTimeOffset.UtcNow.ToString("O") });
+        var service = new IngestionPresentationReadService(_db);
+        Assert.Equal(older, Assert.Single((await service.GetCurrentMediaAsync(0, 1)).Items).GroupId);
+        conn.Execute("UPDATE identity_jobs SET state = 'Ready';");
+        var ready = (await service.GetCurrentMediaAsync(0, 50)).Items.Single(item => item.GroupId == older);
+        Assert.Equal(1, ready.ChildCompleted);
+        Assert.Equal("ready", ready.Availability);
+        Assert.Equal(2, (await service.GetSnapshotAsync()).ReadyGroups);
+    }
+
+    [Fact]
+    public async Task ComicPreviewPrefersOwnedIssueCoverOverNewerParentCover()
+    {
+        var batch = AddBatch("running", 1, 1);
+        var series = AddContainer("Comics", "Example comic");
+        AddChildren(batch, series, "Comics", "Issue", 1, "issue_number");
+        using var conn = _db.CreateConnection();
+        var issue = conn.QuerySingle<Guid>("SELECT id FROM works WHERE parent_work_id = @series", new { series });
+        var issueArt = Guid.NewGuid();
+        foreach (var (owner, id, timestamp) in new[] { (issue, issueArt, DateTimeOffset.UtcNow.AddDays(-1)), (series, Guid.NewGuid(), DateTimeOffset.UtcNow) })
+            conn.Execute("""
+                INSERT INTO entity_assets (id,entity_id,entity_type,asset_type,local_image_path,aspect_class,asset_class,storage_location,owner_scope,is_preferred,created_at)
+                VALUES (@id,@owner,'Work','CoverArt','C:/test/cover.jpg','Portrait','Artwork','Central','Work',1,@now);
+                """, new { id, owner, now = timestamp.ToString("O") });
+        var item = Assert.Single((await new IngestionPresentationReadService(_db).GetCurrentMediaAsync(0, 50)).Items);
+        Assert.Contains(issueArt.ToString("D"), item.CoverUrl);
+        Assert.Null(item.ChildExpected);
     }
 
     private Guid AddContainer(

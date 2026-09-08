@@ -2788,6 +2788,7 @@
 
 [contracts] MediaEngine.Contracts.Ingestion.IngestionPresentationSnapshotDto
   kind=class | converter=default | number-handling=default | unmapped=default
+  BatchProgress: MediaEngine.Contracts.Realtime.BatchProgressEvent | json=batch_progress | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IsRunning: System.Boolean | json=is_running | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Status: System.String | json=status | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   FilesDiscovered: System.Int32 | json=files_discovered | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -2806,7 +2807,7 @@
   Attention: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionAttentionItemDto> | json=attention | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RecentDays: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionRecentDayDto> | json=recent_days | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   GeneratedAt: System.DateTimeOffset | json=generated_at | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"is_running":true,"status":"sample","files_discovered":7,"files_processed":7,"library_groups":7,"ready_groups":7,"finishing_groups":7,"review_groups":7,"active_operations":7,"queued_operations":7,"retry_waiting_operations":7,"started_at":"2025-01-02T03:04:05+00:00","last_activity_at":"2025-01-02T03:04:05+00:00","current_media":[],"current_media_total":7,"attention":[],"recent_days":[],"generated_at":"2025-01-02T03:04:05+00:00"}
+  sample={"batch_progress":null,"is_running":true,"status":"sample","files_discovered":7,"files_processed":7,"library_groups":7,"ready_groups":7,"finishing_groups":7,"review_groups":7,"active_operations":7,"queued_operations":7,"retry_waiting_operations":7,"started_at":"2025-01-02T03:04:05+00:00","last_activity_at":"2025-01-02T03:04:05+00:00","current_media":[],"current_media_total":7,"attention":[],"recent_days":[],"generated_at":"2025-01-02T03:04:05+00:00"}
 
 [contracts] MediaEngine.Contracts.Ingestion.IngestionProviderActivityDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -7317,12 +7318,13 @@
 
 [contracts] MediaEngine.Contracts.Setup.SetupAdministratorRequest
   kind=class | converter=default | number-handling=default | unmapped=default
+  Pin: System.String | json=pin | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Email: System.String | json=email | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Password: System.String | json=password | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DisplayName: System.String | json=display_name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DeviceId: System.String | json=device_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DeviceName: System.String | json=device_name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"email":"sample","password":"sample","display_name":"sample","device_id":"sample","device_name":"sample"}
+  sample={"pin":"sample","email":"sample","password":"sample","display_name":"sample","device_id":"sample","device_name":"sample"}
 
 [contracts] MediaEngine.Contracts.Setup.SetupAdministratorResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -7707,6 +7709,7 @@
 
 [web-client] MediaEngine.Web.Models.ViewDTOs.ActivityAuditQuery
   kind=class | converter=default | number-handling=default | unmapped=default
+  HistoricalOnly: System.Boolean | json=historicalOnly | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Search: System.String | json=search | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MediaType: System.String | json=mediaType | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Status: System.String | json=status | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -7718,7 +7721,7 @@
   Limit: System.Int32 | json=limit | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Sort: System.String | json=sort | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortDirection: System.String | json=sortDirection | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"search":"sample","mediaType":"sample","status":"sample","source":"sample","eventType":"sample","start":"2025-01-02T03:04:05+00:00","end":"2025-01-02T03:04:05+00:00","offset":7,"limit":7,"sort":"sample","sortDirection":"sample"}
+  sample={"historicalOnly":true,"search":"sample","mediaType":"sample","status":"sample","source":"sample","eventType":"sample","start":"2025-01-02T03:04:05+00:00","end":"2025-01-02T03:04:05+00:00","offset":7,"limit":7,"sort":"sample","sortDirection":"sample"}
 
 [web-client] MediaEngine.Web.Models.ViewDTOs.AdaptationNodeDto
   kind=class | converter=default | number-handling=default | unmapped=default

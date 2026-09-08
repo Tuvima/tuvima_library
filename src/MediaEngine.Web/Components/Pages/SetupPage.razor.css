@@ -28,7 +28,7 @@
 ::deep .setup-facts dd { margin: 5px 0 0; font-weight: 700; overflow-wrap: anywhere; }
 ::deep .setup-recovery-codes { display: grid; gap: 12px; }
 ::deep .setup-recovery-text { width: 100%; min-height: 250px; }
-::deep .setup-recovery-text textarea { font: 600 .95rem/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; user-select: all; }
+::deep .setup-recovery-text textarea { min-height: 280px !important; font: 600 .95rem/1.65 ui-monospace, SFMono-Regular, Consolas, monospace; user-select: all; }
 ::deep .setup-download-button { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; padding: 0 16px; border: 1px solid var(--tl-border-strong); border-radius: var(--tl-radius-md); color: var(--tl-text-primary); text-decoration: none; }
 ::deep .setup-download-button:hover { border-color: var(--tl-accent-primary); }
 ::deep .setup-storage-editor { display: grid; gap: 14px; padding: 18px; border: 1px solid var(--tl-border-subtle); border-radius: 12px; background: var(--tl-bg-surface-elevated); }

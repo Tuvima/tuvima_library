@@ -17,10 +17,12 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         ["queued", "running", "processing", "active", "retry_waiting", "failed_retryable", "interrupted"];
 
     private readonly IDatabaseConnection _db;
+    private readonly MediaEngine.Providers.Services.BatchProgressService? _progress;
 
-    public IngestionPresentationReadService(IDatabaseConnection db)
+    public IngestionPresentationReadService(IDatabaseConnection db, MediaEngine.Providers.Services.BatchProgressService? progress = null)
     {
         _db = db;
+        _progress = progress;
     }
 
     public async Task<IngestionPresentationSnapshotDto> GetSnapshotAsync(
@@ -81,6 +83,8 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         var isRunning = batchFacts.IsRunning || operationFacts.Active + operationFacts.Queued + operationFacts.RetryWaiting > 0;
         return new IngestionPresentationSnapshotDto
         {
+            BatchProgress = batchFacts.BatchId is { } activeBatchId && _progress is not null
+                ? await _progress.GetProgressAsync(activeBatchId, ct).ConfigureAwait(false) : null,
             IsRunning = isRunning,
             Status = isRunning ? "active" : "idle",
             FilesDiscovered = batchFacts.FilesTotal,
@@ -456,7 +460,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             scoped AS (
                 SELECT ll.ingestion_run_id AS BatchId,
                        {PresentationGroupSql} AS GroupId,
-                       MIN(ma.presented_at) AS AddedAt,
+                       MIN({AddedAtSql}) AS AddedAt,
                        MAX(COALESCE(lfo.updated_at, ll.updated_at, ll.created_at)) AS UpdatedAt
                 FROM latest_logs ll
                 JOIN ingestion_batches b ON b.id = ll.ingestion_run_id
@@ -571,7 +575,23 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             scoped AS (
                 SELECT ll.ingestion_run_id AS BatchId,
                        {PresentationGroupSql} AS GroupId,
-                       COALESCE(lfo.updated_at, ll.updated_at, ll.created_at) AS UpdatedAt
+                       MAX(COALESCE(lfo.updated_at, ll.updated_at, ll.created_at),
+                           COALESCE((SELECT MAX(COALESCE(activity.updated_at,activity.started_at,activity.created_at))
+                               FROM media_operations activity
+                               WHERE activity.batch_id = ll.ingestion_run_id
+                                 AND activity.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id)), ''),
+                           COALESCE((SELECT MAX(ij.updated_at) FROM identity_jobs ij WHERE ij.ingestion_run_id = ll.ingestion_run_id
+                               AND ij.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id)), '')) AS UpdatedAt,
+                       MIN(COALESCE((SELECT MIN(CASE WHEN activity.status IN ('running','processing','active') THEN 0
+                                                WHEN activity.status IN ('retry_waiting','failed_retryable','interrupted') THEN 1
+                                                WHEN activity.status = 'queued' THEN 2 ELSE 3 END)
+                           FROM media_operations activity WHERE activity.batch_id = ll.ingestion_run_id
+                             AND activity.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id)), 3),
+                           COALESCE((SELECT MIN(CASE WHEN ij.state IN ('RetailSearching','BridgeSearching','Hydrating','UniverseEnriching') THEN 0
+                               WHEN ij.state IN ('RetailMatched','RetailMatchedNeedsReview','QidResolved') THEN 1
+                               WHEN ij.state = 'Queued' THEN 2 ELSE 3 END)
+                               FROM identity_jobs ij WHERE ij.ingestion_run_id = ll.ingestion_run_id
+                                 AND ij.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id)), 3)) AS ActivityRank
                 FROM latest_logs ll
                 JOIN media_assets ma ON ma.id = ll.media_asset_id
                 JOIN editions e ON e.id = ma.edition_id
@@ -583,7 +603,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 WHERE {PresentationTitleSql}
             ),
             grouped AS (
-                SELECT BatchId, GroupId, MAX(UpdatedAt) AS UpdatedAt
+                SELECT BatchId, GroupId, MAX(UpdatedAt) AS UpdatedAt, MIN(ActivityRank) AS ActivityRank
                 FROM scoped
                 GROUP BY BatchId, GroupId
             )
@@ -591,7 +611,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                    GroupId,
                    COUNT(*) OVER () AS TotalCount
             FROM grouped
-            ORDER BY UpdatedAt DESC, HEX(BatchId), HEX(GroupId)
+            ORDER BY ActivityRank, UpdatedAt DESC, HEX(BatchId), HEX(GroupId)
             LIMIT @limit OFFSET @offset;
             """, new { offset, limit }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
     }
@@ -660,8 +680,8 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             "listen" => $"AND ({NormalizedMediaTypeSql} IN ('music','album','albums','track','tracks','song','songs','audiobook','audiobooks') OR ({NormalizedMediaTypeSql} LIKE '%audio%' AND {NormalizedMediaTypeSql} LIKE '%book%'))",
             _ => "",
         };
-        var startFilter = start.HasValue ? "AND julianday(ma.presented_at) >= julianday(@start)" : "";
-        var endFilter = end.HasValue ? "AND julianday(ma.presented_at) <= julianday(@end)" : "";
+        var startFilter = start.HasValue ? $"AND julianday({AddedAtSql}) >= julianday(@start)" : "";
+        var endFilter = end.HasValue ? $"AND julianday({AddedAtSql}) <= julianday(@end)" : "";
 
         using var conn = _db.CreateConnection();
         return (await conn.QueryAsync<PresentationGroupKeyRow>(new CommandDefinition($"""
@@ -1031,6 +1051,8 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                      LIMIT 1)
                 ) AS ExpectedCount,
                 (SELECT value FROM canonical_values WHERE entity_id IN (ll.media_asset_id,w.id) AND key IN ('duration','runtime') LIMIT 1) AS DurationLabel,
+                EXISTS (SELECT 1 FROM identity_jobs ij WHERE ij.ingestion_run_id = ll.ingestion_run_id
+                    AND ij.entity_id = ll.media_asset_id AND ij.state IN ('Ready','ReadyWithoutUniverse')) AS IdentityReady,
                 ll.status AS LogStatus,
                 lfo.status AS OperationStatus,
                 lfo.stage AS OperationStage,
@@ -1040,11 +1062,16 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 (SELECT COUNT(*) FROM review_queue rq WHERE rq.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id) AND rq.status = 'Pending' AND rq.review_ready_at IS NOT NULL) AS ReviewCount,
                 (SELECT COUNT(*) FROM person_media_links pml WHERE pml.media_asset_id = ll.media_asset_id) AS PeopleCount,
                 (SELECT COUNT(*) FROM text_tracks tt WHERE tt.asset_id = ll.media_asset_id) AS TextTrackCount,
+                COALESCE(
+                (SELECT ea.id FROM entity_assets ea
+                 WHERE ea.entity_id IN (ll.media_asset_id,w.id) AND ea.asset_type = 'CoverArt'
+                   AND LOWER(COALESCE(w.media_type,'')) NOT IN ('tv','television')
+                 ORDER BY COALESCE(ea.is_user_override,0) DESC, COALESCE(ea.is_preferred,0) DESC, COALESCE(ea.updated_at,ea.created_at) DESC LIMIT 1),
                 (SELECT ea.id FROM entity_assets ea
                  WHERE ea.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id)
                    AND ea.asset_type IN ('CoverArt','SeasonPoster','EpisodeStill')
                  ORDER BY CASE ea.asset_type WHEN 'CoverArt' THEN 0 WHEN 'SeasonPoster' THEN 1 ELSE 2 END, COALESCE(ea.is_preferred,0) DESC, COALESCE(ea.updated_at,ea.created_at) DESC
-                 LIMIT 1) AS CoverAssetId
+                 LIMIT 1)) AS CoverAssetId
             FROM latest_logs ll
             JOIN ingestion_batches b ON b.id = ll.ingestion_run_id
             JOIN media_assets ma ON ma.id = ll.media_asset_id
@@ -1083,7 +1110,18 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                    COALESCE(updated_at, completed_at, started_at, created_at) AS UpdatedAt
             FROM media_operations
             WHERE {batchFilter}
-              AND LOWER(HEX(entity_id)) IN @entityIdHexes;
+              AND LOWER(HEX(entity_id)) IN @entityIdHexes
+            UNION ALL
+            SELECT ingestion_run_id AS BatchId, entity_id AS EntityId,
+                   CASE WHEN pass = 'Universe' THEN 'identity.relationships' ELSE 'identity.metadata' END AS OperationType,
+                   NULL AS CapabilityId,
+                   CASE WHEN state IN ('Ready','ReadyWithoutUniverse','RetailNoMatch','QidNoMatch','QidNeedsReview') THEN 'completed'
+                        WHEN state = 'Failed' THEN 'failed_terminal'
+                        WHEN state IN ('Queued','RetailMatched','RetailMatchedNeedsReview','QidResolved') THEN 'queued'
+                        ELSE 'running' END AS Status,
+                   state AS Stage, updated_at AS UpdatedAt
+            FROM identity_jobs
+            WHERE ingestion_run_id IN @batchIds AND LOWER(HEX(entity_id)) IN @entityIdHexes;
             """,
             new { batchId = batchIds[0], batchIds, entityIdHexes },
             cancellationToken: ct)).ConfigureAwait(false)).AsList();
@@ -1101,16 +1139,17 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
         var scopedOps = operations.Where(operation => operation.BatchId == batchId && operation.EntityId is { } id && memberIds.Contains(id)).ToList();
         var completed = rows
-            .Where(row => row.PresentedAt.HasValue || IsTerminalSuccess(row.LogStatus, row.OperationStatus))
+            .Where(row => row.IdentityReady || row.PresentedAt.HasValue || IsTerminalSuccess(row.LogStatus, row.OperationStatus))
             .Select(row => row.WorkId)
             .Distinct()
             .Count();
         var expected = rows.Select(row => ParsePositiveInt(row.ExpectedCount)).FirstOrDefault(value => value.HasValue);
+        var cover = rows.OrderByDescending(row => row.UpdatedAt).FirstOrDefault(row => row.CoverAssetId.HasValue)?.CoverAssetId;
         var needsReview = rows.Any(row => row.ReviewCount > 0);
         var terminalFailure = scopedOps.Any(operation => operation.Status is "failed_terminal" or "dead_lettered")
                               || rows.Any(row => row.OperationStatus is "failed_terminal" or "dead_lettered");
         var hasBackgroundWork = scopedOps.Any(operation => IsActive(operation.Status) && !IsFileIntake(operation.OperationType));
-        var intakeComplete = rows.All(row => row.PresentedAt.HasValue || IsTerminalSuccess(row.LogStatus, row.OperationStatus));
+        var intakeComplete = rows.All(row => row.IdentityReady || row.PresentedAt.HasValue || IsTerminalSuccess(row.LogStatus, row.OperationStatus));
         var availability = needsReview ? "review" : terminalFailure ? "failed" : intakeComplete ? hasBackgroundWork ? "finishing" : "ready" : "adding";
 
         return new IngestionMediaGroupDto
@@ -1122,20 +1161,20 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             MediaType = mediaType,
             Title = GroupTitle(mediaType, newest),
             Subtitle = GroupSubtitle(mediaType, rows),
-            CoverUrl = newest.CoverAssetId is { } coverId ? $"/stream/artwork/{coverId:D}" : null,
+            CoverUrl = cover is { } coverId ? $"/stream/artwork/{coverId:D}" : null,
             Availability = availability,
             StatusLabel = GroupStatus(availability, scopedOps),
             ChildCompleted = completed,
-            ChildExpected = expected,
+            ChildExpected = mediaType is "TV" or "Comics" ? null : expected,
             ChildUnit = ChildUnit(mediaType, rows),
             DetailRoute = DetailRoute(mediaType, groupId),
             People = Facet("People", "people", scopedOps, rows.Any(row => row.PeopleCount > 0), applies: true),
-            Artwork = Facet("Artwork", "artwork", scopedOps, newest.CoverAssetId.HasValue, applies: true),
+            Artwork = Facet("Artwork", "artwork", scopedOps, cover.HasValue, applies: true),
             Metadata = Facet("Metadata", "metadata", scopedOps, intakeComplete, applies: true),
             Relationships = Facet("Relationships", "relationship", scopedOps, false, applies: true),
             TextTracks = Facet(mediaType == "Music" ? "Lyrics" : "Subtitles", "text", scopedOps, rows.Any(row => row.TextTrackCount > 0), applies: mediaType is "Music" or "Movies" or "TV"),
             AddedAt = rows.Min(row => row.PresentedAt ?? row.AddedAt),
-            UpdatedAt = rows.Max(row => row.UpdatedAt),
+            UpdatedAt = scopedOps.Select(operation => operation.UpdatedAt).Append(rows.Max(row => row.UpdatedAt)).Max(),
         };
     }
 
@@ -1163,9 +1202,12 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                     ? "active"
                     : matching.Any(operation => operation.Status == "queued")
                         ? "pending"
-                    : hasResult || matching.Any(operation => IsTerminalSuccess(operation.Status, operation.Status))
+                    : hasResult || (facet != "artwork" && matching.Any(operation => IsTerminalSuccess(operation.Status, operation.Status)))
                         ? "complete"
                         : "pending";
+        if (facet == "artwork" && !hasResult && state == "pending"
+            && matching.All(operation => IsTerminalSuccess(operation.Status, operation.Status)))
+            return IngestionFacetStateDto.NotApplicable("No artwork found");
         return new IngestionFacetStateDto { State = state, Label = $"{label} {FacetStateLabel(state)}" };
     }
 
@@ -1318,7 +1360,9 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                        w.id AS WorkId,
                        p.id AS ParentWorkId,
                        gp.id AS RootWorkId,
-                       CASE WHEN ma.presented_at IS NOT NULL
+                       CASE WHEN EXISTS (SELECT 1 FROM identity_jobs ij WHERE ij.ingestion_run_id = ll.ingestion_run_id
+                                  AND ij.entity_id = ll.media_asset_id AND ij.state IN ('Ready','ReadyWithoutUniverse'))
+                                  OR ma.presented_at IS NOT NULL
                                   OR LOWER(COALESCE(ll.status, '')) IN ('complete','completed','succeeded','ready','readywithoutuniverse','registered')
                                   OR LOWER(COALESCE(lfo.status, '')) IN ('complete','completed','succeeded','ready','readywithoutuniverse','registered')
                             THEN 1 ELSE 0 END AS IntakeComplete,
@@ -1372,7 +1416,12 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             classified AS (
                 SELECT gb.*,
                        COALESCE(ofx.HasFailure, 0) AS HasFailure,
-                       COALESCE(ofx.HasBackgroundWork, 0) AS HasBackgroundWork
+                       MAX(COALESCE(ofx.HasBackgroundWork, 0),
+                           CASE WHEN EXISTS (SELECT 1 FROM group_members gm JOIN identity_jobs ij
+                               ON ij.ingestion_run_id = gm.BatchId AND ij.entity_id = gm.EntityId
+                               WHERE gm.BatchId = gb.BatchId AND gm.GroupId = gb.GroupId
+                                 AND ij.state IN ('Queued','RetailSearching','RetailMatched','RetailMatchedNeedsReview','BridgeSearching','QidResolved','Hydrating','UniverseEnriching'))
+                           THEN 1 ELSE 0 END) AS HasBackgroundWork
                 FROM group_base gb
                 LEFT JOIN operation_facts ofx ON ofx.BatchId = gb.BatchId AND ofx.GroupId = gb.GroupId
             )
@@ -1407,7 +1456,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             scoped AS (
                 SELECT ll.ingestion_run_id AS BatchId,
                        {PresentationGroupSql} AS GroupId,
-                       MIN(COALESCE(ma.presented_at, ll.created_at)) AS AddedAt
+                       MIN({AddedAtSql}) AS AddedAt
                 FROM latest_logs ll
                 JOIN ingestion_batches b ON b.id = ll.ingestion_run_id
                 JOIN media_assets ma ON ma.id = ll.media_asset_id
@@ -1473,8 +1522,8 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         using var conn = _db.CreateConnection();
         return await conn.QuerySingleAsync<CurrentOperationFacts>(new CommandDefinition("""
             SELECT
-                COUNT(CASE WHEN status IN ('running','processing','active') THEN 1 END) AS Active,
-                COUNT(CASE WHEN status = 'queued' THEN 1 END) AS Queued,
+                COUNT(CASE WHEN status IN ('running','processing','active') THEN 1 END) + (SELECT COUNT(*) FROM identity_jobs WHERE state IN ('RetailSearching','BridgeSearching','Hydrating','UniverseEnriching')) AS Active,
+                COUNT(CASE WHEN status = 'queued' THEN 1 END) + (SELECT COUNT(*) FROM identity_jobs WHERE state IN ('Queued','RetailMatched','RetailMatchedNeedsReview','QidResolved')) AS Queued,
                 COUNT(CASE WHEN status IN ('retry_waiting','failed_retryable','interrupted') THEN 1 END) AS RetryWaiting,
                 COUNT(CASE WHEN status IN ('queued','running','processing','active','retry_waiting','failed_retryable','interrupted')
                              AND (LOWER(operation_type) LIKE '%lyric%' OR LOWER(operation_type) LIKE '%subtitle%' OR LOWER(COALESCE(capability_id,'')) LIKE '%lyric%' OR LOWER(COALESCE(capability_id,'')) LIKE '%subtitle%') THEN 1 END) AS TextTrackWaiting
@@ -1757,14 +1806,20 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         )
         """;
 
-    private const string AdditionBatchPredicate = """
-        ma.presented_at IS NOT NULL
+    // Identity workers publish readiness independently of the intake presentation stamp.
+    private const string AddedAtSql = """
+        COALESCE(ma.presented_at, (SELECT MIN(ready.updated_at) FROM identity_jobs ready
+            WHERE ready.entity_id = ma.id AND ready.state IN ('Ready','ReadyWithoutUniverse')))
+        """;
+
+    private static readonly string AdditionBatchPredicate = $"""
+        {AddedAtSql} IS NOT NULL
         AND b.id = (
             SELECT prior_log.ingestion_run_id
             FROM ingestion_log prior_log
             WHERE prior_log.media_asset_id = ma.id
               AND prior_log.ingestion_run_id IS NOT NULL
-              AND julianday(prior_log.created_at) <= julianday(ma.presented_at)
+              AND julianday(prior_log.created_at) <= julianday({AddedAtSql})
             ORDER BY julianday(prior_log.created_at) DESC, julianday(prior_log.updated_at) DESC
             LIMIT 1
         )
@@ -1794,6 +1849,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         public string? AudiobookPartCount { get; set; }
         public string? ExpectedCount { get; set; }
         public string? DurationLabel { get; set; }
+        public bool IdentityReady { get; set; }
         public string? LogStatus { get; set; }
         public string? OperationStatus { get; set; }
         public string? OperationStage { get; set; }

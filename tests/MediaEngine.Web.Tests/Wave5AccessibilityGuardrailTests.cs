@@ -80,7 +80,7 @@ public sealed class Wave5AccessibilityGuardrailTests
         Assert.Contains("role=\"table\"", metadata);
         Assert.DoesNotContain("role=\"button\"", metadata);
         Assert.Contains("<AppNativeButton Type=\"button\"", batchHistory);
-        Assert.Contains("aria-label=\"@($\"View media added by", batchHistory);
+        Assert.Contains("aria-label=\"@($\"Open batch", batchHistory);
     }
 
     [Fact]

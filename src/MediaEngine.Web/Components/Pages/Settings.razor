@@ -1,4 +1,4 @@
-﻿@page "/settings"
+@page "/settings"
 @page "/settings/{Section}"
 @page "/settings/{Section}/{Subsection}"
 @page "/settings/{Section}/{Subsection}/{Detail}"
@@ -140,7 +140,7 @@
                             }
                             break;
                         case SettingsSection.Ingestion:
-                            <IngestionTasksTab />
+                            <IngestionTasksTab View="@IngestionView" RunId="@IngestionRunId" ItemId="@IngestionItemId" />
                             break;
                         case SettingsSection.DevHarness:
                             @RenderInternalTool(
@@ -197,6 +197,8 @@
     private string? _libraryBreadcrumbName;
     private string? _libraryBreadcrumbRoute;
     private void OnLibraryNameChanged(string name) => _libraryBreadcrumbName = name;
+    [SupplyParameterFromQuery(Name = "view")] public string? IngestionView { get; set; }
+    [SupplyParameterFromQuery(Name = "itemId")] public Guid? IngestionItemId { get; set; }
     [SupplyParameterFromQuery(Name = "runId")] public Guid? IngestionRunId { get; set; }
 
     private SettingsSection _activeSection = SettingsSection.Overview;
@@ -556,11 +558,11 @@
 
     private MediaSectionNavigationItem BuildNavigationItem(SettingsItemDef item)
     {
-        if (item.Value == SettingsSection.Ingestion && IsOperationsWorkspace)
+        if (item.Value == SettingsSection.Ingestion)
         {
             return new(
                 "Operations",
-                SettingsNav.RouteFor(_activeSection),
+                SettingsNav.RouteFor(IsOperationsWorkspace ? _activeSection : SettingsSection.Ingestion),
                 Icons.Material.Outlined.SettingsSuggest,
                 Meta: _reviewCount > 0
                     ? _reviewCount.ToString(System.Globalization.CultureInfo.InvariantCulture)

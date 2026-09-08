@@ -30,7 +30,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("RefreshPinnedDrawerAsync", source, StringComparison.Ordinal);
         Assert.Contains("_selectedItem.BatchId == batchId", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionMediaPagedView", source, StringComparison.Ordinal);
-        Assert.Contains("Adding media", source, StringComparison.Ordinal);
+        Assert.Contains("Active batch", source, StringComparison.Ordinal);
         Assert.Contains("Being Added Now", source, StringComparison.Ordinal);
         Assert.Contains("Model.IsRunning ? \"is-active\" : \"is-idle\"", source, StringComparison.Ordinal);
         Assert.Contains("aria-busy", source, StringComparison.Ordinal);
@@ -38,8 +38,8 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("ingestion-progress-shimmer", styles, StringComparison.Ordinal);
         Assert.Contains("prefers-reduced-motion: reduce", styles, StringComparison.Ordinal);
         Assert.Contains("Batch history", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor")), StringComparison.Ordinal);
-        Assert.Contains("Processing details", source, StringComparison.Ordinal);
-        Assert.Contains("File intake", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Processing details", source, StringComparison.Ordinal);
+        Assert.Contains("Dashboard.BatchProgress", source, StringComparison.Ordinal);
         Assert.DoesNotContain("file checks complete", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Overall batch", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Finishing current work", source, StringComparison.Ordinal);
@@ -885,7 +885,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("js.lease_expires_at > @now", operationsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("+ snapshot.RetailMatched\n                + snapshot.RetailMatchedNeedsReview", normalizedProgressSource, StringComparison.Ordinal);
         Assert.DoesNotContain("+ snapshot.QidResolved\n                + snapshot.Hydrating", normalizedProgressSource, StringComparison.Ordinal);
-        Assert.Contains("var terminal = identified + review + noMatch + failed;", normalizedProgressSource, StringComparison.Ordinal);
+        Assert.Contains("var terminal = identified + review + noMatch + failed + snapshot.FilesSkipped;", normalizedProgressSource, StringComparison.Ordinal);
         Assert.Contains("var progressed = terminal;", normalizedProgressSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AverageProgressPercent", normalizedProgressSource, StringComparison.Ordinal);
     }

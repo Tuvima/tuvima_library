@@ -1,0 +1,2 @@
+.admin-install-option { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.admin-install-option small { color: var(--tl-text-muted); }

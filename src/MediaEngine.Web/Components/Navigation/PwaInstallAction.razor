@@ -1,0 +1,46 @@
+@namespace MediaEngine.Web.Components.Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+@if (_state != "installed")
+{
+    <div class="admin-install-option">
+        <AppButton Label="Install Tuvima Library" ButtonStyle="AppButtonStyle.Text" Size="AppControlSize.Compact"
+                   StartIcon="@Icons.Material.Outlined.InstallDesktop" OnClick="InstallAsync" />
+        @if (_showInstructions || _state == "ios")
+        {
+            <small>@(_state == "ios" ? "In Safari, open Share and choose Add to Home Screen." : "Use your browser’s Install app option when available. Tuvima still needs a connection to your Library Engine.")</small>
+        }
+    </div>
+}
+
+@code {
+    private string _state = "unavailable";
+    private bool _showInstructions;
+    private readonly string _observerId = Guid.NewGuid().ToString("N");
+    private DotNetObjectReference<PwaInstallAction>? _reference;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _reference = DotNetObjectReference.Create(this);
+        _state = await JS.InvokeAsync<string>("tuvimaPwa.register", _reference, _observerId, true);
+        await InvokeAsync(StateHasChanged);
+    }
+    [JSInvokable]
+    public Task HandleInstallStateChanged(string state)
+    {
+        _state = state;
+        return InvokeAsync(StateHasChanged);
+    }
+    private async Task InstallAsync()
+    {
+        if (_state == "available") _state = await JS.InvokeAsync<string>("tuvimaPwa.install", true);
+        else _showInstructions = true;
+    }
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("tuvimaPwa.unregister", _observerId); }
+        catch (JSDisconnectedException) { /* Circuit disposal cannot notify the detached browser. */ }
+        _reference?.Dispose();
+    }
+}

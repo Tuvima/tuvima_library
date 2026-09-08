@@ -6,6 +6,7 @@ namespace MediaEngine.Domain.Models;
 public sealed class IngestionBatchProgressSnapshot
 {
     public int TotalJobs { get; init; }
+    public int FilesSkipped { get; init; }
     public int FilesReady { get; init; }
     public int FilesReadyWithoutUniverse { get; init; }
     public int FilesReview { get; init; }

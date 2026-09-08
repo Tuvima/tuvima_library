@@ -5,6 +5,7 @@
 @using Microsoft.AspNetCore.Components.Routing
 @inject IEngineApiClient Api
 @inject NavigationManager Nav
+@inject IngestionLiveDashboardState Dashboard
 @implements IDisposable
 
 <section class="ingestion-paged-view" aria-labelledby="ingestion-paged-title">
@@ -77,7 +78,23 @@
     private static readonly IReadOnlyList<AppSelectOption> SortOptions = [new("newest", "Date added (newest)"), new("oldest", "Date added (oldest)")];
     private string Title => Mode.ToLowerInvariant() switch { "current" => "Being Added Now", "batch" => "Added in this batch", _ => "Recently Added" };
     private string Subtitle => Mode.ToLowerInvariant() switch { "current" => "All grouped media currently being processed.", "batch" => "Browse the media groups recorded for this ingestion run.", _ => "Media that entered the library, grouped by its addition event." };
-    protected override void OnInitialized() => Nav.LocationChanged += OnLocationChanged;
+    private DateTimeOffset _lastLiveRefresh;
+    private bool _disposed;
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        Dashboard.OnChanged += OnDashboardChanged;
+    }
+
+    private void OnDashboardChanged() => _ = InvokeAsync(async () =>
+    {
+        if (_disposed || _loading || !Mode.Equals("current", StringComparison.OrdinalIgnoreCase)
+            || DateTimeOffset.UtcNow - _lastLiveRefresh < TimeSpan.FromSeconds(5))
+            return;
+        _lastLiveRefresh = DateTimeOffset.UtcNow;
+        await LoadAsync(PageOffset());
+        if (!_disposed) StateHasChanged();
+    });
 
     protected override Task OnParametersSetAsync()
     {
@@ -159,6 +176,8 @@
 
     public void Dispose()
     {
+        _disposed = true;
+        Dashboard.OnChanged -= OnDashboardChanged;
         Nav.LocationChanged -= OnLocationChanged;
         _loadCts?.Cancel();
         _loadCts?.Dispose();

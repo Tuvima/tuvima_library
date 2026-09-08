@@ -46,7 +46,7 @@ public sealed class ViewStorageServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task EnsurePersonalSpace_CreatesOneStableProfileRootAndUploadSource()
+    public async Task EnsurePersonalSpace_ReservesOneStableProfileAndSourceWithoutDirectories()
     {
         var profileId = await AddProfileAsync();
 
@@ -63,7 +63,7 @@ public sealed class ViewStorageServiceTests : IDisposable
         Assert.Equal(
             Path.Combine(_service.GetProfileRoot(first), "Timeline"),
             _service.GetSourcePath(first, source));
-        Assert.True(Directory.Exists(_service.GetSourcePath(first, source)));
+        Assert.False(Directory.Exists(_service.GetRootPath()));
     }
 
     [Fact]
@@ -140,6 +140,18 @@ public sealed class ViewStorageServiceTests : IDisposable
         Assert.Equal(external.FullName, _service.GetSourcePath(space, source));
         await Assert.ThrowsAsync<InvalidOperationException>(() => _service.AddLinkedSourceAsync(
             space, "Managed alias", _service.GetProfileRoot(space), true));
+    }
+
+    [Fact]
+    public async Task ConcurrentFirstUseAndEmptyManagedSourcesDoNotCreateFoldersOrCollide()
+    {
+        var owner = await AddProfileAsync();
+        var spaces = await Task.WhenAll(Enumerable.Range(0, 5).Select(_ => _service.EnsurePersonalSpaceAsync(owner)));
+        Assert.Single(spaces.Select(space => space.Id).Distinct());
+        var first = await _service.EnsureManagedSourceAsync(spaces[0], "Camera", ViewSourceType.Folder, "first");
+        var second = await _service.EnsureManagedSourceAsync(spaces[0], "Camera", ViewSourceType.Folder, "second");
+        Assert.NotEqual(first.RelativePath, second.RelativePath);
+        Assert.False(Directory.Exists(_service.GetRootPath()));
     }
 
     private async Task<Guid> AddProfileAsync()

@@ -33,14 +33,14 @@
                 <div class="ingestion-current__top">
                     <span class="ingestion-current__icon" aria-hidden="true"><MudIcon Icon="@CurrentIcon" /></span>
                     <div class="ingestion-current__copy">
-                        <h2>@(Model.IsRunning ? "Adding media" : "Library is up to date")</h2>
+                        <h2>@(Model.IsRunning ? "Active batch" : "Library is up to date")</h2>
                         <p class="ingestion-current__lead">@(Model.IsRunning ? "Scanning and enriching your media library." : "No active ingestion is running right now.")</p>
                         <p class="ingestion-current__summary">@SummaryLine</p>
                         @if (Model.IsRunning)
                         {
                             <div class="ingestion-current__progress">
-                                <AppProgressBar Class="ingestion-current__progress-bar" Indeterminate="@(!HasFileIntakeProgress)" Value="@FileIntakeProgress" ShowValue="false" />
-                                <span>@FileIntakeLabel</span>
+                                <AppProgressBar Class="ingestion-current__progress-bar" Indeterminate="@(Dashboard.BatchProgress is not { FilesTotal: > 0 })" Value="@(Dashboard.BatchProgress?.ProgressPercent ?? 0)" ShowValue="false" />
+                                <span>@(Dashboard.BatchProgress is { FilesTotal: > 0 } progress ? $"{progress.ProgressPercent}% · {progress.FilesProcessed:N0} of {progress.FilesTotal:N0} files settled" : "Discovering batch work…")</span>
                             </div>
                         }
                     </div>
@@ -51,13 +51,6 @@
                         <div><dt><MudIcon Icon="@Icons.Material.Outlined.Sync" aria-hidden="true" />Waiting to retry</dt><dd>@Model.RetryWaitingOperations.ToString("N0")</dd></div>
                     </dl>
                 </div>
-                @if (Model.IsRunning)
-                {
-                    <details class="ingestion-processing-details">
-                        <summary>Processing details</summary>
-                        <p>Tuvima is handling @Model.ActiveOperations.ToString("N0") active and @Model.QueuedOperations.ToString("N0") queued background tasks. Completed work remains available in Batch history below.</p>
-                    </details>
-                }
             </AppPanel>
 
             @if (Model.Attention.Count > 0)
@@ -99,6 +92,9 @@
 <IngestionMediaDrawer Item="@_selectedItem" Close="CloseDrawer" />
 
 @code {
+    [Parameter] public string? View { get; set; }
+    [Parameter] public Guid? RunId { get; set; }
+    [Parameter] public Guid? ItemId { get; set; }
     private IngestionMediaGroupDto? _selectedItem;
     private bool _drawerRefreshInFlight;
     private int _drawerRevision;
@@ -109,9 +105,6 @@
     private bool IsHistoricalBatchView => _view == "all" && _runId.HasValue;
     private bool IsCurrentPagedView => _view == "all" && !_runId.HasValue;
     private string PagedViewMode => "current";
-    private bool HasFileIntakeProgress => Model.FilesDiscovered > 0 && Model.FilesProcessed >= 0;
-    private double FileIntakeProgress => HasFileIntakeProgress ? Math.Clamp(Model.FilesProcessed * 100d / Model.FilesDiscovered, 0, 100) : 0;
-    private string FileIntakeLabel => HasFileIntakeProgress ? $"File intake · {Model.FilesProcessed:N0} / {Model.FilesDiscovered:N0} files processed" : "File intake · counting discovered files";
     private string SummaryLine => Model.IsRunning
         ? $"{Model.FilesDiscovered:N0} files discovered · {Model.LibraryGroups:N0} library items · {Model.ReadyGroups:N0} ready · {Model.FinishingGroups:N0} finishing details · {Model.ReviewGroups:N0} need review"
         : $"{LastActivityCopy} · {Model.FilesProcessed:N0} files processed · {RecentCount:N0} media groups recently added";
@@ -135,14 +128,9 @@
 
     private void ResolveQuery()
     {
-        var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
-        _view = query.TryGetValue("view", out var rawView) ? rawView.FirstOrDefault()?.ToLowerInvariant() : null;
-        _runId = query.TryGetValue("runId", out var rawRunId) && Guid.TryParse(rawRunId.FirstOrDefault(), out var runId)
-            ? runId
-            : null;
-        _requestedItemId = query.TryGetValue("itemId", out var rawItemId) && Guid.TryParse(rawItemId.FirstOrDefault(), out var itemId)
-            ? itemId
-            : null;
+        _view = View?.ToLowerInvariant();
+        _runId = RunId;
+        _requestedItemId = ItemId;
     }
 
     private Task OpenDrawer(IngestionMediaGroupDto item)

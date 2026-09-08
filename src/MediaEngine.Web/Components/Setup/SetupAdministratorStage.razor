@@ -6,7 +6,7 @@
     {
         <AppAlert Tone="AppUiTone.Warning"><strong>Save these recovery codes now.</strong> They will not be shown again.</AppAlert>
         <div class="setup-recovery-codes">
-            <AppTextarea Value="@RecoveryCodesText" ReadOnly="true" Lines="@(RecoveryCodes.Count + 2)" Class="setup-recovery-text" />
+            <AppTextarea Label="Recovery codes" Value="@string.Join('\n', RecoveryCodes)" ReadOnly="true" Lines="@Math.Max(10, RecoveryCodes.Count)" Class="setup-recovery-text" />
             <div class="setup-actions"><AppButton Label="Copy all" StartIcon="@Icons.Material.Outlined.ContentCopy" OnClick="CopyRecoveryCodes" /><a class="setup-download-button" href="@RecoveryCodesDownloadUri" download="tuvima-administrator-recovery-codes.txt">Download .txt</a></div>
         </div>
         <div class="setup-actions setup-actions--end"><AppButton Label="I saved the codes — sign in" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="SignIn" /></div>
@@ -20,15 +20,31 @@
         <div class="setup-form-grid">
             <AppTextField Label="Display name" Value="@DisplayName" ValueChanged="DisplayNameChanged" />
             <AppTextField Label="Email" Value="@Email" ValueChanged="EmailChanged" />
-            <AppTextField Label="Password" InputType="InputType.Password" Value="@Password" ValueChanged="PasswordChanged" />
-            <AppTextField Label="Confirm password" InputType="InputType.Password" Value="@PasswordConfirmation" ValueChanged="PasswordConfirmationChanged" Error="@(!string.IsNullOrEmpty(PasswordConfirmation) && !PasswordsMatch)" ErrorText="Passwords do not match." />
+            <AppTextField Label="Password" InputType="@(_showPassword ? InputType.Text : InputType.Password)" Value="@Password" ValueChanged="PasswordChanged"
+                          Adornment="Adornment.End" AdornmentIcon="@(_showPassword ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)" OnAdornmentClick="@(_ => _showPassword = !_showPassword)" AdornmentAriaLabel="@(_showPassword ? "Hide password" : "Show password")"
+                          Validation="@(new Func<string?, string?>(ValidatePassword))" Error="@(Password.Length > 0 && Password.Length is < 8 or > 128)" ErrorText="Use 8 to 128 characters." HelpText="@(ValidatePassword(Password) is null ? "Use 8 to 128 characters." : null)" />
+            <AppTextField Label="Confirm password" InputType="@(_showConfirmation ? InputType.Text : InputType.Password)" Value="@PasswordConfirmation" ValueChanged="PasswordConfirmationChanged"
+                          Adornment="Adornment.End" AdornmentIcon="@(_showConfirmation ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)" OnAdornmentClick="@(_ => _showConfirmation = !_showConfirmation)" AdornmentAriaLabel="@(_showConfirmation ? "Hide confirmed password" : "Show confirmed password")"
+                          Validation="@(new Func<string?, string?>(value => !string.IsNullOrEmpty(value) && value != Password ? "Passwords do not match." : null))" Error="@(!string.IsNullOrEmpty(PasswordConfirmation) && !PasswordsMatch)" ErrorText="Passwords do not match." />
+            <AppTextField Label="Profile PIN (optional)" InputType="InputType.Password" Value="@Pin" ValueChanged="PinChanged" InputMode="@MudBlazor.InputMode.numeric" MaxLength="12"
+                          Validation="@(new Func<string?, string?>(value => IsValidPin(value) ? null : "Use 4 to 12 digits."))" Error="@(Pin.Length > 0 && !PinValid)" ErrorText="Use 4 to 12 digits." HelpText="Unlock this profile with 4 to 12 digits. Your administrator password is still required for account access." />
+            <AppTextField Label="Confirm PIN" InputType="InputType.Password" Value="@PinConfirmation" ValueChanged="PinConfirmationChanged" InputMode="@MudBlazor.InputMode.numeric" MaxLength="12"
+                          Validation="@(new Func<string?, string?>(value => !string.IsNullOrEmpty(value) && value != Pin ? "PINs do not match." : null))" Error="@(PinConfirmation.Length > 0 && Pin != PinConfirmation)" ErrorText="PINs do not match." />
         </div>
-        <small>Use at least 8 characters. This password remains on your Tuvima server.</small>
-        <div class="setup-actions setup-actions--end"><AppButton Label="Create administrator" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@Busy" Disabled="@(Busy || string.IsNullOrWhiteSpace(Email) || Password.Length < 8 || !PasswordsMatch)" OnClick="CreateAdministrator" /></div>
+        <small>Your credentials remain on your Tuvima server.</small>
+        <div class="setup-actions setup-actions--end"><AppButton Label="Create administrator" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@Busy" Disabled="@(Busy || string.IsNullOrWhiteSpace(Email) || Password.Length is < 8 or > 128 || !PasswordsMatch || !PinValid || Pin != PinConfirmation)" OnClick="CreateAdministrator" /></div>
     }
 </div>
 
 @code {
+    private bool _showPassword, _showConfirmation;
+    [Parameter] public string Pin { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string?> PinChanged { get; set; }
+    [Parameter] public string PinConfirmation { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string?> PinConfirmationChanged { get; set; }
+    private bool PinValid => IsValidPin(Pin);
+    private static bool IsValidPin(string? value) => string.IsNullOrEmpty(value) || (value.Length is >= 4 and <= 12 && value.All(char.IsAsciiDigit));
+    private static string? ValidatePassword(string? value) => !string.IsNullOrEmpty(value) && value.Length is < 8 or > 128 ? "Use 8 to 128 characters." : null;
     [Parameter] public string DisplayName { get; set; } = string.Empty;
     [Parameter] public EventCallback<string?> DisplayNameChanged { get; set; }
     [Parameter] public string Email { get; set; } = string.Empty;

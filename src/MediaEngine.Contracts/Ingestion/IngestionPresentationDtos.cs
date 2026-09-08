@@ -4,6 +4,9 @@ namespace MediaEngine.Contracts.Ingestion;
 
 public sealed class IngestionPresentationSnapshotDto
 {
+    [JsonPropertyName("batch_progress")]
+    public MediaEngine.Contracts.Realtime.BatchProgressEvent? BatchProgress { get; set; }
+
     [JsonPropertyName("is_running")]
     public bool IsRunning { get; set; }
 

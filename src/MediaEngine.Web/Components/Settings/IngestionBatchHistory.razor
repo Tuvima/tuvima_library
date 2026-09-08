@@ -3,6 +3,7 @@
 @using MediaEngine.Contracts.Paging
 @using Microsoft.AspNetCore.WebUtilities
 @inject UIOrchestratorService Orchestrator
+@inject IngestionLiveDashboardState Dashboard
 @inject NavigationManager Nav
 @implements IDisposable
 
@@ -86,27 +87,9 @@
                             }
                         </span>
                         <span class="ingestion-batch__action">
-                            @if (IngestionBatchDisplay.HasMedia(operation))
-                            {
-                                <AppButton Href="@IngestionBatchDisplay.MediaHref(operation)"
-                                           Label="View media"
-                                           aria-label="@($"View media added by {IngestionBatchDisplay.Title(operation)}")"
-                                           ButtonStyle="AppButtonStyle.Filled"
-                                           Tone="AppUiTone.Primary"
-                                           EndIcon="@Icons.Material.Outlined.ChevronRight" />
-                            }
-                            else if (operation.ReviewCount > 0)
-                            {
-                                <AppButton Href="/settings/review"
-                                           Label="Review items"
-                                           ButtonStyle="AppButtonStyle.Outlined"
-                                           Tone="AppUiTone.Warning"
-                                           EndIcon="@Icons.Material.Outlined.ChevronRight" />
-                            }
-                            else
-                            {
-                                <span class="ingestion-batch__no-media"><MudIcon Icon="@Icons.Material.Outlined.CheckCircleOutline" />No media added</span>
-                            }
+                            <AppButton Href="@IngestionBatchDisplay.MediaHref(operation)"
+                                       Label="Open batch" aria-label="@($"Open batch {IngestionBatchDisplay.Title(operation)}")" ButtonStyle="AppButtonStyle.Filled"
+                                       Tone="AppUiTone.Primary" EndIcon="@Icons.Material.Outlined.ChevronRight" />
                         </span>
                     </div>
                 </article>
@@ -155,9 +138,18 @@
 
     protected override Task OnInitializedAsync()
     {
+        Dashboard.OnChanged += OnDashboardChanged;
         var query = QueryHelpers.ParseQuery(Nav.ToAbsoluteUri(Nav.Uri).Query);
         _search = query.TryGetValue("q", out var rawSearch) ? rawSearch.FirstOrDefault() : null;
         return LoadAsync(reset: true);
+    }
+
+    private DateTimeOffset _lastHistoryRefresh;
+    private void OnDashboardChanged()
+    {
+        if (_loading || DateTimeOffset.UtcNow - _lastHistoryRefresh < TimeSpan.FromSeconds(5)) return;
+        _lastHistoryRefresh = DateTimeOffset.UtcNow;
+        _ = InvokeAsync(async () => { await LoadAsync(reset: true); StateHasChanged(); });
     }
 
     private Task OnSearchChanged(string? value)
@@ -189,9 +181,10 @@
         _loadCts = new CancellationTokenSource();
         var ct = _loadCts.Token;
         var offset = reset ? 0 : _operations.Count;
-        var limit = reset ? InitialBatchCount : OlderBatchCount;
+        var limit = reset ? Math.Max(InitialBatchCount, _operations.Count) : OlderBatchCount;
         var query = new ActivityAuditQuery
         {
+            HistoricalOnly = true,
             Search = _search,
             Status = _status == "all" ? null : _status,
             Sort = "started",
@@ -287,6 +280,7 @@
 
     public void Dispose()
     {
+        Dashboard.OnChanged -= OnDashboardChanged;
         _loadCts?.Cancel();
         _loadCts?.Dispose();
     }

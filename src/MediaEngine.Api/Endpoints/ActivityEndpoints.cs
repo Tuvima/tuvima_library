@@ -41,6 +41,7 @@ public static class ActivityEndpoints
             int? limit,
             string? sort,
             string? sortDirection,
+            bool? historicalOnly,
             CancellationToken ct) =>
         {
             var page = PagedRequest.From(offset, limit, defaultLimit: 25);
@@ -55,7 +56,7 @@ public static class ActivityEndpoints
                 page.Offset,
                 page.Limit,
                 sort,
-                sortDirection);
+                sortDirection, historicalOnly == true);
 
             return Results.Ok(await readService.GetBatchesAsync(query, ct));
         })

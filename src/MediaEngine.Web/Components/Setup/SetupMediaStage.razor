@@ -13,11 +13,14 @@
         {
             <AppAlert Tone="@(Media.Passed ? AppUiTone.Success : AppUiTone.Warning)">@Media.Detail</AppAlert>
         }
-        <div class="setup-actions"><AppButton Label="Add a library" StartIcon="@Icons.Material.Outlined.CreateNewFolder" OnClick="OpenLibraryWizard" /><AppButton Label="Verify and continue" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@Busy" OnClick="ValidateMedia" /></div>
+        <p>You can add your media folders later in Settings · Libraries.</p>
+        <div class="setup-actions"><AppButton Label="Add a library" StartIcon="@Icons.Material.Outlined.CreateNewFolder" OnClick="OpenLibraryWizard" /><AppButton Label="Do this later" ButtonStyle="AppButtonStyle.Text" Disabled="@Busy" OnClick="DeferMedia" />@if (HasLibraries) { <AppButton Label="Continue" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@Busy" OnClick="ValidateMedia" /> }</div>
     }
 </div>
 
 @code {
+    [Parameter] public bool HasLibraries { get; set; }
+    [Parameter] public EventCallback DeferMedia { get; set; }
     [Parameter] public SetupMediaLocationsDto? Media { get; set; }
     [Parameter] public string? SetupSession { get; set; }
     [Parameter] public bool Busy { get; set; }

@@ -1010,6 +1010,7 @@ public sealed partial class EngineApiClient
     private static string BuildActivityQueryPath(string path, ActivityAuditQuery query)
     {
         var values = new List<string>();
+        if (query.HistoricalOnly) values.Add("historicalOnly=true");
         Add(values, "search", query.Search);
         Add(values, "mediaType", query.MediaType);
         Add(values, "status", query.Status);

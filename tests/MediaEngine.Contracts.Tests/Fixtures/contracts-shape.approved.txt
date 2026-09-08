@@ -2265,6 +2265,7 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionPipelin
   Helper: System.String | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionPresentationSnapshotDto
+  BatchProgress: MediaEngine.Contracts.Realtime.BatchProgressEvent | nullability=nullable | accessors=get,set
   IsRunning: System.Boolean | nullability=not-null | accessors=get,set
   Status: System.String | nullability=not-null | accessors=get,set
   FilesDiscovered: System.Int32 | nullability=not-null | accessors=get,set
@@ -6115,6 +6116,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ViewStorageSummary
   Items: System.Int32 | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupAdministratorRequest
+  Pin: System.String | nullability=nullable | accessors=get,init
   Email: System.String | nullability=not-null | accessors=get,init
   Password: System.String | nullability=not-null | accessors=get,init
   DisplayName: System.String | nullability=not-null | accessors=get,init

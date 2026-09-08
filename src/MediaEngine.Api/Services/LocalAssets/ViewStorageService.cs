@@ -12,6 +12,7 @@ public sealed class ViewStorageService(
     IConfigurationLoader configuration,
     IViewPersonalSpaceRepository spaces)
 {
+    private static readonly SemaphoreSlim PersonalSpaceGate = new(1, 1);
     private static readonly SemaphoreSlim ManagedSourceGate = new(1, 1);
 
     public string GetRootPath()
@@ -68,10 +69,15 @@ public sealed class ViewStorageService(
     public async Task<ViewPersonalSpace> EnsurePersonalSpaceAsync(Guid ownerProfileId, CancellationToken ct = default)
     {
         if (ownerProfileId == Guid.Empty) throw new ArgumentException("Profile ID is required.", nameof(ownerProfileId));
-        var space = await spaces.GetByOwnerAsync(ownerProfileId, ct)
-            ?? await spaces.CreateAsync(ownerProfileId, Guid.NewGuid(), ct);
-        Directory.CreateDirectory(GetProfileRoot(space));
-        Directory.CreateDirectory(GetSharedRoot());
+        ViewPersonalSpace space;
+        await PersonalSpaceGate.WaitAsync(ct);
+        try
+        {
+            space = await spaces.GetByOwnerAsync(ownerProfileId, ct)
+                ?? await spaces.CreateAsync(ownerProfileId, Guid.NewGuid(), ct);
+        }
+        finally { PersonalSpaceGate.Release(); }
+        // Reserve stable identity now; physical folders are created by actual writes only.
 
         var policy = configuration.LoadLibraries().PersonalLibraryPolicy;
         if (policy.AllowBrowserUpload)
@@ -96,7 +102,6 @@ public sealed class ViewStorageService(
                 string.Equals(candidate.SourceKey, sourceKey, StringComparison.OrdinalIgnoreCase));
             if (existing is not null)
             {
-                Directory.CreateDirectory(GetSourcePath(space, existing));
                 return existing;
             }
 
@@ -105,7 +110,8 @@ public sealed class ViewStorageService(
             var relative = sourceType == ViewSourceType.BrowserUpload
                 ? $"Profiles/{space.StorageLabel}/Timeline"
                 : $"Profiles/{space.StorageLabel}/Folders/{ViewStorageNames.FromDisplayName(name)}";
-            if (sourceType != ViewSourceType.BrowserUpload && Directory.Exists(ResolveManagedRelativePath(relative)))
+            if (sourceType != ViewSourceType.BrowserUpload && (Directory.Exists(ResolveManagedRelativePath(relative))
+                || (await spaces.GetSourcesAsync(space.Id, ct)).Any(item => string.Equals(item.RelativePath, relative, StringComparison.OrdinalIgnoreCase))))
                 relative += "-" + id.ToString("N");
             var source = new ViewSource(
                 id, space.Id, sourceType, name.Trim(), sourceKey.Trim(), null, now, now,
@@ -116,7 +122,6 @@ public sealed class ViewStorageService(
                 Enabled: true,
                 IncludeInTimeline: sourceType == ViewSourceType.BrowserUpload);
             source = await spaces.UpsertSourceAsync(source, ct);
-            Directory.CreateDirectory(GetSourcePath(space, source));
             return source;
         }
         finally { ManagedSourceGate.Release(); }
@@ -135,10 +140,10 @@ public sealed class ViewStorageService(
             throw new InvalidOperationException("Linking an existing folder to View is disabled by policy.");
         var fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         EnsureNoReparsePoints(fullPath);
-        if (!Directory.Exists(fullPath))
-            throw new DirectoryNotFoundException($"Linked View folder '{fullPath}' does not exist.");
         if (IsWithin(GetRootPath(), fullPath) || IsWithin(fullPath, GetRootPath()))
             throw new InvalidOperationException("Folders inside the managed View root are created as managed sources, not linked sources.");
+        if (!Directory.Exists(fullPath))
+            throw new DirectoryNotFoundException($"Linked View folder '{fullPath}' does not exist.");
 
         var sources = new List<ViewSource>();
         foreach (var other in await spaces.GetAllAsync(ct))

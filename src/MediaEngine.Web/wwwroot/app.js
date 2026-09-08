@@ -140,57 +140,62 @@ window.detectDeviceClass = function () {
 
 window.tuvimaPwa = (function () {
     var deferredPrompt = null;
-    var observer = null;
+    var observers = new Map();
+    var dismissed = false;
+    var dismissalKey = 'tuvima.installBanner.dismissed';
+    try { dismissed = localStorage.getItem(dismissalKey) === 'true'; }
+    catch (error) { console.debug('Install preference storage is unavailable.', error); }
 
-    function isStandalone() {
-        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-    }
-
-    function isIos() {
-        return /iphone|ipad|ipod/i.test(window.navigator.userAgent);
-    }
-
-    function currentState() {
-        if (isStandalone()) return 'installed';
+    function currentState(manual) {
+        if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) return 'installed';
+        if (!manual && dismissed) return 'dismissed';
         if (deferredPrompt) return 'available';
-        if (isIos()) return 'ios';
+        if (/iphone|ipad|ipod/i.test(window.navigator.userAgent)) return 'ios';
         return 'unavailable';
     }
-
     function notify() {
-        if (observer) observer.invokeMethodAsync('HandleInstallStateChanged', currentState());
+        observers.forEach(function (entry) {
+            entry.ref.invokeMethodAsync('HandleInstallStateChanged', currentState(entry.manual));
+        });
     }
-
     window.addEventListener('beforeinstallprompt', function (event) {
-        event.preventDefault();
-        deferredPrompt = event;
-        notify();
+        event.preventDefault(); deferredPrompt = event; notify();
     });
-
-    window.addEventListener('appinstalled', function () {
-        deferredPrompt = null;
-        notify();
+    window.addEventListener('appinstalled', function () { deferredPrompt = null; notify(); });
+    window.addEventListener('storage', function (event) {
+        if (event.key === dismissalKey) { dismissed = event.newValue === 'true'; notify(); }
     });
-
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
             navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
                 .catch(function (error) { console.debug('PWA registration failed.', error); });
         });
     }
-
     return {
-        register: function (dotNetRef) {
-            observer = dotNetRef;
-            return currentState();
+        register: function (ref, id, manual) {
+            observers.set(id, { ref: ref, manual: manual === true });
+            return currentState(manual);
         },
-        unregister: function () { observer = null; },
-        install: async function () {
-            if (!deferredPrompt) return currentState();
+        unregister: function (id) { observers.delete(id); },
+        dismiss: function () {
+            dismissed = true;
+            try { localStorage.setItem(dismissalKey, 'true'); }
+            catch (error) { console.debug('Install dismissal retained for this session only.', error); }
+            notify();
+            return currentState(false);
+        },
+        install: async function (manual) {
+            if (!deferredPrompt) return currentState(manual);
             await deferredPrompt.prompt();
             var choice = await deferredPrompt.userChoice;
-            if (choice.outcome === 'accepted') deferredPrompt = null;
-            return currentState();
+            deferredPrompt = null;
+            if (choice.outcome !== 'accepted') {
+                dismissed = true;
+                try { localStorage.setItem(dismissalKey, 'true'); }
+                catch (error) { console.debug('Install dismissal retained for this session only.', error); }
+            }
+            notify();
+            return currentState(manual);
         }
     };
 })();

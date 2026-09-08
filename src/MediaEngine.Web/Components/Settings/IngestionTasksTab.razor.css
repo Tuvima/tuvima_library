@@ -166,23 +166,6 @@
     white-space: nowrap;
 }
 
-.ingestion-processing-details {
-    margin-top: 1rem;
-    padding-top: .8rem;
-    color: var(--mud-palette-text-secondary);
-    border-top: 1px solid var(--app-border);
-    font-size: .78rem;
-}
-
-.ingestion-processing-details summary {
-    color: var(--mud-palette-primary-text);
-    cursor: pointer;
-}
-
-.ingestion-processing-details p {
-    margin: .6rem 0 0;
-}
-
 .ingestion-attention {
     overflow: hidden;
     padding: 0 !important;
@@ -338,11 +321,13 @@
     }
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1400px) {
     .ingestion-summary-layout {
         grid-template-columns: 1fr;
     }
+}
 
+@media (max-width: 1100px) {
     .ingestion-current__top {
         grid-template-columns: auto minmax(0, 1fr);
     }
@@ -403,3 +388,8 @@
         max-width: 18rem;
     }
 }
+
+.ingestion-current.is-active .ingestion-current__icon { color: var(--mud-palette-success); background: color-mix(in srgb, var(--mud-palette-success) 13%, transparent); animation: ingestion-active-pulse 1.8s ease-in-out infinite; }
+.ingestion-current.is-active .ingestion-current__icon::before { border-color: color-mix(in srgb, var(--mud-palette-success) 24%, transparent); border-top-color: var(--mud-palette-success); }
+@keyframes ingestion-active-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .ingestion-current.is-active .ingestion-current__icon { animation: none; } }

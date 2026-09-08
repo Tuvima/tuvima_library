@@ -11,4 +11,5 @@ public sealed record ActivityBatchQuery(
     int Offset,
     int Limit,
     string? Sort = null,
-    string? SortDirection = null);
+    string? SortDirection = null,
+    bool HistoricalOnly = false);

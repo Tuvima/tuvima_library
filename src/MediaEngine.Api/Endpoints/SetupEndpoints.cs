@@ -62,7 +62,7 @@ public static class SetupEndpoints
             {
                 var issued = await identity.BootstrapAdministratorAsync(
                     request.Email, request.Password, request.DisplayName,
-                    request.DeviceId, request.DeviceName, "Tuvima Setup", ct).ConfigureAwait(false);
+                    request.DeviceId, request.DeviceName, "Tuvima Setup", ct, request.Pin).ConfigureAwait(false);
                 await onboarding.SetStepAsync(
                     "administrator", "passed", "Administrator account and initial profile created.",
                     null, issued.Profile.Id, ct).ConfigureAwait(false);
@@ -162,7 +162,7 @@ public static class SetupEndpoints
             CancellationToken ct) =>
         {
             if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
-            if (stepKey != "providers")
+            if (stepKey != "providers" && !(stepKey == "media-locations" && request.Status == "deferred"))
                 return ApiErrors.BadRequest("This setup step has a dedicated server-side validator.");
             if (request.Status is not ("passed" or "deferred"))
                 return ApiErrors.BadRequest("Optional setup steps may be passed or deferred.");
@@ -250,7 +250,7 @@ public static class SetupEndpoints
 
     private static SetupReadinessDto BuildReadiness(OnboardingWorkflowRecord workflow)
     {
-        var required = new HashSet<string>(["preflight", "administrator", "media-locations"], StringComparer.Ordinal);
+        var required = new HashSet<string>(["preflight", "administrator"], StringComparer.Ordinal);
         var capabilities = workflow.Steps.Select(step => new SetupCapabilityDto(
             step.Key,
             step.Key.Replace('-', ' '),

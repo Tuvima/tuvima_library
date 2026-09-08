@@ -132,9 +132,9 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
                 WHERE workflow_version = @version
                   AND step_key <> 'readiness'
                   AND (
-                    (step_key IN ('preflight','administrator','media-locations') AND status <> 'passed')
+                    (step_key IN ('preflight','administrator') AND status <> 'passed')
                     OR
-                    (step_key = 'providers' AND status NOT IN ('passed','deferred'))
+                    (step_key IN ('providers','media-locations') AND status NOT IN ('passed','deferred'))
                   );
                 """, new { version = CurrentVersion }, transaction);
             if (blocking > 0) return false;

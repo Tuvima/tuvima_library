@@ -85,6 +85,8 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     public IReadOnlyList<IngestionCurrentActivityDto> CurrentActivities => BuildCurrentActivities(Snapshot, ActiveJobs, Stages, _stateContainer);
     public IngestionDashboardMetrics Metrics => BuildMetrics(Snapshot, ActiveJobs);
     public IReadOnlyList<IngestionDashboardStage> Stages => BuildStages(Snapshot, ActiveJobs, Metrics.TotalFiles);
+    public MediaEngine.Contracts.Realtime.BatchProgressEvent? BatchProgress =>
+        _stateContainer.BatchProgress ?? Presentation?.BatchProgress;
     public IngestionOverallProgress OverallProgress => BuildOverallProgress(Metrics, Stages, _stateContainer.BatchProgress);
     public LibraryUpdateStatusViewModel LibraryUpdateStatus => BuildLibraryUpdateStatus(
         Snapshot,
@@ -155,6 +157,12 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
 
             Snapshot = MergeSnapshot(Snapshot, snapshotTask.Result);
             Presentation = MergePresentation(Presentation, presentationTask.Result);
+            if (Presentation?.BatchProgress is { } progress
+                && (progress.IsComplete ? _stateContainer.BatchProgress is not null
+                    : progress.BatchId != _stateContainer.BatchProgress?.BatchId
+                        || progress.ProgressPercent != _stateContainer.BatchProgress?.ProgressPercent
+                        || progress.FilesProcessed != _stateContainer.BatchProgress?.FilesProcessed))
+                _stateContainer.PushBatchProgress(progress);
             RecentActivity = activityTask.Result
                 .Where(IsUsefulActivity)
                 .Take(12)
@@ -219,6 +227,8 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         if (value is null) return "none";
         return string.Join('|',
             value.Status,
+            value.BatchProgress?.ProgressPercent,
+            value.BatchProgress?.IsComplete,
             value.FilesDiscovered,
             value.FilesProcessed,
             value.LibraryGroups,
@@ -254,19 +264,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         if (next is null) return current;
         if (current is null) return next;
 
-        var existing = current.CurrentMedia.ToDictionary(item => (item.BatchId, item.GroupId));
-        var stable = new List<IngestionMediaGroupDto>();
-        foreach (var item in current.CurrentMedia)
-        {
-            var updated = next.CurrentMedia.FirstOrDefault(candidate => candidate.BatchId == item.BatchId && candidate.GroupId == item.GroupId);
-            if (updated is not null) stable.Add(updated);
-        }
-        foreach (var item in next.CurrentMedia)
-        {
-            if (!existing.ContainsKey((item.BatchId, item.GroupId))) stable.Add(item);
-        }
-
-        next.CurrentMedia = stable.Take(Math.Max(1, next.CurrentMedia.Count)).ToList();
+        // The server orders the bounded preview by current activity. Preserve that order.
         return next;
     }
 
@@ -607,7 +605,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         while (!ct.IsCancellationRequested)
         {
             var delay = ActiveJobs.Count > 0 || ShouldLoadOperationRows(OperationsSummary)
-                ? TimeSpan.FromSeconds(15)
+                ? TimeSpan.FromSeconds(5)
                 : TimeSpan.FromSeconds(40);
             try
             {

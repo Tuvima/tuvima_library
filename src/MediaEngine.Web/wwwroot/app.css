@@ -3765,14 +3765,15 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 }
 
 .app-textarea .mud-input,
+.app-textarea .mud-input-control-input-container,
 .app-textarea .mud-input-slot,
-.app-textarea textarea {
+.app-control.app-textarea textarea.mud-input-slot {
     height: auto !important;
     min-height: 92px !important;
     align-items: stretch !important;
 }
 
-.app-textarea textarea {
+.app-control.app-textarea textarea.mud-input-slot {
     padding-top: var(--tl-space-3) !important;
     padding-bottom: var(--tl-space-3) !important;
     line-height: 1.45 !important;

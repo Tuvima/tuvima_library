@@ -37,6 +37,21 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task BootstrapValidatesPinBeforeCreatingAdministratorAndPreservesLeadingZeroes()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner", "device", "Browser", "Dashboard", pin: "123"));
+        Assert.False(await _service.IsAdministratorConfiguredAsync());
+        var issued = await _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner", "device", "Browser", "Dashboard", pin: "0123");
+        var credential = await _identities.GetCredentialAsync(issued.Profile.Id, MediaEngine.Domain.Entities.ProfileCredentialKind.ProfilePin);
+        Assert.NotNull(credential);
+        Assert.True((await _service.AuthenticatePinAsync(issued.Profile.Id, "0123", "pin-device", "Browser", "Dashboard")).Succeeded);
+        Assert.NotEmpty(issued.RecoveryCodes);
+        Assert.True(await _service.IsAdministratorConfiguredAsync());
+    }
+
+    [Fact]
     public async Task BootstrapAndPasswordLogin_UseWorkFactoredHashAndRevocableDeviceSession()
     {
         var bootstrap = await _service.BootstrapAdministratorAsync(

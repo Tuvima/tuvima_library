@@ -234,6 +234,7 @@ public sealed class ViewSharedTransferServiceTests
             var source = _spaces.GetSourcesAsync(Space.Id).GetAwaiter().GetResult()
                 .Single(value => value.SourceType == ViewSourceType.BrowserUpload);
             var path = Path.Combine(Storage.GetSourcePath(Space, source), name);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllBytes(path, bytes);
             return path;
         }

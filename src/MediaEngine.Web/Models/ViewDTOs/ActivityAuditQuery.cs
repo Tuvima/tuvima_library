@@ -2,6 +2,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 
 public sealed class ActivityAuditQuery
 {
+    public bool HistoricalOnly { get; set; }
     public string? Search { get; set; }
     public string? MediaType { get; set; }
     public string? Status { get; set; }

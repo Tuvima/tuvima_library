@@ -83,81 +83,15 @@ public sealed class BatchProgressService
             var batch = await _batchRepo.GetByIdAsync(batchId, ct).ConfigureAwait(false);
             if (batch is null) return;
 
-            var snapshot = await _batchRepo.GetProgressSnapshotAsync(batchId, ct).ConfigureAwait(false);
-
-            var total = Math.Max(batch.FilesTotal, snapshot.TotalJobs);
-            var failed = snapshot.TotalJobs > 0
-                ? Math.Max(0, snapshot.PipelineFailed)
-                : Math.Max(0, batch.FilesFailed);
-            var ready = snapshot.FilesReady;
-            var readyWithoutUniverse = snapshot.FilesReadyWithoutUniverse;
-            var identified = ready + readyWithoutUniverse;
-            var review = snapshot.FilesReview;
-            var noMatch = snapshot.FilesNoMatch;
-            var active = snapshot.RetailSearching
-                + snapshot.BridgeSearching
-                + snapshot.Hydrating
-                + snapshot.UniverseEnriching;
-            active = Math.Max(active, snapshot.ActiveOperations);
-            var terminal = identified + review + noMatch + failed;
-            if (total > 0)
-            {
-                terminal = Math.Clamp(terminal, 0, total);
-                active = Math.Clamp(active, 0, Math.Max(0, total - terminal));
-            }
-
-            var queued = total > 0
-                ? Math.Max(0, total - terminal - active)
-                : snapshot.QueuedJobs + snapshot.RetailMatched + snapshot.QidResolved;
-            queued = Math.Max(queued, snapshot.QueuedOperations + snapshot.RetryWaitingOperations);
-
-            var progressed = terminal;
-            var pct = total > 0 ? (int)Math.Round(Math.Clamp(progressed * 100d / total, 0, 100)) : 0;
-            var completed = total > 0
-                && terminal >= total
-                && active == 0
-                && snapshot.OutstandingOperations == 0;
-
-            int? etaSecs = null;
-            if (progressed > 0 && queued > 0)
-            {
-                var elapsed = (DateTimeOffset.UtcNow - batch.StartedAt).TotalSeconds;
-                var rate = elapsed > 0 ? progressed / elapsed : 0;
-                if (rate > 0) etaSecs = (int)Math.Round(queued / rate);
-            }
-
+            var progress = await GetProgressAsync(batchId, ct).ConfigureAwait(false);
+            if (progress is null) return;
+            var completed = progress.IsComplete;
             if (completed && !string.Equals(batch.Status, "completed", StringComparison.OrdinalIgnoreCase))
             {
-                var finalStatus = failed >= Math.Max(1, total) ? "failed" : "completed";
+                var finalStatus = progress.FilesFailed >= Math.Max(1, progress.FilesTotal) ? "failed" : "completed";
                 await _batchRepo.CompleteAsync(batchId, finalStatus, ct).ConfigureAwait(false);
             }
-
-            var lifecycleStage = ResolveLifecycleStage(snapshot, queued, review, completed);
-            var currentStage = ResolveStageLabel(lifecycleStage, completed);
-
-            await _eventPublisher.PublishAsync(
-                SignalREvents.BatchProgress,
-                new BatchProgressEvent(
-                    batch.Id,
-                    total,
-                    progressed,
-                    identified,
-                    review,
-                    noMatch,
-                    failed,
-                    pct,
-                    etaSecs,
-                    isFinal || completed,
-                    CurrentStage: currentStage,
-                    FilesQueued: queued,
-                    FilesActive: active,
-                    FilesReady: ready,
-                    FilesReadyWithoutUniverse: readyWithoutUniverse,
-                    CurrentFileTitle: snapshot.CurrentFileTitle,
-                    LifecycleStage: lifecycleStage,
-                    WorkUnitsTotal: total,
-                    WorkUnitsCompleted: progressed),
-                ct).ConfigureAwait(false);
+            await _eventPublisher.PublishAsync(SignalREvents.BatchProgress, progress, ct).ConfigureAwait(false);
 
             if (isFinal || completed)
                 _lastProgressEmitUtc.TryRemove(batchId, out _);
@@ -166,6 +100,79 @@ public sealed class BatchProgressService
         {
             _logger.LogDebug(ex, "Batch progress emission failed for {BatchId}", batchId);
         }
+    }
+
+    public async Task<BatchProgressEvent?> GetProgressAsync(Guid batchId, CancellationToken ct = default)
+    {
+        var batch = await _batchRepo.GetByIdAsync(batchId, ct).ConfigureAwait(false);
+        if (batch is null) return null;
+        var snapshot = await _batchRepo.GetProgressSnapshotAsync(batchId, ct).ConfigureAwait(false);
+        var total = Math.Max(batch.FilesTotal, snapshot.TotalJobs + snapshot.FilesSkipped);
+        var failed = snapshot.TotalJobs > 0
+            ? Math.Max(0, snapshot.PipelineFailed)
+            : Math.Max(0, batch.FilesFailed);
+        var ready = snapshot.FilesReady;
+        var readyWithoutUniverse = snapshot.FilesReadyWithoutUniverse;
+        var identified = ready + readyWithoutUniverse;
+        var review = snapshot.FilesReview;
+        var noMatch = snapshot.FilesNoMatch;
+        var active = snapshot.RetailSearching
+            + snapshot.BridgeSearching
+            + snapshot.Hydrating
+            + snapshot.UniverseEnriching;
+        active = Math.Max(active, snapshot.ActiveOperations);
+        var terminal = identified + review + noMatch + failed + snapshot.FilesSkipped;
+        if (total > 0)
+        {
+            terminal = Math.Clamp(terminal, 0, total);
+            active = Math.Clamp(active, 0, Math.Max(0, total - terminal));
+        }
+
+        var queued = total > 0
+            ? Math.Max(0, total - terminal - active)
+            : snapshot.QueuedJobs + snapshot.RetailMatched + snapshot.QidResolved;
+        queued = Math.Max(queued, snapshot.QueuedOperations + snapshot.RetryWaitingOperations);
+
+        var progressed = terminal;
+        var pct = total > 0 ? (int)Math.Round(Math.Clamp(progressed * 100d / total, 0, 100)) : 0;
+        var completed = total > 0
+            && terminal >= total
+            && active == 0
+            && snapshot.OutstandingOperations == 0;
+
+        if (!completed && pct >= 100) pct = 99;
+
+        int? etaSecs = null;
+        if (progressed > 0 && queued > 0)
+        {
+            var elapsed = (DateTimeOffset.UtcNow - batch.StartedAt).TotalSeconds;
+            var rate = elapsed > 0 ? progressed / elapsed : 0;
+            if (rate > 0) etaSecs = (int)Math.Round(queued / rate);
+        }
+
+        var lifecycleStage = ResolveLifecycleStage(snapshot, queued, review, completed);
+        var currentStage = ResolveStageLabel(lifecycleStage, completed);
+
+        return new BatchProgressEvent(
+                batch.Id,
+                total,
+                progressed,
+                identified,
+                review,
+                noMatch,
+                failed,
+                pct,
+                etaSecs,
+                completed,
+                CurrentStage: currentStage,
+                FilesQueued: queued,
+                FilesActive: active,
+                FilesReady: ready,
+                FilesReadyWithoutUniverse: readyWithoutUniverse,
+                CurrentFileTitle: snapshot.CurrentFileTitle,
+                LifecycleStage: lifecycleStage,
+                WorkUnitsTotal: total,
+                WorkUnitsCompleted: progressed);
     }
 
     private static string ResolveLifecycleStage(

@@ -1410,6 +1410,17 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         var clauses = new List<string>();
         var parameters = new DynamicParameters();
 
+        if (query.HistoricalOnly)
+            clauses.Add("""
+                LOWER(b.status) NOT IN ('running','processing','active','queued')
+                AND NOT EXISTS (SELECT 1 FROM media_operations live
+                    WHERE live.batch_id = b.id AND live.status IN
+                        ('pending','queued','leased','running','processing','active','retry_waiting','failed_retryable','interrupted'))
+                AND NOT EXISTS (SELECT 1 FROM identity_jobs live
+                    WHERE live.ingestion_run_id = b.id AND live.state IN
+                        ('Queued','RetailSearching','RetailMatched','BridgeSearching','QidResolved','Hydrating','UniverseEnriching'))
+                """);
+
         if (!string.IsNullOrWhiteSpace(query.Search))
         {
             var search = query.Search.Trim();

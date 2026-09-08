@@ -57,6 +57,7 @@ public sealed record SetupPreflightDto(
 
 public sealed class SetupAdministratorRequest
 {
+    [JsonPropertyName("pin")] public string? Pin { get; init; }
     [JsonPropertyName("email")] public string Email { get; init; } = string.Empty;
     [JsonPropertyName("password")] public string Password { get; init; } = string.Empty;
     [JsonPropertyName("display_name")] public string DisplayName { get; init; } = "Administrator";

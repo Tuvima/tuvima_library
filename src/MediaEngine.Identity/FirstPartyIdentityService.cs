@@ -29,12 +29,13 @@ public sealed class FirstPartyIdentityService(
 
     public Task<bool> IsAdministratorConfiguredAsync(CancellationToken ct = default) => identities.HasAdministratorPasswordAsync(ct);
 
-    public async Task<SessionIssueResult> BootstrapAdministratorAsync(string email, string password, string displayName, string deviceId, string deviceName, string client, CancellationToken ct = default)
+    public async Task<SessionIssueResult> BootstrapAdministratorAsync(string email, string password, string displayName, string deviceId, string deviceName, string client, CancellationToken ct = default, string? pin = null)
     {
         if (await identities.HasAdministratorPasswordAsync(ct).ConfigureAwait(false))
             throw new InvalidOperationException("The administrator has already been configured.");
 
         ValidatePassword(password);
+        if (!string.IsNullOrEmpty(pin)) ValidatePin(pin);
         var normalizedEmail = NormalizeEmail(email);
         var profile = await profiles.GetByIdAsync(Profile.SeedProfileId, ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The seeded administrator profile is unavailable.");
@@ -48,6 +49,9 @@ public sealed class FirstPartyIdentityService(
         await accounts.InsertAsync(account, ct).ConfigureAwait(false);
         await accounts.GrantProfileAsync(new AccountProfileGrant { AccountId=account.Id, ProfileId=profile.Id, IsDefault=true, GrantedAt=now }, ct).ConfigureAwait(false);
         var credential = NewAccountCredential(account.Id, password);
+        // Save the requested profile secret before the password marks bootstrap configured.
+        if (!string.IsNullOrEmpty(pin))
+            await SetProfilePinAsync(profile.Id, pin, ct).ConfigureAwait(false);
         await identities.UpsertAccountCredentialAsync(credential, ct).ConfigureAwait(false);
         var codes = await ReplaceRecoveryCodesAsync(account.Id, ct).ConfigureAwait(false);
         var issued = await IssueSessionAsync(account, profile, credential.SecurityStamp, "Password", deviceId, deviceName, client, ct).ConfigureAwait(false);

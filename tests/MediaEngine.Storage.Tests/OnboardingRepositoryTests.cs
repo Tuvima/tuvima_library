@@ -52,6 +52,19 @@ public sealed class OnboardingRepositoryTests : IDisposable
         Assert.False(await _repository.ValidateSessionAsync("session-hash", CancellationToken.None));
     }
 
+    [Fact]
+    public async Task MediaDeferralSurvivesReloadAndAllowsCompletion()
+    {
+        await _repository.TryBeginAsync("session", Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(1), CancellationToken.None);
+        foreach (var key in new[] { "preflight", "administrator" })
+            await _repository.SetStepAsync(key, "passed", null, null, null, CancellationToken.None);
+        foreach (var key in new[] { "media-locations", "providers" })
+            await _repository.SetStepAsync(key, "deferred", "Later", null, null, CancellationToken.None);
+        var reloaded = new OnboardingRepository(_database);
+        Assert.Equal("deferred", reloaded.Get().Steps.Single(step => step.Key == "media-locations").Status);
+        Assert.True(await reloaded.CompleteAsync(CancellationToken.None));
+    }
+
     public void Dispose()
     {
         _database.Dispose();
