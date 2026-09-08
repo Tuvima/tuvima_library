@@ -25,7 +25,7 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task CurrentMedia_GroupsFilesByStructuralIdentityAndUsesOnlyKnownTotals()
+    public async Task CurrentMedia_GroupsFilesByStructuralIdentityAndShowsAddedCountsWithoutCatalogueTotals()
     {
         var batchId = AddBatch("running", 45, 28);
         var completeAlbum = AddContainer("Music", "Album One", expectedKey: "track_count", expectedValue: "17");
@@ -53,13 +53,13 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         Assert.Equal(5, snapshot.ReadyGroups);
         var one = Assert.Single(page.Items, item => item.GroupId == completeAlbum);
         Assert.Equal(17, one.ChildCompleted);
-        Assert.Equal(17, one.ChildExpected);
+        Assert.Null(one.ChildExpected);
         Assert.Equal("tracks", one.ChildUnit);
         Assert.Equal("notApplicable", one.Relationships.State);
 
         var partial = Assert.Single(page.Items, item => item.GroupId == partialAlbum);
         Assert.Equal(14, partial.ChildCompleted);
-        Assert.Equal(17, partial.ChildExpected);
+        Assert.Null(partial.ChildExpected);
 
         var unknown = Assert.Single(page.Items, item => item.GroupId == unknownAlbum);
         Assert.Equal(3, unknown.ChildCompleted);
@@ -73,6 +73,7 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var audio = Assert.Single(page.Items, item => item.GroupId == audiobook);
         Assert.Equal("Audiobooks", audio.MediaType);
         Assert.Equal(4, audio.ChildCompleted);
+        Assert.Null(audio.ChildExpected);
     }
 
     [Fact]
@@ -127,7 +128,7 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var item = Assert.Single((await service.GetCurrentMediaAsync(0, 50)).Items);
 
         Assert.Equal(5, item.ChildCompleted);
-        Assert.Equal(12, item.ChildExpected);
+        Assert.Null(item.ChildExpected);
         Assert.Equal("tracks", item.ChildUnit);
     }
 
@@ -420,6 +421,14 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         Assert.True(withDuplicate!.IsComplete);
         Assert.Equal(2, withDuplicate.FilesProcessed);
         Assert.Equal(1, withDuplicate.FilesIdentified);
+
+        // A different input file can resolve to an asset already handled in this
+        // batch. Its duplicate outcome still settles that input in the batch total.
+        conn.Execute("UPDATE ingestion_log SET media_asset_id=@asset WHERE status='duplicate';", new { asset });
+        Assert.True((await service.GetProgressAsync(batch))!.IsComplete);
+        var originalPath = conn.QuerySingle<string>("SELECT file_path FROM ingestion_log WHERE status='queued_identity';");
+        conn.Execute("INSERT INTO ingestion_log (id,file_path,status,media_asset_id,ingestion_run_id) VALUES (@id,@originalPath,'duplicate',@asset,@batch);", new { id = Guid.NewGuid(), originalPath, asset, batch });
+        Assert.Equal(1, (await new IngestionBatchRepository(_db).GetProgressSnapshotAsync(batch)).FilesSkipped);
     }
 
     [Fact]
@@ -459,6 +468,87 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         Assert.Equal(1, ready.ChildCompleted);
         Assert.Equal("ready", ready.Availability);
         Assert.Equal(2, (await service.GetSnapshotAsync()).ReadyGroups);
+    }
+
+    [Theory]
+    [InlineData("abandoned", "UniverseEnriching", false)]
+    [InlineData("interrupted", "Hydrating", true)]
+    [InlineData("completed", "BridgeSearching", true)]
+    [InlineData("failed", "RetailSearching", false)]
+    [InlineData("abandoned", "Queued", false)]
+    [InlineData("completed", "RetailMatched", false)]
+    [InlineData("completed", "QidResolved", false)]
+    public async Task ResumedBatchRemainsCurrentUntilDurableWorkFinishes(string status, string state, bool leased)
+    {
+        var batch = AddBatch(status, 1, 1, DateTimeOffset.UtcNow.AddDays(-2));
+        var work = AddStandalone(batch, "Books", "Resumed book");
+        var newer = AddBatch("completed", 1, 1);
+        using var conn = _db.CreateConnection();
+        var asset = conn.QuerySingle<Guid>("SELECT ma.id FROM media_assets ma JOIN editions e ON e.id=ma.edition_id WHERE e.work_id=@work", new { work });
+        conn.Execute("""
+            INSERT INTO identity_jobs (id,entity_id,entity_type,media_type,ingestion_run_id,state,pass,lease_owner,created_at,updated_at)
+            VALUES (@id,@asset,'MediaAsset','Books',@batch,@state,'Quick',@owner,@now,@now);
+            UPDATE ingestion_log SET status='queued_identity' WHERE media_asset_id=@asset;
+            """, new { id = Guid.NewGuid(), asset, batch, state, owner = leased ? "previous-engine" : null, now = DateTimeOffset.UtcNow.AddHours(-2).ToString("O") });
+        var batches = new IngestionBatchRepository(_db);
+        var progress = new MediaEngine.Providers.Services.BatchProgressService(batches, new RecordingEvents(), Microsoft.Extensions.Logging.Abstractions.NullLogger<MediaEngine.Providers.Services.BatchProgressService>.Instance);
+        var presentation = new IngestionPresentationReadService(_db, progress);
+        var history = new ActivityBatchReadService(_db);
+        var historyQuery = new MediaEngine.Application.ReadModels.ActivityBatchQuery(null,null,null,null,null,null,null,0,50,HistoricalOnly: true);
+
+        // The same durable batch is visible before and after startup lease recovery,
+        // even when a newer completed run exists.
+        for (var restart = 0; restart < 2; restart++)
+        {
+            if (restart > 0)
+                await new IdentityJobRepository(_db).RecoverInterruptedJobsAsync();
+            Assert.Equal(batch, Assert.Single(await batches.GetActiveAsync()).Id);
+            var snapshot = await presentation.GetSnapshotAsync();
+            Assert.True(snapshot.IsRunning);
+            Assert.Equal(batch, snapshot.BatchProgress!.BatchId);
+            Assert.False(snapshot.BatchProgress.IsComplete);
+            Assert.Equal(1, snapshot.CurrentMediaTotal);
+            Assert.Equal(work, Assert.Single(snapshot.CurrentMedia).GroupId);
+            Assert.Equal(work, Assert.Single((await presentation.GetCurrentMediaAsync(0, 50)).Items).GroupId);
+            Assert.NotNull(await presentation.GetMediaGroupAsync(batch, work));
+            Assert.Contains("still adding", (await presentation.GetBatchPresentationAsync(batch))!.Summary);
+            Assert.Equal(newer, Assert.Single((await history.GetBatchesAsync(historyQuery)).Items).BatchId);
+        }
+
+        conn.Execute("UPDATE identity_jobs SET state='Ready',lease_owner=NULL;");
+        await progress.EmitProgressAsync(batch, isFinal: true, CancellationToken.None);
+        Assert.Empty(await batches.GetActiveAsync());
+        Assert.Empty((await presentation.GetCurrentMediaAsync(0, 50)).Items);
+        Assert.Equal(2, (await history.GetBatchesAsync(historyQuery)).TotalCount);
+        Assert.Equal("completed", (await batches.GetByIdAsync(batch))!.Status);
+    }
+
+    [Theory]
+    [InlineData("Queued")]
+    [InlineData("RetailMatched")]
+    [InlineData("QidResolved")]
+    [InlineData("UniverseEnriching")]
+    public async Task ReconciliationDoesNotFailRecoverableJobsBecauseTheyAreOld(string state)
+    {
+        var batch = AddBatch("running", 1, 1, DateTimeOffset.UtcNow.AddDays(-2));
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            INSERT INTO identity_jobs (id,entity_id,entity_type,media_type,ingestion_run_id,state,pass,created_at,updated_at)
+            VALUES (@id,@asset,'MediaAsset','Books',@batch,@state,'Quick',@now,@now);
+            """, new { id = Guid.NewGuid(), asset = Guid.NewGuid(), batch, state, now = DateTimeOffset.UtcNow.AddDays(-2).ToString("O") });
+        var batches = new IngestionBatchRepository(_db);
+        var service = new MediaEngine.Api.Services.IngestionOperationsStatusService(_db, null!, null!, batches, null!, null!, null!);
+        var reconcile = typeof(MediaEngine.Api.Services.IngestionOperationsStatusService).GetMethod("ReconcileCompletedBatchesAsync", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        await (Task)reconcile.Invoke(service, [await batches.GetRecentAsync(), CancellationToken.None])!;
+        var saved = await batches.GetByIdAsync(batch);
+        Assert.Equal("running", saved!.Status);
+        Assert.Equal(0, saved.FilesFailed);
+        Assert.Null(saved.CompletedAt);
+    }
+
+    private sealed class RecordingEvents : MediaEngine.Domain.Contracts.IEventPublisher
+    {
+        public Task PublishAsync<TPayload>(string eventName, TPayload payload, CancellationToken ct = default) where TPayload : notnull => Task.CompletedTask;
     }
 
     [Fact]

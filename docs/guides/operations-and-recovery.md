@@ -29,6 +29,12 @@ sessions, and rotates recovery codes. It never accepts the password as a
 command-line argument and is not exposed through the Dashboard or Engine HTTP
 API, so publishing the Dashboard does not make host recovery remotely callable.
 
+## Resume an interrupted import
+
+Restarting the Engine resumes unfinished identification and enrichment using the saved batch and item records. **Settings → Operations** keeps that batch above history while work remains, including queued work and provider retries. An expired worker lease does not make an item fail.
+
+The green navbar and active-batch indicators show ongoing work. The batch progress bar counts settled input files, including duplicates that were safely skipped. Individual albums, shows, and comic series report only tracks, episodes, or issues added; they do not show catalogue totals or completion bars.
+
 ## Back up and test recovery
 
 Open **Settings → Backup & Recovery** and create a recovery point. Tuvima archives a consistent SQLite snapshot, a manifest, and non-secret configuration. Provider credentials, data-protection secrets, model files, artwork cache, transcodes, and original media are not in the archive.

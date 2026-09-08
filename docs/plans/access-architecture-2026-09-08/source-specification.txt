@@ -1,0 +1,2150 @@
+TUVIMA ACCESS, USERS, APPLICATIONS, AUTHENTICATION, VIEW PRIVACY,
+AND PERMISSION ARCHITECTURE REFACTOR
+
+Repository:
+Tuvima/tuvima_library
+
+GOAL
+
+Refactor Tuvima's identity/access architecture and Settings UI into one coherent
+system supporting:
+
+1. Users/accounts.
+2. Up to 8 profiles per user.
+3. Account-level content permissions.
+4. Account-level administrator eligibility.
+5. Profile-level activation of administrator access.
+6. Optional profile-specific admin-dashboard PIN protection.
+7. Strict privacy boundaries for View personal media.
+8. First-class Applications with granular service permissions.
+9. Application credentials that do not themselves contain authorization.
+10. A generalized permission registry shared by API authorization and UI.
+11. Plugin host permissions.
+12. Plugin-provided application services/permissions.
+13. Future event/webhook/analytics integrations.
+14. Preservation of the existing public player/client API where possible.
+
+This is a pre-beta product. Breaking schema/API changes are acceptable when they
+produce a cleaner long-term architecture. Do not preserve obsolete concepts via
+awkward compatibility shims unless necessary to complete an atomic migration.
+
+IMPLEMENT THIS IN PHASES.
+
+Do not attempt the entire refactor in one uncontrolled pass.
+
+Every phase must:
+- compile;
+- run relevant tests;
+- introduce tests for new behavior;
+- leave the repository internally consistent;
+- not add placeholder/mock UI pretending backend functionality exists;
+- not silently fall back to legacy authorization.
+
+Use the attached screenshots as visual references for the Access screens.
+Follow the existing Tuvima design system, App* components, typography, spacing,
+dark theme, borders, drawers/popouts, and responsive behavior.
+Do not rebuild the design system.
+
+
+======================================================================
+ARCHITECTURE TO LOCK BEFORE IMPLEMENTATION
+======================================================================
+
+The final identity hierarchy must be:
+
+USER / ACCOUNT
+    |
+    |-- email / local-only status
+    |-- password / passkeys / external identities
+    |-- enabled / disabled
+    |-- content permissions
+    |-- administrator eligibility
+    |
+    +-- PROFILE GRANTS (maximum 8 profiles per account)
+            |
+            +-- Profile
+            |     display name
+            |     avatar
+            |     preferences
+            |     restrictions
+            |     playback/history identity
+            |     View Personal Space identity
+            |
+            +-- grant-specific properties
+                  default profile
+                  admin access enabled for this account/profile
+                  optional admin dashboard PIN/protection
+
+APPLICATION
+    |
+    |-- name / description / type
+    |-- enabled
+    |-- application permissions
+    |-- credentials
+    |-- event subscriptions
+    |
+    +-- optionally exposes/consumes plugin services
+
+PLUGIN
+    |
+    |-- host permissions needed by the plugin itself
+    |-- capabilities
+    |-- optional application-facing services/scopes
+
+
+KEY RULE:
+
+Profiles DO NOT own general content authorization.
+
+The USER/ACCOUNT owns content authorization.
+
+A profile determines the in-library identity and experience after the user
+selects it.
+
+
+======================================================================
+ADMINISTRATOR MODEL
+======================================================================
+
+Administrator privilege belongs to the ACCOUNT.
+
+Add an account-level administrator flag/capability.
+
+Example:
+
+Account:
+    IsAdministrator = true
+
+AccountProfileGrant:
+    ProfileId = Shy
+    AdminEnabled = true
+
+AccountProfileGrant:
+    ProfileId = Home
+    AdminEnabled = false
+
+
+Effective administrator access is:
+
+    Account.IsAdministrator
+    AND
+    AccountProfileGrant.AdminEnabled
+
+
+This distinction is intentional.
+
+A user can be an administrator without every profile they use exposing the
+admin dashboard.
+
+A non-administrator account MUST NOT be able to enable admin access on any
+profile.
+
+If a profile is granted to two different accounts, administrator access is
+evaluated independently for each account/profile grant.
+
+Do NOT make administrator status a global property of the Profile itself.
+
+
+----------------------------------------------------------------------
+OPTIONAL ADMIN PIN
+----------------------------------------------------------------------
+
+There must be NO mandatory administrator step-up authentication by default.
+
+Default:
+    AdminEnabled = true/false as configured
+    AdminPinProtection = false
+
+If admin PIN protection is disabled:
+    the effective administrator can enter the admin dashboard normally.
+
+If enabled:
+    entering protected administrator surfaces requires the configured PIN.
+
+This should be described to the user as:
+
+    "Protect admin settings"
+    "Require a PIN before opening administrator settings from this profile."
+
+Do not repeatedly prompt for every action.
+
+Use an admin-unlock session with a configurable timeout.
+
+Suggested options:
+    Lock when leaving admin settings
+    15 minutes
+    30 minutes
+    1 hour
+    Until profile switch
+
+Default after enabling PIN:
+    30 minutes
+
+Switching profiles must clear the admin unlock.
+
+Do not require the user to configure this PIN during setup.
+
+The PIN belongs to the ACCOUNT/PROFILE GRANT protection relationship, not to
+the account password and not to the global Profile object.
+
+
+======================================================================
+HUMAN USER PERMISSION MODEL
+======================================================================
+
+Normal user permissions must stay intentionally simple.
+
+Account-level functional permissions:
+
+    Read
+    Watch
+    Listen
+    View
+
+These control whether the major product areas are accessible.
+
+Then provide catalogued-library access:
+
+    Books
+    Comics
+    Movies
+    TV Shows
+    Music
+    etc.
+
+Use boolean grants.
+
+Do NOT introduce:
+    Curator
+    Manage
+    Library Manager
+    Metadata Editor
+    or another household RBAC tier.
+
+Administrator is the override.
+
+If effective administrator:
+    allow all normal media areas
+    allow all catalogued libraries
+    allow server administration
+
+For non-admin users:
+    evaluate account permissions and library grants.
+
+A normal user can still perform profile/personal actions such as:
+    favorites
+    ratings/reactions
+    playback/reading progress
+    personal collections/shelves where supported
+    playlists where supported
+    personal View gallery organization
+    personal preferences
+
+Server/canonical changes remain administrator functions.
+
+
+======================================================================
+VIEW PRIVACY MODEL — NON-NEGOTIABLE
+======================================================================
+
+View requires a stricter privacy model than the catalogued library.
+
+There are two fundamentally different data classes:
+
+A. SHARED VIEW CONTENT
+B. PRIVATE PROFILE PERSONAL MEDIA
+
+
+----------------------------------------------------------------------
+A. SHARED VIEW CONTENT
+----------------------------------------------------------------------
+
+Administrators can configure server folders intended to be visible to users
+with View access.
+
+Examples:
+    Car Videos
+    Funny Memes
+    Family Shared Photos
+    Shared Clips
+
+These are intentionally shared sources.
+
+They should feed a common Shared View Library.
+
+A user with View permission sees this Shared content.
+
+Shared folders are NOT owned by another user's personal space.
+
+Do not implement shared content by granting users access to another user's
+Personal Space.
+
+
+----------------------------------------------------------------------
+B. PRIVATE PROFILE PERSONAL MEDIA
+----------------------------------------------------------------------
+
+Each profile retains its own Personal Space / private View library.
+
+Examples:
+    phone photo backup
+    browser uploads
+    connected-device imports
+    personal folders
+    private Galleries
+    private indexed media
+
+This content is PRIVATE.
+
+Visibility rules:
+
+Owner profile:
+    YES
+
+Administrator:
+    YES
+
+Any other non-admin user/profile:
+    NO
+
+There must be NO grant model allowing an ordinary user to browse another
+profile's Personal Space.
+
+Do not reuse generic catalogued-library grants for this.
+
+Do not allow AuthorizedProfileIds or equivalent sharing semantics to expose
+another profile's private View library.
+
+Direct unauthorized identifiers must continue to return the same not-found
+shape as missing resources so profile/library existence cannot be enumerated.
+
+
+----------------------------------------------------------------------
+VIEW PAGE SCOPES
+----------------------------------------------------------------------
+
+For a normal user with View enabled:
+
+    VIEW
+      Shared
+      Mine
+
+Shared:
+    common server-configured View content
+
+Mine:
+    active profile's Personal Space
+
+
+For an effective administrator:
+
+    VIEW
+      Shared
+      Mine
+      User Libraries
+          Alex
+          Mom
+          Kids
+          etc.
+
+Each other profile must appear as a SEPARATE scope/library.
+
+Do NOT create:
+    "All Personal Media"
+
+Do NOT merge all users' private assets into one admin timeline.
+
+Selecting Alex must resolve only Alex's personal View library.
+
+Selecting Mom must resolve only Mom's personal View library.
+
+This segregation is deliberate and must remain visible in the UI.
+
+The existing View scope resolver currently exposes Mine and Shared and does
+not expose arbitrary other-profile scopes. Preserve that behavior for normal
+users and extend profile scopes ONLY for effective administrators.
+
+
+----------------------------------------------------------------------
+VIEW OWNERSHIP
+----------------------------------------------------------------------
+
+Keep View Personal Space ownership attached to ProfileId.
+
+This is important because profiles remain the persistent identity for:
+    playback/history
+    preferences
+    View Personal Spaces
+    Galleries
+    personal organization
+
+General access permissions belong to Account, but View private storage remains
+profile-specific.
+
+
+======================================================================
+APPLICATION AUTHORIZATION MODEL
+======================================================================
+
+Applications are NOT users.
+
+Do not give applications:
+    Read / Watch / Listen / View as their primary permission model.
+
+Applications consume Tuvima SERVICES.
+
+Introduce a first-class Application entity.
+
+Suggested fields:
+
+Application
+    Id
+    Name
+    Description
+    ApplicationType
+    IsEnabled
+    IsAdministrator
+    CreatedAt
+    UpdatedAt
+    LastUsedAt
+
+Suggested ApplicationType values:
+
+    UserClient
+    ServerIntegration
+    Automation
+    Other
+
+
+ApplicationCredential
+    Id
+    ApplicationId
+    Name
+    CredentialHash
+    CreatedAt
+    ExpiresAt
+    LastUsedAt
+    RevokedAt
+
+The plaintext credential is shown once.
+
+The credential itself MUST NOT contain authorization.
+
+Authorization resolution:
+
+    credential
+        -> Application
+        -> permissions
+
+
+Support multiple credentials per Application.
+
+Rotating/revoking a credential must not destroy the Application or its
+permissions.
+
+
+======================================================================
+PERMISSION REGISTRY
+======================================================================
+
+Create a centralized permission registry.
+
+Do NOT hard-code application permission checkboxes directly in Razor.
+
+Every permission should have metadata approximately like:
+
+PermissionDefinition
+    Id
+    Category
+    DisplayName
+    Description
+    RiskLevel
+    ApplicationTypes
+    RequiresUserContext
+    IsBuiltIn
+    PluginId nullable
+    SortOrder
+
+
+Initial risk levels:
+    Read
+    Write
+    Sensitive
+    Administrative
+
+
+The registry is the single source of truth for:
+    Application permission UI
+    API permission guards
+    pairing/approval UI where applicable
+    plugin-provided scopes
+    diagnostics
+    permission documentation
+
+
+======================================================================
+CORE APPLICATION PERMISSION CATALOG
+======================================================================
+
+Seed the registry with at least the following target catalogue.
+
+Do not assume every permission is already implemented.
+Mark unsupported permissions internally as unavailable until the backing
+service exists, rather than showing a working checkbox that does nothing.
+
+
+SERVER / MONITORING
+
+system.status.read
+    basic version, uptime, online state
+
+system.metrics.read
+    CPU, memory, storage, operational utilization
+
+system.activity.read
+    active operations/status
+
+system.audit.read
+    audited activity
+
+system.logs.read
+    diagnostic logs
+
+
+LIBRARY
+
+library.read
+artwork.read
+library.changes.read
+library.files.read
+
+
+PLAYBACK
+
+playback.read
+playback.write
+queue.read
+queue.write
+progress.read
+progress.write
+downloads.read
+downloads.write
+
+playback.sessions.read
+    read all current playback sessions
+
+playback.sessions.control
+    remotely pause/stop/control another session
+
+playback.history.read
+
+
+ANALYTICS
+
+analytics.playback.read
+analytics.library.read
+analytics.users.read
+analytics.devices.read
+
+
+METADATA
+
+metadata.read
+metadata.write
+metadata.match
+metadata.enrichment.read
+metadata.enrichment.run
+
+
+PROVIDERS
+
+providers.status.read
+providers.config.read
+providers.config.write
+
+
+INGESTION
+
+ingestion.status.read
+ingestion.history.read
+ingestion.run
+ingestion.retry
+ingestion.cancel
+
+
+REVIEW
+
+review.read
+review.resolve
+
+
+COLLECTIONS
+
+collections.read
+collections.write
+
+
+VIEW
+
+view.shared.read
+
+For private View data use explicit sensitive scopes:
+
+view.personal.read
+view.originals.read
+view.upload
+view.galleries.read
+view.galleries.write
+
+Applications must NEVER gain blanket access to all personal View libraries
+merely by receiving view.personal.read.
+
+Any application consuming private View media must also have a bound user/profile
+context or explicit administrator application status.
+
+Ordinary server integrations should not receive private View access by default.
+
+
+IDENTITY
+
+identity.users.read
+identity.sessions.read
+identity.users.write
+identity.applications.write
+
+
+PLUGINS
+
+plugins.read
+plugins.jobs.read
+plugins.jobs.run
+plugins.manage
+
+
+AI
+
+ai.status.read
+ai.infer
+ai.manage
+
+
+NETWORK
+
+network.status.read
+network.config.write
+
+
+STORAGE
+
+storage.status.read
+storage.config.write
+
+
+BACKUP
+
+backup.read
+backup.run
+backup.restore
+
+
+EVENTS
+
+events.subscribe
+
+
+======================================================================
+EVENT AUTHORIZATION MODEL
+======================================================================
+
+Do NOT duplicate the permission catalogue by creating event permissions for
+every domain.
+
+Use:
+
+    events.subscribe
+    +
+    permission to read the underlying resource
+
+
+Examples:
+
+events.subscribe
++ playback.sessions.read
+    => receives playback session events
+
+events.subscribe
++ ingestion.status.read
+    => receives ingestion lifecycle events
+
+events.subscribe
++ providers.status.read
+    => receives provider health events
+
+
+The current Intercom/event infrastructure must eventually filter events by
+authorized application/session.
+
+No external application should receive all internal events simply because it
+can connect.
+
+
+======================================================================
+APPLICATION PRESETS
+======================================================================
+
+Presets are UI helpers only.
+
+They MUST NOT become authorization roles.
+
+Initial presets:
+
+Media Player
+Monitoring & Analytics
+Home Automation
+Metadata Integration
+Read Only
+Administrator
+Custom
+
+
+Changing any permission after applying a preset changes display to Custom.
+
+Administrator Application:
+    grants all currently registered application permissions.
+
+Treat this as sensitive and clearly warn in UI.
+
+
+======================================================================
+PLUGIN SECURITY MODEL
+======================================================================
+
+There are TWO completely different kinds of plugin permission.
+
+Do not conflate them.
+
+
+A. PLUGIN HOST PERMISSIONS
+
+These control what the plugin itself may do inside Tuvima.
+
+Examples:
+
+media.read
+network.http
+process.execute
+tool.download
+ai.infer
+storage.plugin
+
+
+B. PLUGIN APPLICATION SERVICE PERMISSIONS
+
+These control what an external Application may consume FROM the plugin.
+
+Example:
+
+plugin.commercial-skip.segments.read
+plugin.commercial-skip.analyze
+
+plugin.lyrics.read
+plugin.lyrics.search
+
+
+Plugin host permission:
+    Tuvima -> plugin
+
+Application service permission:
+    Application -> plugin service
+
+
+======================================================================
+PLUGIN PERMISSION ENFORCEMENT
+======================================================================
+
+Create a centralized plugin permission gate.
+
+Conceptually:
+
+IPluginPermissionGate
+
+Privileged plugin host services must evaluate the plugin manifest before
+performing the operation.
+
+Examples:
+
+PluginHttpClient
+    requires network.http
+
+PluginToolRuntime
+    requires process.execute
+
+Tool auto-install
+    requires tool.download
+
+PluginAiClient
+    requires ai.infer + declared AI role
+
+Plugin media accessor
+    requires media.read
+
+Plugin private storage
+    requires storage.plugin
+
+
+Audit the current plugin runtime.
+
+Do not assume that a manifest permission declaration alone provides security.
+
+Where necessary change interfaces so the plugin identity is supplied to every
+privileged runtime call.
+
+Example:
+RunToolAsync should have enough plugin identity context to enforce
+process.execute.
+
+
+======================================================================
+PLUGIN-PROVIDED APPLICATION SERVICES
+======================================================================
+
+Extend the plugin framework so a plugin can safely expose application-facing
+services.
+
+Do NOT allow arbitrary plugin code to bypass authorization by directly mapping
+unprotected Engine routes.
+
+Prefer a gateway model such as:
+
+/api/v1/plugins/{pluginId}/{service}/...
+
+Tuvima must:
+
+1. authenticate the application;
+2. resolve its Application identity;
+3. evaluate the plugin service permission;
+4. verify the plugin is enabled/healthy;
+5. invoke the registered plugin capability.
+
+
+Create an application-service plugin contract.
+
+Conceptually:
+
+IPluginApplicationService
+
+The plugin should be able to declare:
+
+Service name
+Service description
+Application permissions exposed
+Operations/capabilities
+
+When a plugin loads:
+    its application-facing permissions are registered dynamically in
+    PermissionRegistry.
+
+When it unloads:
+    permissions remain identifiable for audit/history but become unavailable.
+
+The Applications permission UI should automatically gain a Plugins section
+from installed plugin service definitions.
+
+
+======================================================================
+PUBLIC CLIENT API
+======================================================================
+
+Do NOT discard the existing scoped public client API.
+
+Existing native client scopes such as:
+
+library.read
+artwork.read
+progress.read
+progress.write
+queue.read
+queue.write
+playback.read
+playback.write
+downloads.read
+downloads.write
+
+should become registrations in PermissionRegistry.
+
+Preserve existing native clients where practical.
+
+The long-term model should use the same permission definitions rather than a
+separate hard-coded ClientApiScopes list.
+
+User-client effective authorization should be:
+
+application scopes
+    INTERSECT
+account permissions
+    INTERSECT
+library access
+    INTERSECT
+active profile/private-resource authorization
+
+
+======================================================================
+PHASE 0 — INVENTORY AND ARCHITECTURE BASELINE
+======================================================================
+
+Before schema changes:
+
+1. Inspect and document:
+   - Account
+   - AccountProfileGrant
+   - Profile
+   - ProfileRole / AppRoles
+   - authentication/session tables
+   - API keys
+   - native ClientAuthorizationService / ClientApiScopes
+   - View profile policy
+   - View Personal Space
+   - ViewScopeResolver
+   - LibraryAccessEvaluator
+   - plugin manifest permissions
+   - PluginToolRuntime
+   - PluginAiClient
+   - all RequireAdmin / RequireAnyRole / role guards
+   - Settings routing
+   - UsersTab
+   - AccountsAccessTab
+   - ApiKeysTab
+   - SecurityTab
+   - Profile settings
+   - View admin settings
+
+2. Produce an internal migration map:
+   OLD -> NEW
+
+3. Add/update architecture documentation before implementation.
+
+4. Identify all role-protected endpoint groups.
+
+5. Identify all API-key consumers.
+
+6. Identify all View APIs accepting profile/library identifiers.
+
+7. Ensure screenshots are available as visual references.
+
+No functional change in this phase.
+
+DELIVERABLE:
+A checked-in architecture/migration document and test inventory.
+
+
+======================================================================
+PHASE 1 — ACCOUNT / PROFILE / ADMIN DATA MODEL
+======================================================================
+
+Implement the new identity ownership model.
+
+Account:
+    add administrator eligibility.
+
+AccountProfileGrant:
+    add AdminEnabled.
+    add optional admin-dashboard protection metadata.
+
+Remove authorization responsibility from Profile.Role.
+
+Do not necessarily delete ProfileRole immediately if doing so prevents an
+atomic migration; however, stop treating it as the new source of truth.
+
+Enforce:
+    maximum 8 granted profiles per account.
+
+Add domain services:
+
+IAccountAuthorizationService
+or equivalent
+
+Responsibilities:
+    resolve account
+    active profile
+    profile grant
+    administrator eligibility
+    effective administrator
+
+Add tests for:
+    admin account + enabled profile = admin
+    admin account + disabled profile = non-admin
+    normal account + attempted admin-enabled grant = non-admin/rejected
+    shared profile granted to admin and normal user behaves differently
+    >8 profiles rejected
+    disabled account rejected
+
+Do not build UI dependency on Profile.Role after this phase.
+
+
+======================================================================
+PHASE 2 — HUMAN ACCOUNT PERMISSIONS
+======================================================================
+
+Create account-level permission storage.
+
+Suggested models:
+
+AccountFeatureGrant
+    AccountId
+    Feature
+    Allowed
+
+AccountLibraryGrant
+    AccountId
+    LibraryId
+    Allowed
+
+
+Initial features:
+    Read
+    Watch
+    Listen
+    View
+
+
+Administrator override:
+    effective administrator bypasses these checks.
+
+Implement a single authorization evaluator used by:
+    navigation
+    browse/search
+    media details
+    streams
+    non-admin user workflows
+
+Do not sprinkle permission checks independently through UI components.
+
+Add authorization helper metadata/context to make debugging possible.
+
+Add tests covering:
+    Read disabled
+    Watch disabled
+    Listen disabled
+    View disabled
+    selected library denied
+    selected library allowed
+    administrator override
+
+
+======================================================================
+PHASE 3 — VIEW PRIVACY AND SHARED VIEW SOURCES
+======================================================================
+
+Do this BEFORE exposing the new permission UI.
+
+The privacy boundary must be correct first.
+
+
+3A. SHARED VIEW LIBRARY
+
+Formalize one server-managed Shared View content source/library.
+
+Administrators can attach folders intended for all users.
+
+These shared folders should be managed through View/Library administration,
+not through user-to-user sharing.
+
+Support multiple shared folders.
+
+Examples:
+    Car Videos
+    Funny Memes
+
+Users with account View access can see Shared.
+
+
+3B. PRIVATE PERSONAL SPACE
+
+Keep each profile's Personal Space private.
+
+Authorization:
+
+if caller owns active Profile:
+    allow
+
+else if effective administrator:
+    allow
+
+else:
+    deny/not-found
+
+
+3C. VIEW SCOPE RESOLUTION
+
+Normal user options:
+    Mine
+    Shared (if View allowed/shared source available)
+
+Administrator options:
+    Mine
+    Shared
+    Other profile scopes
+
+Other profiles must be:
+    one independent scope each.
+
+Never return a combined cross-user personal-media scope.
+
+
+3D. REMOVE ACCIDENTAL CROSS-PROFILE SHARING
+
+Audit:
+    AuthorizedProfileIds
+    View profile policies
+    Gallery sharing
+    shared contribution logic
+    View resource authorization
+
+Distinguish:
+    sharing a Gallery intentionally
+from
+    exposing a Personal Space.
+
+A Gallery may have explicit sharing rules if that remains a product feature.
+
+The underlying Personal Space itself must remain private.
+
+A Gallery share must not confer general library/root access.
+
+
+3E. TESTS
+
+Required security tests:
+
+Normal user cannot enumerate another profile's:
+    scope
+    library
+    folders
+    assets
+    thumbnails
+    originals
+    gallery contents unless explicitly Gallery-shared
+
+Normal user receives not-found-equivalent shape for unauthorized IDs.
+
+Admin can enumerate profile View libraries.
+
+Admin selecting Profile A cannot receive assets from Profile B.
+
+Shared View content appears to every user with View enabled.
+
+Shared View content does not change private Personal Space ownership.
+
+
+======================================================================
+PHASE 4 — ACCESS SETTINGS INFORMATION ARCHITECTURE
+======================================================================
+
+Rename the Settings category to:
+
+    Access
+
+Primary admin pages:
+
+/settings/access/users
+/settings/access/applications
+/settings/access/authentication
+
+
+Do not keep the current giant overview page containing unrelated settings.
+
+Remove the old user-facing concepts from the primary Access navigation:
+
+Profiles
+Guest API Keys
+Session Policy
+View Administration
+Local AI
+
+Move each function to its proper home.
+
+
+ACCESS HEADER / NAVIGATION
+
+Use the attached visual reference.
+
+Tabs or equivalent high-level navigation:
+
+Users
+Applications
+Authentication
+
+Prefer real URLs rather than only swapping content inside one component.
+
+
+======================================================================
+PHASE 5 — USERS PAGE
+======================================================================
+
+Build:
+
+/settings/access/users
+
+
+TABLE COLUMNS
+
+EMAIL
+PROFILES
+STATUS
+LAST ACTIVE
+ACTIONS
+
+
+The user identity shown in the first column should be the email.
+
+Do not use profile display name as the user identity.
+
+If the ACCOUNT is an administrator:
+    show a small administrator icon/badge next to the user/email.
+
+Do not put a large Role column in the table.
+
+
+PROFILES COLUMN
+
+Render granted profiles as compact avatar/name chips.
+
+Maximum:
+    8 profiles.
+
+If admin access is enabled for that account/profile grant:
+    show a small admin icon on that profile chip.
+
+Do not imply that the profile itself is globally an administrator.
+
+
+ACTIONS (...)
+
+Menu:
+
+Edit permissions
+Manage profiles
+Security & sign-in
+View sessions
+----------------
+Disable user
+Delete user
+
+
+EDIT PERMISSIONS
+
+Use the same right-side popout/drawer interaction pattern used by the file
+browser visual.
+
+The user permission drawer contains:
+
+Media access
+    [x] Read
+    [x] Watch
+    [x] Listen
+    [x] View
+
+Libraries
+    [x] Books
+    [x] Comics
+    [x] Movies
+    [x] TV Shows
+    [x] Music
+    etc.
+
+Do not show:
+    Curate
+    Manage
+
+If account is administrator:
+    show an informational administrator override state.
+
+Optionally disable the checkboxes visually and explain:
+    "Administrator access overrides normal content restrictions."
+
+Do not expose private View libraries belonging to other profiles as checkbox
+grants.
+
+
+MANAGE PROFILES
+
+Open dedicated user/profile management drawer/page.
+
+Allow:
+    create profile
+    grant existing profile
+    revoke profile grant
+    set default profile
+    rename/edit profile where appropriate
+    maximum 8
+
+For an administrator account:
+    each profile grant gets:
+        "Allow admin dashboard" toggle
+
+If enabled:
+    show optional:
+        "Protect admin settings with PIN"
+
+Do not allow normal accounts to see/enable admin-dashboard access.
+
+
+SECURITY & SIGN-IN
+
+Admin-safe management only:
+    email
+    enabled/disabled
+    local-only/remote-capable status
+    configured authenticator types
+    force sign-out
+    send recovery/reset action if supported
+    invitation status
+
+Do not show plaintext passwords, passkeys, or recovery codes.
+
+
+======================================================================
+PHASE 6 — PERMISSION REGISTRY FOUNDATION
+======================================================================
+
+Build PermissionRegistry before the new Applications permission UI.
+
+Register all currently supported native-client scopes first.
+
+Then register additional core service permissions.
+
+Add:
+
+RequirePermission(...)
+RequireAnyPermission(...)
+or equivalent endpoint metadata/filter framework.
+
+Do not immediately delete RequireAdmin.
+
+Migration behavior during this phase:
+
+Administrator:
+    remains universal override.
+
+Application permission:
+    evaluated explicitly.
+
+First-party account request:
+    evaluated via account/profile context.
+
+Native paired client:
+    evaluated via token scopes.
+
+Create guardrail tests requiring application-facing endpoints to declare an
+explicit permission.
+
+Avoid string literals scattered through endpoint files.
+
+Use constants/definitions from the registry.
+
+
+======================================================================
+PHASE 7 — APPLICATION ENTITY AND CREDENTIAL MIGRATION
+======================================================================
+
+Create:
+
+Application
+ApplicationCredential
+ApplicationPermissionGrant
+
+
+Migrate legacy API keys.
+
+Each existing API key becomes or is assigned to an Application.
+
+Suggested migration:
+    Application.Name = legacy key Label
+
+Map legacy Administrator key:
+    Application.IsAdministrator = true
+
+Map other key roles to the closest safe permission preset if required.
+
+Because this is pre-beta, prefer explicit documented migration over supporting
+both authorization models indefinitely.
+
+After migration:
+    ApiKey.Role is no longer the permission source.
+
+Credential lookup resolves:
+    ApplicationId
+
+Permission resolution reads:
+    Application permission grants.
+
+
+Add tests:
+    revoked credential cannot authenticate
+    rotated credential preserves app permissions
+    multiple credentials share same application permissions
+    disabling app disables all credentials
+    admin app overrides registered permissions
+
+
+======================================================================
+PHASE 8 — APPLICATIONS SETTINGS PAGE
+======================================================================
+
+Build:
+
+/settings/access/applications
+
+
+PAGE TABLE
+
+APPLICATION
+ACCESS / PRESET
+CREDENTIALS
+LAST USED
+STATUS
+ACTIONS
+
+
+Button:
+    + Add Application
+
+
+CREATE APPLICATION FLOW
+
+1. Name/type
+2. Permission preset
+3. Customize permissions
+4. Create credential
+
+
+APPLICATION TYPES
+
+User Client
+Server Integration
+Automation
+Other
+
+
+PERMISSION PRESETS
+
+Media Player
+Monitoring & Analytics
+Home Automation
+Metadata Integration
+Read Only
+Administrator
+Custom
+
+
+APPLICATION PERMISSION DRAWER
+
+Use grouped collapsible sections from PermissionRegistry.
+
+Example:
+
+Server & Monitoring
+    [x] Server status
+    [x] Server metrics
+    [x] Activity
+    [ ] Audit
+    [ ] Logs
+
+Library
+    [x] Browse/search/details
+    [x] Artwork
+    [ ] Library change feed
+    [ ] File information
+
+Playback
+    [x] View active sessions
+    [x] Playback history
+    [ ] Control sessions
+    [ ] Stream media
+    [ ] Offline downloads
+
+Analytics
+    [x] Playback statistics
+    [x] Library statistics
+    [x] User statistics
+    [x] Device statistics
+
+Metadata
+    [x] Read metadata
+    [ ] Edit metadata
+    [ ] Trigger matching
+    [ ] Trigger enrichment
+
+Providers
+    [x] Status
+    [ ] Read configuration
+    [ ] Modify configuration
+
+Ingestion
+    [x] Status
+    [x] History
+    [ ] Run
+    [ ] Retry
+    [ ] Cancel
+
+Review
+    [ ] Read review queue
+    [ ] Resolve review items
+
+Collections
+    [x] Read
+    [ ] Modify
+
+View
+    [ ] Shared View content
+    [ ] Private personal content
+    [ ] Original files
+    [ ] Upload
+    [ ] Galleries
+
+Plugins
+    dynamically rendered from installed plugin services
+
+System Administration
+    [ ] Users
+    [ ] Applications
+    [ ] Networking
+    [ ] Storage
+    [ ] Backups
+
+
+High-risk/sensitive permissions should display a warning icon/help description.
+
+Private View scopes must be marked Sensitive.
+
+Administrator Application should show a prominent warning.
+
+
+CREDENTIALS
+
+Application detail should show:
+
+credential name
+created
+last used
+expiration
+status
+
+Actions:
+    Generate credential
+    Rotate
+    Revoke
+
+Never redisplay plaintext credential after initial creation.
+
+
+======================================================================
+PHASE 9 — AUTHENTICATION SETTINGS PAGE
+======================================================================
+
+Build:
+
+/settings/access/authentication
+
+
+This is SERVER authentication configuration.
+
+It is NOT the current user's Account & Security page.
+
+
+Sections:
+
+SIGN-IN METHODS
+
+Local password
+Passkeys
+External providers
+
+For external providers:
+    Google
+    Microsoft
+    GitHub
+    Facebook
+    Generic OIDC
+
+Show:
+    enabled/disabled
+    configured/needs setup
+    callback readiness
+
+
+INVITATIONS / ACCOUNT CREATION
+
+Allow administrator invitations
+Invitation expiration
+Local-only accounts
+Remote account policy
+
+
+PASSKEY / ORIGIN READINESS
+
+Canonical HTTPS origin
+Passkey readiness
+Warnings if origin prevents WebAuthn
+
+
+EMAIL / RECOVERY DELIVERY
+
+SMTP configured
+Test email
+Recovery readiness
+
+
+ADMIN PROTECTION DEFAULTS
+
+Do NOT force admin PIN.
+
+Explain that administrator dashboard PIN protection is configured per
+account/profile grant.
+
+Authentication page should not duplicate the actual PIN controls.
+
+
+SESSION POLICY
+
+Fold server-wide session policy here.
+
+Do not keep Session Policy as a separate primary Access page unless content
+becomes large enough later.
+
+
+======================================================================
+CURRENT USER ACCOUNT & SECURITY
+======================================================================
+
+Keep Account & Security separate from administrator Settings.
+
+Access from user/avatar menu.
+
+It contains only self-service account security:
+
+Email
+Password
+Passkeys
+Connected sign-in providers
+Recovery
+My sessions/devices
+
+Do not put:
+    content permissions
+    admin eligibility
+    profile grants
+    application management
+here.
+
+Those belong to administrator Access.
+
+Profile settings contain:
+    profile name
+    avatar
+    profile preferences/restrictions
+    profile protection
+    admin-dashboard PIN if the active account/profile grant is admin-enabled
+
+
+======================================================================
+PHASE 10 — PLUGIN HOST PERMISSION ENFORCEMENT
+======================================================================
+
+Audit every privileged plugin runtime.
+
+Create IPluginPermissionGate.
+
+Enforce at minimum:
+
+media.read
+network.http
+process.execute
+tool.download
+ai.infer
+storage.plugin if introduced
+
+Update contracts that currently lack PluginId/context required for enforcement.
+
+Do not let PluginManifest.Permissions remain decorative.
+
+Every privileged host call must fail closed if permission is absent.
+
+Add tests proving a plugin without the declared permission cannot invoke the
+operation.
+
+
+======================================================================
+PHASE 11 — PLUGIN APPLICATION SERVICES
+======================================================================
+
+Add application-facing plugin services.
+
+Create contract approximately:
+
+IPluginApplicationService
+
+Plugin service descriptor includes:
+
+PluginId
+ServiceId
+DisplayName
+Description
+Permission definitions
+Supported operations
+
+
+Plugin-defined permissions should follow:
+
+plugin.{plugin-id}.{service}.{action}
+
+or another stable documented convention.
+
+
+PermissionRegistry dynamically registers installed plugin service permissions.
+
+Applications UI automatically renders them under:
+
+Plugins
+
+
+Plugin application services must be invoked through a Tuvima-owned authorized
+gateway.
+
+Do not expose arbitrary unguarded Minimal API endpoints from plugins.
+
+
+======================================================================
+PHASE 12 — REAL-TIME APPLICATION EVENTS
+======================================================================
+
+Generalize the existing internal event system for external applications.
+
+Application event permission:
+
+events.subscribe
+
+Data filtering:
+    caller must also have permission to read the event's underlying resource.
+
+
+Create stable application event envelope:
+
+event_id
+event_type
+version
+occurred_at
+server_id
+subject
+payload
+
+
+Initial event families:
+
+playback.started
+playback.paused
+playback.stopped
+playback.completed
+
+library.item_added
+library.item_removed
+library.item_updated
+
+ingestion.started
+ingestion.progress
+ingestion.completed
+ingestion.failed
+
+metadata.updated
+metadata.review_required
+
+provider.status_changed
+
+plugin.job_started
+plugin.job_completed
+
+system.health_changed
+
+
+Do not send every event to every connected app.
+
+Filter subscriptions server-side.
+
+
+======================================================================
+PHASE 13 — WEBHOOKS
+======================================================================
+
+Add webhook delivery as an alternate transport for application events.
+
+Application:
+    can have webhook endpoints.
+
+Webhook configuration:
+    URL
+    event categories
+    signing secret
+    enabled
+    failure status
+
+Use signed webhook payloads.
+
+Retry with bounded backoff.
+
+Do not include event data the Application lacks permission to read.
+
+
+======================================================================
+PHASE 14 — PLAYBACK TELEMETRY / TAUTULLI-STYLE SUPPORT
+======================================================================
+
+Create durable playback-session telemetry so third-party monitoring tools can
+be built correctly.
+
+Do not attempt analytics by scraping the ingestion Activity table.
+
+Persist enough information for:
+
+Current sessions
+Playback history
+User aggregate statistics
+Library aggregate statistics
+Device/client statistics
+Direct play/remux/transcode visibility
+
+
+Suggested playback session fields:
+
+SessionId
+AccountId
+ProfileId
+DeviceId
+ApplicationId
+AssetId
+LibraryId
+
+StartedAt
+EndedAt
+PlayedDuration
+CompletionReason
+
+DeliveryMode
+Container
+VideoCodec
+AudioCodec
+Resolution
+Bitrate
+
+ConnectionType local/remote
+ClientName
+ClientVersion
+
+
+Expose through permissioned APIs:
+
+playback.sessions.read
+playback.history.read
+analytics.playback.read
+analytics.users.read
+analytics.library.read
+analytics.devices.read
+
+
+======================================================================
+PHASE 15 — LEGACY AUTHORIZATION REMOVAL
+======================================================================
+
+Once new authorization is proven:
+
+Remove obsolete authorization responsibility from:
+
+Profile.Role
+AppRoles as general application permissioning
+API key Role
+Guest API Keys UI
+Curator concept
+RestrictedProfile authorization branching where no longer required
+
+Do not remove fields until all call sites have migrated.
+
+Add a migration test ensuring no production endpoint accidentally depends on
+legacy role authorization except explicitly documented administrator override
+logic.
+
+
+======================================================================
+PHASE 16 — DOCUMENTATION / SECURITY / AUDIT
+======================================================================
+
+Update:
+
+architecture/security.md
+account/profile architecture
+plugin development guide
+plugin permission guide
+API reference
+Access settings documentation
+View privacy documentation
+
+
+Document clearly:
+
+ACCOUNT:
+    authenticates
+    owns normal permissions
+    owns administrator eligibility
+
+PROFILE:
+    in-library identity
+    preferences
+    restrictions
+    View personal space
+    can activate account admin privileges via its grant
+
+APPLICATION:
+    service consumer
+    permissions
+    credentials
+
+PLUGIN:
+    capability provider
+    host permissions
+    optional application-facing services
+
+
+Audit events must include:
+
+user created/disabled/deleted
+profile grant/revoke
+admin eligibility changed
+admin enabled/disabled for profile
+admin PIN enabled/disabled
+user permissions changed
+library grant changed
+
+application created/disabled/deleted
+application permissions changed
+application credential issued/revoked/rotated
+administrator application enabled
+
+plugin enabled/disabled
+plugin host permission changes
+plugin application-service availability
+
+authentication provider changes
+
+
+======================================================================
+IMPORTANT SECURITY TEST MATRIX
+======================================================================
+
+Add explicit automated tests for all of these.
+
+
+USER / PROFILE
+
+Admin account + admin-enabled profile:
+    admin allowed
+
+Admin account + non-admin-enabled profile:
+    admin denied
+
+Normal account + profile:
+    admin denied
+
+Same Profile granted to admin account and normal account:
+    only admin account/profile grant has admin
+
+Account >8 profiles:
+    rejected
+
+
+VIEW
+
+Profile A:
+    can read A Personal Space
+
+Profile A:
+    cannot read Profile B Personal Space
+
+Profile A:
+    cannot enumerate B's library/folder/asset IDs
+
+Administrator:
+    can read B Personal Space
+
+Administrator:
+    B appears as a separate View scope
+
+Administrator selecting B:
+    does not receive A/C/etc private media
+
+Shared View:
+    available to authorized View users
+
+Private View:
+    never added to Shared automatically
+
+Shared Gallery:
+    grants only Gallery-level access
+    does not expose whole Personal Space
+
+
+APPLICATIONS
+
+No permission:
+    403
+
+Correct permission:
+    allowed
+
+Admin application:
+    allowed
+
+Disabled app:
+    denied
+
+Revoked credential:
+    denied
+
+Credential rotation:
+    permissions unchanged
+
+Application without events.subscribe:
+    cannot subscribe
+
+Application with events.subscribe but no playback.sessions.read:
+    receives no playback session payload
+
+
+PLUGIN
+
+Plugin without process.execute:
+    cannot execute process
+
+Plugin without network.http:
+    cannot use privileged HTTP service
+
+Plugin without ai.infer:
+    cannot infer
+
+Plugin service permission not granted to Application:
+    denied
+
+Plugin service permission granted:
+    allowed
+
+
+======================================================================
+UI CLEANUP REQUIREMENTS
+======================================================================
+
+After completion, Access navigation should NOT expose the legacy fragmented
+structure.
+
+Desired:
+
+ACCESS
+    Users
+    Applications
+    Authentication
+
+
+User avatar menu:
+    Profile
+    Account & Security
+    Switch Profile
+    Sign Out
+
+
+Do not leave duplicate settings pages that expose the same concept.
+
+Do not have:
+    Users page
+    plus Accounts & Profile Grants page
+    plus Profiles page
+for the same workflow.
+
+Collapse those concepts into the new Users hierarchy.
+
+
+======================================================================
+VISUAL REQUIREMENTS
+======================================================================
+
+Use the attached screenshots as the visual reference.
+
+Users page:
+    email is primary user identity
+    small admin indicator at account level
+    compact profile chips
+    admin indicator on a profile chip only when admin is enabled for that
+    account/profile grant
+    maximum 8 profiles
+    three-dot menu
+    right-side permission drawer
+
+Applications page:
+    visually parallel to Users
+    application identity
+    access preset
+    credentials
+    last used
+    status
+    three-dot menu
+    right-side granular permission drawer
+
+Authentication:
+    clean sectioned page
+    no duplicated Account & Security controls
+
+
+Permission drawers should resemble the existing file-browser right-side popout
+pattern:
+    fixed right panel
+    clear title
+    close X
+    grouped checkboxes
+    sticky Cancel / Save footer
+    scrollable body
+    no modal centered over the page
+
+
+======================================================================
+IMPLEMENTATION DISCIPLINE
+======================================================================
+
+Do not infer UI permission from hidden elements alone.
+
+Backend authorization is authoritative.
+
+Do not trust:
+    profile_id
+    account_id
+    application_id
+    library_id
+passed by the browser as authorization evidence.
+
+Resolve authority from the authenticated principal.
+
+Do not expose secrets in DTOs/logging.
+
+Use stable IDs, never table/list position.
+
+Use transactions for permission/grant mutations where multiple rows change.
+
+Clear/revoke relevant sessions/tokens where security changes require it.
+
+Prefer explicit destructive pre-beta migration over permanent dual models.
+
+Update tests as part of every phase.
+
+At the end of each phase:
+1. run build;
+2. run impacted tests;
+3. report changed files;
+4. report schema migrations;
+5. state remaining dependencies before proceeding.
+
+Do not proceed to a later phase by mocking something a prior phase was supposed
+to implement.

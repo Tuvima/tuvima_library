@@ -3,6 +3,7 @@ using Dapper;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
@@ -14,7 +15,7 @@ namespace MediaEngine.Api.Services.ReadServices;
 public sealed class IngestionPresentationReadService : IIngestionPresentationReadService
 {
     private static readonly string[] ActiveStatuses =
-        ["queued", "running", "processing", "active", "retry_waiting", "failed_retryable", "interrupted"];
+        ["pending", "queued", "leased", "running", "processing", "active", "retry_waiting", "failed_retryable", "interrupted"];
 
     private readonly IDatabaseConnection _db;
     private readonly MediaEngine.Providers.Services.BatchProgressService? _progress;
@@ -213,18 +214,18 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        var batch = await conn.QueryFirstOrDefaultAsync<BatchPresentationRow>(new CommandDefinition("""
+        var batch = await conn.QueryFirstOrDefaultAsync<BatchPresentationRow>(new CommandDefinition($"""
             SELECT
                 id AS BatchId,
-                status AS Status,
+                CASE WHEN {IngestionBatchActivitySql.IsActive} THEN 'running' ELSE b.status END AS Status,
                 source_path AS Source,
                 category AS Category,
                 files_processed AS FilesProcessed,
                 files_review AS ReviewCount,
                 files_failed AS FailureCount,
                 started_at AS StartedAt,
-                completed_at AS CompletedAt
-            FROM ingestion_batches
+                CASE WHEN {IngestionBatchActivitySql.IsActive} THEN NULL ELSE completed_at END AS CompletedAt
+            FROM ingestion_batches b
             WHERE id = @batchId;
             """, new { batchId }, cancellationToken: ct)).ConfigureAwait(false);
         if (batch is null)
@@ -471,7 +472,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
                 LEFT JOIN latest_file_operations lfo
                   ON lfo.batch_id = ll.ingestion_run_id AND lfo.entity_id = ll.media_asset_id
-                WHERE LOWER(b.status) NOT IN ('running', 'processing', 'active', 'queued')
+                WHERE NOT {IngestionBatchActivitySql.IsActive}
                   AND {AdditionBatchPredicate}
                   AND {PresentationTitleSql}
                 GROUP BY ll.ingestion_run_id, {PresentationGroupSql}
@@ -539,12 +540,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             WITH current_batches AS (
                 SELECT b.id
                 FROM ingestion_batches b
-                WHERE LOWER(b.status) IN ('running', 'processing', 'active', 'queued')
-                   OR EXISTS (
-                       SELECT 1
-                       FROM media_operations active_mo
-                       WHERE active_mo.batch_id = b.id
-                         AND active_mo.status IN ('queued', 'running', 'processing', 'active', 'retry_waiting', 'failed_retryable', 'interrupted'))
+                WHERE {IngestionBatchActivitySql.IsActive}
             ),
             latest_logs AS (
                 SELECT *
@@ -588,7 +584,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                            FROM media_operations activity WHERE activity.batch_id = ll.ingestion_run_id
                              AND activity.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id)), 3),
                            COALESCE((SELECT MIN(CASE WHEN ij.state IN ('RetailSearching','BridgeSearching','Hydrating','UniverseEnriching') THEN 0
-                               WHEN ij.state IN ('RetailMatched','RetailMatchedNeedsReview','QidResolved') THEN 1
+                               WHEN ij.state IN ('RetailMatched','QidResolved') THEN 1
                                WHEN ij.state = 'Queued' THEN 2 ELSE 3 END)
                                FROM identity_jobs ij WHERE ij.ingestion_run_id = ll.ingestion_run_id
                                  AND ij.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id)), 3)) AS ActivityRank
@@ -723,7 +719,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
                 LEFT JOIN latest_file_operations lfo
                   ON lfo.batch_id = ll.ingestion_run_id AND lfo.entity_id = ll.media_asset_id
-                WHERE LOWER(b.status) NOT IN ('running', 'processing', 'active', 'queued')
+                WHERE NOT {IngestionBatchActivitySql.IsActive}
                   AND {AdditionBatchPredicate}
                   AND {PresentationTitleSql}
                   {searchFilter}
@@ -942,11 +938,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                     SELECT b.id
                     FROM ingestion_batches b
                     WHERE (
-                        LOWER(b.status) IN ('running', 'processing', 'active', 'queued')
-                        OR EXISTS (
-                            SELECT 1 FROM media_operations active_mo
-                            WHERE active_mo.batch_id = b.id
-                              AND active_mo.status IN ('queued', 'running', 'processing', 'active', 'retry_waiting', 'failed_retryable', 'interrupted')))
+                        {IngestionBatchActivitySql.IsActive})
                       {currentBatchSelection}
                 ),
                 """
@@ -955,7 +947,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         {
             GroupScope.Current => "",
             GroupScope.History => $"""
-                AND LOWER(b.status) NOT IN ('running', 'processing', 'active', 'queued')
+                AND NOT {IngestionBatchActivitySql.IsActive}
                 AND {AdditionBatchPredicate}
                 """,
             GroupScope.BatchAdditions => $"AND b.id = @batchId AND {AdditionBatchPredicate}",
@@ -1038,18 +1030,6 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 (SELECT value FROM canonical_values WHERE entity_id IN (ll.media_asset_id,w.id) AND key = 'track_number' LIMIT 1) AS TrackNumber,
                 (SELECT value FROM canonical_values WHERE entity_id IN (ll.media_asset_id,w.id) AND key IN ('issue_number','series_position') LIMIT 1) AS IssueNumber,
                 (SELECT value FROM canonical_values WHERE entity_id IN (ll.media_asset_id,w.id,p.id) AND key = 'audiobook_part_count' LIMIT 1) AS AudiobookPartCount,
-                COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id IN (p.id,gp.id,w.id,ll.media_asset_id) AND key = 'track_count' AND CAST(value AS INTEGER) > 0 LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id IN (p.id,gp.id,w.id,ll.media_asset_id) AND key = 'episode_count' AND CAST(value AS INTEGER) > 0 LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id IN (p.id,gp.id,w.id,ll.media_asset_id) AND key = 'issue_count' AND CAST(value AS INTEGER) > 0 LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id IN (p.id,gp.id,w.id,ll.media_asset_id) AND key = 'audiobook_part_count' AND CAST(value AS INTEGER) > 0 LIMIT 1),
-                    (SELECT total.value FROM canonical_values total
-                     WHERE total.entity_id IN (p.id,gp.id,w.id)
-                       AND total.key = 'sequence_total'
-                       AND CAST(total.value AS INTEGER) > 0
-                       AND EXISTS (SELECT 1 FROM canonical_values total_scope WHERE total_scope.entity_id = total.entity_id AND total_scope.key = 'sequence_total_scope' AND total_scope.value IN ('MainSequence','Album','Season'))
-                     LIMIT 1)
-                ) AS ExpectedCount,
                 (SELECT value FROM canonical_values WHERE entity_id IN (ll.media_asset_id,w.id) AND key IN ('duration','runtime') LIMIT 1) AS DurationLabel,
                 EXISTS (SELECT 1 FROM identity_jobs ij WHERE ij.ingestion_run_id = ll.ingestion_run_id
                     AND ij.entity_id = ll.media_asset_id AND ij.state IN ('Ready','ReadyWithoutUniverse')) AS IdentityReady,
@@ -1115,9 +1095,9 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             SELECT ingestion_run_id AS BatchId, entity_id AS EntityId,
                    CASE WHEN pass = 'Universe' THEN 'identity.relationships' ELSE 'identity.metadata' END AS OperationType,
                    NULL AS CapabilityId,
-                   CASE WHEN state IN ('Ready','ReadyWithoutUniverse','RetailNoMatch','QidNoMatch','QidNeedsReview') THEN 'completed'
+                   CASE WHEN state IN ('Ready','ReadyWithoutUniverse','RetailNoMatch','RetailMatchedNeedsReview','QidNoMatch','QidNeedsReview') THEN 'completed'
                         WHEN state = 'Failed' THEN 'failed_terminal'
-                        WHEN state IN ('Queued','RetailMatched','RetailMatchedNeedsReview','QidResolved') THEN 'queued'
+                        WHEN state IN ('Queued','RetailMatched','QidResolved') THEN 'queued'
                         ELSE 'running' END AS Status,
                    state AS Stage, updated_at AS UpdatedAt
             FROM identity_jobs
@@ -1143,7 +1123,6 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             .Select(row => row.WorkId)
             .Distinct()
             .Count();
-        var expected = rows.Select(row => ParsePositiveInt(row.ExpectedCount)).FirstOrDefault(value => value.HasValue);
         var cover = rows.OrderByDescending(row => row.UpdatedAt).FirstOrDefault(row => row.CoverAssetId.HasValue)?.CoverAssetId;
         var needsReview = rows.Any(row => row.ReviewCount > 0);
         var terminalFailure = scopedOps.Any(operation => operation.Status is "failed_terminal" or "dead_lettered")
@@ -1165,7 +1144,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             Availability = availability,
             StatusLabel = GroupStatus(availability, scopedOps),
             ChildCompleted = completed,
-            ChildExpected = mediaType is "TV" or "Comics" ? null : expected,
+            ChildExpected = null,
             ChildUnit = ChildUnit(mediaType, rows),
             DetailRoute = DetailRoute(mediaType, groupId),
             People = Facet("People", "people", scopedOps, rows.Any(row => row.PeopleCount > 0), applies: true),
@@ -1320,12 +1299,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             WITH current_batches AS (
                 SELECT b.id
                 FROM ingestion_batches b
-                WHERE LOWER(b.status) IN ('running', 'processing', 'active', 'queued')
-                   OR EXISTS (
-                       SELECT 1
-                       FROM media_operations active_mo
-                       WHERE active_mo.batch_id = b.id
-                         AND active_mo.status IN ('queued', 'running', 'processing', 'active', 'retry_waiting', 'failed_retryable', 'interrupted'))
+                WHERE {IngestionBatchActivitySql.IsActive}
             ),
             latest_logs AS (
                 SELECT *
@@ -1407,7 +1381,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                        gm.GroupId,
                        MAX(CASE WHEN mo.status IN ('failed_terminal','dead_lettered') THEN 1 ELSE 0 END) AS HasFailure,
                        MAX(CASE WHEN mo.operation_type <> 'ingestion.file'
-                                     AND mo.status IN ('queued','running','processing','active','retry_waiting','failed_retryable','interrupted')
+                                     AND mo.status IN ('pending','queued','leased','running','processing','active','retry_waiting','failed_retryable','interrupted')
                                 THEN 1 ELSE 0 END) AS HasBackgroundWork
                 FROM group_members gm
                 LEFT JOIN media_operations mo ON mo.batch_id = gm.BatchId AND mo.entity_id = gm.EntityId
@@ -1464,7 +1438,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 JOIN works w ON w.id = e.work_id
                 LEFT JOIN works p ON p.id = w.parent_work_id
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
-                WHERE LOWER(b.status) NOT IN ('running', 'processing', 'active', 'queued')
+                WHERE NOT {IngestionBatchActivitySql.IsActive}
                   AND {AdditionBatchPredicate}
                   AND {PresentationTitleSql}
                 GROUP BY ll.ingestion_run_id, {PresentationGroupSql}
@@ -1501,11 +1475,10 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
     private async Task<CurrentBatchFacts> ReadCurrentBatchFactsAsync(CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
-        return await conn.QueryFirstOrDefaultAsync<CurrentBatchFacts>(new CommandDefinition("""
+        return await conn.QueryFirstOrDefaultAsync<CurrentBatchFacts>(new CommandDefinition($"""
             SELECT
                 b.id AS BatchId,
-                CASE WHEN LOWER(b.status) IN ('running','processing','active','queued')
-                       OR EXISTS (SELECT 1 FROM media_operations mo WHERE mo.batch_id = b.id AND mo.status IN ('queued','running','processing','active','retry_waiting','failed_retryable','interrupted'))
+                CASE WHEN {IngestionBatchActivitySql.IsActive}
                      THEN 1 ELSE 0 END AS IsRunning,
                 b.files_total AS FilesTotal,
                 b.files_processed AS FilesProcessed,
@@ -1522,10 +1495,10 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         using var conn = _db.CreateConnection();
         return await conn.QuerySingleAsync<CurrentOperationFacts>(new CommandDefinition("""
             SELECT
-                COUNT(CASE WHEN status IN ('running','processing','active') THEN 1 END) + (SELECT COUNT(*) FROM identity_jobs WHERE state IN ('RetailSearching','BridgeSearching','Hydrating','UniverseEnriching')) AS Active,
-                COUNT(CASE WHEN status = 'queued' THEN 1 END) + (SELECT COUNT(*) FROM identity_jobs WHERE state IN ('Queued','RetailMatched','RetailMatchedNeedsReview','QidResolved')) AS Queued,
+                COUNT(CASE WHEN status IN ('leased','running','processing','active') THEN 1 END) + (SELECT COUNT(*) FROM identity_jobs WHERE state IN ('RetailSearching','BridgeSearching','Hydrating','UniverseEnriching')) AS Active,
+                COUNT(CASE WHEN status IN ('pending','queued') THEN 1 END) + (SELECT COUNT(*) FROM identity_jobs WHERE state IN ('Queued','RetailMatched','QidResolved')) AS Queued,
                 COUNT(CASE WHEN status IN ('retry_waiting','failed_retryable','interrupted') THEN 1 END) AS RetryWaiting,
-                COUNT(CASE WHEN status IN ('queued','running','processing','active','retry_waiting','failed_retryable','interrupted')
+                COUNT(CASE WHEN status IN ('pending','queued','leased','running','processing','active','retry_waiting','failed_retryable','interrupted')
                              AND (LOWER(operation_type) LIKE '%lyric%' OR LOWER(operation_type) LIKE '%subtitle%' OR LOWER(COALESCE(capability_id,'')) LIKE '%lyric%' OR LOWER(COALESCE(capability_id,'')) LIKE '%subtitle%') THEN 1 END) AS TextTrackWaiting
             FROM media_operations;
             """, cancellationToken: ct)).ConfigureAwait(false);
@@ -1630,6 +1603,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             ? groups.Select(group => LaneFor(group.MediaType)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
             : [];
         var destination = lane.Count == 1 ? $" in {lane[0]}" : " in the library";
+        if (status.Equals("running", StringComparison.OrdinalIgnoreCase)) return "This batch is still adding media. Finished items are available while the remaining work continues.";
         if (status.Equals("failed", StringComparison.OrdinalIgnoreCase)) return "This run failed before all media could be added.";
         if (status is "abandoned" or "interrupted") return "This run was interrupted. Completed items remain available.";
         return followUpCount > 0
@@ -1668,18 +1642,14 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             group.ChildExpected = null;
     }
 
-    private async Task<bool> IsHistoricalBatchAsync(Guid batchId, CancellationToken ct)
+    private Task<bool> IsHistoricalBatchAsync(Guid batchId, CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var status = await conn.QuerySingleOrDefaultAsync<string?>(new CommandDefinition(
-            "SELECT status FROM ingestion_batches WHERE id = @batchId LIMIT 1;",
-            new { batchId },
-            cancellationToken: ct)).ConfigureAwait(false);
-        return !string.IsNullOrWhiteSpace(status)
-               && !status.Equals("running", StringComparison.OrdinalIgnoreCase)
-               && !status.Equals("processing", StringComparison.OrdinalIgnoreCase)
-               && !status.Equals("active", StringComparison.OrdinalIgnoreCase)
-               && !status.Equals("queued", StringComparison.OrdinalIgnoreCase);
+        return Task.FromResult(conn.ExecuteScalar<bool>($"""
+            SELECT EXISTS (SELECT 1 FROM ingestion_batches b
+                WHERE b.id = @batchId AND NOT {IngestionBatchActivitySql.IsActive});
+            """, new { batchId }));
     }
 
     private static bool IsActive(string? status) => !string.IsNullOrWhiteSpace(status) && ActiveStatuses.Contains(status, StringComparer.OrdinalIgnoreCase);
@@ -1847,7 +1817,6 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         public string? TrackNumber { get; set; }
         public string? IssueNumber { get; set; }
         public string? AudiobookPartCount { get; set; }
-        public string? ExpectedCount { get; set; }
         public string? DurationLabel { get; set; }
         public bool IdentityReady { get; set; }
         public string? LogStatus { get; set; }

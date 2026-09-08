@@ -1623,6 +1623,29 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal("Recovered after engine restart", recovered.LastError);
     }
 
+    [Theory]
+    [InlineData("RetailSearching", "Queued")]
+    [InlineData("BridgeSearching", "RetailMatched")]
+    [InlineData("Hydrating", "QidResolved")]
+    [InlineData("UniverseEnriching", "QidResolved")]
+    public async Task IdentityJob_StartupRecoversUnleasedWorkWithoutChangingBatch(string state, string resumedState)
+    {
+        var repo = new IdentityJobRepository(_db);
+        var runId = Guid.NewGuid();
+        var job = new IdentityJob
+        {
+            Id = Guid.NewGuid(), EntityId = Guid.NewGuid(), EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books), Pass = "Quick", State = state, IngestionRunId = runId,
+        };
+        await repo.CreateAsync(job);
+        Assert.Equal(1, await repo.RecoverInterruptedJobsAsync());
+        var recovered = await repo.GetByIdAsync(job.Id);
+        Assert.Equal(resumedState, recovered!.State);
+        Assert.Equal(runId, recovered.IngestionRunId);
+        Assert.Null(recovered.LeaseOwner);
+        Assert.Equal(0, await repo.RecoverInterruptedJobsAsync());
+    }
+
     [Fact]
     public async Task ReviewQueue_PendingCountAndPurge_UseGuidBlobEntityIds()
     {

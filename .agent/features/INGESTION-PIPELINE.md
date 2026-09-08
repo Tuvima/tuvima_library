@@ -6,6 +6,10 @@
 
 ---
 
+## Operations recovery contract
+
+Use the shared durable batch activity predicate for current media, history, and reconciliation. Resumed jobs retain their batch; recover intermediate jobs with or without a lease before workers start. Never turn a long provider wait into a failed item solely because time elapsed. Navbar and active-batch indicators use success green. Individual ingestion cards and drawers show added counts only, without provider totals or per-item bars; batch progress includes skipped duplicate input files.
+
 ## User Experience
 
 The user drops a file (book, movie, audiobook, comic) into a designated "Watch Folder" on their computer. From that moment, everything is automatic:

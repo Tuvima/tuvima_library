@@ -3,6 +3,12 @@
 Tuvima Library tracks operational truth in durable rows instead of inferring it
 from missing artifacts.
 
+## Batch recovery and presentation
+
+`IngestionBatchActivitySql` supplies the shared activity predicate for the batch repository, presentation queries, history, and completion reconciliation. Outstanding identity jobs or media operations keep their original batch active even if its stored status predates a restart. A long wait or expired lease is not a terminal outcome. Startup requeues intermediate identity states, including unleased enrichment work from the previous process, before identity workers begin; it emits progress for all active batches without a recent-history limit.
+
+Progress counts distinct skipped input paths even when the duplicate points to an asset already identified in that batch. A repeated log for an already-handled input path does not add another settled file. Ingestion cards and drawers show added counts only; provider container totals do not drive per-item progress.
+
 ## Core Tables
 
 `media_operations` is the durable work ledger. One row represents one unit of

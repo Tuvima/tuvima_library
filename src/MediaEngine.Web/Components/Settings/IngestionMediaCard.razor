@@ -16,10 +16,6 @@
         {
             <span class="ingestion-media-card__status is-@Item.Availability">@ProgressLabel</span>
         }
-        @if (HasProgress)
-        {
-            <AppProgressBar Value="@ProgressValue" ShowValue="false" Class="ingestion-media-card__progress" />
-        }
         <IngestionFacetIndicators Item="Item" />
     </span>
 </AppNativeButton>
@@ -29,13 +25,9 @@
     [Parameter, EditorRequired] public IngestionMediaGroupDto Item { get; set; } = new();
     [Parameter] public EventCallback<IngestionMediaGroupDto> OnOpen { get; set; }
 
-    private bool HasProgress => Item.ChildExpected is > 0 && Item.ChildCompleted >= 0;
-    private double ProgressValue => Item.ChildExpected is > 0 ? Math.Clamp(Item.ChildCompleted * 100d / Item.ChildExpected.Value, 0, 100) : 0;
     private string DisplaySubtitle => string.IsNullOrWhiteSpace(Item.Subtitle) ? FriendlyType(Item.MediaType) : Item.Subtitle;
     private string? ProgressLabel => Item.ChildUnit is not null
-        ? Item.ChildExpected is > 0
-            ? $"{Item.ChildCompleted:N0} / {Item.ChildExpected:N0} {Item.ChildUnit} added"
-            : $"{Item.ChildCompleted:N0} {DisplayChildUnit(Item.ChildCompleted)} added"
+        ? $"{Item.ChildCompleted:N0} {DisplayChildUnit(Item.ChildCompleted)} added"
         : Item.Availability.Equals("ready", StringComparison.OrdinalIgnoreCase) ? null : Item.StatusLabel;
     private string CardAriaLabel => Item.Availability.Equals("ready", StringComparison.OrdinalIgnoreCase)
         ? $"Open ingestion details for {Item.Title}"

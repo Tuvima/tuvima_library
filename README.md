@@ -255,7 +255,7 @@ Current builds include:
 - Inline corrections and a Review Queue for items that need help.
 - Settings for libraries, providers, profiles, local AI, plugins, ingestion, and system health.
 - Guided setup with live password feedback, optional profile PIN, readable recovery codes, and media folders that can be added later.
-- Operations shares batch progress with the navbar, refreshes active media and artwork, and keeps completed batch history separate. TV additions show owned episode counts without provider totals.
+- Operations shares batch progress with the navbar, refreshes active media and artwork, and keeps completed batch history separate. Resumed batches remain visible after a restart. Track, episode, and comic issue additions show counts without provider totals or per-item completion bars.
 - View library settings explain the shared storage base and private profile spaces. Folders are created when files are first written, rather than when a profile is configured.
 - Dismissing the install banner persists in that browser. System Overview retains a small manual installation option.
 

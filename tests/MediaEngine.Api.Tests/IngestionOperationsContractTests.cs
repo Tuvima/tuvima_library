@@ -363,33 +363,6 @@ public sealed class IngestionOperationsContractTests
     }
 
     [Fact]
-    public void OperationsService_ReconcilesStaleQueuedBatchesToTerminalStatus()
-    {
-        var source = File.ReadAllText(Path.Combine(
-            FindRepoRoot(),
-            "src",
-            "MediaEngine.Api",
-            "Services",
-            "IngestionOperationsStatusService.cs"));
-
-        Assert.Contains("staleQueuedWork", source, StringComparison.Ordinal);
-        Assert.Contains("staleRunningWork", source, StringComparison.Ordinal);
-        Assert.Contains("staleInterruptedWork", source, StringComparison.Ordinal);
-        Assert.Contains("snapshot.Queued > 0", source, StringComparison.Ordinal);
-        Assert.Contains("snapshot.StaleRunningOperations > 0", source, StringComparison.Ordinal);
-        Assert.Contains("mo.status = 'running'", source, StringComparison.Ordinal);
-        Assert.Contains("InterruptedBatchStatuses", source, StringComparison.Ordinal);
-        Assert.Contains("FailedBatchStatuses = [\"failed\"]", source, StringComparison.Ordinal);
-        Assert.Contains("\"abandoned\"", source, StringComparison.Ordinal);
-        Assert.Contains("!IsFreshActiveBatch(batch)", source, StringComparison.Ordinal);
-        Assert.Contains("julianday(js.updated_at) > julianday(@staleCutoff)", source, StringComparison.Ordinal);
-        Assert.Contains("staleQueuedWork ? snapshot.Queued : 0", source, StringComparison.Ordinal);
-        Assert.Contains("snapshot.StaleActive", source, StringComparison.Ordinal);
-        Assert.Contains("snapshot.StaleRunningOperations", source, StringComparison.Ordinal);
-        Assert.Contains("Math.Min(interrupted, Math.Max(0, batch.FilesTotal - terminal))", source, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void BatchProgressService_DoesNotReusePersistedFailedCountWhenJobSnapshotExists()
     {
         var source = File.ReadAllText(Path.Combine(

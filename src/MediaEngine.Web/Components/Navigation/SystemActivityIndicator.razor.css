@@ -31,7 +31,8 @@
 }
 
 .system-activity-indicator-shell ::deep .system-activity-indicator.is-active {
-    color: var(--app-primary, var(--tl-accent-primary, #7c4dff));
+    color: var(--mud-palette-success);
+    background: color-mix(in srgb, var(--mud-palette-success) 13%, transparent);
 }
 
 .system-activity-indicator-shell ::deep .system-activity-indicator.is-warning {
@@ -60,6 +61,7 @@
 }
 
 .system-activity-indicator-shell ::deep .system-activity-indicator__ring .mud-progress-circular {
+    color: inherit;
     width: 2.3rem !important;
     height: 2.3rem !important;
 }
@@ -88,7 +90,7 @@
     border: 2px solid var(--app-surface, #1e1f27);
     border-radius: 999px;
     color: #fff;
-    background: var(--app-primary, #7c4dff);
+    background: var(--mud-palette-success);
     font-size: 0.58rem;
     font-weight: 800;
     line-height: 1;

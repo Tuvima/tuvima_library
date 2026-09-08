@@ -36,11 +36,9 @@ public sealed class HydrationStartupSweepService : BackgroundService
         try
         {
             var recovered = await _jobs.RecoverInterruptedJobsAsync(cancellationToken).ConfigureAwait(false);
-            var recentRunningBatches = (await _batches.GetRecentAsync(50, cancellationToken).ConfigureAwait(false))
-                .Where(batch => string.Equals(batch.Status, "running", StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var activeBatches = await _batches.GetActiveAsync(cancellationToken).ConfigureAwait(false);
 
-            foreach (var batch in recentRunningBatches)
+            foreach (var batch in activeBatches)
             {
                 await _batchProgress.EmitProgressAsync(batch.Id, isFinal: false, ct: cancellationToken)
                     .ConfigureAwait(false);
@@ -53,7 +51,7 @@ public sealed class HydrationStartupSweepService : BackgroundService
             else
             {
                 _logger.LogInformation(
-                    "Identity startup recovery released {Count} interrupted job lease(s).",
+                    "Identity startup recovery requeued {Count} interrupted job(s).",
                     recovered);
 
                 _signal.Signal(IdentityPipelineSignalKind.Retail);

@@ -24,10 +24,6 @@
 
                     <section class="ingestion-drawer__progress" aria-label="Addition progress">
                         <strong>@ProgressLabel</strong>
-                        @if (Item.ChildExpected is > 0)
-                        {
-                            <AppProgressBar Value="@ProgressValue" ShowValue="false" />
-                        }
                         @if (!Item.Availability.Equals("ready", StringComparison.OrdinalIgnoreCase))
                         {
                             <span class="is-@Item.Availability">@Item.StatusLabel</span>
@@ -128,9 +124,8 @@
         ["Relationships"] = Item.Relationships,
     };
 
-    private double ProgressValue => Item?.ChildExpected is > 0 ? Math.Clamp(Item.ChildCompleted * 100d / Item.ChildExpected.Value, 0, 100) : 0;
-    private string ProgressLabel => Item?.ChildUnit is null ? Item?.StatusLabel ?? "Adding" : Item.ChildExpected is > 0 ? $"{Item.ChildCompleted:N0} / {Item.ChildExpected:N0} {Item.ChildUnit} added" : $"{Item.ChildCompleted:N0} {DisplayChildUnit(Item.ChildUnit, Item.ChildCompleted)} added";
-    private string ChildHeading => $"{CultureInfo.CurrentCulture.TextInfo.ToTitleCase(Item!.ChildUnit!)} ({Item.ChildCompleted:N0}{(Item.ChildExpected is > 0 ? $" of {Item.ChildExpected:N0}" : "")})";
+    private string ProgressLabel => Item?.ChildUnit is null ? Item?.StatusLabel ?? "Adding" : $"{Item.ChildCompleted:N0} {DisplayChildUnit(Item.ChildUnit, Item.ChildCompleted)} added";
+    private string ChildHeading => $"{CultureInfo.CurrentCulture.TextInfo.ToTitleCase(Item!.ChildUnit!)} ({Item.ChildCompleted:N0})";
     private static string DisplayChildUnit(string unit, int count) => count == 1 && unit.EndsWith('s') ? unit[..^1] : unit;
     private static string StateCopy(string state) => state.ToLowerInvariant() switch { "complete" => "Complete", "active" => "In progress…", "attention" => "Waiting to retry", "failed" => "Failed", _ => "Queued" };
     private static string StateIcon(string state) => state.ToLowerInvariant() switch { "complete" => Icons.Material.Outlined.CheckCircle, "active" => Icons.Material.Outlined.RadioButtonUnchecked, "attention" => Icons.Material.Outlined.WarningAmber, "failed" => Icons.Material.Outlined.ErrorOutline, _ => Icons.Material.Outlined.Schedule };

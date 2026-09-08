@@ -233,7 +233,7 @@ Real-time SignalR updates push pipeline progress into every surface. Theming is 
 
 Canonical book, comic, and movie series containers show their sequence rail directly on Overview. Source numbering stays above each cover, connectors appear behind number nodes only between proven consecutive positions, and the current item uses a stronger purple frame glow without `This book`, `This movie`, or `Up next` labels. Completion remains a separate check state, and `aria-current` preserves accessible current-item context. Missing-item visibility inherits its media default from `config/ui/library-preferences.json`; the database stores only explicit profile-and-series overrides, which can be removed to restore config inheritance.
 
-`MainLayout` exposes My List as the active profile's saved shortlist and delegates account actions to `TopNavAccountMenu`. Needs Review lives inside that permission-aware menu rather than in a standalone bell. `SystemActivityIndicator` uses `ShellActivityState` to combine playback, ingestion, AI download/parsing, enrichment, and durable-operation activity into one circular progress surface, with an idle check icon when no work is active. Sign out is present only for OIDC/hybrid authentication.
+`MainLayout` exposes My List as the active profile's saved shortlist and delegates account actions to `TopNavAccountMenu`. Needs Review lives inside that permission-aware menu rather than in a standalone bell. `SystemActivityIndicator` uses `ShellActivityState` to combine playback, ingestion, AI download/parsing, enrichment, and durable-operation activity into one circular progress surface, using success green for its icon and ring while work is active and hiding when idle. Sign out is present only for OIDC/hybrid authentication.
 
 ### 3.5 — Brand Assets
 
@@ -268,6 +268,8 @@ All Engine-managed artefacts live under a single `.data/` directory at the libra
 
 ### 3.7 — Hydration Pipeline & Providers
 **Detail:** [`docs/architecture/hydration-and-providers.md`](docs/architecture/hydration-and-providers.md)
+
+Operations uses `IngestionBatchActivitySql` to keep a batch active while durable jobs or operations remain, even across restart and stale terminal batch status. Startup requeues leased and unleased intermediate jobs before workers start. Long waits are not terminal failures. Ingestion cards and drawers show added tracks, episodes, and issues without provider totals or per-item progress bars; whole-batch progress includes distinct skipped duplicate inputs.
 
 A durable staged enrichment pipeline runs after ingestion. `identity_jobs` rows (SQLite) replace any in-memory queue. Pipeline workers poll for jobs:
 

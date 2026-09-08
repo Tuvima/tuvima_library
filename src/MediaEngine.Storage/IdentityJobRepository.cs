@@ -513,8 +513,9 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
     {
         ct.ThrowIfCancellationRequested();
         var now = DateTimeOffset.UtcNow.ToString("O");
-        using var conn = _db.CreateConnection();
-        var affected = conn.Execute("""
+        // Runs before workers start: even an unleased Stage 3 job may have been
+        // waiting in the previous process's in-memory enrichment queue.
+        return _db.ExecuteWriteAsync((conn, tx, _) => conn.Execute("""
             UPDATE identity_jobs
             SET    state = CASE state
                        WHEN 'RetailSearching' THEN 'Queued'
@@ -527,11 +528,9 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                    next_retry_at    = NULL,
                    last_error       = 'Recovered after engine restart',
                    updated_at       = @now
-            WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
-              AND  lease_owner IS NOT NULL;
+            WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching');
             """,
-            new { now });
-        return Task.FromResult(affected);
+            new { now }, transaction: tx), ct);
     }
 
     public Task<IReadOnlyList<IdentityJob>> GetByStateAsync(IdentityJobState state, int limit, CancellationToken ct = default)

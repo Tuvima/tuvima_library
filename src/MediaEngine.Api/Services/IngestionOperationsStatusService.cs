@@ -3497,32 +3497,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 terminal = Math.Clamp(terminal, 0, batch.FilesTotal);
             }
             var age = DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime();
-            var staleQueuedWork = snapshot.Queued > 0
-                && snapshot.Active == 0
-                && age > TimeSpan.FromMinutes(30)
-                && !IsFreshActiveBatch(batch);
-            var staleRunningWork = (snapshot.StaleActive > 0 || snapshot.StaleRunningOperations > 0)
-                && snapshot.Active == 0
-                && age > TimeSpan.FromMinutes(30)
-                && !IsFreshActiveBatch(batch);
-            var staleInterruptedWork = staleQueuedWork || staleRunningWork;
-            if (staleInterruptedWork && batch.FilesTotal > 0)
-            {
-                var interrupted = Math.Max(
-                    0,
-                    (staleQueuedWork ? snapshot.Queued : 0)
-                    + snapshot.StaleActive
-                    + snapshot.StaleRunningOperations);
-                interrupted = Math.Min(interrupted, Math.Max(0, batch.FilesTotal - terminal));
-                failed += interrupted;
-                terminal += interrupted;
-            }
-
-            var noActivePipelineWork = snapshot.Active == 0
-                && (snapshot.Queued == 0 || staleInterruptedWork)
-                && (snapshot.StaleActive == 0 || staleInterruptedWork)
-                && (snapshot.StaleRunningOperations == 0 || staleInterruptedWork)
-                && snapshot.OperationOutstanding == 0;
+            // Queue state survives restarts. An expired lease or a long provider wait
+            // is recoverable work, not a failed file or an abandoned batch.
+            var noActivePipelineWork = !snapshot.HasOutstandingWork;
             var isNoWorkBatch = batch.FilesTotal > 0
                 && terminal == 0
                 && batch.FilesProcessed == 0
@@ -3553,9 +3530,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 processed = Math.Clamp(processed, 0, batch.FilesTotal);
             }
 
-            var nextStatus = staleInterruptedWork
-                ? "abandoned"
-                : failed > 0 && failed >= Math.Max(1, batch.FilesTotal) ? "failed" : "completed";
+            var nextStatus = failed > 0 && failed >= Math.Max(1, batch.FilesTotal) ? "failed" : "completed";
             if (batch.FilesProcessed == processed
                 && batch.FilesIdentified == identified
                 && batch.FilesReview == review
@@ -3593,7 +3568,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         using var conn = _db.CreateConnection();
         return await conn.QueryFirstOrDefaultAsync<BatchTerminalSnapshot>(
-            """
+            $"""
             WITH latest_jobs AS (
                 SELECT
                     entity_id,
@@ -3620,6 +3595,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                   AND review_ready_at IS NOT NULL
             )
             SELECT
+                (SELECT CASE WHEN {IngestionBatchActivitySql.HasOutstandingWork} THEN 1 ELSE 0 END
+                    FROM ingestion_batches b WHERE b.id = @batchId) AS HasOutstandingWork,
                 COALESCE(SUM(CASE
                     WHEN js.state IN ('Ready', 'ReadyWithoutUniverse') AND pr.entity_id IS NULL THEN 1
                     ELSE 0
@@ -4677,6 +4654,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private sealed class BatchTerminalSnapshot
     {
+        public bool HasOutstandingWork { get; init; }
         public int Identified { get; init; }
         public int Review { get; init; }
         public int NoMatch { get; init; }

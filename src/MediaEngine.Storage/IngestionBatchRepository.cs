@@ -172,8 +172,8 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
         using var conn = _db.CreateConnection();
         var results = conn.Query<IngestionBatch>($"""
             SELECT {SelectColumns}
-            FROM ingestion_batches
-            WHERE status IN ('running', 'queued', 'processing', 'active')
+            FROM ingestion_batches b
+            WHERE {IngestionBatchActivitySql.IsActive}
             ORDER BY started_at DESC;
             """).AsList();
         return Task.FromResult<IReadOnlyList<IngestionBatch>>(results);
@@ -266,7 +266,11 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
                 COUNT(js.entity_id) AS TotalJobs,
                 (SELECT COUNT(DISTINCT skipped.file_path) FROM ingestion_log skipped
                     WHERE skipped.ingestion_run_id = @batchId AND skipped.status = 'duplicate'
-                    AND NOT EXISTS (SELECT 1 FROM job_states handled WHERE handled.entity_id = skipped.media_asset_id)) AS FilesSkipped,
+                    AND NOT EXISTS (SELECT 1 FROM ingestion_log handled
+                        WHERE handled.ingestion_run_id = skipped.ingestion_run_id
+                          AND handled.file_path = skipped.file_path COLLATE NOCASE
+                          AND handled.status <> 'duplicate'
+                          AND EXISTS (SELECT 1 FROM job_states jobs WHERE jobs.entity_id = handled.media_asset_id))) AS FilesSkipped,
                 COALESCE(SUM(CASE WHEN js.state = 'Ready' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
                 COALESCE(SUM(CASE WHEN js.state = 'ReadyWithoutUniverse' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReadyWithoutUniverse,
                 COALESCE(SUM(CASE
