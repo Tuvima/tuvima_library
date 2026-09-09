@@ -1,8 +1,21 @@
 # Access architecture: review and implementation plan
 
-Status: proposed implementation plan; no product changes implemented.
+Status: implementation authorized and active. Prerequisite crash/ingestion verification and P01 are complete; P02–P05 are undergoing combined security verification in the isolated integration branch. No Access implementation has been merged into main. P06–P13 remain in scope behind their dependency gates.
 
 Reviewed on 2026-09-08 against `main` at `3af3ae3cf57dac270dd99b35a408af48e6c2b069`. Recheck the base before starting workers.
+
+## Resumed next steps — 2026-09-08
+
+Execution resumed after the product owner's “proceed.” The clean integration and identity worktrees start at `1b75af4e76ad4b4afc9ce23769877566f6ec10e2` under `.tmp/access-integration` and `.tmp/access-identity`, on `codex/access-integration` and `codex/access-identity`. Pending ingestion changes remain in the original checkout and must be incorporated and verified before the security cutover is accepted. Foundation definitions may proceed independently while runtime visual verification waits for administrator sign-in. See [execution status](execution/status.md) for evidence and open gates.
+
+The product owner restored this plan to the next-work sequence and then authorized implementation. The sequence below is retained as the delivery contract; current completion evidence and remaining gates are maintained in the execution status.
+
+1. Finish verification of the pending ingestion changes, including rendered card/list alignment, scrolling child lists, duration formatting, and runtime stability. Confirm the crash cause and regression protection with evidence; a successful restart alone does not establish that recurrence is prevented. Preserve and review the existing changes before freezing an Access baseline.
+2. Recheck the repository and refresh the inventory against the accepted baseline. At this resumption, `main` is `1b75af4e76ad4b4afc9ce23769877566f6ec10e2`, with uncommitted ingestion changes and existing unrelated worktrees. Neither that dirty state nor the original review SHA is a frozen worker base.
+3. Begin with **P00 baseline/inventory**, then **P01 shared contracts**, then **P02 identity and persistence**, using the exact packets in [workers.md](workers.md). Astra owns planning and contract decisions; Sol implements these foundation packets.
+4. After P02 contracts are frozen, assign **P03 catalogue enforcement** and **P04 View privacy** to Sol, and **P05 Dashboard Access wiring** to Terra. Complete **P06 Users/Applications UI** and **P07 authentication policy** before accepting checkpoint A. Keep the security cutover atomic at integration.
+5. Continue with **P08–P09 plugin services**, then **P10–P12 playback telemetry, filtered events, and webhooks**. Finish **P13 final verification**, documentation, and Astra acceptance before treating the full plan as complete.
+6. Use isolated worker worktrees feeding `codex/access-integration`, two concurrent workers by default, compact packets, and bounded handoffs. Reuse the existing model assignments and dependency gates rather than re-planning each packet. Squash the fully accepted integration result into `main` once all gates pass; do not merge partial security checkpoints into `main`.
 
 ## Recommendation
 
@@ -10,7 +23,7 @@ Use Astra for architecture decisions and acceptance review, Sol for the identity
 
 This is a security architecture refactor with a UI component, not principally a Settings redesign. The supplied 17 phases cover both the immediate Access change and substantial new integration functionality. Keep all of that scope, but deliver it in three checkpoints: core Access and privacy; plugin services; events, webhooks, and telemetry. A checkpoint is not permission to call the entire request complete.
 
-The current task requests review and a worker-ready plan. Imperatives in the attached specification describe the proposed product; they do not independently authorize starting implementation, resetting data, creating integrations, or sending messages. No implementation workers were launched during this review.
+The initial task requested review and a worker-ready plan; the subsequent “proceed” authorizes implementation. Imperatives in the attached specification remain product requirements, not independent authorization for external messages or unrelated actions. No implementation workers were launched during the initial review.
 
 Companion files:
 

@@ -3,6 +3,7 @@
 @using MediaEngine.Contracts.Paging
 @using System.Globalization
 @inject IEngineApiClient Api
+@inject ILogger<IngestionMediaDrawer> Logger
 @implements IDisposable
 
 @if (Item is not null)
@@ -48,15 +49,21 @@
                             {
                                 <AppProgressBar Indeterminate="true" />
                             }
-                            else if (_children?.Items.Count > 0)
+                            else if (!string.IsNullOrWhiteSpace(_childrenError))
                             {
-                                <ol start="@(_children.Offset + 1)">
-                                    @foreach (var child in _children.Items)
+                                <div class="ingestion-drawer__children-error" role="alert">
+                                    <p>@_childrenError</p>
+                                    <AppButton Label="Try again" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="ReloadChildrenAsync" />
+                                </div>
+                            }
+                            else if (_children.Count > 0)
+                            {
+                                <ol>
+                                    @foreach (var child in _children)
                                     {
                                         <li><span>@child.SequenceLabel</span><strong>@child.Title</strong><small>@child.DurationLabel</small><MudIcon Icon="@ChildIcon(child.Status)" Class="@($"is-{child.Status}")" /></li>
                                     }
                                 </ol>
-                                <AppCompactPager Offset="@_children.Offset" Limit="@_children.Limit" HasMore="@_children.HasMore" TotalCount="@_children.TotalCount" Loading="@_loading" OffsetChanged="LoadChildrenAsync" />
                             }
                             else
                             {
@@ -82,32 +89,101 @@
     [Parameter] public IngestionMediaGroupDto? Item { get; set; }
     [Parameter] public EventCallback Close { get; set; }
 
+    private const int ChildPageSize = 250;
     private Guid? _loadedGroup;
     private Guid? _loadedBatch;
     private bool _loading;
-    private PagedResponse<IngestionMediaChildDto>? _children;
+    private IReadOnlyList<IngestionMediaChildDto> _children = [];
+    private string? _childrenError;
     private CancellationTokenSource? _loadCts;
+    private long _loadVersion;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (Item is null || (_loadedGroup == Item.GroupId && _loadedBatch == Item.BatchId)) return;
+        if (Item is null)
+        {
+            CancelChildLoad();
+            _loadedGroup = null;
+            _loadedBatch = null;
+            _children = [];
+            _childrenError = null;
+            return;
+        }
+
+        if (_loadedGroup == Item.GroupId && _loadedBatch == Item.BatchId) return;
+        CancelChildLoad();
         _loadedGroup = Item.GroupId;
         _loadedBatch = Item.BatchId;
-        _children = null;
-        if (!string.IsNullOrWhiteSpace(Item.ChildUnit)) await LoadChildrenAsync(0);
+        _children = [];
+        _childrenError = null;
+        if (!string.IsNullOrWhiteSpace(Item.ChildUnit)) await LoadChildrenAsync(Item);
     }
 
-    private async Task LoadChildrenAsync(int offset)
+    private async Task ReloadChildrenAsync()
     {
         if (Item is null) return;
-        _loadCts?.Cancel();
-        _loadCts?.Dispose();
+        CancelChildLoad();
+        _children = [];
+        _childrenError = null;
+        await LoadChildrenAsync(Item);
+    }
+
+    private async Task LoadChildrenAsync(IngestionMediaGroupDto item)
+    {
+        var version = ++_loadVersion;
         _loadCts = new CancellationTokenSource();
         var ct = _loadCts.Token;
         _loading = true;
-        try { _children = await Api.GetIngestionMediaChildrenAsync(Item.BatchId, Item.GroupId, offset, 50, ct); }
+        try
+        {
+            var children = new List<IngestionMediaChildDto>();
+            var offset = 0;
+            while (true)
+            {
+                var page = await Api.GetIngestionMediaChildrenAsync(item.BatchId, item.GroupId, offset, ChildPageSize, ct);
+                ct.ThrowIfCancellationRequested();
+                if (page is null) throw new InvalidOperationException("The Engine did not return child details.");
+                if (page.Offset != offset) throw new InvalidOperationException("The Engine returned an out-of-sequence child-details page.");
+
+                children.AddRange(page.Items);
+                if (!page.HasMore) break;
+
+                var nextOffset = page.Offset + page.Items.Count;
+                if (page.Items.Count == 0 || nextOffset <= offset)
+                {
+                    throw new InvalidOperationException("The Engine returned an invalid child-details page.");
+                }
+
+                offset = nextOffset;
+            }
+
+            if (IsCurrentLoad(version, ct)) _children = children;
+        }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
-        finally { _loading = false; }
+        catch (Exception ex)
+        {
+            if (IsCurrentLoad(version, ct))
+            {
+                Logger.LogWarning(ex, "Could not load ingestion child details for batch {BatchId} and group {GroupId}.", item.BatchId, item.GroupId);
+                _children = [];
+                _childrenError = "Child details could not be loaded. Try again.";
+            }
+        }
+        finally
+        {
+            if (IsCurrentLoad(version, ct)) _loading = false;
+        }
+    }
+
+    private bool IsCurrentLoad(long version, CancellationToken ct) => version == _loadVersion && !ct.IsCancellationRequested;
+
+    private void CancelChildLoad()
+    {
+        ++_loadVersion;
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
+        _loadCts = null;
+        _loading = false;
     }
 
     private async Task OnKeyDown(KeyboardEventArgs args)
@@ -133,7 +209,6 @@
 
     public void Dispose()
     {
-        _loadCts?.Cancel();
-        _loadCts?.Dispose();
+        CancelChildLoad();
     }
 }

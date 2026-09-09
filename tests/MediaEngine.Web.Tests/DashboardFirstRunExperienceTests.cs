@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+
 namespace MediaEngine.Web.Tests;
 
 public sealed class DashboardFirstRunExperienceTests
@@ -22,6 +25,45 @@ public sealed class DashboardFirstRunExperienceTests
         Assert.DoesNotContain("Claim token", setupSessions, StringComparison.Ordinal);
         Assert.DoesNotContain("/bootstrap/administrator", engine, StringComparison.Ordinal);
         Assert.DoesNotContain("IsLoopbackRequest", dashboard, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Login_SeparatesUnavailableEngineFromAnExplicitFirstRun()
+    {
+        var dashboard = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");
+        var normalized = dashboard.ReplaceLineEndings("\n");
+
+        Assert.Contains("if (bootstrap is null)", dashboard, StringComparison.Ordinal);
+        Assert.Contains("StatusCodes.Status503ServiceUnavailable", dashboard, StringComparison.Ordinal);
+        Assert.Contains("EngineUnavailableResult(SafeReturnUrl(returnUrl))", dashboard, StringComparison.Ordinal);
+        Assert.Contains("<h1>Engine unavailable</h1>", dashboard, StringComparison.Ordinal);
+        Assert.Contains(">Try again</a>", dashboard, StringComparison.Ordinal);
+        Assert.Contains("if (!bootstrap.AdministratorConfigured)\n            {\n                return Results.Redirect(\"/setup\");", normalized, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LoginUnavailableResult_IsRetryable503WithoutSetupControls()
+    {
+        var method = typeof(MediaEngine.Web.Services.Integration.DashboardAuthenticationEndpoints)
+            .GetMethod("EngineUnavailableResult", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+        var result = Assert.IsAssignableFrom<IResult>(method?.Invoke(null, ["/read?browse=books"]));
+        var context = new DefaultHttpContext();
+        using var services = new ServiceCollection().AddLogging().BuildServiceProvider();
+        context.RequestServices = services;
+        await using var body = new MemoryStream();
+        context.Response.Body = body;
+
+        await result.ExecuteAsync(context);
+        body.Position = 0;
+        using var reader = new StreamReader(body);
+        var html = await reader.ReadToEndAsync();
+
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, context.Response.StatusCode);
+        Assert.StartsWith("text/html", context.Response.ContentType, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("<h1>Engine unavailable</h1>", html, StringComparison.Ordinal);
+        Assert.Contains("href=\"/auth/login?returnUrl=%2Fread%3Fbrowse%3Dbooks\">Try again</a>", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("/setup", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("name=\"action\" value=\"bootstrap\"", html, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

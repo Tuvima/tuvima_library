@@ -296,6 +296,8 @@ dotnet restore MediaEngine.slnx
 
 Start the Engine and Dashboard in separate terminals:
 
+Start the Engine first and use the same configuration directory for both processes. Missing or invalid Dashboard connection credentials leave Engine requests unavailable until the credential is restored; they must not terminate the browser session. See [connection troubleshooting](docs/guides/troubleshooting.md#dashboard-cannot-reach-the-engine).
+
 ```bash
 dotnet run --project src/MediaEngine.Api
 ```

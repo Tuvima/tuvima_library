@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace MediaEngine.Api.Tests;
 
@@ -32,53 +33,25 @@ public sealed class ItemEndpointRouteTests
     public void TrackedSource_DoesNotContainRemovedLibraryItemSurfaceNames()
     {
         var root = GetRepoFilePath("");
-        var removedSurface = "Reg" + "istryEndpoints";
-        var removedRoute = "/" + "reg" + "istry";
-        var ignoredSegments = new[]
-        {
-            $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}",
-            $"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}",
-            $"{Path.DirectorySeparatorChar}.data{Path.DirectorySeparatorChar}",
-            $"{Path.DirectorySeparatorChar}logs{Path.DirectorySeparatorChar}",
-            $"{Path.DirectorySeparatorChar}artifacts{Path.DirectorySeparatorChar}",
-            $"{Path.DirectorySeparatorChar}.git{Path.DirectorySeparatorChar}",
-            $"{Path.DirectorySeparatorChar}.claude{Path.DirectorySeparatorChar}",
-            $"{Path.DirectorySeparatorChar}.tmp{Path.DirectorySeparatorChar}",
-            $"{Path.DirectorySeparatorChar}TestResults{Path.DirectorySeparatorChar}",
-            $"{Path.DirectorySeparatorChar}wwwroot{Path.DirectorySeparatorChar}lib{Path.DirectorySeparatorChar}",
-        };
-        var textExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            ".cs", ".razor", ".css", ".js", ".json", ".md", ".xml", ".iss", ".ps1", ".bat", ".sql", ".yml", ".yaml", ".txt"
-        };
-
-        var offenders = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
-            .Where(path => ignoredSegments.All(segment => !path.Contains(segment, StringComparison.OrdinalIgnoreCase)))
-            .Where(path => textExtensions.Contains(Path.GetExtension(path)))
-            .Where(path => !Path.GetFileName(path).Equals("api.log", StringComparison.OrdinalIgnoreCase))
-            .Where(path =>
-            {
-                var relative = Path.GetRelativePath(root, path);
-                return !relative.StartsWith(@"src\MediaEngine.Contracts\Details\", StringComparison.OrdinalIgnoreCase)
-                    && !relative.StartsWith(@"src\MediaEngine.Api\Services\Details\", StringComparison.OrdinalIgnoreCase)
-                    && !relative.StartsWith(@"src\MediaEngine.Web\Components\Details\", StringComparison.OrdinalIgnoreCase)
-                    && !relative.StartsWith(@"src\MediaEngine.Domain\Capabilities\", StringComparison.OrdinalIgnoreCase)
-                    && !relative.Equals(@"src\MediaEngine.Api\Services\ReviewQueueRouter.cs", StringComparison.OrdinalIgnoreCase)
-                    && !relative.Equals(@"src\MediaEngine.Api\Program.cs", StringComparison.OrdinalIgnoreCase)
-                    && !relative.Equals(@"src\MediaEngine.Api\DependencyInjection\TuvimaStorageServiceCollectionExtensions.cs", StringComparison.OrdinalIgnoreCase)
-                    && !relative.Equals(@"tests\MediaEngine.Web.Tests\UnifiedDetailComponentTests.cs", StringComparison.OrdinalIgnoreCase);
-            })
-            .Where(path =>
-            {
-                var text = File.ReadAllText(path);
-                return text.Contains(removedSurface, StringComparison.OrdinalIgnoreCase)
-                    || text.Contains(removedRoute, StringComparison.OrdinalIgnoreCase);
-            })
-            .Select(path => Path.GetRelativePath(root, path))
-            .Take(20)
-            .ToArray();
+        var offenders = FindRemovedLibraryItemSurfaceOffenders(root);
 
         Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void TrackedSource_FindsRetiredRootRoutesAndImplementationSymbols()
+    {
+        Assert.True(ContainsRemovedLibraryItemSurface("[Old route](/" + "registry)"));
+        Assert.True(ContainsRemovedLibraryItemSurface("Href=\"/" + "registry\""));
+        Assert.True(ContainsRemovedLibraryItemSurface("public static class Reg" + "istryEndpoints"));
+        Assert.True(ContainsRemovedLibraryItemSurface("app.MapReg" + "istryEndpoints()"));
+    }
+
+    [Fact]
+    public void TrackedSource_IgnoresGeneratedSiteFilesAndBenignSlashSeparatedProse()
+    {
+        Assert.True(IsIgnoredGeneratedSiteFile(@"site\search\search_index.json"));
+        Assert.False(ContainsRemovedLibraryItemSurface("gateway/registry integration"));
     }
 
     [Fact]
@@ -234,4 +207,83 @@ public sealed class ItemEndpointRouteTests
 
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
     }
+
+    private static readonly Regex RemovedRootRoute = new(
+        "(?<![\\w-])/reg" + "istry(?=[/\\s\\\"'`?#)\\]]|$)",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static readonly string RemovedImplementationSymbol = "Reg" + "istryEndpoints";
+
+    private static string[] FindRemovedLibraryItemSurfaceOffenders(string root) =>
+        EnumerateTrackedFiles(root)
+            .Where(path => TextExtensions.Contains(Path.GetExtension(path)))
+            .Where(path => !Path.GetFileName(path).Equals("api.log", StringComparison.OrdinalIgnoreCase))
+            .Where(path =>
+            {
+                var relative = Path.GetRelativePath(root, path);
+                return !relative.StartsWith(@"src\MediaEngine.Contracts\Details\", StringComparison.OrdinalIgnoreCase)
+                    && !relative.StartsWith(@"src\MediaEngine.Api\Services\Details\", StringComparison.OrdinalIgnoreCase)
+                    && !relative.StartsWith(@"src\MediaEngine.Web\Components\Details\", StringComparison.OrdinalIgnoreCase)
+                    && !relative.StartsWith(@"src\MediaEngine.Domain\Capabilities\", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Equals(@"src\MediaEngine.Api\Services\ReviewQueueRouter.cs", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Equals(@"src\MediaEngine.Api\Program.cs", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Equals(@"src\MediaEngine.Api\DependencyInjection\TuvimaStorageServiceCollectionExtensions.cs", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Equals(@"tests\MediaEngine.Web.Tests\UnifiedDetailComponentTests.cs", StringComparison.OrdinalIgnoreCase);
+            })
+            .Where(path => ContainsRemovedLibraryItemSurface(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(root, path))
+            .Take(20)
+            .ToArray();
+
+    private static IEnumerable<string> EnumerateTrackedFiles(string root)
+    {
+        var pendingDirectories = new Stack<string>();
+        pendingDirectories.Push(root);
+
+        while (pendingDirectories.Count > 0)
+        {
+            var directory = pendingDirectories.Pop();
+            foreach (var childDirectory in Directory.EnumerateDirectories(directory))
+            {
+                if (!IsIgnoredDirectory(childDirectory, root)) pendingDirectories.Push(childDirectory);
+            }
+
+            foreach (var file in Directory.EnumerateFiles(directory))
+            {
+                yield return file;
+            }
+        }
+    }
+
+    private static bool ContainsRemovedLibraryItemSurface(string text) =>
+        RemovedRootRoute.IsMatch(text)
+        || text.Contains(RemovedImplementationSymbol, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsIgnoredGeneratedSiteFile(string relativePath) =>
+        relativePath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar)
+            .StartsWith($"site{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsIgnoredDirectory(string path, string root) =>
+        IsIgnoredPath(Path.Combine(path, "__ignored_directory_probe__"), root);
+
+    private static bool IsIgnoredPath(string path, string root)
+    {
+        var separator = Path.DirectorySeparatorChar;
+        return IsIgnoredGeneratedSiteFile(Path.GetRelativePath(root, path))
+            || path.Contains($"{separator}bin{separator}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{separator}obj{separator}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{separator}.data{separator}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{separator}logs{separator}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{separator}artifacts{separator}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{separator}.git{separator}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{separator}.claude{separator}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{separator}.tmp{separator}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{separator}TestResults{separator}", StringComparison.OrdinalIgnoreCase)
+            || path.Contains($"{separator}wwwroot{separator}lib{separator}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".cs", ".razor", ".css", ".js", ".json", ".md", ".xml", ".iss", ".ps1", ".bat", ".sql", ".yml", ".yaml", ".txt"
+    };
 }

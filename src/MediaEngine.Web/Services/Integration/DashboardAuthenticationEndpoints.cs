@@ -23,7 +23,12 @@ public static class DashboardAuthenticationEndpoints
             }
 
             var bootstrap = await identity.GetBootstrapStatusAsync(context.RequestAborted).ConfigureAwait(false);
-            if (bootstrap?.AdministratorConfigured != true)
+            if (bootstrap is null)
+            {
+                return EngineUnavailableResult(SafeReturnUrl(returnUrl));
+            }
+
+            if (!bootstrap.AdministratorConfigured)
             {
                 return Results.Redirect("/setup");
             }
@@ -347,6 +352,12 @@ public static class DashboardAuthenticationEndpoints
         string continueLabel) =>
         Shell($"<h1>Save your recovery codes</h1><p>Each code works once. Store them somewhere safe before continuing.</p><pre>{H(string.Join(Environment.NewLine, codes))}</pre><p><a class=\"button\" href=\"{H(continueHref)}\">{H(continueLabel)}</a></p>");
     private static string LoginFailurePage(string message) => Shell($"<h1>Unable to continue</h1><p>{H(message)}</p><p><a href=\"/auth/login\">Return to sign in</a></p>");
+    private static IResult EngineUnavailableResult(string returnUrl) => Results.Content(
+        EngineUnavailablePage(returnUrl),
+        "text/html",
+        Encoding.UTF8,
+        StatusCodes.Status503ServiceUnavailable);
+    private static string EngineUnavailablePage(string returnUrl) => Shell($"<p class=\"eyebrow\">Tuvima Library</p><h1>Engine unavailable</h1><p class=\"supporting\">Tuvima cannot reach the library Engine yet. Start or restart the Engine, then try again.</p><p><a class=\"button\" href=\"/auth/login?returnUrl={Uri.EscapeDataString(returnUrl)}\">Try again</a></p>");
     private static string Shell(string body) => $$"""
         <!doctype html>
         <html lang="en">

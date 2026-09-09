@@ -105,7 +105,7 @@ public static class IngestionEndpoints
             int? limit,
             CancellationToken ct) =>
         {
-            var page = PagedRequest.From(offset, limit, 50, 100);
+            var page = PagedRequest.From(offset, limit, 50, 250);
             return Results.Ok(await readService.GetChildrenAsync(batchId, groupId, page.Offset, page.Limit, ct));
         })
         .WithName("GetIngestionMediaGroupChildren")

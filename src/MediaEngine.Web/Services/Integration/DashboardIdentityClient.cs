@@ -5,12 +5,15 @@ using MediaEngine.Contracts.Profiles;
 
 namespace MediaEngine.Web.Services.Integration;
 
-public sealed class DashboardIdentityClient(IHttpClientFactory clients,IHttpContextAccessor? contextAccessor=null)
+public sealed class DashboardIdentityClient(
+    IHttpClientFactory clients,
+    IHttpContextAccessor? contextAccessor = null,
+    ILogger<DashboardIdentityClient>? logger = null)
 {
     private HttpClient Client => clients.CreateClient("EngineIdentity");
 
     public async Task<AuthBootstrapStatusResponse?> GetBootstrapStatusAsync(CancellationToken ct = default) =>
-        await Client.GetFromJsonAsync<AuthBootstrapStatusResponse>("/auth/bootstrap/status", ct).ConfigureAwait(false);
+        await GetAsync<AuthBootstrapStatusResponse>("/auth/bootstrap/status", ct).ConfigureAwait(false);
 
     public async Task<AuthSessionResponse?> LoginAsync(LocalLoginRequest request, CancellationToken ct = default)
     {
@@ -49,7 +52,7 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients,IHttpCont
         (await Client.PostAsJsonAsync("/auth/password/reset/complete",new ResetPasswordTokenRequest(token,newPassword),ct).ConfigureAwait(false)).IsSuccessStatusCode;
 
     public async Task<AccountResponse?> GetAccountAsync(CancellationToken ct=default)=>
-        await Client.GetFromJsonAsync<AccountResponse>("/accounts/me",ct).ConfigureAwait(false);
+        await GetAsync<AccountResponse>("/accounts/me",ct).ConfigureAwait(false);
     public async Task<AuthSessionResponse?> AcceptInvitationAsync(AcceptAccountInvitationRequest request,CancellationToken ct=default)
     {using var response=await Client.PostAsJsonAsync("/auth/invitations/accept",request,ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AuthSessionResponse>(cancellationToken:ct).ConfigureAwait(false):null;}
 
@@ -60,11 +63,11 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients,IHttpCont
     }
 
     public async Task<List<AccountExternalLoginDto>> GetExternalLoginsAsync(CancellationToken ct=default)=>
-        await Client.GetFromJsonAsync<List<AccountExternalLoginDto>>("/accounts/me/external-logins",ct).ConfigureAwait(false)??[];
+        await GetAsync<List<AccountExternalLoginDto>>("/accounts/me/external-logins",ct).ConfigureAwait(false)??[];
 
     public async Task<bool> UnlinkExternalLoginAsync(Guid id,CancellationToken ct=default)=>
         (await Client.DeleteAsync($"/accounts/me/external-logins/{id:D}",ct).ConfigureAwait(false)).IsSuccessStatusCode;
-    public async Task<List<AccountResponse>> GetAccountsAsync(CancellationToken ct=default)=>await Client.GetFromJsonAsync<List<AccountResponse>>("/accounts",ct).ConfigureAwait(false)??[];
+    public async Task<List<AccountResponse>> GetAccountsAsync(CancellationToken ct=default)=>await GetAsync<List<AccountResponse>>("/accounts",ct).ConfigureAwait(false)??[];
     public async Task<AccountResponse?> CreateAccountAsync(CreateAccountRequest request,CancellationToken ct=default)
     {using var response=await Client.PostAsJsonAsync("/accounts",request,ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AccountResponse>(cancellationToken:ct).ConfigureAwait(false):null;}
     public async Task<AccountResponse?> GrantProfileAsync(Guid accountId,Guid profileId,bool isDefault=false,CancellationToken ct=default)
@@ -82,9 +85,9 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients,IHttpCont
         SendPasskeyAsync<object,PasskeyOptionsResponse>("/auth/passkeys/registration/options",new{},ct);
     public async Task<bool> CompletePasskeyRegistrationAsync(CompletePasskeyRegistrationRequest body,CancellationToken ct=default)
     {using var request=PasskeyRequest(HttpMethod.Post,"/auth/passkeys/registration/complete",body);using var response=await Client.SendAsync(request,ct).ConfigureAwait(false);return response.IsSuccessStatusCode;}
-    public async Task<List<PasskeyCredentialResponse>> GetPasskeysAsync(CancellationToken ct=default)=>await Client.GetFromJsonAsync<List<PasskeyCredentialResponse>>("/auth/passkeys",ct).ConfigureAwait(false)??[];
+    public async Task<List<PasskeyCredentialResponse>> GetPasskeysAsync(CancellationToken ct=default)=>await GetAsync<List<PasskeyCredentialResponse>>("/auth/passkeys",ct).ConfigureAwait(false)??[];
     public async Task<bool> RemovePasskeyAsync(string id,CancellationToken ct=default)=>(await Client.DeleteAsync($"/auth/passkeys/{Uri.EscapeDataString(id)}",ct).ConfigureAwait(false)).IsSuccessStatusCode;
-    public async Task<AdministratorElevationResponse?> GetElevationAsync(CancellationToken ct=default)=>await Client.GetFromJsonAsync<AdministratorElevationResponse>("/auth/elevation",ct).ConfigureAwait(false);
+    public async Task<AdministratorElevationResponse?> GetElevationAsync(CancellationToken ct=default)=>await GetAsync<AdministratorElevationResponse>("/auth/elevation",ct).ConfigureAwait(false);
     public async Task<AdministratorElevationResponse?> ElevateAsync(string secret,CancellationToken ct=default)
     {using var response=await Client.PostAsJsonAsync("/auth/elevation",new ElevateAdministratorRequest{Secret=secret},ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AdministratorElevationResponse>(cancellationToken:ct).ConfigureAwait(false):null;}
     public async Task<bool> SetAdministratorPinAsync(Guid profileId,string? pin,CancellationToken ct=default)=>
@@ -102,7 +105,7 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients,IHttpCont
     }
 
     public async Task<List<DeviceSessionResponse>> GetSessionsAsync(CancellationToken ct = default) =>
-        await Client.GetFromJsonAsync<List<DeviceSessionResponse>>("/auth/sessions", ct).ConfigureAwait(false) ?? [];
+        await GetAsync<List<DeviceSessionResponse>>("/auth/sessions", ct).ConfigureAwait(false) ?? [];
 
     public async Task<bool> RevokeSessionAsync(Guid sessionId, CancellationToken ct = default) =>
         (await Client.DeleteAsync($"/auth/sessions/{sessionId:D}", ct).ConfigureAwait(false)).IsSuccessStatusCode;
@@ -152,6 +155,27 @@ public sealed class DashboardIdentityClient(IHttpClientFactory clients,IHttpCont
         return response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<IntercomTokenResponse>(cancellationToken: ct).ConfigureAwait(false)
             : null;
+    }
+
+    private async Task<TResponse?> GetAsync<TResponse>(string path, CancellationToken ct)
+    {
+        try
+        {
+            using var response = await Client.GetAsync(path, ct).ConfigureAwait(false);
+            return response.IsSuccessStatusCode
+                ? await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct).ConfigureAwait(false)
+                : default;
+        }
+        catch (HttpRequestException exception)
+        {
+            logger?.LogWarning(exception, "Dashboard identity request {Path} could not reach the Engine", path);
+            return default;
+        }
+        catch (OperationCanceledException exception) when (!ct.IsCancellationRequested)
+        {
+            logger?.LogWarning(exception, "Dashboard identity request {Path} timed out", path);
+            return default;
+        }
     }
 }
 

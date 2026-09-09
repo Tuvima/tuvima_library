@@ -15,8 +15,16 @@ public sealed class ViewProfileAssertionHandler : DelegatingHandler
     public const string SignatureHeader = "X-Tuvima-View-Signature";
 
     private readonly IActiveProfileAccessor _activeProfile;
-    private readonly byte[] _keyBytes;
+    private readonly byte[]? _fixedKeyBytes;
     private readonly TimeProvider _timeProvider;
+
+    public ViewProfileAssertionHandler(
+        IActiveProfileAccessor activeProfile,
+        TimeProvider? timeProvider = null)
+    {
+        _activeProfile = activeProfile;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+    }
 
     public ViewProfileAssertionHandler(
         IActiveProfileAccessor activeProfile,
@@ -24,7 +32,7 @@ public sealed class ViewProfileAssertionHandler : DelegatingHandler
         TimeProvider? timeProvider = null)
     {
         _activeProfile = activeProfile;
-        _keyBytes = Encoding.UTF8.GetBytes(apiKey ?? string.Empty);
+        _fixedKeyBytes = Encoding.UTF8.GetBytes(apiKey ?? string.Empty);
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -38,7 +46,8 @@ public sealed class ViewProfileAssertionHandler : DelegatingHandler
             && IsEligibleRequest(request.RequestUri))
         {
             request.Headers.TryAddWithoutValidation(ProfileHeader, profileId.ToString("D"));
-            if (_keyBytes.Length == 0)
+            var keyBytes = ResolveKeyBytes(request);
+            if (keyBytes.Length == 0)
             {
                 return base.SendAsync(request, cancellationToken);
             }
@@ -52,7 +61,7 @@ public sealed class ViewProfileAssertionHandler : DelegatingHandler
                 timestamp,
                 request.Method.Method.ToUpperInvariant(),
                 canonicalTarget);
-            var signature = Sign(canonical);
+            var signature = Sign(keyBytes, canonical);
 
             request.Headers.TryAddWithoutValidation(TimestampHeader, timestamp);
             request.Headers.TryAddWithoutValidation(SignatureHeader, signature);
@@ -81,9 +90,23 @@ public sealed class ViewProfileAssertionHandler : DelegatingHandler
             ? uri.PathAndQuery
             : uri.OriginalString.StartsWith('/') ? uri.OriginalString : $"/{uri.OriginalString}";
 
-    private string Sign(string canonical)
+    private byte[] ResolveKeyBytes(HttpRequestMessage request)
     {
-        var digest = HMACSHA256.HashData(_keyBytes, Encoding.UTF8.GetBytes(canonical));
+        if (_fixedKeyBytes is not null)
+        {
+            return _fixedKeyBytes;
+        }
+
+        // The outer authentication handler removes any caller-supplied service
+        // header and adds one trusted credential snapshot before this handler runs.
+        return request.Headers.TryGetValues(DashboardServiceCredentialHandler.ServiceHeader, out var values)
+            ? Encoding.UTF8.GetBytes(values.SingleOrDefault() ?? string.Empty)
+            : [];
+    }
+
+    private static string Sign(byte[] keyBytes, string canonical)
+    {
+        var digest = HMACSHA256.HashData(keyBytes, Encoding.UTF8.GetBytes(canonical));
         return Convert.ToBase64String(digest)
             .TrimEnd('=')
             .Replace('+', '-')

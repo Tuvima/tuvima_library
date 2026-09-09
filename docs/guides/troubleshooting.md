@@ -48,6 +48,8 @@ dotnet run --project src/MediaEngine.Web
 
 If the Engine uses a different address, set `TUVIMA_ENGINE_URL` before starting the Dashboard.
 
+Both processes must use the same `TUVIMA_CONFIG_DIR` and data-protection keys. The Engine creates the protected Dashboard credential in that directory. If the credential is missing, invalid, or unreadable, the Dashboard blocks Engine requests and reports temporary unavailability instead of terminating the browser session. It retries the credential on subsequent requests and detects replacement without requiring a Dashboard restart. Check the Dashboard log for the resolved credential path; do not copy a credential from a different Engine database or disable authentication to recover.
+
 ## Home Is Empty
 
 Home only shows real data returned by the Engine. It does not invent sample media.

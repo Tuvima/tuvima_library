@@ -838,7 +838,7 @@ public sealed partial class EngineApiClient
         Guid batchId, Guid groupId, int offset = 0, int limit = 50, CancellationToken ct = default)
         => GetAsync<PagedResponse<IngestionMediaChildDto>>(
             "Ingestion media children",
-            $"ingestion/batches/{batchId:D}/media-groups/{groupId:D}/children?offset={Math.Max(0, offset)}&limit={Math.Clamp(limit, 1, 100)}",
+            $"ingestion/batches/{batchId:D}/media-groups/{groupId:D}/children?offset={Math.Max(0, offset)}&limit={Math.Clamp(limit, 1, 250)}",
             ct: ct);
 
     public async Task<ActivityHistorySummaryDto?> GetActivityHistorySummaryAsync(CancellationToken ct = default)

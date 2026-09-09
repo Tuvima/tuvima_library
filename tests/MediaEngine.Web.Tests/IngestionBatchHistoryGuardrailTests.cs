@@ -10,6 +10,9 @@ public sealed class IngestionBatchHistoryGuardrailTests
         var historyCss = Read(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor.css");
         var batchDisplay = Read(@"src\MediaEngine.Web\Components\Settings\IngestionBatchDisplay.cs");
         var pagedMedia = Read(@"src\MediaEngine.Web\Components\Settings\IngestionMediaPagedView.razor");
+        var drawer = Read(@"src\MediaEngine.Web\Components\Settings\IngestionMediaDrawer.razor");
+        var cardCss = Read(@"src\MediaEngine.Web\Components\Settings\IngestionMediaCard.razor.css");
+        var drawerCss = Read(@"src\MediaEngine.Web\Components\Settings\IngestionMediaDrawer.razor.css");
         var settings = Read(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
         var settingsNav = Read(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
 
@@ -30,6 +33,12 @@ public sealed class IngestionBatchHistoryGuardrailTests
         Assert.Contains("/settings/ingestion?runId=", batchDisplay, StringComparison.Ordinal);
         Assert.Contains("view=all", batchDisplay, StringComparison.Ordinal);
         Assert.Contains("GetActivityBatchMediaGroupsAsync", pagedMedia, StringComparison.Ordinal);
+        Assert.Contains("DisplayMode=\"list\"", pagedMedia, StringComparison.Ordinal);
+        Assert.Contains("Type and files", pagedMedia, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppCompactPager", drawer, StringComparison.Ordinal);
+        Assert.Contains("aspect-ratio: 1", cardCss, StringComparison.Ordinal);
+        Assert.Contains("ingestion-media-list-row", cardCss, StringComparison.Ordinal);
+        Assert.Contains("overflow-y:auto", drawerCss, StringComparison.Ordinal);
         Assert.Contains("@media(max-width:900px)", historyCss, StringComparison.Ordinal);
         Assert.DoesNotContain("Activity &amp; Audit", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("ActivityLogs", settingsNav, StringComparison.Ordinal);

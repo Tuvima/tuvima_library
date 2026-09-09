@@ -77,4 +77,27 @@ public sealed class IngestionMediaCardTests : AsyncBunitContext
         Assert.Equal("8 files", cut.Find(".ingestion-media-card__count").TextContent);
         Assert.DoesNotContain("8 tracks added", cut.Markup);
     }
+
+    [Fact]
+    public void ListMode_UsesCompactColumnsAndReadyStateIsOnlyACheckmark()
+    {
+        var cut = Render<IngestionMediaCard>(parameters => parameters
+            .Add(component => component.DisplayMode, "list")
+            .Add(component => component.Item, new()
+            {
+                Title = "The Quiet Mind", Subtitle = "Daniel Brooks", MediaType = "Audiobooks",
+                Availability = "ready", StatusLabel = "Ready", ChildUnit = "files",
+                ChildCompleted = 12, FileCount = 12,
+                Artwork = new() { State = "complete", Label = "Artwork complete" },
+                Metadata = new() { State = "complete", Label = "Metadata complete" },
+            }));
+
+        Assert.Single(cut.FindAll("button.ingestion-media-list-row"));
+        Assert.Equal("The Quiet Mind", cut.Find(".ingestion-media-list-row__copy strong").TextContent);
+        Assert.Equal("Daniel Brooks", cut.Find(".ingestion-media-list-row__copy small").TextContent);
+        Assert.Contains("Audiobook", cut.Find(".ingestion-media-list-row__format").TextContent);
+        Assert.Contains("12 files added", cut.Find(".ingestion-media-list-row__format").TextContent);
+        Assert.Empty(cut.FindAll(".ingestion-media-list-row__status span"));
+        Assert.Empty(cut.Find(".ingestion-media-list-row__status").TextContent.Trim());
+    }
 }

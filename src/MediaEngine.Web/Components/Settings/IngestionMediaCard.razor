@@ -1,31 +1,66 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Contracts.Ingestion
 
-<div class="ingestion-media-card-shell is-@Item.Availability">
-<AppNativeButton Type="button"
-                 Class="ingestion-media-card"
-                 AriaLabel="@CardAriaLabel"
-                 OnClick="@(_ => OnOpen.InvokeAsync(Item))">
-    <span class="ingestion-media-card__activity" title="@ActivityLabel">
-        <MudIcon Icon="@ActivityIcon" aria-hidden="true" />
-        <span>@ActivityLabel</span>
-    </span>
-    <span class="ingestion-media-card__art">
-        <AppMediaArtwork ImageUrl="@Item.CoverUrl" Alt="" FallbackIcon="@MediaIcon(Item.MediaType)" />
-    </span>
-    <span class="ingestion-media-card__body">
-        <strong class="ingestion-media-card__title" title="@Item.Title">@Item.Title</strong>
-        <span class="ingestion-media-card__contributor" title="@DisplaySubtitle">@DisplaySubtitle</span>
-        <span class="ingestion-media-card__type"><MudIcon Icon="@MediaIcon(Item.MediaType)" aria-hidden="true" />@FriendlyType(Item.MediaType)</span>
-        <span class="ingestion-media-card__count" title="@CountLabel">@CountLabel</span>
-    </span>
-    <IngestionFacetIndicators Item="Item" />
-</AppNativeButton>
+<div class="ingestion-media-card-shell is-@Item.Availability @(IsList ? "is-list" : null)">
+    @if (IsList)
+    {
+        <AppNativeButton Type="button"
+                         Class="ingestion-media-list-row"
+                         AriaLabel="@CardAriaLabel"
+                         OnClick="@(_ => OnOpen.InvokeAsync(Item))">
+            <span class="ingestion-media-list-row__identity">
+                <span class="ingestion-media-list-row__art">
+                    <AppMediaArtwork ImageUrl="@Item.CoverUrl" Alt="" FallbackIcon="@MediaIcon(Item.MediaType)" />
+                </span>
+                <span class="ingestion-media-list-row__copy">
+                    <strong title="@Item.Title">@Item.Title</strong>
+                    <small title="@DisplaySubtitle">@DisplaySubtitle</small>
+                </span>
+            </span>
+            <span class="ingestion-media-list-row__format">
+                <strong><MudIcon Icon="@MediaIcon(Item.MediaType)" aria-hidden="true" />@FriendlyType(Item.MediaType)</strong>
+                <small title="@CountLabel">@CountLabel</small>
+            </span>
+            <span class="ingestion-media-list-row__status is-@Item.Availability" title="@ActivityLabel">
+                <MudIcon Icon="@ActivityIcon" aria-hidden="true" />
+                @if (!Item.Availability.Equals("ready", StringComparison.OrdinalIgnoreCase))
+                {
+                    <span>@ActivityLabel</span>
+                }
+            </span>
+            <span class="ingestion-media-list-row__details"><IngestionFacetIndicators Item="Item" /></span>
+        </AppNativeButton>
+    }
+    else
+    {
+        <AppNativeButton Type="button"
+                         Class="ingestion-media-card"
+                         AriaLabel="@CardAriaLabel"
+                         OnClick="@(_ => OnOpen.InvokeAsync(Item))">
+            <span class="ingestion-media-card__activity" title="@ActivityLabel">
+                <MudIcon Icon="@ActivityIcon" aria-hidden="true" />
+                <span>@ActivityLabel</span>
+            </span>
+            <span class="ingestion-media-card__art">
+                <AppMediaArtwork ImageUrl="@Item.CoverUrl" Alt="" FallbackIcon="@MediaIcon(Item.MediaType)" />
+            </span>
+            <span class="ingestion-media-card__body">
+                <strong class="ingestion-media-card__title" title="@Item.Title">@Item.Title</strong>
+                <span class="ingestion-media-card__contributor" title="@DisplaySubtitle">@DisplaySubtitle</span>
+                <span class="ingestion-media-card__type"><MudIcon Icon="@MediaIcon(Item.MediaType)" aria-hidden="true" />@FriendlyType(Item.MediaType)</span>
+                <span class="ingestion-media-card__count" title="@CountLabel">@CountLabel</span>
+            </span>
+            <IngestionFacetIndicators Item="Item" />
+        </AppNativeButton>
+    }
 </div>
 
 @code {
     [Parameter, EditorRequired] public IngestionMediaGroupDto Item { get; set; } = new();
     [Parameter] public EventCallback<IngestionMediaGroupDto> OnOpen { get; set; }
+    [Parameter] public string DisplayMode { get; set; } = "card";
+
+    private bool IsList => DisplayMode.Equals("list", StringComparison.OrdinalIgnoreCase);
 
     // Reserve the contributor row while metadata loads. TV may supply season
     // context here; a fallback media type is not a contributor.

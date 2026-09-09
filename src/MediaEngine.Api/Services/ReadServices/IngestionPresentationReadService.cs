@@ -148,7 +148,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         int limit,
         CancellationToken ct = default)
     {
-        var request = PagedRequest.From(offset, limit, 50, 100);
+        var request = PagedRequest.From(offset, limit, 50, 250);
         var rows = await LoadRowsAsync(GroupScope.Batch, batchId, ct, groupIds: [groupId]).ConfigureAwait(false);
         var children = rows
             .Where(row => PresentationGroupId(row) == groupId)
@@ -166,7 +166,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                     Status = row.ReviewCount > 0
                         ? "review"
                         : row.PresentedAt.HasValue ? "complete" : FriendlyOperationState(row.OperationStatus),
-                    DurationLabel = row.DurationLabel,
+                    DurationLabel = FormatChildDuration(row.MediaType, row.DurationLabel),
                 };
             })
             .OrderBy(item => SequenceSort(item.SequenceLabel))
@@ -1291,6 +1291,19 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             "Comics" when !string.IsNullOrWhiteSpace(row.IssueNumber) => $"#{row.IssueNumber}",
             _ => "",
         };
+    }
+
+    private static string? FormatChildDuration(string mediaType, string? rawDuration)
+    {
+        if (string.IsNullOrWhiteSpace(rawDuration)) return null;
+        if (NormalizeMediaType(mediaType) is not ("Music" or "Audiobooks")) return rawDuration;
+        if (!double.TryParse(rawDuration, NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes) || minutes <= 0)
+            return rawDuration;
+
+        var duration = TimeSpan.FromSeconds(Math.Round(minutes * 60d, MidpointRounding.AwayFromZero));
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}"
+            : $"{duration.Minutes}:{duration.Seconds:00}";
     }
 
     private async Task<CurrentGroupFacts> ReadCurrentGroupFactsAsync(CancellationToken ct)

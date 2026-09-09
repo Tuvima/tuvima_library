@@ -197,15 +197,11 @@ var mediaGrantLifetime = TimeSpan.FromSeconds(Math.Clamp(
     30,
     900));
 
-// Shared setup for every HttpClient that talks to the Engine — BaseAddress plus the
-// X-Api-Key header — so this configuration exists exactly once instead of once per client.
-void ConfigureEngineClient(IServiceProvider services, HttpClient client)
+// Shared address setup for every HttpClient that talks to the Engine. The service
+// credential is loaded at send time so startup/rotation races cannot break DI.
+void ConfigureEngineClient(HttpClient client)
 {
     client.BaseAddress = new Uri(apiBase);
-    client.DefaultRequestHeaders.Remove(DashboardEngineAuthenticationHandler.ServiceHeader);
-    client.DefaultRequestHeaders.Add(
-        DashboardEngineAuthenticationHandler.ServiceHeader,
-        services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken());
 }
 
 // The circuit-scoped client owns a circuit-scoped active-profile accessor. Its
@@ -216,27 +212,27 @@ builder.Services.AddScoped<IActiveProfileAccessor>(services => services.GetRequi
 builder.Services.AddSingleton(new DashboardServiceCredentialProviderOptions(configDir));
 builder.Services.AddSingleton<DashboardServiceCredentialProvider>();
 builder.Services.AddScoped<DashboardSessionAccessor>();
+builder.Services.AddTransient<DashboardServiceCredentialHandler>();
 builder.Services.AddTransient<DashboardEngineAuthenticationHandler>();
 builder.Services.AddTransient<ViewProfileAssertionHandler>(services => new ViewProfileAssertionHandler(
-    services.GetRequiredService<IActiveProfileAccessor>(),
-    services.GetRequiredService<DashboardServiceCredentialProvider>().GetToken()));
+    services.GetRequiredService<IActiveProfileAccessor>()));
 builder.Services.AddScoped<DashboardIdentityClient>();
 builder.Services.AddScoped<AdministratorElevationNavigationService>();
 builder.Services.AddScoped<IAdministratorElevationNavigationService>(services =>
     services.GetRequiredService<AdministratorElevationNavigationService>());
 builder.Services.AddSingleton(new ViewMediaGrantService(mediaGrantKey, mediaGrantLifetime));
 builder.Services.AddHttpClient<EngineApiClient>(ConfigureEngineClient)
-    .AddHttpMessageHandler<ViewProfileAssertionHandler>()
-    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
+    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>()
+    .AddHttpMessageHandler<ViewProfileAssertionHandler>();
 builder.Services.AddScoped<IEngineApiClient>(services => services.GetRequiredService<EngineApiClient>());
 builder.Services.AddScoped<EngineApiFailureState>();
 builder.Services.AddHttpClient<ViewMediaEngineClient>(ConfigureEngineClient)
-    .AddHttpMessageHandler<ViewProfileAssertionHandler>()
-    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
+    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>()
+    .AddHttpMessageHandler<ViewProfileAssertionHandler>();
 builder.Services.AddScoped<IViewMediaEngineClient>(services => services.GetRequiredService<ViewMediaEngineClient>());
 builder.Services.AddHttpClient<CollectionPersonalMediaClient>(ConfigureEngineClient)
-    .AddHttpMessageHandler<ViewProfileAssertionHandler>()
-    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
+    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>()
+    .AddHttpMessageHandler<ViewProfileAssertionHandler>();
 builder.Services.AddScoped<ICollectionPersonalMediaClient>(services => services.GetRequiredService<CollectionPersonalMediaClient>());
 
 // Named "EngineApi" client — same base address and API key as the scoped client above.
@@ -247,7 +243,8 @@ builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient)
 // Artwork requests are already authorized at the same-origin Dashboard route.
 // Forward only the server-held service credential so a shelf of images does not
 // repeat user-session validation and a SQLite lookup for every image.
-builder.Services.AddHttpClient("EngineArtwork", ConfigureEngineClient);
+builder.Services.AddHttpClient("EngineArtwork", ConfigureEngineClient)
+    .AddHttpMessageHandler<DashboardServiceCredentialHandler>();
 builder.Services.AddHttpClient("EngineIdentity", ConfigureEngineClient)
     .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
 builder.Services.AddHttpClient("ClientApiProxy", client => client.BaseAddress = new Uri(apiBase));

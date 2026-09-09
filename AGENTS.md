@@ -63,6 +63,7 @@ Runtime notes:
 - Run from the repo root so the Engine can resolve `config/`
 - `src/MediaEngine.Api` launch settings set `TUVIMA_CONFIG_DIR=../../config` for normal `dotnet run`
 - The Dashboard defaults to `Engine:BaseUrl = http://localhost:61495`
+- Dashboard service credentials are resolved at request send time, never during typed-client construction. Missing, invalid, or rotated bundles must fail closed with recoverable connection errors; do not send anonymous requests or reuse a stale credential. Keep the service header and any View signature on the same request credential snapshot.
 - If the Engine is started on a different address, set `TUVIMA_ENGINE_URL` before starting the Dashboard
 - First Engine startup may benchmark hardware and download selected AI role models, which can take time and use about 6-7 GB with the default small-first catalog
 

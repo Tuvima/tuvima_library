@@ -8,6 +8,10 @@
 
 ## User Experience
 
+### Dashboard connection recovery (September 2026)
+
+Dashboard service credentials load at request send time, not typed-client construction. Missing, malformed, or unreadable bundles return a local 503 without sending an anonymous Engine request or terminating a Blazor circuit. Credential replacement is detected by content; never reuse a cached token after its bundle becomes unavailable. The service header and View signature must use one trusted credential snapshot per outgoing request. This recovery behavior does not waive Engine credential/database validation or change account authorization.
+
 ### Guest API Keys
 
 An Administrator can issue "Guest Keys" to allow external tools (Radarr, Sonarr, a mobile app) to talk to the Engine.

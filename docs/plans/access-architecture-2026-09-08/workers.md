@@ -1,6 +1,6 @@
 # Worker packets and acceptance schedule
 
-Status: ready for implementation dispatch after the plan is accepted; no workers have started.
+Status: execution authorized. P00 artifacts are available under `execution/`; P01 is assigned to an isolated Sol worker. Follow `execution/status.md` for actual completion and open gates.
 
 Read [the decision contract](plan.md) and the relevant [inventory entry](inventory.md). These packets implement all phases 0-16 of the supplied specification. A packet is a bounded worker assignment; a delivery checkpoint is the tested, internally consistent phase boundary. Parallel packets inside an atomic cutover are not independent releases.
 

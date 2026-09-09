@@ -84,12 +84,12 @@ $docsIndex = Get-ChildItem -Recurse -File docs -Filter *.md |
         $meta = Get-FrontMatter $content
 
         [ordered]@{
-            title = $meta.title
+            title = if ($meta.Contains("title")) { $meta["title"] } else { $_.BaseName }
             path = $relativePath
-            audience = $meta.audience
-            category = $meta.category
-            product_area = $meta.product_area
-            summary = $meta.summary
+            audience = $meta["audience"]
+            category = $meta["category"]
+            product_area = $meta["product_area"]
+            summary = $meta["summary"]
             tags = if ($meta.Contains("tags")) { @($meta.tags) } else { @() }
             status = if ($meta.Contains("status")) { $meta.status } else { "active" }
             last_modified_utc = $_.LastWriteTimeUtc.ToString("o")

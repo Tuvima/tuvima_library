@@ -135,6 +135,26 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task Children_FormatDecimalMinuteTrackDurationsAndFitSixtyRowsInOneResponse()
+    {
+        var batchId = AddBatch("running", 60, 60);
+        var albumId = AddContainer("Music", "Long Album");
+        AddChildren(batchId, albumId, "Music", "Song", 60, "track_number");
+        using (var conn = _db.CreateConnection())
+        {
+            var firstTrackId = conn.QuerySingle<Guid>("SELECT id FROM works WHERE parent_work_id = @albumId ORDER BY ordinal LIMIT 1;", new { albumId });
+            conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@firstTrackId, 'duration', '5.905', @now);",
+                new { firstTrackId, now = DateTimeOffset.UtcNow.ToString("O") });
+        }
+
+        var children = await new IngestionPresentationReadService(_db).GetChildrenAsync(batchId, albumId, 0, 250);
+
+        Assert.Equal(60, children.Items.Count);
+        Assert.False(children.HasMore);
+        Assert.Equal("5:54", children.Items[0].DurationLabel);
+    }
+
+    [Fact]
     public async Task CurrentMedia_PagesGroupsBeforeProjectingDetails()
     {
         var batchId = AddBatch("running", 75, 75);
