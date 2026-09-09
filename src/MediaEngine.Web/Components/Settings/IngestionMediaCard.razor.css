@@ -1,21 +1,89 @@
-.ingestion-media-card-shell{width:100%;min-width:0;max-width:22rem;display:flex}
-.ingestion-media-card-shell ::deep .ingestion-media-card{display:flex!important;flex-direction:column;align-items:stretch;height:100%;width:100%;min-width:0;padding:0!important;text-align:left;color:inherit;background:var(--app-surface-elevated,var(--app-surface));border:1px solid var(--app-border);border-radius:.65rem;overflow:hidden;transition:border-color .16s ease,box-shadow .16s ease}
-.ingestion-media-card-shell.is-adding ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-info)}
-.ingestion-media-card-shell.is-finishing ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-primary)}
-.ingestion-media-card-shell.is-ready ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-success)}
-.ingestion-media-card-shell.is-review ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-warning)}
-.ingestion-media-card-shell.is-failed ::deep .ingestion-media-card{border-top:3px solid var(--mud-palette-error)}
-.ingestion-media-card-shell ::deep .ingestion-media-card:hover,.ingestion-media-card-shell ::deep .ingestion-media-card:focus-visible{border-color:var(--mud-palette-primary);box-shadow:0 0 0 1px color-mix(in srgb,var(--mud-palette-primary) 55%,transparent),0 10px 30px rgba(0,0,0,.25)}
-.ingestion-media-card__art{display:block;flex:none;width:100%;min-width:0;aspect-ratio:2/2.55;background:var(--app-glass-inner-bg);overflow:hidden}
-.ingestion-media-card__art ::deep .app-media-artwork{width:100%;height:100%}
-.ingestion-media-card__art ::deep .app-media-artwork__image{object-fit:contain}
-.ingestion-media-card__body{display:flex;min-width:0;width:100%;box-sizing:border-box;flex:1;flex-direction:column;gap:.35rem;padding:.72rem}
-.ingestion-media-card__body>strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;min-height:2.5em;font-size:.88rem;line-height:1.25;overflow-wrap:anywhere;overflow:hidden;text-overflow:ellipsis}
-.ingestion-media-card__body>small{display:flex;align-items:center;gap:.35rem;min-height:1.15rem;color:var(--mud-palette-text-secondary);font-size:.74rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ingestion-media-card__body>small>span{min-width:0;overflow:hidden;text-overflow:ellipsis}
-.ingestion-media-card__body>small ::deep .mud-icon-root{flex:none;font-size:1rem;color:var(--mud-palette-primary)}
-.ingestion-media-card__body ::deep .ingestion-facets{flex-wrap:wrap;row-gap:.65rem}
-.ingestion-media-card__status{min-height:2.1rem;margin-top:.18rem;color:var(--mud-palette-text-secondary);font-size:.72rem;line-height:1.25}
-.ingestion-media-card__status.is-ready{color:var(--mud-palette-success)}
-.ingestion-media-card__status.is-review{color:var(--mud-palette-warning)}
-.ingestion-media-card__status.is-failed{color:var(--mud-palette-error)}
+.ingestion-media-card-shell {
+    --ingestion-card-accent: var(--mud-palette-info);
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    max-width: 22rem;
+}
+
+.ingestion-media-card-shell.is-finishing { --ingestion-card-accent: var(--mud-palette-primary); }
+.ingestion-media-card-shell.is-ready { --ingestion-card-accent: var(--mud-palette-success); }
+.ingestion-media-card-shell.is-review { --ingestion-card-accent: var(--mud-palette-warning); }
+.ingestion-media-card-shell.is-failed { --ingestion-card-accent: var(--mud-palette-error); }
+
+.ingestion-media-card-shell ::deep .ingestion-media-card {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    padding: 0 .65rem !important;
+    text-align: left;
+    color: inherit;
+    background: var(--app-surface-elevated, var(--app-surface));
+    border: 1px solid var(--app-border);
+    border-top: 3px solid var(--ingestion-card-accent);
+    border-radius: .65rem;
+    overflow: hidden;
+    transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.ingestion-media-card-shell ::deep .ingestion-media-card:hover,
+.ingestion-media-card-shell ::deep .ingestion-media-card:focus-visible {
+    border-color: var(--mud-palette-primary);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--mud-palette-primary) 55%, transparent), 0 10px 30px rgba(0, 0, 0, .25);
+}
+
+.ingestion-media-card__activity {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex: 0 0 3rem;
+    min-width: 0;
+    color: var(--ingestion-card-accent);
+    font-size: .9rem;
+    line-height: 1.2;
+}
+.ingestion-media-card__activity > span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+.ingestion-media-card__activity ::deep .mud-icon-root { flex: none; font-size: 1.25rem; }
+
+.ingestion-media-card__art {
+    display: block;
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    aspect-ratio: 4 / 3;
+    background: var(--app-glass-inner-bg);
+    border-radius: .4rem;
+    overflow: hidden;
+}
+.ingestion-media-card__art ::deep .app-media-artwork { width: 100%; height: 100%; }
+.ingestion-media-card__art ::deep .app-media-artwork__image { object-fit: contain; }
+
+.ingestion-media-card__body {
+    display: grid;
+    grid-template-rows: 1.65rem 1.5rem 1.6rem 2.4rem;
+    gap: .25rem;
+    min-width: 0;
+    padding: .6rem 0 .65rem;
+}
+.ingestion-media-card__title,
+.ingestion-media-card__contributor {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.ingestion-media-card__title { font-size: 1.15rem; line-height: 1.65rem; }
+.ingestion-media-card__contributor { font-size: .95rem; line-height: 1.5rem; color: var(--mud-palette-text-secondary); }
+.ingestion-media-card__count { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; min-width: 0; font-size: .85rem; line-height: 1.2rem; color: var(--mud-palette-text-secondary); }
+.ingestion-media-card__type { display: flex; align-items: center; gap: .5rem; font-size: .9rem; color: var(--mud-palette-text-secondary); }
+.ingestion-media-card__type ::deep .mud-icon-root { flex: none; font-size: 1.25rem; }
+.ingestion-media-card-shell ::deep .ingestion-facets { margin-top: auto; }

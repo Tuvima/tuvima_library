@@ -244,6 +244,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
                 item.Availability,
                 item.StatusLabel,
                 item.ChildCompleted,
+                item.FileCount,
                 item.ChildExpected,
                 item.CoverUrl,
                 FacetSignature(item.People),

@@ -1144,6 +1144,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             Availability = availability,
             StatusLabel = GroupStatus(availability, scopedOps),
             ChildCompleted = completed,
+            FileCount = rows.Select(row => row.AssetId).Distinct().Count(),
             ChildExpected = null,
             ChildUnit = ChildUnit(mediaType, rows),
             DetailRoute = DetailRoute(mediaType, groupId),

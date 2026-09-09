@@ -53,6 +53,7 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         Assert.Equal(5, snapshot.ReadyGroups);
         var one = Assert.Single(page.Items, item => item.GroupId == completeAlbum);
         Assert.Equal(17, one.ChildCompleted);
+        Assert.Equal(17, one.FileCount);
         Assert.Null(one.ChildExpected);
         Assert.Equal("tracks", one.ChildUnit);
         Assert.Equal("notApplicable", one.Relationships.State);
@@ -128,6 +129,7 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var item = Assert.Single((await service.GetCurrentMediaAsync(0, 50)).Items);
 
         Assert.Equal(5, item.ChildCompleted);
+        Assert.Equal(6, item.FileCount);
         Assert.Null(item.ChildExpected);
         Assert.Equal("tracks", item.ChildUnit);
     }

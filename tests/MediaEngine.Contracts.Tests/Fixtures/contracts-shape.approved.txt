@@ -2164,6 +2164,7 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionMediaGr
   Availability: System.String | nullability=not-null | accessors=get,set
   StatusLabel: System.String | nullability=not-null | accessors=get,set
   ChildCompleted: System.Int32 | nullability=not-null | accessors=get,set
+  FileCount: System.Int32 | nullability=not-null | accessors=get,set
   ChildExpected: System.Int32? | nullability=nullable | accessors=get,set
   ChildUnit: System.String | nullability=nullable | accessors=get,set
   DetailRoute: System.String | nullability=nullable | accessors=get,set

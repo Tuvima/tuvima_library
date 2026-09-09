@@ -97,6 +97,10 @@ public sealed class IngestionMediaGroupDto
     [JsonPropertyName("child_completed")]
     public int ChildCompleted { get; set; }
 
+    /// <summary>Distinct physical assets represented by this batch group, not a provider catalogue total.</summary>
+    [JsonPropertyName("file_count")]
+    public int FileCount { get; set; }
+
     [JsonPropertyName("child_expected")]
     public int? ChildExpected { get; set; }
 

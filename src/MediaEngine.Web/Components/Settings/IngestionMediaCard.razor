@@ -6,18 +6,20 @@
                  Class="ingestion-media-card"
                  AriaLabel="@CardAriaLabel"
                  OnClick="@(_ => OnOpen.InvokeAsync(Item))">
+    <span class="ingestion-media-card__activity" title="@ActivityLabel">
+        <MudIcon Icon="@ActivityIcon" aria-hidden="true" />
+        <span>@ActivityLabel</span>
+    </span>
     <span class="ingestion-media-card__art">
         <AppMediaArtwork ImageUrl="@Item.CoverUrl" Alt="" FallbackIcon="@MediaIcon(Item.MediaType)" />
     </span>
     <span class="ingestion-media-card__body">
-        <strong title="@Item.Title">@Item.Title</strong>
-        <small><MudIcon Icon="@MediaIcon(Item.MediaType)" /><span title="@DisplaySubtitle">@DisplaySubtitle</span></small>
-        @if (!string.IsNullOrWhiteSpace(ProgressLabel))
-        {
-            <span class="ingestion-media-card__status is-@Item.Availability">@ProgressLabel</span>
-        }
-        <IngestionFacetIndicators Item="Item" />
+        <strong class="ingestion-media-card__title" title="@Item.Title">@Item.Title</strong>
+        <span class="ingestion-media-card__contributor" title="@DisplaySubtitle">@DisplaySubtitle</span>
+        <span class="ingestion-media-card__type"><MudIcon Icon="@MediaIcon(Item.MediaType)" aria-hidden="true" />@FriendlyType(Item.MediaType)</span>
+        <span class="ingestion-media-card__count" title="@CountLabel">@CountLabel</span>
     </span>
+    <IngestionFacetIndicators Item="Item" />
 </AppNativeButton>
 </div>
 
@@ -25,13 +27,34 @@
     [Parameter, EditorRequired] public IngestionMediaGroupDto Item { get; set; } = new();
     [Parameter] public EventCallback<IngestionMediaGroupDto> OnOpen { get; set; }
 
-    private string DisplaySubtitle => string.IsNullOrWhiteSpace(Item.Subtitle) ? FriendlyType(Item.MediaType) : Item.Subtitle;
-    private string? ProgressLabel => Item.ChildUnit is not null
+    // Reserve the contributor row while metadata loads. TV may supply season
+    // context here; a fallback media type is not a contributor.
+    private string? DisplaySubtitle => string.IsNullOrWhiteSpace(Item.Subtitle)
+        || Item.Subtitle == Item.MediaType || Item.Subtitle == FriendlyType(Item.MediaType)
+            ? null : Item.Subtitle;
+    private string ActivityLabel => Item.Availability == "ready" ? "Ready to browse" : Item.StatusLabel;
+    private string ActivityIcon => Item.Availability switch
+    {
+        "ready" => Icons.Material.Outlined.CheckCircle,
+        "review" => Icons.Material.Outlined.WarningAmber,
+        "failed" => Icons.Material.Outlined.ErrorOutline,
+        _ => Item.StatusLabel switch
+        {
+            "Adding people" => Icons.Material.Outlined.Groups,
+            "Finishing artwork" => Icons.Material.Outlined.Image,
+            "Building relationships" => Icons.Material.Outlined.AccountTree,
+            "Adding lyrics" => Icons.Material.Outlined.Lyrics,
+            "Adding subtitles" => Icons.Material.Outlined.ClosedCaption,
+            "Identifying" or "Finishing details" => Icons.Material.Outlined.ManageSearch,
+            _ => Icons.Material.Outlined.Sync,
+        },
+    };
+    private string? CountLabel => Item.ChildUnit is not null && Item.ChildCompleted > 0
         ? $"{Item.ChildCompleted:N0} {DisplayChildUnit(Item.ChildCompleted)} added"
-        : Item.Availability.Equals("ready", StringComparison.OrdinalIgnoreCase) ? null : Item.StatusLabel;
-    private string CardAriaLabel => Item.Availability.Equals("ready", StringComparison.OrdinalIgnoreCase)
-        ? $"Open ingestion details for {Item.Title}"
-        : $"Open ingestion details for {Item.Title}. {Item.StatusLabel}";
+            + (Item.FileCount > 0 && Item.ChildUnit != "files" ? $" · {FileLabel}" : string.Empty)
+        : Item.FileCount > 0 ? FileLabel : null;
+    private string FileLabel => $"{Item.FileCount:N0} {(Item.FileCount == 1 ? "file" : "files")}";
+    private string CardAriaLabel => $"Open ingestion details for {Item.Title}. {ActivityLabel}. {FriendlyType(Item.MediaType)}. {CountLabel}";
 
     private string DisplayChildUnit(int count) => count == 1 && Item.ChildUnit!.EndsWith('s')
         ? Item.ChildUnit[..^1]

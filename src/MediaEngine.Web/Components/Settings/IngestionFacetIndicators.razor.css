@@ -1,11 +1,42 @@
-.ingestion-facets{display:flex;align-items:center;gap:.5rem;padding-top:.65rem;border-top:1px solid var(--app-border)}
-.ingestion-facet{position:relative;display:grid;place-items:center;width:1.55rem;height:1.55rem;color:var(--mud-palette-text-secondary);border-radius:50%}
-.ingestion-facet ::deep>.mud-icon-root{font-size:1.05rem}
-.ingestion-facet__state{position:absolute!important;right:-.25rem;bottom:-.2rem;font-size:.65rem!important;background:var(--app-surface);border-radius:50%}
-.ingestion-facet.is-complete{color:var(--mud-palette-success);background:color-mix(in srgb,var(--mud-palette-success) 12%,transparent)}.ingestion-facet.is-complete .ingestion-facet__state{color:var(--mud-palette-success)}
-.ingestion-facet.is-active{color:var(--mud-palette-primary)}
-.ingestion-facet.is-active .ingestion-facet__state{animation:ingestion-facet-spin 1.1s linear infinite}
-.ingestion-facet.is-attention,.ingestion-facet.is-attention .ingestion-facet__state{color:var(--mud-palette-warning)}
-.ingestion-facet.is-failed,.ingestion-facet.is-failed .ingestion-facet__state{color:var(--mud-palette-error)}
-@keyframes ingestion-facet-spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.ingestion-facet.is-active .ingestion-facet__state{animation:none}}
+.ingestion-facets {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    align-items: center;
+    min-height: 3.5rem;
+    flex: none;
+    border-top: 1px solid var(--app-border);
+}
+.ingestion-facets__slot { display: flex; justify-content: center; min-width: 0; }
+.ingestion-facet {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 1.7rem;
+    height: 1.7rem;
+    color: var(--mud-palette-text-secondary);
+}
+.ingestion-facet ::deep > .mud-icon-root { font-size: 1.5rem; }
+.ingestion-facet ::deep .ingestion-facet__state,
+.ingestion-facet__spinner {
+    position: absolute;
+    right: -.2rem;
+    bottom: -.1rem;
+    width: .75rem;
+    height: .75rem;
+    font-size: .75rem !important;
+    background: var(--app-surface-elevated, var(--app-surface));
+    border-radius: 50%;
+}
+.ingestion-facet.is-complete { color: var(--mud-palette-success); }
+.ingestion-facet.is-active { color: var(--mud-palette-info); }
+.ingestion-facet.is-attention { color: var(--mud-palette-warning); }
+.ingestion-facet.is-failed { color: var(--mud-palette-error); }
+.ingestion-facet__spinner {
+    border: 2px solid color-mix(in srgb, var(--mud-palette-info) 25%, transparent);
+    border-top-color: var(--mud-palette-info);
+    border-right-color: var(--mud-palette-info);
+    animation: ingestion-facet-spin 1.1s linear infinite;
+}
+@keyframes ingestion-facet-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ingestion-facet__spinner { animation: none; } }
