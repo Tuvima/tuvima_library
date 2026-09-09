@@ -151,7 +151,9 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(asset);
         if (!Enum.TryParse<MediaEngine.Domain.Enums.AssetType>(asset.AssetTypeValue, ignoreCase: true, out _))
+        {
             throw new ArgumentOutOfRangeException(nameof(asset), asset.AssetTypeValue, "Unsupported entity artwork type.");
+        }
 
         using var conn = _db.CreateConnection();
         conn.Execute("""
@@ -234,7 +236,9 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
                 """, new { assetId }, tx);
 
             if (target is null)
+            {
                 return;
+            }
 
             // Clear preferred flag on all assets with the same entity + asset type.
             conn.Execute("""

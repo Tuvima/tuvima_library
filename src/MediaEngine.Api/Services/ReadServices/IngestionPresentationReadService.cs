@@ -137,7 +137,10 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         var groups = await LoadGroupsAsync(GroupScope.Batch, batchId, ct, groupIds: [groupId]).ConfigureAwait(false);
         ApplyArtworkSize(groups, "m");
         if (await IsHistoricalBatchAsync(batchId, ct).ConfigureAwait(false))
+        {
             ApplyHistoricalProgress(groups);
+        }
+
         return groups.FirstOrDefault(item => item.GroupId == groupId);
     }
 
@@ -229,7 +232,9 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             WHERE id = @batchId;
             """, new { batchId }, cancellationToken: ct)).ConfigureAwait(false);
         if (batch is null)
+        {
             return null;
+        }
 
         var previewPage = await LoadBatchGroupPageAsync(batchId, PagedRequest.From(0, 6, 6, 6), ct).ConfigureAwait(false);
         var groups = previewPage.Items;
@@ -312,7 +317,9 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         CancellationToken ct = default)
     {
         if (batchIds.Count == 0)
+        {
             return new Dictionary<Guid, PagedResponse<IngestionMediaGroupDto>>();
+        }
 
         var request = PagedRequest.From(0, limitPerBatch, 6, 12);
         var keys = await LoadBatchPreviewKeysAsync(batchIds, request.Limit + 1, ct).ConfigureAwait(false);
@@ -501,7 +508,9 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             """, new { dayLimit, itemLimit }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
 
         if (keys.Count == 0)
+        {
             return [];
+        }
 
         var groups = await LoadGroupsAsync(
             GroupScope.BatchAdditionsSet,
@@ -739,13 +748,13 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             ORDER BY UpdatedAt DESC, HEX(BatchId), HEX(GroupId)
             LIMIT @limit OFFSET @offset;
             """, new
-            {
-                search = string.IsNullOrWhiteSpace(search) ? null : $"%{search.Trim().ToLowerInvariant()}%",
-                start = start?.ToUniversalTime().ToString("O"),
-                end = end?.ToUniversalTime().ToString("O"),
-                offset,
-                limit,
-            }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
+        {
+            search = string.IsNullOrWhiteSpace(search) ? null : $"%{search.Trim().ToLowerInvariant()}%",
+            start = start?.ToUniversalTime().ToString("O"),
+            end = end?.ToUniversalTime().ToString("O"),
+            offset,
+            limit,
+        }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
     }
 
     private async Task<List<PresentationGroupKeyRow>> LoadBatchGroupKeysAsync(
@@ -824,12 +833,12 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             ORDER BY UpdatedAt {direction}, HEX(GroupId)
             LIMIT @limit OFFSET @offset;
             """, new
-            {
-                batchId,
-                search = string.IsNullOrWhiteSpace(search) ? null : $"%{search.Trim().ToLowerInvariant()}%",
-                offset,
-                limit,
-            }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
+        {
+            batchId,
+            search = string.IsNullOrWhiteSpace(search) ? null : $"%{search.Trim().ToLowerInvariant()}%",
+            offset,
+            limit,
+        }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
     }
 
     private async Task<List<PresentationGroupKeyRow>> LoadBatchPreviewKeysAsync(
@@ -1080,7 +1089,10 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             .Distinct()
             .ToArray();
         if (batchIds.Length == 0 || entityIds.Length == 0)
+        {
             return [];
+        }
+
         var entityIdHexes = entityIds.Select(GuidHex).ToArray();
         var batchFilter = batchIds.Length == 1 ? "batch_id = @batchId" : "batch_id IN @batchIds";
         using var conn = _db.CreateConnection();
@@ -1166,7 +1178,10 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         bool applies)
     {
         if (!applies)
+        {
             return IngestionFacetStateDto.NotApplicable(label);
+        }
+
         var matching = operations.Where(operation => OperationFacet(operation) == facet).ToList();
         if (matching.Count == 0)
         {
@@ -1187,18 +1202,41 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                         : "pending";
         if (facet == "artwork" && !hasResult && state == "pending"
             && matching.All(operation => IsTerminalSuccess(operation.Status, operation.Status)))
+        {
             return IngestionFacetStateDto.NotApplicable("No artwork found");
+        }
+
         return new IngestionFacetStateDto { State = state, Label = $"{label} {FacetStateLabel(state)}" };
     }
 
     private static string OperationFacet(PresentationOperationRow operation)
     {
         var value = $"{operation.OperationType} {operation.CapabilityId} {operation.Stage}".ToLowerInvariant();
-        if (value.Contains("artwork") || value.Contains("image") || value.Contains("poster") || value.Contains("cover")) return "artwork";
-        if (value.Contains("people") || value.Contains("person") || value.Contains("cast") || value.Contains("credit")) return "people";
-        if (value.Contains("lyric") || value.Contains("subtitle") || value.Contains("text_track") || value.Contains("text track")) return "text";
-        if (value.Contains("relationship") || value.Contains("universe") || value.Contains("collection") || value.Contains("series")) return "relationship";
-        if (value.Contains("metadata") || value.Contains("identity") || value.Contains("retail") || value.Contains("wikidata") || value.Contains("hydrat")) return "metadata";
+        if (value.Contains("artwork") || value.Contains("image") || value.Contains("poster") || value.Contains("cover"))
+        {
+            return "artwork";
+        }
+
+        if (value.Contains("people") || value.Contains("person") || value.Contains("cast") || value.Contains("credit"))
+        {
+            return "people";
+        }
+
+        if (value.Contains("lyric") || value.Contains("subtitle") || value.Contains("text_track") || value.Contains("text track"))
+        {
+            return "text";
+        }
+
+        if (value.Contains("relationship") || value.Contains("universe") || value.Contains("collection") || value.Contains("series"))
+        {
+            return "relationship";
+        }
+
+        if (value.Contains("metadata") || value.Contains("identity") || value.Contains("retail") || value.Contains("wikidata") || value.Contains("hydrat"))
+        {
+            return "metadata";
+        }
+
         return "other";
     }
 
@@ -1242,8 +1280,16 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
 
     private static string GroupStatus(string availability, IReadOnlyList<PresentationOperationRow> operations)
     {
-        if (availability == "review") return "Needs review";
-        if (availability == "failed") return "Failed";
+        if (availability == "review")
+        {
+            return "Needs review";
+        }
+
+        if (availability == "failed")
+        {
+            return "Failed";
+        }
+
         var active = operations.Where(operation => IsActive(operation.Status)).OrderByDescending(operation => operation.UpdatedAt).FirstOrDefault();
         if (active is not null)
         {
@@ -1295,10 +1341,20 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
 
     private static string? FormatChildDuration(string mediaType, string? rawDuration)
     {
-        if (string.IsNullOrWhiteSpace(rawDuration)) return null;
-        if (NormalizeMediaType(mediaType) is not ("Music" or "Audiobooks")) return rawDuration;
-        if (!double.TryParse(rawDuration, NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes) || minutes <= 0)
+        if (string.IsNullOrWhiteSpace(rawDuration))
+        {
+            return null;
+        }
+
+        if (NormalizeMediaType(mediaType) is not ("Music" or "Audiobooks"))
+        {
             return rawDuration;
+        }
+
+        if (!double.TryParse(rawDuration, NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes) || minutes <= 0)
+        {
+            return rawDuration;
+        }
 
         var duration = TimeSpan.FromSeconds(Math.Round(minutes * 60d, MidpointRounding.AwayFromZero));
         return duration.TotalHours >= 1
@@ -1473,15 +1529,19 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                     WHERE BatchId = (SELECT BatchId FROM latest_batch)) AS LastGroupsAdded
             FROM scoped;
             """, new
-            {
-                todayStart = todayStart.ToString("O"),
-                tomorrowStart = tomorrowStart.ToString("O"),
-            }, cancellationToken: ct)).ConfigureAwait(false);
+        {
+            todayStart = todayStart.ToString("O"),
+            tomorrowStart = tomorrowStart.ToString("O"),
+        }, cancellationToken: ct)).ConfigureAwait(false);
     }
 
     private static double SequenceSort(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return double.MaxValue;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return double.MaxValue;
+        }
+
         var numeric = new string(value.Where(character => char.IsDigit(character) || character == '.').ToArray());
         return double.TryParse(numeric, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) ? parsed : double.MaxValue;
     }
@@ -1561,7 +1621,11 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 CapabilityId = row.CapabilityId,
                 Stage = row.Stage,
             }) == facet).ToList();
-            if (matching.Count == 0) continue;
+            if (matching.Count == 0)
+            {
+                continue;
+            }
+
             var state = matching.Any(row => row.Status is "failed_terminal" or "dead_lettered") ? "failed"
                 : matching.Any(row => row.Status is "retry_waiting" or "failed_retryable" or "interrupted") ? "attention"
                 : matching.Any(row => IsActive(row.Status)) ? "active" : "complete";
@@ -1594,15 +1658,25 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         bool groupsAreComplete = true)
     {
         if (!string.IsNullOrWhiteSpace(category) && !category.Equals("Mixed", StringComparison.OrdinalIgnoreCase))
+        {
             return category.EndsWith("import", StringComparison.OrdinalIgnoreCase) ? category : $"{category} import";
+        }
+
         var lanes = groupsAreComplete
             ? groups.Select(group => LaneFor(group.MediaType)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
             : [];
-        if (lanes.Count == 1) return $"{lanes[0]} import";
+        if (lanes.Count == 1)
+        {
+            return $"{lanes[0]} import";
+        }
+
         if (!string.IsNullOrWhiteSpace(source))
         {
             var name = Path.GetFileName(source.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (!string.IsNullOrWhiteSpace(name)) return $"{name} scan";
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                return $"{name} scan";
+            }
         }
         return "Mixed media scan";
     }
@@ -1617,9 +1691,21 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             ? groups.Select(group => LaneFor(group.MediaType)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
             : [];
         var destination = lane.Count == 1 ? $" in {lane[0]}" : " in the library";
-        if (status.Equals("running", StringComparison.OrdinalIgnoreCase)) return "This batch is still adding media. Finished items are available while the remaining work continues.";
-        if (status.Equals("failed", StringComparison.OrdinalIgnoreCase)) return "This run failed before all media could be added.";
-        if (status is "abandoned" or "interrupted") return "This run was interrupted. Completed items remain available.";
+        if (status.Equals("running", StringComparison.OrdinalIgnoreCase))
+        {
+            return "This batch is still adding media. Finished items are available while the remaining work continues.";
+        }
+
+        if (status.Equals("failed", StringComparison.OrdinalIgnoreCase))
+        {
+            return "This run failed before all media could be added.";
+        }
+
+        if (status is "abandoned" or "interrupted")
+        {
+            return "This run was interrupted. Completed items remain available.";
+        }
+
         return followUpCount > 0
             ? $"This run completed. Most items are now available{destination}; a small number still need follow-up."
             : $"This run completed successfully. Its items are now available{destination}.";
@@ -1636,7 +1722,9 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         foreach (var group in groups)
         {
             if (string.IsNullOrWhiteSpace(group.CoverUrl))
+            {
                 continue;
+            }
 
             var parts = group.CoverUrl.Split('?', 2);
             List<string> query = parts.Length == 1
@@ -1653,7 +1741,9 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
     private static void ApplyHistoricalProgress(IEnumerable<IngestionMediaGroupDto> groups)
     {
         foreach (var group in groups)
+        {
             group.ChildExpected = null;
+        }
     }
 
     private Task<bool> IsHistoricalBatchAsync(Guid batchId, CancellationToken ct)
@@ -1675,12 +1765,36 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
     private static string NormalizeMediaType(string? value)
     {
         var normalized = value?.Trim().ToLowerInvariant() ?? "";
-        if (normalized.Contains("audio") && normalized.Contains("book")) return "Audiobooks";
-        if (normalized.Contains("comic")) return "Comics";
-        if (normalized is "tv" or "television" or "tv shows" or "show" or "shows") return "TV";
-        if (normalized is "movie" or "movies" or "film" or "films") return "Movies";
-        if (normalized is "music" or "album" or "albums" or "track" or "tracks" or "song" or "songs") return "Music";
-        if (normalized is "book" or "books" or "ebook" or "ebooks" or "epub" or "pdf") return "Books";
+        if (normalized.Contains("audio") && normalized.Contains("book"))
+        {
+            return "Audiobooks";
+        }
+
+        if (normalized.Contains("comic"))
+        {
+            return "Comics";
+        }
+
+        if (normalized is "tv" or "television" or "tv shows" or "show" or "shows")
+        {
+            return "TV";
+        }
+
+        if (normalized is "movie" or "movies" or "film" or "films")
+        {
+            return "Movies";
+        }
+
+        if (normalized is "music" or "album" or "albums" or "track" or "tracks" or "song" or "songs")
+        {
+            return "Music";
+        }
+
+        if (normalized is "book" or "books" or "ebook" or "ebooks" or "epub" or "pdf")
+        {
+            return "Books";
+        }
+
         return string.IsNullOrWhiteSpace(value) ? "Unknown" : value.Trim();
     }
 

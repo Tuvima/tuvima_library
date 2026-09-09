@@ -3,18 +3,18 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
-using MediaEngine.Contracts.Paging;
-using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Contracts.Operations;
-using MediaEngine.Domain.Models;
+using MediaEngine.Contracts.Paging;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -68,11 +68,11 @@ public sealed partial class EngineApiClient
 
     private static CanonicalValueViewModel MapCanonicalValue(
         MediaEngine.Contracts.Collections.CanonicalValueDto value) => new()
-    {
-        Key = value.Key,
-        Value = value.Value,
-        LastScoredAt = value.LastScoredAt,
-    };
+        {
+            Key = value.Key,
+            Value = value.Value,
+            LastScoredAt = value.LastScoredAt,
+        };
 
     public async Task<List<EditionViewModel>> GetWorkEditionsAsync(Guid workId, CancellationToken ct = default)
     {
@@ -124,7 +124,11 @@ public sealed partial class EngineApiClient
         try
         {
             var resp = await _http.PostAsJsonAsync("/ingestion/reconcile", new { }, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             return await resp.Content.ReadFromJsonAsync<ReconciliationResultResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
@@ -186,7 +190,11 @@ public sealed partial class EngineApiClient
         try
         {
             var resp = await _http.PostAsJsonAsync($"/metadata/hydrate/{entityId}", new { }, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             var result = await resp.Content.ReadFromJsonAsync<MediaEngine.Contracts.Metadata.HydrateResponse>(ct);
             return result is null ? null : new HydrateResultViewModel
             {
@@ -322,7 +330,9 @@ public sealed partial class EngineApiClient
             var result = await response.Content.ReadFromJsonAsync<MediaEngine.Contracts.Items.ItemEditorPreferencesResponse>(
                 cancellationToken: ct);
             if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+            {
                 return new ItemEditorPreferencesSaveResultDto(false, true, result, "Source metadata or profile preferences changed while you were editing.");
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -354,7 +364,10 @@ public sealed partial class EngineApiClient
             var profileQuery = profileId.HasValue ? $"?profileId={profileId.Value:D}" : string.Empty;
             using var response = await _http.GetAsync($"/library/items/editor-suggestions/{encodedField}{profileQuery}", ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return [];
+            }
+
             return await response.Content.ReadFromJsonAsync<List<string>>(cancellationToken: ct) ?? [];
         }
         catch (OperationCanceledException)
@@ -447,7 +460,11 @@ public sealed partial class EngineApiClient
         try
         {
             var resp = await _http.PostAsJsonAsync("/metadata/pass2/trigger", new { }, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             return await resp.Content.ReadFromJsonAsync<DeferredEnrichmentTriggerResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
@@ -466,7 +483,9 @@ public sealed partial class EngineApiClient
         {
             using var response = await _http.GetAsync("/maintenance/retag-sweep/state", ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return null;
+            }
 
             return await response.Content.ReadFromJsonAsync<RetagSweepStateResponse>(
                 cancellationToken: ct);
@@ -553,23 +572,49 @@ public sealed partial class EngineApiClient
         {
             var url = $"/library/items?offset={offset}&limit={limit}";
             if (!string.IsNullOrWhiteSpace(search))
+            {
                 url += $"&search={Uri.EscapeDataString(search)}";
+            }
+
             if (!string.IsNullOrWhiteSpace(type))
+            {
                 url += $"&type={Uri.EscapeDataString(type)}";
+            }
+
             if (!string.IsNullOrWhiteSpace(status))
+            {
                 url += $"&status={Uri.EscapeDataString(status)}";
+            }
+
             if (minConfidence.HasValue)
+            {
                 url += $"&minConfidence={minConfidence.Value}";
+            }
+
             if (!string.IsNullOrWhiteSpace(matchSource))
+            {
                 url += $"&matchSource={Uri.EscapeDataString(matchSource)}";
+            }
+
             if (duplicatesOnly == true)
+            {
                 url += "&duplicatesOnly=true";
+            }
+
             if (missingUniverseOnly == true)
+            {
                 url += "&missingUniverseOnly=true";
+            }
+
             if (!string.IsNullOrWhiteSpace(sort))
+            {
                 url += $"&sort={Uri.EscapeDataString(sort)}";
+            }
+
             if (maxDays.HasValue)
+            {
                 url += $"&maxDays={maxDays.Value}";
+            }
 
             var transport = await _http.GetFromJsonAsync<MediaEngine.Contracts.Items.LibraryItemsPageDto>(url, ct);
             var response = transport?.ToViewModel();
@@ -578,13 +623,24 @@ public sealed partial class EngineApiClient
                 foreach (var item in response.Items)
                 {
                     if (item.CoverUrl is not null)
+                    {
                         item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+                    }
+
                     if (item.BackgroundUrl is not null)
+                    {
                         item.BackgroundUrl = AbsoluteUrl(item.BackgroundUrl);
+                    }
+
                     if (item.BannerUrl is not null)
+                    {
                         item.BannerUrl = AbsoluteUrl(item.BannerUrl);
+                    }
+
                     if (item.HeroUrl is not null)
+                    {
                         item.HeroUrl = AbsoluteUrl(item.HeroUrl);
+                    }
                 }
             }
             return response;
@@ -682,13 +738,25 @@ public sealed partial class EngineApiClient
                 cancellationToken: ct);
             var detail = transport?.ToViewModel();
             if (detail?.CoverUrl is not null)
+            {
                 detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
+            }
+
             if (detail?.BackgroundUrl is not null)
+            {
                 detail.BackgroundUrl = AbsoluteUrl(detail.BackgroundUrl);
+            }
+
             if (detail?.BannerUrl is not null)
+            {
                 detail.BannerUrl = AbsoluteUrl(detail.BannerUrl);
+            }
+
             if (detail?.HeroUrl is not null)
+            {
                 detail.HeroUrl = AbsoluteUrl(detail.HeroUrl);
+            }
+
             ClearFailure(endpoint);
             return detail;
         }
@@ -801,7 +869,13 @@ public sealed partial class EngineApiClient
             "Ingestion presentation", "ingestion/presentation", ct: ct).ConfigureAwait(false);
         NormalizePresentationUrls(result?.CurrentMedia);
         if (result is not null)
-            foreach (var day in result.RecentDays) NormalizePresentationUrls(day.Items);
+        {
+            foreach (var day in result.RecentDays)
+            {
+                NormalizePresentationUrls(day.Items);
+            }
+        }
+
         return result;
     }
 
@@ -817,10 +891,26 @@ public sealed partial class EngineApiClient
             $"offset={Math.Max(0, offset)}",
             $"limit={Math.Clamp(limit, 1, 100)}",
         };
-        if (!string.IsNullOrWhiteSpace(search)) values.Add($"search={Uri.EscapeDataString(search)}");
-        if (!string.IsNullOrWhiteSpace(lane)) values.Add($"lane={Uri.EscapeDataString(lane)}");
-        if (start.HasValue) values.Add($"start={Uri.EscapeDataString(start.Value.ToString("O"))}");
-        if (end.HasValue) values.Add($"end={Uri.EscapeDataString(end.Value.ToString("O"))}");
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            values.Add($"search={Uri.EscapeDataString(search)}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(lane))
+        {
+            values.Add($"lane={Uri.EscapeDataString(lane)}");
+        }
+
+        if (start.HasValue)
+        {
+            values.Add($"start={Uri.EscapeDataString(start.Value.ToString("O"))}");
+        }
+
+        if (end.HasValue)
+        {
+            values.Add($"end={Uri.EscapeDataString(end.Value.ToString("O"))}");
+        }
+
         return GetPresentationPageAsync($"ingestion/recent-additions?{string.Join('&', values)}", ct);
     }
 
@@ -885,14 +975,23 @@ public sealed partial class EngineApiClient
 
     private void NormalizePresentationUrls(IEnumerable<IngestionMediaGroupDto>? items)
     {
-        if (items is null) return;
-        foreach (var item in items) NormalizePresentationUrl(item);
+        if (items is null)
+        {
+            return;
+        }
+
+        foreach (var item in items)
+        {
+            NormalizePresentationUrl(item);
+        }
     }
 
     private void NormalizePresentationUrl(IngestionMediaGroupDto? item)
     {
         if (item is not null && !string.IsNullOrWhiteSpace(item.CoverUrl))
+        {
             item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+        }
     }
 
     /// <inheritdoc/>
@@ -904,7 +1003,9 @@ public sealed partial class EngineApiClient
             var safeLimit = Math.Clamp(limit <= 0 ? 100 : limit, 1, 500);
             var query = $"operations?limit={safeLimit}";
             if (!string.IsNullOrWhiteSpace(queueName))
+            {
                 query += $"&queueName={Uri.EscapeDataString(queueName)}";
+            }
 
             var result = await _http.GetFromJsonAsync<List<OperationDto>>(
                 query, ct).ConfigureAwait(false);

@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text;
-using MediaEngine.Providers.Services;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Providers.Services;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Providers.Tests;
@@ -41,7 +41,9 @@ public sealed class CommonsImageResolverTests
         finally
         {
             if (Directory.Exists(dir))
+            {
                 Directory.Delete(dir, recursive: true);
+            }
         }
     }
 

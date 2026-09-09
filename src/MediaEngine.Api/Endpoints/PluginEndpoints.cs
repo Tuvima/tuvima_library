@@ -1,10 +1,12 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
-using MediaEngine.Contracts.Operations;
 using MediaEngine.Api.Services.Plugins;
+using MediaEngine.Contracts.Operations;
 using MediaEngine.Contracts.Plugins;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Events;
 using MediaEngine.Plugins;
 
 namespace MediaEngine.Api.Endpoints;
@@ -20,13 +22,13 @@ internal static class PluginEndpoints
             Results.Ok(catalog.List().Select(ToDto)))
             .WithName("ListPlugins")
             .Produces<IEnumerable<PluginSummaryResponse>>(StatusCodes.Status200OK)
-            .RequireAdmin();
+            .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsRead);
 
         group.MapGet("/approved", async (ApprovedPluginCatalogService catalog, CancellationToken ct) =>
             Results.Ok(await catalog.GetAsync(ct).ConfigureAwait(false)))
             .WithName("ListApprovedPlugins")
             .Produces<ApprovedPluginCatalogDto>(StatusCodes.Status200OK)
-            .RequireAdmin();
+            .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsRead);
 
         group.MapGet("/{pluginId}", (string pluginId, PluginCatalog catalog) =>
         {
@@ -35,7 +37,7 @@ internal static class PluginEndpoints
         })
         .WithName("GetPlugin")
         .Produces<PluginSummaryResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsRead);
 
         group.MapPost("/{pluginId}/enable", (string pluginId, PluginCatalog catalog) =>
         {
@@ -44,7 +46,7 @@ internal static class PluginEndpoints
         })
         .WithName("EnablePlugin")
         .Produces<PluginEnabledResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsManage);
 
         group.MapPost("/{pluginId}/disable", (string pluginId, PluginCatalog catalog) =>
         {
@@ -53,7 +55,7 @@ internal static class PluginEndpoints
         })
         .WithName("DisablePlugin")
         .Produces<PluginEnabledResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsManage);
 
         group.MapPut("/{pluginId}/settings", (
             string pluginId,
@@ -65,7 +67,7 @@ internal static class PluginEndpoints
         })
         .WithName("SavePluginSettings")
         .Produces<PluginSavedResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsManage);
 
         group.MapGet("/{pluginId}/manifest", (string pluginId, PluginCatalog catalog) =>
         {
@@ -80,7 +82,7 @@ internal static class PluginEndpoints
         })
         .WithName("GetPluginManifestJson")
         .Produces<PluginManifestJsonResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsRead);
 
         group.MapPut("/{pluginId}/manifest", (
             string pluginId,
@@ -103,7 +105,7 @@ internal static class PluginEndpoints
         })
         .WithName("SavePluginManifestJson")
         .Produces<PluginSavedResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsManage);
 
         group.MapDelete("/{pluginId}", (string pluginId, PluginCatalog catalog) =>
         {
@@ -119,25 +121,31 @@ internal static class PluginEndpoints
         })
         .WithName("DeletePlugin")
         .Produces<PluginDeletedResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsManage);
 
         group.MapPost("/{pluginId}/health", async (
             string pluginId,
             PluginCatalog catalog,
-            IPluginToolRuntime tools,
-            IPluginAiClient ai,
+            IPluginExecutionContextFactory contexts,
             CancellationToken ct) =>
         {
             var plugin = catalog.Get(pluginId);
             if (plugin is null)
+            {
                 return ApiErrors.NotFound($"Plugin '{pluginId}' not found.");
+            }
 
-            var temp = Path.Combine(Path.GetTempPath(), "tuvima-plugins", plugin.Manifest.Id, "health");
-            Directory.CreateDirectory(temp);
-            var context = new PluginExecutionContext(plugin.Manifest.Id, plugin.Settings, temp, tools, ai);
+            if (!plugin.Enabled || plugin.LoadError is not null)
+            {
+                return ApiErrors.BadRequest("The plugin is disabled or unavailable.");
+            }
+
+            await using var context = contexts.Create(plugin.Manifest.Id, "health");
             var checks = new List<PluginHealthResult>();
             foreach (var check in plugin.Capabilities.OfType<IPluginHealthCheck>())
+            {
                 checks.Add(await check.GetHealthAsync(context, ct).ConfigureAwait(false));
+            }
 
             return Results.Ok(new PluginHealthResponse
             {
@@ -153,7 +161,7 @@ internal static class PluginEndpoints
         })
         .WithName("CheckPluginHealth")
         .Produces<PluginHealthResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsRead);
 
         group.MapGet("/{pluginId}/jobs", async (
             string pluginId,
@@ -165,18 +173,26 @@ internal static class PluginEndpoints
         })
             .WithName("GetPluginJobs")
             .Produces<IReadOnlyList<OperationDto>>(StatusCodes.Status200OK)
-            .RequireAdmin();
+            .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsJobsRead);
 
         group.MapPost("/jobs/segment-detection/run", async (
             PluginScheduledSegmentService scheduler,
+            IApplicationEventProducer eventProducer,
             CancellationToken ct) =>
         {
+            var subject = new ApplicationEventSubject("plugin-job", "segment-detection");
+            await eventProducer.PublishAsync(new(
+                "plugin.job_started", 1, DateTimeOffset.UtcNow, subject,
+                JsonSerializer.SerializeToElement(new { job = "segment-detection", status = "started" })), ct).ConfigureAwait(false);
             var jobs = await scheduler.RunScheduledPassAsync(ct).ConfigureAwait(false);
+            await eventProducer.PublishAsync(new(
+                "plugin.job_completed", 1, DateTimeOffset.UtcNow, subject,
+                JsonSerializer.SerializeToElement(new { job = "segment-detection", status = "completed", item_count = jobs.Count })), ct).ConfigureAwait(false);
             return Results.Ok(jobs);
         })
         .WithName("RunPluginSegmentDetectionJobs")
         .Produces<IReadOnlyList<PluginJobSnapshot>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsJobsRun);
 
         return group;
     }

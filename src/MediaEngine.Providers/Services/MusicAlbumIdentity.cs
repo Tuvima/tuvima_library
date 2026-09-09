@@ -23,19 +23,25 @@ internal static partial class MusicAlbumIdentity
     public static bool IsSameTrackList(string? requestedAlbum, string? candidateAlbum)
     {
         if (string.IsNullOrWhiteSpace(requestedAlbum) || string.IsNullOrWhiteSpace(candidateAlbum))
+        {
             return false;
+        }
 
         var requested = Normalize(requestedAlbum);
         var candidate = Normalize(candidateAlbum);
         if (string.IsNullOrWhiteSpace(requested.BaseName)
             || string.IsNullOrWhiteSpace(candidate.BaseName))
+        {
             return false;
+        }
 
         if (!string.Equals(
                 requested.TrackSetQualifier,
                 candidate.TrackSetQualifier,
                 StringComparison.OrdinalIgnoreCase))
+        {
             return false;
+        }
 
         if (string.Equals(requested.BaseName, candidate.BaseName, StringComparison.OrdinalIgnoreCase)
             || RetailTextSimilarity.ComputeWordOverlap(requested.BaseName, candidate.BaseName) >= 0.92)
@@ -52,19 +58,25 @@ internal static partial class MusicAlbumIdentity
     public static double ComputeBaseNameOverlap(string? requestedAlbum, string? candidateAlbum)
     {
         if (string.IsNullOrWhiteSpace(requestedAlbum) || string.IsNullOrWhiteSpace(candidateAlbum))
+        {
             return 0;
+        }
 
         var requested = Normalize(requestedAlbum);
         var candidate = Normalize(candidateAlbum);
         if (string.IsNullOrWhiteSpace(requested.BaseName)
             || string.IsNullOrWhiteSpace(candidate.BaseName))
+        {
             return 0;
+        }
 
         if (!string.Equals(
                 requested.TrackSetQualifier,
                 candidate.TrackSetQualifier,
                 StringComparison.OrdinalIgnoreCase))
+        {
             return 0;
+        }
 
         return RetailTextSimilarity.ComputeWordOverlap(requested.BaseName, candidate.BaseName);
     }
@@ -84,7 +96,10 @@ internal static partial class MusicAlbumIdentity
         comparable = SoundtrackDescriptorRegex().Replace(comparable, " ");
         comparable = TrackSetQualifierRegex().Replace(comparable, " ");
         if (hasHarmlessEditionQualifier)
+        {
             comparable = YearRegex().Replace(comparable, " ");
+        }
+
         comparable = string.Join(' ', comparable.Split(' ', StringSplitOptions.RemoveEmptyEntries));
 
         return new NormalizedAlbum(comparable, trackSetQualifier);

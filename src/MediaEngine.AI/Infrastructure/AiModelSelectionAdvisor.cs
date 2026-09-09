@@ -19,7 +19,9 @@ public sealed class AiModelSelectionAdvisor
             && !_settings.HardwareProfile.AdvancedEligible;
         var effective = constrained ? AiResourceProfileNames.Essential : advancedBlocked ? recommended : configured;
         if (effective == AiResourceProfileNames.Advanced && !_settings.HardwareProfile.AdvancedEligible)
+        {
             effective = AiResourceProfileNames.Standard;
+        }
 
         var model = AiResourceProfileCatalog.CreateText(effective);
         return new AiExecutionPlan(
@@ -37,11 +39,16 @@ public sealed class AiModelSelectionAdvisor
     public string GetRecommendedProfile()
     {
         if (_settings.HardwareProfile.AdvancedEligible)
+        {
             return AiResourceProfileNames.Advanced;
+        }
 
         var ram = _settings.HardwareProfile.AvailableRamMb;
         if (ram <= 0)
+        {
             ram = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024);
+        }
+
         return ram < 8192 ? AiResourceProfileNames.Essential : AiResourceProfileNames.Standard;
     }
 
@@ -54,7 +61,10 @@ public sealed class AiModelSelectionAdvisor
         var enabled = !isAudio || plan.AudioPackEnabled;
         var warnings = new List<string>();
         if (isAudio && !plan.AudioPackEnabled)
+        {
             warnings.Add("The optional Whisper feature pack is disabled.");
+        }
+
         warnings.AddRange(plan.BlockingReasons);
 
         var canEnable = enabled && catalog is not null

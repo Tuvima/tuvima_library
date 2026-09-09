@@ -1,5 +1,7 @@
 namespace MediaEngine.Api.Services.View;
 
+using MediaEngine.Storage.Contracts;
+
 /// <summary>
 /// Persistence lookup for resource ownership. It returns one opaque descriptor,
 /// never an enumerable list of inaccessible resources. For assets reached via
@@ -13,4 +15,8 @@ public interface IViewResourceStore
         Guid resourceId,
         Guid requestingProfileId,
         CancellationToken ct = default);
+
+    Task<LocalAssetContentLocation?> ResolveContentAsync(Guid itemId, string role,
+        ResolvedViewScope scope, CancellationToken ct = default) =>
+        Task.FromResult<LocalAssetContentLocation?>(null);
 }

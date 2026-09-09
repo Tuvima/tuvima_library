@@ -109,7 +109,9 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
             }
 
             if (interruptedByReset)
+            {
                 continue;
+            }
 
             try
             {

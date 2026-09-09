@@ -74,10 +74,16 @@ public sealed class EpubProcessor : IMediaProcessor
     /// </remarks>
     public bool CanProcess(string filePath)
     {
-        if (!File.Exists(filePath)) return false;
+        if (!File.Exists(filePath))
+        {
+            return false;
+        }
 
         // Stage 1: ZIP magic bytes.
-        if (!HasZipMagic(filePath)) return false;
+        if (!HasZipMagic(filePath))
+        {
+            return false;
+        }
 
         // Stage 2: EPUB mimetype entry.
         return HasEpubMimeType(filePath);
@@ -138,7 +144,10 @@ public sealed class EpubProcessor : IMediaProcessor
         {
             using var zip = ZipFile.OpenRead(filePath);
             var entry = zip.GetEntry(MimeTypeEntryName);
-            if (entry is null) return false;
+            if (entry is null)
+            {
+                return false;
+            }
 
             using var reader = new StreamReader(entry.Open(), Encoding.ASCII, detectEncodingFromByteOrderMarks: false);
             var content = reader.ReadToEnd().Trim();
@@ -158,7 +167,9 @@ public sealed class EpubProcessor : IMediaProcessor
 
         // Title
         if (!string.IsNullOrWhiteSpace(book.Title))
+        {
             claims.Add(Claim(MetadataFieldConstants.Title, book.Title));
+        }
 
         // Authors (one claim per author)
         if (book.AuthorList is { Count: > 0 })
@@ -166,7 +177,9 @@ public sealed class EpubProcessor : IMediaProcessor
             foreach (var author in book.AuthorList)
             {
                 if (!string.IsNullOrWhiteSpace(author))
+                {
                     claims.Add(Claim(MetadataFieldConstants.Author, author));
+                }
             }
         }
 
@@ -182,21 +195,29 @@ public sealed class EpubProcessor : IMediaProcessor
             // Publisher
             var publisher = meta.Publishers?.FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(publisher))
+            {
                 claims.Add(Claim(MetadataFieldConstants.PublisherField, publisher));
+            }
 
             // Language
             var language = meta.Languages?.FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(language))
+            {
                 claims.Add(Claim(MetadataFieldConstants.Language, language));
+            }
 
             // Description (single string in 3.1.0)
             if (!string.IsNullOrWhiteSpace(meta.Description))
+            {
                 claims.Add(Claim(MetadataFieldConstants.Description, meta.Description));
+            }
 
             // Date
             var date = meta.Dates?.FirstOrDefault()?.Date;
             if (!string.IsNullOrWhiteSpace(date))
+            {
                 claims.Add(Claim("date", date));
+            }
 
             // Series — look for calibre:series and calibre:series_index in <meta> elements.
             // EPUB 2: <meta name="calibre:series" content="Dune Chronicles"/>
@@ -222,13 +243,17 @@ public sealed class EpubProcessor : IMediaProcessor
                     {
                         // Only add if we haven't already found a calibre:series
                         if (!claims.Any(c => c.Key == MetadataFieldConstants.Series))
+                        {
                             claims.Add(Claim(MetadataFieldConstants.Series, metaItem.Content));
+                        }
                     }
                     else if (string.Equals(metaItem.Property, "group-position", StringComparison.OrdinalIgnoreCase)
                              && !string.IsNullOrWhiteSpace(metaItem.Content))
                     {
                         if (!claims.Any(c => c.Key == MetadataFieldConstants.SeriesPosition))
+                        {
                             claims.Add(Claim(MetadataFieldConstants.SeriesPosition, metaItem.Content));
+                        }
                     }
                 }
             }
@@ -247,7 +272,9 @@ public sealed class EpubProcessor : IMediaProcessor
                     {
                         var cleanIsbn = StripIsbnPrefix(text);
                         if (!string.IsNullOrEmpty(cleanIsbn))
+                        {
                             claims.Add(Claim("isbn", cleanIsbn));
+                        }
                     }
                 }
 
@@ -258,7 +285,10 @@ public sealed class EpubProcessor : IMediaProcessor
                     foreach (var id in meta.Identifiers)
                     {
                         var raw = id.Identifier?.Trim().Replace("-", "");
-                        if (raw is null) continue;
+                        if (raw is null)
+                        {
+                            continue;
+                        }
 
                         // ISBN-13 (978/979 prefix, 13 digits) or ISBN-10 (10 chars, last may be X)
                         if (Regex.IsMatch(raw, @"^(97[89]\d{10}|\d{9}[\dXx])$"))
@@ -283,12 +313,18 @@ public sealed class EpubProcessor : IMediaProcessor
     /// </summary>
     private static void AddWordCount(EpubBook book, List<ExtractedClaim> claims)
     {
-        if (book.ReadingOrder is not { Count: > 0 }) return;
+        if (book.ReadingOrder is not { Count: > 0 })
+        {
+            return;
+        }
 
         var total = 0;
         foreach (var chapterContent in book.ReadingOrder)
         {
-            if (string.IsNullOrWhiteSpace(chapterContent.Content)) continue;
+            if (string.IsNullOrWhiteSpace(chapterContent.Content))
+            {
+                continue;
+            }
 
             // Strip HTML tags, then split on whitespace.
             var text = Regex.Replace(chapterContent.Content, "<[^>]+>", " ");
@@ -296,7 +332,9 @@ public sealed class EpubProcessor : IMediaProcessor
         }
 
         if (total > 0)
+        {
             claims.Add(Claim("word_count", total.ToString()));
+        }
     }
     // -------------------------------------------------------------------------
     // Cover image extraction
@@ -305,7 +343,11 @@ public sealed class EpubProcessor : IMediaProcessor
     private static (byte[]? bytes, string? mime) ExtractCover(EpubBook book)
     {
         byte[]? coverBytes = book.CoverImage;
-        if (coverBytes is null || coverBytes.Length == 0) return (null, null);
+        if (coverBytes is null || coverBytes.Length == 0)
+        {
+            return (null, null);
+        }
+
         return (coverBytes, SniffMimeType(coverBytes));
     }
 
@@ -316,25 +358,36 @@ public sealed class EpubProcessor : IMediaProcessor
     /// </summary>
     private static string SniffMimeType(byte[] data)
     {
-        if (data.Length < 4) return "image/jpeg";
+        if (data.Length < 4)
+        {
+            return "image/jpeg";
+        }
 
         // JPEG: FF D8 FF
         if (data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+        {
             return "image/jpeg";
+        }
 
         // PNG: 89 50 4E 47
         if (data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47)
+        {
             return "image/png";
+        }
 
         // GIF: 47 49 46 38 ("GIF8")
         if (data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38)
+        {
             return "image/gif";
+        }
 
         // WebP: RIFF…WEBP (bytes 0-3 = "RIFF", bytes 8-11 = "WEBP")
         if (data.Length >= 12 &&
             data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 &&
             data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50)
+        {
             return "image/webp";
+        }
 
         return "image/jpeg";
     }
@@ -357,14 +410,25 @@ public sealed class EpubProcessor : IMediaProcessor
     {
         var value = raw.Trim();
         if (value.StartsWith("urn:isbn:", StringComparison.OrdinalIgnoreCase))
+        {
             value = value["urn:isbn:".Length..];
+        }
         else if (value.StartsWith("isbn:", StringComparison.OrdinalIgnoreCase))
+        {
             value = value["isbn:".Length..];
+        }
+
         value = value.Replace("-", "").Replace(" ", "").Trim();
         if (value.Length == 13 && value.All(char.IsDigit))
+        {
             return value;
+        }
+
         if (value.Length == 10 && value[..9].All(char.IsDigit) && (char.IsDigit(value[9]) || value[9] is 'X' or 'x'))
+        {
             return value.ToUpperInvariant();
+        }
+
         return null;
     }
 

@@ -43,8 +43,10 @@ public sealed class QidLabelRepository : IQidLabelRepository
 
         var qidList = qids.ToList();
         if (qidList.Count == 0)
+        {
             return Task.FromResult<IReadOnlyDictionary<string, string>>(
                 new Dictionary<string, string>());
+        }
 
         using var conn = _db.CreateConnection();
         var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -56,7 +58,7 @@ public sealed class QidLabelRepository : IQidLabelRepository
 
             // Build numbered placeholders and a matching anonymous-object dictionary.
             var placeholders = new string[chunk.Count];
-            var parameters   = new DynamicParameters();
+            var parameters = new DynamicParameters();
             for (int i = 0; i < chunk.Count; i++)
             {
                 placeholders[i] = $"@q{i}";
@@ -70,7 +72,9 @@ public sealed class QidLabelRepository : IQidLabelRepository
                 """;
 
             foreach (var row in conn.Query<(string Qid, string Label)>(sql, parameters))
+            {
                 result[row.Qid] = row.Label;
+            }
         }
 
         return Task.FromResult<IReadOnlyDictionary<string, string>>(result);
@@ -121,7 +125,10 @@ public sealed class QidLabelRepository : IQidLabelRepository
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        if (labels.Count == 0) return Task.CompletedTask;
+        if (labels.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -140,12 +147,12 @@ public sealed class QidLabelRepository : IQidLabelRepository
                 innerCt.ThrowIfCancellationRequested();
                 conn.Execute(sql, new
                 {
-                    qid         = entry.Qid,
-                    label       = entry.Label,
+                    qid = entry.Qid,
+                    label = entry.Label,
                     description = entry.Description,
-                    entityType  = entry.EntityType,
-                    fetchedAt   = entry.FetchedAt.ToString("o"),
-                    updatedAt   = entry.UpdatedAt.ToString("o"),
+                    entityType = entry.EntityType,
+                    fetchedAt = entry.FetchedAt.ToString("o"),
+                    updatedAt = entry.UpdatedAt.ToString("o"),
                 }, tx);
             }
 
@@ -161,7 +168,9 @@ public sealed class QidLabelRepository : IQidLabelRepository
 
         var qidList = qids.ToList();
         if (qidList.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<QidLabel>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var results = new List<QidLabel>();
@@ -171,7 +180,7 @@ public sealed class QidLabelRepository : IQidLabelRepository
             ct.ThrowIfCancellationRequested();
 
             var placeholders = new string[chunk.Count];
-            var parameters   = new DynamicParameters();
+            var parameters = new DynamicParameters();
             for (int i = 0; i < chunk.Count; i++)
             {
                 placeholders[i] = $"@q{i}";
@@ -193,12 +202,12 @@ public sealed class QidLabelRepository : IQidLabelRepository
             {
                 results.Add(new QidLabel
                 {
-                    Qid         = row.Qid,
-                    Label       = row.Label,
+                    Qid = row.Qid,
+                    Label = row.Label,
                     Description = row.Description,
-                    EntityType  = row.EntityType,
-                    FetchedAt   = DateTimeOffset.Parse(row.FetchedAt),
-                    UpdatedAt   = DateTimeOffset.Parse(row.UpdatedAt),
+                    EntityType = row.EntityType,
+                    FetchedAt = DateTimeOffset.Parse(row.FetchedAt),
+                    UpdatedAt = DateTimeOffset.Parse(row.UpdatedAt),
                 });
             }
         }
@@ -226,12 +235,12 @@ public sealed class QidLabelRepository : IQidLabelRepository
 
         var results = rows.ConvertAll(row => new QidLabel
         {
-            Qid         = row.Qid,
-            Label       = row.Label,
+            Qid = row.Qid,
+            Label = row.Label,
             Description = row.Description,
-            EntityType  = row.EntityType,
-            FetchedAt   = DateTimeOffset.Parse(row.FetchedAt),
-            UpdatedAt   = DateTimeOffset.Parse(row.UpdatedAt),
+            EntityType = row.EntityType,
+            FetchedAt = DateTimeOffset.Parse(row.FetchedAt),
+            UpdatedAt = DateTimeOffset.Parse(row.UpdatedAt),
         });
 
         return Task.FromResult<IReadOnlyList<QidLabel>>(results);
@@ -243,12 +252,12 @@ public sealed class QidLabelRepository : IQidLabelRepository
 
     private sealed class QidLabelRow
     {
-        public string  Qid         { get; set; } = string.Empty;
-        public string  Label       { get; set; } = string.Empty;
+        public string Qid { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
         public string? Description { get; set; }
-        public string? EntityType  { get; set; }
-        public string  FetchedAt   { get; set; } = string.Empty;
-        public string  UpdatedAt   { get; set; } = string.Empty;
+        public string? EntityType { get; set; }
+        public string FetchedAt { get; set; } = string.Empty;
+        public string UpdatedAt { get; set; } = string.Empty;
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────
@@ -257,7 +266,10 @@ public sealed class QidLabelRepository : IQidLabelRepository
     {
         var chunks = new List<List<T>>();
         for (int i = 0; i < source.Count; i += size)
+        {
             chunks.Add(source.GetRange(i, Math.Min(size, source.Count - i)));
+        }
+
         return chunks;
     }
 }

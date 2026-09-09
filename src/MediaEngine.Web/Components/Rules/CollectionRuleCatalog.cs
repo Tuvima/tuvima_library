@@ -48,21 +48,31 @@ public static class CollectionRuleCatalog
             ("artist", "Artist / performer", "Music"), ("composer", "Composer", "Music"), ("screenwriter", "Screenwriter", "Movies & TV"),
             ("illustrator", "Illustrator", "Books & Comics"), ("production_company", "Production company", "Movies & TV"),
             ("publisher", "Publisher", "Books & Comics"), ("record_label", "Record label", "Music"), ("network", "Network / broadcaster", "Movies & TV"),
-        }) AddEntity(fields, "people", field.Item1, field.Item2, Icons.Material.Outlined.People, field.Item3);
+        })
+        {
+            AddEntity(fields, "people", field.Item1, field.Item2, Icons.Material.Outlined.People, field.Item3);
+        }
 
         AddLibrary(fields, "story", "series", "Series", "Filter using series metadata.", Icons.Material.Outlined.Public);
         foreach (var field in new[]
         {
             ("wikidata_franchise", "Franchise / universe"), ("based_on", "Based on"), ("narrative_location", "Narrative location"),
             ("set_in_period", "Set in period"), ("main_subject", "Main subject"), ("characters", "Character"), ("fictional_universe", "Universe"),
-        }) AddEntity(fields, "story", field.Item1, field.Item2, Icons.Material.Outlined.Public);
+        })
+        {
+            AddEntity(fields, "story", field.Item1, field.Item2, Icons.Material.Outlined.Public);
+        }
+
         AddBoolean(fields, "story", "is_adaptation", "Is an adaptation");
         AddBoolean(fields, "story", "source_work_owned", "Source work is owned");
         AddBoolean(fields, "story", "adaptation_owned", "Adaptation is owned");
 
         AddText(fields, "recognition", "provider_rating", "Provider rating", "Filter by average provider rating.", Icons.Material.Outlined.Star, RuleOperators.Number);
         foreach (var field in new[] { ("award_received", "Award won"), ("award_nominated", "Award nominated"), ("award_family", "Award family"), ("nomination_family", "Nomination family") })
+        {
             AddEntity(fields, "recognition", field.Item1, field.Item2, Icons.Material.Outlined.EmojiEvents, "Movies & TV");
+        }
+
         AddEntity(fields, "production", "filming_location", "Filming location", Icons.Material.Outlined.MovieFilter, "Movies & TV");
         AddText(fields, "library", "added_within_days", "Added within days", "Filter by when an item entered your library.", Icons.Material.Outlined.History, RuleOperators.Number);
         return fields;

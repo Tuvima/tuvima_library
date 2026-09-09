@@ -31,7 +31,11 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
         return database.ExecuteWriteAsync((connection, transaction, token) =>
         {
             token.ThrowIfCancellationRequested();
-            if (!ProfileExists(connection, transaction, policy.ProfileId, token)) return false;
+            if (!ProfileExists(connection, transaction, policy.ProfileId, token))
+            {
+                return false;
+            }
+
             var now = DateTimeOffset.UtcNow;
             connection.Execute(new CommandDefinition("""
                 INSERT INTO profile_view_policies
@@ -92,7 +96,11 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
         return database.ExecuteWriteAsync((connection, transaction, token) =>
         {
             token.ThrowIfCancellationRequested();
-            if (!ProfileExists(connection, transaction, preferences.ProfileId, token)) return false;
+            if (!ProfileExists(connection, transaction, preferences.ProfileId, token))
+            {
+                return false;
+            }
+
             if (preferences.LastScopeProfileId.HasValue
                 && !ProfileExists(connection, transaction, preferences.LastScopeProfileId.Value, token))
             {
@@ -178,7 +186,10 @@ public sealed class ViewProfileRepository(IDatabaseConnection database) : IViewP
 
     private static void ValidateId(Guid value, string parameterName)
     {
-        if (value == Guid.Empty) throw new ArgumentException("Profile ID is required.", parameterName);
+        if (value == Guid.Empty)
+        {
+            throw new ArgumentException("Profile ID is required.", parameterName);
+        }
     }
 
     private sealed class PolicyRow

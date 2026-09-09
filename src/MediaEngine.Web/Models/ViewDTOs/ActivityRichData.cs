@@ -136,9 +136,9 @@ public sealed class ActivityRichData
     public string MatchMethodLabel => MatchMethod switch
     {
         "embedded_metadata" => "Matched from embedded tags",
-        "provider_match"    => "Matched via provider",
+        "provider_match" => "Matched via provider",
         "filename_fallback" => "Matched from filename",
-        _                   => "Unknown match method",
+        _ => "Unknown match method",
     };
 }
 

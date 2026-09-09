@@ -51,9 +51,14 @@ public sealed class ModelAutoDownloadService : BackgroundService
             }
 
             if (AnyTextFeatureEnabled(_settings.Features))
+            {
                 await DownloadIfNeededAsync(AiModelRole.TextQuality, stoppingToken).ConfigureAwait(false);
+            }
+
             if (_settings.AudioPackEnabled)
+            {
                 await DownloadIfNeededAsync(AiModelRole.Audio, stoppingToken).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -73,7 +78,9 @@ public sealed class ModelAutoDownloadService : BackgroundService
     {
         var status = _downloadManager.GetStatus(role);
         if (status.State is AiModelState.Ready or AiModelState.Loaded)
+        {
             return;
+        }
 
         _logger.LogInformation(
             "Downloading selected AI artifact for {Role}: {File} ({SizeMB} MB)",
@@ -83,6 +90,8 @@ public sealed class ModelAutoDownloadService : BackgroundService
         await _downloadManager.StartDownloadAsync(role, ct).ConfigureAwait(false);
         var result = await _downloadManager.WaitForCompletionAsync(role, ct).ConfigureAwait(false);
         if (!result.IsSuccess)
+        {
             _logger.LogWarning("AI artifact download ended as {Outcome}: {Error}", result.Outcome, result.ErrorMessage);
+        }
     }
 }

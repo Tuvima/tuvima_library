@@ -1,6 +1,6 @@
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using MediaEngine.Storage.Contracts;
 using Dapper;
+using MediaEngine.Storage.Contracts;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace MediaEngine.Api.Services.HealthChecks;
 
@@ -14,15 +14,19 @@ public sealed class SqliteHealthCheck(IDatabaseConnection db) : IHealthCheck
             using var conn = db.CreateConnection();
             var integrity = conn.ExecuteScalar<string>("PRAGMA quick_check;");
             if (!string.Equals(integrity, "ok", StringComparison.OrdinalIgnoreCase))
+            {
                 return HealthCheckResult.Unhealthy(
                     $"SQLite quick_check failed: {integrity}",
                     data: DatabaseData(("integrity", integrity ?? "unknown")));
+            }
 
             var foreignKeyFailures = conn.Query("PRAGMA foreign_key_check;").Take(1).Any();
             if (foreignKeyFailures)
+            {
                 return HealthCheckResult.Unhealthy(
                     "SQLite foreign_key_check found an integrity error.",
                     data: DatabaseData(("integrity", "ok"), ("foreign_keys", "failed")));
+            }
 
             var probeTable = $"__tuvima_readiness_write_probe_{Guid.NewGuid():N}";
             await db.ExecuteWriteAsync((writeConnection, transaction, innerCt) =>
@@ -48,7 +52,11 @@ public sealed class SqliteHealthCheck(IDatabaseConnection db) : IHealthCheck
     private static Dictionary<string, object> DatabaseData(params (string Key, object Value)[] values)
     {
         var data = new Dictionary<string, object> { ["category"] = "database", ["required"] = true };
-        foreach (var (key, value) in values) data[key] = value;
+        foreach (var (key, value) in values)
+        {
+            data[key] = value;
+        }
+
         return data;
     }
 }

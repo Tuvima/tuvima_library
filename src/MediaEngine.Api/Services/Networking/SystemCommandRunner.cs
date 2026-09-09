@@ -20,7 +20,9 @@ public sealed class SystemCommandRunner : ICommandRunner
             CreateNoWindow = true,
         };
         foreach (var argument in arguments)
+        {
             startInfo.ArgumentList.Add(argument);
+        }
 
         using var process = new Process { StartInfo = startInfo };
         try

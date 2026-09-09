@@ -162,7 +162,9 @@ public sealed class UiCompositionGuardrailTests
     private static IEnumerable<string> EnumerateTextFiles(string root)
     {
         if (File.Exists(root))
+        {
             return [root];
+        }
 
         return Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
             .Where(path =>

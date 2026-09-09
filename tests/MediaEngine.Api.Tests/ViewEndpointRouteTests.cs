@@ -52,10 +52,18 @@ public sealed class ViewEndpointRouteTests
         Assert.Contains("TryValidateGalleryShares", endpoint, StringComparison.Ordinal);
         Assert.Contains("/admin/profiles/{profileId:guid}/sources", endpoint, StringComparison.Ordinal);
         Assert.Contains("/admin/profiles/{profileId:guid}/reconcile", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/admin/shared/sources\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/admin/shared/sources\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapPut(\"/admin/shared/sources/{sourceId:guid}\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapDelete(\"/admin/shared/sources/{sourceId:guid}\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/admin/shared/reconcile\"", endpoint, StringComparison.Ordinal);
+        Assert.Contains("IViewSharedLibraryRepository shared", endpoint, StringComparison.Ordinal);
         var sourcesRoute = endpoint.IndexOf("/admin/profiles/{profileId:guid}/sources", StringComparison.Ordinal);
         var scanRoute = endpoint.IndexOf("/admin/profiles/{profileId:guid}/reconcile", sourcesRoute, StringComparison.Ordinal);
         Assert.True(sourcesRoute >= 0 && scanRoute > sourcesRoute);
-        Assert.Contains(".RequireAdmin();", endpoint[sourcesRoute..scanRoute], StringComparison.Ordinal);
+        Assert.Contains(".RequireEffectiveAdministrator();", endpoint[sourcesRoute..scanRoute], StringComparison.Ordinal);
+        Assert.DoesNotContain("RequireAnyRole", endpoint, StringComparison.Ordinal);
+        Assert.DoesNotContain("RequireAdmin", endpoint, StringComparison.Ordinal);
         Assert.Contains("new ViewPersonalSpaceAdminReviewDto(profileId, null, [], [])", endpoint, StringComparison.Ordinal);
         Assert.DoesNotContain("ClientDeviceId", endpoint[sourcesRoute..scanRoute], StringComparison.Ordinal);
         Assert.DoesNotContain("Guid? profileId, HttpContext", endpoint, StringComparison.Ordinal);
@@ -69,6 +77,32 @@ public sealed class ViewEndpointRouteTests
         Assert.Contains("AuthorizeOwnedItemAsync", endpoint, StringComparison.Ordinal);
         Assert.Contains("ViewThumbnailService thumbnails", endpoint, StringComparison.Ordinal);
         Assert.Contains("thumbnails.GetOrCreateAsync", endpoint, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AdministratorSourceRoutesRequireTheUnlockedAdministratorPolicy()
+    {
+        var endpoint = File.ReadAllText(FindRepoRoot() +
+            @"\src\MediaEngine.Api\Endpoints\ViewEndpoints.cs");
+        var extensions = File.ReadAllText(FindRepoRoot() +
+            @"\src\MediaEngine.Api\Security\RequestAuthorityServices.cs");
+
+        Assert.Equal(10, Count(endpoint, ".RequireEffectiveAdministrator();"));
+        Assert.Contains("bool surfaceUnlock = true", extensions, StringComparison.Ordinal);
+        Assert.Contains("surfaceUnlock ? AuthPolicies.Administrator", extensions, StringComparison.Ordinal);
+        Assert.Contains("ViewResourceKind.FolderPolicy", endpoint, StringComparison.Ordinal);
+    }
+
+    private static int Count(string source, string value)
+    {
+        var count = 0;
+        for (var index = 0; (index = source.IndexOf(value, index, StringComparison.Ordinal)) >= 0;
+             index += value.Length)
+        {
+            count++;
+        }
+
+        return count;
     }
 
     private static string FindRepoRoot()

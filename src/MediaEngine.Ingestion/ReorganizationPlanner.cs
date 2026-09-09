@@ -81,16 +81,24 @@ public sealed class ReorganizationPlanner : IReorganizationPlanner
             };
 
         if (!string.IsNullOrWhiteSpace(candidate.Error))
+        {
             return Result(ReorganizationDisposition.Error, candidate.Error);
+        }
 
         if (candidate.SizeBytes < 0)
+        {
             return Result(ReorganizationDisposition.Error, "File size cannot be negative.");
+        }
 
         if (!sources.TryGetValue(candidate.SourceId, out var source))
+        {
             return Result(ReorganizationDisposition.Error, "The current source is not part of the plan.");
+        }
 
         if (!sources.TryGetValue(candidate.DestinationSourceId, out var destination))
+        {
             return Result(ReorganizationDisposition.Error, "The destination source is not part of the plan.");
+        }
 
         if (!string.Equals(source.LibraryId, libraryId, StringComparison.OrdinalIgnoreCase)
             || !string.Equals(destination.LibraryId, libraryId, StringComparison.OrdinalIgnoreCase))
@@ -99,25 +107,39 @@ public sealed class ReorganizationPlanner : IReorganizationPlanner
         }
 
         if (!PathSafety.TryNormalizeRoot(source.RootPath, out _, out var sourceRootError))
+        {
             return Result(ReorganizationDisposition.Error, sourceRootError);
+        }
 
         if (!PathSafety.TryNormalizeRoot(destination.RootPath, out _, out var destinationRootError))
+        {
             return Result(ReorganizationDisposition.Error, destinationRootError);
+        }
 
         if (!PathSafety.TryNormalizePath(candidate.CurrentPath, out var currentPath, out var currentError))
+        {
             return Result(ReorganizationDisposition.Error, currentError);
+        }
 
         if (!string.IsNullOrWhiteSpace(candidate.UnresolvedReason) || string.IsNullOrWhiteSpace(candidate.ProposedPath))
+        {
             return Result(ReorganizationDisposition.Unresolved, candidate.UnresolvedReason ?? "No destination path could be resolved.", current: currentPath);
+        }
 
         if (!PathSafety.TryNormalizePath(candidate.ProposedPath, out var proposedPath, out var proposedError))
+        {
             return Result(ReorganizationDisposition.Error, proposedError, current: currentPath);
+        }
 
         if (overlappingSources.Contains(source.SourceId) || overlappingSources.Contains(destination.SourceId))
+        {
             return Result(ReorganizationDisposition.Blocked, "Configured source roots overlap and cannot be reorganized safely.", currentPath, proposedPath);
+        }
 
         if (PathSafety.Comparer.Equals(currentPath, proposedPath))
+        {
             return Result(ReorganizationDisposition.Unchanged, current: currentPath, proposed: proposedPath);
+        }
 
         bool sameParent = PathSafety.Comparer.Equals(
             Path.GetDirectoryName(currentPath) ?? string.Empty,
@@ -131,7 +153,9 @@ public sealed class ReorganizationPlanner : IReorganizationPlanner
             Path = currentPath!,
         });
         if (!sourceDecision.Allowed)
+        {
             return Result(ReorganizationDisposition.Blocked, sourceDecision.Reason, currentPath, proposedPath);
+        }
 
         var destinationDecision = _mutationGate.Evaluate(new SourceMutationRequest
         {
@@ -140,12 +164,16 @@ public sealed class ReorganizationPlanner : IReorganizationPlanner
             Path = proposedPath!,
         });
         if (!destinationDecision.Allowed)
+        {
             return Result(ReorganizationDisposition.Blocked, destinationDecision.Reason, currentPath, proposedPath);
+        }
 
         bool collidesWithExisting = existingPaths.Contains(proposedPath!)
             && !PathSafety.Comparer.Equals(currentPath, proposedPath);
         if (collidesWithExisting || proposedPaths.Contains(proposedPath!))
+        {
             return Result(ReorganizationDisposition.Conflict, "The proposed destination already exists or is used by another planned operation.", currentPath, proposedPath);
+        }
 
         var disposition = sameParent
             ? ReorganizationDisposition.Renamed
@@ -157,7 +185,9 @@ public sealed class ReorganizationPlanner : IReorganizationPlanner
             && remainingBytes.TryGetValue(destination.SourceId, out long availableBytes))
         {
             if (candidate.SizeBytes > availableBytes)
+            {
                 return Result(ReorganizationDisposition.Blocked, "The destination does not have enough available disk space.", currentPath, proposedPath);
+            }
 
             remainingBytes[destination.SourceId] = availableBytes - candidate.SizeBytes;
         }
@@ -175,7 +205,9 @@ public sealed class ReorganizationPlanner : IReorganizationPlanner
             ArgumentNullException.ThrowIfNull(source);
             ArgumentException.ThrowIfNullOrWhiteSpace(source.SourceId);
             if (!result.TryAdd(source.SourceId, source))
+            {
                 throw new ArgumentException($"Duplicate source identity '{source.SourceId}' is not allowed.", nameof(sources));
+            }
         }
 
         return result;
@@ -187,7 +219,9 @@ public sealed class ReorganizationPlanner : IReorganizationPlanner
         foreach (var path in existingPaths)
         {
             if (PathSafety.TryNormalizePath(path, out var normalized, out _))
+            {
                 result.Add(normalized!);
+            }
         }
 
         return result;
@@ -201,7 +235,9 @@ public sealed class ReorganizationPlanner : IReorganizationPlanner
         foreach (var source in sources)
         {
             if (PathSafety.TryNormalizeRoot(source.RootPath, out var root, out _))
+            {
                 normalized.Add((source.SourceId, root!));
+            }
         }
 
         for (int first = 0; first < normalized.Count; first++)
@@ -209,7 +245,9 @@ public sealed class ReorganizationPlanner : IReorganizationPlanner
             for (int second = first + 1; second < normalized.Count; second++)
             {
                 if (string.Equals(normalized[first].Id, normalized[second].Id, StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
 
                 if (PathSafety.Overlaps(normalized[first].Root, normalized[second].Root))
                 {

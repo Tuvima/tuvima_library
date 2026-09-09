@@ -1,16 +1,16 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 #pragma warning disable CS0618 // suppress obsolete warnings in test stubs
 
 namespace MediaEngine.Providers.Tests;
@@ -42,12 +42,12 @@ public sealed class AdapterFallbackTests
 
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "Dune",
-            Author     = "Frank Herbert",
-            BaseUrl    = "https://itunes.apple.com",
+            MediaType = MediaType.Books,
+            Title = "Dune",
+            Author = "Frank Herbert",
+            BaseUrl = "https://itunes.apple.com",
         };
 
         // Act
@@ -236,7 +236,9 @@ public sealed class AdapterFallbackTests
                 requestedUrls.Add(url);
 
                 if (url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(emptyLookupResponse);
+                }
 
                 return JsonResponse(url.Contains("country=gb", StringComparison.OrdinalIgnoreCase)
                     ? gbExactResponse
@@ -402,12 +404,12 @@ public sealed class AdapterFallbackTests
 
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Comics,
-            Title      = "Batman: Year One Part 1",
-            Series     = "Batman",
-            BaseUrl    = "https://comicvine.gamespot.com/api",
+            MediaType = MediaType.Comics,
+            Title = "Batman: Year One Part 1",
+            Series = "Batman",
+            BaseUrl = "https://comicvine.gamespot.com/api",
         };
 
         var claims = await adapter.FetchAsync(request);
@@ -694,9 +696,15 @@ public sealed class AdapterFallbackTests
             {
                 var url = request.RequestUri?.ToString() ?? string.Empty;
                 if (url.Contains("/volume/4050-900/", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(olderVolumeResponse);
+                }
+
                 if (url.Contains("/volume/4050-1234/", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(currentVolumeResponse);
+                }
+
                 return JsonResponse(issueResponse);
             }));
 
@@ -801,11 +809,20 @@ public sealed class AdapterFallbackTests
             {
                 var url = request.RequestUri?.ToString() ?? string.Empty;
                 if (url.Contains("resources=volume", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(volumeSearchResponse);
+                }
+
                 if (url.Contains("/issues/", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(runScopedIssueResponse);
+                }
+
                 if (url.Contains("/volume/4050-46568/", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(originalVolumeResponse);
+                }
+
                 return JsonResponse(issueSearchResponse);
             }));
 
@@ -870,11 +887,20 @@ public sealed class AdapterFallbackTests
                         """);
                 }
                 if (url.Contains("resources=volume", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse("""{ "results": [{ "id": 900, "name": "Saga", "count_of_issues": 2, "start_year": "2012" }] }""");
+                }
+
                 if (url.Contains("/volume/4050-900/", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse("""{ "results": { "id": 900, "name": "Saga", "count_of_issues": 2, "start_year": "2012" } }""");
+                }
+
                 if (url.Contains("/issues/", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse($$"""{ "results": [{{issue}}] }""");
+                }
+
                 return JsonResponse($$"""{ "results": [{{issue}}] }""");
             }));
         var adapter = new ConfigDrivenAdapter(
@@ -986,13 +1012,25 @@ public sealed class AdapterFallbackTests
                 var url = request.RequestUri?.ToString() ?? string.Empty;
                 requestedUrls.Add(url);
                 if (url.Contains("resources=volume", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(volumeSearchResponse);
+                }
+
                 if (url.Contains("filter=volume:100", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(emptyIssueResponse);
+                }
+
                 if (url.Contains("filter=volume:200", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(originalRunIssueResponse);
+                }
+
                 if (url.Contains("/volume/4050-200/", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(originalVolumeResponse);
+                }
+
                 return JsonResponse(issueSearchResponse);
             }));
 
@@ -1063,9 +1101,15 @@ public sealed class AdapterFallbackTests
             {
                 var url = request.RequestUri?.ToString() ?? string.Empty;
                 if (url.Contains("resources=volume", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(volumeSearchResponse);
+                }
+
                 if (url.Contains("/volume/4050-555/", StringComparison.OrdinalIgnoreCase))
+                {
                     return JsonResponse(volumeDetailResponse);
+                }
+
                 return JsonResponse(issueSearchResponse);
             }));
 
@@ -1743,7 +1787,10 @@ public sealed class AdapterFallbackTests
         while (dir != null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
         throw new InvalidOperationException("Could not find repository root (.git directory)");
@@ -1787,7 +1834,7 @@ public sealed class AdapterFallbackTests
     /// </summary>
     private static IHttpClientFactory BuildTimeoutFactory(string clientName)
     {
-        var handler  = new TimeoutStubHttpMessageHandler();
+        var handler = new TimeoutStubHttpMessageHandler();
         var services = new ServiceCollection();
         services.AddHttpClient(clientName)
                 .ConfigurePrimaryHttpMessageHandler(() => handler);
@@ -1811,7 +1858,7 @@ file sealed class StubHttpMessageHandler : HttpMessageHandler
         Action<HttpRequestMessage>? onRequest = null)
     {
         _statusCode = statusCode;
-        _onRequest  = onRequest;
+        _onRequest = onRequest;
     }
 
     protected override Task<HttpResponseMessage> SendAsync(

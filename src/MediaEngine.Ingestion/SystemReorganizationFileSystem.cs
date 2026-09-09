@@ -12,7 +12,9 @@ public sealed class SystemReorganizationFileSystem : IReorganizationFileSystem
     {
         var root = Path.GetPathRoot(destinationPath);
         if (string.IsNullOrWhiteSpace(root))
+        {
             throw new IOException("The destination volume could not be resolved.");
+        }
 
         return new DriveInfo(root).AvailableFreeSpace;
     }

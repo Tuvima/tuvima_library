@@ -11,8 +11,8 @@ namespace MediaEngine.Contracts.LocalAssets;
 public sealed record LocalAssetDto(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("library_id")] Guid LibraryId,
-    [property: JsonPropertyName("personal_space_id")] Guid PersonalSpaceId,
-    [property: JsonPropertyName("owner_profile_id")] Guid OwnerProfileId,
+    [property: JsonPropertyName("personal_space_id")] Guid? PersonalSpaceId,
+    [property: JsonPropertyName("owner_profile_id")] Guid? OwnerProfileId,
     [property: JsonPropertyName("media_kind")] string MediaKind,
     [property: JsonPropertyName("title")] string? Title,
     [property: JsonPropertyName("file_name")] string FileName,
@@ -36,7 +36,8 @@ public sealed record LocalAssetDto(
     [property: JsonPropertyName("files")] IReadOnlyList<LocalAssetFileDto> Files,
     [property: JsonPropertyName("tags")] IReadOnlyList<string> Tags,
     [property: JsonPropertyName("thumbnail_url")] string ThumbnailUrl,
-    [property: JsonPropertyName("content_url")] string ContentUrl);
+    [property: JsonPropertyName("content_url")] string ContentUrl,
+    [property: JsonPropertyName("scope_kind")] string ScopeKind = "personal");
 
 public sealed record LocalAssetFileDto(
     [property: JsonPropertyName("id")] Guid Id,
@@ -219,17 +220,6 @@ public sealed record ViewDeviceAdminDto(
     [property: JsonPropertyName("backup_state")] string BackupState,
     [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
     [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt);
-
-public sealed record ViewLibrarySummaryDto(
-    [property: JsonPropertyName("id")] Guid Id,
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("presentation")] string Presentation,
-    [property: JsonPropertyName("visibility")] string Visibility,
-    [property: JsonPropertyName("item_count")] int ItemCount,
-    [property: JsonPropertyName("image_count")] int ImageCount,
-    [property: JsonPropertyName("video_count")] int VideoCount,
-    [property: JsonPropertyName("document_count")] int DocumentCount,
-    [property: JsonPropertyName("audio_count")] int AudioCount);
 
 public sealed record LocalAssetScanResultDto(
     [property: JsonPropertyName("library_id")] Guid LibraryId,

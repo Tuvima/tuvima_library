@@ -3,6 +3,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @inject IEngineApiClient Api
 @inject UIOrchestratorService Orchestrator
+@inject DashboardSessionAccessor Session
 <AppDialog>
     <DialogContent>
         @if (_loading) { <p>Loading available destinations...</p> }
@@ -27,7 +28,7 @@
         var profile = await Orchestrator.GetActiveProfileAsync();
         var collections = await Api.GetManagedCollectionsAsync();
         _options = collections.Where(c => c.CanEdit && c.Resolution.Equals("materialized", StringComparison.OrdinalIgnoreCase)
-            && (Playlist ? c.CollectionType == "Playlist" : profile?.Role == "Administrator" && c.CollectionType == "Custom"))
+            && (Playlist ? c.CollectionType == "Playlist" : Session.HasAction("access.manage") && c.CollectionType == "Custom"))
             .Select(c => new AppSelectOption(c.Id.ToString("D"), c.Name)).ToList();
         _loading = false;
     }

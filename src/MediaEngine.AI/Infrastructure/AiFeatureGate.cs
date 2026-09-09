@@ -41,7 +41,10 @@ public sealed class AiFeatureGate
     public bool CanExecute(AiFeature feature, AiModelRole role)
     {
         if (!IsEnabled(feature) || !_advisor.GetDecision(role).CanEnable)
+        {
             return false;
+        }
+
         return _inventory.GetState(role) is AiModelState.Ready or AiModelState.Loaded;
     }
 }

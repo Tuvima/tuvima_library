@@ -1,6 +1,6 @@
 # Antigravity ↔ Claude Code — Sync Map
 
-> **Last synced:** 2026-09-08
+> **Last synced:** 2026-09-09
 >
 > **Canonical source of truth:** `CLAUDE.md` (repo root)
 >
@@ -25,7 +25,7 @@
 | `features/METADATA-MANAGEMENT.md` | §3.2 (Weighted Voter), §3.6 (Metadata Adapters) | Claim system, trust weights, provider config |
 | `features/METADATA-PRIORITY.md` | §3.6 (Metadata Adapters) | Provider priority, field weights, harvest pipeline |
 | `features/API-SECURITY.md` | §3.3 (Security) | Auth, rate limiting, path traversal, SignalR auth |
-| `features/ROLE-ACCESS-MODEL.md` | §3.3 (Security) | Role-based authorization model |
+| `features/ROLE-ACCESS-MODEL.md` | §3.3 (Security) | Account, profile grant, and Application authority |
 | `features/LIBRARY-DASHBOARD.md` | §3.11 (Settings), §6 (Dashboard UI) | Current Home, Read, Watch, Listen, Collections, Search, detail pages, inline editing, Review Queue, and Settings/Admin model |
 | `features/SETTINGS-OVERVIEW.md` | §3.8 (Activity Ledger), §3.12 (Device Profiles) | Settings pages, activity timeline, device cascade |
 | `features/REALTIME-INTERCOM.md` | §3.4 (Dashboard UI — Real-time updates) | SignalR events, live dashboard updates |

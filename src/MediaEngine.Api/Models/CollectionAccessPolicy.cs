@@ -18,34 +18,46 @@ public static class CollectionAccessPolicy
             ? SharedVisibility
             : PrivateVisibility;
 
-    public static bool CanManageSharedCollections(Profile? profile) =>
-        profile?.Role is ProfileRole.Administrator or ProfileRole.StandardUser;
+    public static bool CanManageSharedCollections(bool hasCollectionsWrite) =>
+        hasCollectionsWrite;
 
-    public static bool CanManageCuratedCollections(Profile? profile) =>
-        profile?.Role is ProfileRole.Administrator;
+    public static bool CanManageCuratedCollections(bool hasCollectionsWrite) =>
+        hasCollectionsWrite;
 
     public static bool CanAccess(Collection collection, Profile? activeProfile)
     {
         if (collection.Scope == CollectionScope.Library)
+        {
             return true;
+        }
 
         return activeProfile is not null
             && collection.Scope == CollectionScope.User
             && collection.ProfileId == activeProfile.Id;
     }
 
-    public static bool CanEdit(Collection collection, Profile? activeProfile)
+    public static bool CanEdit(
+        Collection collection,
+        Profile? activeProfile,
+        bool hasCollectionsWrite)
     {
-        if (activeProfile is null)
+        if (!hasCollectionsWrite)
+        {
             return false;
+        }
 
         if (collection.CollectionType == CollectionType.Custom)
-            return CanManageCuratedCollections(activeProfile);
+        {
+            return CanManageCuratedCollections(hasCollectionsWrite);
+        }
 
         if (collection.Scope == CollectionScope.Library)
-            return CanManageSharedCollections(activeProfile);
+        {
+            return CanManageSharedCollections(hasCollectionsWrite);
+        }
 
-        return collection.Scope == CollectionScope.User
+        return activeProfile is not null
+            && collection.Scope == CollectionScope.User
             && collection.ProfileId == activeProfile.Id;
     }
 

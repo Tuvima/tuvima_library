@@ -1,8 +1,10 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
+@inject DashboardSessionAccessor Session
 @inject ISnackbar Snackbar
 
 <div class="tl-page user-overview-page user-overview-page--refined">
@@ -91,7 +93,7 @@
                                 </MudStack>
                             }
 
-                            <MudText Typo="Typo.body1" Class="user-overview-role">@profile.Role</MudText>
+                            <MudText Typo="Typo.body1" Class="user-overview-role">@(Session.Authority?.EffectiveAdministrator == true ? "Administrator" : "Profile")</MudText>
                             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="user-overview-joined">Joined @profile.CreatedAt.ToLocalTime().ToString("MMMM yyyy")</MudText>
                         </MudStack>
                     <AppButton Label="Edit profile"
@@ -386,7 +388,6 @@
             current.Id,
             _displayName.Trim(),
             current.AvatarColor,
-            current.Role,
             current.NavigationConfig);
 
         if (ok)

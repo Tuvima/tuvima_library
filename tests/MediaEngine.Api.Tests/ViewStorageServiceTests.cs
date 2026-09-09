@@ -42,7 +42,7 @@ public sealed class ViewStorageServiceTests : IDisposable
         _database = new DatabaseConnection(Path.Combine(_root, "view.db"));
         _database.InitializeSchema();
         _spaces = new ViewPersonalSpaceRepository(_database);
-        _service = new ViewStorageService(_configuration, _spaces);
+        _service = new ViewStorageService(_configuration, _spaces, new ViewSharedLibraryRepository(_database));
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public sealed class ViewStorageServiceTests : IDisposable
     private async Task<Guid> AddProfileAsync()
     {
         var profileId = Guid.NewGuid();
-        await new ProfileRepository(_database).InsertAsync(new Profile
+        await ProfileTestData.InsertAsync(_database, new Profile
         {
             Id = profileId,
             DisplayName = "View owner",
@@ -171,6 +171,9 @@ public sealed class ViewStorageServiceTests : IDisposable
         _configuration.Dispose();
         _database.Dispose();
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        if (Directory.Exists(_root))
+        {
+            Directory.Delete(_root, recursive: true);
+        }
     }
 }

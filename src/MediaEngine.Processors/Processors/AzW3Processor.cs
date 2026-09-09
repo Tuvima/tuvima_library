@@ -1,5 +1,5 @@
-using System.Xml.Linq;
 using System.Xml;
+using System.Xml.Linq;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
@@ -22,7 +22,9 @@ public sealed class AzW3Processor : IMediaProcessor
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         ct.ThrowIfCancellationRequested();
         if (!HasBookMobiHeader(filePath))
+        {
             return Task.FromResult(ProcessorResultFactory.Corrupt(filePath, MediaType.Books, "The AZW3 file does not contain a BOOKMOBI header."));
+        }
 
         var claims = new List<ExtractedClaim>
         {
@@ -34,7 +36,9 @@ public sealed class AzW3Processor : IMediaProcessor
         var directory = Path.GetDirectoryName(filePath)!;
         var opfPath = Directory.EnumerateFiles(directory, "*.opf").FirstOrDefault();
         if (opfPath is not null)
+        {
             ReadOpf(opfPath, claims);
+        }
 
         var coverPath = Directory.EnumerateFiles(directory)
             .FirstOrDefault(path => Path.GetFileNameWithoutExtension(path).Equals("cover", StringComparison.OrdinalIgnoreCase)
@@ -58,7 +62,10 @@ public sealed class AzW3Processor : IMediaProcessor
     {
         Span<byte> header = stackalloc byte[68];
         if (!ProcessorHeaderReader.TryRead(filePath, header, out var read) || read < header.Length)
+        {
             return false;
+        }
+
         return header[60..68].SequenceEqual("BOOKMOBI"u8);
     }
 
@@ -79,7 +86,9 @@ public sealed class AzW3Processor : IMediaProcessor
             {
                 var value = document.Descendants().FirstOrDefault(element => element.Name.LocalName == elementName)?.Value?.Trim();
                 if (!string.IsNullOrWhiteSpace(value))
+                {
                     claims.Add(ProcessorClaimFactory.Create(claimKey, value, confidence));
+                }
             }
         }
         catch (XmlException)

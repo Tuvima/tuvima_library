@@ -29,7 +29,8 @@ public interface ILibraryWorkFeedReadService
 {
     Task<PagedResponse<LibraryWorkListItemDto>> GetWorksAsync(
         PagedRequest page,
-        CancellationToken ct = default);
+        CancellationToken ct = default,
+        IReadOnlySet<Guid>? allowedWorkIds = null);
 }
 
 public interface IWorkDetailReadService

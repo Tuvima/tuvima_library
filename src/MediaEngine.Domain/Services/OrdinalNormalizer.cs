@@ -22,14 +22,18 @@ public static partial class OrdinalNormalizer
         }
 
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return new OrdinalNormalizationResult(null, null, null);
+        }
 
         var trimmed = raw.Trim();
         var format = InferFormat(trimmed);
 
         var annual = AnnualPattern().Match(trimmed);
         if (annual.Success && TryParseNumber(annual.Groups["value"].Value, out var annualSort))
+        {
             return new OrdinalNormalizationResult(annual.Groups["value"].Value, 10000d + annualSort, SequenceFormat.Annual);
+        }
 
         var fractionMatch = FractionPattern().Match(trimmed);
         if (fractionMatch.Success)
@@ -44,7 +48,9 @@ public static partial class OrdinalNormalizer
 
         var numberMatch = NumberPattern().Match(trimmed);
         if (numberMatch.Success && TryParseNumber(numberMatch.Groups["value"].Value, out var sortValue))
+        {
             return new OrdinalNormalizationResult(numberMatch.Groups["value"].Value.TrimStart('#'), sortValue, format);
+        }
 
         return new OrdinalNormalizationResult(trimmed, null, format);
     }
@@ -61,7 +67,9 @@ public static partial class OrdinalNormalizer
     public static int? IntegerOrdinal(double? ordinalSort)
     {
         if (ordinalSort is null)
+        {
             return null;
+        }
 
         var rounded = Math.Round(ordinalSort.Value, MidpointRounding.AwayFromZero);
         return Math.Abs(ordinalSort.Value - rounded) < 0.0001d
@@ -72,12 +80,21 @@ public static partial class OrdinalNormalizer
     private static SequenceFormat? InferFormat(string value)
     {
         if (value.Contains("annual", StringComparison.OrdinalIgnoreCase))
+        {
             return SequenceFormat.Annual;
+        }
+
         if (value.Contains("special", StringComparison.OrdinalIgnoreCase))
+        {
             return SequenceFormat.Special;
+        }
+
         if (value.Contains("one-shot", StringComparison.OrdinalIgnoreCase) ||
             value.Contains("one shot", StringComparison.OrdinalIgnoreCase))
+        {
             return SequenceFormat.OneShot;
+        }
+
         return null;
     }
 
@@ -91,7 +108,9 @@ public static partial class OrdinalNormalizer
     private static int? ParseLeadingInt(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return null;
+        }
 
         var match = LeadingIntPattern().Match(raw);
         return match.Success && int.TryParse(match.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)

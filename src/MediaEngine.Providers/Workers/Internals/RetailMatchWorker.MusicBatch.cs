@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -13,7 +14,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -178,10 +178,12 @@ public sealed partial class RetailMatchWorker
     {
         // Mark all jobs as searching.
         foreach (var job in groupJobs)
+        {
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailSearching, ct: ct);
+        }
 
         var hydrationConfig = GetExecutionSnapshot().Hydration;
-        var retailAcceptThreshold   = hydrationConfig.RetailAutoAcceptThreshold;
+        var retailAcceptThreshold = hydrationConfig.RetailAutoAcceptThreshold;
         var retailAmbiguousThreshold = hydrationConfig.RetailAmbiguousThreshold;
 
         var orderedGroupJobs = groupJobs
@@ -193,8 +195,8 @@ public sealed partial class RetailMatchWorker
 
         var representativeHints = jobHints[orderedGroupJobs[0].EntityId];
         var artist = GetMusicCreatorHint(representativeHints);
-        var album  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Album);
-        var title  = representativeHints.GetValueOrDefault(MetadataFieldConstants.Title);
+        var album = representativeHints.GetValueOrDefault(MetadataFieldConstants.Album);
+        var title = representativeHints.GetValueOrDefault(MetadataFieldConstants.Title);
         var (lang, musicCountry, _) = GetConfiguredLocale();
         var country = musicCountry;
 
@@ -289,11 +291,15 @@ public sealed partial class RetailMatchWorker
                 var currentHints = jobHints[job.EntityId];
                 var currentTitle = currentHints.GetValueOrDefault(MetadataFieldConstants.Title);
                 if (string.IsNullOrWhiteSpace(currentTitle))
+                {
                     continue;
+                }
 
                 var match = await _appleClient.SearchTrackAsync(artist, currentTitle, album, country, lang, ct);
                 if (match is null)
+                {
                     continue;
+                }
 
                 trackSearchEvidence.Add(new MusicGroupTrackSearchEvidence(job.EntityId, currentTitle, match));
             }
@@ -432,9 +438,9 @@ public sealed partial class RetailMatchWorker
         double retailAmbiguousThreshold,
         CancellationToken ct)
     {
-        var fileTitle       = fileHints.GetValueOrDefault(MetadataFieldConstants.Title);
+        var fileTitle = fileHints.GetValueOrDefault(MetadataFieldConstants.Title);
         var fileTrackNumber = fileHints.GetValueOrDefault(MetadataFieldConstants.TrackNumber);
-        var fileDiscNumber  = fileHints.GetValueOrDefault("disc_number");
+        var fileDiscNumber = fileHints.GetValueOrDefault("disc_number");
 
         var hasFileDuration = TryGetDurationSeconds(fileHints, out var fileDurationSeconds);
 
@@ -448,7 +454,7 @@ public sealed partial class RetailMatchWorker
         {
             var trackNumNode = track["trackNumber"]?.GetValue<long?>() is { } tn ? tn.ToString() : null;
             var discNumNode = track["discNumber"]?.GetValue<long?>() is { } dn ? dn.ToString() : null;
-            var trackName    = track["trackName"]?.GetValue<string>();
+            var trackName = track["trackName"]?.GetValue<string>();
             var candidateHasDurationForMatch = TryGetDurationSeconds(track["trackTimeMillis"]?.GetValue<long?>(), out var candidateDurationSecondsForMatch);
             var trackNumberMatchesForMatch = !string.IsNullOrWhiteSpace(fileTrackNumber)
                 && !string.IsNullOrWhiteSpace(trackNumNode)
@@ -465,14 +471,22 @@ public sealed partial class RetailMatchWorker
                 : 0.0;
 
             if (trackNumberMatchesForMatch && discNumberMatchesForMatch)
+            {
                 matchScore += string.IsNullOrWhiteSpace(fileTitle) ? 0.70 : 0.25;
+            }
             else if (!string.IsNullOrWhiteSpace(fileTrackNumber) && !string.IsNullOrWhiteSpace(trackNumNode))
+            {
                 matchScore -= discNumberMatchesForMatch ? 0.10 : 0.25;
+            }
 
             if (durationCorroboratesForMatch)
+            {
                 matchScore += 0.15;
+            }
             else if (trackNumberMatchesForMatch && !durationCorroboratesForMatch && hasFileDuration && candidateHasDurationForMatch)
+            {
                 matchScore -= 0.10;
+            }
 
             matchScore = Math.Clamp(matchScore, 0.0, 1.0);
 
@@ -502,9 +516,9 @@ public sealed partial class RetailMatchWorker
         // Build claims from the matched track node.
         var claims = BuildMusicTrackClaims(bestTrack, collectionId);
 
-        var candidateTitle  = bestTrack["trackName"]?.GetValue<string>();
+        var candidateTitle = bestTrack["trackName"]?.GetValue<string>();
         var candidateAuthor = bestTrack["artistName"]?.GetValue<string>();
-        var candidateYear   = bestTrack["releaseDate"]?.GetValue<string>()?.Length >= 4
+        var candidateYear = bestTrack["releaseDate"]?.GetValue<string>()?.Length >= 4
             ? bestTrack["releaseDate"]!.GetValue<string>()![..4]
             : null;
         var candidateTrackCount = bestTrack["trackCount"]?.GetValue<long?>();
@@ -554,15 +568,15 @@ public sealed partial class RetailMatchWorker
 
         var candidate = new RetailMatchCandidate
         {
-            JobId            = job.Id,
-            ProviderId       = providerId,
-            ProviderName     = "apple_api",
-            ProviderItemId   = bestTrack["trackId"]?.GetValue<long?>()?.ToString(),
-            Rank             = 1,
-            Title            = candidateTitle ?? "(unknown)",
-            Creator          = candidateAuthor,
-            Year             = candidateYear,
-            ScoreTotal       = decision.FinalScore,
+            JobId = job.Id,
+            ProviderId = providerId,
+            ProviderName = "apple_api",
+            ProviderItemId = bestTrack["trackId"]?.GetValue<long?>()?.ToString(),
+            Rank = 1,
+            Title = candidateTitle ?? "(unknown)",
+            Creator = candidateAuthor,
+            Year = candidateYear,
+            ScoreTotal = decision.FinalScore,
             ScoreBreakdownJson = _candidateScorer.BuildScoreBreakdownJson(
                 retailScore,
                 decision,
@@ -580,9 +594,9 @@ public sealed partial class RetailMatchWorker
                     ["file_duration_seconds"] = hasFileDuration ? fileDurationSeconds : null,
                     ["candidate_duration_seconds"] = hasCandidateDuration ? candidateDurationSeconds : null,
                 }),
-            BridgeIdsJson    = bridgeIdsJson,
-            ImageUrl         = RetailRequestBuilder.BuildAppleCoverUrl(bestTrack["artworkUrl100"]?.GetValue<string>()),
-            Outcome          = decision.Outcome,
+            BridgeIdsJson = bridgeIdsJson,
+            ImageUrl = RetailRequestBuilder.BuildAppleCoverUrl(bestTrack["artworkUrl100"]?.GetValue<string>()),
+            Outcome = decision.Outcome,
         };
 
         await _candidateRepo.InsertBatchAsync([candidate], ct);
@@ -609,14 +623,16 @@ public sealed partial class RetailMatchWorker
                 .Where(c => BridgeIdHelper.IsBridgeId(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
                 .Select(c => new BridgeIdEntry
                 {
-                    EntityId   = ResolveBridgeIdEntityId(lineage, job.EntityId, c.Key),
-                    IdType     = c.Key,
-                    IdValue    = c.Value,
+                    EntityId = ResolveBridgeIdEntityId(lineage, job.EntityId, c.Key),
+                    IdType = c.Key,
+                    IdValue = c.Value,
                     ProviderId = providerId.ToString(),
                 }).ToList();
 
             if (bridgeEntries.Count > 0)
+            {
                 await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct);
+            }
         }
 
         if (decision.Outcome == "AutoAccepted")
@@ -636,8 +652,10 @@ public sealed partial class RetailMatchWorker
                     job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct)
                     .ConfigureAwait(false);
                 if (_coverArtWorker is not null)
+                {
                     await _coverArtWorker.DownloadAndPersistAsync(job.EntityId, wikidataQid: null, ct)
                         .ConfigureAwait(false);
+                }
             }
             catch (Exception orgEx) when (orgEx is not OperationCanceledException)
             {
@@ -685,18 +703,22 @@ public sealed partial class RetailMatchWorker
         void Add(string key, string? value, double confidence)
         {
             if (!string.IsNullOrWhiteSpace(value))
+            {
                 claims.Add(new ProviderClaim(key, value, confidence));
+            }
         }
 
-        Add(MetadataFieldConstants.Title,              track["trackName"]?.GetValue<string>(),               0.80);
-        Add(MetadataFieldConstants.Author,             track["artistName"]?.GetValue<string>(),              0.80);
-        Add(MetadataFieldConstants.Artist,             track["artistName"]?.GetValue<string>(),              0.80);
-        Add(MetadataFieldConstants.Album,              track["collectionName"]?.GetValue<string>(),          0.85);
-        Add(MetadataFieldConstants.Genre,              track["primaryGenreName"]?.GetValue<string>(),        0.70);
+        Add(MetadataFieldConstants.Title, track["trackName"]?.GetValue<string>(), 0.80);
+        Add(MetadataFieldConstants.Author, track["artistName"]?.GetValue<string>(), 0.80);
+        Add(MetadataFieldConstants.Artist, track["artistName"]?.GetValue<string>(), 0.80);
+        Add(MetadataFieldConstants.Album, track["collectionName"]?.GetValue<string>(), 0.85);
+        Add(MetadataFieldConstants.Genre, track["primaryGenreName"]?.GetValue<string>(), 0.70);
 
         var releaseDate = track["releaseDate"]?.GetValue<string>();
         if (!string.IsNullOrWhiteSpace(releaseDate) && releaseDate.Length >= 4)
+        {
             Add(MetadataFieldConstants.Year, releaseDate[..4], 0.80);
+        }
 
         Add(MetadataFieldConstants.TrackNumber,
             track["trackNumber"]?.GetValue<long?>()?.ToString(), 0.90);
@@ -726,7 +748,9 @@ public sealed partial class RetailMatchWorker
         // Cover art — scale up from 100px to full-res.
         var artworkUrl = RetailRequestBuilder.BuildAppleCoverUrl(track["artworkUrl100"]?.GetValue<string>());
         if (!string.IsNullOrWhiteSpace(artworkUrl))
+        {
             claims.Add(new ProviderClaim(MetadataFieldConstants.CoverUrl, artworkUrl, 0.90));
+        }
 
         return claims;
     }

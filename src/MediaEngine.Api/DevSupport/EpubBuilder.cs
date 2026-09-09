@@ -20,7 +20,7 @@ public static class EpubBuilder
         string title,
         string author,
         string isbn,
-        int    year,
+        int year,
         string description,
         string? publisher = null,
         string language = "en",
@@ -183,7 +183,7 @@ public static class EpubBuilder
     {
         // Generate a unique but deterministic colour from the title hash.
         int hash = title.GetHashCode(StringComparison.Ordinal);
-        int hue  = Math.Abs(hash) % 360;
+        int hue = Math.Abs(hash) % 360;
         string colour1 = $"hsl({hue}, 60%, 30%)";
         string colour2 = $"hsl({(hue + 40) % 360}, 50%, 20%)";
 
@@ -233,10 +233,17 @@ public static class EpubBuilder
                 lines.Add(current.ToString());
                 current.Clear();
             }
-            if (current.Length > 0) current.Append(' ');
+            if (current.Length > 0)
+            {
+                current.Append(' ');
+            }
+
             current.Append(word);
         }
-        if (current.Length > 0) lines.Add(current.ToString());
+        if (current.Length > 0)
+        {
+            lines.Add(current.ToString());
+        }
 
         var sb = new StringBuilder();
         for (int i = 0; i < lines.Count; i++)

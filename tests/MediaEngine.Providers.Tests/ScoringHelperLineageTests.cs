@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -9,7 +10,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
 namespace MediaEngine.Providers.Tests;
@@ -57,19 +57,19 @@ public sealed class ScoringHelperLineageTests
     public async Task StandaloneMovie_PartitionsClaimsBetweenAssetAndWork()
     {
         var assetId = Guid.NewGuid();
-        var workId  = Guid.NewGuid();   // parent collapses to self for standalone movies
+        var workId = Guid.NewGuid();   // parent collapses to self for standalone movies
         var providerId = Guid.NewGuid();
         var claimRepo = new RecordingClaimRepository();
         var canonicalRepo = new RecordingCanonicalRepository();
 
         var lineage = new WorkLineage(
-            AssetId:          assetId,
-            EditionId:        Guid.NewGuid(),
-            WorkId:           workId,
-            ParentWorkId:     null,
+            AssetId: assetId,
+            EditionId: Guid.NewGuid(),
+            WorkId: workId,
+            ParentWorkId: null,
             RootParentWorkId: workId,        // standalone — parent collapses to the movie's own Work
-            WorkKind:         WorkKind.Standalone,
-            MediaType:        MediaType.Movies);
+            WorkKind: WorkKind.Standalone,
+            MediaType: MediaType.Movies);
 
         var claims = new[]
         {
@@ -107,20 +107,20 @@ public sealed class ScoringHelperLineageTests
     {
         var assetId = Guid.NewGuid();
         var episodeWorkId = Guid.NewGuid();
-        var showWorkId    = Guid.NewGuid();
-        var providerId    = Guid.NewGuid();
+        var showWorkId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
 
-        var claimRepo     = new RecordingClaimRepository();
+        var claimRepo = new RecordingClaimRepository();
         var canonicalRepo = new RecordingCanonicalRepository();
 
         var lineage = new WorkLineage(
-            AssetId:          assetId,
-            EditionId:        Guid.NewGuid(),
-            WorkId:           episodeWorkId,
-            ParentWorkId:     Guid.NewGuid(),  // season
+            AssetId: assetId,
+            EditionId: Guid.NewGuid(),
+            WorkId: episodeWorkId,
+            ParentWorkId: Guid.NewGuid(),  // season
             RootParentWorkId: showWorkId,       // show
-            WorkKind:         WorkKind.Child,
-            MediaType:        MediaType.TV);
+            WorkKind: WorkKind.Child,
+            MediaType: MediaType.TV);
 
         var claims = new[]
         {
@@ -176,19 +176,19 @@ public sealed class ScoringHelperLineageTests
         var assetId = Guid.NewGuid();
         var trackWorkId = Guid.NewGuid();
         var albumWorkId = Guid.NewGuid();
-        var providerId  = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
 
-        var claimRepo     = new RecordingClaimRepository();
+        var claimRepo = new RecordingClaimRepository();
         var canonicalRepo = new RecordingCanonicalRepository();
 
         var lineage = new WorkLineage(
-            AssetId:          assetId,
-            EditionId:        Guid.NewGuid(),
-            WorkId:           trackWorkId,
-            ParentWorkId:     albumWorkId,
+            AssetId: assetId,
+            EditionId: Guid.NewGuid(),
+            WorkId: trackWorkId,
+            ParentWorkId: albumWorkId,
             RootParentWorkId: albumWorkId,
-            WorkKind:         WorkKind.Child,
-            MediaType:        MediaType.Music);
+            WorkKind: WorkKind.Child,
+            MediaType: MediaType.Music);
 
         var claims = new[]
         {

@@ -63,11 +63,16 @@ public sealed class LocalDiscoveryHostedService : BackgroundService
             {
                 var query = await client.ReceiveAsync(ct);
                 if (!_configuration.LoadNetwork().Local.DiscoveryEnabled)
+                {
                     continue;
+                }
+
                 var ascii = Encoding.ASCII.GetString(query.Buffer);
                 if (ascii.Contains("_tuvima", StringComparison.OrdinalIgnoreCase)
                     || ascii.Contains(_configuration.LoadNetwork().Local.PreferredServerName, StringComparison.OrdinalIgnoreCase))
+                {
                     await AnnounceAsync(client, ct);
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -84,10 +89,16 @@ public sealed class LocalDiscoveryHostedService : BackgroundService
     {
         var settings = _configuration.LoadNetwork();
         if (!settings.Local.DiscoveryEnabled)
+        {
             return;
+        }
+
         var address = _environment.GetUsableAddresses(includeIpv6: false).FirstOrDefault()?.Address;
         if (!IPAddress.TryParse(address, out var ipAddress))
+        {
             return;
+        }
+
         var packet = BuildAnnouncement(settings.Local.PreferredServerName, settings.Local.Port, ipAddress);
         await client.SendAsync(packet, MulticastEndpoint, ct);
     }

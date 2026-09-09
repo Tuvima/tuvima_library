@@ -1,5 +1,5 @@
-using Dapper;
 using System.Diagnostics;
+using Dapper;
 using MediaEngine.Api.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
@@ -34,6 +34,7 @@ public sealed class DisplayWorkProjectionReader
             WITH ranked_assets AS (
                 SELECT
                     w.id AS WorkId,
+                    ma.library_id AS LibraryId,
                     w.collection_id AS CollectionId,
                     w.media_type AS MediaType,
                     w.work_kind AS WorkKind,
@@ -42,9 +43,9 @@ public sealed class DisplayWorkProjectionReader
                         ELSE COALESCE(gp.id, p.id, w.id)
                     END AS RootWorkId,
                     ma.id AS AssetId,
-                    MIN(mc.claimed_at) OVER (PARTITION BY w.id) AS CreatedAt,
+                    MIN(mc.claimed_at) OVER (PARTITION BY w.id, ma.library_id) AS CreatedAt,
                     ROW_NUMBER() OVER (
-                        PARTITION BY w.id
+                        PARTITION BY w.id, ma.library_id
                         ORDER BY CASE WHEN mc.claimed_at IS NULL THEN 1 ELSE 0 END, mc.claimed_at ASC, ma.id
                     ) AS AssetRank
                 FROM works w
@@ -84,6 +85,7 @@ public sealed class DisplayWorkProjectionReader
                 WHERE credit.credit_key = 'artist'
             )
             SELECT
+                LibraryId,
                 WorkId,
                 CollectionId,
                 MediaType,
@@ -410,7 +412,9 @@ public sealed class DisplayWorkProjectionReader
         bool preferCollectivePseudonym)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return value;
+        }
 
         var names = value
             .Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
@@ -420,7 +424,9 @@ public sealed class DisplayWorkProjectionReader
         {
             var pseudonyms = names.Where(pseudonymNames.Contains).ToList();
             if (pseudonyms.Count > 0)
+            {
                 names = pseudonyms;
+            }
         }
 
         return string.Join("; ", names);

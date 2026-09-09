@@ -16,7 +16,8 @@ public sealed class AudiobookBookmarkRepository
     public Task<IReadOnlyList<AudiobookBookmarkDto>> GetByWorkAsync(
         Guid profileId,
         Guid workId,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlySet<Guid>? authorizedAssetIds = null)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
@@ -35,10 +36,17 @@ public sealed class AudiobookBookmarkRepository
                    created_at AS CreatedAt
             FROM audiobook_bookmarks
             WHERE profile_id = @profileId
+              AND (@unrestricted = 1 OR asset_id IN @allowedAssets)
               AND work_id = @workId
             ORDER BY created_at DESC;
             """,
-            new { profileId, workId }).ToList();
+            new
+            {
+                profileId,
+                workId,
+                unrestricted = authorizedAssetIds is null ? 1 : 0,
+                allowedAssets = (authorizedAssetIds ?? new HashSet<Guid>()).Select(GuidSql.ToBlob).ToArray()
+            }).ToList();
 
         return Task.FromResult<IReadOnlyList<AudiobookBookmarkDto>>(rows.Select(ToDto).ToList());
     }
@@ -82,7 +90,8 @@ public sealed class AudiobookBookmarkRepository
         return Task.FromResult(ToDto(bookmark));
     }
 
-    public Task<bool> DeleteAsync(Guid profileId, Guid bookmarkId, CancellationToken ct = default)
+    public Task<bool> DeleteAsync(Guid profileId, Guid bookmarkId, CancellationToken ct = default,
+        IReadOnlySet<Guid>? authorizedAssetIds = null)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
@@ -91,9 +100,16 @@ public sealed class AudiobookBookmarkRepository
             """
             DELETE FROM audiobook_bookmarks
             WHERE profile_id = @profileId
+              AND (@unrestricted = 1 OR asset_id IN @allowedAssets)
               AND id = @bookmarkId;
             """,
-            new { profileId, bookmarkId });
+            new
+            {
+                profileId,
+                bookmarkId,
+                unrestricted = authorizedAssetIds is null ? 1 : 0,
+                allowedAssets = (authorizedAssetIds ?? new HashSet<Guid>()).Select(GuidSql.ToBlob).ToArray()
+            });
         return Task.FromResult(affected > 0);
     }
 

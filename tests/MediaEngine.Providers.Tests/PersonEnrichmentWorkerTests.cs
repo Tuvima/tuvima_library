@@ -1,9 +1,9 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
-using MediaEngine.Providers.Workers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
+using MediaEngine.Providers.Workers;
 using MediaEngine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 

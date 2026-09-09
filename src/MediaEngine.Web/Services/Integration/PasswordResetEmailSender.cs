@@ -14,7 +14,11 @@ public sealed class PasswordResetEmailSender(PasswordResetDeliverySettings setti
 
     public async Task<bool> SendAsync(string email, string token, CancellationToken ct)
     {
-        if (!IsConfigured) return false;
+        if (!IsConfigured)
+        {
+            return false;
+        }
+
         var baseUri = new Uri(settings.PublicBaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
         var resetUri = new Uri(baseUri, $"auth/reset?token={Uri.EscapeDataString(token)}");
         return await SendMessageAsync(
@@ -32,7 +36,11 @@ public sealed class PasswordResetEmailSender(PasswordResetDeliverySettings setti
 
     private async Task<bool> SendMessageAsync(string email, string subject, string body, CancellationToken ct)
     {
-        if (!IsConfigured) return false;
+        if (!IsConfigured)
+        {
+            return false;
+        }
+
         using var message = new MailMessage
         {
             From = new MailAddress(settings.FromAddress, settings.FromName),

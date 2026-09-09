@@ -116,11 +116,31 @@ public static class MediaPersonGroupTileComposer
     private static string MediaCountLabel(string mediaType, int count)
     {
         var singular = count == 1;
-        if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)) return singular ? "audiobook" : "audiobooks";
-        if (mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)) return singular ? "comic" : "comics";
-        if (mediaType.Contains("book", StringComparison.OrdinalIgnoreCase)) return singular ? "book" : "books";
-        if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase)) return singular ? "track" : "tracks";
-        if (mediaType.Contains("tv", StringComparison.OrdinalIgnoreCase)) return singular ? "show" : "shows";
+        if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
+        {
+            return singular ? "audiobook" : "audiobooks";
+        }
+
+        if (mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
+        {
+            return singular ? "comic" : "comics";
+        }
+
+        if (mediaType.Contains("book", StringComparison.OrdinalIgnoreCase))
+        {
+            return singular ? "book" : "books";
+        }
+
+        if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
+        {
+            return singular ? "track" : "tracks";
+        }
+
+        if (mediaType.Contains("tv", StringComparison.OrdinalIgnoreCase))
+        {
+            return singular ? "show" : "shows";
+        }
+
         return singular ? "movie" : "movies";
     }
 }

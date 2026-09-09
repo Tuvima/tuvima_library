@@ -1,10 +1,10 @@
 using MediaEngine.AI.Configuration;
+using MediaEngine.AI.Infrastructure;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Jobs;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.AI.Infrastructure;
 
 namespace MediaEngine.Api.Services;
 
@@ -52,7 +52,7 @@ public sealed class VibeBatchService : BackgroundService
         ArgumentNullException.ThrowIfNull(admission);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _settings     = settings;
+        _settings = settings;
         _featureGate = featureGate;
         _configurationStore = configurationStore;
         _tagger = tagger;
@@ -61,7 +61,7 @@ public sealed class VibeBatchService : BackgroundService
         _featurePersistence = featurePersistence;
         _libraryItems = libraryItems;
         _admission = admission;
-        _logger       = logger;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -116,8 +116,15 @@ public sealed class VibeBatchService : BackgroundService
 
         foreach (var item in page.Items)
         {
-            if (ct.IsCancellationRequested) break;
-            if (tagged >= batchLimit) break;
+            if (ct.IsCancellationRequested)
+            {
+                break;
+            }
+
+            if (tagged >= batchLimit)
+            {
+                break;
+            }
 
             var canonicals = await _canonicals.GetByEntityAsync(item.EntityId, ct);
             var arrays = await _canonicalArrays.GetAllByEntityAsync(item.EntityId, ct);
@@ -125,7 +132,10 @@ public sealed class VibeBatchService : BackgroundService
             // Need a description to generate vibes.
             var description = canonicals.FirstOrDefault(c =>
                 string.Equals(c.Key, "description", StringComparison.OrdinalIgnoreCase));
-            if (description is null) continue;
+            if (description is null)
+            {
+                continue;
+            }
 
             var genres = arrays.GetValueOrDefault("genre")?.Select(value => value.Value).ToList() ?? [];
 
@@ -141,15 +151,22 @@ public sealed class VibeBatchService : BackgroundService
                 string.Join('\n', genres));
             var state = await _featurePersistence.GetAiFeatureStateAsync(item.EntityId, FeatureKey, ct);
             if (state?.IsCurrent(inputFingerprint) == true || state?.CanAttempt(DateTimeOffset.UtcNow) == false)
+            {
                 continue;
+            }
+
             if (state is null && arrays.GetValueOrDefault("vibe")?.Count > 0)
+            {
                 continue;
+            }
 
             using var admission = _admission.TryAcquire(
                 MediaEngine.Domain.Enums.AiModelRole.TextQuality,
                 ct);
             if (admission is null)
+            {
                 return;
+            }
 
             try
             {
@@ -207,7 +224,9 @@ public sealed class VibeBatchService : BackgroundService
                     ct);
                 _logger.LogWarning(ex, "VibeBatchService: failed to tag entity {Id}", item.EntityId);
                 if (failure.Status == AiFeatureStatus.Poisoned)
+                {
                     _logger.LogError("VibeBatchService: quarantined poison entity {Id} after {Attempts} attempts", item.EntityId, failure.Attempts);
+                }
             }
         }
 

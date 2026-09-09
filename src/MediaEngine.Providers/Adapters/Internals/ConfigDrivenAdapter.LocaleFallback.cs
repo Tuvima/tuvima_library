@@ -23,7 +23,9 @@ public sealed partial class ConfigDrivenAdapter
             language = NormalizeLocalePart(language, "en");
             country = NormalizeLocalePart(country, "us");
             if (!seen.Add($"{language}|{country}"))
+            {
                 return;
+            }
 
             passes.Add(new LookupPass(
                 CloneRequestWithLocale(request, language, country),
@@ -35,10 +37,14 @@ public sealed partial class ConfigDrivenAdapter
         {
             var languageKey = NormalizeLocalePart(language, "en");
             if (!_config.MarketFallbacks.TryGetValue(languageKey, out var markets))
+            {
                 return;
+            }
 
             foreach (var market in markets.Where(value => !string.IsNullOrWhiteSpace(value)))
+            {
                 Add(languageKey, market, $"{languageKey}-{market.ToUpperInvariant()} storefront fallback", tagSourceLanguage);
+            }
         }
 
         var effectiveLanguage = ResolveEffectiveLanguage(request);
@@ -63,14 +69,18 @@ public sealed partial class ConfigDrivenAdapter
         foreach (var strategy in strategies)
         {
             if (!AllRequiredFieldsPresent(strategy, pass.Request))
+            {
                 continue;
+            }
 
             try
             {
                 var claims = await ExecuteStrategyAsync(strategy, pass.Request, ct).ConfigureAwait(false);
                 await _healthMonitor.ReportSuccessAsync(Name, ct);
                 if (claims.Count == 0)
+                {
                     continue;
+                }
 
                 _logger.LogDebug(
                     "{Provider}/{Strategy} returned {Count} claims using {LocalePass}",
@@ -131,7 +141,9 @@ public sealed partial class ConfigDrivenAdapter
                 var results = await ExecuteSearchStrategyAsync(strategy, pass.Request, strategyLimit, ct)
                     .ConfigureAwait(false);
                 if (results.Count > 0)
+                {
                     return results;
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -156,7 +168,9 @@ public sealed partial class ConfigDrivenAdapter
     private static string NormalizeLocalePart(string? value, string fallback)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return fallback;
+        }
 
         return value.Trim()
             .Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries)[0]

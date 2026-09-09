@@ -81,7 +81,11 @@ public sealed class VideoProcessor : IMediaProcessor
     /// <inheritdoc/>
     public bool CanProcess(string filePath)
     {
-        if (!File.Exists(filePath)) return false;
+        if (!File.Exists(filePath))
+        {
+            return false;
+        }
+
         return DetectContainer(filePath) != VideoContainer.Unknown;
     }
 
@@ -92,7 +96,9 @@ public sealed class VideoProcessor : IMediaProcessor
 
         var container = DetectContainer(filePath);
         if (container == VideoContainer.Unknown)
+        {
             return Corrupt(filePath, "No recognised video magic bytes found.");
+        }
 
         VideoMetadata? meta = null;
         try
@@ -129,18 +135,24 @@ public sealed class VideoProcessor : IMediaProcessor
     {
         Span<byte> header = stackalloc byte[16];
         if (!ProcessorHeaderReader.TryRead(filePath, header, out var read) || read < 4)
+        {
             return VideoContainer.Unknown;
+        }
 
         // MKV / WebM: EBML header  1A 45 DF A3
         if (header[0] == 0x1A && header[1] == 0x45 &&
             header[2] == 0xDF && header[3] == 0xA3)
+        {
             return VideoContainer.Mkv;
+        }
 
         // MP4 / M4V / QuickTime: ISO BMFF ftyp box at offset 4
         if (read >= 8 &&
             header[4] == 0x66 && header[5] == 0x74 &&   // 'f' 't'
             header[6] == 0x79 && header[7] == 0x70)      // 'y' 'p'
+        {
             return VideoContainer.Mp4;
+        }
 
         // AVI: RIFF....AVI
         if (read >= 12 &&
@@ -148,7 +160,9 @@ public sealed class VideoProcessor : IMediaProcessor
             header[2] == 0x46 && header[3] == 0x46 &&   // 'F' 'F'
             header[8] == 0x41 && header[9] == 0x56 &&   // 'A' 'V'
             header[10] == 0x49 && header[11] == 0x20)    // 'I' ' '
+        {
             return VideoContainer.Avi;
+        }
 
         return VideoContainer.Unknown;
     }
@@ -227,13 +241,17 @@ public sealed class VideoProcessor : IMediaProcessor
                     claims.Add(Claim("episode", episodeNum.Value.ToString(), 0.55));
                 }
                 if (!string.IsNullOrWhiteSpace(episodeTitle))
+                {
                     claims.Add(Claim("episode_title", episodeTitle, 0.55));
+                }
 
                 // Year from containing folder (e.g. "Shogun (2024)/Season 01/...") —
                 // disambiguates same-titled shows from different eras during retail match.
                 var folderYear = InferYearFromPath(filePath);
                 if (!string.IsNullOrWhiteSpace(folderYear))
+                {
                     claims.Add(Claim("year", folderYear, 0.55));
+                }
             }
             else if (seasonNum.HasValue)
             {
@@ -258,12 +276,16 @@ public sealed class VideoProcessor : IMediaProcessor
                     claims.Add(Claim("episode", episodeNum.Value.ToString(), 0.55));
                 }
                 if (!string.IsNullOrWhiteSpace(episodeTitle))
+                {
                     claims.Add(Claim("episode_title", episodeTitle, 0.55));
+                }
 
                 // Year from containing folder — same disambiguation as filename-with-show branch.
                 var folderYear = InferYearFromPath(filePath);
                 if (!string.IsNullOrWhiteSpace(folderYear))
+                {
                     claims.Add(Claim("year", folderYear, 0.55));
+                }
             }
             else if (!string.IsNullOrWhiteSpace(basicTitle))
             {
@@ -304,30 +326,46 @@ public sealed class VideoProcessor : IMediaProcessor
         if (meta is not null)
         {
             if (meta.WidthPx.HasValue)
+            {
                 claims.Add(Claim("video_width", meta.WidthPx.Value.ToString(), 0.8));
+            }
 
             if (meta.HeightPx.HasValue)
+            {
                 claims.Add(Claim("video_height", meta.HeightPx.Value.ToString(), 0.8));
+            }
 
             if (meta.Duration.HasValue)
+            {
                 claims.Add(Claim("duration_sec",
                     meta.Duration.Value.TotalSeconds.ToString("F3"), 0.8));
+            }
 
             if (!string.IsNullOrWhiteSpace(meta.VideoCodec))
+            {
                 claims.Add(Claim("video_codec", meta.VideoCodec, 0.8));
+            }
 
             if (!string.IsNullOrWhiteSpace(meta.AudioLanguage))
+            {
                 claims.Add(Claim("audio_language", meta.AudioLanguage, 0.8));
+            }
 
             if (!string.IsNullOrWhiteSpace(meta.AudioCodec))
+            {
                 claims.Add(Claim("audio_codec", meta.AudioCodec, 0.8));
+            }
 
             if (meta.AudioChannels.HasValue)
+            {
                 claims.Add(Claim("audio_channels", meta.AudioChannels.Value.ToString(), 0.8));
+            }
 
             if (meta.FrameRate.HasValue)
+            {
                 claims.Add(Claim("frame_rate",
                     meta.FrameRate.Value.ToString("F3"), 0.8));
+            }
 
             if (meta.SubtitleLanguages.Count > 0)
             {
@@ -413,7 +451,9 @@ public sealed class VideoProcessor : IMediaProcessor
     private static string? CleanEpisodeTitle(string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return null;
+        }
 
         var cleaned = raw.Trim();
         string previous;
@@ -456,7 +496,10 @@ public sealed class VideoProcessor : IMediaProcessor
                 && !Regex.IsMatch(dirName, @"^Season\s+\d{1,2}$", RegexOptions.IgnoreCase))
             {
                 var m = Regex.Match(dirName, @"\((\d{4})\)");
-                if (m.Success) return m.Groups[1].Value;
+                if (m.Success)
+                {
+                    return m.Groups[1].Value;
+                }
             }
             dir = Path.GetDirectoryName(dir);
         }
@@ -471,18 +514,28 @@ public sealed class VideoProcessor : IMediaProcessor
     private static string? InferShowNameFromPath(string filePath)
     {
         var dir = Path.GetDirectoryName(filePath);
-        if (string.IsNullOrWhiteSpace(dir)) return null;
+        if (string.IsNullOrWhiteSpace(dir))
+        {
+            return null;
+        }
 
         // Walk up: skip "Season XX" folders
         var dirName = Path.GetFileName(dir);
         if (dirName is not null && Regex.IsMatch(dirName, @"^Season\s+\d{1,2}$", RegexOptions.IgnoreCase))
         {
             dir = Path.GetDirectoryName(dir);
-            if (string.IsNullOrWhiteSpace(dir)) return null;
+            if (string.IsNullOrWhiteSpace(dir))
+            {
+                return null;
+            }
+
             dirName = Path.GetFileName(dir);
         }
 
-        if (string.IsNullOrWhiteSpace(dirName)) return null;
+        if (string.IsNullOrWhiteSpace(dirName))
+        {
+            return null;
+        }
 
         // Strip trailing " (QXXX)" QID suffix — e.g. "Shogun (Q3275620)" → "Shogun"
         var cleaned = Regex.Replace(dirName, @"\s*\(Q\d+\)\s*$", string.Empty).Trim();

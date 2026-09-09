@@ -3,6 +3,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Contracts.Metadata;
+using MediaEngine.Domain.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 
@@ -26,7 +27,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Resolve series-aware editor navigation for a launch entity.")
         .Produces<MediaEditorNavigatorDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead);
 
         group.MapGet("/{entityId:guid}/membership-suggestions", async (
             Guid entityId,
@@ -44,7 +45,7 @@ public static partial class MetadataEndpoints
         .WithName("GetMediaEditorMembershipSuggestions")
         .WithSummary("Return same-media-type autocomplete targets for membership correction.")
         .Produces<IReadOnlyList<MediaEditorMembershipSuggestionDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead);
 
         group.MapPost("/{entityId:guid}/membership-preview", async (
             Guid entityId,
@@ -61,7 +62,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Preview a hierarchy move or parent identity rename before applying it.")
         .Produces<MediaEditorMembershipPreviewDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead);
 
         group.MapPost("/{entityId:guid}/membership-apply", async (
             Guid entityId,
@@ -78,74 +79,74 @@ public static partial class MetadataEndpoints
         .WithSummary("Apply a confirmed hierarchy move or parent identity rename.")
         .Produces<MediaEditorMembershipPreviewDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite);
     }
 
     private static MediaEditorNavigatorDto ToContract(
         MediaEditorNavigatorEnvelope source) => new()
-    {
-        Enabled = source.Enabled,
-        MediaType = source.MediaType,
-        ContainerEntityId = source.ContainerEntityId,
-        SelectedEntityId = source.SelectedEntityId,
-        ContainerLabel = source.ContainerLabel,
-        ContainerTitle = source.ContainerTitle,
-        ContainerSubtitle = source.ContainerSubtitle,
-        Nodes = source.Nodes.Select(node => new MediaEditorNavigatorNodeDto
         {
-            NodeId = node.NodeId,
-            ParentNodeId = node.ParentNodeId,
-            EntityId = node.EntityId,
-            ScopeId = node.ScopeId,
-            NodeKind = node.NodeKind,
-            Label = node.Label,
-            Title = node.Title,
-            Subtitle = node.Subtitle,
-            OrdinalLabel = node.OrdinalLabel,
-            Depth = node.Depth,
-            IsRoot = node.IsRoot,
-            IsLeaf = node.IsLeaf,
-            IsOwned = node.IsOwned,
-            PrimaryAssetId = node.PrimaryAssetId,
-            CompactOrdinalLabel = node.CompactOrdinalLabel,
-            TechnicalBadges = node.TechnicalBadges.ToList(),
-            IsClickable = node.IsClickable,
-            CanQuarantine = node.CanQuarantine,
-            QuarantineCount = node.QuarantineCount,
-        }).ToList(),
-    };
+            Enabled = source.Enabled,
+            MediaType = source.MediaType,
+            ContainerEntityId = source.ContainerEntityId,
+            SelectedEntityId = source.SelectedEntityId,
+            ContainerLabel = source.ContainerLabel,
+            ContainerTitle = source.ContainerTitle,
+            ContainerSubtitle = source.ContainerSubtitle,
+            Nodes = source.Nodes.Select(node => new MediaEditorNavigatorNodeDto
+            {
+                NodeId = node.NodeId,
+                ParentNodeId = node.ParentNodeId,
+                EntityId = node.EntityId,
+                ScopeId = node.ScopeId,
+                NodeKind = node.NodeKind,
+                Label = node.Label,
+                Title = node.Title,
+                Subtitle = node.Subtitle,
+                OrdinalLabel = node.OrdinalLabel,
+                Depth = node.Depth,
+                IsRoot = node.IsRoot,
+                IsLeaf = node.IsLeaf,
+                IsOwned = node.IsOwned,
+                PrimaryAssetId = node.PrimaryAssetId,
+                CompactOrdinalLabel = node.CompactOrdinalLabel,
+                TechnicalBadges = node.TechnicalBadges.ToList(),
+                IsClickable = node.IsClickable,
+                CanQuarantine = node.CanQuarantine,
+                QuarantineCount = node.QuarantineCount,
+            }).ToList(),
+        };
 
     private static MediaEditorMembershipSuggestionDto ToContract(
         MembershipSuggestionEnvelope source) => new()
-    {
-        EntityId = source.EntityId,
-        Source = source.Source,
-        LocalExisting = source.LocalExisting,
-        Kind = source.Kind,
-        Label = source.Label,
-        Subtitle = source.Subtitle,
-        ProviderName = source.ProviderName,
-        ProviderItemId = source.ProviderItemId,
-        ExternalIdKey = source.ExternalIdKey,
-        ExternalIdValue = source.ExternalIdValue,
-    };
+        {
+            EntityId = source.EntityId,
+            Source = source.Source,
+            LocalExisting = source.LocalExisting,
+            Kind = source.Kind,
+            Label = source.Label,
+            Subtitle = source.Subtitle,
+            ProviderName = source.ProviderName,
+            ProviderItemId = source.ProviderItemId,
+            ExternalIdKey = source.ExternalIdKey,
+            ExternalIdValue = source.ExternalIdValue,
+        };
 
     private static MediaEditorMembershipPreviewDto ToContract(
         MembershipPreviewEnvelope source) => new()
-    {
-        Action = source.Action,
-        CurrentPath = source.CurrentPath,
-        TargetPath = source.TargetPath,
-        RequiresNewTarget = source.RequiresNewTarget,
-        CanApply = source.CanApply,
-        Applied = source.Applied,
-        SelectedEntityId = source.SelectedEntityId,
-        TargetRootEntityId = source.TargetRootEntityId,
-        TargetParentEntityId = source.TargetParentEntityId,
-        Message = source.Message,
-        ConflictMessage = source.ConflictMessage,
-        Stage2TargetEntityId = source.Stage2TargetEntityId,
-    };
+        {
+            Action = source.Action,
+            CurrentPath = source.CurrentPath,
+            TargetPath = source.TargetPath,
+            RequiresNewTarget = source.RequiresNewTarget,
+            CanApply = source.CanApply,
+            Applied = source.Applied,
+            SelectedEntityId = source.SelectedEntityId,
+            TargetRootEntityId = source.TargetRootEntityId,
+            TargetParentEntityId = source.TargetParentEntityId,
+            Message = source.Message,
+            ConflictMessage = source.ConflictMessage,
+            Stage2TargetEntityId = source.Stage2TargetEntityId,
+        };
 
     private static MembershipPreviewRequest ToInternal(
         MediaEditorMembershipPreviewRequestDto source) => new(

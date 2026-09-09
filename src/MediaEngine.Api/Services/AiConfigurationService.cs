@@ -36,7 +36,9 @@ public sealed class AiConfigurationService : IDisposable
         }
 
         if (errors.Count > 0)
+        {
             return errors;
+        }
 
         lock (_sync)
         {
@@ -68,7 +70,10 @@ public sealed class AiConfigurationService : IDisposable
     {
         CancellationToken changedToken;
         lock (_sync)
+        {
             changedToken = _changed.Token;
+        }
+
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, changedToken);
         try
         {

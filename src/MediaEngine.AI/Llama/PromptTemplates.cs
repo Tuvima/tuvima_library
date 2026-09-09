@@ -92,7 +92,10 @@ public static class PromptTemplates
         sb.AppendLine();
         sb.AppendLine("File metadata:");
         foreach (var (key, value) in fileMetadata)
+        {
             sb.AppendLine($"  {key}: {value}");
+        }
+
         sb.AppendLine();
         sb.AppendLine("Wikidata candidates:");
         for (int i = 0; i < candidates.Count; i++)
@@ -100,7 +103,9 @@ public static class PromptTemplates
             var c = candidates[i];
             sb.AppendLine($"  {i + 1}. QID: {c.Qid} — {c.Label}");
             if (!string.IsNullOrWhiteSpace(c.Description))
+            {
                 sb.AppendLine($"     Description: {c.Description}");
+            }
         }
         return sb.ToString();
     }
@@ -135,7 +140,9 @@ public static class PromptTemplates
         {
             sb.AppendLine("Existing titles in series:");
             for (int i = 0; i < siblingTitles.Count; i++)
+            {
                 sb.AppendLine($"  {i + 1}. {siblingTitles[i]}");
+            }
         }
         return sb.ToString();
     }

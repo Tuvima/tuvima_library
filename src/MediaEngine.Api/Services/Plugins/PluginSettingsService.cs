@@ -42,10 +42,17 @@ public sealed class PluginSettingsService
         try
         {
             var config = JsonSerializer.Deserialize<PluginUserConfiguration>(File.ReadAllText(path), JsonOptions);
-            if (config is null) return new PluginUserConfiguration { PluginId = manifest.Id };
+            if (config is null)
+            {
+                return new PluginUserConfiguration { PluginId = manifest.Id };
+            }
+
             config.Settings ??= new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase);
             foreach (var (key, value) in manifest.DefaultSettings)
+            {
                 config.Settings.TryAdd(key, value);
+            }
+
             return config;
         }
         catch
@@ -77,7 +84,9 @@ public sealed class PluginSettingsService
     {
         var path = GetPath(pluginId);
         if (File.Exists(path))
+        {
             File.Delete(path);
+        }
     }
 
     private string GetPath(string pluginId)

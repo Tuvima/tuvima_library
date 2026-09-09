@@ -9,9 +9,6 @@ namespace MediaEngine.Storage;
 /// <summary>
 /// SQLite implementation of <see cref="IProfileRepository"/>.
 ///
-/// The seed profile (<see cref="Profile.SeedProfileId"/>) is protected:
-/// <see cref="DeleteAsync"/> will return <see langword="false"/> for it.
-///
 /// Spec: Settings &amp; Management Layer — Identity &amp; Multi-User.
 /// </summary>
 public sealed class ProfileRepository : IProfileRepository
@@ -68,30 +65,6 @@ public sealed class ProfileRepository : IProfileRepository
     }
 
     /// <inheritdoc/>
-    public Task InsertAsync(Profile profile, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(profile);
-
-        using var conn = _db.CreateConnection();
-        conn.Execute("""
-            INSERT INTO profiles (id, display_name, avatar_color, avatar_image_path, role, created_at, navigation_config)
-            VALUES (@id, @name, @color, @avatarImagePath, @role, @created, @nav);
-            """, new
-        {
-            id      = profile.Id,
-            name    = profile.DisplayName,
-            color   = profile.AvatarColor,
-            avatarImagePath = profile.AvatarImagePath,
-            role    = profile.Role.ToString(),
-            created = profile.CreatedAt.ToString("O"),
-            nav     = profile.NavigationConfig,
-        });
-
-        return Task.CompletedTask;
-    }
-
-    /// <inheritdoc/>
     public Task<bool> UpdateAsync(Profile profile, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
@@ -103,47 +76,16 @@ public sealed class ProfileRepository : IProfileRepository
             SET    display_name      = @name,
                    avatar_color      = @color,
                    avatar_image_path = @avatarImagePath,
-                   role              = @role,
                    navigation_config = @nav
-            WHERE  id = @id
-              AND (@id <> @seedId OR @role = 'Administrator')
-              AND (
-                    @role = 'Administrator'
-                    OR role <> 'Administrator'
-                    OR EXISTS (
-                        SELECT 1
-                        FROM profiles AS other
-                        WHERE other.id <> profiles.id
-                          AND other.role = 'Administrator'
-                    )
-                  );
+            WHERE  id = @id;
             """, new
         {
-            name  = profile.DisplayName,
+            name = profile.DisplayName,
             color = profile.AvatarColor,
             avatarImagePath = profile.AvatarImagePath,
-            role  = profile.Role.ToString(),
-            nav   = profile.NavigationConfig,
-            id    = profile.Id,
-            seedId = Profile.SeedProfileId,
+            nav = profile.NavigationConfig,
+            id = profile.Id,
         });
-
-        return Task.FromResult(rows > 0);
-    }
-
-    /// <inheritdoc/>
-    public Task<bool> DeleteAsync(Guid id, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-
-        // The seed "Owner" profile cannot be deleted.
-        if (id == Profile.SeedProfileId)
-            return Task.FromResult(false);
-
-        using var conn = _db.CreateConnection();
-        var rows = conn.Execute(
-            "DELETE FROM profiles WHERE id = @id;",
-            new { id });
 
         return Task.FromResult(rows > 0);
     }
@@ -151,23 +93,23 @@ public sealed class ProfileRepository : IProfileRepository
     // ── Private DTO + mapper ────────────────────────────────────────────────
     private sealed class ProfileRow
     {
-        public Guid Id                 { get; set; }
-        public string DisplayName      { get; set; } = string.Empty;
-        public string AvatarColor      { get; set; } = string.Empty;
+        public Guid Id { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public string AvatarColor { get; set; } = string.Empty;
         public string? AvatarImagePath { get; set; }
-        public string Role             { get; set; } = string.Empty;
-        public string CreatedAt        { get; set; } = string.Empty;
+        public string Role { get; set; } = string.Empty;
+        public string CreatedAt { get; set; } = string.Empty;
         public string? NavigationConfig { get; set; }
     }
 
     private static Profile MapRow(ProfileRow r) => new()
     {
-        Id               = r.Id,
-        DisplayName      = r.DisplayName,
-        AvatarColor      = r.AvatarColor,
-        AvatarImagePath  = r.AvatarImagePath,
-        Role             = Enum.Parse<ProfileRole>(r.Role),
-        CreatedAt        = DateTimeOffset.Parse(r.CreatedAt),
+        Id = r.Id,
+        DisplayName = r.DisplayName,
+        AvatarColor = r.AvatarColor,
+        AvatarImagePath = r.AvatarImagePath,
+        Role = Enum.Parse<ProfileRole>(r.Role),
+        CreatedAt = DateTimeOffset.Parse(r.CreatedAt),
         NavigationConfig = r.NavigationConfig,
     };
 }

@@ -123,7 +123,9 @@ public sealed class PersonRepository : IPersonRepository
             """, p);
 
         if (result is not null)
+        {
             PopulateRoles(conn, result);
+        }
 
         return Task.FromResult(result);
     }
@@ -137,20 +139,20 @@ public sealed class PersonRepository : IPersonRepository
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var p = new DynamicParameters();
-            p.Add("id",          person.Id);
-            p.Add("name",        person.Name);
+            p.Add("id", person.Id);
+            p.Add("name", person.Name);
             p.Add("wikidataQid", person.WikidataQid);
             p.Add("headshotUrl", person.HeadshotUrl);
-            p.Add("biography",   person.Biography);
-            p.Add("createdAt",   person.CreatedAt.ToString("o"));
-            p.Add("enrichedAt",  person.EnrichedAt.HasValue ? person.EnrichedAt.Value.ToString("o") : null);
-            p.Add("dateOfBirth",  person.DateOfBirth);
-            p.Add("dateOfDeath",  person.DateOfDeath);
+            p.Add("biography", person.Biography);
+            p.Add("createdAt", person.CreatedAt.ToString("o"));
+            p.Add("enrichedAt", person.EnrichedAt.HasValue ? person.EnrichedAt.Value.ToString("o") : null);
+            p.Add("dateOfBirth", person.DateOfBirth);
+            p.Add("dateOfDeath", person.DateOfDeath);
             p.Add("placeOfBirth", person.PlaceOfBirth);
             p.Add("placeOfDeath", person.PlaceOfDeath);
-            p.Add("nationality",  person.Nationality);
-            p.Add("isPseudonym",  person.IsPseudonym ? 1 : 0);
-            p.Add("isGroup",       person.IsGroup ? 1 : 0);
+            p.Add("nationality", person.Nationality);
+            p.Add("isPseudonym", person.IsPseudonym ? 1 : 0);
+            p.Add("isGroup", person.IsGroup ? 1 : 0);
             conn.Execute("""
                 INSERT INTO persons
                     (id, name, wikidata_qid, headshot_url, biography,
@@ -165,7 +167,11 @@ public sealed class PersonRepository : IPersonRepository
             // Insert each role into person_roles junction table in the same transaction.
             foreach (var role in person.Roles)
             {
-                if (string.IsNullOrWhiteSpace(role)) continue;
+                if (string.IsNullOrWhiteSpace(role))
+                {
+                    continue;
+                }
+
                 var rp = new DynamicParameters();
                 rp.Add("personId", person.Id);
                 rp.Add("role", role);
@@ -192,12 +198,12 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("name",        name);
+        p.Add("name", name);
         p.Add("wikidataQid", wikidataQid);
         p.Add("headshotUrl", headshotUrl);
-        p.Add("biography",   biography);
-        p.Add("enrichedAt",  DateTimeOffset.UtcNow.ToString("o"));
-        p.Add("id",          personId);
+        p.Add("biography", biography);
+        p.Add("enrichedAt", DateTimeOffset.UtcNow.ToString("o"));
+        p.Add("id", personId);
         conn.Execute("""
             UPDATE persons
             SET    name         = COALESCE(@name, name),
@@ -245,14 +251,14 @@ public sealed class PersonRepository : IPersonRepository
 
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
-        p.Add("dateOfBirth",  dateOfBirth);
-        p.Add("dateOfDeath",  dateOfDeath);
+        p.Add("dateOfBirth", dateOfBirth);
+        p.Add("dateOfDeath", dateOfDeath);
         p.Add("placeOfBirth", placeOfBirth);
         p.Add("placeOfDeath", placeOfDeath);
-        p.Add("nationality",  nationality);
-        p.Add("isPseudonym",  isPseudonym ? 1 : 0);
-        p.Add("isGroup",      isGroup ? 1 : 0);
-        p.Add("id",           personId);
+        p.Add("nationality", nationality);
+        p.Add("isPseudonym", isPseudonym ? 1 : 0);
+        p.Add("isGroup", isGroup ? 1 : 0);
+        p.Add("id", personId);
         conn.Execute("""
             UPDATE persons
             SET    date_of_birth  = @dateOfBirth,
@@ -284,12 +290,12 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
         p.Add("occupation", occupation);
-        p.Add("instagram",  instagram);
-        p.Add("twitter",    twitter);
-        p.Add("tiktok",     tiktok);
-        p.Add("mastodon",   mastodon);
-        p.Add("website",    website);
-        p.Add("id",         personId);
+        p.Add("instagram", instagram);
+        p.Add("twitter", twitter);
+        p.Add("tiktok", tiktok);
+        p.Add("mastodon", mastodon);
+        p.Add("website", website);
+        p.Add("id", personId);
         conn.Execute("""
             UPDATE persons
             SET    occupation = COALESCE(@occupation, occupation),
@@ -319,8 +325,8 @@ public sealed class PersonRepository : IPersonRepository
         // duplicate links; repeated calls for the same triplet are safe no-ops.
         var p = new DynamicParameters();
         p.Add("mediaAssetId", mediaAssetId);
-        p.Add("personId",     personId);
-        p.Add("role",         role);
+        p.Add("personId", personId);
+        p.Add("role", role);
         conn.Execute("""
             INSERT OR IGNORE INTO person_media_links
                 (media_asset_id, person_id, role)
@@ -387,7 +393,9 @@ public sealed class PersonRepository : IPersonRepository
             .Distinct()
             .ToList();
         if (ids.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<Person>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var rows = new List<PersonWithRolesCsv>();
@@ -448,7 +456,7 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
         p.Add("path", path);
-        p.Add("id",   id);
+        p.Add("id", id);
         conn.Execute("""
             UPDATE persons
             SET    local_headshot_path = @path
@@ -474,7 +482,9 @@ public sealed class PersonRepository : IPersonRepository
             """, p);
 
         if (result is not null)
+        {
             PopulateRoles(conn, result);
+        }
 
         return Task.FromResult(result);
     }
@@ -730,7 +740,9 @@ public sealed class PersonRepository : IPersonRepository
             """, p);
 
         if (result is not null)
+        {
             PopulateRoles(conn, result);
+        }
 
         return Task.FromResult(result);
     }
@@ -810,7 +822,9 @@ public sealed class PersonRepository : IPersonRepository
 
         var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var (role, count) in rows)
+        {
             result[role] = count;
+        }
 
         return Task.FromResult(result);
     }
@@ -838,7 +852,9 @@ public sealed class PersonRepository : IPersonRepository
 
         var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         foreach (var (role, count) in rows)
+        {
             result[role] = count;
+        }
 
         return Task.FromResult(result);
     }
@@ -852,7 +868,9 @@ public sealed class PersonRepository : IPersonRepository
 
         var idList = personIds.Distinct().ToList();
         if (idList.Count == 0)
+        {
             return Task.FromResult(new Dictionary<Guid, Dictionary<string, int>>());
+        }
 
         using var conn = _db.CreateConnection();
         // Presence is presentation data, so it follows the same canonical credits
@@ -921,7 +939,7 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
         var p = new DynamicParameters();
         p.Add("pseudonymId", pseudonymPersonId);
-        p.Add("realId",      realPersonId);
+        p.Add("realId", realPersonId);
         conn.Execute("""
             INSERT OR IGNORE INTO person_aliases
                 (pseudonym_person_id, real_person_id)
@@ -999,7 +1017,7 @@ public sealed class PersonRepository : IPersonRepository
         var p = new DynamicParameters();
         p.Add("personId", personId);
         p.Add("entityId", fictionalEntityId);
-        p.Add("workQid",  workQid);
+        p.Add("workQid", workQid);
         conn.Execute("""
             INSERT OR IGNORE INTO character_performer_links
                 (person_id, fictional_entity_id, work_qid)
@@ -1073,7 +1091,9 @@ public sealed class PersonRepository : IPersonRepository
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (normalizedQids.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<Person>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var people = new List<Person>();
@@ -1106,7 +1126,9 @@ public sealed class PersonRepository : IPersonRepository
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (normalizedNames.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<Person>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var people = new List<Person>();
@@ -1138,7 +1160,9 @@ public sealed class PersonRepository : IPersonRepository
             .Distinct()
             .ToList();
         if (ids.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<CharacterPerformerCredit>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var rows = new List<CharacterPerformerRow>();
@@ -1189,7 +1213,7 @@ public sealed class PersonRepository : IPersonRepository
         {
             // 1. Reassign media links (OR IGNORE handles PK conflicts)
             var pToFrom = new DynamicParameters();
-            pToFrom.Add("to",   toPersonId);
+            pToFrom.Add("to", toPersonId);
             pToFrom.Add("from", fromPersonId);
 
             var pFrom = new DynamicParameters();
@@ -1278,7 +1302,9 @@ public sealed class PersonRepository : IPersonRepository
             pId) > 0;
 
         if (isPseudo)
+        {
             return Task.FromResult(true);
+        }
 
         // Check person_aliases in either direction - pen name or real author.
         var isAlias = conn.ExecuteScalar<int>("""
@@ -1345,7 +1371,9 @@ public sealed class PersonRepository : IPersonRepository
         CancellationToken ct)
     {
         if (people.Count == 0)
+        {
             return;
+        }
 
         var rolesByPerson = new Dictionary<Guid, List<string>>();
         foreach (var batch in people.Select(person => person.Id)
@@ -1374,7 +1402,9 @@ public sealed class PersonRepository : IPersonRepository
         }
 
         foreach (var person in people)
+        {
             person.Roles = rolesByPerson.GetValueOrDefault(person.Id) ?? [];
+        }
     }
 
     /// <summary>
@@ -1391,28 +1421,28 @@ public sealed class PersonRepository : IPersonRepository
 
         return new Person
         {
-            Id               = row.Id,
-            Name             = row.Name,
-            Roles            = roles,
-            WikidataQid      = row.WikidataQid,
-            HeadshotUrl      = row.HeadshotUrl,
-            Biography        = row.Biography,
-            CreatedAt        = row.CreatedAt is not null ? DateTimeOffset.Parse(row.CreatedAt) : DateTimeOffset.UtcNow,
-            EnrichedAt       = row.EnrichedAt is not null ? DateTimeOffset.Parse(row.EnrichedAt) : null,
-            Occupation       = row.Occupation,
-            Instagram        = row.Instagram,
-            Twitter          = row.Twitter,
-            TikTok           = row.TikTok,
-            Mastodon         = row.Mastodon,
-            Website          = row.Website,
+            Id = row.Id,
+            Name = row.Name,
+            Roles = roles,
+            WikidataQid = row.WikidataQid,
+            HeadshotUrl = row.HeadshotUrl,
+            Biography = row.Biography,
+            CreatedAt = row.CreatedAt is not null ? DateTimeOffset.Parse(row.CreatedAt) : DateTimeOffset.UtcNow,
+            EnrichedAt = row.EnrichedAt is not null ? DateTimeOffset.Parse(row.EnrichedAt) : null,
+            Occupation = row.Occupation,
+            Instagram = row.Instagram,
+            Twitter = row.Twitter,
+            TikTok = row.TikTok,
+            Mastodon = row.Mastodon,
+            Website = row.Website,
             LocalHeadshotPath = row.LocalHeadshotPath,
-            DateOfBirth      = row.DateOfBirth,
-            DateOfDeath      = row.DateOfDeath,
-            PlaceOfBirth     = row.PlaceOfBirth,
-            PlaceOfDeath     = row.PlaceOfDeath,
-            Nationality      = row.Nationality,
-            IsPseudonym      = row.IsPseudonym != 0,
-            IsGroup          = row.IsGroup != 0,
+            DateOfBirth = row.DateOfBirth,
+            DateOfDeath = row.DateOfDeath,
+            PlaceOfBirth = row.PlaceOfBirth,
+            PlaceOfDeath = row.PlaceOfDeath,
+            Nationality = row.Nationality,
+            IsPseudonym = row.IsPseudonym != 0,
+            IsGroup = row.IsGroup != 0,
         };
     }
 }

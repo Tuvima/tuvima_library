@@ -1,5 +1,5 @@
-using MediaEngine.Providers.Contracts;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Providers.Contracts;
 
 namespace MediaEngine.Providers.Services;
 
@@ -13,7 +13,9 @@ public static class ProviderExecutionFilter
         IReadOnlyList<ProviderConfiguration> providerConfigs)
     {
         if (string.IsNullOrWhiteSpace(providerName))
+        {
             return false;
+        }
 
         return providerConfigs
             .FirstOrDefault(config => string.Equals(

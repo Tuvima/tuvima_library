@@ -29,7 +29,7 @@ public sealed class FandomLorePlugin : ITuvimaPlugin
                 Description = "Reports whether Fandom lore settings are ready for structured extraction.",
             },
         ],
-        Permissions = ["network.http"],
+        Permissions = [PluginPermissionIds.NetworkHttp],
         SupportedPlatforms = ["win-x64", "linux-x64", "osx-x64", "osx-arm64"],
         DefaultSettings = new Dictionary<string, JsonElement>(StringComparer.OrdinalIgnoreCase)
         {

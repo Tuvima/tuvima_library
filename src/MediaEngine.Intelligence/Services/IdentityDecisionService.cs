@@ -157,13 +157,19 @@ public sealed class IdentityDecisionService
         ArgumentNullException.ThrowIfNull(context);
 
         if (!context.CanonicalValues.TryGetValue(MetadataFieldConstants.Title, out var title))
+        {
             return false;
+        }
 
         if (string.IsNullOrWhiteSpace(title))
+        {
             return false;
+        }
 
         if (PlaceholderTitles.Contains(title.Trim()))
+        {
             return false;
+        }
 
         return true;
     }
@@ -186,10 +192,14 @@ public sealed class IdentityDecisionService
         ArgumentNullException.ThrowIfNull(strategy);
 
         if (!strategy.AllowsTextFallback)
+        {
             return false;
+        }
 
         if (context.MediaType == MediaType.Unknown)
+        {
             return false;
+        }
 
         var minConfidence = strategy.TextFallbackMinConfidence;
 
@@ -199,7 +209,9 @@ public sealed class IdentityDecisionService
             && c.Confidence >= minConfidence);
 
         if (!hasTitleClaim)
+        {
             return false;
+        }
 
         // Creator claim required when the strategy demands it.
         if (strategy.RequiresCreatorForFallback)
@@ -210,7 +222,9 @@ public sealed class IdentityDecisionService
                 && c.Confidence >= minConfidence);
 
             if (!hasCreatorClaim)
+            {
                 return false;
+            }
         }
 
         return true;
@@ -226,7 +240,9 @@ public sealed class IdentityDecisionService
     public IMediaTypeIdentityStrategy? GetStrategy(MediaType type)
     {
         if (type == MediaType.Unknown)
+        {
             return null;
+        }
 
         return _strategies.GetValueOrDefault(type);
     }
@@ -240,7 +256,7 @@ public sealed class IdentityDecisionService
         string band,
         string method)
     {
-        context.Decision    = decision;
+        context.Decision = decision;
         context.ReviewCause = decision == IdentityDecision.Review ? rootCause : null;
 
         _logger.LogInformation(

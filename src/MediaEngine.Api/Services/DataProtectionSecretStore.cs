@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
-using Microsoft.AspNetCore.DataProtection;
 using MediaEngine.Domain.Contracts;
+using Microsoft.AspNetCore.DataProtection;
 
 namespace MediaEngine.Api.Services;
 
@@ -40,7 +40,9 @@ public sealed class DataProtectionSecretStore : ISecretStore
     public string Decrypt(string ciphertext)
     {
         if (string.IsNullOrEmpty(ciphertext))
+        {
             return string.Empty;
+        }
 
         try
         {

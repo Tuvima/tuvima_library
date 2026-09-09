@@ -1,6 +1,6 @@
 using MediaEngine.Application.ReadModels;
-using MediaEngine.Contracts.Persons;
 using MediaEngine.Contracts.Ingestion;
+using MediaEngine.Contracts.Persons;
 
 namespace MediaEngine.Application.Services;
 
@@ -43,4 +43,14 @@ public interface IPersonAssetScopeReadService
 {
     Task<IReadOnlyList<PersonSummaryResponse>> GetByCollectionAsync(Guid collectionId, CancellationToken ct);
     Task<IReadOnlyList<PersonSummaryResponse>> GetByWorkAsync(Guid workId, CancellationToken ct);
+    Task<IReadOnlySet<Guid>> GetCanonicalPersonIdsAsync(
+        IReadOnlyCollection<Guid> assetIds,
+        CancellationToken ct);
+    Task<IReadOnlySet<Guid>> GetCanonicalPersonIdsForCollectionAsync(
+        Guid collectionId,
+        IReadOnlyCollection<Guid> assetIds,
+        CancellationToken ct);
+    Task<IReadOnlyDictionary<string, int>> GetCanonicalRoleCountsAsync(
+        IReadOnlyCollection<Guid> assetIds,
+        CancellationToken ct);
 }

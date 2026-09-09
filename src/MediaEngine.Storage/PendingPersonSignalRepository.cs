@@ -34,8 +34,8 @@ public sealed class PendingPersonSignalRepository : IPendingPersonSignalReposito
             """,
             new
             {
-                Id        = signal.Id,
-                EntityId  = signal.EntityId,
+                Id = signal.Id,
+                EntityId = signal.EntityId,
                 signal.Name,
                 signal.Role,
                 signal.Source,
@@ -52,7 +52,9 @@ public sealed class PendingPersonSignalRepository : IPendingPersonSignalReposito
         ArgumentNullException.ThrowIfNull(signals);
 
         if (signals.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -66,7 +68,7 @@ public sealed class PendingPersonSignalRepository : IPendingPersonSignalReposito
                     """,
                     new
                     {
-                        Id       = s.Id,
+                        Id = s.Id,
                         EntityId = s.EntityId,
                         s.Name,
                         s.Role,
@@ -130,7 +132,9 @@ public sealed class PendingPersonSignalRepository : IPendingPersonSignalReposito
         ArgumentNullException.ThrowIfNull(ids);
 
         if (ids.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         using var conn = _db.CreateConnection();
         conn.Execute(
@@ -164,24 +168,24 @@ public sealed class PendingPersonSignalRepository : IPendingPersonSignalReposito
     /// </summary>
     private sealed class PendingSignalRow
     {
-        public Guid    id         { get; set; }
-        public Guid    entity_id  { get; set; }
-        public string  name       { get; set; } = string.Empty;
-        public string  role       { get; set; } = string.Empty;
-        public string  source     { get; set; } = string.Empty;
-        public string? pattern    { get; set; }
-        public string  media_type { get; set; } = string.Empty;
-        public string  created_at { get; set; } = string.Empty;
+        public Guid id { get; set; }
+        public Guid entity_id { get; set; }
+        public string name { get; set; } = string.Empty;
+        public string role { get; set; } = string.Empty;
+        public string source { get; set; } = string.Empty;
+        public string? pattern { get; set; }
+        public string media_type { get; set; } = string.Empty;
+        public string created_at { get; set; } = string.Empty;
     }
 
     private static PendingPersonSignal MapRow(PendingSignalRow r) => new()
     {
-        Id        = r.id,
-        EntityId  = r.entity_id,
-        Name      = r.name,
-        Role      = r.role,
-        Source    = r.source,
-        Pattern   = r.pattern,
+        Id = r.id,
+        EntityId = r.entity_id,
+        Name = r.name,
+        Role = r.role,
+        Source = r.source,
+        Pattern = r.pattern,
         MediaType = r.media_type,
         CreatedAt = r.created_at,
     };

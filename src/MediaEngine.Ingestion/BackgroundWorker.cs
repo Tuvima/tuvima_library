@@ -1,6 +1,6 @@
 using System.Threading.Channels;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Ingestion.Contracts;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Ingestion;
 
@@ -40,7 +40,7 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
     public BackgroundWorker(
         ILogger<BackgroundWorker> logger,
         int maxConcurrency = 0,
-        int queueCapacity  = 1_000)
+        int queueCapacity = 1_000)
     {
         _logger = logger;
 
@@ -48,7 +48,7 @@ public sealed class BackgroundWorker : IBackgroundWorker, IAsyncDisposable
 
         _channel = Channel.CreateBounded<WorkItem>(new BoundedChannelOptions(queueCapacity)
         {
-            FullMode     = BoundedChannelFullMode.Wait,
+            FullMode = BoundedChannelFullMode.Wait,
             SingleReader = consumerCount == 1,
             SingleWriter = false,
             AllowSynchronousContinuations = false,

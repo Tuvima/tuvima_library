@@ -15,8 +15,6 @@ public sealed record SessionValidationResult(AuthSession Session, Account Accoun
 
 public sealed record AuthenticationAttemptResult(bool Succeeded, bool LockedOut, string? Error, SessionIssueResult? IssuedSession);
 
-public sealed record AdministratorElevationResult(bool Succeeded, string? Error, DateTimeOffset? ExpiresAt);
-
 public interface IFirstPartyIdentityService
 {
     Task<bool> IsAdministratorConfiguredAsync(CancellationToken ct = default);
@@ -36,11 +34,6 @@ public interface IFirstPartyIdentityService
     Task ResetPasswordWithTokenAsync(string token, string newPassword, CancellationToken ct = default);
     Task<IReadOnlyList<string>> RegenerateRecoveryCodesAsync(Guid accountId, string currentPassword, CancellationToken ct = default);
     Task SetProfilePinAsync(Guid profileId, string? pin, CancellationToken ct = default);
-    Task SetAdministratorPinAsync(Guid profileId, string? pin, CancellationToken ct = default);
     Task<SessionValidationResult> SwitchActiveProfileAsync(string sessionToken, Guid targetProfileId, string? pin, CancellationToken ct = default);
-    Task<AdministratorElevationResult> ElevateAdministratorAsync(string sessionToken, string secret, CancellationToken ct = default);
-    Task<AdministratorElevationResult> ElevateAdministratorWithPasskeyAsync(string sessionToken, CancellationToken ct = default);
-    Task<DateTimeOffset?> GetAdministratorElevationAsync(string sessionToken, CancellationToken ct = default);
-    Task ClearAdministratorElevationAsync(string sessionToken, CancellationToken ct = default);
     Task<bool> ValidateServiceCredentialAsync(string plaintextToken, CancellationToken ct = default);
 }

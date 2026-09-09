@@ -1,7 +1,9 @@
 using System.Globalization;
+using System.Security.Claims;
 using System.Text.Json;
-using MediaEngine.Contracts.Authentication;
 using Dapper;
+using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Configuration;
@@ -38,6 +40,7 @@ public sealed class PlaybackCapabilitiesService
     private readonly IConfigurationLoader _configuration;
     private readonly AdaptiveHlsService _adaptiveHls;
     private readonly HlsAccessGrantService _hlsGrants;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<PlaybackCapabilitiesService> _logger;
 
     public PlaybackCapabilitiesService(
@@ -52,6 +55,7 @@ public sealed class PlaybackCapabilitiesService
         IConfigurationLoader configuration,
         AdaptiveHlsService adaptiveHls,
         HlsAccessGrantService hlsGrants,
+        IHttpContextAccessor httpContextAccessor,
         ILogger<PlaybackCapabilitiesService> logger)
     {
         _assets = assets;
@@ -65,6 +69,7 @@ public sealed class PlaybackCapabilitiesService
         _configuration = configuration;
         _adaptiveHls = adaptiveHls;
         _hlsGrants = hlsGrants;
+        _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
 
@@ -200,9 +205,26 @@ public sealed class PlaybackCapabilitiesService
                 hlsStatus = preparation.Status;
                 if (preparation.Status == "ready")
                 {
-                    var grant = _hlsGrants.Create(assetId, preparation.PackageId);
-                    hlsExpiresAt = grant.ExpiresAt;
-                    hlsUrl = $"/stream/hls/{Uri.EscapeDataString(grant.Value)}/{preparation.PackageId:D}/master.m3u8";
+                    var request = _httpContextAccessor.HttpContext;
+                    var authority = request is null
+                        ? null
+                        : await request.RequestServices.GetRequiredService<IRequestAuthorityResolver>()
+                            .ResolveAsync(request, ct).ConfigureAwait(false);
+                    if (authority is null)
+                    {
+                        hlsStatus = "unavailable";
+                        warnings.Add("Adaptive playback requires a live request authority.");
+                    }
+                    else
+                    {
+                        var tokenId = ClaimGuid(request!.User, TuvimaClaimTypes.TokenId);
+                        var scopes = request.User.FindAll(TuvimaClaimTypes.Scope)
+                            .Select(claim => claim.Value)
+                            .ToArray();
+                        var grant = _hlsGrants.Create(assetId, preparation.PackageId, authority, tokenId, scopes);
+                        hlsExpiresAt = grant.ExpiresAt;
+                        hlsUrl = $"/stream/hls/{Uri.EscapeDataString(grant.Value)}/{preparation.PackageId:D}/master.m3u8";
+                    }
                 }
                 else if (preparation.Status == "preparing")
                 {
@@ -245,6 +267,11 @@ public sealed class PlaybackCapabilitiesService
             Connection = connection,
         };
     }
+
+    private static Guid? ClaimGuid(ClaimsPrincipal principal, string claimType) =>
+        Guid.TryParse(principal.FindFirstValue(claimType), out var value) && value != Guid.Empty
+            ? value
+            : null;
 
     private static PlaybackProfileDto ProfileForCapabilities(string client, ClientCapabilitiesDto capabilities) => new()
     {
@@ -410,7 +437,9 @@ public sealed class PlaybackCapabilitiesService
                 warnings.Add($"FFmpeg was located but its version probe failed: {ex.Message}");
             }
             if (!_ffmpeg.HardwareCapabilities.AdaptiveHlsReady)
+            {
                 warnings.Add("FFmpeg is present but does not provide every HLS, H.264, and AAC capability required for adaptive delivery.");
+            }
         }
 
         return new PlaybackDiagnosticsDto

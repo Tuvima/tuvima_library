@@ -1,5 +1,5 @@
-using Bunit;
 using System.Security.Claims;
+using Bunit;
 using MediaEngine.Web.Services.Integration;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;

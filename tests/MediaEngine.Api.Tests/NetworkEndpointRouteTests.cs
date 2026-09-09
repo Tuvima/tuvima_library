@@ -3,12 +3,13 @@ namespace MediaEngine.Api.Tests;
 public sealed class NetworkEndpointRouteTests
 {
     [Fact]
-    public void NetworkAdministrationRoutesRequireAdministratorAndUseExplicitPortWorkflow()
+    public void NetworkAdministrationRoutesUseExplicitPermissionsAndPortWorkflow()
     {
         var source = Read(@"src\MediaEngine.Api\Endpoints\NetworkEndpoints.cs");
 
         Assert.Contains("MapGroup(\"/settings/network\")", source, StringComparison.Ordinal);
-        Assert.Contains("RequireAdmin()", source, StringComparison.Ordinal);
+        Assert.Contains("RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkStatusRead)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkConfigWrite)", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/port-change/check\"", source, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/port-change/apply\"", source, StringComparison.Ordinal);
         Assert.Contains("Use the Change Port action", source, StringComparison.Ordinal);

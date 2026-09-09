@@ -70,7 +70,9 @@ public sealed class PipelineExecutionSnapshotProvider : IPipelineExecutionSnapsh
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         _disposed = true;
         _loader.ConfigurationChanged -= OnConfigurationChanged;

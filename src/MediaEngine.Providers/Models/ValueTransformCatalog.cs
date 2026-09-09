@@ -50,7 +50,11 @@ public static partial class ValueTransformCatalog
             // Extract plain numeric value from a Wikidata quantity string (e.g. "+142" → "142")
             ["duration_from_quantity"] = value =>
             {
-                if (string.IsNullOrWhiteSpace(value)) return null;
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    return null;
+                }
+
                 var numeric = new string(value.TrimStart('+').TakeWhile(c => char.IsDigit(c) || c == '.').ToArray());
                 return string.IsNullOrEmpty(numeric) ? null : numeric;
             },
@@ -60,15 +64,24 @@ public static partial class ValueTransformCatalog
             // Returns bare year ("1965") for year-precision, full date ("1965-06-15") otherwise.
             ["date_with_precision"] = value =>
             {
-                if (string.IsNullOrWhiteSpace(value)) return null;
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    return null;
+                }
                 // Already a bare year
-                if (value.Length == 4 && value.All(char.IsDigit)) return value;
+                if (value.Length == 4 && value.All(char.IsDigit))
+                {
+                    return value;
+                }
                 // Parse ISO date — Wikidata convention: year-precision dates use -01-01T00:00:00Z
                 if (value.Length >= 10)
                 {
                     var monthDay = value.Substring(5, 5); // "MM-DD"
                     if (monthDay == "01-01")
+                    {
                         return value.Substring(0, 4); // Year only
+                    }
+
                     return value.Substring(0, 10); // Full date YYYY-MM-DD
                 }
                 return value;
@@ -81,14 +94,23 @@ public static partial class ValueTransformCatalog
             // Handles hyphenated words (e.g. "lord-of-the-rings" → "Lord-Of-The-Rings").
             ["title_case"] = raw =>
             {
-                if (string.IsNullOrWhiteSpace(raw)) return raw;
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    return raw;
+                }
 
                 static string CapitalizeSegment(string segment)
                 {
-                    if (segment.Length == 0) return segment;
+                    if (segment.Length == 0)
+                    {
+                        return segment;
+                    }
                     // Preserve all-caps acronyms (2+ chars, all uppercase letters)
                     if (segment.Length > 1 && segment.All(c => char.IsLetter(c) && char.IsUpper(c)))
+                    {
                         return segment;
+                    }
+
                     return char.ToUpperInvariant(segment[0]) + segment[1..];
                 }
 
@@ -101,7 +123,10 @@ public static partial class ValueTransformCatalog
                     {
                         var parts = word.Split('-');
                         for (int j = 0; j < parts.Length; j++)
+                        {
                             parts[j] = CapitalizeSegment(parts[j]);
+                        }
+
                         words[i] = string.Join('-', parts);
                     }
                     else
@@ -137,7 +162,10 @@ public static partial class ValueTransformCatalog
             // HTML entities are decoded after stripping. <br> variants are normalised to <br />.
             ["sanitize_html"] = raw =>
             {
-                if (string.IsNullOrWhiteSpace(raw)) return raw;
+                if (string.IsNullOrWhiteSpace(raw))
+                {
+                    return raw;
+                }
 
                 // Replace non-allowed tags with empty string; keep allowed ones intact.
                 var result = Regex.Replace(raw, @"</?[^>]+>", match =>
@@ -177,7 +205,10 @@ public static partial class ValueTransformCatalog
             ["regex_replace"] = (raw, args) =>
             {
                 if (string.IsNullOrEmpty(args))
+                {
                     return raw;
+                }
+
                 var parts = args.Split('|', 2);
                 return parts.Length == 2
                     ? Regex.Replace(raw, parts[0], parts[1])
@@ -197,7 +228,10 @@ public static partial class ValueTransformCatalog
             ["first_n_chars"] = (raw, args) =>
             {
                 if (string.IsNullOrEmpty(args) || !int.TryParse(args, out var n) || n <= 0)
+                {
                     return raw;
+                }
+
                 return raw.Length > n ? raw[..n] : raw;
             },
 
@@ -213,7 +247,9 @@ public static partial class ValueTransformCatalog
     public static string? Apply(string? transformName, string rawValue)
     {
         if (string.IsNullOrEmpty(transformName))
+        {
             return rawValue;
+        }
 
         return Transforms.TryGetValue(transformName, out var fn)
             ? fn(rawValue)
@@ -227,15 +263,21 @@ public static partial class ValueTransformCatalog
     public static string? Apply(string? transformName, string rawValue, string? args)
     {
         if (string.IsNullOrEmpty(transformName))
+        {
             return rawValue;
+        }
 
         // Try parameterised transforms first.
         if (ArgsTransforms.TryGetValue(transformName, out var argsFn))
+        {
             return argsFn(rawValue, args);
+        }
 
         // Fall back to simple transforms.
         if (Transforms.TryGetValue(transformName, out var fn))
+        {
             return fn(rawValue);
+        }
 
         return rawValue;
     }
@@ -246,7 +288,9 @@ public static partial class ValueTransformCatalog
     public static bool IsKnown(string? transformName)
     {
         if (string.IsNullOrEmpty(transformName))
+        {
             return false;
+        }
 
         return Transforms.ContainsKey(transformName) || ArgsTransforms.ContainsKey(transformName);
     }
@@ -261,7 +305,10 @@ public static partial class ValueTransformCatalog
         {
             if (char.IsDigit(value[i]))
             {
-                if (start < 0) start = i;
+                if (start < 0)
+                {
+                    start = i;
+                }
             }
             else if (value[i] == '.' && start >= 0)
             {

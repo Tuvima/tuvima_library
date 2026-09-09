@@ -1,6 +1,6 @@
-using MediaEngine.Domain.Models;
 using System.Text.Json.Serialization;
 using MediaEngine.Contracts.Persons;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Contracts.Collections;
 

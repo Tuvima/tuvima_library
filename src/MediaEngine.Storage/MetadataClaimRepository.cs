@@ -38,7 +38,9 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
         ct.ThrowIfCancellationRequested();
 
         if (claims.Count == 0)
+        {
             return;
+        }
 
         await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -64,7 +66,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
                 c.ClaimKey,
                 c.ClaimValue,
                 c.Confidence,
-                ClaimedAt    = c.ClaimedAt.ToString("o"),
+                ClaimedAt = c.ClaimedAt.ToString("o"),
                 IsUserLocked = c.IsUserLocked ? 1 : 0,
                 IsCurrent = c.IsCurrent ? 1 : 0,
                 SupersededAt = c.SupersededAt?.ToString("O"),
@@ -87,7 +89,9 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         if (keys.Length == 0)
+        {
             return;
+        }
 
         var observationSetId = Guid.NewGuid();
         var observedAt = DateTimeOffset.UtcNow;
@@ -104,15 +108,17 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
                   AND is_user_locked = 0
                   AND claim_key IN @keys;
                 """, new
-                {
-                    entityId,
-                    providerId,
-                    keys,
-                    supersededAt = observedAt.ToString("O"),
-                }, tx);
+            {
+                entityId,
+                providerId,
+                keys,
+                supersededAt = observedAt.ToString("O"),
+            }, tx);
 
             if (claims.Count == 0)
+            {
                 return;
+            }
 
             conn.Execute("""
                 INSERT INTO metadata_claims
@@ -122,18 +128,18 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
                     (@Id, @EntityId, @ProviderId, @DecisionSourceProviderId, @ObservationSetId,
                      @ClaimKey, @ClaimValue, @Confidence, @ClaimedAt, @IsUserLocked, 1, NULL);
                 """, claims.Select(claim => new
-                {
-                    Id = claim.Id == Guid.Empty ? Guid.NewGuid() : claim.Id,
-                    EntityId = entityId,
-                    ProviderId = providerId,
-                    claim.DecisionSourceProviderId,
-                    ObservationSetId = observationSetId,
-                    claim.ClaimKey,
-                    claim.ClaimValue,
-                    claim.Confidence,
-                    ClaimedAt = observedAt.ToString("O"),
-                    IsUserLocked = claim.IsUserLocked ? 1 : 0,
-                }), tx);
+            {
+                Id = claim.Id == Guid.Empty ? Guid.NewGuid() : claim.Id,
+                EntityId = entityId,
+                ProviderId = providerId,
+                claim.DecisionSourceProviderId,
+                ObservationSetId = observationSetId,
+                claim.ClaimKey,
+                claim.ClaimValue,
+                claim.Confidence,
+                ClaimedAt = observedAt.ToString("O"),
+                IsUserLocked = claim.IsUserLocked ? 1 : 0,
+            }), tx);
         }, ct).ConfigureAwait(false);
     }
 
@@ -143,7 +149,9 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
         IReadOnlyList<MetadataClaim> claims)
     {
         if (!claims.Any(c => c.ProviderId == WellKnownProviders.UserManual))
+        {
             return;
+        }
 
         conn.Execute("""
             INSERT OR IGNORE INTO metadata_providers (id, name, version, is_enabled)
@@ -190,8 +198,10 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
     {
         ct.ThrowIfCancellationRequested();
         if (entityIds.Count == 0)
+        {
             return Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<MetadataClaim>>>(
                 new Dictionary<Guid, IReadOnlyList<MetadataClaim>>());
+        }
 
         using var conn = _db.CreateConnection();
         var results = new List<MetadataClaim>();

@@ -1,13 +1,12 @@
+using System.Collections.Concurrent;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
-using MediaEngine.Contracts.Realtime;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Collections.Concurrent;
 
 namespace MediaEngine.Api.Services;
 
@@ -19,7 +18,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
 {
     private readonly IProviderHealthRepository _repo;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IHubContext<MediaEngine.Api.Realtime.Intercom> _hubContext;
+    private readonly IEventPublisher _events;
     private readonly ILogger<ProviderHealthMonitorService> _logger;
     private readonly IServiceScopeFactory _scopeFactory;
 
@@ -32,13 +31,13 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
     public ProviderHealthMonitorService(
         IProviderHealthRepository repo,
         IHttpClientFactory httpClientFactory,
-        IHubContext<MediaEngine.Api.Realtime.Intercom> hubContext,
+        IEventPublisher events,
         ILogger<ProviderHealthMonitorService> logger,
         IServiceScopeFactory scopeFactory)
     {
         _repo = repo;
         _httpClientFactory = httpClientFactory;
-        _hubContext = hubContext;
+        _events = events;
         _logger = logger;
         _scopeFactory = scopeFactory;
     }
@@ -56,7 +55,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
             _recoveryQueue.Enqueue(providerId);
 
             // Notify Dashboard.
-            await _hubContext.Clients.All.SendAsync(
+            await _events.PublishAsync(
                 SignalREvents.ProviderStatusChanged,
                 new ProviderStatusChangedEvent(
                     providerId,
@@ -75,7 +74,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
         // Notify Dashboard on transition to Down.
         if (newStatus == ProviderHealthStatus.Down && previousStatus != ProviderHealthStatus.Down)
         {
-            await _hubContext.Clients.All.SendAsync(
+            await _events.PublishAsync(
                 SignalREvents.ProviderStatusChanged,
                 new ProviderStatusChangedEvent(
                     providerId,
@@ -132,7 +131,9 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
     {
         var records = await _repo.GetAllAsync(ct);
         foreach (var r in records)
+        {
             _statusCache[r.ProviderId] = r.Status;
+        }
     }
 
     private async Task RunActiveProbesAsync(CancellationToken ct)
@@ -143,7 +144,9 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
         foreach (var provider in downProviders)
         {
             if (provider.NextCheckAt.HasValue && provider.NextCheckAt.Value > now)
+            {
                 continue; // Not time yet.
+            }
 
             _logger.LogDebug("Active health probe for {Provider}", provider.ProviderId);
 
@@ -203,7 +206,7 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
                     waitingItems.Count, providerId);
 
                 // Notify Dashboard.
-                await _hubContext.Clients.All.SendAsync(
+                await _events.PublishAsync(
                     SignalREvents.ProviderRecoveryFlush,
                     new ProviderRecoveryFlushEvent(
                         providerId,
@@ -218,10 +221,10 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
                     {
                         var request = new HarvestRequest
                         {
-                            EntityId       = item.EntityId,
-                            EntityType     = EntityType.MediaAsset,
-                            MediaType      = item.MediaType,
-                            Pass           = HydrationPass.Quick,
+                            EntityId = item.EntityId,
+                            EntityType = EntityType.MediaAsset,
+                            MediaType = item.MediaType,
+                            Pass = HydrationPass.Quick,
                             SuppressActivityEntry = true,
                         };
 

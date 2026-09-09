@@ -118,7 +118,7 @@ dotnet test tests/MediaEngine.Storage.Tests --filter DatabaseStartupSafetyTests
 dotnet test tests/MediaEngine.Web.Tests --filter UiCompositionGuardrailTests
 ```
 
-CI also runs `dotnet format MediaEngine.slnx --verify-no-changes`, `dotnet list MediaEngine.slnx package --vulnerable --include-transitive`, Docker build, docs build, and coverage collection. Coverage is reporting-first for now; critical storage, API, Web shell/editor, review, ingestion, provider failure, and API-client failure paths should be ratcheted upward as those areas stabilize.
+CI also runs `dotnet format MediaEngine.slnx --verify-no-changes`, `dotnet list MediaEngine.slnx package --vulnerable --include-transitive`, Docker build, docs build, and coverage collection. Coverage uses the conservative repository floor documented below; critical storage, API, Web shell/editor, review, ingestion, provider failure, and API-client failure paths should be ratcheted upward as those areas stabilize.
 
 ---
 

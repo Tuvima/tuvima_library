@@ -144,7 +144,9 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
 
             var updatedJob = await _jobRepo.GetByIdAsync(job.Id, ct);
             if (updatedJob is not null)
+            {
                 job = updatedJob;
+            }
         }
         // Path C: Full pipeline (normal automated flow)
         else
@@ -177,14 +179,18 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
 
                 updatedJob = await _jobRepo.GetByIdAsync(job.Id, ct);
                 if (updatedJob is not null)
+                {
                     job = updatedJob;
+                }
             }
         }
 
         // Reload to get latest state
         var finalJob = await _jobRepo.GetByIdAsync(job.Id, ct);
         if (finalJob is not null)
+        {
             job = finalJob;
+        }
 
         // Stage 3: Quick hydration (if QID resolved)
         if (job.State == nameof(IdentityJobState.QidResolved))
@@ -193,7 +199,9 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
 
             finalJob = await _jobRepo.GetByIdAsync(job.Id, ct);
             if (finalJob is not null)
+            {
                 job = finalJob;
+            }
         }
 
         _logger.LogInformation(
@@ -209,9 +217,13 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
         CancellationToken ct)
     {
         if (isUserResolution)
+        {
             job.Id = await _jobRepo.CreateOrResumeUserResolutionAsync(job, ct);
+        }
         else
+        {
             await _jobRepo.CreateAsync(job, ct);
+        }
     }
 
     private HydrationResult BuildResult(IdentityJob job)

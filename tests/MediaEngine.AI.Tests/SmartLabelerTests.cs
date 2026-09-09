@@ -217,7 +217,9 @@ internal sealed class StubLlamaInferenceService : ILlamaInferenceService
         CancellationToken ct = default) where T : class
     {
         if (_jsonResponse is null)
+        {
             return Task.FromResult<T?>(null);
+        }
 
         try
         {

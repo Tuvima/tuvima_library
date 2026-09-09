@@ -98,7 +98,9 @@ public sealed class MediaTypeExtensionCatalogTests
         {
             var candidate = Path.Combine(new[] { directory.FullName }.Concat(parts).ToArray());
             if (Directory.Exists(candidate))
+            {
                 return candidate;
+            }
 
             directory = directory.Parent;
         }

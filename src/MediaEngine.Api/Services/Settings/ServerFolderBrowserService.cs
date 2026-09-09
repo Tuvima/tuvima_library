@@ -111,7 +111,11 @@ public sealed class ServerFolderBrowserService(
 
         var exists = Directory.Exists(resolved.Path);
         var accessPath = resolved.Path;
-        while (!Directory.Exists(accessPath)) accessPath = Path.GetDirectoryName(accessPath)!;
+        while (!Directory.Exists(accessPath))
+        {
+            accessPath = Path.GetDirectoryName(accessPath)!;
+        }
+
         var hasRead = ProbeRead(accessPath);
         var hasWrite = location.AllowWrite && ProbeWrite(accessPath);
         if (!location.AllowWrite && ServerFolderSelectionModes.RequiresWrite(request.SelectionMode))
@@ -228,8 +232,16 @@ public sealed class ServerFolderBrowserService(
         string? manualPath,
         string? relativePath)
     {
-        if (string.IsNullOrWhiteSpace(manualPath)) return NormalizeRelative(relativePath);
-        if (!TryResolveLocationRoot(location, out var root, out _)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(manualPath))
+        {
+            return NormalizeRelative(relativePath);
+        }
+
+        if (!TryResolveLocationRoot(location, out var root, out _))
+        {
+            return string.Empty;
+        }
+
         var relative = Path.GetRelativePath(root, Path.GetFullPath(manualPath.Trim()));
         return relative == "." ? string.Empty : relative;
     }
@@ -421,7 +433,11 @@ public sealed class ServerFolderBrowserService(
         try
         {
             var root = Path.GetPathRoot(path);
-            if (string.IsNullOrWhiteSpace(root)) return (null, null);
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                return (null, null);
+            }
+
             var drive = new DriveInfo(root);
             return drive.IsReady ? (drive.AvailableFreeSpace, drive.DriveFormat) : (null, null);
         }
@@ -467,14 +483,22 @@ public sealed class ServerFolderBrowserService(
 
     private static string? ParentRelativePath(string relativePath)
     {
-        if (string.IsNullOrWhiteSpace(relativePath)) return null;
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return null;
+        }
+
         var parent = Path.GetDirectoryName(relativePath);
         return string.IsNullOrWhiteSpace(parent) || parent == "." ? string.Empty : parent;
     }
 
     private static bool IsWithin(string root, string candidate)
     {
-        if (PathEquals(root, candidate)) return true;
+        if (PathEquals(root, candidate))
+        {
+            return true;
+        }
+
         var prefix = Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar;
         return candidate.StartsWith(prefix, PathComparison);
     }

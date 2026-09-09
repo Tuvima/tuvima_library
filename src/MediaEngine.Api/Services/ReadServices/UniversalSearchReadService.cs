@@ -1,7 +1,9 @@
 using Dapper;
+using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.Display;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Display;
-using MediaEngine.Contracts.Search;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
@@ -10,7 +12,9 @@ namespace MediaEngine.Api.Services.ReadServices;
 
 public sealed class UniversalSearchReadService(
     IDatabaseConnection db,
-    ICollectionSearchReadService workSearch) : IUniversalSearchReadService
+    IDisplayProjectionReadService display,
+    IHttpContextAccessor http,
+    IRequestAuthorityResolver authorities) : IUniversalSearchReadService
 {
     public async Task<UniversalSearchResponseDto> SearchAsync(string? query, int limit, CancellationToken ct)
     {
@@ -21,13 +25,28 @@ public sealed class UniversalSearchReadService(
         }
 
         var take = Math.Clamp(limit, 6, 80);
-        var worksTask = workSearch.SearchAsync(trimmed, ct);
-        var peopleTask = SearchPeopleAsync(trimmed, Math.Min(8, take), ct);
-        var collectionsTask = SearchCollectionsAsync(trimmed, Math.Min(10, take), ct);
-        await Task.WhenAll(worksTask, peopleTask, collectionsTask).ConfigureAwait(false);
+        var visibleWorks = await display.LoadWorksAsync(ct).ConfigureAwait(false);
+        var matchingWorks = visibleWorks
+            .Where(row => Matches(row, trimmed))
+            .OrderByDescending(row => WorkScore(row, trimmed))
+            .ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase)
+            .Take(take)
+            .ToList();
+        var allowedAssetIds = visibleWorks.Select(row => row.AssetId).Where(id => id != Guid.Empty).Distinct().ToArray();
+        var allowedWorkIds = visibleWorks.Select(row => row.WorkId).Where(id => id != Guid.Empty).Distinct().ToArray();
+        var authority = http.HttpContext is { } context
+            ? await authorities.ResolveAsync(context, ct).ConfigureAwait(false)
+            : new RequestAuthority(PrincipalKind.Anonymous, false);
+        var profileId = AuthorityValidity.ValidateHuman(authority) is null
+            ? authority.ActiveProfileId
+            : null;
+        var peopleTask = SearchPeopleAsync(trimmed, Math.Min(8, take), allowedAssetIds, ct);
+        var collectionsTask = SearchCollectionsAsync(
+            trimmed, Math.Min(10, take), allowedWorkIds, profileId, ct);
+        await Task.WhenAll(peopleTask, collectionsTask).ConfigureAwait(false);
 
         var results = new List<UniversalSearchResultDto>();
-        results.AddRange((await worksTask.ConfigureAwait(false)).Select(result => FromWork(result, trimmed)));
+        results.AddRange(matchingWorks.Select(result => FromWork(result, trimmed)));
         results.AddRange(await peopleTask.ConfigureAwait(false));
         results.AddRange(await collectionsTask.ConfigureAwait(false));
 
@@ -45,8 +64,14 @@ public sealed class UniversalSearchReadService(
     private async Task<IReadOnlyList<UniversalSearchResultDto>> SearchPeopleAsync(
         string query,
         int limit,
+        IReadOnlyCollection<Guid> allowedAssetIds,
         CancellationToken ct)
     {
+        if (allowedAssetIds.Count == 0)
+        {
+            return [];
+        }
+
         using var conn = db.CreateConnection();
         var rows = (await conn.QueryAsync<PersonSearchRow>(new CommandDefinition(
             """
@@ -59,6 +84,10 @@ public sealed class UniversalSearchReadService(
             FROM persons p
             LEFT JOIN person_roles pr ON pr.person_id = p.id
             WHERE p.name LIKE @Like COLLATE NOCASE
+              AND EXISTS (
+                  SELECT 1
+                  FROM primary_person_media_credits credit
+                  WHERE credit.person_id=p.id AND credit.media_asset_id IN @AllowedAssetIds)
             GROUP BY p.id, p.name, p.biography, p.occupation, p.local_headshot_path
             ORDER BY CASE WHEN lower(p.name) = lower(@Query) THEN 0
                           WHEN lower(p.name) LIKE lower(@Prefix) THEN 1
@@ -66,7 +95,14 @@ public sealed class UniversalSearchReadService(
                      p.name COLLATE NOCASE
             LIMIT @Limit
             """,
-            new { Query = query, Prefix = $"{query}%", Like = $"%{query}%", Limit = limit },
+            new
+            {
+                Query = query,
+                Prefix = $"{query}%",
+                Like = $"%{query}%",
+                Limit = limit,
+                AllowedAssetIds = allowedAssetIds.Select(GuidSql.ToBlob).ToArray(),
+            },
             cancellationToken: ct)).ConfigureAwait(false)).AsList();
 
         return rows.Select(row =>
@@ -96,8 +132,13 @@ public sealed class UniversalSearchReadService(
     private async Task<IReadOnlyList<UniversalSearchResultDto>> SearchCollectionsAsync(
         string query,
         int limit,
+        IReadOnlyCollection<Guid> allowedWorkIds,
+        Guid? profileId,
         CancellationToken ct)
     {
+        var workIds = allowedWorkIds.Count > 0
+            ? allowedWorkIds.Select(GuidSql.ToBlob).ToArray()
+            : [GuidSql.ToBlob(Guid.Empty)];
         using var conn = db.CreateConnection();
         var rows = (await conn.QueryAsync<CollectionSearchRow>(new CommandDefinition(
             """
@@ -106,13 +147,17 @@ public sealed class UniversalSearchReadService(
                    c.collection_type AS CollectionType,
                    c.description AS Description,
                    c.cover_artwork_path AS CoverArtworkPath,
-                   COUNT(DISTINCT ci.work_id) AS ItemCount
+                   COUNT(DISTINCT CASE WHEN member.id IN @AllowedWorkIds THEN member.id END) AS ItemCount
             FROM collections c
             LEFT JOIN canonical_values title ON title.entity_id = c.id AND title.key = 'title'
             LEFT JOIN collection_items ci ON ci.collection_id = c.id
+            LEFT JOIN works member ON member.id=ci.work_id OR member.collection_id=c.id
             WHERE c.is_enabled = 1
               AND (COALESCE(c.display_name, title.value, '') LIKE @Like COLLATE NOCASE
                    OR COALESCE(c.description, '') LIKE @Like COLLATE NOCASE)
+              AND (
+                  member.id IN @AllowedWorkIds
+                  OR (c.profile_id=@ProfileId AND lower(c.collection_type) LIKE '%playlist%'))
             GROUP BY c.id, c.display_name, title.value, c.collection_type, c.description, c.cover_artwork_path
             ORDER BY CASE WHEN lower(COALESCE(c.display_name, title.value, '')) = lower(@Query) THEN 0
                           WHEN lower(COALESCE(c.display_name, title.value, '')) LIKE lower(@Prefix) THEN 1
@@ -121,7 +166,15 @@ public sealed class UniversalSearchReadService(
                      Name COLLATE NOCASE
             LIMIT @Limit
             """,
-            new { Query = query, Prefix = $"{query}%", Like = $"%{query}%", Limit = limit },
+            new
+            {
+                Query = query,
+                Prefix = $"{query}%",
+                Like = $"%{query}%",
+                Limit = limit,
+                AllowedWorkIds = workIds,
+                ProfileId = profileId.HasValue ? GuidSql.ToBlob(profileId.Value) : null,
+            },
             cancellationToken: ct)).ConfigureAwait(false)).AsList();
 
         return rows.Select(row =>
@@ -152,18 +205,18 @@ public sealed class UniversalSearchReadService(
         }).ToList();
     }
 
-    private static UniversalSearchResultDto FromWork(SearchResultDto result, string query)
+    private static UniversalSearchResultDto FromWork(DisplayWorkRow result, string query)
     {
         var mediaType = NormalizeMediaType(result.MediaType);
         var creator = SameText(result.Author, result.Title) ? null : result.Author;
-        var subtitle = FirstDifferent(result.Title, creator, result.ShowName, result.Series, result.CollectionDisplayName);
+        var subtitle = FirstDifferent(result.Title, creator, result.ShowName, result.Series, result.CollectionTitle);
         var route = WorkRoute(result, mediaType);
         var matchSource = ResolveWorkMatchSource(result, query);
         var relevance = matchSource switch
         {
             "title" => Score(result.Title, query, 1.0),
             "creator" => Score(result.Author, query, 0.92),
-            "series" => Score(StringHelpers.FirstNonBlank(result.Series, result.ShowName, result.CollectionDisplayName), query, 0.90),
+            "series" => Score(StringHelpers.FirstNonBlank(result.Series, result.ShowName, result.CollectionTitle), query, 0.90),
             _ => 0.72,
         };
 
@@ -227,7 +280,7 @@ public sealed class UniversalSearchReadService(
             .ToList();
     }
 
-    private static string WorkRoute(SearchResultDto result, string mediaType) => mediaType switch
+    private static string WorkRoute(DisplayWorkRow result, string mediaType) => mediaType switch
     {
         "Movie" or "TV" => $"/details/work/{result.WorkId:D}?context=watch",
         "Music" => $"/listen/music?browse=songs&track={result.WorkId:D}",
@@ -238,11 +291,31 @@ public sealed class UniversalSearchReadService(
     private static string NormalizeMediaType(string? value)
     {
         var normalized = value?.Trim().ToLowerInvariant() ?? string.Empty;
-        if (normalized.Contains("tv") || normalized.Contains("television")) return "TV";
-        if (normalized.Contains("movie") || normalized.Contains("video")) return "Movie";
-        if (normalized.Contains("audiobook") || normalized.Contains("m4b")) return "Audiobook";
-        if (normalized.Contains("music") || normalized == "audio") return "Music";
-        if (normalized.Contains("comic")) return "Comic";
+        if (normalized.Contains("tv") || normalized.Contains("television"))
+        {
+            return "TV";
+        }
+
+        if (normalized.Contains("movie") || normalized.Contains("video"))
+        {
+            return "Movie";
+        }
+
+        if (normalized.Contains("audiobook") || normalized.Contains("m4b"))
+        {
+            return "Audiobook";
+        }
+
+        if (normalized.Contains("music") || normalized == "audio")
+        {
+            return "Music";
+        }
+
+        if (normalized.Contains("comic"))
+        {
+            return "Comic";
+        }
+
         return "Book";
     }
 
@@ -264,19 +337,52 @@ public sealed class UniversalSearchReadService(
         _ => "Read",
     };
 
-    private static string ResolveWorkMatchSource(SearchResultDto result, string query)
+    private static string ResolveWorkMatchSource(DisplayWorkRow result, string query)
     {
-        if (Contains(result.Title, query)) return "title";
-        if (Contains(result.Author, query)) return "creator";
-        if (Contains(result.Series, query) || Contains(result.ShowName, query) || Contains(result.CollectionDisplayName, query)) return "series";
+        if (Contains(result.Title, query))
+        {
+            return "title";
+        }
+
+        if (Contains(result.Author, query))
+        {
+            return "creator";
+        }
+
+        if (Contains(result.Series, query) || Contains(result.ShowName, query) || Contains(result.CollectionTitle, query))
+        {
+            return "series";
+        }
+
         return "metadata";
     }
+
+    private static bool Matches(DisplayWorkRow row, string query) =>
+        Contains(row.Title, query) || Contains(row.Author, query) || Contains(row.Artist, query) ||
+        Contains(row.Director, query) || Contains(row.Series, query) || Contains(row.ShowName, query) ||
+        Contains(row.CollectionTitle, query) || Contains(row.Description, query);
+
+    private static double WorkScore(DisplayWorkRow row, string query) =>
+        string.Equals(row.Title, query, StringComparison.OrdinalIgnoreCase) ? 1.0 :
+        row.Title.StartsWith(query, StringComparison.OrdinalIgnoreCase) ? 0.95 :
+        Contains(row.Title, query) ? 0.82 :
+        Contains(row.Author, query) || Contains(row.Artist, query) || Contains(row.Director, query) ? 0.78 :
+        Contains(row.Series, query) || Contains(row.ShowName, query) || Contains(row.CollectionTitle, query) ? 0.72 :
+        0.60;
 
     private static string CollectionEntityType(string? value)
     {
         var normalized = value?.Trim().ToLowerInvariant() ?? string.Empty;
-        if (normalized.Contains("playlist") || normalized.Contains("mix")) return "playlist";
-        if (normalized.Contains("series") || normalized.Contains("album") || normalized.Contains("show")) return "series";
+        if (normalized.Contains("playlist") || normalized.Contains("mix"))
+        {
+            return "playlist";
+        }
+
+        if (normalized.Contains("series") || normalized.Contains("album") || normalized.Contains("show"))
+        {
+            return "series";
+        }
+
         return "collection";
     }
 
@@ -291,8 +397,16 @@ public sealed class UniversalSearchReadService(
 
     private static double Score(string? candidate, string query, double ceiling)
     {
-        if (string.Equals(candidate, query, StringComparison.OrdinalIgnoreCase)) return ceiling;
-        if (candidate?.StartsWith(query, StringComparison.OrdinalIgnoreCase) == true) return Math.Max(0, ceiling - 0.05);
+        if (string.Equals(candidate, query, StringComparison.OrdinalIgnoreCase))
+        {
+            return ceiling;
+        }
+
+        if (candidate?.StartsWith(query, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return Math.Max(0, ceiling - 0.05);
+        }
+
         return Math.Max(0, ceiling - 0.18);
     }
 

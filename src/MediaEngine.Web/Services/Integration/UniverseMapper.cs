@@ -33,10 +33,10 @@ public static class UniverseMapper
     private static IReadOnlyDictionary<MediaTypeBucket, string> BucketColours =>
         new Dictionary<MediaTypeBucket, string>
         {
-            [MediaTypeBucket.Book]    = PaletteProvider.Current.MediaType.Book,
-            [MediaTypeBucket.Video]   = PaletteProvider.Current.MediaType.Movie,
-            [MediaTypeBucket.Comic]   = PaletteProvider.Current.MediaType.Comic,
-            [MediaTypeBucket.Audio]   = PaletteProvider.Current.MediaType.Audiobook,
+            [MediaTypeBucket.Book] = PaletteProvider.Current.MediaType.Book,
+            [MediaTypeBucket.Video] = PaletteProvider.Current.MediaType.Movie,
+            [MediaTypeBucket.Comic] = PaletteProvider.Current.MediaType.Comic,
+            [MediaTypeBucket.Audio] = PaletteProvider.Current.MediaType.Audiobook,
             [MediaTypeBucket.Unknown] = PaletteProvider.Current.MediaType.Unknown,
         };
 
@@ -54,9 +54,9 @@ public static class UniverseMapper
 
         return new UniverseViewModel
         {
-            Title            = DeriveTitle(collections),
+            Title = DeriveTitle(collections),
             DominantHexColor = DominantColour(items),
-            Items            = items,
+            Items = items,
         };
     }
 
@@ -70,14 +70,14 @@ public static class UniverseMapper
         var bucket = ClassifyBucket(work.MediaType);
         return new MediaItemViewModel
         {
-            Id               = work.Id,
-            CollectionId            = work.CollectionId,
-            MediaType        = work.MediaType,
-            Title            = work.Title,
-            Author           = work.Author,
-            Year             = work.Year,
+            Id = work.Id,
+            CollectionId = work.CollectionId,
+            MediaType = work.MediaType,
+            Title = work.Title,
+            Author = work.Author,
+            Year = work.Year,
             DominantHexColor = BucketColours[bucket],
-            MediaTypeBucket  = bucket,
+            MediaTypeBucket = bucket,
         };
     }
 
@@ -101,7 +101,9 @@ public static class UniverseMapper
         var buckets = works.Select(w => ClassifyBucket(w.MediaType)).ToList();
 
         if (buckets.Count == 0)
+        {
             return BucketColours[MediaTypeBucket.Unknown];
+        }
 
         var top = buckets
             .GroupBy(b => b)
@@ -124,12 +126,12 @@ public static class UniverseMapper
         var type = MediaTypeClassifier.Classify(mediaType);
         return type switch
         {
-            MediaType.Books                    => MediaTypeBucket.Book,
-            MediaType.Audiobooks               => MediaTypeBucket.Audio,
-            MediaType.Movies or MediaType.TV   => MediaTypeBucket.Video,
-            MediaType.Comics                   => MediaTypeBucket.Comic,
-            MediaType.Music                    => MediaTypeBucket.Audio,
-            _                                  => MediaTypeBucket.Unknown,
+            MediaType.Books => MediaTypeBucket.Book,
+            MediaType.Audiobooks => MediaTypeBucket.Audio,
+            MediaType.Movies or MediaType.TV => MediaTypeBucket.Video,
+            MediaType.Comics => MediaTypeBucket.Comic,
+            MediaType.Music => MediaTypeBucket.Audio,
+            _ => MediaTypeBucket.Unknown,
         };
     }
 
@@ -160,7 +162,9 @@ public static class UniverseMapper
     private static string DominantColour(List<MediaItemViewModel> items)
     {
         if (items.Count == 0)
+        {
             return BucketColours[MediaTypeBucket.Unknown];
+        }
 
         var topBucket = items
             .GroupBy(i => i.MediaTypeBucket)

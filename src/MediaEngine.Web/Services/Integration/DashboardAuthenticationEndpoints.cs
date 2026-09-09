@@ -3,6 +3,8 @@ using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using MediaEngine.Contracts.Authentication;
+using MediaEngine.Domain.Configuration;
+using MediaEngine.Web.Services.Configuration;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -34,7 +36,7 @@ public static class DashboardAuthenticationEndpoints
             }
 
             var tokens = antiforgery.GetAndStoreTokens(context);
-            var deviceId=EnsureDeviceCookie(context);
+            var deviceId = EnsureDeviceCookie(context);
             return Results.Content(
                 LoginPage(
                     tokens.RequestToken ?? string.Empty,
@@ -46,7 +48,8 @@ public static class DashboardAuthenticationEndpoints
                 Encoding.UTF8);
         }).AllowAnonymous();
 
-        app.MapPost("/auth/login", async (HttpContext context, DashboardIdentityClient identity, PasswordResetEmailSender emailSender, IAntiforgery antiforgery) =>
+        app.MapPost("/auth/login", async (HttpContext context, DashboardIdentityClient identity,
+            DashboardConfigurationReader configuration, PasswordResetEmailSender emailSender, IAntiforgery antiforgery) =>
         {
             await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);
             var form = await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);
@@ -57,10 +60,17 @@ public static class DashboardAuthenticationEndpoints
 
             if (action.Equals("email-reset", StringComparison.OrdinalIgnoreCase))
             {
-                var email=form["email"].ToString();
-                var resetToken=await identity.BeginPasswordResetAsync(email,context.RequestAborted).ConfigureAwait(false);
-                if(resetToken is not null) await emailSender.SendAsync(email,resetToken,context.RequestAborted).ConfigureAwait(false);
-                return Results.Content(Shell("<h1>Check your email</h1><p>If that address belongs to an eligible account, a password reset link has been sent. The link expires in 30 minutes.</p><p><a href=\"/auth/login\">Return to sign in</a></p>"),"text/html",Encoding.UTF8);
+                var email = form["email"].ToString();
+                var resetToken = await identity.BeginPasswordResetAsync(new BeginPasswordResetRequest(
+                    email,
+                    IsLocalClient(context, configuration.LoadCore().Auth),
+                    context.Request.IsHttps), context.RequestAborted).ConfigureAwait(false);
+                if (resetToken is not null)
+                {
+                    await emailSender.SendAsync(email, resetToken, context.RequestAborted).ConfigureAwait(false);
+                }
+
+                return Results.Content(Shell("<h1>Check your email</h1><p>If that address belongs to an eligible account, a password reset link has been sent. The link expires in 30 minutes.</p><p><a href=\"/auth/login\">Return to sign in</a></p>"), "text/html", Encoding.UTF8);
             }
 
             if (action.Equals("recover", StringComparison.OrdinalIgnoreCase))
@@ -70,6 +80,8 @@ public static class DashboardAuthenticationEndpoints
                     Email = form["email"].ToString(),
                     RecoveryCode = form["recoveryCode"].ToString(),
                     NewPassword = form["newPassword"].ToString(),
+                    OriginalClientIsLocal = IsLocalClient(context, configuration.LoadCore().Auth),
+                    OriginalClientIsHttps = context.Request.IsHttps,
                 }, context.RequestAborted).ConfigureAwait(false);
                 if (codes is null)
                 {
@@ -102,6 +114,8 @@ public static class DashboardAuthenticationEndpoints
                 DeviceId = deviceId,
                 DeviceName = deviceName,
                 Client = "Tuvima Dashboard",
+                OriginalClientIsLocal = IsLocalClient(context, configuration.LoadCore().Auth),
+                OriginalClientIsHttps = context.Request.IsHttps,
             }, context.RequestAborted).ConfigureAwait(false);
 
             if (issued is null)
@@ -132,51 +146,86 @@ public static class DashboardAuthenticationEndpoints
             return Results.Redirect(returnUrl);
         }).AllowAnonymous();
 
-        app.MapGet("/auth/reset", (HttpContext context,IAntiforgery antiforgery,string? token) =>
+        app.MapGet("/auth/reset", (HttpContext context, IAntiforgery antiforgery, string? token) =>
         {
-            if(string.IsNullOrWhiteSpace(token))return Results.Redirect("/auth/login");
-            var anti=antiforgery.GetAndStoreTokens(context).RequestToken??string.Empty;
-            return Results.Content(Shell($"<h1>Choose a new password</h1><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(anti)}\"><input type=\"hidden\" name=\"token\" value=\"{H(token)}\"><label>New password<input type=\"password\" name=\"newPassword\" minlength=\"8\" autocomplete=\"new-password\" required></label><button>Reset password</button></form>"),"text/html",Encoding.UTF8);
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return Results.Redirect("/auth/login");
+            }
+
+            var anti = antiforgery.GetAndStoreTokens(context).RequestToken ?? string.Empty;
+            return Results.Content(Shell($"<h1>Choose a new password</h1><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(anti)}\"><input type=\"hidden\" name=\"token\" value=\"{H(token)}\"><label>New password<input type=\"password\" name=\"newPassword\" minlength=\"8\" autocomplete=\"new-password\" required></label><button>Reset password</button></form>"), "text/html", Encoding.UTF8);
         }).AllowAnonymous();
 
-        app.MapPost("/auth/reset", async (HttpContext context,DashboardIdentityClient identity,IAntiforgery antiforgery) =>
+        app.MapPost("/auth/reset", async (HttpContext context, DashboardConfigurationReader configuration,
+            DashboardIdentityClient identity, IAntiforgery antiforgery) =>
         {
-            await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);var form=await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);
-            var ok=await identity.CompletePasswordResetAsync(form["token"].ToString(),form["newPassword"].ToString(),context.RequestAborted).ConfigureAwait(false);
-            return Results.Content(ok?Shell("<h1>Password changed</h1><p><a class=\"button\" href=\"/auth/login\">Sign in</a></p>"):LoginFailurePage("That reset link is invalid or expired."),"text/html",Encoding.UTF8,ok?StatusCodes.Status200OK:StatusCodes.Status400BadRequest);
+            await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false); var form = await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);
+            var ok = await identity.CompletePasswordResetAsync(new ResetPasswordTokenRequest(
+                form["token"].ToString(), form["newPassword"].ToString(),
+                IsLocalClient(context, configuration.LoadCore().Auth), context.Request.IsHttps), context.RequestAborted).ConfigureAwait(false);
+            return Results.Content(ok ? Shell("<h1>Password changed</h1><p><a class=\"button\" href=\"/auth/login\">Sign in</a></p>") : LoginFailurePage("That reset link is invalid or expired."), "text/html", Encoding.UTF8, ok ? StatusCodes.Status200OK : StatusCodes.Status400BadRequest);
         }).AllowAnonymous();
 
-        app.MapGet("/auth/invite",(HttpContext context,IAntiforgery antiforgery,string? token)=>
+        app.MapGet("/auth/invite", (HttpContext context, IAntiforgery antiforgery, string? token) =>
         {
-            if(string.IsNullOrWhiteSpace(token))return Results.Redirect("/auth/login");var anti=antiforgery.GetAndStoreTokens(context).RequestToken??string.Empty;var device=EnsureDeviceCookie(context);
-            return Results.Content(Shell($"<p class=\"eyebrow\">Tuvima Library invitation</p><h1>Create your sign-in</h1><p class=\"supporting\">This invitation grants access only to the profiles chosen by the server administrator.</p><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(anti)}\"><input type=\"hidden\" name=\"token\" value=\"{H(token)}\"><input type=\"hidden\" name=\"deviceId\" value=\"{H(device)}\"><label>Password<input type=\"password\" name=\"password\" minlength=\"8\" autocomplete=\"new-password\" required></label><button>Accept invitation</button></form>"),"text/html",Encoding.UTF8);
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return Results.Redirect("/auth/login");
+            }
+
+            var anti = antiforgery.GetAndStoreTokens(context).RequestToken ?? string.Empty; var device = EnsureDeviceCookie(context);
+            return Results.Content(Shell($"<p class=\"eyebrow\">Tuvima Library invitation</p><h1>Create your sign-in</h1><p class=\"supporting\">This invitation grants access only to the profiles chosen by the server administrator.</p><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(anti)}\"><input type=\"hidden\" name=\"token\" value=\"{H(token)}\"><input type=\"hidden\" name=\"deviceId\" value=\"{H(device)}\"><label>Password<input type=\"password\" name=\"password\" minlength=\"8\" autocomplete=\"new-password\" required></label><button>Accept invitation</button></form>"), "text/html", Encoding.UTF8);
         }).AllowAnonymous();
-        app.MapPost("/auth/invite",async(HttpContext context,DashboardIdentityClient identity,IAntiforgery antiforgery)=>
+        app.MapPost("/auth/invite", async (HttpContext context, DashboardConfigurationReader configuration,
+            DashboardIdentityClient identity, IAntiforgery antiforgery) =>
         {
-            await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);var form=await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);var issued=await identity.AcceptInvitationAsync(new AcceptAccountInvitationRequest(form["token"].ToString(),form["password"].ToString(),form["deviceId"].ToString(),SanitizeDeviceName(context.Request.Headers.UserAgent.ToString())),context.RequestAborted).ConfigureAwait(false);
-            if(issued is null)return Results.Content(LoginFailurePage("That invitation is invalid, expired, or already used."),"text/html",Encoding.UTF8,StatusCodes.Status400BadRequest);await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,DashboardPrincipalFactory.Create(issued),new AuthenticationProperties{IsPersistent=true,ExpiresUtc=issued.ExpiresAt}).ConfigureAwait(false);return Results.Redirect("/");
+            await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false); var form = await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false); var issued = await identity.AcceptInvitationAsync(new AcceptAccountInvitationRequest(form["token"].ToString(), form["password"].ToString(), form["deviceId"].ToString(), SanitizeDeviceName(context.Request.Headers.UserAgent.ToString()), IsLocalClient(context, configuration.LoadCore().Auth), context.Request.IsHttps), context.RequestAborted).ConfigureAwait(false);
+            if (issued is null)
+            {
+                return Results.Content(LoginFailurePage("That invitation is invalid, expired, or already used."), "text/html", Encoding.UTF8, StatusCodes.Status400BadRequest);
+            }
+
+            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, DashboardPrincipalFactory.Create(issued), new AuthenticationProperties { IsPersistent = true, ExpiresUtc = issued.ExpiresAt }).ConfigureAwait(false); return Results.Redirect("/");
         }).AllowAnonymous();
 
-        app.MapPost("/auth/passkeys/login/options",async(BeginPasskeyLoginRequest request,DashboardIdentityClient identity,CancellationToken ct)=>
-            await identity.GetPasskeyLoginOptionsAsync(request.Email,ct).ConfigureAwait(false) is {} result?Results.Ok(result):Results.BadRequest()).AllowAnonymous();
+        app.MapPost("/auth/passkeys/login/options", async (BeginPasskeyLoginRequest request, HttpContext context,
+            DashboardConfigurationReader configuration, DashboardIdentityClient identity, CancellationToken ct) =>
+            await identity.GetPasskeyLoginOptionsAsync(request.Email, IsLocalClient(context, configuration.LoadCore().Auth), context.Request.IsHttps, ct).ConfigureAwait(false) is { } result ? Results.Ok(result) : Results.BadRequest()).AllowAnonymous();
 
-        app.MapPost("/auth/passkeys/login/complete",async(CompletePasskeyLoginRequest request,HttpContext context,DashboardIdentityClient identity,CancellationToken ct)=>
+        app.MapPost("/auth/passkeys/login/complete", async (CompletePasskeyLoginRequest request, HttpContext context,
+            DashboardConfigurationReader configuration, DashboardIdentityClient identity, CancellationToken ct) =>
         {
-            var issued=await identity.CompletePasskeyLoginAsync(request,ct).ConfigureAwait(false);if(issued is null)return Results.Unauthorized();
-            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme,DashboardPrincipalFactory.Create(issued),new AuthenticationProperties{IsPersistent=true,AllowRefresh=true,IssuedUtc=DateTimeOffset.UtcNow,ExpiresUtc=issued.ExpiresAt}).ConfigureAwait(false);
+            request = request with { OriginalClientIsLocal = IsLocalClient(context, configuration.LoadCore().Auth), OriginalClientIsHttps = context.Request.IsHttps };
+            var issued = await identity.CompletePasskeyLoginAsync(request, ct).ConfigureAwait(false); if (issued is null)
+            {
+                return Results.Unauthorized();
+            }
+
+            await context.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, DashboardPrincipalFactory.Create(issued), new AuthenticationProperties { IsPersistent = true, AllowRefresh = true, IssuedUtc = DateTimeOffset.UtcNow, ExpiresUtc = issued.ExpiresAt }).ConfigureAwait(false);
             return Results.Ok(issued);
         }).AllowAnonymous();
 
-        app.MapPost("/auth/passkeys/registration/options",async(HttpContext context,DashboardIdentityClient identity,IAntiforgery antiforgery,CancellationToken ct)=>
-        {await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);return await identity.GetPasskeyRegistrationOptionsAsync(ct).ConfigureAwait(false) is {} result?Results.Ok(result):Results.BadRequest();});
+        app.MapPost("/auth/passkeys/registration/options", async (HttpContext context, DashboardIdentityClient identity, IAntiforgery antiforgery, CancellationToken ct) =>
+        { await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false); return await identity.GetPasskeyRegistrationOptionsAsync(ct).ConfigureAwait(false) is { } result ? Results.Ok(result) : Results.BadRequest(); });
 
-        app.MapPost("/auth/passkeys/registration/complete",async(CompletePasskeyRegistrationRequest request,HttpContext context,DashboardIdentityClient identity,IAntiforgery antiforgery,CancellationToken ct)=>
-        {await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);return await identity.CompletePasskeyRegistrationAsync(request,ct).ConfigureAwait(false)?Results.NoContent():Results.BadRequest();});
+        app.MapPost("/auth/passkeys/registration/complete", async (CompletePasskeyRegistrationRequest request, HttpContext context, DashboardIdentityClient identity, IAntiforgery antiforgery, CancellationToken ct) =>
+        { await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false); return await identity.CompletePasskeyRegistrationAsync(request, ct).ConfigureAwait(false) ? Results.NoContent() : Results.BadRequest(); });
 
-        app.MapPost("/auth/passkeys/elevation/options",async(HttpContext context,DashboardIdentityClient identity,IAntiforgery antiforgery,CancellationToken ct)=>
-        {await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);return await identity.GetPasskeyElevationOptionsAsync(ct).ConfigureAwait(false)is{} result?Results.Ok(result):Results.BadRequest();});
-        app.MapPost("/auth/passkeys/elevation/complete",async(CompletePasskeyElevationRequest request,HttpContext context,DashboardIdentityClient identity,IAntiforgery antiforgery,CancellationToken ct)=>
-        {await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);return await identity.CompletePasskeyElevationAsync(request,ct).ConfigureAwait(false)is{} result?Results.Ok(result):Results.Unauthorized();});
+        app.MapGet("/account/security/external/{providerId}", (string providerId) =>
+        {
+            var provider = externalProviders.FirstOrDefault(candidate =>
+                candidate.Id.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            if (provider is null)
+            {
+                return Results.NotFound();
+            }
+
+            var properties = new AuthenticationProperties { RedirectUri = "/account/security" };
+            properties.Items["tuvima:external-purpose"] = ExternalIdentityTransactionPurposes.Link;
+            return Results.Challenge(properties, [provider.AuthenticationScheme]);
+        });
+
 
         app.MapPost("/auth/logout", async (HttpContext context, DashboardIdentityClient identity, IAntiforgery antiforgery) =>
         {
@@ -190,19 +239,6 @@ public static class DashboardAuthenticationEndpoints
             return Results.Redirect("/auth/login");
         });
 
-        app.MapGet("/account/elevate",(HttpContext context,IAntiforgery antiforgery,string? returnUrl)=>
-        {
-            var token=antiforgery.GetAndStoreTokens(context).RequestToken??string.Empty;var target=SafeReturnUrl(returnUrl);
-            var script=$"<script>document.getElementById('passkey-elevate').addEventListener('click',async()=>{{const message=document.getElementById('elevation-message');try{{if(!window.PublicKeyCredential||!PublicKeyCredential.parseRequestOptionsFromJSON)throw new Error('This browser does not support passkeys.');const headers={{'Content-Type':'application/json','RequestVerificationToken':{JsonSerializer.Serialize(token)}}};const start=await fetch('/auth/passkeys/elevation/options',{{method:'POST',headers,body:'{{}}'}});if(!start.ok)throw new Error('No passkey is available.');const data=await start.json();const credential=await navigator.credentials.get({{publicKey:PublicKeyCredential.parseRequestOptionsFromJSON(JSON.parse(data.options_json))}});const finish=await fetch('/auth/passkeys/elevation/complete',{{method:'POST',headers,body:JSON.stringify({{credential_json:JSON.stringify(credential.toJSON()),state:data.state}})}});if(!finish.ok)throw new Error('Passkey verification failed.');location.href={JsonSerializer.Serialize(target)};}}catch(error){{message.textContent=error.message;}}}});</script>";
-            return Results.Content(Shell($"<p class=\"eyebrow\">Administrator access</p><h1>Confirm it’s you</h1><p class=\"supporting\">Enter your administrator PIN or account password. Elevated access lasts 30 minutes and is cleared when you switch profiles.</p><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"returnUrl\" value=\"{H(target)}\"><label>PIN or password<input type=\"password\" name=\"secret\" autocomplete=\"current-password\" required autofocus></label><button>Unlock administrator access</button></form><button id=\"passkey-elevate\" type=\"button\">Use passkey or Windows Hello</button><p id=\"elevation-message\" class=\"supporting\"></p>{script}"),"text/html",Encoding.UTF8);
-        });
-
-        app.MapPost("/account/elevate",async(HttpContext context,DashboardIdentityClient identity,IAntiforgery antiforgery)=>
-        {
-            await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);var form=await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);var target=SafeReturnUrl(form["returnUrl"].ToString());
-            var elevated=await identity.ElevateAsync(form["secret"].ToString(),context.RequestAborted).ConfigureAwait(false);
-            return elevated?.Elevated==true?Results.Redirect(target):Results.Content(LoginFailurePage("The administrator PIN or password was incorrect."),"text/html",Encoding.UTF8,StatusCodes.Status401Unauthorized);
-        });
 
         app.MapGet("/account/security", async (HttpContext context, DashboardIdentityClient identity, PasswordResetEmailSender emailSender, IAntiforgery antiforgery, string? emailTest) =>
         {
@@ -212,7 +248,7 @@ public static class DashboardAuthenticationEndpoints
             var passkeys = await identity.GetPasskeysAsync(context.RequestAborted).ConfigureAwait(false);
             var token = antiforgery.GetAndStoreTokens(context).RequestToken ?? string.Empty;
             var current = context.User.FindFirstValue("tuvima:session_id");
-            return Results.Content(SecurityPage(account, sessions, linkedLogins, passkeys, externalProviders, current, token, context.User.IsInRole(MediaEngine.Domain.AppRoles.Administrator), emailSender.IsConfigured, emailTest), "text/html", Encoding.UTF8);
+            return Results.Content(SecurityPage(account, sessions, linkedLogins, passkeys, externalProviders, current, token, emailSender.IsConfigured, emailTest), "text/html", Encoding.UTF8);
         });
 
         app.MapPost("/account/security", async (HttpContext context, DashboardIdentityClient identity, PasswordResetEmailSender emailSender, IAntiforgery antiforgery) =>
@@ -222,9 +258,8 @@ public static class DashboardAuthenticationEndpoints
             var action = form["action"].ToString();
             if (action == "test-email")
             {
-                var account = await identity.GetAccountAsync(context.RequestAborted).ConfigureAwait(false);
-                var sent = account?.Email is { Length: > 0 } email
-                    && await emailSender.SendTestAsync(email, context.RequestAborted).ConfigureAwait(false);
+                var sent = await SendCurrentAccountTestEmailAsync(
+                    identity, emailSender, context.RequestAborted).ConfigureAwait(false);
                 return Results.Redirect($"/account/security?emailTest={(sent ? "sent" : "failed")}");
             }
             if (action == "recovery-codes")
@@ -234,25 +269,16 @@ public static class DashboardAuthenticationEndpoints
                     ? Results.Content(LoginFailurePage("The current password was incorrect."), "text/html", Encoding.UTF8, StatusCodes.Status401Unauthorized)
                     : Results.Content(RecoveryCodesPage(codes, "/account/security", "Return to Account Security"), "text/html", Encoding.UTF8);
             }
-            if (action == "administrator-pin")
-            {
-                var elevation = await identity.GetElevationAsync(context.RequestAborted).ConfigureAwait(false);
-                if (elevation?.Elevated != true)
-                {
-                    return Results.Redirect("/account/elevate?returnUrl=/account/security");
-                }
-            }
             var success = action switch
             {
                 "revoke" when Guid.TryParse(form["sessionId"].ToString(), out var id) => await identity.RevokeSessionAsync(id, context.RequestAborted).ConfigureAwait(false),
-                "unlink-external" when Guid.TryParse(form["loginId"].ToString(),out var loginId)=>await identity.UnlinkExternalLoginAsync(loginId,context.RequestAborted).ConfigureAwait(false),
+                "unlink-external" when Guid.TryParse(form["loginId"].ToString(), out var loginId) => await identity.UnlinkExternalLoginAsync(loginId, context.RequestAborted).ConfigureAwait(false),
                 "remove-passkey" => await identity.RemovePasskeyAsync(form["credentialId"].ToString(), context.RequestAborted).ConfigureAwait(false),
                 "password" => await identity.ChangePasswordAsync(new ChangePasswordRequest
                 {
                     CurrentPassword = form["currentPassword"].ToString(),
                     NewPassword = form["newPassword"].ToString(),
                 }, context.RequestAborted).ConfigureAwait(false),
-                "administrator-pin" when Guid.TryParse(context.User.FindFirstValue("tuvima:active_profile_id"),out var activeProfileId)=>await identity.SetAdministratorPinAsync(activeProfileId,form["pin"].ToString(),context.RequestAborted).ConfigureAwait(false),
                 _ => false,
             };
             if (action == "password" && success)
@@ -325,7 +351,7 @@ public static class DashboardAuthenticationEndpoints
               <p class="supporting">No recovery code or email access? Open an elevated terminal on the computer running Tuvima Library and run <code>tuvima-admin auth reset-password --email you@example.com</code>. From a source checkout, run <code>dotnet run --project src/MediaEngine.Admin -- auth reset-password --email you@example.com</code>.</p>
               <p class="supporting">This recovery command is local-only: it is not an HTTP endpoint and cannot be invoked through an externally exposed Dashboard. It revokes all sessions and replaces the recovery codes.</p>
               </details>
-              <details><summary>Sign in with a profile PIN</summary><form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}"><label>Profile ID<input name="profileId" required></label><label>PIN<input type="password" inputmode="numeric" name="pin" required></label><button>Unlock profile</button></form></details>
+              <details><summary>Sign in with a local profile</summary><form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}"><label>Profile ID<input name="profileId" required></label><label>PIN (if configured)<input type="password" inputmode="numeric" name="pin"></label><button>Continue</button></form></details>
               {externalButtons}
               {passkeyScript}
               """;
@@ -333,17 +359,17 @@ public static class DashboardAuthenticationEndpoints
         return Shell(form);
     }
 
-    private static string SecurityPage(AccountResponse? account,IReadOnlyList<DeviceSessionResponse> sessions,IReadOnlyList<AccountExternalLoginDto> linkedLogins,IReadOnlyList<PasskeyCredentialResponse> passkeys,IReadOnlyList<RegisteredExternalAuthProvider> externalProviders,string? currentId, string token,bool isAdministrator,bool emailConfigured,string? emailTest)
+    private static string SecurityPage(AccountSelfServiceResponse? account, IReadOnlyList<DeviceSessionResponse> sessions, IReadOnlyList<AccountExternalLoginDto> linkedLogins, IReadOnlyList<PasskeyCredentialResponse> passkeys, IReadOnlyList<RegisteredExternalAuthProvider> externalProviders, string? currentId, string token, bool emailConfigured, string? emailTest)
     {
         var rows = string.Join("", sessions.Select(session => $"<tr><td>{H(session.DeviceName)}</td><td>{H(session.AuthenticationMethod)}</td><td>{session.LastSeenAt:g}</td><td>{session.ExpiresAt:g}</td><td>{(session.Id.ToString("D").Equals(currentId, StringComparison.OrdinalIgnoreCase) ? "Current" : $"<form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"revoke\"><input type=\"hidden\" name=\"sessionId\" value=\"{session.Id:D}\"><button>Revoke</button></form>")}</td></tr>"));
-        var links=string.Join("",linkedLogins.Select(login=>$"<li>{H(login.Provider)} · {H(login.Email??login.DisplayName??"Linked identity")} <form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"unlink-external\"><input type=\"hidden\" name=\"loginId\" value=\"{login.Id:D}\"><button>Unlink</button></form></li>"));
-        var providerLinks=string.Join("",externalProviders.Select(provider=>$"<p><a class=\"button\" href=\"/auth/external/{Uri.EscapeDataString(provider.Id)}?returnUrl=/account/security\">Link {H(provider.DisplayName)}</a></p>"));
-        var passkeyRows=string.Join("",passkeys.Select(passkey=>$"<li>{H(passkey.Name)} · added {passkey.CreatedAt:g} <form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"remove-passkey\"><input type=\"hidden\" name=\"credentialId\" value=\"{H(passkey.CredentialId)}\"><button>Remove</button></form></li>"));
-        var administratorPin=isAdministrator?$"<h2>Administrator PIN</h2><p class=\"supporting\">Use a separate 4–12 digit PIN for 30-minute administrator elevation.</p><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"administrator-pin\"><label>New administrator PIN<input type=\"password\" inputmode=\"numeric\" pattern=\"[0-9]{{4,12}}\" name=\"pin\" required></label><button>Set administrator PIN</button></form>":string.Empty;
-        var emailTestStatus=emailTest switch{"sent"=>"<p class=\"success\">Test email sent.</p>","failed"=>"<p class=\"error\">The test email could not be sent. Check the server logs and SMTP settings.</p>",_=>string.Empty};
-        var emailTestForm=emailConfigured&&account?.Email is not null?$"<h2>Email delivery</h2>{emailTestStatus}<form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"test-email\"><button>Send test email to {H(account.Email)}</button></form>":string.Empty;
-        var passkeyScript=$"<script>document.getElementById('register-passkey').addEventListener('click',async()=>{{const message=document.getElementById('passkey-register-message');try{{if(!window.PublicKeyCredential||!PublicKeyCredential.parseCreationOptionsFromJSON)throw new Error('This browser does not support passkeys.');const headers={{'Content-Type':'application/json','RequestVerificationToken':{JsonSerializer.Serialize(token)}}};const start=await fetch('/auth/passkeys/registration/options',{{method:'POST',headers,body:'{{}}'}});if(!start.ok)throw new Error('Could not begin passkey registration.');const data=await start.json();const credential=await navigator.credentials.create({{publicKey:PublicKeyCredential.parseCreationOptionsFromJSON(JSON.parse(data.options_json))}});const finish=await fetch('/auth/passkeys/registration/complete',{{method:'POST',headers,body:JSON.stringify({{credential_json:JSON.stringify(credential.toJSON()),state:data.state,name:'Passkey'}})}});if(!finish.ok)throw new Error('Passkey registration failed.');location.reload();}}catch(error){{message.textContent=error.message;}}}});</script>";
-        return Shell($"<h1>Account security</h1><p><a href=\"/\">Back to library</a></p><h2>Account</h2><p>{H(account?.Email??"Local-only account")}</p>{emailTestForm}<h2>Passkeys</h2><ul>{passkeyRows}</ul><button type=\"button\" id=\"register-passkey\">Add passkey or Windows Hello</button><p id=\"passkey-register-message\" class=\"supporting\"></p><h2>Sign-in providers</h2><ul>{links}</ul>{providerLinks}{administratorPin}<h2>Your sessions</h2><table><thead><tr><th>Device</th><th>Method</th><th>Last used</th><th>Expires</th><th></th></tr></thead><tbody>{rows}</tbody></table><h2>Recovery codes</h2><p class=\"supporting\">Generating a new set immediately invalidates every previous recovery code.</p><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"recovery-codes\"><label>Current password<input type=\"password\" name=\"currentPassword\" required></label><button>Generate new recovery codes</button></form><h2>Change password</h2><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"password\"><label>Current password<input type=\"password\" name=\"currentPassword\" required></label><label>New password<input type=\"password\" name=\"newPassword\" minlength=\"8\" required><small>Use at least 8 characters.</small></label><button>Change password</button></form>{passkeyScript}");
+        var links = string.Join("", linkedLogins.Select(login => $"<li>{H(login.Provider)} · {H(login.Email ?? login.DisplayName ?? "Linked identity")} <form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"unlink-external\"><input type=\"hidden\" name=\"loginId\" value=\"{login.Id:D}\"><button>Unlink</button></form></li>"));
+        var providerLinks = string.Join("", externalProviders.Select(provider => $"<p><a class=\"button\" href=\"/account/security/external/{Uri.EscapeDataString(provider.Id)}\">Link {H(provider.DisplayName)}</a></p>"));
+        var passkeyRows = string.Join("", passkeys.Select(passkey => $"<li>{H(passkey.Name)} · added {passkey.CreatedAt:g} <form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"remove-passkey\"><input type=\"hidden\" name=\"credentialId\" value=\"{H(passkey.CredentialId)}\"><button>Remove</button></form></li>"));
+        var administratorPin = string.Empty;
+        var emailTestStatus = emailTest switch { "sent" => "<p class=\"success\">Test email sent.</p>", "failed" => "<p class=\"error\">The test email could not be sent. Check the server logs and SMTP settings.</p>", _ => string.Empty };
+        var emailTestForm = emailConfigured && account?.Email is not null ? $"<h2>Email delivery</h2>{emailTestStatus}<form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"test-email\"><button>Send test email to {H(account.Email)}</button></form>" : string.Empty;
+        var passkeyScript = $"<script>document.getElementById('register-passkey').addEventListener('click',async()=>{{const message=document.getElementById('passkey-register-message');try{{if(!window.PublicKeyCredential||!PublicKeyCredential.parseCreationOptionsFromJSON)throw new Error('This browser does not support passkeys.');const headers={{'Content-Type':'application/json','RequestVerificationToken':{JsonSerializer.Serialize(token)}}};const start=await fetch('/auth/passkeys/registration/options',{{method:'POST',headers,body:'{{}}'}});if(!start.ok)throw new Error('Could not begin passkey registration.');const data=await start.json();const credential=await navigator.credentials.create({{publicKey:PublicKeyCredential.parseCreationOptionsFromJSON(JSON.parse(data.options_json))}});const finish=await fetch('/auth/passkeys/registration/complete',{{method:'POST',headers,body:JSON.stringify({{credential_json:JSON.stringify(credential.toJSON()),state:data.state,name:'Passkey'}})}});if(!finish.ok)throw new Error('Passkey registration failed.');location.reload();}}catch(error){{message.textContent=error.message;}}}});</script>";
+        return Shell($"<h1>Account security</h1><p><a href=\"/\">Back to library</a></p><h2>Account</h2><p>{H(account?.Email ?? "Local-only account")}</p>{emailTestForm}<h2>Passkeys</h2><ul>{passkeyRows}</ul><button type=\"button\" id=\"register-passkey\">Add passkey or Windows Hello</button><p id=\"passkey-register-message\" class=\"supporting\"></p><h2>Sign-in providers</h2><ul>{links}</ul>{providerLinks}{administratorPin}<h2>Your sessions</h2><table><thead><tr><th>Device</th><th>Method</th><th>Last used</th><th>Expires</th><th></th></tr></thead><tbody>{rows}</tbody></table><h2>Recovery codes</h2><p class=\"supporting\">Generating a new set immediately invalidates every previous recovery code.</p><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"recovery-codes\"><label>Current password<input type=\"password\" name=\"currentPassword\" required></label><button>Generate new recovery codes</button></form><h2>Change password</h2><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"password\"><label>Current password<input type=\"password\" name=\"currentPassword\" required></label><label>New password<input type=\"password\" name=\"newPassword\" minlength=\"8\" required><small>Use at least 8 characters.</small></label><button>Change password</button></form>{passkeyScript}");
     }
 
     private static string RecoveryCodesPage(
@@ -351,6 +377,60 @@ public static class DashboardAuthenticationEndpoints
         string continueHref,
         string continueLabel) =>
         Shell($"<h1>Save your recovery codes</h1><p>Each code works once. Store them somewhere safe before continuing.</p><pre>{H(string.Join(Environment.NewLine, codes))}</pre><p><a class=\"button\" href=\"{H(continueHref)}\">{H(continueLabel)}</a></p>");
+    internal static bool IsLocalClient(HttpContext context, AuthSettings policy)
+    {
+        var address = context.Connection.RemoteIpAddress;
+        if (address is null)
+        {
+            return false;
+        }
+
+        if (IPAddress.IsLoopback(address))
+        {
+            return true;
+        }
+
+        if (address.IsIPv4MappedToIPv6)
+        {
+            address = address.MapToIPv4();
+        }
+
+        foreach (var value in policy.TrustedLocalNetworks)
+        {
+            if (!System.Net.IPNetwork.TryParse(value, out var network))
+            {
+                continue;
+            }
+
+            var candidate = address;
+            if (network.BaseAddress.AddressFamily != candidate.AddressFamily)
+            {
+                if (candidate.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
+                {
+                    candidate = candidate.MapToIPv6();
+                }
+                else if (candidate.IsIPv4MappedToIPv6)
+                {
+                    candidate = candidate.MapToIPv4();
+                }
+            }
+            if (network.Contains(candidate))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    internal static async Task<bool> SendCurrentAccountTestEmailAsync(
+        DashboardIdentityClient identity,
+        PasswordResetEmailSender emailSender,
+        CancellationToken ct)
+    {
+        var account = await identity.GetAccountAsync(ct).ConfigureAwait(false);
+        return account?.Email is { Length: > 0 } email
+            && await emailSender.SendTestAsync(email, ct).ConfigureAwait(false);
+    }
     private static string LoginFailurePage(string message) => Shell($"<h1>Unable to continue</h1><p>{H(message)}</p><p><a href=\"/auth/login\">Return to sign in</a></p>");
     private static IResult EngineUnavailableResult(string returnUrl) => Results.Content(
         EngineUnavailablePage(returnUrl),

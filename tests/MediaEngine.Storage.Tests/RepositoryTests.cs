@@ -1,14 +1,14 @@
 using Dapper;
-using Microsoft.Data.Sqlite;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Jobs;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Services;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -90,14 +90,21 @@ public sealed class RepositoryTests : IDisposable
 
         var secondAccount = new Account
         {
-            Id = Guid.NewGuid(), Email = "other@example.com", NormalizedEmail = "OTHER@EXAMPLE.COM",
-            CreatedAt = DateTimeOffset.UtcNow, UpdatedAt = DateTimeOffset.UtcNow,
+            Id = Guid.NewGuid(),
+            Email = "other@example.com",
+            NormalizedEmail = "OTHER@EXAMPLE.COM",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
         };
         await accountRepo.InsertAsync(secondAccount);
         var stolenIdentity = new AccountExternalLogin
         {
-            Id = Guid.NewGuid(), AccountId = secondAccount.Id, Provider = login.Provider,
-            Issuer = login.Issuer, Subject = login.Subject, LinkedAt = DateTimeOffset.UtcNow,
+            Id = Guid.NewGuid(),
+            AccountId = secondAccount.Id,
+            Provider = login.Provider,
+            Issuer = login.Issuer,
+            Subject = login.Subject,
+            LinkedAt = DateTimeOffset.UtcNow,
         };
         await Assert.ThrowsAsync<SqliteException>(() => repo.InsertAsync(stolenIdentity));
 
@@ -121,11 +128,11 @@ public sealed class RepositoryTests : IDisposable
 
         var asset = new MediaAsset
         {
-            Id           = Guid.NewGuid(),
-            EditionId    = editionId,
-            ContentHash  = hash,
+            Id = Guid.NewGuid(),
+            EditionId = editionId,
+            ContentHash = hash,
             FilePathRoot = "/library/Books/test.epub",
-            Status       = AssetStatus.Normal,
+            Status = AssetStatus.Normal,
         };
 
         await repo.InsertAsync(asset);
@@ -198,13 +205,19 @@ public sealed class RepositoryTests : IDisposable
 
         var asset1 = new MediaAsset
         {
-            Id = Guid.NewGuid(), EditionId = editionId, ContentHash = hash,
-            FilePathRoot = "/first.epub", Status = AssetStatus.Normal,
+            Id = Guid.NewGuid(),
+            EditionId = editionId,
+            ContentHash = hash,
+            FilePathRoot = "/first.epub",
+            Status = AssetStatus.Normal,
         };
         var asset2 = new MediaAsset
         {
-            Id = Guid.NewGuid(), EditionId = editionId, ContentHash = hash,
-            FilePathRoot = "/second.epub", Status = AssetStatus.Normal,
+            Id = Guid.NewGuid(),
+            EditionId = editionId,
+            ContentHash = hash,
+            FilePathRoot = "/second.epub",
+            Status = AssetStatus.Normal,
         };
 
         await repo.InsertAsync(asset1);
@@ -620,10 +633,14 @@ public sealed class RepositoryTests : IDisposable
         var repo = new ReviewQueueRepository(_db);
         var entry = new ReviewQueueEntry
         {
-            Id = Guid.NewGuid(), EntityId = Guid.NewGuid(),
-            EntityType = nameof(EntityType.MediaAsset), Trigger = ReviewTrigger.LowConfidence,
-            Status = ReviewStatus.Pending, ConfidenceScore = 0.45,
-            Detail = "Low confidence file", CreatedAt = DateTimeOffset.UtcNow,
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            Trigger = ReviewTrigger.LowConfidence,
+            Status = ReviewStatus.Pending,
+            ConfidenceScore = 0.45,
+            Detail = "Low confidence file",
+            CreatedAt = DateTimeOffset.UtcNow,
             ReviewReadyAt = DateTimeOffset.UtcNow,
             AutomationCompletedAt = DateTimeOffset.UtcNow,
         };
@@ -684,10 +701,14 @@ public sealed class RepositoryTests : IDisposable
         var repo = new ReviewQueueRepository(_db);
         var entry = new ReviewQueueEntry
         {
-            Id = Guid.NewGuid(), EntityId = Guid.NewGuid(),
-            EntityType = nameof(EntityType.MediaAsset), Trigger = ReviewTrigger.LowConfidence,
-            Status = ReviewStatus.Pending, ConfidenceScore = 0.45,
-            Detail = "Test", CreatedAt = DateTimeOffset.UtcNow,
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            Trigger = ReviewTrigger.LowConfidence,
+            Status = ReviewStatus.Pending,
+            ConfidenceScore = 0.45,
+            Detail = "Test",
+            CreatedAt = DateTimeOffset.UtcNow,
             ReviewReadyAt = DateTimeOffset.UtcNow,
             AutomationCompletedAt = DateTimeOffset.UtcNow,
         };
@@ -1133,7 +1154,9 @@ public sealed class RepositoryTests : IDisposable
 
         Assert.Equal(1, await service.MergeDuplicateReadWorksByQidAsync());
         for (var pass = 0; pass < 5; pass++)
+        {
             Assert.Equal(0, await service.MergeDuplicateReadWorksByQidAsync());
+        }
 
         using var verify = _db.CreateConnection();
         Assert.Equal(1, await verify.ExecuteScalarAsync<int>(
@@ -1634,8 +1657,13 @@ public sealed class RepositoryTests : IDisposable
         var runId = Guid.NewGuid();
         var job = new IdentityJob
         {
-            Id = Guid.NewGuid(), EntityId = Guid.NewGuid(), EntityType = nameof(EntityType.MediaAsset),
-            MediaType = nameof(MediaType.Books), Pass = "Quick", State = state, IngestionRunId = runId,
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Quick",
+            State = state,
+            IngestionRunId = runId,
         };
         await repo.CreateAsync(job);
         Assert.Equal(1, await repo.RecoverInterruptedJobsAsync());
@@ -1858,43 +1886,6 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal("text", storageTypes.ProviderType);
     }
 
-    [Fact]
-    public async Task ApiKey_InsertAndFindByHash()
-    {
-        var repo = new ApiKeyRepository(_db);
-        var key = new ApiKey
-        {
-            Id = Guid.NewGuid(), Label = "Test Key",
-            HashedKey = $"hash_{Guid.NewGuid():N}",
-            Role = "Administrator", CreatedAt = DateTimeOffset.UtcNow,
-        };
-
-        await repo.InsertAsync(key);
-        var found = await repo.FindByHashedKeyAsync(key.HashedKey);
-
-        Assert.NotNull(found);
-        Assert.Equal(key.Id, found.Id);
-        Assert.Equal("Administrator", found.Role);
-    }
-
-    [Fact]
-    public async Task ApiKey_Revoke_RemovesKey()
-    {
-        var repo = new ApiKeyRepository(_db);
-        var key = new ApiKey
-        {
-            Id = Guid.NewGuid(), Label = "Revoke Me",
-            HashedKey = $"revoke_{Guid.NewGuid():N}",
-            Role = "RestrictedProfile", CreatedAt = DateTimeOffset.UtcNow,
-        };
-
-        await repo.InsertAsync(key);
-        await repo.DeleteAsync(key.Id);
-
-        var found = await repo.FindByHashedKeyAsync(key.HashedKey);
-        Assert.Null(found);
-    }
-
     // ════════════════════════════════════════════════════════════════════════
     //  SystemActivityRepository
     // ════════════════════════════════════════════════════════════════════════
@@ -1907,7 +1898,8 @@ public sealed class RepositoryTests : IDisposable
         await repo.LogAsync(new SystemActivityEntry
         {
             ActionType = SystemActionType.FileIngested,
-            Detail = "Ingested test.epub", OccurredAt = DateTimeOffset.UtcNow,
+            Detail = "Ingested test.epub",
+            OccurredAt = DateTimeOffset.UtcNow,
         });
 
         var recent = await repo.GetRecentAsync(10);
@@ -2105,11 +2097,15 @@ public sealed class RepositoryTests : IDisposable
 
     private static MetadataClaim MakeClaim(
         Guid entityId, string key, string value, double confidence = 0.9, Guid? providerId = null) => new()
-    {
-        Id = Guid.NewGuid(), EntityId = entityId, ProviderId = providerId ?? Guid.NewGuid(),
-        ClaimKey = key, ClaimValue = value, Confidence = confidence,
-        ClaimedAt = DateTimeOffset.UtcNow,
-    };
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            ProviderId = providerId ?? Guid.NewGuid(),
+            ClaimKey = key,
+            ClaimValue = value,
+            Confidence = confidence,
+            ClaimedAt = DateTimeOffset.UtcNow,
+        };
 
     /// <summary>
     /// Creates a Collection → Work → Edition chain in the database and returns the Edition ID.
@@ -2118,8 +2114,8 @@ public sealed class RepositoryTests : IDisposable
     private async Task<Guid> CreateTestEditionAsync()
     {
         using var conn = _db.CreateConnection();
-        var collectionId     = Guid.NewGuid();
-        var workId    = Guid.NewGuid();
+        var collectionId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
         var editionId = Guid.NewGuid();
 
         await conn.ExecuteAsync(
@@ -2230,7 +2226,7 @@ public sealed class CollectionRuleEvaluatorHashTests
 
         var hashFlat = CollectionRuleEvaluator.ComputeRuleHash(baseRules);
         var hashGrouped = CollectionRuleEvaluator.ComputeRuleHash(
-            [..baseRules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = "series" }]);
+            [.. baseRules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = "series" }]);
 
         Assert.NotEqual(hashFlat, hashGrouped);
     }
@@ -2242,9 +2238,9 @@ public sealed class CollectionRuleEvaluatorHashTests
         var baseRules = new CollectionRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Music" } };
 
         var hashArtist = CollectionRuleEvaluator.ComputeRuleHash(
-            [..baseRules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = "artist" }]);
+            [.. baseRules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = "artist" }]);
         var hashAlbum = CollectionRuleEvaluator.ComputeRuleHash(
-            [..baseRules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = "album" }]);
+            [.. baseRules, new CollectionRulePredicate { Field = "_group_by", Op = "eq", Value = "album" }]);
 
         Assert.NotEqual(hashArtist, hashAlbum);
     }

@@ -13,49 +13,49 @@ public class WorkClaimRouterTests
 
     private static WorkLineage MusicTrackLineage(out Guid trackWorkId, out Guid albumWorkId)
     {
-        var assetId   = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
         var editionId = Guid.NewGuid();
-        trackWorkId   = Guid.NewGuid();
-        albumWorkId   = Guid.NewGuid();
+        trackWorkId = Guid.NewGuid();
+        albumWorkId = Guid.NewGuid();
         return new WorkLineage(
-            AssetId:          assetId,
-            EditionId:        editionId,
-            WorkId:           trackWorkId,
-            ParentWorkId:     albumWorkId,
+            AssetId: assetId,
+            EditionId: editionId,
+            WorkId: trackWorkId,
+            ParentWorkId: albumWorkId,
             RootParentWorkId: albumWorkId,
-            WorkKind:         WorkKind.Child,
-            MediaType:        MediaType.Music);
+            WorkKind: WorkKind.Child,
+            MediaType: MediaType.Music);
     }
 
     private static WorkLineage TVEpisodeLineage(
         out Guid episodeWorkId, out Guid seasonWorkId, out Guid showWorkId)
     {
-        var assetId   = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
         var editionId = Guid.NewGuid();
         episodeWorkId = Guid.NewGuid();
-        seasonWorkId  = Guid.NewGuid();
-        showWorkId    = Guid.NewGuid();
+        seasonWorkId = Guid.NewGuid();
+        showWorkId = Guid.NewGuid();
         return new WorkLineage(
-            AssetId:          assetId,
-            EditionId:        editionId,
-            WorkId:           episodeWorkId,
-            ParentWorkId:     seasonWorkId,   // immediate parent
+            AssetId: assetId,
+            EditionId: editionId,
+            WorkId: episodeWorkId,
+            ParentWorkId: seasonWorkId,   // immediate parent
             RootParentWorkId: showWorkId,     // topmost (Show)
-            WorkKind:         WorkKind.Child,
-            MediaType:        MediaType.TV);
+            WorkKind: WorkKind.Child,
+            MediaType: MediaType.TV);
     }
 
     private static WorkLineage MovieLineage(out Guid workId)
     {
         workId = Guid.NewGuid();
         return new WorkLineage(
-            AssetId:          Guid.NewGuid(),
-            EditionId:        Guid.NewGuid(),
-            WorkId:           workId,
-            ParentWorkId:     null,
+            AssetId: Guid.NewGuid(),
+            EditionId: Guid.NewGuid(),
+            WorkId: workId,
+            ParentWorkId: null,
             RootParentWorkId: workId,    // standalone collapses to self
-            WorkKind:         WorkKind.Standalone,
-            MediaType:        MediaType.Movies);
+            WorkKind: WorkKind.Standalone,
+            MediaType: MediaType.Movies);
     }
 
     // ── Single-claim routing ─────────────────────────────────────────────
@@ -108,9 +108,9 @@ public class WorkClaimRouterTests
         var lineage = MusicTrackLineage(out _, out _);
         var input = new Dictionary<string, string>
         {
-            [BridgeIdKeys.AppleMusicId]           = "12345",
+            [BridgeIdKeys.AppleMusicId] = "12345",
             [BridgeIdKeys.AppleMusicCollectionId] = "99999",
-            [BridgeIdKeys.AppleArtistId]          = "55555",
+            [BridgeIdKeys.AppleArtistId] = "55555",
         };
 
         var (forParent, forSelf) = _router.SplitBridgeIds(lineage, input);
@@ -129,9 +129,9 @@ public class WorkClaimRouterTests
         var lineage = MusicTrackLineage(out _, out _);
         var input = new Dictionary<string, string>
         {
-            [BridgeIdKeys.AppleMusicId]           = "12345",
+            [BridgeIdKeys.AppleMusicId] = "12345",
             [BridgeIdKeys.AppleMusicCollectionId] = "  ",     // whitespace
-            [BridgeIdKeys.MusicBrainzId]          = "",       // empty
+            [BridgeIdKeys.MusicBrainzId] = "",       // empty
         };
 
         var (forParent, forSelf) = _router.SplitBridgeIds(lineage, input);
@@ -148,7 +148,7 @@ public class WorkClaimRouterTests
         var lineage = MusicTrackLineage(out var trackId, out var albumId);
 
         var providerId = Guid.NewGuid();
-        var assetId    = lineage.AssetId;
+        var assetId = lineage.AssetId;
 
         var claims = new List<MetadataClaim>
         {

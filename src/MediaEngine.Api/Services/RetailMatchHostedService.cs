@@ -1,6 +1,6 @@
+using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Workers;
-using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Api.Services;
 

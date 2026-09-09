@@ -101,7 +101,9 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
             """, new { profileId });
 
         if (row is null)
+        {
             return UserPlaybackSettingsDto.CreateDefaults(profileId);
+        }
 
         var settings = JsonSerializer.Deserialize<UserPlaybackSettingsDto>(row.SettingsJson, JsonOptions)
             ?? UserPlaybackSettingsDto.CreateDefaults(profileId);
@@ -125,7 +127,9 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         await EnsureProfileExistsAsync(profileId, ct);
 
         if (settings.ProfileId != Guid.Empty && settings.ProfileId != profileId)
+        {
             throw new ArgumentException("ProfileId must match the route profile id.", nameof(settings));
+        }
 
         var normalized = Normalize(settings, profileId);
         Validate(normalized);
@@ -154,11 +158,15 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
     private async Task EnsureProfileExistsAsync(Guid profileId, CancellationToken ct)
     {
         if (profileId == Guid.Empty)
+        {
             throw new ArgumentException("ProfileId is required.", nameof(profileId));
+        }
 
         var profile = await _profiles.GetByIdAsync(profileId, ct);
         if (profile is null)
+        {
             throw new KeyNotFoundException($"Profile '{profileId}' was not found.");
+        }
     }
 
     private static void EnsureTable(System.Data.IDbConnection conn)
@@ -262,31 +270,41 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         RequireAllowed(settings.Subtitles.SubtitleStyle, SubtitleStyleValues, nameof(settings.Subtitles.SubtitleStyle));
 
         if (settings.Listening.MusicCrossfade)
+        {
             RequireRange(settings.Listening.CrossfadeSeconds, 1, 15, nameof(settings.Listening.CrossfadeSeconds));
+        }
     }
 
     private static void RequireRange(int value, int min, int max, string name)
     {
         if (value < min || value > max)
+        {
             throw new ArgumentOutOfRangeException(name, $"{name} must be between {min} and {max}.");
+        }
     }
 
     private static void RequireRange(decimal value, decimal min, decimal max, string name)
     {
         if (value < min || value > max)
+        {
             throw new ArgumentOutOfRangeException(name, $"{name} must be between {min:0.##} and {max:0.##}.");
+        }
     }
 
     private static void RequireAllowed(int value, HashSet<int> allowed, string name)
     {
         if (!allowed.Contains(value))
+        {
             throw new ArgumentException($"{name} must be one of: {string.Join(", ", allowed.Order())}.", name);
+        }
     }
 
     private static void RequireAllowed(string value, HashSet<string> allowed, string name)
     {
         if (!allowed.Contains(value))
+        {
             throw new ArgumentException($"{name} must be one of: {string.Join(", ", allowed)}.", name);
+        }
     }
 
     private static HashSet<string> BuildSet(params string[] values) =>

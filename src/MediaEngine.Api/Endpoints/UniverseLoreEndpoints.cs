@@ -3,6 +3,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Contracts.Universe;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Api.Endpoints;
@@ -24,7 +25,7 @@ internal static class UniverseLoreEndpoints
         })
         .WithName("GetUniverseLoreSources")
         .Produces<List<UniverseLoreSourceResponse>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsRead);
 
         group.MapPost("/lore-sources/discover", async (
             string qid,
@@ -36,7 +37,7 @@ internal static class UniverseLoreEndpoints
         })
         .WithName("DiscoverUniverseLoreSources")
         .Produces<List<UniverseLoreSourceResponse>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         group.MapPost("/lore-sources/manual", async (
             string qid,
@@ -45,7 +46,9 @@ internal static class UniverseLoreEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.BaseUrl))
+            {
                 return ApiErrors.BadRequest("A base URL is required.");
+            }
 
             try
             {
@@ -64,7 +67,7 @@ internal static class UniverseLoreEndpoints
         })
         .WithName("AddManualUniverseLoreSource")
         .Produces<UniverseLoreSourceResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsManage);
 
         group.MapPost("/lore-sources/{sourceId:guid}/approve", async (
             string qid,
@@ -89,7 +92,7 @@ internal static class UniverseLoreEndpoints
         })
         .WithName("ApproveUniverseLoreSource")
         .Produces<List<UniverseLoreSourceResponse>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsManage);
 
         group.MapPost("/lore-sources/{sourceId:guid}/reject", async (
             string qid,
@@ -114,7 +117,7 @@ internal static class UniverseLoreEndpoints
         })
         .WithName("RejectUniverseLoreSource")
         .Produces<List<UniverseLoreSourceResponse>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsManage);
 
         group.MapPost("/lore/enrich", async (
             string qid,
@@ -130,7 +133,7 @@ internal static class UniverseLoreEndpoints
         })
         .WithName("EnrichUniverseLoreSources")
         .Produces<UniverseLoreEnrichResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PluginsJobsRun);
 
         return group;
     }

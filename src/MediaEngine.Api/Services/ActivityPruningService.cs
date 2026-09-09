@@ -18,7 +18,7 @@ namespace MediaEngine.Api.Services;
 public sealed class ActivityPruningService : BackgroundService
 {
     private readonly ISystemActivityRepository _activityRepo;
-    private readonly IConfigurationLoader      _configLoader;
+    private readonly IConfigurationLoader _configLoader;
     private readonly IEntityTimelineRepository _timelineRepo;
     private readonly ILogger<ActivityPruningService> _logger;
 
@@ -27,7 +27,7 @@ public sealed class ActivityPruningService : BackgroundService
 
     public ActivityPruningService(
         ISystemActivityRepository activityRepo,
-        IConfigurationLoader      configLoader,
+        IConfigurationLoader configLoader,
         IEntityTimelineRepository timelineRepo,
         ILogger<ActivityPruningService> logger)
     {
@@ -39,7 +39,7 @@ public sealed class ActivityPruningService : BackgroundService
         _activityRepo = activityRepo;
         _configLoader = configLoader;
         _timelineRepo = timelineRepo;
-        _logger       = logger;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -70,8 +70,8 @@ public sealed class ActivityPruningService : BackgroundService
                         // Log the prune itself so the maintenance tab shows when it happened.
                         await _activityRepo.LogAsync(new SystemActivityEntry
                         {
-                            ActionType  = SystemActionType.ActivityPruned,
-                            Detail      = $"Pruned {deleted} entries older than {retentionDays} days",
+                            ActionType = SystemActionType.ActivityPruned,
+                            Detail = $"Pruned {deleted} entries older than {retentionDays} days",
                             ChangesJson = $"{{\"deleted\":{deleted},\"retention_days\":{retentionDays}}}",
                         }, stoppingToken);
                     }
@@ -94,7 +94,7 @@ public sealed class ActivityPruningService : BackgroundService
             // ── Timeline cull ─────────────────────────────────────────────
             try
             {
-                var hydration     = _configLoader.LoadHydration();
+                var hydration = _configLoader.LoadHydration();
                 var retentionDays = hydration.TimelineRetentionDays > 0
                                         ? hydration.TimelineRetentionDays
                                         : 365;
@@ -123,7 +123,11 @@ public sealed class ActivityPruningService : BackgroundService
 
             var maintenanceConfig = _configLoader.LoadMaintenance();
             var schedule = maintenanceConfig.Schedules.GetValueOrDefault("activity_pruning", DefaultSchedule);
-            if (string.IsNullOrWhiteSpace(schedule)) schedule = DefaultSchedule;
+            if (string.IsNullOrWhiteSpace(schedule))
+            {
+                schedule = DefaultSchedule;
+            }
+
             var delay = CronScheduler.UntilNext(schedule, TimeSpan.FromHours(24));
             _logger.LogInformation("Next activity prune at {NextRun}", DateTimeOffset.Now.Add(delay));
             await Task.Delay(delay, stoppingToken);

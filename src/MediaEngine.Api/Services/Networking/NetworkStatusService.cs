@@ -1,7 +1,7 @@
+using System.Net;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
-using System.Net;
 
 namespace MediaEngine.Api.Services.Networking;
 
@@ -159,7 +159,10 @@ public sealed class NetworkStatusService
     {
         if (!IPAddress.TryParse(value, out var address)
             || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        {
             return false;
+        }
+
         var bytes = address.GetAddressBytes();
         return bytes[0] == 10
             || bytes[0] == 192 && bytes[1] == 168

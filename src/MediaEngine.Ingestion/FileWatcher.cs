@@ -83,7 +83,7 @@ public sealed class FileWatcher : IFileWatcher
 
         var watcher = new System.IO.FileSystemWatcher
         {
-            Path                  = path,
+            Path = path,
             IncludeSubdirectories = includeSubdirectories,
 
             // Capture the changes that matter for ingestion.
@@ -104,7 +104,7 @@ public sealed class FileWatcher : IFileWatcher
         watcher.Changed += OnChanged;
         watcher.Deleted += OnDeleted;
         watcher.Renamed += OnRenamed;
-        watcher.Error   += OnError;
+        watcher.Error += OnError;
 
         _watchers.Add(watcher);
     }
@@ -116,7 +116,9 @@ public sealed class FileWatcher : IFileWatcher
 
         _running = true;
         foreach (var w in _watchers)
+        {
             w.EnableRaisingEvents = true;
+        }
     }
 
     /// <inheritdoc/>
@@ -124,7 +126,9 @@ public sealed class FileWatcher : IFileWatcher
     {
         _running = false;
         foreach (var w in _watchers)
+        {
             w.EnableRaisingEvents = false;
+        }
     }
 
     /// <inheritdoc/>
@@ -138,7 +142,9 @@ public sealed class FileWatcher : IFileWatcher
 
         // Pause all existing watchers so no new events arrive while we swap.
         foreach (var w in _watchers)
+        {
             w.EnableRaisingEvents = false;
+        }
 
         // Unsubscribe and fully release every FileSystemWatcher.
         foreach (var w in _watchers)
@@ -147,7 +153,7 @@ public sealed class FileWatcher : IFileWatcher
             w.Changed -= OnChanged;
             w.Deleted -= OnDeleted;
             w.Renamed -= OnRenamed;
-            w.Error   -= OnError;
+            w.Error -= OnError;
             w.Dispose();
         }
         _watchers.Clear();
@@ -163,8 +169,12 @@ public sealed class FileWatcher : IFileWatcher
 
         // Resume immediately if the watcher was running before the swap.
         if (_running)
+        {
             foreach (var w in _watchers)
+            {
                 w.EnableRaisingEvents = true;
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -173,7 +183,11 @@ public sealed class FileWatcher : IFileWatcher
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
 
         Stop();
@@ -184,7 +198,7 @@ public sealed class FileWatcher : IFileWatcher
             w.Changed -= OnChanged;
             w.Deleted -= OnDeleted;
             w.Renamed -= OnRenamed;
-            w.Error   -= OnError;
+            w.Error -= OnError;
             w.Dispose();
         }
 
@@ -198,13 +212,16 @@ public sealed class FileWatcher : IFileWatcher
     private void OnCreated(object _, System.IO.FileSystemEventArgs e)
     {
         // Directories are not media files — skip immediately.
-        if (Directory.Exists(e.FullPath)) return;
+        if (Directory.Exists(e.FullPath))
+        {
+            return;
+        }
 
         RecordOsEvent();
         Raise(new FileEvent
         {
-            Path       = e.FullPath,
-            EventType  = FileEventType.Created,
+            Path = e.FullPath,
+            EventType = FileEventType.Created,
             OccurredAt = DateTimeOffset.UtcNow,
         });
     }
@@ -215,13 +232,16 @@ public sealed class FileWatcher : IFileWatcher
         // folder itself — we only ingest files, so skip them here. Without this
         // guard the lock probe later opens the directory path as a file, fails
         // 8 retries, and quarantines the folder.
-        if (Directory.Exists(e.FullPath)) return;
+        if (Directory.Exists(e.FullPath))
+        {
+            return;
+        }
 
         RecordOsEvent();
         Raise(new FileEvent
         {
-            Path       = e.FullPath,
-            EventType  = FileEventType.Modified,
+            Path = e.FullPath,
+            EventType = FileEventType.Modified,
             OccurredAt = DateTimeOffset.UtcNow,
         });
     }
@@ -231,8 +251,8 @@ public sealed class FileWatcher : IFileWatcher
         RecordOsEvent();
         Raise(new FileEvent
         {
-            Path       = e.FullPath,
-            EventType  = FileEventType.Deleted,
+            Path = e.FullPath,
+            EventType = FileEventType.Deleted,
             OccurredAt = DateTimeOffset.UtcNow,
         });
     }
@@ -241,14 +261,17 @@ public sealed class FileWatcher : IFileWatcher
     {
         // Directory renames are not ingestion events. Skip them so the lock
         // probe doesn't try to open the directory as a file.
-        if (Directory.Exists(e.FullPath)) return;
+        if (Directory.Exists(e.FullPath))
+        {
+            return;
+        }
 
         RecordOsEvent();
         Raise(new FileEvent
         {
-            Path       = e.FullPath,
-            OldPath    = e.OldFullPath,
-            EventType  = FileEventType.Renamed,
+            Path = e.FullPath,
+            OldPath = e.OldFullPath,
+            EventType = FileEventType.Renamed,
             OccurredAt = DateTimeOffset.UtcNow,
         });
     }
@@ -287,14 +310,19 @@ public sealed class FileWatcher : IFileWatcher
     private void Raise(FileEvent evt)
     {
         // Guard: don't raise after Stop() or Dispose().
-        if (!_running || _disposed) return;
+        if (!_running || _disposed)
+        {
+            return;
+        }
 
         // Ignore internal probe files written by FolderHealthService to verify
         // write access.  These are zero-byte temp files that are created and
         // deleted in the same synchronous call, so they should never be ingested.
         var fileName = Path.GetFileName(evt.Path.AsSpan());
         if (MemoryExtensions.StartsWith(fileName, ProbeFilePrefix, StringComparison.OrdinalIgnoreCase))
+        {
             return;
+        }
 
         FileDetected?.Invoke(this, evt);
     }

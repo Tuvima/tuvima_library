@@ -143,19 +143,19 @@ public sealed class PlayerSessionRepository
                     updated_at = @now
                 WHERE profile_id = @profileId;
                 """, new
-                {
-                    profileId,
-                    sessionId,
-                    deviceId,
-                    client,
-                    currentQueueItemId = current,
-                    positionSeconds = currentItem?.PositionSeconds ?? 0,
-                    durationSeconds = currentItem?.DurationSeconds,
-                    progressPct = CalculateProgress(currentItem?.PositionSeconds, currentItem?.DurationSeconds),
-                    shuffleEnabled = shuffle ? 1 : 0,
-                    sourceLabel,
-                    now,
-                }, tx);
+            {
+                profileId,
+                sessionId,
+                deviceId,
+                client,
+                currentQueueItemId = current,
+                positionSeconds = currentItem?.PositionSeconds ?? 0,
+                durationSeconds = currentItem?.DurationSeconds,
+                progressPct = CalculateProgress(currentItem?.PositionSeconds, currentItem?.DurationSeconds),
+                shuffleEnabled = shuffle ? 1 : 0,
+                sourceLabel,
+                now,
+            }, tx);
         }, ct);
     }
 
@@ -230,18 +230,18 @@ public sealed class PlayerSessionRepository
                     updated_at = @now
                 WHERE profile_id = @profileId;
                 """, new
-                {
-                    profileId,
-                    sessionId,
-                    deviceId,
-                    client,
-                    hasCurrent = hasCurrent ? 1 : 0,
-                    firstQueueItemId = items[0].QueueItemId,
-                    positionSeconds = items[0].PositionSeconds ?? 0,
-                    durationSeconds = items[0].DurationSeconds,
-                    progressPct = CalculateProgress(items[0].PositionSeconds, items[0].DurationSeconds),
-                    now,
-                }, tx);
+            {
+                profileId,
+                sessionId,
+                deviceId,
+                client,
+                hasCurrent = hasCurrent ? 1 : 0,
+                firstQueueItemId = items[0].QueueItemId,
+                positionSeconds = items[0].PositionSeconds ?? 0,
+                durationSeconds = items[0].DurationSeconds,
+                progressPct = CalculateProgress(items[0].PositionSeconds, items[0].DurationSeconds),
+                now,
+            }, tx);
 
         }, ct);
     }
@@ -342,13 +342,13 @@ public sealed class PlayerSessionRepository
                     updated_at = @now
                 WHERE profile_id = @profileId;
                 """, new
-                {
-                    profileId,
-                    wasCurrent = wasCurrent ? 1 : 0,
-                    nextCurrent,
-                    nextDuration,
-                    now = DateTimeOffset.UtcNow,
-                }, tx);
+            {
+                profileId,
+                wasCurrent = wasCurrent ? 1 : 0,
+                nextCurrent,
+                nextDuration,
+                now = DateTimeOffset.UtcNow,
+            }, tx);
 
         }, ct);
     }
@@ -412,22 +412,22 @@ public sealed class PlayerSessionRepository
                 last_heartbeat_at = CASE WHEN @heartbeat = 1 THEN @now ELSE last_heartbeat_at END
             WHERE profile_id = @profileId;
             """, new
-            {
-                profileId,
-                playbackState,
-                currentQueueItemId,
-                setCurrentQueueItem = setCurrentQueueItem ? 1 : 0,
-                positionSeconds,
-                durationSeconds,
-                progressPct,
-                volume,
-                isMuted = isMuted.HasValue ? isMuted.Value ? 1 : 0 : (int?)null,
-                playbackRate,
-                shuffleEnabled = shuffleEnabled.HasValue ? shuffleEnabled.Value ? 1 : 0 : (int?)null,
-                repeatMode,
-                heartbeat = heartbeat ? 1 : 0,
-                now = DateTimeOffset.UtcNow,
-            });
+        {
+            profileId,
+            playbackState,
+            currentQueueItemId,
+            setCurrentQueueItem = setCurrentQueueItem ? 1 : 0,
+            positionSeconds,
+            durationSeconds,
+            progressPct,
+            volume,
+            isMuted = isMuted.HasValue ? isMuted.Value ? 1 : 0 : (int?)null,
+            playbackRate,
+            shuffleEnabled = shuffleEnabled.HasValue ? shuffleEnabled.Value ? 1 : 0 : (int?)null,
+            repeatMode,
+            heartbeat = heartbeat ? 1 : 0,
+            now = DateTimeOffset.UtcNow,
+        });
 
         return Task.CompletedTask;
     }
@@ -509,34 +509,34 @@ public sealed class PlayerSessionRepository
                      @seasonNumber, @episodeNumber, @episodeTitle, @quality, @coverUrl, @durationSeconds,
                      @streamUrl, @downloadUrl, @addedAt, @sourceLabel);
                 """, new
-                {
-                    queueItemId = item.QueueItemId,
-                    profileId,
-                    position = startPosition + i,
-                    workId = item.WorkId,
-                    assetId = item.AssetId,
-                    collectionId = item.CollectionId,
-                    mediaType = item.MediaType,
-                    title = item.Title,
-                    subtitle = item.Subtitle,
-                    album = item.Album,
-                    author = item.Author,
-                    artist = item.Artist,
-                    narrator = item.Narrator,
-                    series = item.Series,
-                    year = item.Year,
-                    contentRating = item.ContentRating,
-                    seasonNumber = item.SeasonNumber,
-                    episodeNumber = item.EpisodeNumber,
-                    episodeTitle = item.EpisodeTitle,
-                    quality = item.Quality,
-                    coverUrl = item.CoverUrl,
-                    durationSeconds = item.DurationSeconds,
-                    streamUrl = item.StreamUrl,
-                    downloadUrl = item.DownloadUrl,
-                    addedAt = item.AddedAt,
-                    sourceLabel = sourceLabel ?? item.Album,
-                }, tx);
+            {
+                queueItemId = item.QueueItemId,
+                profileId,
+                position = startPosition + i,
+                workId = item.WorkId,
+                assetId = item.AssetId,
+                collectionId = item.CollectionId,
+                mediaType = item.MediaType,
+                title = item.Title,
+                subtitle = item.Subtitle,
+                album = item.Album,
+                author = item.Author,
+                artist = item.Artist,
+                narrator = item.Narrator,
+                series = item.Series,
+                year = item.Year,
+                contentRating = item.ContentRating,
+                seasonNumber = item.SeasonNumber,
+                episodeNumber = item.EpisodeNumber,
+                episodeTitle = item.EpisodeTitle,
+                quality = item.Quality,
+                coverUrl = item.CoverUrl,
+                durationSeconds = item.DurationSeconds,
+                streamUrl = item.StreamUrl,
+                downloadUrl = item.DownloadUrl,
+                addedAt = item.AddedAt,
+                sourceLabel = sourceLabel ?? item.Album,
+            }, tx);
         }
     }
 

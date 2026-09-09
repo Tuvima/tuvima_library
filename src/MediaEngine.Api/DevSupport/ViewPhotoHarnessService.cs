@@ -62,16 +62,21 @@ public sealed class ViewPhotoHarnessService(
                     Longitude: fixture.Longitude, LocationName: fixture.LocationName,
                     MetadataJson: JsonSerializer.Serialize(new
                     {
-                        fixture.SourcePage, fixture.License, fixture.Author,
+                        fixture.SourcePage,
+                        fixture.License,
+                        fixture.Author,
                         sha256 = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(),
                         metadata_mode = "deterministic-harness"
                     }), ExistingItemId: upload.ItemId), ct);
                 foreach (var person in fixture.People)
+                {
                     await assets.AddAnnotationAsync(upload.ItemId,
                         new LocalAssetAnnotation("person_name", person, ProvenanceSource,
                             Confidence: 1, ProvenanceJson: JsonSerializer.Serialize(new
                             { fixture.SourcePage, assertion = "manual test fixture; not face recognition" }),
                             ReviewedAt: DateTimeOffset.UtcNow), ct);
+                }
+
                 await assets.ReplaceTagsAsync(upload.ItemId,
                     ["view-photo-harness", "free-stock", fixture.LocationName], ct);
                 results.Add(new ViewPhotoFixtureResult(fixture.FileName, upload.ItemId, "passed", null,

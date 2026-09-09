@@ -28,7 +28,9 @@ internal static class ConventionRegistrationExtensions
         }
 
         foreach (var implementation in implementations)
+        {
             services.AddSingleton(serviceType, implementation);
+        }
 
         return services;
     }

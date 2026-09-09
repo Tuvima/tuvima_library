@@ -92,7 +92,9 @@ public sealed class RouterPortMappingCoordinator : BackgroundService
                 }
 
                 if (result.State is RouterMappingState.RouterRefused or RouterMappingState.Failed)
+                {
                     lastFailure = result;
+                }
             }
 
             var final = lastFailure ?? new RouterMappingResult(
@@ -146,10 +148,16 @@ public sealed class RouterPortMappingCoordinator : BackgroundService
     private async Task RemoveActiveMappingAsync(CancellationToken ct)
     {
         if (_lastRequest is null || string.IsNullOrWhiteSpace(_activeMethod))
+        {
             return;
+        }
+
         var mapper = _mappers.FirstOrDefault(candidate => string.Equals(candidate.Method, _activeMethod, StringComparison.OrdinalIgnoreCase));
         if (mapper is not null)
+        {
             await mapper.RemoveOwnedAsync(_lastRequest, ct);
+        }
+
         _activeMethod = null;
         _lastRequest = null;
     }

@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -24,6 +22,8 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
@@ -1108,7 +1108,9 @@ internal sealed partial class DetailCompositionOrchestrator
         void AddLaneCount(string lane, string label)
         {
             if (!laneCounts.TryGetValue(lane, out var count) || count <= 0)
+            {
                 return;
+            }
 
             metadata.Add(new MetadataPill
             {
@@ -1158,8 +1160,10 @@ internal sealed partial class DetailCompositionOrchestrator
         }
 
         if (works.Where(work => work.IsOwned).All(work => work.ProgressPercent >= 99.5))
+        {
             return [new DetailAction { Key = "watch", Label = $"Rewatch {FormatSeasonEpisode(episode.Season ?? "?", episode.Episode ?? "?")}",
                 Route = $"/watch/player/{episodeId:D}?restart=true", Icon = "play_arrow" }];
+        }
 
         return BuildWatchActions(
             $"/watch/player/{episodeId:D}",

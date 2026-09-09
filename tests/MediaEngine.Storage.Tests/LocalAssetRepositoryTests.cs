@@ -274,6 +274,69 @@ public sealed class LocalAssetRepositoryTests : IDisposable
         Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM local_items;"));
     }
 
+    [Fact]
+    public async Task SharedRegistration_PersistsServerScopeAndRejectsPersonalSource()
+    {
+        Guid sharedLibraryId;
+        var sharedSourceId = Guid.NewGuid();
+        var personalLibraryId = Guid.NewGuid();
+        var personalOwner = await CreateOwnership(personalLibraryId);
+        var personalSourceId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        {
+            sharedLibraryId = connection.QuerySingle<Guid>(
+                "SELECT library_id FROM view_shared_library WHERE singleton_key=1;");
+            connection.Execute("""
+                INSERT INTO view_sources
+                    (id,scope_kind,personal_space_id,library_id,source_type,name,source_key,
+                     storage_mode,relative_path,include_subdirectories,enabled,created_at,updated_at)
+                VALUES
+                    (@sharedSourceId,'shared',NULL,@sharedLibraryId,'folder','Shared Timeline','shared:timeline',
+                     'managed','Shared/Timeline',1,1,@now,@now),
+                    (@personalSourceId,'personal',@personalSpaceId,@personalLibraryId,'folder','Private',NULL,
+                     'managed','Private',1,1,@now,@now);
+                """, new
+            {
+                sharedSourceId,
+                sharedLibraryId,
+                personalSourceId,
+                personalSpaceId = personalOwner.SpaceId,
+                personalLibraryId,
+                now = DateTimeOffset.UtcNow,
+            });
+        }
+
+        var shared = await _repository.UpsertAsync(new LocalAssetRegistration(
+            sharedLibraryId,
+            null,
+            null,
+            LocalAssetMediaKinds.Image,
+            "Accepted copy",
+            DateTimeOffset.UtcNow,
+            [File(@"C:\shared\accepted.jpg", Hash('9'), "accepted.jpg", "image/jpeg") with
+                { SourceId = sharedSourceId }],
+            ScopeKind: LocalAssetScopeKinds.Shared));
+
+        var item = Assert.IsType<MediaEngine.Contracts.LocalAssets.LocalAssetDto>(_repository.Find(shared.ItemId));
+        Assert.Equal(LocalAssetScopeKinds.Shared, item.ScopeKind);
+        Assert.Null(item.PersonalSpaceId);
+        Assert.Null(item.OwnerProfileId);
+        var content = Assert.IsType<LocalAssetContentLocation>(_repository.ResolveContent(shared.ItemId));
+        Assert.Equal(sharedLibraryId, content.LibraryId);
+        Assert.Equal(sharedSourceId, content.SourceId);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _repository.UpsertAsync(new LocalAssetRegistration(
+            sharedLibraryId,
+            null,
+            null,
+            LocalAssetMediaKinds.Image,
+            "Invalid private source",
+            DateTimeOffset.UtcNow,
+            [File(@"C:\private\leak.jpg", Hash('8'), "leak.jpg", "image/jpeg") with
+                { SourceId = personalSourceId }],
+            ScopeKind: LocalAssetScopeKinds.Shared)));
+    }
+
     private Task<LocalAssetUpsertResult> AddImage(
         (Guid ProfileId, Guid SpaceId) owner,
         Guid libraryId,
@@ -315,7 +378,14 @@ public sealed class LocalAssetRepositoryTests : IDisposable
     public void Dispose()
     {
         _database.Dispose();
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        if (System.IO.File.Exists(_path)) System.IO.File.Delete(_path);
+        using (var pool = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_path}"))
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearPool(pool);
+        }
+
+        if (System.IO.File.Exists(_path))
+        {
+            System.IO.File.Delete(_path);
+        }
     }
 }

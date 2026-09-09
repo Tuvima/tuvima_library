@@ -80,9 +80,19 @@ public sealed class CollectionPersonalMediaEndpointTests
 
         Assert.Contains("IViewRequestProfileContext profileContext", endpoints, StringComparison.Ordinal);
         Assert.Contains("GetCollectionPersonalMediaSources", endpoints, StringComparison.Ordinal);
-        Assert.Contains(".RequireAnyRole();", endpoints, StringComparison.Ordinal);
-        Assert.Equal(4, Count(endpoints, ".RequireAdmin();"));
+        Assert.Equal(1, Count(endpoints,
+            ".RequireClientScope(ApplicationPermissionIds.CollectionsRead.Value)"));
+        Assert.Equal(4, Count(endpoints,
+            ".RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)"));
+        Assert.Equal(4, Count(endpoints, ".RequireCatalogueEntityAccess("));
+        Assert.DoesNotContain("RequireAnyRole", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain(".RequireAdmin();", endpoints, StringComparison.Ordinal);
         Assert.Contains("GetAuthorizedProjectionAsync([collectionId], viewerProfileId", service, StringComparison.Ordinal);
+        Assert.Contains("AccountFeatureId.View", service, StringComparison.Ordinal);
+        Assert.Contains("ApplicationPermissionIds.CollectionsRead", service, StringComparison.Ordinal);
+        Assert.Contains("ApplicationPermissionIds.CollectionsWrite", service, StringComparison.Ordinal);
+        Assert.Contains("authority.IsEffectiveAdministrator", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("Role == ProfileRole.Administrator", service, StringComparison.Ordinal);
         Assert.Contains("CollectionAccessPolicy.CanAccess(collection, viewer)", service, StringComparison.Ordinal);
         Assert.DoesNotContain("LocalAsset", endpoints, StringComparison.Ordinal);
 
@@ -110,7 +120,10 @@ public sealed class CollectionPersonalMediaEndpointTests
     {
         var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFile)!);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
+
         Assert.NotNull(directory);
         return Path.Combine(directory!.FullName, relativePath);
     }

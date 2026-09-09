@@ -26,10 +26,11 @@ The live contracts support:
 - `IPluginHealthCheck` for setup and dependency checks.
 - `IPluginJob` for plugin-owned work.
 - `IPluginSettingsSchemaProvider` for runtime settings metadata.
-- `IPluginToolRuntime` for checksum-pinned external tool resolution and execution.
-- `IPluginAiClient` for declared local AI calls.
+- Host-bound media, HTTP, storage, tool, and AI services on `IPluginExecutionContext`.
 
-Do not depend on Web, API, Storage, Providers, Ingestion, or UI implementation types from a plugin. Keep plugin code on the plugin contracts and ordinary .NET APIs.
+Do not depend on Web, API, Storage, Providers, Ingestion, or UI implementation types from a plugin. Use the services on the execution context for media reads, HTTP, files, processes, downloads, and AI. Those services are bound by the Engine to the plugin that is running; their methods deliberately do not accept a plugin id.
+
+Plugins run as trusted managed code inside the Engine process. Permission checks protect host-provided operations and prevent one plugin from claiming another plugin's manifest. They are not an operating-system sandbox for hostile assemblies. Install only reviewed plugins from sources you trust.
 
 ## Create the project
 
@@ -172,9 +173,13 @@ Declare only what the plugin needs.
 Common permissions:
 
 - `media.read`: reads media file metadata or streams.
+- `network.http`: makes outbound HTTP requests through the bound HTTP client.
 - `process.execute`: runs a local tool through `IPluginToolRuntime`.
 - `tool.download`: allows tool auto-install when a checksum-pinned download is declared.
 - `ai.infer`: calls local AI through `IPluginAiClient`.
+- `storage.plugin`: reads or writes inside the invocation's plugin working directory.
+
+The Engine checks the live enabled state and the exact manifest permission again immediately before each host operation. Disabling a plugin therefore revokes an already-created context. Tool resolution accepts a declared tool id, and execution accepts only a resolution returned to that same context. Working and storage paths must remain inside the plugin directory.
 
 If a plugin uses tools, declare each `tool_requirements` entry with the executable name, license, source URL, supported platforms, download URL, SHA-256, and relative executable path when auto-install is supported.
 

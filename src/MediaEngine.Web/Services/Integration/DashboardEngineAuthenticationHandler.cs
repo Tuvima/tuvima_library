@@ -21,7 +21,9 @@ public sealed class DashboardEngineAuthenticationHandler(
             ?? session.SessionToken
             ?? httpContextAccessor.HttpContext?.User.FindFirstValue(SessionTokenClaim);
         if (!string.IsNullOrWhiteSpace(token))
+        {
             request.Headers.TryAddWithoutValidation(SessionHeader, token);
+        }
 
         return base.SendAsync(request, cancellationToken);
     }

@@ -174,7 +174,8 @@ public sealed class AudiobookSeriesDetailTests : IDisposable
         public Task<List<ContentGroupDto>> GetSystemViewGroupsAsync(
             string? mediaType,
             string? groupField,
-            CancellationToken ct) =>
+            CancellationToken ct,
+            IReadOnlySet<Guid>? allowedWorkIds = null) =>
             Task.FromResult(
                 string.Equals(mediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
                 && string.Equals(groupField, "series", StringComparison.OrdinalIgnoreCase)

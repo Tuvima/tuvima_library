@@ -1,7 +1,7 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Storage.Services;
 
@@ -31,7 +31,9 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
             {
                 var normalized = NormalizeExtension(extension);
                 if (!string.IsNullOrWhiteSpace(normalized))
+                {
                     result.Add(normalized);
+                }
             }
         }
 
@@ -44,13 +46,17 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
         foreach (var type in LoadTypes())
         {
             if (!MatchesMediaType(type, mediaType))
+            {
                 continue;
+            }
 
             foreach (var extension in type.Extensions)
             {
                 var normalized = NormalizeExtension(extension);
                 if (!string.IsNullOrWhiteSpace(normalized))
+                {
                     result.Add(normalized);
+                }
             }
         }
 
@@ -64,7 +70,9 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
     {
         var normalized = NormalizeExtension(extension);
         if (string.IsNullOrWhiteSpace(normalized))
+        {
             return false;
+        }
 
         return LoadTypes()
             .Count(type => type.Extensions.Any(value =>
@@ -75,7 +83,9 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
     {
         var normalized = NormalizeExtension(extension);
         if (string.IsNullOrWhiteSpace(normalized))
+        {
             return false;
+        }
 
         // PDF is intentionally not "strong" because it can be user documents
         // or books; keep root-folder review behavior conservative.
@@ -87,7 +97,9 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
     {
         var normalized = NormalizeExtension(extension);
         if (string.IsNullOrWhiteSpace(normalized))
+        {
             return false;
+        }
 
         return GetExtensionsFor(MediaType.Movies).Contains(normalized)
             || GetExtensionsFor(MediaType.TV).Contains(normalized);
@@ -97,7 +109,9 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
     {
         var normalized = NormalizeExtension(extension);
         if (string.IsNullOrWhiteSpace(normalized))
+        {
             return MediaType.Unknown;
+        }
 
         var matches = LoadTypes()
             .Where(type => type.Extensions.Any(value =>
@@ -108,7 +122,9 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
             .ToList();
 
         if (matches.Count == 1)
+        {
             return matches[0];
+        }
 
         if (normalized.Equals(".m4b", StringComparison.OrdinalIgnoreCase)
             && matches.Contains(MediaType.Audiobooks))
@@ -123,7 +139,9 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
         }
 
         if (matches.Contains(MediaType.Movies))
+        {
             return MediaType.Movies;
+        }
 
         return MediaType.Unknown;
     }
@@ -134,7 +152,9 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
         {
             var config = _configLoader?.LoadMediaTypes();
             if (config?.Types.Count > 0)
+            {
                 return config.Types;
+            }
         }
         catch
         {
@@ -181,7 +201,9 @@ public sealed class MediaTypeExtensionCatalog : IMediaTypeExtensionCatalog
     private static string NormalizeExtension(string? extension)
     {
         if (string.IsNullOrWhiteSpace(extension))
+        {
             return string.Empty;
+        }
 
         var trimmed = extension.Trim().ToLowerInvariant();
         return trimmed.StartsWith(".", StringComparison.Ordinal) ? trimmed : "." + trimmed;

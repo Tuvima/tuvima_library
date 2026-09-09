@@ -1,31 +1,31 @@
-using MudBlazor.Services;
-using MediaEngine.Web.Components;
-using MediaEngine.Web.Services.Branding;
-using MediaEngine.Web.Services.Integration;
-using MediaEngine.Web.Services.Editing;
-using MediaEngine.Web.Services.Theming;
-using MediaEngine.Web.Services.Narration;
-using MediaEngine.Web.Services.MediaTiles;
-using MediaEngine.Web.Services.Playback;
-using MediaEngine.Web.Services.Navigation;
-using MediaEngine.Web.Services.Configuration;
-using MediaEngine.Web.Services.Integration.Clients;
+using System.Globalization;
+using System.Net;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using MediaEngine.Domain.Models;
+using MediaEngine.Web.Components;
+using MediaEngine.Web.Endpoints;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Branding;
+using MediaEngine.Web.Services.Configuration;
+using MediaEngine.Web.Services.Editing;
+using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Services.Integration.Clients;
+using MediaEngine.Web.Services.MediaTiles;
+using MediaEngine.Web.Services.Narration;
+using MediaEngine.Web.Services.Navigation;
+using MediaEngine.Web.Services.Playback;
+using MediaEngine.Web.Services.Theming;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using System.Net;
-using System.Globalization;
-using System.Security.Cryptography;
-using System.Security.Claims;
-using System.Text;
-using MediaEngine.Web.Endpoints;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpContextAccessor();
@@ -53,8 +53,8 @@ builder.Services.AddLocalization();
 builder.Services.Configure<RequestLocalizationOptions>(opts =>
 {
     opts.DefaultRequestCulture = new RequestCulture("en");
-    opts.SupportedCultures     = supportedCultures;
-    opts.SupportedUICultures   = supportedCultures;
+    opts.SupportedCultures = supportedCultures;
+    opts.SupportedUICultures = supportedCultures;
     // Cookie provider first so the Dashboard language selection takes effect.
     opts.RequestCultureProviders.Insert(0, new CookieRequestCultureProvider());
 });
@@ -217,9 +217,9 @@ builder.Services.AddTransient<DashboardEngineAuthenticationHandler>();
 builder.Services.AddTransient<ViewProfileAssertionHandler>(services => new ViewProfileAssertionHandler(
     services.GetRequiredService<IActiveProfileAccessor>()));
 builder.Services.AddScoped<DashboardIdentityClient>();
-builder.Services.AddScoped<AdministratorElevationNavigationService>();
-builder.Services.AddScoped<IAdministratorElevationNavigationService>(services =>
-    services.GetRequiredService<AdministratorElevationNavigationService>());
+builder.Services.AddScoped<AdministratorSurfaceAccessService>();
+builder.Services.AddScoped<IAdministratorSurfaceAccessService>(services =>
+    services.GetRequiredService<AdministratorSurfaceAccessService>());
 builder.Services.AddSingleton(new ViewMediaGrantService(mediaGrantKey, mediaGrantLifetime));
 builder.Services.AddHttpClient<EngineApiClient>(ConfigureEngineClient)
     .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>()
@@ -244,7 +244,7 @@ builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient)
 // Forward only the server-held service credential so a shelf of images does not
 // repeat user-session validation and a SQLite lookup for every image.
 builder.Services.AddHttpClient("EngineArtwork", ConfigureEngineClient)
-    .AddHttpMessageHandler<DashboardServiceCredentialHandler>();
+    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
 builder.Services.AddHttpClient("EngineIdentity", ConfigureEngineClient)
     .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>();
 builder.Services.AddHttpClient("ClientApiProxy", client => client.BaseAddress = new Uri(apiBase));
@@ -288,6 +288,7 @@ var app = builder.Build();
 // redirection, authentication, and URL generation. Only loopback plus the
 // explicitly configured proxy addresses/networks are trusted.
 app.UseForwardedHeaders();
+app.UseWebSockets();
 app.UseResponseCompression();
 
 if (!app.Environment.IsDevelopment())
@@ -311,22 +312,6 @@ app.Use(async (context, next) =>
 app.UseHttpsRedirection();
 app.UseRequestLocalization();
 app.UseAuthentication();
-app.Use(async (context,next)=>
-{
-    if(context.Request.Path.StartsWithSegments("/settings")
-       && !context.Request.Path.StartsWithSegments("/settings/profile")
-       && context.User.IsInRole(MediaEngine.Domain.AppRoles.Administrator)
-       && Guid.TryParse(context.User.FindFirstValue("tuvima:session_id"),out _))
-    {
-        var elevation=await context.RequestServices.GetRequiredService<DashboardIdentityClient>().GetElevationAsync(context.RequestAborted).ConfigureAwait(false);
-        if(elevation?.Elevated!=true)
-        {
-            var target=context.Request.PathBase+context.Request.Path+context.Request.QueryString;
-            context.Response.Redirect($"/account/elevate?returnUrl={Uri.EscapeDataString(target)}");return;
-        }
-    }
-    await next().ConfigureAwait(false);
-});
 app.UseAuthorization();
 app.UseAntiforgery();
 
@@ -368,7 +353,8 @@ app.MapGet("/culture/set", (string culture, string redirectUri, HttpContext ctx)
 
 app.MapMethods("/engine-stream/{assetId:guid}", [HttpMethods.Get, HttpMethods.Head], ProxyEngineStreamAsync)
     .WithName("ProxyEngineMediaStream")
-    .WithSummary("Proxies Engine media bytes through the Dashboard origin for browser media playback.");
+    .WithSummary("Proxies Engine media bytes through the Dashboard origin for browser media playback.")
+    .RequireAuthorization();
 
 app.MapMethods(
         "/engine-hls/{grant}/{packageId:guid}/{**resourcePath}",
@@ -376,7 +362,7 @@ app.MapMethods(
         ProxyEngineHlsAsync)
     .WithName("ProxyEngineAdaptiveHls")
     .WithSummary("Proxies one signed adaptive HLS package through the Dashboard origin.")
-    .AllowAnonymous();
+    .RequireAuthorization();
 
 app.MapMethods("/engine-image/{**enginePath}", [HttpMethods.Get, HttpMethods.Head], ProxyEngineImageAsync)
     .WithName("ProxyEngineImage")
@@ -464,7 +450,9 @@ static async Task ProxyEngineHlsAsync(
     ctx.Response.StatusCode = (int)response.StatusCode;
     CopyResponseHeaders(response, ctx.Response);
     if (!HttpMethods.IsHead(ctx.Request.Method))
+    {
         await response.Content.CopyToAsync(ctx.Response.Body, ct);
+    }
 }
 
 static async Task ProxyEngineImageAsync(

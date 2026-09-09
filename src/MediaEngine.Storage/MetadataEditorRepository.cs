@@ -168,8 +168,10 @@ public sealed class MetadataEditorRepository(IDatabaseConnection db) : IMetadata
             cancellationToken: ct));
 
         if (string.IsNullOrWhiteSpace(json))
+        {
             return Task.FromResult<IReadOnlyDictionary<string, string>>(
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+        }
 
         try
         {
@@ -210,11 +212,15 @@ public sealed class MetadataEditorRepository(IDatabaseConnection db) : IMetadata
                 LIMIT 1;
                 """, new { assetId = representativeAssetId.Value }, cancellationToken: ct));
             if (linkedId.HasValue)
+            {
                 return Task.FromResult(linkedId);
+            }
         }
 
         if (string.IsNullOrWhiteSpace(artistName))
+        {
             return Task.FromResult<Guid?>(null);
+        }
 
         return Task.FromResult(connection.QueryFirstOrDefault<Guid?>(new CommandDefinition("""
             SELECT p.id
@@ -235,7 +241,9 @@ public sealed class MetadataEditorRepository(IDatabaseConnection db) : IMetadata
         {
             var sample = GetRepresentativeAssetForWorkTree(connection, workId, ct);
             if (sample is not null)
+            {
                 return Task.FromResult<Guid?>(sample.AssetId);
+            }
         }
 
         return Task.FromResult<Guid?>(null);
@@ -314,7 +322,9 @@ public sealed class MetadataEditorRepository(IDatabaseConnection db) : IMetadata
 
         var artworkIds = GetArtworkEntityIds(connection, assetRow.WorkId, assetRow.RootWorkId, ct);
         if (!artworkIds.Contains(entityId))
+        {
             artworkIds.Insert(0, entityId);
+        }
 
         return Task.FromResult(BuildArtworkContext(
             entityId,
@@ -361,7 +371,9 @@ public sealed class MetadataEditorRepository(IDatabaseConnection db) : IMetadata
         AddId(ids, workId);
         AddId(ids, rootWorkId);
         if (ids.Count == 0)
+        {
             return ids;
+        }
 
         var assetRows = connection.Query<Guid>(new CommandDefinition("""
             SELECT DISTINCT ma.id
@@ -370,7 +382,10 @@ public sealed class MetadataEditorRepository(IDatabaseConnection db) : IMetadata
             WHERE e.work_id IN @workIds;
             """, new { workIds = ids.Select(GuidSql.ToBlob).ToArray() }, cancellationToken: ct));
         foreach (var assetId in assetRows)
+        {
             AddId(ids, assetId);
+        }
+
         return ids;
     }
 
@@ -420,7 +435,9 @@ public sealed class MetadataEditorRepository(IDatabaseConnection db) : IMetadata
     private static void AddId(ICollection<Guid> ids, Guid? id)
     {
         if (id.HasValue && id.Value != Guid.Empty && !ids.Contains(id.Value))
+        {
             ids.Add(id.Value);
+        }
     }
 
     private static string DefaultMediaType(string? value) =>

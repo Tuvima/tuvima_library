@@ -1,6 +1,6 @@
+using MediaEngine.Ingestion.Models;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
-using MediaEngine.Ingestion.Models;
 
 namespace MediaEngine.Api.Services.HealthChecks;
 
@@ -11,12 +11,15 @@ public sealed class WatchFolderHealthCheck(IOptions<IngestionOptions> options) :
     {
         var watchDirs = options.Value.EffectiveWatchDirectories;
         if (watchDirs.Count == 0)
+        {
             return Task.FromResult(HealthCheckResult.Degraded(
                 "Watch Folder is not configured.",
                 data: new Dictionary<string, object> { ["category"] = "storage", ["required"] = false }));
+        }
 
         var missing = watchDirs.Where(path => !Directory.Exists(path)).ToList();
         if (missing.Count > 0)
+        {
             return Task.FromResult(HealthCheckResult.Degraded(
                 $"Watch Folder does not exist: {string.Join(", ", missing)}",
                 data: new Dictionary<string, object>
@@ -25,11 +28,15 @@ public sealed class WatchFolderHealthCheck(IOptions<IngestionOptions> options) :
                     ["required"] = false,
                     ["missing"] = string.Join(", ", missing),
                 }));
+        }
 
         try
         {
             foreach (var path in watchDirs)
+            {
                 _ = Directory.EnumerateFileSystemEntries(path).Take(1).ToList();
+            }
+
             return Task.FromResult(HealthCheckResult.Healthy(
                 $"Watch Folder is readable: {string.Join(", ", watchDirs)}",
                 new Dictionary<string, object>

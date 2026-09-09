@@ -1,11 +1,11 @@
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 using Xunit.Abstractions;
 
@@ -32,7 +32,7 @@ public sealed class WikidataParityTests : IDisposable
 
     public WikidataParityTests(ITestOutputHelper output)
     {
-        _output  = output;
+        _output = output;
         _adapter = BuildAdapter();
     }
 
@@ -50,8 +50,8 @@ public sealed class WikidataParityTests : IDisposable
             new Dictionary<string, string> { ["P50"] = "Isaac Asimov" },
         };
         yield return new object?[] { "Breaking Bad", MediaType.TV, null };
-        yield return new object?[] { "Shogun",       MediaType.TV, null };
-        yield return new object?[] { "Star of Edo",  MediaType.Books, null };
+        yield return new object?[] { "Shogun", MediaType.TV, null };
+        yield return new object?[] { "Star of Edo", MediaType.Books, null };
     }
 
     [Theory(Skip = "Requires live Wikidata network access. Run locally with: dotnet test --filter Category=Integration")]
@@ -81,18 +81,20 @@ public sealed class WikidataParityTests : IDisposable
         Assert.Equal(manual.Count == 0, batch.Count == 0);
 
         if (manual.Count == 0)
+        {
             return;
+        }
 
         // ── Compare top-5 QIDs in order ─────────────────────────────────────
         var manualTop = manual.Take(5).Select(c => c.Id).ToList();
-        var batchTop  = batch.Take(5).Select(c => c.Id).ToList();
+        var batchTop = batch.Take(5).Select(c => c.Id).ToList();
 
         Assert.Equal(manualTop, batchTop);
 
         // ── Compare top-result score within tolerance (0.5 points) ──────────
         var manualScore = manual[0].Score;
-        var batchScore  = batch[0].Score;
-        var diff        = Math.Abs(manualScore - batchScore);
+        var batchScore = batch[0].Score;
+        var diff = Math.Abs(manualScore - batchScore);
         Assert.True(diff <= 0.5,
             $"Top score drift for '{query}': manual={manualScore:F2} batch={batchScore:F2} diff={diff:F2}");
     }
@@ -109,9 +111,9 @@ public sealed class WikidataParityTests : IDisposable
 
     private static ReconciliationAdapter BuildAdapter()
     {
-        var root   = FindRepoRoot();
-        var path   = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
-        var json   = File.ReadAllText(path);
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
+        var json = File.ReadAllText(path);
         var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOptions)
                      ?? throw new InvalidOperationException("Failed to deserialize wikidata_reconciliation.json");
 
@@ -131,7 +133,10 @@ public sealed class WikidataParityTests : IDisposable
         while (dir != null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
         throw new InvalidOperationException("Could not find repository root (.git directory)");
@@ -161,10 +166,16 @@ public sealed class WikidataParityTests : IDisposable
         _output.WriteLine($"\n═══ Parity check: '{query}' ═══");
         _output.WriteLine($"Manual ({manual.Count} candidates):");
         foreach (var c in manual.Take(5))
+        {
             _output.WriteLine($"  {c.Id}  \"{c.Name}\"  score={c.Score:F2}");
+        }
+
         _output.WriteLine($"Batch  ({batch.Count} candidates):");
         foreach (var c in batch.Take(5))
+        {
             _output.WriteLine($"  {c.Id}  \"{c.Name}\"  score={c.Score:F2}");
+        }
+
         _output.WriteLine("");
     }
 

@@ -1,95 +1,121 @@
 using MediaEngine.Api.Services.Details.Internals;
-using MediaEngine.Domain;
-using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Api.Tests;
 
 public sealed class DetailActionAuthorizationPolicyTests
 {
-    [Theory]
-    [InlineData(AppRoles.Administrator)]
-    [InlineData(AppRoles.StandardUser)]
-    public async Task ResolveAsync_AllowsManagersWithoutAProfileContext(string callerRole)
+    [Fact]
+    public async Task HumanMetadataActionRequiresEffectiveUnlockedAdministrator()
     {
-        var result = await DetailActionAuthorizationPolicy.ResolveAsync(callerRole, null, null, CancellationToken.None);
+        var authority = HumanAuthority();
 
-        Assert.True(result.Allows("edit"));
-    }
+        var allowed = await DetailActionAuthorizationPolicy.ResolveAsync(
+            authority, new AccountDecisions(AuthorizationDecision.Allow()), new AppEvaluator(false), default);
+        var denied = await DetailActionAuthorizationPolicy.ResolveAsync(
+            authority,
+            new AccountDecisions(AuthorizationDecision.Deny(AuthorizationDenialReason.AdministratorRequired)),
+            new AppEvaluator(true),
+            default);
 
-    [Theory]
-    [InlineData(AppRoles.RestrictedProfile)]
-    [InlineData(null)]
-    [InlineData("unknown")]
-    public async Task ResolveAsync_DeniesCallersWithoutManagementRights(string? callerRole)
-    {
-        var result = await DetailActionAuthorizationPolicy.ResolveAsync(callerRole, null, null, CancellationToken.None);
-
-        Assert.False(result.Allows("edit"));
+        Assert.True(allowed.Allows("edit"));
+        Assert.False(denied.Allows("edit"));
     }
 
     [Fact]
-    public async Task ResolveAsync_RequiresBothCallerAndSelectedProfileToManageMetadata()
+    public async Task ServiceApplicationRequiresMetadataWritePermission()
     {
-        var consumer = ProfileWithRole(ProfileRole.RestrictedProfile);
-        var curator = ProfileWithRole(ProfileRole.StandardUser);
-        var profiles = new FakeProfileRepository(consumer, curator);
+        var authority = new RequestAuthority(
+            PrincipalKind.ServiceApplication,
+            true,
+            ApplicationId: Guid.NewGuid(),
+            ApplicationEnabled: true);
+        var evaluator = new AppEvaluator(true);
 
-        var consumerResult = await DetailActionAuthorizationPolicy.ResolveAsync(
-            AppRoles.Administrator,
-            consumer.Id,
-            profiles,
-            CancellationToken.None);
-        var curatorResult = await DetailActionAuthorizationPolicy.ResolveAsync(
-            AppRoles.Administrator,
-            curator.Id,
-            profiles,
-            CancellationToken.None);
-        var missingResult = await DetailActionAuthorizationPolicy.ResolveAsync(
-            AppRoles.Administrator,
-            Guid.NewGuid(),
-            profiles,
-            CancellationToken.None);
+        var allowed = await DetailActionAuthorizationPolicy.ResolveAsync(
+            authority, new AccountDecisions(AuthorizationDecision.Allow()), evaluator, default);
 
-        Assert.False(consumerResult.Allows("edit"));
-        Assert.True(curatorResult.Allows("edit"));
-        Assert.False(missingResult.Allows("edit"));
+        Assert.True(allowed.Allows("edit"));
+        Assert.Equal(ApplicationPermissionIds.MetadataWrite, evaluator.Permission);
     }
 
     [Fact]
-    public async Task ResolveAsync_FailsClosedForUnknownActions()
+    public async Task DelegatedClientRequiresApplicationConsentAndHumanAdministratorIntersection()
+    {
+        var authority = new RequestAuthority(
+            PrincipalKind.DelegatedUserClient,
+            true,
+            AccountId: Guid.NewGuid(),
+            ActiveProfileId: Guid.NewGuid(),
+            ApplicationId: Guid.NewGuid(),
+            AccountEnabled: true,
+            GrantEnabled: true,
+            ApplicationEnabled: true);
+
+        var missingConsent = await DetailActionAuthorizationPolicy.ResolveAsync(
+            authority,
+            new AccountDecisions(AuthorizationDecision.Allow()),
+            new AppEvaluator(false),
+            default);
+        var ordinaryHuman = await DetailActionAuthorizationPolicy.ResolveAsync(
+            authority,
+            new AccountDecisions(AuthorizationDecision.Deny(AuthorizationDenialReason.AdministratorRequired)),
+            new AppEvaluator(true),
+            default);
+        var allowed = await DetailActionAuthorizationPolicy.ResolveAsync(
+            authority,
+            new AccountDecisions(AuthorizationDecision.Allow()),
+            new AppEvaluator(true),
+            default);
+
+        Assert.False(missingConsent.Allows("edit"));
+        Assert.False(ordinaryHuman.Allows("edit"));
+        Assert.True(allowed.Allows("edit"));
+    }
+
+    [Fact]
+    public async Task UnknownPrincipalAndUnknownActionFailClosed()
     {
         var result = await DetailActionAuthorizationPolicy.ResolveAsync(
-            AppRoles.Administrator,
-            null,
-            null,
-            CancellationToken.None);
+            new RequestAuthority(PrincipalKind.DashboardTransport, true),
+            new AccountDecisions(AuthorizationDecision.Allow()),
+            new AppEvaluator(true),
+            default);
 
+        Assert.False(result.Allows("edit"));
         Assert.False(result.Allows("delete-library-item"));
     }
 
-    private static Profile ProfileWithRole(ProfileRole role) => new()
+    private static RequestAuthority HumanAuthority() => new(
+        PrincipalKind.Human,
+        true,
+        AccountId: Guid.NewGuid(),
+        ActiveProfileId: Guid.NewGuid(),
+        AccountEnabled: true,
+        GrantEnabled: true);
+
+    private sealed class AccountDecisions(AuthorizationDecision administrator) : IAccountAccessDecisionService
     {
-        Id = Guid.NewGuid(),
-        DisplayName = role.ToString(),
-        Role = role,
-    };
+        public ValueTask<AuthorizationDecision> EvaluateFeatureAsync(RequestAuthority authority, AccountFeatureId feature, CancellationToken cancellationToken = default) => ValueTask.FromResult(AuthorizationDecision.Deny(AuthorizationDenialReason.MissingFeatureGrant));
+        public ValueTask<AuthorizationDecision> EvaluateLibraryAsync(RequestAuthority authority, Guid libraryId, CancellationToken cancellationToken = default) => ValueTask.FromResult(AuthorizationDecision.Deny(AuthorizationDenialReason.MissingLibraryGrant));
+        public ValueTask<AuthorizationDecision> EvaluateAdministratorAsync(RequestAuthority authority, bool requireSurfaceUnlock, CancellationToken cancellationToken = default) => ValueTask.FromResult(administrator);
+    }
 
-    private sealed class FakeProfileRepository(params Profile[] profiles) : IProfileRepository
+    private sealed class AppEvaluator(bool allowed) : IAuthorizationEvaluator
     {
-        private readonly IReadOnlyDictionary<Guid, Profile> _profiles = profiles.ToDictionary(profile => profile.Id);
+        public ApplicationPermissionId? Permission { get; private set; }
 
-        public Task<IReadOnlyList<Profile>> GetAllAsync(CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<Profile>>(_profiles.Values.ToList());
-
-        public Task<Profile?> GetByIdAsync(Guid id, CancellationToken ct = default) =>
-            Task.FromResult(_profiles.GetValueOrDefault(id));
-
-        public Task InsertAsync(Profile profile, CancellationToken ct = default) => throw new NotSupportedException();
-
-        public Task<bool> UpdateAsync(Profile profile, CancellationToken ct = default) => throw new NotSupportedException();
-
-        public Task<bool> DeleteAsync(Guid id, CancellationToken ct = default) => throw new NotSupportedException();
+        public ValueTask<AuthorizationDecision> EvaluateAsync(
+            RequestAuthority authority,
+            AuthorizationRequirement requirement,
+            ResourceAuthorizationContext? resource,
+            CancellationToken cancellationToken = default)
+        {
+            Permission = requirement.ApplicationPermission;
+            return ValueTask.FromResult(allowed
+                ? AuthorizationDecision.Allow()
+                : AuthorizationDecision.Deny(AuthorizationDenialReason.MissingPermission));
+        }
     }
 }

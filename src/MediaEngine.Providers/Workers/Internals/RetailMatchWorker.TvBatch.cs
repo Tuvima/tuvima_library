@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -13,7 +14,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -103,11 +103,13 @@ public sealed partial class RetailMatchWorker
         CancellationToken ct)
     {
         foreach (var job in groupJobs)
+        {
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailSearching, ct: ct);
+        }
 
         var executionConfig = GetExecutionSnapshot();
         var hydrationConfig = executionConfig.Hydration;
-        var retailAcceptThreshold    = hydrationConfig.RetailAutoAcceptThreshold;
+        var retailAcceptThreshold = hydrationConfig.RetailAutoAcceptThreshold;
         var retailAmbiguousThreshold = hydrationConfig.RetailAmbiguousThreshold;
 
         var providerConfigs = executionConfig.Providers;
@@ -151,9 +153,9 @@ public sealed partial class RetailMatchWorker
         }
 
         var representativeHints = jobHints[groupJobs[0].EntityId];
-        var showName    = representativeHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
+        var showName = representativeHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
             ?? representativeHints.GetValueOrDefault(MetadataFieldConstants.Series);
-        var seasonStr   = representativeHints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
+        var seasonStr = representativeHints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
             ?? representativeHints.GetValueOrDefault("season");
         // Scan ALL jobs in the group for a year claim — any episode-folder year
         // (e.g. "Shogun (2024)/Season 01/...") is enough to disambiguate the show,
@@ -161,7 +163,11 @@ public sealed partial class RetailMatchWorker
         int? yearHint = null;
         foreach (var job in groupJobs)
         {
-            if (!jobHints.TryGetValue(job.EntityId, out var hints)) continue;
+            if (!jobHints.TryGetValue(job.EntityId, out var hints))
+            {
+                continue;
+            }
+
             var candidate = hints.GetValueOrDefault(MetadataFieldConstants.Year);
             if (int.TryParse(candidate, out var parsedYear) && parsedYear > 1900)
             {
@@ -214,11 +220,15 @@ public sealed partial class RetailMatchWorker
         {
             var season = seasonGroup.Key;
             if (!int.TryParse(season, out var seasonNumber))
+            {
                 continue;
+            }
 
             var episodes = await _tmdbClient.FetchSeasonEpisodesAsync(tvId, seasonNumber, tmdbApiKey, lang, country, ct);
             foreach (var ep in episodes)
+            {
                 allEpisodes.Add((season, ep));
+            }
         }
 
         _logger.LogInformation(
@@ -268,11 +278,11 @@ public sealed partial class RetailMatchWorker
         // VideoProcessor sets title = episode_title when available, but fileHints may
         // still carry the old show-name title for files ingested before the fix.
         // Explicitly preferring episode_title here ensures episode-vs-episode comparison.
-        var fileTitle         = fileHints.GetValueOrDefault(MetadataFieldConstants.EpisodeTitle)
+        var fileTitle = fileHints.GetValueOrDefault(MetadataFieldConstants.EpisodeTitle)
             ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Title);
         var fileEpisodeNumber = fileHints.GetValueOrDefault(MetadataFieldConstants.EpisodeNumber)
             ?? fileHints.GetValueOrDefault("episode");
-        var fileSeason        = fileHints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
+        var fileSeason = fileHints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
             ?? fileHints.GetValueOrDefault("season")
             ?? "1";
 
@@ -283,7 +293,9 @@ public sealed partial class RetailMatchWorker
             .ToList();
 
         if (seasonEpisodes.Count == 0)
+        {
             seasonEpisodes = allEpisodes.Select(e => e.Node).ToList(); // Fallback: search all seasons.
+        }
 
         // Match by episode number (preferred), then by title.
         JsonNode? bestEpisode = null;
@@ -291,7 +303,7 @@ public sealed partial class RetailMatchWorker
 
         foreach (var ep in seasonEpisodes)
         {
-            var epNum   = ep["episode_number"]?.GetValue<long?>()?.ToString();
+            var epNum = ep["episode_number"]?.GetValue<long?>()?.ToString();
             var epTitle = ep["name"]?.GetValue<string>();
 
             double matchScore = 0.0;
@@ -328,7 +340,7 @@ public sealed partial class RetailMatchWorker
             return;
         }
 
-        var showName     = fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
+        var showName = fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
             ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
         var providerShowName = matchedShowName ?? showName;
         var showPosterUrl = RetailRequestBuilder.BuildTmdbImageUrl(showPosterPath);
@@ -339,9 +351,9 @@ public sealed partial class RetailMatchWorker
 
         // For retail scoring, the candidate title is the episode title and author/creator
         // is the show name (best available approximation for TV scoring).
-        var candidateTitle  = bestEpisode["name"]?.GetValue<string>();
+        var candidateTitle = bestEpisode["name"]?.GetValue<string>();
         var candidateAuthor = providerShowName;
-        var candidateYear   = bestEpisode["air_date"]?.GetValue<string>()?.Length >= 4
+        var candidateYear = bestEpisode["air_date"]?.GetValue<string>()?.Length >= 4
             ? bestEpisode["air_date"]!.GetValue<string>()![..4]
             : null;
 
@@ -351,10 +363,10 @@ public sealed partial class RetailMatchWorker
         // The bonus is computed here and passed into the scoring service so the
         // composite is produced through a single code path (no manual addition).
         var candidateEpisodeNum = bestEpisode["episode_number"]?.GetValue<long?>()?.ToString();
-        var candidateSeasonNum  = bestEpisode["season_number"]?.GetValue<long?>()?.ToString()
+        var candidateSeasonNum = bestEpisode["season_number"]?.GetValue<long?>()?.ToString()
             ?? bestEpisode["season"]?.GetValue<string>();
 
-        bool seasonMatches  = !string.IsNullOrWhiteSpace(fileSeason)
+        bool seasonMatches = !string.IsNullOrWhiteSpace(fileSeason)
             && !string.IsNullOrWhiteSpace(candidateSeasonNum)
             && string.Equals(fileSeason.Trim(), candidateSeasonNum.Trim(), StringComparison.Ordinal);
         bool episodeMatches = !string.IsNullOrWhiteSpace(fileEpisodeNumber)
@@ -364,11 +376,17 @@ public sealed partial class RetailMatchWorker
 
         double structuralAdjustment = 0.0;
         if (seasonMatches && episodeMatches)
+        {
             structuralAdjustment = +0.20;   // S+E both match — very strong signal
+        }
         else if (episodeMatches && !seasonMatches)
+        {
             structuralAdjustment = +0.05;   // Episode matches but season differs — weak
+        }
         else if (!string.IsNullOrWhiteSpace(fileEpisodeNumber) && !string.IsNullOrWhiteSpace(candidateEpisodeNum))
+        {
             structuralAdjustment = -0.25;   // Episode number present but doesn't match — strong mismatch
+        }
 
         var retailScore = _retailScoring.ScoreCandidate(
             fileHints, candidateTitle, candidateAuthor, candidateYear, MediaType.TV,
@@ -392,10 +410,12 @@ public sealed partial class RetailMatchWorker
         }
 
         if (structuralAdjustment != 0.0)
+        {
             _logger.LogDebug(
                 "TV structural adjustment: S{FileSeason}E{FileEp} vs candidate S{CandSeason}E{CandEp} → {Adj:+0.00;-0.00} (base {Base:F2} → adjusted {Adj2:F2}) [entity {EntityId}]",
                 fileSeason, fileEpisodeNumber, candidateSeasonNum, candidateEpisodeNum,
                 structuralAdjustment, retailScore.CompositeScore, adjustedComposite, job.EntityId);
+        }
 
         var decision = _candidateScorer.EvaluateDecision(
             fileHints,
@@ -418,15 +438,15 @@ public sealed partial class RetailMatchWorker
 
         var candidate = new RetailMatchCandidate
         {
-            JobId              = job.Id,
-            ProviderId         = providerId,
-            ProviderName       = "tmdb",
-            ProviderItemId     = bestEpisode["id"]?.GetValue<long?>()?.ToString(),
-            Rank               = 1,
-            Title              = candidateTitle ?? "(unknown)",
-            Creator            = candidateAuthor,
-            Year               = candidateYear,
-            ScoreTotal         = decision.FinalScore,
+            JobId = job.Id,
+            ProviderId = providerId,
+            ProviderName = "tmdb",
+            ProviderItemId = bestEpisode["id"]?.GetValue<long?>()?.ToString(),
+            Rank = 1,
+            Title = candidateTitle ?? "(unknown)",
+            Creator = candidateAuthor,
+            Year = candidateYear,
+            ScoreTotal = decision.FinalScore,
             ScoreBreakdownJson = _candidateScorer.BuildScoreBreakdownJson(
                 retailScore,
                 decision,
@@ -438,9 +458,9 @@ public sealed partial class RetailMatchWorker
                     ["episode_matches"] = episodeMatches,
                 },
                 structuralAdjustment),
-            BridgeIdsJson      = bridgeIdsJson,
-            ImageUrl           = showPosterUrl,
-            Outcome            = decision.Outcome,
+            BridgeIdsJson = bridgeIdsJson,
+            ImageUrl = showPosterUrl,
+            Outcome = decision.Outcome,
         };
 
         await _candidateRepo.InsertBatchAsync([candidate], ct);
@@ -468,14 +488,16 @@ public sealed partial class RetailMatchWorker
                 .Where(c => BridgeIdHelper.IsBridgeId(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
                 .Select(c => new BridgeIdEntry
                 {
-                    EntityId   = ResolveBridgeIdEntityId(lineage, job.EntityId, c.Key),
-                    IdType     = c.Key,
-                    IdValue    = c.Value,
+                    EntityId = ResolveBridgeIdEntityId(lineage, job.EntityId, c.Key),
+                    IdType = c.Key,
+                    IdValue = c.Value,
                     ProviderId = providerId.ToString(),
                 }).ToList();
 
             if (bridgeEntries.Count > 0)
+            {
                 await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct);
+            }
 
             if (lineage is not null)
             {
@@ -486,9 +508,11 @@ public sealed partial class RetailMatchWorker
                     var evidence = await _tmdbClient.FetchEpisodeCreditsAsync(tvId, creditSeason,
                         creditEpisode, tmdbApiKey, language, country, ct);
                     if (evidence is not null)
+                    {
                         await _episodeCredits.ReplaceAsync(new TvEpisodeCredits(lineage.WorkId,
                             lineage.RootParentWorkId, bestEpisode["id"]!.ToString(), creditSeason,
                             creditEpisode, ParseEpisodeCredits(evidence)), ct);
+                    }
                 }
                 await DownloadAndPersistTmdbEpisodeStillAsync(
                     bestEpisode,
@@ -515,8 +539,10 @@ public sealed partial class RetailMatchWorker
                     job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct)
                     .ConfigureAwait(false);
                 if (_coverArtWorker is not null)
+                {
                     await _coverArtWorker.DownloadAndPersistAsync(job.EntityId, wikidataQid: null, ct)
                         .ConfigureAwait(false);
+                }
             }
             catch (Exception orgEx) when (orgEx is not OperationCanceledException)
             {
@@ -580,16 +606,18 @@ public sealed partial class RetailMatchWorker
         void Add(string key, string? value, double confidence)
         {
             if (!string.IsNullOrWhiteSpace(value))
+            {
                 claims.Add(new ProviderClaim(key, value, confidence));
+            }
         }
 
         Add(MetadataFieldConstants.EpisodeTitle, episode["name"]?.GetValue<string>(), 0.85);
         Add(MetadataFieldConstants.Cover, showPosterUrl, 0.90);
 
         // For TV, "title" in the system is typically the episode title.
-        Add(MetadataFieldConstants.Title,         episode["name"]?.GetValue<string>(), 0.80);
+        Add(MetadataFieldConstants.Title, episode["name"]?.GetValue<string>(), 0.80);
         Add(MetadataFieldConstants.EpisodeDescription, episode["overview"]?.GetValue<string>(), 0.85);
-        Add(MetadataFieldConstants.ShowName,      showName, 0.85);
+        Add(MetadataFieldConstants.ShowName, showName, 0.85);
 
         var airDate = episode["air_date"]?.GetValue<string>();
         Add(MetadataFieldConstants.AirDate, airDate, 0.90);
@@ -608,7 +636,9 @@ public sealed partial class RetailMatchWorker
 
         var rating = episode["vote_average"]?.GetValue<double?>()?.ToString("F1");
         if (!string.IsNullOrWhiteSpace(rating))
+        {
             Add(MetadataFieldConstants.Rating, rating, 0.80);
+        }
 
         Add(MetadataFieldConstants.Runtime,
             episode["runtime"]?.GetValue<long?>()?.ToString(System.Globalization.CultureInfo.InvariantCulture), 0.90);
@@ -623,15 +653,22 @@ public sealed partial class RetailMatchWorker
     {
         var credits = new List<TvPersonCredit>();
         foreach (var kind in new[] { "cast", "guest_stars", "crew" })
-        foreach (var person in evidence[kind]?.AsArray() ?? [])
         {
-            if (person is null || string.IsNullOrWhiteSpace(person["name"]?.ToString())) continue;
-            credits.Add(new TvPersonCredit(person["id"]?.ToString() ?? string.Empty,
-                person["credit_id"]?.ToString() ?? string.Empty, person["name"]!.ToString(),
-                kind == "crew" ? person["job"]?.ToString() ?? "Crew" : "Actor",
-                person["character"]?.ToString(), BuildTmdbOriginalImageUrl(person["profile_path"]?.ToString()),
-                person["order"]?.GetValue<int?>() ?? credits.Count));
+            foreach (var person in evidence[kind]?.AsArray() ?? [])
+            {
+                if (person is null || string.IsNullOrWhiteSpace(person["name"]?.ToString()))
+                {
+                    continue;
+                }
+
+                credits.Add(new TvPersonCredit(person["id"]?.ToString() ?? string.Empty,
+                    person["credit_id"]?.ToString() ?? string.Empty, person["name"]!.ToString(),
+                    kind == "crew" ? person["job"]?.ToString() ?? "Crew" : "Actor",
+                    person["character"]?.ToString(), BuildTmdbOriginalImageUrl(person["profile_path"]?.ToString()),
+                    person["order"]?.GetValue<int?>() ?? credits.Count));
+            }
         }
+
         return credits.DistinctBy(c => (c.PersonId, c.Job, c.Character)).OrderBy(c => c.Order).ToList();
     }
 
@@ -642,7 +679,9 @@ public sealed partial class RetailMatchWorker
         string season)
     {
         if (episodes.Count == 0)
+        {
             return [];
+        }
 
         var items = episodes
             .Select(episode => new ProviderSequenceManifestItem
@@ -664,7 +703,9 @@ public sealed partial class RetailMatchWorker
             && items.Select(item => item.ExternalId).Distinct(StringComparer.OrdinalIgnoreCase).Count() == items.Count
             && items.Select(item => item.Ordinal).Distinct(StringComparer.OrdinalIgnoreCase).Count() == items.Count;
         if (items.Count == 0)
+        {
             return [];
+        }
 
         var manifest = new ProviderSequenceManifest
         {
@@ -697,7 +738,9 @@ public sealed partial class RetailMatchWorker
         void Add(string key, string? value, double confidence)
         {
             if (!string.IsNullOrWhiteSpace(value))
+            {
                 claims.Add(new ProviderClaim(key, value, confidence));
+            }
         }
 
         Add(MetadataFieldConstants.ShowName, showDetails?["name"]?.GetValue<string>() ?? fallbackShowName, 0.90);
@@ -719,7 +762,9 @@ public sealed partial class RetailMatchWorker
         var firstAirDate = showDetails?["first_air_date"]?.GetValue<string>();
         Add("first_air_date", firstAirDate, 0.95);
         if (!string.IsNullOrWhiteSpace(firstAirDate) && firstAirDate.Length >= 4)
+        {
             Add(MetadataFieldConstants.Year, firstAirDate[..4], 0.85);
+        }
 
         var showStatus = showDetails?["status"]?.GetValue<string>();
         var lastAirDate = showDetails?["last_air_date"]?.GetValue<string>();
@@ -882,7 +927,9 @@ public sealed partial class RetailMatchWorker
     {
         var results = showDetails?["content_ratings"]?["results"]?.AsArray();
         if (results is null)
+        {
             return null;
+        }
 
         foreach (var country in new[] { "US", "GB", "CA", "AU" })
         {
@@ -890,7 +937,9 @@ public sealed partial class RetailMatchWorker
                 string.Equals(node?["iso_3166_1"]?.GetValue<string>(), country, StringComparison.OrdinalIgnoreCase))
                 ?["rating"]?.GetValue<string>();
             if (!string.IsNullOrWhiteSpace(rating))
+            {
                 return rating;
+            }
         }
 
         return null;
@@ -902,11 +951,15 @@ public sealed partial class RetailMatchWorker
         CancellationToken ct)
     {
         if (_entityAssetRepo is null || _assetPaths is null)
+        {
             return;
+        }
 
         var stillUrl = RetailRequestBuilder.BuildTmdbEpisodeStillUrl(episode["still_path"]?.GetValue<string>());
         if (string.IsNullOrWhiteSpace(stillUrl))
+        {
             return;
+        }
 
         await using var downloadLease = await _imageDownloadCoordinator
             .AcquireAsync(stillUrl, ct)
@@ -967,7 +1020,9 @@ public sealed partial class RetailMatchWorker
         }
 
         if (bytes.Length == 0)
+        {
             return;
+        }
 
         var variant = new EntityAsset
         {
@@ -1009,11 +1064,13 @@ public sealed partial class RetailMatchWorker
         }
 
         if (_assetExportService is not null)
+        {
             await _assetExportService.ReconcileArtworkAsync(
                 variant.EntityId,
                 variant.EntityType,
                 variant.AssetTypeValue,
                 ct);
+        }
 
         _logger.LogInformation(
             "TV: downloaded TMDB episode still for Work {EpisodeWorkId} ({Bytes} bytes)",
@@ -1040,7 +1097,9 @@ public sealed partial class RetailMatchWorker
         if (!string.IsNullOrWhiteSpace(cachedPath) && File.Exists(cachedPath))
         {
             if (!string.Equals(cachedPath, destinationPath, StringComparison.OrdinalIgnoreCase))
+            {
                 File.Copy(cachedPath, destinationPath, overwrite: true);
+            }
         }
         else
         {
@@ -1069,7 +1128,9 @@ public sealed partial class RetailMatchWorker
         {
             var extension = Path.GetExtension(imageUri.AbsolutePath);
             if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+            {
                 return ".png";
+            }
         }
 
         return ".jpg";
@@ -1097,7 +1158,9 @@ public sealed partial class RetailMatchWorker
             try
             {
                 if (File.Exists(path))
+                {
                     File.Delete(path);
+                }
             }
             catch (IOException)
             {

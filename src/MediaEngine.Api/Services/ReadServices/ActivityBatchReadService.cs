@@ -346,7 +346,10 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         foreach (var item in items)
         {
             if (!previews.TryGetValue(item.BatchId, out var preview))
+            {
                 continue;
+            }
+
             item.AddedGroupCount = preview.TotalCount ?? preview.Items.Count;
             item.AddedPreview = preview.Items.ToList();
         }
@@ -486,7 +489,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             """, new { batchId, reviewGroup = ReviewGroupMediaType }).ConfigureAwait(false)).AsList();
 
         if (rows.Count > 0)
+        {
             return rows;
+        }
 
         var fallback = await conn.QueryFirstOrDefaultAsync<ActivityMediaTypeGroupDto>("""
             SELECT
@@ -778,21 +783,23 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             ORDER BY {orderBy}
             LIMIT @limitPlusOne OFFSET @offset;
             """, new
-            {
-                batchId,
-                mediaType = filterMediaType,
-                search = filterSearch,
-                status = filterStatus,
-                source = filterSource,
-                reviewGroup = ReviewGroupMediaType,
-                offset = page.Offset,
-                limitPlusOne = page.Limit + 1,
-            }).ConfigureAwait(false)).AsList();
+        {
+            batchId,
+            mediaType = filterMediaType,
+            search = filterSearch,
+            status = filterStatus,
+            source = filterSource,
+            reviewGroup = ReviewGroupMediaType,
+            offset = page.Offset,
+            limitPlusOne = page.Limit + 1,
+        }).ConfigureAwait(false)).AsList();
 
         foreach (var row in rows)
         {
             if (row.CoverAssetId is { } coverAssetId)
+            {
                 row.CoverUrl = $"/stream/artwork/{coverAssetId:D}";
+            }
 
             row.DurationLabel = FormatDurationLabel(row.DurationSeconds, row.DurationLabel);
         }
@@ -856,14 +863,14 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             ORDER BY occurred_at ASC, id ASC
             LIMIT @limitPlusOne OFFSET @offset;
             """, new
-            {
-                batchId,
-                search = searchPattern,
-                eventType = typePattern,
-                result = resultFilter,
-                offset = page.Offset,
-                limitPlusOne = page.Limit + 1,
-            }).ConfigureAwait(false)).AsList();
+        {
+            batchId,
+            search = searchPattern,
+            eventType = typePattern,
+            result = resultFilter,
+            offset = page.Offset,
+            limitPlusOne = page.Limit + 1,
+        }).ConfigureAwait(false)).AsList();
 
         var total = rows.FirstOrDefault()?.TotalFilteredCount ?? 0;
         var events = rows.Select(row => new ActivityTechnicalEventDto
@@ -1009,7 +1016,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             """, new { batchId, assetId }).ConfigureAwait(false);
 
         if (item is null)
+        {
             return null;
+        }
 
         item.DurationLabel = FormatDurationLabel(item.DurationSeconds, item.DurationLabel);
         var fileDetails = BuildFileDetails(item);
@@ -1081,17 +1090,19 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
             WHERE pml.media_asset_id = @assetId
             ORDER BY pml.role ASC, p.name ASC;
             """, new
-            {
-                batchId,
-                assetId,
-                title = item.Title,
-                mediaType = item.MediaType,
-            }).ConfigureAwait(false)).AsList();
+        {
+            batchId,
+            assetId,
+            title = item.Title,
+            mediaType = item.MediaType,
+        }).ConfigureAwait(false)).AsList();
 
         foreach (var person in people)
         {
             if (!string.Equals(person.HeadshotStatus, "Missing", StringComparison.OrdinalIgnoreCase))
+            {
                 person.HeadshotUrl = $"/persons/{person.PersonId:D}/headshot";
+            }
         }
 
         var evidence = (await conn.QueryAsync<ActivityEvidenceDto>("""
@@ -1230,7 +1241,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         foreach (var row in rows)
         {
             if (!string.Equals(row.HeadshotStatus, "Missing", StringComparison.OrdinalIgnoreCase))
+            {
                 row.HeadshotUrl = $"/persons/{row.PersonId:D}/headshot";
+            }
         }
 
         var total = await conn.ExecuteScalarAsync<int>($"""
@@ -1281,7 +1294,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         };
 
         if (!string.IsNullOrWhiteSpace(item.SourcePath))
+        {
             details.Add(new ActivityDetailFieldDto { Label = "File Name", Value = Path.GetFileName(item.SourcePath) });
+        }
 
         return details
             .Where(detail => !string.IsNullOrWhiteSpace(detail.Value))
@@ -1293,7 +1308,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         IReadOnlyList<Guid> batchIds)
     {
         if (batchIds.Count == 0)
+        {
             return [];
+        }
 
         var rows = (await conn.QueryAsync<ActivityMediaTypeCountRow>($"""
             WITH latest_jobs AS (
@@ -1375,19 +1392,27 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
     private static string? FormatDurationLabel(double? durationSeconds, string? rawLabel)
     {
         if (durationSeconds is > 0)
+        {
             return FormatDuration(TimeSpan.FromSeconds(durationSeconds.Value));
+        }
 
         if (string.IsNullOrWhiteSpace(rawLabel))
+        {
             return null;
+        }
 
         var trimmed = rawLabel.Trim();
         if (double.TryParse(trimmed, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var numeric))
         {
             if (numeric > 600)
+            {
                 return FormatDuration(TimeSpan.FromSeconds(numeric));
+            }
 
             if (numeric > 0)
+            {
                 return FormatDuration(TimeSpan.FromMinutes(numeric));
+            }
         }
 
         return trimmed;
@@ -1397,10 +1422,14 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
     {
         duration = duration.Duration();
         if (duration.TotalHours >= 1)
+        {
             return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+        }
 
         if (duration.TotalMinutes >= 1)
+        {
             return $"{duration.Minutes}m {duration.Seconds}s";
+        }
 
         return $"{Math.Max(0, duration.Seconds)}s";
     }
@@ -1411,7 +1440,9 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
         var parameters = new DynamicParameters();
 
         if (query.HistoricalOnly)
+        {
             clauses.Add($"NOT {IngestionBatchActivitySql.IsActive}");
+        }
 
         if (!string.IsNullOrWhiteSpace(query.Search))
         {

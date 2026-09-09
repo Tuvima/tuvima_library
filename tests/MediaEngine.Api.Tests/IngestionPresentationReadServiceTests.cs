@@ -159,7 +159,9 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
     {
         var batchId = AddBatch("running", 75, 75);
         for (var index = 1; index <= 75; index++)
+        {
             AddStandalone(batchId, "Movies", $"Current Movie {index:00}");
+        }
 
         var service = new IngestionPresentationReadService(_db);
         var page = await service.GetCurrentMediaAsync(50, 50);
@@ -175,9 +177,14 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var firstBatch = AddBatch("completed", 30, 30, DateTimeOffset.UtcNow.AddDays(-2));
         var secondBatch = AddBatch("completed", 55, 55, DateTimeOffset.UtcNow.AddDays(-1));
         for (var index = 1; index <= 30; index++)
+        {
             AddStandalone(firstBatch, "Books", $"Earlier Book {index:00}", presented: true);
+        }
+
         for (var index = 1; index <= 55; index++)
+        {
             AddStandalone(secondBatch, "Movies", $"Recent Movie {index:00}", presented: true);
+        }
 
         var service = new IngestionPresentationReadService(_db);
         var firstPage = await service.GetRecentAdditionsAsync(null, null, null, null, 0, 50);
@@ -196,7 +203,9 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
     {
         var batchId = AddBatch("completed", 30, 30);
         for (var index = 1; index <= 30; index++)
+        {
             AddStandalone(batchId, "Movies", $"Movie {index:00}", presented: true);
+        }
 
         var service = new IngestionPresentationReadService(_db);
         var page = await service.GetBatchMediaAsync(batchId, 25, 25);
@@ -218,7 +227,9 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var album = AddContainer("Music", "Partial Album", expectedKey: "track_count", expectedValue: "17");
         AddChildren(batchId, album, "Music", "Track", 3, "track_number");
         using (var conn = _db.CreateConnection())
+        {
             conn.Execute("UPDATE media_assets SET presented_at = @now;", new { now = DateTimeOffset.UtcNow.ToString("O") });
+        }
 
         var service = new IngestionPresentationReadService(_db);
         var page = await service.GetBatchMediaAsync(batchId, 0, 50);
@@ -234,7 +245,10 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
     {
         var batchId = AddBatch("completed", 61, 61);
         for (var index = 1; index <= 60; index++)
+        {
             AddStandalone(batchId, "Movies", $"Movie {index:00}", presented: true);
+        }
+
         AddStandalone(batchId, "Books", "The Needle Book", presented: true);
 
         var service = new IngestionPresentationReadService(_db);
@@ -319,7 +333,10 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
     {
         var batchId = AddBatch("completed", 61, 61);
         for (var index = 1; index <= 60; index++)
+        {
             AddStandalone(batchId, "Movies", $"Movie {index:00}", presented: true);
+        }
+
         AddStandalone(batchId, "Books", "The Needle Book", presented: true);
 
         var service = new IngestionPresentationReadService(_db);
@@ -366,7 +383,9 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var album = AddContainer("Music", "One Album", expectedKey: "track_count", expectedValue: "17");
         AddChildren(batchId, album, "Music", "Track", 17, "track_number");
         using (var conn = _db.CreateConnection())
+        {
             conn.Execute("UPDATE media_assets SET presented_at = @now;", new { now = DateTimeOffset.UtcNow.ToString("O") });
+        }
 
         var service = new IngestionPresentationReadService(_db);
         var summary = await service.GetActivitySummaryAsync();
@@ -383,9 +402,14 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var firstBatch = AddBatch("completed", 4, 4, firstDay);
         var secondBatch = AddBatch("completed", 5, 5, secondDay);
         for (var index = 1; index <= 4; index++)
+        {
             AddStandalone(firstBatch, "Books", $"Earlier Book {index}", presented: true, occurredAt: firstDay);
+        }
+
         for (var index = 1; index <= 5; index++)
+        {
             AddStandalone(secondBatch, "Movies", $"Recent Movie {index}", presented: true, occurredAt: secondDay);
+        }
 
         var service = new IngestionPresentationReadService(_db);
         var snapshot = await service.GetSnapshotAsync(currentLimit: 8, recentDayLimit: 2, recentItemsPerDay: 2);
@@ -433,7 +457,7 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         Assert.True(complete!.IsComplete);
         Assert.Equal(100, complete.ProgressPercent);
         conn.Execute("UPDATE media_assets SET presented_at=NULL; UPDATE ingestion_log SET status='queued_identity'; UPDATE ingestion_batches SET status='completed';");
-        var history = await new IngestionPresentationReadService(_db).GetRecentAdditionsAsync(null,null,null,null,0,50);
+        var history = await new IngestionPresentationReadService(_db).GetRecentAdditionsAsync(null, null, null, null, 0, 50);
         Assert.Equal(work, Assert.Single(history.Items).GroupId);
         conn.Execute("""
             INSERT INTO ingestion_log (id,file_path,status,ingestion_run_id) VALUES (@id,'C:/watch/duplicate.epub','duplicate',@batch);
@@ -464,7 +488,7 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
             VALUES (@id,@asset,'MediaAsset','Books',@pending,'Hydrating','Quick',@now,@now);
             """, new { id = Guid.NewGuid(), asset = Guid.NewGuid(), pending, now = DateTimeOffset.UtcNow.ToString("O") });
         var historical = AddBatch("completed", 1, 1, DateTimeOffset.UtcNow.AddDays(-1));
-        var page = await new ActivityBatchReadService(_db).GetBatchesAsync(new MediaEngine.Application.ReadModels.ActivityBatchQuery(null,null,null,null,null,null,null,0,1,HistoricalOnly: true));
+        var page = await new ActivityBatchReadService(_db).GetBatchesAsync(new MediaEngine.Application.ReadModels.ActivityBatchQuery(null, null, null, null, null, null, null, 0, 1, HistoricalOnly: true));
         Assert.Equal(historical, Assert.Single(page.Items).BatchId);
         Assert.Equal(1, page.TotalCount);
         Assert.False(page.HasMore);
@@ -516,14 +540,17 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var progress = new MediaEngine.Providers.Services.BatchProgressService(batches, new RecordingEvents(), Microsoft.Extensions.Logging.Abstractions.NullLogger<MediaEngine.Providers.Services.BatchProgressService>.Instance);
         var presentation = new IngestionPresentationReadService(_db, progress);
         var history = new ActivityBatchReadService(_db);
-        var historyQuery = new MediaEngine.Application.ReadModels.ActivityBatchQuery(null,null,null,null,null,null,null,0,50,HistoricalOnly: true);
+        var historyQuery = new MediaEngine.Application.ReadModels.ActivityBatchQuery(null, null, null, null, null, null, null, 0, 50, HistoricalOnly: true);
 
         // The same durable batch is visible before and after startup lease recovery,
         // even when a newer completed run exists.
         for (var restart = 0; restart < 2; restart++)
         {
             if (restart > 0)
+            {
                 await new IdentityJobRepository(_db).RecoverInterruptedJobsAsync();
+            }
+
             Assert.Equal(batch, Assert.Single(await batches.GetActiveAsync()).Id);
             var snapshot = await presentation.GetSnapshotAsync();
             Assert.True(snapshot.IsRunning);
@@ -583,10 +610,13 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var issue = conn.QuerySingle<Guid>("SELECT id FROM works WHERE parent_work_id = @series", new { series });
         var issueArt = Guid.NewGuid();
         foreach (var (owner, id, timestamp) in new[] { (issue, issueArt, DateTimeOffset.UtcNow.AddDays(-1)), (series, Guid.NewGuid(), DateTimeOffset.UtcNow) })
+        {
             conn.Execute("""
                 INSERT INTO entity_assets (id,entity_id,entity_type,asset_type,local_image_path,aspect_class,asset_class,storage_location,owner_scope,is_preferred,created_at)
                 VALUES (@id,@owner,'Work','CoverArt','C:/test/cover.jpg','Portrait','Artwork','Central','Work',1,@now);
                 """, new { id, owner, now = timestamp.ToString("O") });
+        }
+
         var item = Assert.Single((await new IngestionPresentationReadService(_db).GetCurrentMediaAsync(0, 50)).Items);
         Assert.Contains(issueArt.ToString("D"), item.CoverUrl);
         Assert.Null(item.ChildExpected);
@@ -605,7 +635,10 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         conn.Execute("INSERT INTO works (id, media_type, work_kind, parent_work_id) VALUES (@id, @mediaType, 'parent', @parentId);", new { id, mediaType, parentId });
         conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@id, 'title', @title, @now);", new { id, title, now });
         if (expectedKey is not null && expectedValue is not null)
+        {
             conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@id, @expectedKey, @expectedValue, @now);", new { id, expectedKey, expectedValue, now });
+        }
+
         return id;
     }
 
@@ -632,11 +665,20 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
             conn.Execute("INSERT INTO media_assets (id, edition_id, content_hash, file_path_root) VALUES (@assetId, @editionId, @hash, @path);", new { assetId, editionId, hash = $"hash-{assetId:N}", path = $"C:/watch/{assetId:N}.media" });
             conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@workId, 'title', @title, @now);", new { workId, title = $"{titlePrefix} {index:00}", now });
             if (ordinalKey is not null)
+            {
                 conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@workId, @ordinalKey, @ordinal, @now);", new { workId, ordinalKey, ordinal = index.ToString(), now });
+            }
+
             if (seasonNumber.HasValue)
+            {
                 conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@workId, 'season_number', @season, @now);", new { workId, season = seasonNumber.Value.ToString(), now });
+            }
+
             if (partCount.HasValue)
+            {
                 conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@workId, 'audiobook_part_count', @parts, @now);", new { workId, parts = partCount.Value.ToString(), now });
+            }
+
             InsertLog(conn, logId, batchId, assetId, mediaType, $"{titlePrefix} {index:00}", now);
         }
     }

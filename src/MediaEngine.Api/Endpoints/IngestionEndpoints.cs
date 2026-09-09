@@ -5,6 +5,7 @@ using MediaEngine.Api.Services;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -33,7 +34,7 @@ public static class IngestionEndpoints
         .WithName("GetIngestionOperationsSnapshot")
         .WithSummary("Aggregated Ingestion status for scans, review, providers, folders, and recent batches.")
         .Produces<IngestionOperationsSnapshotDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionStatusRead);
 
         group.MapGet("/presentation", async (
             IIngestionPresentationReadService readService,
@@ -48,7 +49,7 @@ public static class IngestionEndpoints
         .WithName("GetIngestionPresentation")
         .WithSummary("Returns the bounded media-centric Ingestion page projection.")
         .Produces<IngestionPresentationSnapshotDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionStatusRead);
 
         group.MapGet("/media-groups", async (
             IIngestionPresentationReadService readService,
@@ -62,7 +63,7 @@ public static class IngestionEndpoints
         .WithName("GetCurrentIngestionMediaGroups")
         .WithSummary("Returns paged media groups currently entering the library.")
         .Produces<PagedResponse<IngestionMediaGroupDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionStatusRead);
 
         group.MapGet("/recent-additions", async (
             IIngestionPresentationReadService readService,
@@ -80,7 +81,7 @@ public static class IngestionEndpoints
         .WithName("GetRecentIngestionAdditions")
         .WithSummary("Returns paged, event-scoped media additions across completed runs.")
         .Produces<PagedResponse<IngestionMediaGroupDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}/media-groups/{groupId:guid}", async (
             Guid batchId,
@@ -95,7 +96,7 @@ public static class IngestionEndpoints
         .WithSummary("Returns one pinned ingestion media group.")
         .Produces<IngestionMediaGroupDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}/media-groups/{groupId:guid}/children", async (
             Guid batchId,
@@ -111,7 +112,7 @@ public static class IngestionEndpoints
         .WithName("GetIngestionMediaGroupChildren")
         .WithSummary("Returns lazy, paged tracks, episodes, issues, or parts for an ingestion group.")
         .Produces<PagedResponse<IngestionMediaChildDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapPost("/assets/{assetId:guid}/reread-metadata", async (
             Guid assetId,
@@ -135,7 +136,7 @@ public static class IngestionEndpoints
         .WithSummary("Re-read local tags and technical metadata without identity matching or file moves.")
         .Produces<FileMetadataRereadResponse>()
         .Produces(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionRetry);
 
         group.MapPost("/scan", async (
             ScanRequest? request,
@@ -177,7 +178,7 @@ public static class IngestionEndpoints
         .WithSummary("Simulate a library scan and return pending operations without mutating files.")
         .Produces<ScanResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionRun);
 
         // ── POST /ingestion/library-scan ──────────────────────────────────────────
 
@@ -222,7 +223,7 @@ public static class IngestionEndpoints
             "and notes new files for a follow-up ingestion pass (Great Inhale v2).")
         .Produces<LibraryScanResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionRun);
 
         // ── GET /ingestion/watch-folder ─────────────────────────────────────────
 
@@ -276,7 +277,7 @@ public static class IngestionEndpoints
         .WithName("ListWatchFolder")
         .WithSummary("List files currently sitting in the Watch Folder.")
         .Produces<WatchFolderPageResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionStatusRead);
 
         // ── POST /ingestion/rescan ──────────────────────────────────────────────
 
@@ -332,7 +333,7 @@ public static class IngestionEndpoints
             "Files are fed into the ingestion pipeline for processing.")
         .Produces<RescanAcceptedResponse>(StatusCodes.Status202Accepted)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionRun);
 
         // ── POST /ingestion/reconcile ─────────────────────────────────────────
 
@@ -355,7 +356,7 @@ public static class IngestionEndpoints
             "Scan all Normal-status assets and clean up any whose files " +
             "are missing from disk.")
         .Produces<ReconciliationResultResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionRun);
 
         // ── GET /ingestion/batches ────────────────────────────────────────────
         group.MapGet("/batches", async (
@@ -369,7 +370,7 @@ public static class IngestionEndpoints
         .WithName("GetRecentBatches")
         .WithSummary("List recent ingestion batches, newest first.")
         .Produces<List<IngestionBatchResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         // ── GET /ingestion/batches/attention-count ────────────────────────────
         group.MapGet("/batches/attention-count", async (
@@ -381,7 +382,7 @@ public static class IngestionEndpoints
         .WithName("GetBatchAttentionCount")
         .WithSummary("Count of items across all batches that need curator attention.")
         .Produces<BatchAttentionCountResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         // ── GET /ingestion/batches/{id} ───────────────────────────────────────
         group.MapGet("/batches/{id:guid}/items", async (
@@ -426,7 +427,7 @@ public static class IngestionEndpoints
         .WithName("GetBatchItems")
         .WithSummary("List item-level ingestion progress for a batch.")
         .Produces<List<IngestionBatchItemResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
         group.MapGet("/batches/{id:guid}", async (
             Guid id,
             IIngestionBatchResponseService batchResponses,
@@ -439,7 +440,7 @@ public static class IngestionEndpoints
         .WithSummary("Get details of a specific ingestion batch.")
         .Produces<IngestionBatchResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         // ── POST /ingestion/upload ────────────────────────────────────────────────
 
@@ -476,7 +477,9 @@ public static class IngestionEndpoints
             }
 
             if (library.Kind != LibraryKinds.Catalogued)
+            {
                 return ApiErrors.BadRequest("Personal media uploads use the profile-owned View upload endpoint.");
+            }
 
             if (!library.AcceptedIntakeModes.Contains(LibraryIntakeModes.BrowserUpload, StringComparer.OrdinalIgnoreCase))
             {
@@ -568,7 +571,7 @@ public static class IngestionEndpoints
         .WithSummary("Uploads to an explicit destination library and queues direct intake without rediscovery.")
         .DisableAntiforgery()
         .Produces<UploadMediaResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionRun);
 
         return app;
     }

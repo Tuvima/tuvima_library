@@ -34,7 +34,9 @@ public sealed class LibraryCurationReadService(IDatabaseConnection db) : ILibrar
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToArray();
         if (ids.Length == 0 || keys.Length == 0)
+        {
             return new Dictionary<Guid, IReadOnlyDictionary<string, Guid>>();
+        }
 
         using var conn = db.CreateConnection();
         var rows = new List<BatchEditLineageRow>();
@@ -190,7 +192,9 @@ public sealed class LibraryCurationReadService(IDatabaseConnection db) : ILibrar
         ct.ThrowIfCancellationRequested();
         var ids = workIds.Where(id => id != Guid.Empty).Distinct().ToArray();
         if (ids.Length == 0)
+        {
             return new Dictionary<Guid, string>();
+        }
 
         using var conn = db.CreateConnection();
         var rows = new List<UniverseCandidateQidRow>();
@@ -270,9 +274,15 @@ public sealed class LibraryCurationReadService(IDatabaseConnection db) : ILibrar
     {
         var qid = value;
         if (qid.Contains('/'))
+        {
             qid = qid.Split('/').Last();
+        }
+
         if (qid.Contains("::", StringComparison.Ordinal))
+        {
             qid = qid.Split("::", StringSplitOptions.None)[0];
+        }
+
         return qid;
     }
 

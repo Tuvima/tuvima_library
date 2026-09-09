@@ -17,7 +17,10 @@ public static class DapperConfiguration
     /// <summary>Register all custom type handlers. Safe to call multiple times.</summary>
     public static void Configure()
     {
-        if (_configured) return;
+        if (_configured)
+        {
+            return;
+        }
 
         SqlMapper.AddTypeHandler(new GuidTypeHandler());
         SqlMapper.AddTypeHandler(new DateTimeOffsetTypeHandler());
@@ -72,7 +75,7 @@ public static class DapperConfiguration
         public override void SetValue(IDbDataParameter parameter, Guid value)
         {
             parameter.DbType = DbType.Binary;
-            parameter.Value  = GuidSql.ToBlob(value);
+            parameter.Value = GuidSql.ToBlob(value);
         }
     }
 
@@ -85,7 +88,7 @@ public static class DapperConfiguration
         public override void SetValue(IDbDataParameter parameter, Guid? value)
         {
             parameter.DbType = DbType.Binary;
-            parameter.Value  = GuidSql.ToDb(value);
+            parameter.Value = GuidSql.ToDb(value);
         }
     }
 
@@ -98,7 +101,7 @@ public static class DapperConfiguration
         public override void SetValue(IDbDataParameter parameter, DateTimeOffset value)
         {
             parameter.DbType = DbType.String;
-            parameter.Value  = value.ToString("o");
+            parameter.Value = value.ToString("o");
         }
     }
 
@@ -111,7 +114,7 @@ public static class DapperConfiguration
         public override void SetValue(IDbDataParameter parameter, DateTimeOffset? value)
         {
             parameter.DbType = DbType.String;
-            parameter.Value  = value.HasValue ? value.Value.ToString("o") : DBNull.Value;
+            parameter.Value = value.HasValue ? value.Value.ToString("o") : DBNull.Value;
         }
     }
 

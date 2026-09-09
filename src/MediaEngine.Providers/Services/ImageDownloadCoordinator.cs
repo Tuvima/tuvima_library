@@ -57,7 +57,9 @@ public sealed class ImageDownloadCoordinator
     {
         var trimmed = sourceUrl.Trim();
         if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+        {
             return trimmed;
+        }
 
         var builder = new UriBuilder(uri)
         {
@@ -77,7 +79,9 @@ public sealed class ImageDownloadCoordinator
     private void ReleaseReference(string key, LockEntry entry)
     {
         if (Interlocked.Decrement(ref entry.ReferenceCount) == 0)
+        {
             _entries.TryRemove(new KeyValuePair<string, LockEntry>(key, entry));
+        }
     }
 
     private sealed class LockEntry
@@ -96,7 +100,9 @@ public sealed class ImageDownloadCoordinator
         public ValueTask DisposeAsync()
         {
             if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
                 owner.Release(key, entry);
+            }
 
             return ValueTask.CompletedTask;
         }

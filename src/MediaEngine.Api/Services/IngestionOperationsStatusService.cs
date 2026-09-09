@@ -221,7 +221,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         {
             foreach (var source in library.Sources)
             {
-                if (string.IsNullOrWhiteSpace(source.Path)) continue;
+                if (string.IsNullOrWhiteSpace(source.Path))
+                {
+                    continue;
+                }
+
                 var root = source.Path.Replace('\\', '/').TrimEnd('/') + "/";
                 var row = folderStats.GetValueOrDefault(source.Path) ?? new FolderStatsRow { SourcePath = source.Path };
                 row.ItemCount = conn.ExecuteScalar<long>("""

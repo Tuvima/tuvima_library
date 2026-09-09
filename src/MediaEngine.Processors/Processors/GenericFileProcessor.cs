@@ -1,8 +1,8 @@
+using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
-using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Processors.Processors;
 
@@ -79,7 +79,9 @@ public sealed class GenericFileProcessor : IMediaProcessor
     private static string NormalizeExtension(string? extension)
     {
         if (string.IsNullOrWhiteSpace(extension))
+        {
             return string.Empty;
+        }
 
         var trimmed = extension.Trim().ToLowerInvariant();
         return trimmed.StartsWith(".", StringComparison.Ordinal) ? trimmed : "." + trimmed;

@@ -1,4 +1,5 @@
 using Bunit;
+using MediaEngine.Web.Components.Cinematic;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Components.Settings;
 using MediaEngine.Web.Components.Shared;
@@ -16,6 +17,21 @@ public sealed class SharedUiPrimitiveTests : AsyncBunitContext
     {
         Services.AddMudServices();
         JSInterop.Mode = JSRuntimeMode.Loose;
+    }
+
+    [Fact]
+    public void SurfaceTabs_ExposeOnlyTheCurrentTabAsSelected()
+    {
+        var cut = Render<SurfaceTabBar>(parameters => parameters
+            .Add(component => component.Items, new List<SurfaceTabItem>
+            {
+                new("users", "Users"), new("authentication", "Authentication")
+            })
+            .Add(component => component.ActiveKey, "authentication"));
+        Assert.Equal("Authentication", Assert.Single(cut.FindAll("[role=tab][aria-selected=true]")).TextContent.Trim());
+        Assert.Equal("false", cut.FindAll("[role=tab]")[0].GetAttribute("aria-selected"));
+        cut.Render(parameters => parameters.Add(component => component.ActiveKey, "users"));
+        Assert.Equal("Users", Assert.Single(cut.FindAll("[role=tab][aria-selected=true]")).TextContent.Trim());
     }
 
     [Fact]

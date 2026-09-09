@@ -63,13 +63,13 @@ public sealed class ReaderBookmarkRepository : IReaderBookmarkRepository
             VALUES (@id, @userId, @assetId, @chapterIndex, @cfiPosition, @label, @createdAt);
             """, new
         {
-            id           = bookmark.Id,
-            userId       = bookmark.UserId,
-            assetId      = bookmark.AssetId,
+            id = bookmark.Id,
+            userId = bookmark.UserId,
+            assetId = bookmark.AssetId,
             chapterIndex = bookmark.ChapterIndex,
-            cfiPosition  = bookmark.CfiPosition,
-            label        = bookmark.Label,
-            createdAt    = bookmark.CreatedAt.ToString("O"),
+            cfiPosition = bookmark.CfiPosition,
+            label = bookmark.Label,
+            createdAt = bookmark.CreatedAt.ToString("O"),
         });
 
         return Task.CompletedTask;
@@ -92,23 +92,23 @@ public sealed class ReaderBookmarkRepository : IReaderBookmarkRepository
 
     private sealed class BookmarkRow
     {
-        public Guid    Id           { get; set; }
-        public string  UserId       { get; set; } = string.Empty;
-        public Guid    AssetId      { get; set; }
-        public int     ChapterIndex { get; set; }
-        public string? CfiPosition  { get; set; }
-        public string? Label        { get; set; }
-        public string  CreatedAt    { get; set; } = string.Empty;
+        public Guid Id { get; set; }
+        public string UserId { get; set; } = string.Empty;
+        public Guid AssetId { get; set; }
+        public int ChapterIndex { get; set; }
+        public string? CfiPosition { get; set; }
+        public string? Label { get; set; }
+        public string CreatedAt { get; set; } = string.Empty;
     }
 
     private static ReaderBookmark MapRow(BookmarkRow r) => new()
     {
-        Id           = r.Id,
-        UserId       = r.UserId,
-        AssetId      = r.AssetId,
+        Id = r.Id,
+        UserId = r.UserId,
+        AssetId = r.AssetId,
         ChapterIndex = r.ChapterIndex,
-        CfiPosition  = r.CfiPosition,
-        Label        = r.Label,
-        CreatedAt    = DateTime.Parse(r.CreatedAt),
+        CfiPosition = r.CfiPosition,
+        Label = r.Label,
+        CreatedAt = DateTime.Parse(r.CreatedAt),
     };
 }

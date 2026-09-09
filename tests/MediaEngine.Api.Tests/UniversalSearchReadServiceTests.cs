@@ -1,6 +1,10 @@
+using Dapper;
+using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Search;
+using MediaEngine.Domain.Aggregates;
 using MediaEngine.Storage;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Api.Tests;
@@ -31,6 +35,9 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
     {
         var personId = Guid.NewGuid();
         var playlistId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
         using (var conn = _db.CreateConnection())
         using (var cmd = conn.CreateCommand())
         {
@@ -41,20 +48,47 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
                 INSERT INTO person_roles (person_id, role)
                 VALUES ($personId, 'Artist');
 
-                INSERT INTO collections (id, display_name, collection_type, description, created_at)
-                VALUES ($playlistId, 'Aurora Drift Favorites', 'Playlist', 'A saved listening queue.', $createdAt);
+                INSERT INTO collections (id, display_name, collection_type, description, profile_id, created_at)
+                VALUES ($playlistId, 'Aurora Drift Favorites', 'Playlist', 'A saved listening queue.', $profileId, $createdAt);
+                INSERT INTO works (id, collection_id, media_type, work_kind)
+                VALUES ($workId, $playlistId, 'Music', 'standalone');
+                INSERT INTO editions (id, work_id) VALUES ($editionId, $workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES ($assetId, $editionId, 'aurora-search', 'C:/music/aurora.flac');
+                INSERT INTO person_media_links (media_asset_id, person_id, role)
+                VALUES ($assetId, $personId, 'Artist');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES ($workId, 'artist', 0, 'Aurora Drift');
+                INSERT INTO collection_items (id, collection_id, work_id)
+                VALUES ($itemId, $playlistId, $workId);
                 """;
             cmd.Parameters.AddWithValue("$personId", GuidSql.ToBlob(personId));
             cmd.Parameters.AddWithValue("$playlistId", GuidSql.ToBlob(playlistId));
+            cmd.Parameters.AddWithValue("$profileId", GuidSql.ToBlob(Profile.SeedProfileId));
+            cmd.Parameters.AddWithValue("$workId", GuidSql.ToBlob(workId));
+            cmd.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));
+            cmd.Parameters.AddWithValue("$assetId", GuidSql.ToBlob(assetId));
+            cmd.Parameters.AddWithValue("$itemId", GuidSql.ToBlob(Guid.NewGuid()));
             cmd.Parameters.AddWithValue("$createdAt", DateTimeOffset.UtcNow.ToString("O"));
             cmd.ExecuteNonQuery();
         }
 
-        var service = new UniversalSearchReadService(_db, new StubWorkSearch([]));
+        var service = CreateService(new StubDisplayProjection(
+        [
+            new DisplayWorkRow
+            {
+                WorkId = workId,
+                AssetId = assetId,
+                CollectionId = playlistId,
+                MediaType = "Music",
+                Title = "Aurora Drift Song",
+                Artist = "Aurora Drift",
+            },
+        ]));
 
         var response = await service.SearchAsync("Aurora Drift", 20, CancellationToken.None);
 
-        Assert.Equal(2, response.TotalCount);
+        Assert.Equal(3, response.TotalCount);
         Assert.NotNull(response.TopResult);
         Assert.Equal("person", response.TopResult.EntityType);
         Assert.Equal($"/details/person/{personId:D}", response.TopResult.DetailRoute);
@@ -86,7 +120,7 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
                 CoverUrl = $"/stream/artwork/{Guid.NewGuid():D}",
             },
         };
-        var service = new UniversalSearchReadService(_db, new StubWorkSearch(works));
+        var service = CreateService(new StubDisplayProjection(works));
 
         var response = await service.SearchAsync("Midnight", 12, CancellationToken.None);
 
@@ -103,7 +137,7 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
     public async Task SearchAsync_DoesNotRepeatTheTitleAsCreatorOrSubtitle()
     {
         var workId = Guid.NewGuid();
-        var service = new UniversalSearchReadService(_db, new StubWorkSearch(
+        var service = CreateService(new StubDisplayProjection(
         [
             new SearchResultDto
             {
@@ -128,7 +162,7 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
     public async Task SearchAsync_MusicTrackUsesDirectSongPlaybackRoute()
     {
         var workId = Guid.NewGuid();
-        var service = new UniversalSearchReadService(_db, new StubWorkSearch(
+        var service = CreateService(new StubDisplayProjection(
         [
             new SearchResultDto
             {
@@ -143,6 +177,85 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
         var response = await service.SearchAsync("Heroes", 12, CancellationToken.None);
 
         Assert.Equal($"/listen/music?browse=songs&track={workId:D}", response.TopResult?.DetailRoute);
+    }
+
+    [Fact]
+    public async Task SearchAsync_FiltersPeopleAndCollectionCountsByAuthorizedProjection()
+    {
+        var allowedPerson = Guid.NewGuid();
+        var deniedPerson = Guid.NewGuid();
+        var collectionId = Guid.NewGuid();
+        var allowedWork = Guid.NewGuid();
+        var deniedWork = Guid.NewGuid();
+        var allowedEdition = Guid.NewGuid();
+        var deniedEdition = Guid.NewGuid();
+        var allowedAsset = Guid.NewGuid();
+        var deniedAsset = Guid.NewGuid();
+        using (var connection = _db.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO persons (id, name, created_at)
+                VALUES (@allowedPerson, 'Shared Name Allowed', CURRENT_TIMESTAMP),
+                       (@deniedPerson, 'Shared Name Hidden', CURRENT_TIMESTAMP);
+                INSERT INTO collections (id, display_name, collection_type, created_at)
+                VALUES (@collectionId, 'Shared Name Shelf', 'Custom', CURRENT_TIMESTAMP);
+                INSERT INTO works (id, collection_id, media_type, work_kind)
+                VALUES (@allowedWork, @collectionId, 'Books', 'standalone'),
+                       (@deniedWork, @collectionId, 'Books', 'standalone');
+                INSERT INTO editions (id, work_id)
+                VALUES (@allowedEdition, @allowedWork), (@deniedEdition, @deniedWork);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES (@allowedAsset, @allowedEdition, @allowedHash, 'C:/books/allowed.epub'),
+                       (@deniedAsset, @deniedEdition, @deniedHash, 'C:/books/hidden.epub');
+                INSERT INTO person_media_links (media_asset_id, person_id, role)
+                VALUES (@allowedAsset, @allowedPerson, 'Author'),
+                       (@deniedAsset, @deniedPerson, 'Author');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@allowedWork, 'author', 0, 'Shared Name Allowed'),
+                       (@deniedWork, 'author', 0, 'Shared Name Hidden');
+                INSERT INTO collection_items (id, collection_id, work_id)
+                VALUES (@allowedItem, @collectionId, @allowedWork),
+                       (@deniedItem, @collectionId, @deniedWork);
+                """,
+                new
+                {
+                    allowedPerson,
+                    deniedPerson,
+                    collectionId,
+                    allowedWork,
+                    deniedWork,
+                    allowedEdition,
+                    deniedEdition,
+                    allowedAsset,
+                    deniedAsset,
+                    allowedHash = Guid.NewGuid().ToString("N"),
+                    deniedHash = Guid.NewGuid().ToString("N"),
+                    allowedItem = Guid.NewGuid(),
+                    deniedItem = Guid.NewGuid(),
+                });
+        }
+        var service = CreateService(new StubDisplayProjection(
+        [
+            new DisplayWorkRow
+            {
+                WorkId = allowedWork,
+                AssetId = allowedAsset,
+                CollectionId = collectionId,
+                MediaType = "Books",
+                Title = "Shared Name Book",
+            },
+        ]));
+
+        var response = await service.SearchAsync("Shared Name", 20, CancellationToken.None);
+
+        var people = response.Sections.Single(section => section.Key == "people").Results;
+        Assert.Equal(allowedPerson, Assert.Single(people).Id);
+        var collection = Assert.Single(response.Sections
+            .Single(section => section.Key == "series-collections").Results);
+        Assert.Equal("1 item", collection.Subtitle);
+        Assert.DoesNotContain(response.Sections.SelectMany(section => section.Results),
+            result => result.Id == deniedPerson);
     }
 
     [Fact]
@@ -199,9 +312,54 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
         Assert.StartsWith("A desert world", result.Description, StringComparison.Ordinal);
     }
 
-    private sealed class StubWorkSearch(IReadOnlyList<SearchResultDto> results) : ICollectionSearchReadService
+    private UniversalSearchReadService CreateService(IDisplayProjectionReadService display)
     {
-        public Task<List<SearchResultDto>> SearchAsync(string? query, CancellationToken ct) =>
-            Task.FromResult(results.ToList());
+        var context = new DefaultHttpContext();
+        return new UniversalSearchReadService(
+            _db,
+            display,
+            new HttpContextAccessor { HttpContext = context },
+            TestViewAuthorityResolver.Human(Profile.SeedProfileId));
+    }
+
+    private sealed class StubDisplayProjection : IDisplayProjectionReadService
+    {
+        private readonly IReadOnlyList<DisplayWorkRow> _rows;
+
+        public StubDisplayProjection(IReadOnlyList<DisplayWorkRow> rows) => _rows = rows;
+
+        public StubDisplayProjection(IReadOnlyList<SearchResultDto> rows) =>
+            _rows = rows.Select(row => new DisplayWorkRow
+            {
+                WorkId = row.WorkId,
+                AssetId = Guid.NewGuid(),
+                CollectionId = row.CollectionId,
+                Title = row.Title,
+                Author = row.Author,
+                MediaType = row.MediaType,
+                CollectionTitle = row.CollectionDisplayName,
+                Series = row.Series,
+                SeriesPosition = row.SeriesPosition,
+                ShowName = row.ShowName,
+                SeasonNumber = row.SeasonNumber,
+                EpisodeNumber = row.EpisodeNumber,
+                CoverUrl = row.CoverUrl,
+                Year = row.Year,
+                Description = row.Description,
+                Rating = row.Rating,
+            }).ToList();
+
+        public Task<IReadOnlyList<DisplayWorkRow>> LoadWorksAsync(CancellationToken ct) =>
+            Task.FromResult(_rows);
+
+        public Task<IReadOnlyList<DisplayJourneyRow>> LoadJourneyAsync(string? lane, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<DisplayJourneyRow>>([]);
+
+        public Task<IReadOnlySet<Guid>> LoadFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+
+        public Task<IReadOnlyList<DisplayHomeCollectionRow>> LoadHomeCollectionsAsync(
+            Guid? profileId,
+            CancellationToken ct) => Task.FromResult<IReadOnlyList<DisplayHomeCollectionRow>>([]);
     }
 }

@@ -223,7 +223,9 @@ public sealed partial class EngineApiClient
                 new { work_ids = workIds },
                 ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return 0;
+            }
 
             var result = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
             return result.TryGetProperty("accepted_count", out var count) ? count.GetInt32() : 0;

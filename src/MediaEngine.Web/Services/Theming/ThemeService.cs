@@ -29,29 +29,29 @@ public sealed class ThemeService
 
             PaletteDark = new PaletteDark
             {
-                Primary          = primaryHex,
-                PrimaryDarken    = "#7652D6",
-                PrimaryLighten   = "#9F78FF",
-                Secondary        = "#38BDF8",
-                SecondaryDarken  = "#0284C7",
-                Background       = "#070A12",
-                BackgroundGray   = "#0B1020",
-                Surface          = "#111827",
+                Primary = primaryHex,
+                PrimaryDarken = "#7652D6",
+                PrimaryLighten = "#9F78FF",
+                Secondary = "#38BDF8",
+                SecondaryDarken = "#0284C7",
+                Background = "#070A12",
+                BackgroundGray = "#0B1020",
+                Surface = "#111827",
                 AppbarBackground = "#0B1020",
                 DrawerBackground = "#0B1020",
-                DrawerText       = "#F5F7FB",
-                DrawerIcon       = "#B6C2D6",
-                TextPrimary      = "#F5F7FB",
-                TextSecondary    = "#B6C2D6",
-                TextDisabled     = "rgba(127,141,165,0.58)",
-                ActionDefault    = "#B6C2D6",
-                LinesDefault     = "rgba(148,163,184,0.16)",
-                Divider          = "rgba(148,163,184,0.10)",
-                OverlayDark      = "rgba(0,0,0,0.72)",
-                Error            = "#EF4444",
-                Warning          = "#F59E0B",
-                Info             = "#38BDF8",
-                Success          = "#22C55E",
+                DrawerText = "#F5F7FB",
+                DrawerIcon = "#B6C2D6",
+                TextPrimary = "#F5F7FB",
+                TextSecondary = "#B6C2D6",
+                TextDisabled = "rgba(127,141,165,0.58)",
+                ActionDefault = "#B6C2D6",
+                LinesDefault = "rgba(148,163,184,0.16)",
+                Divider = "rgba(148,163,184,0.10)",
+                OverlayDark = "rgba(0,0,0,0.72)",
+                Error = "#EF4444",
+                Warning = "#F59E0B",
+                Info = "#38BDF8",
+                Success = "#22C55E",
             },
 
             Typography = new Typography
@@ -96,8 +96,15 @@ public sealed class ThemeService
         try
         {
             hex = hex.TrimStart('#');
-            if (hex.Length == 3) hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
-            if (hex.Length != 6) return $"#{hex}";
+            if (hex.Length == 3)
+            {
+                hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
+            }
+
+            if (hex.Length != 6)
+            {
+                return $"#{hex}";
+            }
 
             var r = Math.Clamp((int)(Convert.ToInt32(hex[..2], 16) * factor), 0, 255);
             var g = Math.Clamp((int)(Convert.ToInt32(hex[2..4], 16) * factor), 0, 255);
@@ -116,8 +123,15 @@ public sealed class ThemeService
         try
         {
             hex = hex.TrimStart('#');
-            if (hex.Length == 3) hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
-            if (hex.Length != 6) return $"#{hex}";
+            if (hex.Length == 3)
+            {
+                hex = $"{hex[0]}{hex[0]}{hex[1]}{hex[1]}{hex[2]}{hex[2]}";
+            }
+
+            if (hex.Length != 6)
+            {
+                return $"#{hex}";
+            }
 
             var r = Math.Clamp(Convert.ToInt32(hex[..2], 16) + amount, 0, 255);
             var g = Math.Clamp(Convert.ToInt32(hex[2..4], 16) + amount, 0, 255);

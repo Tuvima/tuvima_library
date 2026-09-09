@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -10,7 +11,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
 
@@ -41,30 +41,32 @@ public sealed partial class WikidataBridgeWorker
         }
 
         if (ctx.ResolvedQid is null)
+        {
             await TryResolveSiblingVariantQidAsync(ctx, lineage, ct).ConfigureAwait(false);
+        }
 
         if (ctx.ResolvedQid is not null)
         {
             // Build candidate record.
             var (scoreTotal, isExact) = ctx.MatchedBy switch
             {
-                "music_album"        => (0.95, true),
-                "bridge_id"          => (1.0,  true),
+                "music_album" => (0.95, true),
+                "bridge_id" => (1.0, true),
                 "comic_series_rollup" => (0.90, true),
-                "sibling_variant"    => (0.93, true),
-                _                    => (0.75, false)
+                "sibling_variant" => (0.93, true),
+                _ => (0.75, false)
             };
 
             allCandidates.Add(new WikidataBridgeCandidate
             {
-                JobId        = job.Id,
-                Qid          = ctx.ResolvedQid,
-                Label        = ctx.AlbumHint ?? ctx.TitleHint ?? ctx.ResolvedQid,
-                MatchedBy    = ctx.MatchedBy ?? "unknown",
+                JobId = job.Id,
+                Qid = ctx.ResolvedQid,
+                Label = ctx.AlbumHint ?? ctx.TitleHint ?? ctx.ResolvedQid,
+                MatchedBy = ctx.MatchedBy ?? "unknown",
                 BridgeIdType = ctx.PrimaryBridgeIdType,
                 IsExactMatch = isExact,
-                ScoreTotal   = scoreTotal,
-                Outcome      = "AutoAccepted",
+                ScoreTotal = scoreTotal,
+                Outcome = "AutoAccepted",
             });
 
             // Persist claims accumulated during group resolution.
@@ -91,10 +93,10 @@ public sealed partial class WikidataBridgeWorker
                 var collectedEntries = ctx.CollectedBridgeIds
                     .Select(kvp => new BridgeIdEntry
                     {
-                        EntityId         = ResolveBridgeIdEntityId(lineage, job.EntityId, kvp.Key),
-                        IdType           = kvp.Key,
-                        IdValue          = kvp.Value,
-                        ProviderId       = reconAdapter.ProviderId.ToString(),
+                        EntityId = ResolveBridgeIdEntityId(lineage, job.EntityId, kvp.Key),
+                        IdType = kvp.Key,
+                        IdValue = kvp.Value,
+                        ProviderId = reconAdapter.ProviderId.ToString(),
                         WikidataProperty = _bridgeIdHelper.GetPCode(kvp.Key),
                     }).ToList();
 
@@ -137,13 +139,13 @@ public sealed partial class WikidataBridgeWorker
                             albumClaims = await reconAdapter.FetchAsync(
                                 new ProviderLookupRequest
                                 {
-                                    EntityId       = job.EntityId,
-                                    EntityType     = EntityType.MediaAsset,
-                                    MediaType      = ctx.MediaType,
-                                    Title          = ctx.TitleHint,
-                                    Year           = ctx.YearHint,
+                                    EntityId = job.EntityId,
+                                    EntityType = EntityType.MediaAsset,
+                                    MediaType = ctx.MediaType,
+                                    Title = ctx.TitleHint,
+                                    Year = ctx.YearHint,
                                     PreResolvedQid = ctx.ResolvedQid,
-                                    FileLanguage   = ctx.LanguageHint,
+                                    FileLanguage = ctx.LanguageHint,
                                 }, ct);
                         }
                         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -208,13 +210,13 @@ public sealed partial class WikidataBridgeWorker
                     fullClaims = await reconAdapter.FetchAsync(
                         new ProviderLookupRequest
                         {
-                            EntityId       = job.EntityId,
-                            EntityType     = EntityType.MediaAsset,
-                            MediaType      = ctx.MediaType,
-                            Title          = ctx.TitleHint,
-                            Year           = ctx.YearHint,
+                            EntityId = job.EntityId,
+                            EntityType = EntityType.MediaAsset,
+                            MediaType = ctx.MediaType,
+                            Title = ctx.TitleHint,
+                            Year = ctx.YearHint,
                             PreResolvedQid = ctx.ResolvedQid,
-                            FileLanguage   = ctx.LanguageHint,
+                            FileLanguage = ctx.LanguageHint,
                         }, ct);
                     structuredFetchCompleted = true;
                 }
@@ -316,7 +318,9 @@ public sealed partial class WikidataBridgeWorker
         CancellationToken ct)
     {
         foreach (var ctx in contexts)
+        {
             await TryResolveComicSeriesRollupAsync(ctx, reconAdapter, ct).ConfigureAwait(false);
+        }
     }
 
     private async Task TryResolveSiblingVariantQidsAsync(
@@ -337,11 +341,15 @@ public sealed partial class WikidataBridgeWorker
         CancellationToken ct)
     {
         if (!ShouldAttemptSiblingVariantQid(ctx))
+        {
             return;
+        }
 
         var candidateMediaTypes = GetSiblingVariantCandidateMediaTypes(ctx.MediaType);
         if (candidateMediaTypes.Count == 0)
+        {
             return;
+        }
 
         var creator = ctx.AuthorHint ?? ctx.ArtistHint;
         try
@@ -355,7 +363,9 @@ public sealed partial class WikidataBridgeWorker
                 ct).ConfigureAwait(false);
 
             if (match is null || string.IsNullOrWhiteSpace(match.WikidataQid))
+            {
                 return;
+            }
 
             ctx.ResolvedQid = match.WikidataQid;
             ctx.MatchedBy = "sibling_variant";
@@ -394,8 +404,8 @@ public sealed partial class WikidataBridgeWorker
         mediaType switch
         {
             MediaType.Audiobooks => [MediaType.Books],
-            MediaType.Books      => [MediaType.Audiobooks],
-            _                    => [],
+            MediaType.Books => [MediaType.Audiobooks],
+            _ => [],
         };
 
     private async Task TryResolveComicSeriesRollupAsync(
@@ -404,35 +414,41 @@ public sealed partial class WikidataBridgeWorker
         CancellationToken ct)
     {
         if (!ShouldAttemptComicSeriesRollup(ctx))
+        {
             return;
+        }
 
         try
         {
             var result = await reconAdapter.ResolveAsync(
                 new WikidataResolveRequest
                 {
-                    CorrelationKey     = $"{ctx.Job.Id}:comic-series-rollup",
-                    MediaType          = MediaType.Comics,
-                    Strategy           = ResolveStrategy.Auto,
-                    BridgeIds          = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+                    CorrelationKey = $"{ctx.Job.Id}:comic-series-rollup",
+                    MediaType = MediaType.Comics,
+                    Strategy = ResolveStrategy.Auto,
+                    BridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
                     WikidataProperties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-                    IsEditionAware     = false,
+                    IsEditionAware = false,
                     AllowConstrainedTextFallback = true,
-                    Title              = ctx.SeriesHint,
-                    Author             = ctx.AuthorHint,
-                    Year               = null,
-                    FileLanguage       = ctx.LanguageHint,
-                    SeriesTitle        = ctx.SeriesHint,
-                    IssueNumber        = null,
+                    Title = ctx.SeriesHint,
+                    Author = ctx.AuthorHint,
+                    Year = null,
+                    FileLanguage = ctx.LanguageHint,
+                    SeriesTitle = ctx.SeriesHint,
+                    IssueNumber = null,
                 },
                 ct).ConfigureAwait(false);
 
             if (!result.Found)
+            {
                 return;
+            }
 
             var qid = result.WorkQid ?? result.Qid;
             if (string.IsNullOrWhiteSpace(qid))
+            {
                 return;
+            }
 
             ctx.ResolvedQid = qid;
             ctx.MatchedBy = "comic_series_rollup";
@@ -564,7 +580,9 @@ public sealed partial class WikidataBridgeWorker
         CancellationToken ct)
     {
         if (_seriesManifestHydration is null || string.IsNullOrWhiteSpace(resolvedQid))
+        {
             return;
+        }
 
         try
         {

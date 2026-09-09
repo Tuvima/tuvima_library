@@ -190,13 +190,13 @@ public sealed class PostPipelineService
                 {
                     await _reviewRepo.InsertAsync(new ReviewQueueEntry
                     {
-                        Id              = Guid.NewGuid(),
-                        EntityId        = entityId,
-                        EntityType      = "MediaAsset",
-                        Trigger         = ReviewTrigger.LowConfidence,
+                        Id = Guid.NewGuid(),
+                        EntityId = entityId,
+                        EntityType = "MediaAsset",
+                        Trigger = ReviewTrigger.LowConfidence,
                         ConfidenceScore = effectiveConfidence,
-                        Detail          = $"Post-pipeline confidence {effectiveConfidence:P0} below auto-review threshold",
-                        ReviewReadyAt   = DateTimeOffset.UtcNow,
+                        Detail = $"Post-pipeline confidence {effectiveConfidence:P0} below auto-review threshold",
+                        ReviewReadyAt = DateTimeOffset.UtcNow,
                         AutomationCompletedAt = DateTimeOffset.UtcNow,
                     }, ct);
                 }
@@ -341,9 +341,20 @@ public sealed class PostPipelineService
 
         foreach (var review in pendingReviews)
         {
-            if (review.Status != "Pending") continue;
-            if (review.ReviewReadyAt is not null) continue;
-            if (!autoResolveTriggers.Contains(review.Trigger)) continue;
+            if (review.Status != "Pending")
+            {
+                continue;
+            }
+
+            if (review.ReviewReadyAt is not null)
+            {
+                continue;
+            }
+
+            if (!autoResolveTriggers.Contains(review.Trigger))
+            {
+                continue;
+            }
 
             _logger.LogInformation(
                 "Auto-resolving {Trigger} review for entity {EntityId} (confidence: {Confidence:F2})",
@@ -367,11 +378,21 @@ public sealed class PostPipelineService
 
         foreach (var review in pendingReviews)
         {
-            if (review.Status != "Pending") continue;
-            if (review.ReviewReadyAt is not null) continue;
+            if (review.Status != "Pending")
+            {
+                continue;
+            }
+
+            if (review.ReviewReadyAt is not null)
+            {
+                continue;
+            }
+
             if (!string.Equals(review.Trigger, nameof(ReviewTrigger.MetadataConflict),
                     StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             // Re-check: if confidence is high enough, the conflict is likely resolved
             if (confidence >= 0.80)

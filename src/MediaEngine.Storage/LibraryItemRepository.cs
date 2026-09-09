@@ -30,13 +30,17 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         var conditions = new List<string>();
 
         if (!string.IsNullOrWhiteSpace(query.Search))
+        {
             conditions.Add(@"(fd.entity_id IN (SELECT si.entity_id FROM search_index si WHERE search_index MATCH @ftsQuery) OR fd.file_name LIKE @search)");
+        }
 
         if (!string.IsNullOrWhiteSpace(query.MediaType))
         {
             var types = query.MediaType.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             if (types.Length == 1)
+            {
                 conditions.Add("fd.media_type = @mediaType");
+            }
             else if (types.Length > 1)
             {
                 var placeholders = string.Join(", ", types.Select((_, i) => $"@mt{i}"));
@@ -47,9 +51,13 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         if (!string.IsNullOrWhiteSpace(query.Status))
         {
             if (query.Status == "Approved")
+            {
                 conditions.Add("fd.status IN ('Identified', 'Confirmed', 'RetailMatched', 'QidNoMatch', 'Edited')");
+            }
             else
+            {
                 conditions.Add("fd.status = @status");
+            }
         }
         else if (!query.IncludeAll)
         {
@@ -57,19 +65,29 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         }
 
         if (query.MinConfidence.HasValue)
+        {
             conditions.Add("fd.confidence >= @minConfidence");
+        }
 
         if (!string.IsNullOrWhiteSpace(query.MatchSource))
+        {
             conditions.Add("fd.match_source = @matchSource");
+        }
 
         if (query.DuplicatesOnly)
+        {
             conditions.Add("fd.has_duplicate = 1");
+        }
 
         if (query.MissingUniverseOnly)
+        {
             conditions.Add("(fd.wikidata_status IN ('missing', 'manual') OR fd.status = 'QidNoMatch')");
+        }
 
         if (query.MaxDays.HasValue)
+        {
             conditions.Add($"fd.created_at >= datetime('now', '-{query.MaxDays.Value} days')");
+        }
 
         var whereClause = conditions.Count > 0 ? "WHERE " + string.Join(" AND ", conditions) : "";
         var orderBy = query.Sort switch
@@ -207,12 +225,44 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         return Task.FromResult(new LibraryItemsPage(items, totalCount, query.Offset + items.Count < totalCount));
     }
 
-    public async Task<LibraryItemDetail?> GetDetailAsync(Guid entityId, CancellationToken ct = default)
+    public Task<LibraryItemDetail?> GetDetailAsync(Guid entityId, CancellationToken ct = default) =>
+        GetDetailCoreAsync(entityId, preferredAssetId: null, ct);
+
+    public Task<LibraryItemDetail?> GetDetailAsync(
+        Guid entityId,
+        Guid preferredAssetId,
+        CancellationToken ct = default) =>
+        preferredAssetId == Guid.Empty
+            ? Task.FromResult<LibraryItemDetail?>(null)
+            : GetDetailCoreAsync(entityId, preferredAssetId, ct);
+
+    private Task<LibraryItemDetail?> GetDetailCoreAsync(
+        Guid entityId,
+        Guid? preferredAssetId,
+        CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
 
+        if (preferredAssetId.HasValue)
+        {
+            var belongsToWork = conn.ExecuteScalar<long>(
+                """
+                SELECT COUNT(*)
+                FROM media_assets ma
+                JOIN editions e ON e.id=ma.edition_id
+                WHERE ma.id=@preferredAssetId AND e.work_id=@entityId
+                  AND ma.status='Normal' AND ma.is_orphaned=0;
+                """,
+                new { entityId, preferredAssetId = preferredAssetId.Value });
+            if (belongsToWork != 1)
+            {
+                return Task.FromResult<LibraryItemDetail?>(null);
+            }
+        }
+
         var projection = conn.QueryFirstOrDefault<ProjectionRow>(
-            BuildProjectionSql() + """
+            BuildProjectionSql(preferredAssetId.HasValue) + """
             SELECT
                 fd.entity_id             AS EntityId,
                 fd.title                 AS Title,
@@ -257,7 +307,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             FROM full_data fd
             WHERE fd.entity_id = @entityId;
             """,
-            new { entityId });
+            new { entityId, preferredAssetId });
 
         var lineageRow = conn.QueryFirstOrDefault<(Guid? AssetId, Guid RootParentWorkId, string MediaType)>("""
             WITH RECURSIVE work_tree(id, depth) AS (
@@ -274,7 +324,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                 FROM work_tree
                 INNER JOIN editions e ON e.work_id = work_tree.id
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
-                ORDER BY work_tree.depth, ma.id
+                ORDER BY CASE WHEN ma.id=@preferredAssetId THEN 0 ELSE 1 END,
+                         work_tree.depth,
+                         ma.id
                 LIMIT 1
             )
             SELECT (SELECT AssetId FROM representative_asset) AS AssetId,
@@ -285,10 +337,12 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             LEFT JOIN works gp ON gp.id = p.parent_work_id
             WHERE w.id = @entityId
             LIMIT 1;
-            """, new { entityId });
+            """, new { entityId, preferredAssetId });
 
         if (lineageRow == default)
-            return null;
+        {
+            return Task.FromResult<LibraryItemDetail?>(null);
+        }
 
         var assetId = lineageRow.AssetId;
         var rootParentId = lineageRow.RootParentWorkId;
@@ -388,7 +442,10 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                 MetadataFieldConstants.IdentityProvider,
                 StringComparison.OrdinalIgnoreCase))?.Value;
         if (string.IsNullOrWhiteSpace(retailProviderName))
+        {
             retailProviderName = ResolveRetailProviderName(canonicalValues, claims, providerNamesById);
+        }
+
         var retailProviderItemId = canonicalValues
             .FirstOrDefault(value => string.Equals(
                 value.Key,
@@ -449,11 +506,15 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         foreach (var cvEntry in canonicalValues)
         {
             if (bridgeKeys.Contains(cvEntry.Key) && !string.IsNullOrWhiteSpace(cvEntry.Value))
+            {
                 bridgeIds[cvEntry.Key] = cvEntry.Value;
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(projection?.WikidataQid) && !bridgeIds.ContainsKey(BridgeIdKeys.WikidataQid))
+        {
             bridgeIds[BridgeIdKeys.WikidataQid] = projection.WikidataQid;
+        }
 
         var latestJobEntityId = assetId ?? entityId;
         var latestJobState = conn.QueryFirstOrDefault<string?>("""
@@ -465,7 +526,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             """, new { entityId = latestJobEntityId });
 
         if (projection is null && canonicalValues.Count == 0)
-            return null;
+        {
+            return Task.FromResult<LibraryItemDetail?>(null);
+        }
 
         // Detail reads must remain database-only. File inspection belongs to ingestion or the
         // playback inspection cache; starting ffprobe here made a normal page request wait on disk.
@@ -648,7 +711,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             UniverseSummary = universeSummary,
         };
 
-        return detail;
+        return Task.FromResult<LibraryItemDetail?>(detail);
     }
 
     public Task<LibraryItemStatusCounts> GetStatusCountsAsync(CancellationToken ct = default)
@@ -838,7 +901,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         return Task.FromResult(rows.ToDictionary(r => r.MediaType, r => r.Count));
     }
 
-    private static string BuildProjectionSql()
+    private static string BuildProjectionSql(bool preferAsset = false)
     {
         var wikidataId = SqlGuidLiteral(WellKnownProviders.Wikidata);
         var localProcessorId = SqlGuidLiteral(WellKnownProviders.LocalProcessor);
@@ -851,16 +914,26 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         var primaryAssetIdSql = "(SELECT year_asset.asset_id FROM primary_asset_data year_asset WHERE year_asset.work_id = w.id)";
         var relatedBookYearSql = MediaDateSql.RelatedBookOriginalYear("w.id", primaryAssetIdSql);
 
+        var primaryAssetOrder = preferAsset
+            ? "CASE WHEN ma.id=@preferredAssetId THEN 0 ELSE 1 END, ma.id"
+            : "ma.id";
         var sql = $"""
-            WITH primary_asset_data AS (
+            WITH ranked_primary_assets AS (
                 SELECT
                     e.work_id,
-                    MIN(ma.id) AS asset_id,
-                    MIN(ma.file_path_root) AS file_path_root,
-                    MIN(ma.status) AS asset_status
+                    ma.id AS asset_id,
+                    ma.file_path_root,
+                    ma.status AS asset_status,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY e.work_id
+                        ORDER BY {primaryAssetOrder}) AS asset_rank
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
-                GROUP BY e.work_id
+            ),
+            primary_asset_data AS (
+                SELECT work_id, asset_id, file_path_root, asset_status
+                FROM ranked_primary_assets
+                WHERE asset_rank=1
             ),
             root_work_data AS (
                 SELECT
@@ -1567,18 +1640,26 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             else
             {
                 for (var i = 0; i < types.Length; i++)
+                {
                     cmd.Parameters.AddWithValue($"@mt{i}", NormalizeMediaType(types[i]));
+                }
             }
         }
 
         if (!string.IsNullOrWhiteSpace(query.Status) && query.Status != "Approved")
+        {
             cmd.Parameters.AddWithValue("@status", query.Status);
+        }
 
         if (query.MinConfidence.HasValue)
+        {
             cmd.Parameters.AddWithValue("@minConfidence", query.MinConfidence.Value);
+        }
 
         if (!string.IsNullOrWhiteSpace(query.MatchSource))
+        {
             cmd.Parameters.AddWithValue("@matchSource", query.MatchSource);
+        }
     }
 
     private static IReadOnlyDictionary<Guid, string> LoadProviderNamesById(SqliteConnection conn)
@@ -1606,7 +1687,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             .FirstOrDefault();
 
         if (!string.IsNullOrWhiteSpace(claimProvider))
+        {
             return claimProvider;
+        }
 
         return canonicalValues
             .Where(value => IsRetailProviderClaim(value.Key))
@@ -1638,7 +1721,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
     private static string? GetProviderBridgeId(IReadOnlyDictionary<string, string> bridgeIds, string? providerName)
     {
         if (bridgeIds.Count == 0)
+        {
             return null;
+        }
 
         var normalizedProvider = providerName?.Trim().ToLowerInvariant() ?? string.Empty;
         var preferredKeys = normalizedProvider switch
@@ -1654,7 +1739,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         foreach (var key in preferredKeys)
         {
             if (bridgeIds.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return value;
+            }
         }
 
         return bridgeIds
@@ -1676,7 +1763,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             .FirstOrDefault();
 
         if (wikidataClaim is null)
+        {
             return currentAuthor;
+        }
 
         var embeddedOrManualClaim = claims
             .Where(claim => string.Equals(claim.ClaimKey, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
@@ -1686,7 +1775,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             .FirstOrDefault();
 
         if (embeddedOrManualClaim is not null && embeddedOrManualClaim.Confidence > wikidataClaim.Confidence)
+        {
             return embeddedOrManualClaim.ClaimValue;
+        }
 
         var currentProvider = canonicalValues
             .FirstOrDefault(value => string.Equals(value.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))
@@ -1757,10 +1848,14 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
     private static string? NormalizeReleaseDate(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         if (DateTimeOffset.TryParse(value, out var parsed))
+        {
             return parsed.ToString("MMMM d, yyyy");
+        }
 
         return value.Length > 10 && DateTime.TryParse(value, out var parsedDate)
             ? parsedDate.ToString("MMMM d, yyyy")
@@ -1782,7 +1877,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
     private static string? FormatResolution(int? width, int? height)
     {
         if (width is null || height is null || width <= 0 || height <= 0)
+        {
             return null;
+        }
 
         var h = height.Value;
         return h switch
@@ -1799,7 +1896,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
     private static string? FormatAudioChannels(string? value)
     {
         if (!int.TryParse(value, out var parsed) || parsed <= 0)
+        {
             return null;
+        }
 
         return parsed switch
         {
@@ -1812,10 +1911,14 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
     private static string? FormatSubtitleSummary(IReadOnlyList<string> languages)
     {
         if (languages.Count == 0)
+        {
             return null;
+        }
 
         if (languages.Count == 1)
+        {
             return languages[0];
+        }
 
         return $"{languages[0]} + {languages.Count - 1} more";
     }
@@ -1823,7 +1926,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
     private static string? NormalizeCodec(string? codec)
     {
         if (string.IsNullOrWhiteSpace(codec))
+        {
             return null;
+        }
 
         return codec.ToLowerInvariant() switch
         {

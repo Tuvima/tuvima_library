@@ -18,7 +18,8 @@ public sealed class AudiobookListenHistoryRepository
         Guid profileId,
         Guid? workId,
         int limit = 10,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlySet<Guid>? authorizedAssetIds = null)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
@@ -42,10 +43,18 @@ public sealed class AudiobookListenHistoryRepository
                    ended_at AS EndedAt
             FROM audiobook_listen_history
             WHERE profile_id = @profileId
+              AND (@unrestricted = 1 OR asset_id IN @allowedAssets)
               AND (@workId IS NULL OR work_id = @workId)
             ORDER BY ended_at DESC
             LIMIT @limit;
-            """, new { profileId, workId, limit = queryLimit }).ToList();
+            """, new
+        {
+            profileId,
+            workId,
+            limit = queryLimit,
+            unrestricted = authorizedAssetIds is null ? 1 : 0,
+            allowedAssets = (authorizedAssetIds ?? new HashSet<Guid>()).Select(GuidSql.ToBlob).ToArray()
+        }).ToList();
 
         var active = conn.Query<ActiveSegmentRow>("""
             SELECT profile_id AS ProfileId,
@@ -64,8 +73,15 @@ public sealed class AudiobookListenHistoryRepository
                    last_heartbeat_at AS LastHeartbeatAt
             FROM audiobook_listen_active_segments
             WHERE profile_id = @profileId
+              AND (@unrestricted = 1 OR asset_id IN @allowedAssets)
               AND (@workId IS NULL OR work_id = @workId);
-            """, new { profileId, workId }).ToList();
+            """, new
+        {
+            profileId,
+            workId,
+            unrestricted = authorizedAssetIds is null ? 1 : 0,
+            allowedAssets = (authorizedAssetIds ?? new HashSet<Guid>()).Select(GuidSql.ToBlob).ToArray()
+        }).ToList();
 
         var items = rows.Select(ToDto)
             .Concat(active.Select(ToDto))

@@ -6,9 +6,21 @@ public static class ViewStorageNames
     public static string FromDisplayName(string name)
     {
         var label = new string(name.Trim().Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '-').ToArray()).Trim('-');
-        if (label.Length > 64) label = label[..64];
-        if (string.IsNullOrWhiteSpace(label)) label = "profile";
-        if (IsReserved(label)) label = "profile-" + label;
+        if (label.Length > 64)
+        {
+            label = label[..64];
+        }
+
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            label = "profile";
+        }
+
+        if (IsReserved(label))
+        {
+            label = "profile-" + label;
+        }
+
         return label;
     }
 

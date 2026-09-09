@@ -87,7 +87,9 @@ public sealed class PersonEnrichmentWorker
             var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct)
                 .ConfigureAwait(false);
             if (workId.HasValue)
+            {
                 lineageWorkIds = new[] { workId.Value };
+            }
         }
 
         foreach (var lineageWorkId in lineageWorkIds.Where(id => id != entityId).Distinct())
@@ -168,12 +170,14 @@ public sealed class PersonEnrichmentWorker
                         var person = await _personRepo.FindByQidAsync(reference.WikidataQid!, ct)
                             .ConfigureAwait(false);
                         if (person is not null && imageEnrichedPeople.Add(person.Id))
+                        {
                             await EnrichPersonImageAsync(
                                 person.Id,
                                 reference.Role,
                                 mediaType,
                                 FindTmdbImageHint(tmdbImageHints, reference.Role, reference.Name),
                                 ct);
+                        }
                     }
                 }
             }
@@ -252,12 +256,14 @@ public sealed class PersonEnrichmentWorker
                             var existing = await _personRepo.FindByQidAsync(searchResult.WikidataQid, ct)
                                 .ConfigureAwait(false);
                             if (existing is not null)
+                            {
                                 await EnrichPersonImageAsync(
                                     existing.Id,
                                     unlinked.Role,
                                     mediaType,
                                     FindTmdbImageHint(tmdbImageHints, unlinked.Role, unlinked.Name),
                                     ct);
+                            }
                         }
                     }
                 }
@@ -276,7 +282,9 @@ public sealed class PersonEnrichmentWorker
         CancellationToken ct)
     {
         if (_canonicalArrayRepo is null)
+        {
             return;
+        }
 
         var arrays = await _canonicalArrayRepo.GetAllByEntityAsync(entityId, ct).ConfigureAwait(false);
         foreach (var (key, values) in arrays)
@@ -296,7 +304,9 @@ public sealed class PersonEnrichmentWorker
     {
         var result = new Dictionary<string, IReadOnlyList<CanonicalArrayEntry>>(StringComparer.OrdinalIgnoreCase);
         foreach (var (key, values) in arrays)
+        {
             result[key] = values;
+        }
 
         return result;
     }
@@ -319,7 +329,9 @@ public sealed class PersonEnrichmentWorker
         CancellationToken ct)
     {
         if (_personImages is null)
+        {
             return;
+        }
 
         try
         {
@@ -364,7 +376,9 @@ public sealed class PersonEnrichmentWorker
             var nameClaim = claims[i];
             if (!string.Equals(nameClaim.Key, nameKey, StringComparison.OrdinalIgnoreCase)
                 || string.IsNullOrWhiteSpace(nameClaim.Value))
+            {
                 continue;
+            }
 
             var name = nameClaim.Value;
             int? personId = null;
@@ -377,7 +391,9 @@ public sealed class PersonEnrichmentWorker
             {
                 var companion = claims[companionIndex];
                 if (string.Equals(companion.Key, nameKey, StringComparison.OrdinalIgnoreCase))
+                {
                     break;
+                }
 
                 if (!personId.HasValue
                     && string.Equals(companion.Key, idKey, StringComparison.OrdinalIgnoreCase)
@@ -394,7 +410,9 @@ public sealed class PersonEnrichmentWorker
             }
 
             if (!personId.HasValue && string.IsNullOrWhiteSpace(profileUrl))
+            {
                 continue;
+            }
 
             hints[$"{role}::{RetailHints.NormalizePersonNameKey(name)}"] = new TmdbPersonImageHint(personId, profileUrl);
         }
@@ -406,7 +424,9 @@ public sealed class PersonEnrichmentWorker
         string? name)
     {
         if (string.IsNullOrWhiteSpace(name) || hints.Count == 0)
+        {
             return null;
+        }
 
         var normalizedName = RetailHints.NormalizePersonNameKey(name);
         if (!string.IsNullOrWhiteSpace(role)
@@ -509,7 +529,9 @@ public sealed class PersonEnrichmentWorker
         }
 
         if (!needsHarvest)
+        {
             return null;
+        }
 
         return new HarvestRequest
         {
@@ -570,19 +592,27 @@ public sealed class PersonEnrichmentWorker
         {
             var performerQid = castClaim.Value?.EntityId ?? castClaim.Value?.RawValue;
             if (string.IsNullOrWhiteSpace(performerQid))
+            {
                 continue;
+            }
 
             var person = await _personRepo.FindByQidAsync(performerQid, ct).ConfigureAwait(false);
             if (person is null)
+            {
                 continue;
+            }
 
             if (!castClaim.Qualifiers.TryGetValue("P453", out var characterValues) || characterValues.Count == 0)
+            {
                 continue;
+            }
 
             foreach (var characterValue in characterValues)
             {
                 if (characterValue.Kind != WikidataValueKind.EntityId || string.IsNullOrWhiteSpace(characterValue.EntityId))
+                {
                     continue;
+                }
 
                 var fictionalEntity = await _fictionalEntityRepo.FindByQidAsync(characterValue.EntityId, ct).ConfigureAwait(false);
                 if (fictionalEntity is null)
@@ -640,7 +670,9 @@ public sealed class PersonEnrichmentWorker
         CancellationToken ct)
     {
         if (_canonicalArrayRepo is null)
+        {
             return false;
+        }
 
         foreach (var candidateEntityId in entityIds)
         {
@@ -665,13 +697,17 @@ public sealed class PersonEnrichmentWorker
 
         var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct).ConfigureAwait(false);
         if (workId.HasValue && !entityIds.Contains(workId.Value))
+        {
             entityIds.Add(workId.Value);
+        }
 
         var lineageWorkIds = await _collectionRepo.GetWorkLineageIdsByMediaAssetAsync(entityId, ct).ConfigureAwait(false);
         foreach (var lineageWorkId in lineageWorkIds)
         {
             if (!entityIds.Contains(lineageWorkId))
+            {
                 entityIds.Add(lineageWorkId);
+            }
         }
 
         return entityIds;
@@ -683,7 +719,9 @@ public sealed class PersonEnrichmentWorker
     private async Task EnqueueCharacterHarvestIfNeededAsync(FictionalEntity entity, CancellationToken ct)
     {
         if (entity.EnrichedAt is not null || string.IsNullOrWhiteSpace(entity.WikidataQid))
+        {
             return;
+        }
 
         await _harvesting.EnqueueAsync(new HarvestRequest
         {
@@ -715,11 +753,15 @@ public sealed class PersonEnrichmentWorker
     {
         var raw = canonicals.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return null;
+        }
 
         var first = raw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         if (string.IsNullOrWhiteSpace(first))
+        {
             return null;
+        }
 
         var qid = first.Split("::", 2)[0].Trim();
         return qid.StartsWith('Q') ? qid : null;
@@ -731,11 +773,15 @@ public sealed class PersonEnrichmentWorker
     {
         var raw = canonicals.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return null;
+        }
 
         var first = raw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault();
         if (string.IsNullOrWhiteSpace(first))
+        {
             return null;
+        }
 
         var segments = first.Split("::", 2);
         return segments.Length == 2 && !string.IsNullOrWhiteSpace(segments[1])

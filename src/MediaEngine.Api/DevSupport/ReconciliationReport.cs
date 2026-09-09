@@ -74,10 +74,10 @@ public sealed class ReconciliationReport
         sb.Append("<h2>Reconciliation</h2>");
         sb.Append($"<p><strong>{Matched}</strong>/<strong>{Total}</strong> seed fixtures matched their expected outcome ({Mismatched} mismatch{(Mismatched == 1 ? "" : "es")}).</p>");
 
-        AppendGroup(sb, "Matched",                MatchedExpected());
-        AppendGroup(sb, "Unexpected Review",      UnexpectedReview());
-        AppendGroup(sb, "Unexpected Identified",  UnexpectedIdentified());
-        AppendGroup(sb, "Wrong Trigger",          WrongTrigger());
+        AppendGroup(sb, "Matched", MatchedExpected());
+        AppendGroup(sb, "Unexpected Review", UnexpectedReview());
+        AppendGroup(sb, "Unexpected Identified", UnexpectedIdentified());
+        AppendGroup(sb, "Wrong Trigger", WrongTrigger());
 
         sb.Append("</section>");
         return sb.ToString();
@@ -109,25 +109,28 @@ public sealed class ReconciliationReport
             .Where(i => !i.Matched)
             .Select(i => new
             {
-                file_name        = i.FileName,
-                media_type       = i.MediaType,
-                expected_status  = i.ExpectedStatus,
-                actual_status    = i.ActualStatus,
-                expected_qid     = i.ExpectedQid,
-                actual_qid       = i.ActualQid,
+                file_name = i.FileName,
+                media_type = i.MediaType,
+                expected_status = i.ExpectedStatus,
+                actual_status = i.ActualStatus,
+                expected_qid = i.ExpectedQid,
+                actual_qid = i.ActualQid,
                 expected_provider = i.ExpectedProvider,
-                actual_provider  = i.ActualProvider,
+                actual_provider = i.ActualProvider,
                 expected_trigger = i.ExpectedTrigger,
-                actual_trigger   = i.ActualTrigger,
-                classification   = i.Classification,
-                reason           = i.Reason,
+                actual_trigger = i.ActualTrigger,
+                classification = i.Classification,
+                reason = i.Reason,
             }),
     }, MediaEngineJson.Indented);
 
     private static void AppendGroup(StringBuilder sb, string title, IEnumerable<ReconciliationReportItem> items)
     {
         var list = items.ToList();
-        if (list.Count == 0) return;
+        if (list.Count == 0)
+        {
+            return;
+        }
 
         sb.Append($"<h3>{System.Net.WebUtility.HtmlEncode(title)} ({list.Count})</h3>");
         sb.Append("<table><thead><tr>");
@@ -155,10 +158,14 @@ public sealed class ReconciliationReport
     private static string FormatPair(string? expected, string? actual)
     {
         if (string.IsNullOrWhiteSpace(expected) && string.IsNullOrWhiteSpace(actual))
+        {
             return "";
+        }
 
         if (string.Equals(expected, actual, StringComparison.OrdinalIgnoreCase))
+        {
             return actual ?? "";
+        }
 
         return $"{actual ?? "(none)"} / expected {expected ?? "(none)"}";
     }

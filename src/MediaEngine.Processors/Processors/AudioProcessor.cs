@@ -1,8 +1,8 @@
+using System.Text.Json;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
-using System.Text.Json;
 
 namespace MediaEngine.Processors.Processors;
 
@@ -48,7 +48,11 @@ public sealed partial class AudioProcessor : IMediaProcessor
     /// <inheritdoc/>
     public bool CanProcess(string filePath)
     {
-        if (!File.Exists(filePath)) return false;
+        if (!File.Exists(filePath))
+        {
+            return false;
+        }
+
         return DetectContainer(filePath) != AudioContainer.Unknown;
     }
 
@@ -59,7 +63,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
 
         var container = DetectContainer(filePath);
         if (container == AudioContainer.Unknown)
+        {
             return Task.FromResult(Corrupt(filePath, "No recognised audio magic bytes found."));
+        }
 
         ct.ThrowIfCancellationRequested();
 
@@ -113,36 +119,50 @@ public sealed partial class AudioProcessor : IMediaProcessor
     {
         Span<byte> header = stackalloc byte[16];
         if (!ProcessorHeaderReader.TryRead(filePath, header, out var read) || read < 4)
+        {
             return AudioContainer.Unknown;
+        }
 
         // FLAC: 66 4C 61 43 ("fLaC")
         if (header[0] == 0x66 && header[1] == 0x4C &&
             header[2] == 0x61 && header[3] == 0x43)
+        {
             return AudioContainer.Flac;
+        }
 
         // OGG: 4F 67 67 53 ("OggS")
         if (header[0] == 0x4F && header[1] == 0x67 &&
             header[2] == 0x67 && header[3] == 0x53)
+        {
             return AudioContainer.Ogg;
+        }
 
         // Windows Media / ASF container GUID.
         ReadOnlySpan<byte> asfHeader = [0x30, 0x26, 0xB2, 0x75, 0x8E, 0x66, 0xCF, 0x11, 0xA6, 0xD9, 0x00, 0xAA, 0x00, 0x62, 0xCE, 0x6C];
         if (read >= asfHeader.Length && header[..asfHeader.Length].SequenceEqual(asfHeader))
+        {
             return AudioContainer.Wma;
+        }
 
         // MP3: ID3v2 header (49 44 33 = "ID3")
         if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33)
+        {
             return AudioContainer.Mp3;
+        }
 
         // AAC ADTS: sync word FF F1/F9.
         if (string.Equals(Path.GetExtension(filePath), ".aac", StringComparison.OrdinalIgnoreCase)
             && header[0] == 0xFF
             && (header[1] & 0xF6) == 0xF0)
+        {
             return AudioContainer.Aac;
+        }
 
         // MP3: MPEG sync word (FF Fx where x >= B0)
         if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0)
+        {
             return AudioContainer.Mp3;
+        }
 
         // ISO BMFF ftyp box at offset 4 (shared with video — distinguish by extension)
         if (read >= 8 &&
@@ -165,7 +185,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
             header[2] == 0x46 && header[3] == 0x46 &&
             header[8] == 0x57 && header[9] == 0x41 &&
             header[10] == 0x56 && header[11] == 0x45)
+        {
             return AudioContainer.Wav;
+        }
 
         return AudioContainer.Unknown;
     }
@@ -180,7 +202,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
         // Title — from tags first, then filename fallback.
         var title = tagFile?.Tag.Title;
         if (!string.IsNullOrWhiteSpace(title))
+        {
             claims.Add(Claim("title", title, 0.8));
+        }
         else
         {
             var stem = Path.GetFileNameWithoutExtension(filePath);
@@ -189,7 +213,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
                 // Basic filename cleanup — SmartLabeler (Step 6b) handles intelligent parsing.
                 var basicTitle = stem.Replace('.', ' ').Replace('_', ' ').Trim();
                 if (!string.IsNullOrWhiteSpace(basicTitle))
+                {
                     claims.Add(Claim("title", basicTitle, 0.50));
+                }
             }
         }
 
@@ -226,7 +252,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
             // If the resolved author matches the narrator, the file probably only
             // has one person tagged everywhere — clear it so we don't duplicate.
             if (string.Equals(author, narrator, StringComparison.OrdinalIgnoreCase))
+            {
                 author = null;
+            }
         }
         else
         {
@@ -235,46 +263,68 @@ public sealed partial class AudioProcessor : IMediaProcessor
         }
 
         if (!string.IsNullOrWhiteSpace(author))
+        {
             claims.Add(Claim("author", author, 0.7));
+        }
 
         if (!string.IsNullOrWhiteSpace(narrator))
+        {
             claims.Add(Claim("narrator", narrator, 0.7));
+        }
 
         // Artist — for music files: use FirstPerformer (TPE1), fall back to FirstAlbumArtist (TPE2)
         var artist = tagFile?.Tag.FirstPerformer ?? tagFile?.Tag.FirstAlbumArtist;
         if (!string.IsNullOrWhiteSpace(artist))
+        {
             claims.Add(Claim("artist", artist, 0.7));
+        }
 
         if (!string.IsNullOrWhiteSpace(tagFile?.Tag.FirstAlbumArtist))
+        {
             claims.Add(Claim("album_artist", tagFile.Tag.FirstAlbumArtist, 0.8));
+        }
 
         // Album
         if (!string.IsNullOrWhiteSpace(tagFile?.Tag.Album))
+        {
             claims.Add(Claim("album", tagFile!.Tag.Album, 0.7));
+        }
 
         var series = ExtractTxxxValue(tagFile, "SERIES");
         if (!string.IsNullOrWhiteSpace(series))
+        {
             claims.Add(Claim("series", series, 0.7));
+        }
 
         var seriesIndex = ExtractTxxxValue(tagFile, "SERIES_INDEX");
         if (!string.IsNullOrWhiteSpace(seriesIndex))
+        {
             claims.Add(Claim("series_position", seriesIndex, 0.7));
+        }
 
         // Year
         if (tagFile?.Tag.Year is > 0)
+        {
             claims.Add(Claim("year", tagFile.Tag.Year.ToString(), 0.7));
+        }
 
         // Genre
         if (tagFile?.Tag.FirstGenre is not null)
+        {
             claims.Add(Claim("genre", tagFile.Tag.FirstGenre, 0.7));
+        }
 
         // Track number
         if (tagFile?.Tag.Track is > 0)
+        {
             claims.Add(Claim("track_number", tagFile.Tag.Track.ToString(), 0.7));
+        }
 
         // Duration
         if (tagFile?.Properties.Duration is { TotalSeconds: > 0 } dur)
+        {
             claims.Add(Claim("duration_sec", dur.TotalSeconds.ToString("F3"), 0.8));
+        }
 
         // Container format
         var containerLabel = container switch
@@ -292,12 +342,16 @@ public sealed partial class AudioProcessor : IMediaProcessor
 
         // Bitrate
         if (tagFile?.Properties.AudioBitrate is > 0)
+        {
             claims.Add(Claim("audio_bitrate", tagFile.Properties.AudioBitrate.ToString(), 0.8));
+        }
 
         // ASIN — commonly embedded in Audible audiobooks.
         var asin = ExtractAsin(tagFile);
         if (!string.IsNullOrWhiteSpace(asin))
+        {
             claims.Add(Claim("asin", asin, 0.9));
+        }
 
         return claims;
     }
@@ -310,7 +364,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
     {
         var directory = Path.GetDirectoryName(filePath);
         if (string.IsNullOrWhiteSpace(directory))
+        {
             return;
+        }
 
         var sidecarPath = Path.Combine(directory, "metadata.json");
         var genre = tagFile?.Tag.FirstGenre;
@@ -321,7 +377,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
             || genre?.Contains("speech", StringComparison.OrdinalIgnoreCase) == true
             || HasAudiobookSidecarShape(sidecarPath);
         if (!isAudiobook)
+        {
             return;
+        }
 
         var audioFiles = Directory.EnumerateFiles(directory)
             .Where(path => IsAudioExtension(Path.GetExtension(path)))
@@ -337,7 +395,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
         }
 
         if (!File.Exists(sidecarPath))
+        {
             return;
+        }
 
         try
         {
@@ -356,7 +416,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
             AddFirstArrayValue(root, "genres", "genre", 0.92, claims);
 
             if (root.TryGetProperty("chapters", out var chapters) && chapters.ValueKind == JsonValueKind.Array)
+            {
                 claims.Add(Claim("sidecar_chapter_count", chapters.GetArrayLength().ToString(), 0.98));
+            }
         }
         catch (JsonException)
         {
@@ -371,7 +433,10 @@ public sealed partial class AudioProcessor : IMediaProcessor
     private static bool HasAudiobookSidecarShape(string path)
     {
         if (!File.Exists(path))
+        {
             return false;
+        }
+
         try
         {
             using var document = JsonDocument.Parse(File.ReadAllText(path));
@@ -424,7 +489,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
         List<ExtractedClaim> claims)
     {
         if (!root.TryGetProperty(property, out var values) || values.ValueKind != JsonValueKind.Array)
+        {
             return;
+        }
 
         foreach (var value in values.EnumerateArray())
         {
@@ -477,7 +544,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
     private static List<MediaTypeCandidate> BuildAmbiguousAudioCandidates(TagLib.File? tagFile)
     {
         if (tagFile is null)
+        {
             return [];
+        }
 
         double audiobookScore = 0.0;
         var reasons = new List<string>();
@@ -547,7 +616,10 @@ public sealed partial class AudioProcessor : IMediaProcessor
     /// </summary>
     private static string? ExtractNarrator(TagLib.File? tagFile)
     {
-        if (tagFile is null) return null;
+        if (tagFile is null)
+        {
+            return null;
+        }
 
         // 1. ID3v2 TXXX:NARRATOR user text frame (MP3 files written by Mp3Builder).
         if (tagFile.GetTag(TagLib.TagTypes.Id3v2) is TagLib.Id3v2.Tag id3Tag)
@@ -559,7 +631,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
                 {
                     var value = frame.Text[0]?.Trim();
                     if (!string.IsNullOrWhiteSpace(value))
+                    {
                         return value;
+                    }
                 }
             }
         }
@@ -570,7 +644,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
         {
             var firstComposer = composers[0]?.Trim();
             if (!string.IsNullOrWhiteSpace(firstComposer))
+            {
                 return firstComposer;
+            }
         }
 
         // 2. Comment field — look for "Narrated by <Name>" pattern.
@@ -582,7 +658,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
             {
                 var name = match.Groups[1].Value.Trim();
                 if (!string.IsNullOrWhiteSpace(name))
+                {
                     return name;
+                }
             }
         }
 
@@ -617,10 +695,16 @@ public sealed partial class AudioProcessor : IMediaProcessor
     /// </summary>
     private static string? ExtractAuthorFromComment(TagLib.File? tagFile)
     {
-        if (tagFile is null) return null;
+        if (tagFile is null)
+        {
+            return null;
+        }
 
         var comment = tagFile.Tag.Comment;
-        if (string.IsNullOrWhiteSpace(comment)) return null;
+        if (string.IsNullOrWhiteSpace(comment))
+        {
+            return null;
+        }
 
         var match = AuthorByRegex().Match(comment);
         if (match.Success)
@@ -629,9 +713,14 @@ public sealed partial class AudioProcessor : IMediaProcessor
             // Strip trailing commas or "Narrated by" continuation.
             var commaIdx = name.IndexOf(',');
             if (commaIdx > 0)
+            {
                 name = name[..commaIdx].Trim();
+            }
+
             if (!string.IsNullOrWhiteSpace(name))
+            {
                 return name;
+            }
         }
 
         return null;
@@ -650,10 +739,16 @@ public sealed partial class AudioProcessor : IMediaProcessor
     /// </summary>
     private static string? ExtractTxxxValue(TagLib.File? tagFile, string description)
     {
-        if (tagFile is null) return null;
+        if (tagFile is null)
+        {
+            return null;
+        }
 
         var id3 = tagFile.GetTag(TagLib.TagTypes.Id3v2) as TagLib.Id3v2.Tag;
-        if (id3 is null) return null;
+        if (id3 is null)
+        {
+            return null;
+        }
 
         foreach (var frame in id3.GetFrames<TagLib.Id3v2.UserTextInformationFrame>())
         {
@@ -681,7 +776,10 @@ public sealed partial class AudioProcessor : IMediaProcessor
     /// </summary>
     private static string? ExtractAsin(TagLib.File? tagFile)
     {
-        if (tagFile is null) return null;
+        if (tagFile is null)
+        {
+            return null;
+        }
 
         // 1. iTunes custom atoms (M4B/M4A from Audible).
         if (tagFile.GetTag(TagLib.TagTypes.Apple) is TagLib.Mpeg4.AppleTag appleTag)
@@ -689,7 +787,10 @@ public sealed partial class AudioProcessor : IMediaProcessor
             var asin = ReadAppleCustomAtom(appleTag, "com.audible.asin")
                     ?? ReadAppleCustomAtom(appleTag, "com.apple.iTunes", "ASIN")
                     ?? ReadAppleCustomAtom(appleTag, "com.apple.iTunes", "AUDIBLE_ASIN");
-            if (IsValidAsin(asin)) return asin;
+            if (IsValidAsin(asin))
+            {
+                return asin;
+            }
         }
 
         // 2. ID3v2 TXXX user text frames (MP3).
@@ -702,7 +803,10 @@ public sealed partial class AudioProcessor : IMediaProcessor
                     frame.Text.Length > 0)
                 {
                     var value = frame.Text[0]?.Trim();
-                    if (IsValidAsin(value)) return value;
+                    if (IsValidAsin(value))
+                    {
+                        return value;
+                    }
                 }
             }
         }
@@ -714,7 +818,10 @@ public sealed partial class AudioProcessor : IMediaProcessor
             if (fields.Length > 0)
             {
                 var value = fields[0]?.Trim();
-                if (IsValidAsin(value)) return value;
+                if (IsValidAsin(value))
+                {
+                    return value;
+                }
             }
         }
 
@@ -723,7 +830,10 @@ public sealed partial class AudioProcessor : IMediaProcessor
         if (!string.IsNullOrWhiteSpace(comment))
         {
             var match = AsinRegex().Match(comment);
-            if (match.Success) return match.Value;
+            if (match.Success)
+            {
+                return match.Value;
+            }
         }
 
         return null;
@@ -738,7 +848,11 @@ public sealed partial class AudioProcessor : IMediaProcessor
         {
             // Try the full string as the "mean" with "asin" as "name" for common patterns.
             var lastDot = mean.LastIndexOf('.');
-            if (lastDot < 0) return null;
+            if (lastDot < 0)
+            {
+                return null;
+            }
+
             var derivedMean = mean[..lastDot];
             var derivedName = mean[(lastDot + 1)..];
             return appleTag.GetDashBox(derivedMean, derivedName);

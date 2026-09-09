@@ -3,9 +3,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Configuration;
 using MediaEngine.Providers.Contracts;
 using Microsoft.Extensions.Logging;
 
@@ -59,45 +59,72 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
     public TextTrackProviderAvailability GetAvailability(MediaType mediaType)
     {
         if (!CanHandle(mediaType))
+        {
             return new("Unsupported", $"{Name} does not support {mediaType}.");
+        }
+
         if (!IsEnabled)
+        {
             return new("Disabled", $"{Name} is disabled in provider settings.");
+        }
+
         if (!HasCredentials())
+        {
             return new("AuthenticationRequired", $"{Name} needs an API key before subtitles can be fetched.");
+        }
+
         if (_health.IsDown(Name))
+        {
             return new("ProviderUnavailable", $"{Name} is temporarily unavailable after repeated provider failures.");
+        }
+
         return new("Available", null);
     }
 
     public async Task<IReadOnlyList<TextTrackCandidate>> SearchAsync(TextTrackLookup lookup, CancellationToken ct = default)
     {
         if (!IsEnabled || !CanHandle(lookup.MediaType) || !HasCredentials())
+        {
             return [];
+        }
 
         var baseUrl = _config.Endpoints.GetValueOrDefault("api")?.TrimEnd('/') ?? "https://api.opensubtitles.com/api/v1";
         var language = NormalizeLanguage(lookup.Language);
         var query = new List<string> { $"languages={Uri.EscapeDataString(language)}", "order_by=download_count" };
         if (lookup.BridgeIds.TryGetValue(BridgeIdKeys.ImdbId, out var imdb) && !string.IsNullOrWhiteSpace(imdb))
+        {
             query.Add($"imdb_id={Uri.EscapeDataString(imdb.TrimStart('t'))}");
+        }
         else if (!string.IsNullOrWhiteSpace(lookup.Title))
+        {
             query.Add($"query={Uri.EscapeDataString(lookup.Title)}");
+        }
 
         if (lookup.MediaType == MediaType.TV)
         {
             if (lookup.BridgeIds.TryGetValue(MetadataFieldConstants.SeasonNumber, out var season))
+            {
                 query.Add($"season_number={Uri.EscapeDataString(season)}");
+            }
+
             if (lookup.BridgeIds.TryGetValue(MetadataFieldConstants.EpisodeNumber, out var episode))
+            {
                 query.Add($"episode_number={Uri.EscapeDataString(episode)}");
+            }
         }
 
         var url = $"{baseUrl}/subtitles?{string.Join("&", query)}";
         var json = await GetJsonAsync(url, ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(json))
+        {
             return [];
+        }
 
         using var doc = JsonDocument.Parse(json);
         if (!doc.RootElement.TryGetProperty("data", out var data) || data.ValueKind != JsonValueKind.Array)
+        {
             return [];
+        }
 
         var candidates = new List<TextTrackCandidate>();
         foreach (var item in data.EnumerateArray().Take(5))
@@ -107,12 +134,16 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
                 ? filesNode.EnumerateArray().ToList()
                 : [];
             if (files.Count == 0)
+            {
                 continue;
+            }
 
             var file = files[0];
             var fileId = file.TryGetProperty("file_id", out var fileIdNode) ? fileIdNode.ToString() : null;
             if (string.IsNullOrWhiteSpace(fileId))
+            {
                 continue;
+            }
 
             var lang = attributes.TryGetProperty("language", out var langNode) ? langNode.GetString() ?? language : language;
             var hearingImpaired = attributes.TryGetProperty("hearing_impaired", out var hiNode) && hiNode.ValueKind is JsonValueKind.True;
@@ -145,7 +176,9 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
     public async Task<TextTrackDownload?> DownloadAsync(TextTrackCandidate candidate, CancellationToken ct = default)
     {
         if (!HasCredentials())
+        {
             return null;
+        }
 
         var baseUrl = _config.Endpoints.GetValueOrDefault("api")?.TrimEnd('/') ?? "https://api.opensubtitles.com/api/v1";
         using var client = _httpFactory.CreateClient(Name);
@@ -160,11 +193,15 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
 
         using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
         if (!doc.RootElement.TryGetProperty("link", out var linkNode) || linkNode.ValueKind != JsonValueKind.String)
+        {
             return null;
+        }
 
         var link = linkNode.GetString();
         if (string.IsNullOrWhiteSpace(link))
+        {
             return null;
+        }
 
         var content = await client.GetStringAsync(link, ct).ConfigureAwait(false);
         await _health.ReportSuccessAsync(Name, ct).ConfigureAwait(false);
@@ -179,11 +216,15 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
         {
             var cached = await _cache.FindAsync(cacheKey, ct).ConfigureAwait(false);
             if (cached is not null)
+            {
                 return cached.ResponseJson;
+            }
         }
 
         if (_health.IsDown(Name))
+        {
             return null;
+        }
 
         try
         {
@@ -191,7 +232,10 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
             await ApplyHeadersAsync(client, _config.Endpoints.GetValueOrDefault("api")?.TrimEnd('/') ?? "https://api.opensubtitles.com/api/v1", ct).ConfigureAwait(false);
             var json = await client.GetStringAsync(url, ct).ConfigureAwait(false);
             if (_config.CacheTtlHours is > 0)
+            {
                 await _cache.UpsertAsync(cacheKey, WellKnownProviders.OpenSubtitles.ToString(), queryHash, json, null, _config.CacheTtlHours.Value, ct).ConfigureAwait(false);
+            }
+
             await _health.ReportSuccessAsync(Name, ct).ConfigureAwait(false);
             return json;
         }
@@ -210,11 +254,15 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
     private async Task ApplyHeadersAsync(HttpClient client, string baseUrl, CancellationToken ct)
     {
         if (!string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+        {
             client.DefaultRequestHeaders.TryAddWithoutValidation("Api-Key", _config.HttpClient.ApiKey);
+        }
 
         var token = await ResolveBearerTokenAsync(baseUrl, ct).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(token))
+        {
             client.DefaultRequestHeaders.Authorization = new("Bearer", token);
+        }
     }
 
     private bool HasCredentials() => !_config.RequiresApiKey || !string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey);
@@ -228,17 +276,23 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
         }
 
         if (!string.IsNullOrWhiteSpace(_bearerToken) && _bearerTokenExpiresAt > DateTimeOffset.UtcNow.AddMinutes(5))
+        {
             return _bearerToken;
+        }
 
         await _loginLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (!string.IsNullOrWhiteSpace(_bearerToken) && _bearerTokenExpiresAt > DateTimeOffset.UtcNow.AddMinutes(5))
+            {
                 return _bearerToken;
+            }
 
             using var client = _httpFactory.CreateClient(Name);
             if (!string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+            {
                 client.DefaultRequestHeaders.TryAddWithoutValidation("Api-Key", _config.HttpClient.ApiKey);
+            }
 
             using var response = await client.PostAsJsonAsync(
                 $"{baseUrl}/login",
@@ -253,7 +307,9 @@ public sealed class OpenSubtitlesTextTrackProvider : ITextTrackProvider, IProvid
 
             using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
             if (!doc.RootElement.TryGetProperty("token", out var tokenNode) || tokenNode.ValueKind != JsonValueKind.String)
+            {
                 return null;
+            }
 
             _bearerToken = tokenNode.GetString();
             _bearerTokenExpiresAt = DateTimeOffset.UtcNow.AddHours(23);

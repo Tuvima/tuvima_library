@@ -12,23 +12,20 @@ public sealed class PluginUniverseLoreService
     private readonly PluginCatalog _catalog;
     private readonly IPluginLoreRepository _loreRepository;
     private readonly INarrativeRootRepository _roots;
-    private readonly IPluginToolRuntime _tools;
-    private readonly IPluginAiClient _ai;
+    private readonly IPluginExecutionContextFactory _contexts;
     private readonly ILogger<PluginUniverseLoreService> _logger;
 
     public PluginUniverseLoreService(
         PluginCatalog catalog,
         IPluginLoreRepository loreRepository,
         INarrativeRootRepository roots,
-        IPluginToolRuntime tools,
-        IPluginAiClient ai,
+        IPluginExecutionContextFactory contexts,
         ILogger<PluginUniverseLoreService> logger)
     {
         _catalog = catalog;
         _loreRepository = loreRepository;
         _roots = roots;
-        _tools = tools;
-        _ai = ai;
+        _contexts = contexts;
         _logger = logger;
     }
 
@@ -44,7 +41,7 @@ public sealed class PluginUniverseLoreService
         var context = await BuildContextAsync(universeQid, ct).ConfigureAwait(false);
         foreach (var registration in GetEnabledLoreRegistrations())
         {
-            var executionContext = CreateExecutionContext(registration, "source-discovery");
+            await using var executionContext = _contexts.Create(registration.Manifest.Id, "source-discovery");
             foreach (var provider in registration.Capabilities.OfType<IUniverseLoreProvider>())
             {
                 try
@@ -100,7 +97,9 @@ public sealed class PluginUniverseLoreService
         var source = await _loreRepository.FindSourceAsync(sourceId, ct).ConfigureAwait(false)
             ?? throw new InvalidOperationException($"Lore source '{sourceId}' was not found.");
         if (!string.Equals(source.UniverseQid, universeQid, StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException("Lore source does not belong to this universe.");
+        }
 
         await _loreRepository.SetSourceStatusAsync(sourceId, status, actor, ct).ConfigureAwait(false);
         return await _loreRepository.GetSourcesAsync(universeQid, ct).ConfigureAwait(false);
@@ -120,13 +119,17 @@ public sealed class PluginUniverseLoreService
         {
             var registration = _catalog.Get(source.PluginId);
             if (registration is null || !registration.Enabled || registration.LoadError is not null)
+            {
                 continue;
+            }
 
             var provider = registration.Capabilities.OfType<IUniverseLoreProvider>().FirstOrDefault();
             if (provider is null)
+            {
                 continue;
+            }
 
-            var executionContext = CreateExecutionContext(registration, "enrichment");
+            await using var executionContext = _contexts.Create(registration.Manifest.Id, "enrichment");
             try
             {
                 var result = await provider.EnrichUniverseAsync(context, MapSource(source), executionContext, ct).ConfigureAwait(false);
@@ -156,13 +159,6 @@ public sealed class PluginUniverseLoreService
     {
         var root = await _roots.FindByQidAsync(universeQid, ct).ConfigureAwait(false);
         return new PluginUniverseLoreContext(universeQid, root?.Label);
-    }
-
-    private PluginExecutionContext CreateExecutionContext(PluginRegistration registration, string purpose)
-    {
-        var temp = Path.Combine(Path.GetTempPath(), "tuvima-plugins", registration.Manifest.Id, "universe-lore", purpose);
-        Directory.CreateDirectory(temp);
-        return new PluginExecutionContext(registration.Manifest.Id, registration.Settings, temp, _tools, _ai);
     }
 
     private static PluginLoreSourceCandidateRecord MapCandidate(PluginLoreSourceCandidate candidate) => new()

@@ -1,5 +1,13 @@
 # Crash verification before Access refactoring
 
+## Final integrated regression checkpoint — 2026-09-09
+
+The final Access source through `4d1b1ffe`, including the accepted credential-recovery and ingestion changes, passed the complete solution suite: **3,632 passed, 37 existing provider skips, zero failed**. The warnings-as-errors build and full formatting/coverage gates pass. Evidence: `logs/access-complete-build.log`, `logs/access-complete-verified.log`, and its adjacent TRX/Cobertura directory in the integration checkout.
+
+The normal Engine/Dashboard liveness checks returned HTTP 200 at 12:47 local time (`logs/access-complete-normal-health.json`). The final rebuilt isolated hosts also returned HTTP 200 at 12:57, with empty stderr and no checked fatal/unhandled output, and their Users/Applications/Authentication navigation and PIN unlock worked. The QA hosts were then stopped. These checks strengthen regression confidence for the identified credential failure; they do not guarantee that no unrelated crash can occur.
+
+## Original diagnosis
+
 Verified on 2026-09-08 before Access implementation. This note separates observed failures from symptoms that still need reproduction. It does not claim that the application can no longer crash.
 
 ## Evidence reviewed
@@ -32,3 +40,5 @@ To classify any remaining crash, record the time and whether the browser showed 
 Plain English: the Dashboard will now stay responsive when its private Engine credential is briefly missing or replaced; it reports the Engine as unavailable and retries safely on the next request. Other verified failures involved disposable development database state or a locked database, so the later clean run is still not a guarantee that every separately reported crash is fixed.
 
 A September 9 follow-up checked the same normal processes without restarting them: both Engine and Dashboard `/health/live` returned 200; both stderr files remained empty, and their current stdout logs contained no unhandled-exception, fatal, or `fail:` matches. Evidence: `logs/access-runtime-followup-health.json`. This longer observation supports the recovery fix but does not extend coverage to unobserved failure modes.
+
+The midday Access integration review again received HTTP 200 from both normal hosts (`logs/access-midday-normal-health.json`). The credential provider/handler and all nine ingestion card, drawer, list, and pager source files match the earlier verified checkout exactly after line-ending normalization (`logs/access-prerequisite-preservation.json`). The integrated broad run passed all 1,021 Web tests, including the crash and ingestion regressions; its one unrelated event guardrail failure is tracked in the execution status.

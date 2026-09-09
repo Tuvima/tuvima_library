@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -10,7 +11,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
 

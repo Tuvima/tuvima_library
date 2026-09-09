@@ -3,8 +3,8 @@ using MediaEngine.AI.Infrastructure;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
-using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Jobs;
+using MediaEngine.Domain.Models;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
@@ -87,7 +87,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         ArgumentNullException.ThrowIfNull(admission);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _settings     = settings;
+        _settings = settings;
         _configLoader = configLoader;
         _resourceMonitor = resourceMonitor;
         _featureGate = featureGate;
@@ -105,7 +105,7 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
         _identityService = identityService;
         _harvesting = harvesting;
         _admission = admission;
-        _logger       = logger;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -185,10 +185,10 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
 
         // Find entities that have a description (or plot_summary) but no themes yet.
         var entityIds = await canonicalRepo.GetEntitiesNeedingEnrichmentAsync(
-            hasField:    "description",
+            hasField: "description",
             missingField: "themes",
-            limit:       batchSize,
-            ct:          ct).ConfigureAwait(false);
+            limit: batchSize,
+            ct: ct).ConfigureAwait(false);
 
         if (entityIds.Count == 0)
         {
@@ -204,7 +204,10 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
 
         for (int i = 0; i < entityIds.Count; i++)
         {
-            if (ct.IsCancellationRequested) break;
+            if (ct.IsCancellationRequested)
+            {
+                break;
+            }
 
             var entityId = entityIds[i];
             string? inputFingerprint = null;
@@ -231,13 +234,17 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                     ct).ConfigureAwait(false);
                 if (featureState?.IsCurrent(inputFingerprint) == true
                     || featureState?.CanAttempt(DateTimeOffset.UtcNow) == false)
+                {
                     continue;
+                }
 
                 using var admission = _admission.TryAcquire(
                     MediaEngine.Domain.Enums.AiModelRole.TextScholar,
                     ct);
                 if (admission is null)
+                {
                     return;
+                }
 
                 var diResult = await descIntel.AnalyzeAsync(entityId, mediaCategory, admission.Token)
                     .ConfigureAwait(false);
@@ -272,7 +279,9 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                                 inputFingerprint),
                             ct).ConfigureAwait(false);
                         if (persistenceResult.PublishedFields.Count > 0)
+                        {
                             processed++;
+                        }
 
                         _logger.LogDebug(
                             "[DESCRIPTION-INTEL-BATCH] Enriched entity {EntityId} — {Themes} themes, {Mood} mood",
@@ -316,26 +325,33 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                             foreach (var person in diResult.People)
                             {
                                 if (string.IsNullOrWhiteSpace(person.Name) || person.Confidence < 0.50)
+                                {
                                     continue;
+                                }
 
                                 // Normalize the AI role to match PersonReference roles.
                                 var normalizedRole = NormalizeAiRole(person.Role);
                                 if (normalizedRole is null)
+                                {
                                     continue;
+                                }
 
                                 // Map role to QID claim key.
                                 var qidKey = normalizedRole switch
                                 {
-                                    "Author"       => "author_qid",
-                                    "Narrator"     => "narrator_qid",
-                                    "Director"     => "director_qid",
+                                    "Author" => "author_qid",
+                                    "Narrator" => "narrator_qid",
+                                    "Director" => "director_qid",
                                     "Screenwriter" => "screenwriter_qid",
-                                    "Composer"     => "composer_qid",
-                                    "Actor"        => "cast_member_qid",
-                                    _              => null,
+                                    "Composer" => "composer_qid",
+                                    "Actor" => "cast_member_qid",
+                                    _ => null,
                                 };
 
-                                if (qidKey is null) continue;
+                                if (qidKey is null)
+                                {
+                                    continue;
+                                }
 
                                 // Skip if a QID already exists for this role (from structured properties
                                 // or Phase 3 standalone search — higher confidence tiers).
@@ -413,13 +429,13 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                                         var name = parts.Length > 1 ? parts[1] : qid;
                                         var role = c.Key.Replace("_qid", "") switch
                                         {
-                                            "author"       => "Author",
-                                            "narrator"     => "Narrator",
-                                            "director"     => "Director",
+                                            "author" => "Author",
+                                            "narrator" => "Narrator",
+                                            "director" => "Director",
                                             "screenwriter" => "Screenwriter",
-                                            "composer"     => "Composer",
-                                            "cast_member"  => "Actor",
-                                            _              => "Author",
+                                            "composer" => "Composer",
+                                            "cast_member" => "Actor",
+                                            _ => "Author",
                                         };
                                         return new PersonReference(role, name, qid);
                                     })
@@ -486,10 +502,12 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
                                 Category: BackgroundJobOutcomeClassifier.Classify(ex, ct)),
                             ct).ConfigureAwait(false);
                         if (failure.Status == AiFeatureStatus.Poisoned)
+                        {
                             _logger.LogError(
                                 "[DESCRIPTION-INTEL-BATCH] Quarantined poison entity {Id} after {Attempts} attempts",
                                 entityId,
                                 failure.Attempts);
+                        }
                     }
                     catch (Exception persistenceEx) when (persistenceEx is not OperationCanceledException)
                     {
@@ -506,7 +524,9 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
 
             // Yield resources between entities to avoid saturating the LLM.
             if (i < entityIds.Count - 1)
+            {
                 await Task.Delay(2000, ct).ConfigureAwait(false);
+            }
         }
 
         _logger.LogInformation(
@@ -521,17 +541,20 @@ public sealed class DescriptionIntelligenceBatchService : BackgroundService
     /// </summary>
     private static string? NormalizeAiRole(string? role)
     {
-        if (string.IsNullOrWhiteSpace(role)) return null;
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            return null;
+        }
 
         return role.Trim().ToLowerInvariant() switch
         {
-            "author" or "writer" or "novelist"                      => "Author",
-            "narrator" or "reader" or "voice"                       => "Narrator",
-            "director" or "filmmaker"                               => "Director",
+            "author" or "writer" or "novelist" => "Author",
+            "narrator" or "reader" or "voice" => "Narrator",
+            "director" or "filmmaker" => "Director",
             "screenwriter" or "screenplay" or "writer (screenplay)" => "Screenwriter",
-            "composer" or "music" or "score"                        => "Composer",
+            "composer" or "music" or "score" => "Composer",
             "actor" or "actress" or "cast" or "cast member" or "star" => "Actor",
-            _                                                        => null,
+            _ => null,
         };
     }
 }

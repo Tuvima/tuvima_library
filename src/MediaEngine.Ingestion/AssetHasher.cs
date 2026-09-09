@@ -85,15 +85,17 @@ public sealed class AssetHasher : IAssetHasher
             // TryGetHashAndReset finalises the hash and resets the internal state.
             Span<byte> digest = stackalloc byte[32];
             if (!hasher.TryGetHashAndReset(digest, out int written) || written != 32)
+            {
                 throw new InvalidOperationException("SHA-256 finalisation returned unexpected length.");
+            }
 
             return new HashResult
             {
                 FilePath = filePath,
                 // Lowercase hex matches the format stored in media_assets.content_hash.
-                Hex      = Convert.ToHexString(digest).ToLowerInvariant(),
+                Hex = Convert.ToHexString(digest).ToLowerInvariant(),
                 FileSize = bytesHashed,
-                Elapsed  = sw.Elapsed,
+                Elapsed = sw.Elapsed,
             };
         }
         finally

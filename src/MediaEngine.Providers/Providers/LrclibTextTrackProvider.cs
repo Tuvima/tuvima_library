@@ -3,9 +3,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Providers;
@@ -43,18 +43,29 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
     public TextTrackProviderAvailability GetAvailability(MediaType mediaType)
     {
         if (!CanHandle(mediaType))
+        {
             return new("Unsupported", $"{Name} does not support {mediaType}.");
+        }
+
         if (!IsEnabled)
+        {
             return new("Disabled", $"{Name} is disabled in provider settings.");
+        }
+
         if (_health.IsDown(Name))
+        {
             return new("ProviderUnavailable", $"{Name} is temporarily unavailable after repeated provider failures.");
+        }
+
         return new("Available", null);
     }
 
     public async Task<IReadOnlyList<TextTrackCandidate>> SearchAsync(TextTrackLookup lookup, CancellationToken ct = default)
     {
         if (!IsEnabled || !CanHandle(lookup.MediaType) || string.IsNullOrWhiteSpace(lookup.Title))
+        {
             return [];
+        }
 
         var baseUrl = _config.Endpoints.GetValueOrDefault("api")?.TrimEnd('/') ?? "https://lrclib.net";
         var query = new List<string>
@@ -62,16 +73,26 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
             $"track_name={Uri.EscapeDataString(lookup.Title)}",
         };
         if (!string.IsNullOrWhiteSpace(lookup.Artist))
+        {
             query.Add($"artist_name={Uri.EscapeDataString(lookup.Artist)}");
+        }
+
         if (!string.IsNullOrWhiteSpace(lookup.Album))
+        {
             query.Add($"album_name={Uri.EscapeDataString(lookup.Album)}");
+        }
+
         if (lookup.DurationSeconds is > 0)
+        {
             query.Add($"duration={Math.Round(lookup.DurationSeconds.Value).ToString(System.Globalization.CultureInfo.InvariantCulture)}");
+        }
 
         var url = $"{baseUrl}/api/get?{string.Join("&", query)}";
         var json = await GetJsonAsync(url, ct).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(json))
+        {
             return [];
+        }
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
@@ -90,7 +111,9 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
         var instrumental = root.TryGetProperty("instrumental", out var instrumentalNode)
             && instrumentalNode.ValueKind is JsonValueKind.True;
         if (string.IsNullOrWhiteSpace(lyrics) && !instrumental)
+        {
             return [];
+        }
 
         var sourceId = root.TryGetProperty("id", out var id) ? id.ToString() : ComputeHash(url);
         var durationScore = ScoreDuration(root, lookup.DurationSeconds);
@@ -127,18 +150,25 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
         {
             var cached = await _cache.FindAsync(cacheKey, ct).ConfigureAwait(false);
             if (cached is not null)
+            {
                 return cached.ResponseJson;
+            }
         }
 
         if (_health.IsDown(Name))
+        {
             return null;
+        }
 
         try
         {
             using var client = _httpFactory.CreateClient(Name);
             var json = await client.GetStringAsync(url, ct).ConfigureAwait(false);
             if (_config.CacheTtlHours is > 0)
+            {
                 await _cache.UpsertAsync(cacheKey, WellKnownProviders.Lrclib.ToString(), queryHash, json, null, _config.CacheTtlHours.Value, ct).ConfigureAwait(false);
+            }
+
             await _health.ReportSuccessAsync(Name, ct).ConfigureAwait(false);
             return json;
         }
@@ -157,7 +187,10 @@ public sealed class LrclibTextTrackProvider : ITextTrackProvider
     private static double? ScoreDuration(JsonElement root, double? expected)
     {
         if (expected is not > 0 || !root.TryGetProperty("duration", out var duration) || !duration.TryGetDouble(out var actual))
+        {
             return null;
+        }
+
         var delta = Math.Abs(actual - expected.Value);
         return Math.Clamp(1d - (delta / 10d), 0d, 1d);
     }

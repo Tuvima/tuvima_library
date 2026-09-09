@@ -35,7 +35,9 @@ public sealed class TmdbRetailClient
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(showName))
+        {
             return new(null, null, null);
+        }
 
         var url = _requestBuilder.BuildTmdbTvSearchUrl(showName, yearHint, apiKey, language, country);
         var fallbackUrl = _requestBuilder.BuildTmdbTvSearchUrl(showName, null, apiKey, language, country);
@@ -64,7 +66,9 @@ public sealed class TmdbRetailClient
             }
 
             if (results is null || results.Count == 0)
+            {
                 return new(null, null, null);
+            }
 
             double bestScore = 0.0;
             string? bestId = null;
@@ -74,14 +78,18 @@ public sealed class TmdbRetailClient
             foreach (var result in results)
             {
                 if (result is null)
+                {
                     continue;
+                }
 
                 var resultName = result["name"]?.GetValue<string>()
                     ?? result["original_name"]?.GetValue<string>();
                 var resultId = result["id"]?.GetValue<long?>()?.ToString();
 
                 if (string.IsNullOrWhiteSpace(resultName) || resultId is null)
+                {
                     continue;
+                }
 
                 var nameScore = RetailTextSimilarity.ComputeWordOverlap(showName, resultName);
                 var yearBonus = ComputeYearBonus(result, yearHint);
@@ -136,7 +144,9 @@ public sealed class TmdbRetailClient
                 ct).ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
+            {
                 return null;
+            }
 
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct)
@@ -169,7 +179,9 @@ public sealed class TmdbRetailClient
                 ct).ConfigureAwait(false);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
+            {
                 return [];
+            }
 
             response.EnsureSuccessStatusCode();
 
@@ -177,13 +189,17 @@ public sealed class TmdbRetailClient
                 .ConfigureAwait(false);
             var episodes = json?["episodes"]?.AsArray();
             if (episodes is null)
+            {
                 return [];
+            }
 
             var result = new List<JsonNode>();
             foreach (var ep in episodes)
             {
                 if (ep is not null)
+                {
                     result.Add(ep);
+                }
             }
             return result;
         }
@@ -205,7 +221,11 @@ public sealed class TmdbRetailClient
         using var client = _httpFactory.CreateClient("tmdb");
         using var response = await _rateLimiter.ExecuteAsync("tmdb", ProviderRateLimitDefaults.Tmdb,
             token => client.GetAsync(url, token), ct).ConfigureAwait(false);
-        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct).ConfigureAwait(false);
     }
@@ -213,7 +233,9 @@ public sealed class TmdbRetailClient
     private static double ComputeYearBonus(JsonNode result, int? yearHint)
     {
         if (!yearHint.HasValue)
+        {
             return 0.0;
+        }
 
         var firstAirDate = result["first_air_date"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(firstAirDate)

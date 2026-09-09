@@ -31,18 +31,18 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
         {
             var parameters = new
             {
-                id            = entry.Id,
-                entityId      = entry.EntityId,
-                entityType    = entry.EntityType,
-                trigger       = entry.Trigger,
-                status        = entry.Status,
+                id = entry.Id,
+                entityId = entry.EntityId,
+                entityType = entry.EntityType,
+                trigger = entry.Trigger,
+                status = entry.Status,
                 proposedCollectionId = entry.ProposedCollectionId,
-                confidence    = entry.ConfidenceScore,
-                candidates    = entry.CandidatesJson,
-                detail        = entry.Detail,
-                createdAt     = entry.CreatedAt.ToString("O"),
-                resolvedAt    = entry.ResolvedAt.HasValue ? (object)entry.ResolvedAt.Value.ToString("O") : null,
-                resolvedBy    = entry.ResolvedBy,
+                confidence = entry.ConfidenceScore,
+                candidates = entry.CandidatesJson,
+                detail = entry.Detail,
+                createdAt = entry.CreatedAt.ToString("O"),
+                resolvedAt = entry.ResolvedAt.HasValue ? (object)entry.ResolvedAt.Value.ToString("O") : null,
+                resolvedBy = entry.ResolvedBy,
                 sourceOperationId = entry.SourceOperationId,
                 sourceCapabilityId = entry.SourceCapabilityId,
                 sourceCapabilitySubKey = entry.SourceCapabilitySubKey,
@@ -377,9 +377,9 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             """, new
         {
             dismissed = ReviewStatus.Dismissed,
-            now       = DateTimeOffset.UtcNow.ToString("O"),
+            now = DateTimeOffset.UtcNow.ToString("O"),
             entityId,
-            pending   = ReviewStatus.Pending,
+            pending = ReviewStatus.Pending,
         });
 
         return Task.FromResult(rows);
@@ -398,11 +398,11 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
               AND  status     = @pending
             """, new
         {
-            resolved   = ReviewStatus.Resolved,
-            now        = DateTimeOffset.UtcNow.ToString("O"),
+            resolved = ReviewStatus.Resolved,
+            now = DateTimeOffset.UtcNow.ToString("O"),
             resolvedBy,
             entityId,
-            pending    = ReviewStatus.Pending,
+            pending = ReviewStatus.Pending,
         });
 
         return Task.FromResult(rows);
@@ -472,16 +472,16 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     /// <summary>Flat data-transfer struct that Dapper populates from a SELECT row.</summary>
     private sealed class ReviewQueueRow
     {
-        public Guid Id              { get; set; }
-        public Guid EntityId        { get; set; }
-        public string EntityType    { get; set; } = "";
-        public string Trigger       { get; set; } = "";
-        public string Status        { get; set; } = "";
-        public string? ProposedCollectionId  { get; set; }
+        public Guid Id { get; set; }
+        public Guid EntityId { get; set; }
+        public string EntityType { get; set; } = "";
+        public string Trigger { get; set; } = "";
+        public string Status { get; set; } = "";
+        public string? ProposedCollectionId { get; set; }
         public double? ConfidenceScore { get; set; }
-        public string? CandidatesJson  { get; set; }
-        public string? Detail          { get; set; }
-        public string CreatedAt   { get; set; } = "";
+        public string? CandidatesJson { get; set; }
+        public string? Detail { get; set; }
+        public string CreatedAt { get; set; } = "";
         public string? ResolvedAt { get; set; }
         public string? ResolvedBy { get; set; }
         public Guid? SourceOperationId { get; set; }
@@ -493,19 +493,19 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
 
     private static ReviewQueueEntry MapRow(ReviewQueueRow r) => new()
     {
-        Id              = r.Id,
-        EntityId        = r.EntityId,
-        EntityType      = r.EntityType,
-        Trigger         = r.Trigger,
-        Status          = r.Status,
-        ProposedCollectionId   = r.ProposedCollectionId,
+        Id = r.Id,
+        EntityId = r.EntityId,
+        EntityType = r.EntityType,
+        Trigger = r.Trigger,
+        Status = r.Status,
+        ProposedCollectionId = r.ProposedCollectionId,
         ConfidenceScore = r.ConfidenceScore,
-        CandidatesJson  = r.CandidatesJson,
-        Detail          = r.Detail,
-        CreatedAt       = DateTimeOffset.TryParse(r.CreatedAt, out var created) ? created : DateTimeOffset.UtcNow,
-        ResolvedAt      = r.ResolvedAt is not null && DateTimeOffset.TryParse(r.ResolvedAt, out var resolved)
+        CandidatesJson = r.CandidatesJson,
+        Detail = r.Detail,
+        CreatedAt = DateTimeOffset.TryParse(r.CreatedAt, out var created) ? created : DateTimeOffset.UtcNow,
+        ResolvedAt = r.ResolvedAt is not null && DateTimeOffset.TryParse(r.ResolvedAt, out var resolved)
                               ? resolved : null,
-        ResolvedBy      = r.ResolvedBy,
+        ResolvedBy = r.ResolvedBy,
         SourceOperationId = r.SourceOperationId,
         SourceCapabilityId = r.SourceCapabilityId,
         SourceCapabilitySubKey = r.SourceCapabilitySubKey,

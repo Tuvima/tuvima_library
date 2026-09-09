@@ -61,7 +61,10 @@ public sealed class PathValidatorTests
     [InlineData("/dev/null")]
     public void Validate_RejectsLinuxSystemPaths(string path)
     {
-        if (OperatingSystem.IsWindows()) return; // skip on Windows
+        if (OperatingSystem.IsWindows())
+        {
+            return; // skip on Windows
+        }
 
         var error = PathValidator.Validate(path);
         Assert.NotNull(error);
@@ -76,7 +79,10 @@ public sealed class PathValidatorTests
     [InlineData("/opt/tuvima/data")]
     public void Validate_AcceptsValidPaths(string path)
     {
-        if (OperatingSystem.IsWindows()) return;
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
 
         var error = PathValidator.Validate(path);
         Assert.Null(error);

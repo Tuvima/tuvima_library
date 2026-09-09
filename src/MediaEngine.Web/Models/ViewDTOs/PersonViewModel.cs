@@ -6,12 +6,12 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// </summary>
 public sealed class PersonViewModel
 {
-    public Guid    Id              { get; init; }
-    public string  Name            { get; init; } = string.Empty;
-    public List<string> Roles       { get; init; } = [];
-    public string? WikidataQid     { get; init; }
-    public string? HeadshotUrl      { get; init; }
-    public bool    HasLocalHeadshot { get; init; }
+    public Guid Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public List<string> Roles { get; init; } = [];
+    public string? WikidataQid { get; init; }
+    public string? HeadshotUrl { get; init; }
+    public bool HasLocalHeadshot { get; init; }
     /// <summary>
     /// Absolute Engine URL for the locally-cached headshot file, e.g.
     /// "http://localhost:61495/persons/{id}/headshot". Null when no local
@@ -19,8 +19,8 @@ public sealed class PersonViewModel
     /// relative path, which would resolve against the Dashboard origin.
     /// </summary>
     public string? LocalHeadshotUrl { get; init; }
-    public string? Biography        { get; init; }
-    public string? Occupation      { get; init; }
+    public string? Biography { get; init; }
+    public string? Occupation { get; init; }
 
     // ── Display helpers ─────────────────────────────────────────────────
 
@@ -42,15 +42,15 @@ public sealed class PersonViewModel
     /// <summary>Formatted role labels.</summary>
     public List<string> RoleLabels => Roles.Select(r => r switch
     {
-        "Author"      => "Author",
-        "Narrator"    => "Narrator",
-        "Director"    => "Director",
-        "Actor"       => "Actor",
+        "Author" => "Author",
+        "Narrator" => "Narrator",
+        "Director" => "Director",
+        "Actor" => "Actor",
         "Voice Actor" => "Voice Actor",
-        "Composer"    => "Composer",
-        "Performer"   => "Performer",
-        "Artist"      => "Artist",
-        _             => r,
+        "Composer" => "Composer",
+        "Performer" => "Performer",
+        "Artist" => "Artist",
+        _ => r,
     }).ToList();
 
     /// <summary>Primary role label for backward-compatible display.</summary>

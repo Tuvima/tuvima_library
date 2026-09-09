@@ -9,9 +9,9 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Providers.Models;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Providers.Models;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -66,7 +66,9 @@ public sealed class CollectionAssignmentService
 
         Guid? workId = lineage?.WorkId;
         if (workId is null)
+        {
             workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct);
+        }
 
         if (workId is null)
         {
@@ -221,7 +223,9 @@ public sealed class CollectionAssignmentService
         {
             var byQid = await _collectionRepo.FindByQidAsync(shelf.Qid, ct);
             if (byQid is not null)
+            {
                 return byQid;
+            }
         }
 
         return string.IsNullOrWhiteSpace(shelf.ProviderKey)
@@ -260,7 +264,9 @@ public sealed class CollectionAssignmentService
         }
 
         if (changed)
+        {
             await _collectionRepo.UpsertAsync(collection, ct);
+        }
     }
 
     private async Task EnsureSequenceFactsAsync(
@@ -280,7 +286,9 @@ public sealed class CollectionAssignmentService
             })?.Trim();
 
         if (string.IsNullOrWhiteSpace(total) || !int.TryParse(total, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) || parsed <= 0)
+        {
             return;
+        }
 
         var scope = StringHelpers.FirstNonBlank(
             ValueOrNull(lookup, MetadataFieldConstants.SequenceTotalScope),
@@ -400,7 +408,9 @@ public sealed class CollectionAssignmentService
             .ToList();
 
         if (rows.Count == 0)
+        {
             return;
+        }
 
         var manifestHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             string.Join('|', rows.Select(row => $"{row.ItemQid}:{row.RawOrdinal}"))))).ToLowerInvariant();
@@ -469,7 +479,9 @@ public sealed class CollectionAssignmentService
             var movieProviderKey = ResolveProviderKey(lookup, mediaType);
             var movieProviderLabel = ResolveProviderLabel(lookup, mediaType);
             if (!string.IsNullOrWhiteSpace(movieProviderKey) && !string.IsNullOrWhiteSpace(movieProviderLabel))
+            {
                 return new ShelfIdentity(mediaType, movieProviderLabel, null, movieProviderKey, relationshipKeys);
+            }
         }
 
         if (TryGetQid(lookup, "series", out var qid, out var label))
@@ -503,11 +515,15 @@ public sealed class CollectionAssignmentService
         var providerKey = ResolveProviderKey(lookup, mediaType);
         var providerLabel = ResolveProviderLabel(lookup, mediaType);
         if (!string.IsNullOrWhiteSpace(providerKey) && !string.IsNullOrWhiteSpace(providerLabel))
+        {
             return new ShelfIdentity(mediaType, providerLabel, null, providerKey, relationshipKeys);
+        }
 
         var localLabel = ResolveLocalShelfLabel(lookup, mediaType);
         if (string.IsNullOrWhiteSpace(localLabel))
+        {
             return null;
+        }
 
         var localKey = $"local:{mediaType.ToString().ToLowerInvariant()}:{NormalizeKey(localLabel)}";
         return new ShelfIdentity(mediaType, localLabel, null, localKey, relationshipKeys);
@@ -573,7 +589,9 @@ public sealed class CollectionAssignmentService
         foreach (var claimKey in new[] { "series", "franchise", "fictional_universe", "based_on" })
         {
             if (TryGetQid(lookup, claimKey, out var qid, out _))
+            {
                 keys.Add($"{claimKey}:{qid}");
+            }
         }
 
         return keys;
@@ -601,7 +619,9 @@ public sealed class CollectionAssignmentService
     {
         value = string.Empty;
         if (!lookup.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw))
+        {
             return false;
+        }
 
         value = raw.Trim();
         return true;
@@ -626,7 +646,9 @@ public sealed class CollectionAssignmentService
         {
             var category = CharUnicodeInfo.GetUnicodeCategory(ch);
             if (category == UnicodeCategory.NonSpacingMark)
+            {
                 continue;
+            }
 
             if (char.IsLetterOrDigit(ch))
             {
@@ -653,7 +675,9 @@ public sealed class CollectionAssignmentService
     {
         // Try series first (most specific: album, TV show, book series)
         if (TryGetQid(lookup, "series", out var qid, out var label))
+        {
             return (qid, label);
+        }
 
         return (null, null);
     }
@@ -673,17 +697,23 @@ public sealed class CollectionAssignmentService
 
         if (!lookup.TryGetValue($"{claimKey}_qid", out var rawQid) ||
             string.IsNullOrWhiteSpace(rawQid))
+        {
             return false;
+        }
 
         // Strip entity URI prefix
         qid = rawQid.Contains('/') ? rawQid.Split('/')[^1] : rawQid;
 
         // Strip ::Label suffix
         if (qid.Contains("::"))
+        {
             qid = qid.Split("::", 2)[0];
+        }
 
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return false;
+        }
 
         // Get the label
         if (lookup.TryGetValue(claimKey, out var rawLabel) && !string.IsNullOrWhiteSpace(rawLabel))
@@ -705,7 +735,9 @@ public sealed class CollectionAssignmentService
     {
         var desiredRelationships = BuildCollectionRelationships(collectionId, lookup);
         if (desiredRelationships.Count == 0)
+        {
             return 0;
+        }
 
         var existingRelationships = await _collectionRepo.GetRelationshipsAsync(collectionId, ct);
         var missingRelationships = desiredRelationships
@@ -715,7 +747,9 @@ public sealed class CollectionAssignmentService
             .ToList();
 
         if (missingRelationships.Count == 0)
+        {
             return 0;
+        }
 
         await _collectionRepo.InsertRelationshipsAsync(missingRelationships, ct);
 
@@ -735,7 +769,9 @@ public sealed class CollectionAssignmentService
         foreach (var claimKey in new[] { "series", "franchise", "fictional_universe", "based_on" })
         {
             if (!TryGetQid(lookup, claimKey, out var qid, out var label))
+            {
                 continue;
+            }
 
             relationships.Add(new CollectionRelationship
             {
@@ -759,11 +795,15 @@ public sealed class CollectionAssignmentService
         CancellationToken ct)
     {
         if (_arrayRepo is null)
+        {
             return;
+        }
 
         await MergeArrayBackedRelationshipHintsForEntityAsync(lookup, canonicalEntityId, ct).ConfigureAwait(false);
         if (sourceEntityId != canonicalEntityId)
+        {
             await MergeArrayBackedRelationshipHintsForEntityAsync(lookup, sourceEntityId, ct).ConfigureAwait(false);
+        }
     }
 
     private async Task MergeArrayBackedRelationshipHintsForEntityAsync(
@@ -791,7 +831,9 @@ public sealed class CollectionAssignmentService
                     && string.Equals(NormalizeKey(entry.Value), NormalizeKey(shelfLabel), StringComparison.OrdinalIgnoreCase));
 
                 if (matchingShelfCharacter is not null)
+                {
                     AddArrayHint(lookup, "based_on", matchingShelfCharacter);
+                }
             }
         }
     }
@@ -803,7 +845,9 @@ public sealed class CollectionAssignmentService
     {
         var entry = entries.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value.ValueQid));
         if (entry is not null)
+        {
             AddArrayHint(lookup, claimKey, entry);
+        }
     }
 
     private static void AddArrayHint(
@@ -812,7 +856,9 @@ public sealed class CollectionAssignmentService
         CanonicalArrayEntry entry)
     {
         if (string.IsNullOrWhiteSpace(entry.ValueQid))
+        {
             return;
+        }
 
         lookup.TryAdd(claimKey, entry.Value);
         lookup.TryAdd($"{claimKey}_qid", entry.ValueQid);

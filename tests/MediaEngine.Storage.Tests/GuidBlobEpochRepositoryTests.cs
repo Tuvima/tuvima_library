@@ -306,7 +306,9 @@ public sealed class GuidBlobEpochRepositoryTests : IDisposable
         try
         {
             if (File.Exists(path))
+            {
                 File.Delete(path);
+            }
         }
         catch
         {

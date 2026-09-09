@@ -14,6 +14,7 @@ public sealed class ViewFolderService(
     ILocalAssetRepository assets,
     ViewStorageService storage)
 {
+    // Retained as a wire/test compatibility sentinel; persisted Shared sources use their own stable IDs.
     public static readonly Guid SharedLibrarySourceId = Guid.Parse("ffffffff-ffff-ffff-ffff-fffffffffff1");
 
     public async Task<ViewFolderPageDto> QueryAsync(
@@ -27,21 +28,32 @@ public sealed class ViewFolderService(
         int limit,
         CancellationToken ct = default)
     {
-        if (offset < 0) throw new ArgumentOutOfRangeException(nameof(offset));
-        if (limit is < 1 or > 200) throw new ArgumentOutOfRangeException(nameof(limit));
+        if (offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(offset));
+        }
+
+        if (limit is < 1 or > 200)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit));
+        }
 
         var configured = await ConfiguredSourcesAsync(scope, ct);
         if (sourceId is null)
+        {
             return new ViewFolderPageDto(configured.Select(value => value.Dto).ToList(),
                 GetPins(viewerProfileId, configured, ct), null, null,
                 string.Empty, false, false, null, [], [], [], 0, false);
+        }
 
         var selected = configured.SingleOrDefault(value => value.SourceId == sourceId.Value)
             ?? throw new KeyNotFoundException("The folder source is unavailable in this View scope.");
         var normalized = NormalizeRelativePath(relativePath);
         var absolute = Path.GetFullPath(Path.Combine(selected.RootPath, normalized));
         if (!ViewStorageService.Contains(selected.RootPath, absolute))
+        {
             throw new ArgumentException("The requested folder must remain inside its source.", nameof(relativePath));
+        }
 
         var separator = Path.DirectorySeparatorChar.ToString();
         var prefix = Path.TrimEndingDirectorySeparator(absolute) + Path.DirectorySeparatorChar;
@@ -65,7 +77,11 @@ public sealed class ViewFolderService(
         var itemIds = QueryItemIds(selected.LibraryId, selected.SourceId, prefix,
             includeDescendants, search, offset, limit + 1, selected.SharedOnly, ct);
         var hasMore = itemIds.Count > limit;
-        if (hasMore) itemIds.RemoveAt(itemIds.Count - 1);
+        if (hasMore)
+        {
+            itemIds.RemoveAt(itemIds.Count - 1);
+        }
+
         var items = itemIds.Select(id => assets.Find(id, ct)).Where(item => item is not null).Cast<LocalAssetDto>().ToList();
         var timelineOverride = folderPreferences.TimelinePolicies.GetValueOrDefault(normalized);
         var effectiveTimeline = EffectiveTimeline(selected.Dto.IncludeInTimeline, normalized,
@@ -82,23 +98,32 @@ public sealed class ViewFolderService(
     {
         var selected = (await ConfiguredSourcesAsync(scope, ct)).SingleOrDefault(value => value.SourceId == sourceId)
             ?? throw new KeyNotFoundException("The folder source is unavailable in this View scope.");
-        if (selected.SharedOnly) throw new ArgumentException("Pin a folder inside an indexed profile source.", nameof(sourceId));
+        if (selected.SharedOnly)
+        {
+            throw new ArgumentException("Pin a folder inside an indexed profile source.", nameof(sourceId));
+        }
+
         var normalized = NormalizeRelativePath(relativePath);
         ValidateContainedPath(selected.RootPath, normalized);
         await database.ExecuteWriteAsync((connection, transaction, token) =>
         {
             token.ThrowIfCancellationRequested();
             if (pinned)
+            {
                 connection.Execute("""
                     INSERT INTO view_folder_pins (profile_id, source_id, relative_path, created_at)
                     VALUES (@viewerProfileId, @sourceId, @normalized, @now)
                     ON CONFLICT(profile_id, source_id, relative_path) DO NOTHING;
                     """, new { viewerProfileId, sourceId, normalized, now = DateTimeOffset.UtcNow }, transaction);
+            }
             else
+            {
                 connection.Execute("""
                     DELETE FROM view_folder_pins
                      WHERE profile_id = @viewerProfileId AND source_id = @sourceId AND relative_path = @normalized;
                     """, new { viewerProfileId, sourceId, normalized }, transaction);
+            }
+
             return true;
         }, ct);
     }
@@ -109,15 +134,23 @@ public sealed class ViewFolderService(
     {
         var selected = (await ConfiguredSourcesAsync(scope, ct)).SingleOrDefault(value => value.SourceId == sourceId)
             ?? throw new KeyNotFoundException("The folder source is unavailable in this View scope.");
-        if (selected.SharedOnly) throw new ArgumentException("Shared Library items always appear in the Shared timeline.", nameof(sourceId));
+        if (selected.SharedOnly)
+        {
+            throw new ArgumentException("Shared Library items always appear in the Shared timeline.", nameof(sourceId));
+        }
+
         if (!isAdministrator && selected.Dto.OwnerProfileId != actorProfileId)
+        {
             throw new UnauthorizedAccessException("Only the source owner or an administrator can change its Timeline policy.");
+        }
+
         var normalized = NormalizeRelativePath(relativePath);
         var absolute = ValidateContainedPath(selected.RootPath, normalized);
         await database.ExecuteWriteAsync((connection, transaction, token) =>
         {
             token.ThrowIfCancellationRequested();
             if (includeInTimeline.HasValue)
+            {
                 connection.Execute("""
                     INSERT INTO view_folder_timeline_policies
                         (source_id, relative_path, absolute_path, include_in_timeline,
@@ -128,13 +161,24 @@ public sealed class ViewFolderService(
                         include_in_timeline = excluded.include_in_timeline,
                         updated_by_profile_id = excluded.updated_by_profile_id,
                         updated_at = excluded.updated_at;
-                    """, new { sourceId, normalized, absolute, included = includeInTimeline.Value ? 1 : 0,
-                        actorProfileId, now = DateTimeOffset.UtcNow }, transaction);
+                    """, new
+                {
+                    sourceId,
+                    normalized,
+                    absolute,
+                    included = includeInTimeline.Value ? 1 : 0,
+                    actorProfileId,
+                    now = DateTimeOffset.UtcNow
+                }, transaction);
+            }
             else
+            {
                 connection.Execute("""
                     DELETE FROM view_folder_timeline_policies
                      WHERE source_id = @sourceId AND relative_path = @normalized;
                     """, new { sourceId, normalized }, transaction);
+            }
+
             return true;
         }, ct);
     }
@@ -145,26 +189,54 @@ public sealed class ViewFolderService(
         var result = new List<ConfiguredSource>();
         if (scope.Kind == ViewScopeKind.Shared)
         {
-            var sharedRoot = storage.GetSharedRoot();
-            result.Add(new ConfiguredSource(
-                Guid.Empty,
-                SharedLibrarySourceId,
-                sharedRoot,
-                SharedOnly: true,
-                new ViewFolderSourceDto(
-                    SharedLibrarySourceId,
-                    "Shared Library",
-                    Guid.Empty,
-                    "Server",
-                    "managed",
-                    true,
-                    CountSharedItems(ct),
-                    Directory.Exists(sharedRoot))));
+            using var connection = database.CreateConnection();
+            var sharedSources = connection.Query<SharedSourceRow>(new CommandDefinition("""
+                SELECT vs.id AS Id, vs.library_id AS LibraryId, vs.name AS Name,
+                       vs.storage_mode AS StorageMode, vs.relative_path AS RelativePath,
+                       vs.external_path AS ExternalPath,
+                       vs.include_subdirectories AS IncludeSubdirectories,
+                       COALESCE(vsp.include_in_timeline, 0) AS IncludeInTimeline
+                 FROM view_sources vs
+                 LEFT JOIN view_source_policies vsp ON vsp.source_id = vs.id
+                 WHERE vs.scope_kind='shared' AND vs.enabled=1
+                 ORDER BY vs.name COLLATE NOCASE, vs.id;
+                """, cancellationToken: ct));
+            foreach (var source in sharedSources)
+            {
+                if (!scope.ContainsLibrary(source.LibraryId))
+                {
+                    continue;
+                }
+
+                var linked = string.Equals(source.StorageMode, "linked", StringComparison.Ordinal);
+                if (linked && string.IsNullOrWhiteSpace(source.ExternalPath)
+                    || !linked && string.IsNullOrWhiteSpace(source.RelativePath))
+                {
+                    continue;
+                }
+
+                var root = linked
+                    ? Path.GetFullPath(source.ExternalPath!)
+                    : Path.GetFullPath(Path.Combine(storage.GetRootPath(), source.RelativePath!));
+                if (!linked && !ViewStorageService.Contains(storage.GetSharedRoot(), root))
+                {
+                    continue;
+                }
+
+                result.Add(new ConfiguredSource(source.LibraryId, source.Id, root, SharedOnly: true,
+                    new ViewFolderSourceDto(source.Id, source.Name, Guid.Empty, "Server",
+                        linked ? "linked" : "managed", source.IncludeInTimeline,
+                        CountItems(source.LibraryId, source.Id, ct), Directory.Exists(root))));
+            }
         }
 
         foreach (var space in await spaces.GetAllAsync(ct))
         {
-            if (!scope.ContainsLibrary(space.LibraryId)) continue;
+            if (!scope.ContainsLibrary(space.LibraryId))
+            {
+                continue;
+            }
+
             var profile = await profiles.GetByIdAsync(space.OwnerProfileId, ct);
             foreach (var source in (await spaces.GetSourcesAsync(space.Id, ct)).Where(value => value.Enabled))
             {
@@ -178,13 +250,6 @@ public sealed class ViewFolderService(
         }
         return result.OrderBy(value => value.Dto.OwnerName, StringComparer.OrdinalIgnoreCase)
             .ThenBy(value => value.Dto.Name, StringComparer.OrdinalIgnoreCase).ToList();
-    }
-
-    private int CountSharedItems(CancellationToken ct)
-    {
-        using var connection = database.CreateConnection();
-        return connection.ExecuteScalar<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM view_shared_assets;", cancellationToken: ct));
     }
 
     private int CountItems(Guid libraryId, Guid sourceId, CancellationToken ct)
@@ -202,7 +267,11 @@ public sealed class ViewFolderService(
         IReadOnlyList<ConfiguredSource> configured, CancellationToken ct)
     {
         var available = configured.Where(value => !value.SharedOnly).ToDictionary(value => value.SourceId);
-        if (available.Count == 0) return [];
+        if (available.Count == 0)
+        {
+            return [];
+        }
+
         using var connection = database.CreateConnection();
         return connection.Query<PinRow>(new CommandDefinition("""
             SELECT source_id AS SourceId, relative_path AS RelativePath
@@ -237,8 +306,16 @@ public sealed class ViewFolderService(
         var current = relativePath;
         while (true)
         {
-            if (policies.TryGetValue(current, out var value) && value.HasValue) return value.Value;
-            if (string.IsNullOrEmpty(current)) return sourceDefault;
+            if (policies.TryGetValue(current, out var value) && value.HasValue)
+            {
+                return value.Value;
+            }
+
+            if (string.IsNullOrEmpty(current))
+            {
+                return sourceDefault;
+            }
+
             current = Path.GetDirectoryName(current) ?? string.Empty;
         }
     }
@@ -247,7 +324,10 @@ public sealed class ViewFolderService(
     {
         var absolute = Path.GetFullPath(Path.Combine(root, relative));
         if (!ViewStorageService.Contains(root, absolute))
+        {
             throw new ArgumentException("The folder path must remain inside its source.", nameof(relative));
+        }
+
         return absolute;
     }
 
@@ -260,9 +340,9 @@ public sealed class ViewFolderService(
               FROM local_file_sources lfs
               JOIN local_item_files lif ON lif.file_id = lfs.file_id
               JOIN local_items li ON li.id = lif.item_id
-             WHERE (@sharedOnly = 1
-                    AND EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = lif.item_id)
-                    OR @sharedOnly = 0 AND lfs.library_id = @libraryId AND lfs.source_id = @sourceId)
+             WHERE lfs.library_id = @libraryId AND lfs.source_id = @sourceId
+               AND (@sharedOnly = 0 OR EXISTS (
+                    SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = lif.item_id))
                AND lfs.file_path LIKE @pathPrefix ESCAPE '~'
                AND (@search IS NULL OR li.title LIKE @searchLike ESCAPE '~'
                     OR li.primary_file_name LIKE @searchLike ESCAPE '~')
@@ -287,9 +367,9 @@ public sealed class ViewFolderService(
               FROM local_items li
               JOIN local_item_files lif ON lif.item_id = li.id
               JOIN local_file_sources lfs ON lfs.file_id = lif.file_id
-             WHERE (@sharedOnly = 1
-                    AND EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id)
-                    OR @sharedOnly = 0 AND lfs.library_id = @libraryId AND lfs.source_id = @sourceId)
+             WHERE lfs.library_id = @libraryId AND lfs.source_id = @sourceId
+               AND (@sharedOnly = 0 OR EXISTS (
+                    SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id))
                AND lfs.file_path LIKE @pathPrefix ESCAPE '~'
                AND (@recursive = 1 OR instr(substr(lfs.file_path, length(@prefix) + 1), @separator) = 0)
                AND (@search IS NULL OR li.title LIKE @searchLike ESCAPE '~'
@@ -327,10 +407,17 @@ public sealed class ViewFolderService(
 
     private static string NormalizeRelativePath(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
         var normalized = value.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).Trim(Path.DirectorySeparatorChar);
         if (Path.IsPathRooted(normalized) || normalized.Split(Path.DirectorySeparatorChar).Any(part => part is "." or ".."))
+        {
             throw new ArgumentException("The folder path is invalid.", nameof(value));
+        }
+
         return normalized;
     }
 
@@ -344,4 +431,15 @@ public sealed class ViewFolderService(
     private sealed record FolderPreferences(HashSet<string> Pins, Dictionary<string, bool?> TimelinePolicies);
     private sealed class PinRow { public Guid SourceId { get; init; } public string RelativePath { get; init; } = ""; }
     private sealed class TimelinePolicyRow { public string RelativePath { get; init; } = ""; public long IncludeInTimeline { get; init; } }
+    private sealed class SharedSourceRow
+    {
+        public Guid Id { get; init; }
+        public Guid LibraryId { get; init; }
+        public string Name { get; init; } = "";
+        public string StorageMode { get; init; } = "managed";
+        public string? RelativePath { get; init; }
+        public string? ExternalPath { get; init; }
+        public bool IncludeSubdirectories { get; init; }
+        public bool IncludeInTimeline { get; init; }
+    }
 }

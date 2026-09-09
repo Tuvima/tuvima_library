@@ -17,13 +17,13 @@ namespace MediaEngine.Web.Tests;
 public sealed class ArchitecturalHardeningTests
 {
     [Fact]
-    public void ArtworkProxy_UsesServiceOnlyEngineClient()
+    public void ArtworkProxy_ForwardsLiveHumanContextForResourceAuthorization()
     {
         var source = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Program.cs"));
 
         Assert.Contains("AddHttpClient(\"EngineArtwork\", ConfigureEngineClient)", source, StringComparison.Ordinal);
         Assert.Contains("CreateClient(\"EngineArtwork\")", source, StringComparison.Ordinal);
-        Assert.DoesNotContain(
+        Assert.Contains(
             "AddHttpClient(\"EngineArtwork\", ConfigureEngineClient)\n    .AddHttpMessageHandler<DashboardEngineAuthenticationHandler>()",
             source.Replace("\r\n", "\n", StringComparison.Ordinal),
             StringComparison.Ordinal);
@@ -67,6 +67,24 @@ public sealed class ArchitecturalHardeningTests
         Assert.Equal((int)HttpStatusCode.ServiceUnavailable, client.LastStatusCode);
         Assert.Equal("http_failure", client.LastFailureKind);
         Assert.Contains("Engine warming up", client.LastError);
+    }
+
+    [Fact]
+    public async Task AuthenticationSettingsPut_UsesSharedFailureEnvelope()
+    {
+        using var httpClient = CreateHttpClient(_ =>
+            new HttpResponseMessage(HttpStatusCode.Forbidden)
+            {
+                Content = new StringContent("Administrator unlock required", Encoding.UTF8, "text/plain"),
+            });
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+
+        Assert.Null(await client.UpdateAuthSettingsAsync(new UpdateAuthSettingsRequest()));
+
+        Assert.Equal("PUT /settings/security/auth", client.LastFailedEndpoint);
+        Assert.Equal((int)HttpStatusCode.Forbidden, client.LastStatusCode);
+        Assert.Equal("unauthorized", client.LastFailureKind);
+        Assert.Contains("Administrator unlock required", client.LastError);
     }
 
     [Fact]

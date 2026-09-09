@@ -21,7 +21,9 @@ public sealed partial class DiscImageProcessor : IMediaProcessor
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         ct.ThrowIfCancellationRequested();
         if (!HasIso9660Signature(filePath))
+        {
             return Task.FromResult(ProcessorResultFactory.Corrupt(filePath, MediaType.Movies, "The disc image does not contain an ISO-9660 volume descriptor."));
+        }
 
         var stem = Path.GetFileNameWithoutExtension(filePath).Replace('.', ' ').Replace('_', ' ').Trim();
         var yearMatch = TrailingYear().Match(stem);
@@ -33,7 +35,9 @@ public sealed partial class DiscImageProcessor : IMediaProcessor
             ProcessorClaimFactory.Create("playback_support", "disc-image-requires-extraction", 1.0),
         };
         if (yearMatch.Success)
+        {
             claims.Add(ProcessorClaimFactory.Create("year", yearMatch.Groups[1].Value, 0.75));
+        }
 
         return Task.FromResult(new ProcessorResult { FilePath = filePath, DetectedType = MediaType.Movies, Claims = claims });
     }

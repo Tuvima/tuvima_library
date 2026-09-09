@@ -69,10 +69,14 @@ public static class MediaTypeParser
         var trimmed = value.Trim();
 
         if (Aliases.TryGetValue(trimmed, out mediaType))
+        {
             return true;
+        }
 
         if (Enum.TryParse(trimmed, ignoreCase: true, out mediaType))
+        {
             return true;
+        }
 
         mediaType = MediaType.Unknown;
         return false;

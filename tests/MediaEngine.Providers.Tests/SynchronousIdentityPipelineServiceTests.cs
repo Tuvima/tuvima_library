@@ -80,7 +80,10 @@ public sealed class SynchronousIdentityPipelineServiceTests
             ResolvedQidUpdates.Add((jobId, qid));
             var job = Created.FirstOrDefault(j => j.Id == jobId);
             if (job is not null)
+            {
                 job.ResolvedQid = qid;
+            }
+
             return Task.CompletedTask;
         }
 

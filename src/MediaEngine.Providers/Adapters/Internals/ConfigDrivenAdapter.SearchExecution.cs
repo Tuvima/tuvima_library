@@ -6,16 +6,16 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Models;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Adapters;
 
@@ -31,80 +31,90 @@ public sealed partial class ConfigDrivenAdapter
         var url = BuildUrl(strategy, request, limit);
         _logger.LogInformation("{Provider}/{Strategy}: SEARCH {Url}", Name, strategy.Name, url);
 
-            using var client = _httpFactory.CreateClient(_config.Name);
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
+        using var client = _httpFactory.CreateClient(_config.Name);
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
 
-            // Apply bearer API key header if configured.
-            if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
-                && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
+        // Apply bearer API key header if configured.
+        if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
+            && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
+        {
+            httpRequest.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Bearer", _config.HttpClient.ApiKey);
+        }
+        else if (_config.HttpClient is { ApiKeyDelivery: "basic" }
+            && !string.IsNullOrWhiteSpace(_config.HttpClient.Username)
+            && !string.IsNullOrWhiteSpace(_config.HttpClient.Password))
+        {
+            var credentials = Convert.ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes(
+                    $"{_config.HttpClient.Username}:{_config.HttpClient.Password}"));
+            httpRequest.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Basic", credentials);
+        }
+
+        using var response = await _rateLimiter.ExecuteAsync(
+            Name,
+            _config.RateLimit,
+            token => client.SendAsync(httpRequest, token),
+            ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "{Provider}/{Strategy}: HTTP {StatusCode}",
+            Name, strategy.Name, (int)response.StatusCode);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound
+            && strategy.Tolerate404)
+        {
+            return [];
+        }
+
+        response.EnsureSuccessStatusCode();
+
+        var json = await response.Content
+            .ReadFromJsonAsync<System.Text.Json.Nodes.JsonNode>(cancellationToken: ct)
+            .ConfigureAwait(false);
+
+        if (json is null)
+        {
+            return [];
+        }
+
+        // Navigate to results array.
+        var resultsNode = JsonPathEvaluator.Evaluate(json, strategy.ResultsPath!);
+        if (resultsNode is not System.Text.Json.Nodes.JsonArray arr || arr.Count == 0)
+        {
+            return [];
+        }
+
+        var items = new List<SearchResultItem>();
+        var count = Math.Min(arr.Count, limit);
+
+        for (int i = 0; i < count; i++)
+        {
+            var resultNode = arr[i];
+            if (resultNode is null)
             {
-                httpRequest.Headers.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue(
-                        "Bearer", _config.HttpClient.ApiKey);
+                continue;
             }
-            else if (_config.HttpClient is { ApiKeyDelivery: "basic" }
-                && !string.IsNullOrWhiteSpace(_config.HttpClient.Username)
-                && !string.IsNullOrWhiteSpace(_config.HttpClient.Password))
+
+            var item = ExtractSearchResultItem(resultNode, request, strategy);
+            if (item is not null)
             {
-                var credentials = Convert.ToBase64String(
-                    System.Text.Encoding.UTF8.GetBytes(
-                        $"{_config.HttpClient.Username}:{_config.HttpClient.Password}"));
-                httpRequest.Headers.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue(
-                        "Basic", credentials);
+                items.Add(item);
             }
+        }
 
-            using var response = await _rateLimiter.ExecuteAsync(
-                Name,
-                _config.RateLimit,
-                token => client.SendAsync(httpRequest, token),
-                ct).ConfigureAwait(false);
+        _logger.LogDebug(
+            "{Provider}/{Strategy}: search returned {Count} items",
+            Name, strategy.Name, items.Count);
 
-            _logger.LogInformation(
-                "{Provider}/{Strategy}: HTTP {StatusCode}",
-                Name, strategy.Name, (int)response.StatusCode);
-
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound
-                && strategy.Tolerate404)
-                return [];
-
-            response.EnsureSuccessStatusCode();
-
-            var json = await response.Content
-                .ReadFromJsonAsync<System.Text.Json.Nodes.JsonNode>(cancellationToken: ct)
-                .ConfigureAwait(false);
-
-            if (json is null)
-                return [];
-
-            // Navigate to results array.
-            var resultsNode = JsonPathEvaluator.Evaluate(json, strategy.ResultsPath!);
-            if (resultsNode is not System.Text.Json.Nodes.JsonArray arr || arr.Count == 0)
-                return [];
-
-            var items = new List<SearchResultItem>();
-            var count = Math.Min(arr.Count, limit);
-
-            for (int i = 0; i < count; i++)
-            {
-                var resultNode = arr[i];
-                if (resultNode is null)
-                    continue;
-
-                var item = ExtractSearchResultItem(resultNode, request, strategy);
-                if (item is not null)
-                    items.Add(item);
-            }
-
-            _logger.LogDebug(
-                "{Provider}/{Strategy}: search returned {Count} items",
-                Name, strategy.Name, items.Count);
-
-            // Return all items — the caller (SearchService or HydrationPipeline)
-            // handles ranking and selection. For the resolve tab, users need to
-            // see multiple editions with different covers, narrators, and years.
-            // For automated pipelines, the scoring service picks the best match.
-            return items;
+        // Return all items — the caller (SearchService or HydrationPipeline)
+        // handles ranking and selection. For the resolve tab, users need to
+        // see multiple editions with different covers, narrators, and years.
+        // For automated pipelines, the scoring service picks the best match.
+        return items;
     }
 
     /// <summary>
@@ -124,7 +134,9 @@ public sealed partial class ConfigDrivenAdapter
     {
         var filteredMappings = FilterMappingsByMediaType(_config.FieldMappings, request.MediaType);
         if (filteredMappings.Count == 0)
+        {
             return null;
+        }
 
         // When the strategy has release selection (e.g. MusicBrainz recordings with nested
         // releases), pick the best release so source-routed mappings resolve correctly.
@@ -231,7 +243,9 @@ public sealed partial class ConfigDrivenAdapter
 
         // Must have at least a title to be a valid result.
         if (string.IsNullOrWhiteSpace(title))
+        {
             return null;
+        }
 
         // Compute a per-result match score based on how closely the result's
         // title (and author) match the original search query.
@@ -246,15 +260,15 @@ public sealed partial class ConfigDrivenAdapter
             description is not null, thumbnailUrl is not null, extraFields.Count, confidence);
 
         return new SearchResultItem(
-            Title:          title,
-            Author:         author,
-            Description:    description,
-            Year:           year,
-            ThumbnailUrl:   thumbnailUrl,
+            Title: title,
+            Author: author,
+            Description: description,
+            Year: year,
+            ThumbnailUrl: thumbnailUrl,
             ProviderItemId: providerItemId,
-            Confidence:     confidence,
-            ProviderName:   Name,
-            ExtraFields:    extraFields.Count > 0 ? extraFields : null);
+            Confidence: confidence,
+            ProviderName: Name,
+            ExtraFields: extraFields.Count > 0 ? extraFields : null);
     }
 
     /// <summary>
@@ -307,28 +321,34 @@ public sealed partial class ConfigDrivenAdapter
     private static double ComputeQueryMatchScore(string? query, string? title, string? author)
     {
         if (string.IsNullOrWhiteSpace(query) || string.IsNullOrWhiteSpace(title))
+        {
             return 0.50; // No query context — neutral score.
+        }
 
         var queryTokens = TokenizeText(query);
         var titleTokens = TokenizeText(title);
 
         if (queryTokens.Count == 0 || titleTokens.Count == 0)
+        {
             return 0.50;
+        }
 
         // Exact normalised match ? perfect score.
         if (string.Equals(
                 string.Join(' ', queryTokens.Order()),
                 string.Join(' ', titleTokens.Order()),
                 StringComparison.OrdinalIgnoreCase))
+        {
             return 1.0;
+        }
 
         // Coverage: fraction of query words that appear in the title.
         int coverageHits = queryTokens.Count(q => titleTokens.Contains(q));
-        double coverage  = (double)coverageHits / queryTokens.Count;
+        double coverage = (double)coverageHits / queryTokens.Count;
 
         // Precision: fraction of title words that appear in the query.
         int precisionHits = titleTokens.Count(t => queryTokens.Contains(t));
-        double precision  = (double)precisionHits / titleTokens.Count;
+        double precision = (double)precisionHits / titleTokens.Count;
 
         // F1 (harmonic mean) scaled to 0.85 ceiling.
         double f1 = (coverage + precision) > 0
@@ -342,7 +362,9 @@ public sealed partial class ConfigDrivenAdapter
             var authorTokens = TokenizeText(author);
             bool authorInQuery = authorTokens.Any(a => queryTokens.Contains(a));
             if (authorInQuery)
+            {
                 score += 0.05;
+            }
         }
 
         return Math.Clamp(score, 0.05, 1.0);
@@ -388,120 +410,130 @@ public sealed partial class ConfigDrivenAdapter
                     var resultNode = await NavigateToResultAsync(cachedJson, strategy, request, ct)
                         .ConfigureAwait(false);
                     if (resultNode is not null)
+                    {
                         return await ExtractAndValidateClaimsAsync(strategy, request, resultNode, ct)
                             .ConfigureAwait(false);
+                    }
                 }
             }
         }
 
         // -- HTTP call with provider-level rate limiting ----------------------
-            using var client = _httpFactory.CreateClient(_config.Name);
+        using var client = _httpFactory.CreateClient(_config.Name);
 
-            // ETag conditional revalidation for expired entries.
-            string? existingEtag = null;
-            if (_responseCache is not null)
+        // ETag conditional revalidation for expired entries.
+        string? existingEtag = null;
+        if (_responseCache is not null)
+        {
+            existingEtag = await _responseCache.FindExpiredEtagAsync(cacheKey, ct)
+                .ConfigureAwait(false);
+        }
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
+        if (!string.IsNullOrEmpty(existingEtag))
+        {
+            httpRequest.Headers.IfNoneMatch.Add(
+                new System.Net.Http.Headers.EntityTagHeaderValue($"\"{existingEtag}\""));
+        }
+
+        // Apply bearer API key header if configured.
+        if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
+            && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
+        {
+            httpRequest.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Bearer", _config.HttpClient.ApiKey);
+        }
+        // Apply HTTP Basic Authentication if configured.
+        else if (_config.HttpClient is { ApiKeyDelivery: "basic" }
+            && !string.IsNullOrWhiteSpace(_config.HttpClient.Username)
+            && !string.IsNullOrWhiteSpace(_config.HttpClient.Password))
+        {
+            var credentials = Convert.ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes(
+                    $"{_config.HttpClient.Username}:{_config.HttpClient.Password}"));
+            httpRequest.Headers.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Basic", credentials);
+        }
+
+        using var response = await _rateLimiter.ExecuteAsync(
+            Name,
+            _config.RateLimit,
+            token => client.SendAsync(httpRequest, token),
+            ct).ConfigureAwait(false);
+
+        // ETag 304: cache is still valid — refresh expiry and use it.
+        if (response.StatusCode == System.Net.HttpStatusCode.NotModified
+            && _responseCache is not null)
+        {
+            _logger.LogDebug(
+                "{Provider}/{Strategy}: 304 Not Modified — refreshing cache",
+                Name, strategy.Name);
+            await _responseCache.RefreshExpiryAsync(cacheKey, cacheTtlHours, ct)
+                .ConfigureAwait(false);
+
+            // Re-read the now-refreshed cached response.
+            var refreshed = await _responseCache.FindAsync(cacheKey, ct)
+                .ConfigureAwait(false);
+            if (refreshed is not null)
             {
-                existingEtag = await _responseCache.FindExpiredEtagAsync(cacheKey, ct)
-                    .ConfigureAwait(false);
-            }
-
-            using var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
-            if (!string.IsNullOrEmpty(existingEtag))
-                httpRequest.Headers.IfNoneMatch.Add(
-                    new System.Net.Http.Headers.EntityTagHeaderValue($"\"{existingEtag}\""));
-
-            // Apply bearer API key header if configured.
-            if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
-                && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
-            {
-                httpRequest.Headers.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue(
-                        "Bearer", _config.HttpClient.ApiKey);
-            }
-            // Apply HTTP Basic Authentication if configured.
-            else if (_config.HttpClient is { ApiKeyDelivery: "basic" }
-                && !string.IsNullOrWhiteSpace(_config.HttpClient.Username)
-                && !string.IsNullOrWhiteSpace(_config.HttpClient.Password))
-            {
-                var credentials = Convert.ToBase64String(
-                    System.Text.Encoding.UTF8.GetBytes(
-                        $"{_config.HttpClient.Username}:{_config.HttpClient.Password}"));
-                httpRequest.Headers.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue(
-                        "Basic", credentials);
-            }
-
-            using var response = await _rateLimiter.ExecuteAsync(
-                Name,
-                _config.RateLimit,
-                token => client.SendAsync(httpRequest, token),
-                ct).ConfigureAwait(false);
-
-            // ETag 304: cache is still valid — refresh expiry and use it.
-            if (response.StatusCode == System.Net.HttpStatusCode.NotModified
-                && _responseCache is not null)
-            {
-                _logger.LogDebug(
-                    "{Provider}/{Strategy}: 304 Not Modified — refreshing cache",
-                    Name, strategy.Name);
-                await _responseCache.RefreshExpiryAsync(cacheKey, cacheTtlHours, ct)
-                    .ConfigureAwait(false);
-
-                // Re-read the now-refreshed cached response.
-                var refreshed = await _responseCache.FindAsync(cacheKey, ct)
-                    .ConfigureAwait(false);
-                if (refreshed is not null)
+                var cachedJson = JsonNode.Parse(refreshed.ResponseJson);
+                if (cachedJson is not null)
                 {
-                    var cachedJson = JsonNode.Parse(refreshed.ResponseJson);
-                    if (cachedJson is not null)
+                    var resultNode = await NavigateToResultAsync(cachedJson, strategy, request, ct)
+                        .ConfigureAwait(false);
+                    if (resultNode is not null)
                     {
-                        var resultNode = await NavigateToResultAsync(cachedJson, strategy, request, ct)
+                        return await ExtractAndValidateClaimsAsync(strategy, request, resultNode, ct)
                             .ConfigureAwait(false);
-                        if (resultNode is not null)
-                            return await ExtractAndValidateClaimsAsync(strategy, request, resultNode, ct)
-                                .ConfigureAwait(false);
                     }
                 }
-                return [];
             }
+            return [];
+        }
 
-            // Tolerate 404 for direct-lookup APIs (e.g. Audnexus).
-            if (response.StatusCode == System.Net.HttpStatusCode.NotFound
-                && strategy.Tolerate404)
-            {
-                _logger.LogDebug(
-                    "{Provider}/{Strategy}: 404 tolerated", Name, strategy.Name);
-                return [];
-            }
+        // Tolerate 404 for direct-lookup APIs (e.g. Audnexus).
+        if (response.StatusCode == System.Net.HttpStatusCode.NotFound
+            && strategy.Tolerate404)
+        {
+            _logger.LogDebug(
+                "{Provider}/{Strategy}: 404 tolerated", Name, strategy.Name);
+            return [];
+        }
 
-            response.EnsureSuccessStatusCode();
+        response.EnsureSuccessStatusCode();
 
-            var responseBody = await response.Content.ReadAsStringAsync(ct)
+        var responseBody = await response.Content.ReadAsStringAsync(ct)
+            .ConfigureAwait(false);
+
+        // Cache the response.
+        if (_responseCache is not null && !string.IsNullOrEmpty(responseBody))
+        {
+            var etag = response.Headers.ETag?.Tag?.Trim('"');
+            var queryHash = ComputeSha256(url);
+            await _responseCache.UpsertAsync(
+                cacheKey, _providerId.ToString(), queryHash,
+                responseBody, etag, cacheTtlHours, ct)
                 .ConfigureAwait(false);
+        }
 
-            // Cache the response.
-            if (_responseCache is not null && !string.IsNullOrEmpty(responseBody))
-            {
-                var etag = response.Headers.ETag?.Tag?.Trim('"');
-                var queryHash = ComputeSha256(url);
-                await _responseCache.UpsertAsync(
-                    cacheKey, _providerId.ToString(), queryHash,
-                    responseBody, etag, cacheTtlHours, ct)
-                    .ConfigureAwait(false);
-            }
+        var json = JsonNode.Parse(responseBody);
+        if (json is null)
+        {
+            return [];
+        }
 
-            var json = JsonNode.Parse(responseBody);
-            if (json is null)
-                return [];
+        // Navigate to result object.
+        var resultObj = await NavigateToResultAsync(json, strategy, request, ct)
+            .ConfigureAwait(false);
+        if (resultObj is null)
+        {
+            return [];
+        }
 
-            // Navigate to result object.
-            var resultObj = await NavigateToResultAsync(json, strategy, request, ct)
-                .ConfigureAwait(false);
-            if (resultObj is null)
-                return [];
-
-            return await ExtractAndValidateClaimsAsync(strategy, request, resultObj, ct)
-                .ConfigureAwait(false);
+        return await ExtractAndValidateClaimsAsync(strategy, request, resultObj, ct)
+            .ConfigureAwait(false);
     }
 
 }

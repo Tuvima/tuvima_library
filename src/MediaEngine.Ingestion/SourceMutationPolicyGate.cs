@@ -15,35 +15,53 @@ public sealed class SourceMutationPolicyGate : ISourceMutationPolicyGate
         ArgumentNullException.ThrowIfNull(request.Source);
 
         if (string.IsNullOrWhiteSpace(request.Source.LibraryId))
+        {
             return SourceMutationDecision.Deny("The source has no library identity.");
+        }
 
         if (string.IsNullOrWhiteSpace(request.Source.SourceId))
+        {
             return SourceMutationDecision.Deny("The source has no stable identity.");
+        }
 
         if (!PathSafety.TryNormalizeRoot(request.Source.RootPath, out var root, out var rootError))
+        {
             return SourceMutationDecision.Deny(rootError!);
+        }
 
         if (!PathSafety.TryNormalizePath(request.Path, out var path, out var pathError))
+        {
             return SourceMutationDecision.Deny(pathError!);
+        }
 
         if (!PathSafety.IsContainedBy(path!, root!))
+        {
             return SourceMutationDecision.Deny("The requested path is outside the configured source root.");
+        }
 
         if (request.Source.ManagementMode == FileSourceManagementMode.ExistingLibrary)
+        {
             return SourceMutationDecision.Deny("Existing-library sources are read-only and cannot be mutated or used as destinations.");
+        }
 
         if (request.Source.ManagementMode != FileSourceManagementMode.ManagedByTuvima)
+        {
             return SourceMutationDecision.Deny("The source management mode is not supported.");
+        }
 
         if (!request.Source.IsWritable)
+        {
             return SourceMutationDecision.Deny("The managed source is not writable.");
+        }
 
         // Tuvima's staging area contains incoming files, not owned library originals.
         // A protected destination may receive imports but its existing media stays intact.
         if (request.Source.ProtectExistingFiles
             && request.Mutation != SourceMutationKind.UseAsDestination
             && !PathSafety.IsContainedBy(path!, Path.Combine(root!, ".data", "staging")))
+        {
             return SourceMutationDecision.Deny("Existing files are protected by this library's policy.");
+        }
 
         bool permitted = request.Mutation switch
         {
@@ -70,7 +88,9 @@ internal static class PathSafety
     internal static bool TryNormalizeRoot(string? value, out string? normalized, out string? error)
     {
         if (!TryNormalizePath(value, out normalized, out error))
+        {
             return false;
+        }
 
         normalized = Path.TrimEndingDirectorySeparator(normalized!);
         return true;
@@ -102,7 +122,9 @@ internal static class PathSafety
     internal static bool IsContainedBy(string path, string root)
     {
         if (Comparer.Equals(path, root))
+        {
             return true;
+        }
 
         string prefix = root + Path.DirectorySeparatorChar;
         return path.StartsWith(prefix, OperatingSystem.IsWindows()

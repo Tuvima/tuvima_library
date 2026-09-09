@@ -1,5 +1,7 @@
 # Feature: Real-Time Intercom
 
+> Access update, 2026-09-09: the existing Dashboard wire stays frozen, but recipients require current authority and resource filtering. External integrations use the separate `/application-events` durable, scoped feed; never route them to an unfiltered Dashboard broadcast. Exact connection revocation, replay sequence/gap behavior, and producer provenance remain mandatory acceptance checks. See `docs/architecture/security.md` and the Access execution status. Older event lists below are historical implementation notes, not permission to broadcast private payloads.
+
 > **Mirrors:** `CLAUDE.md` §3.4 (Dashboard UI — Real-time updates) — keep both in sync per `.agent/SYNC-MAP.md`
 
 > Last audited: 2026-03-01 | Auditor: Claude (Product-Led Architect)

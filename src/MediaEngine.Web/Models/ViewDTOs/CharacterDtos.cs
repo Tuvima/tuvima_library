@@ -8,13 +8,13 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// </summary>
 public sealed class UniverseHealthDto
 {
-    public string Qid                   { get; set; } = string.Empty;
-    public string Label                 { get; set; } = string.Empty;
-    public int    EntitiesTotal         { get; set; }
-    public int    EntitiesEnriched      { get; set; }
-    public int    EntitiesWithImages    { get; set; }
-    public int    RelationshipsTotal    { get; set; }
-    public double HealthPercent         { get; set; }
+    public string Qid { get; set; } = string.Empty;
+    public string Label { get; set; } = string.Empty;
+    public int EntitiesTotal { get; set; }
+    public int EntitiesEnriched { get; set; }
+    public int EntitiesWithImages { get; set; }
+    public int RelationshipsTotal { get; set; }
+    public double HealthPercent { get; set; }
 }
 
 // ── Character Portraits ───────────────────────────────────────────────────────
@@ -25,13 +25,13 @@ public sealed class UniverseHealthDto
 /// </summary>
 public sealed class CharacterPortraitDto
 {
-    public Guid    Id                { get; set; }
-    public Guid    PersonId          { get; set; }
-    public string? PersonName        { get; set; }
-    public Guid    FictionalEntityId { get; set; }
-    public string? CharacterName     { get; set; }
-    public string? ImageUrl          { get; set; }
-    public bool    IsDefault         { get; set; }
+    public Guid Id { get; set; }
+    public Guid PersonId { get; set; }
+    public string? PersonName { get; set; }
+    public Guid FictionalEntityId { get; set; }
+    public string? CharacterName { get; set; }
+    public string? ImageUrl { get; set; }
+    public bool IsDefault { get; set; }
 }
 
 // ── Character Roles (Person view) ─────────────────────────────────────────────
@@ -42,17 +42,17 @@ public sealed class CharacterPortraitDto
 /// </summary>
 public sealed class CharacterRoleDto
 {
-    public Guid    FictionalEntityId { get; set; }
-    public string? CharacterName     { get; set; }
-    public string? PortraitUrl       { get; set; }
-    public Guid?   WorkId            { get; set; }
-    public string? WorkQid           { get; set; }
-    public string? WorkTitle         { get; set; }
-    public Guid?   CollectionId      { get; set; }
-    public string? MediaType         { get; set; }
-    public bool    IsDefault         { get; set; }
-    public string? UniverseQid       { get; set; }
-    public string? UniverseLabel     { get; set; }
+    public Guid FictionalEntityId { get; set; }
+    public string? CharacterName { get; set; }
+    public string? PortraitUrl { get; set; }
+    public Guid? WorkId { get; set; }
+    public string? WorkQid { get; set; }
+    public string? WorkTitle { get; set; }
+    public Guid? CollectionId { get; set; }
+    public string? MediaType { get; set; }
+    public bool IsDefault { get; set; }
+    public string? UniverseQid { get; set; }
+    public string? UniverseLabel { get; set; }
 }
 
 // ── Universe Character (Universe view) ───────────────────────────────────────
@@ -63,11 +63,11 @@ public sealed class CharacterRoleDto
 /// </summary>
 public sealed class UniverseCharacterDto
 {
-    public Guid    FictionalEntityId { get; set; }
-    public string  CharacterName     { get; set; } = string.Empty;
-    public string? DefaultActorName  { get; set; }
-    public Guid?   DefaultActorId    { get; set; }
-    public string? PortraitUrl       { get; set; }
-    public int     ActorCount        { get; set; }
+    public Guid FictionalEntityId { get; set; }
+    public string CharacterName { get; set; } = string.Empty;
+    public string? DefaultActorName { get; set; }
+    public Guid? DefaultActorId { get; set; }
+    public string? PortraitUrl { get; set; }
+    public int ActorCount { get; set; }
 }
 

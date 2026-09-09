@@ -33,18 +33,31 @@ internal static class LibraryMutationEndpoints
                 var current = configuration.LoadLibraries();
                 var dto = SettingsContractMapper.ToContract(current);
                 var conflict = ApplyEdit(dto, request);
-                if (conflict is not null) return ApiErrors.Conflict(conflict);
+                if (conflict is not null)
+                {
+                    return ApiErrors.Conflict(conflict);
+                }
+
                 var proposed = SettingsContractMapper.ToStorage(new UpdateLibrariesRequest
                 {
-                    SchemaVersion = dto.SchemaVersion, Libraries = dto.Libraries,
-                    StorageLocations = dto.StorageLocations, ViewStorage = dto.ViewStorage,
+                    SchemaVersion = dto.SchemaVersion,
+                    Libraries = dto.Libraries,
+                    StorageLocations = dto.StorageLocations,
+                    ViewStorage = dto.ViewStorage,
                     PersonalLibraryPolicy = dto.PersonalLibraryPolicy,
                 });
                 var error = SettingsEndpoints.ValidateViewStorage(proposed)
                     ?? SettingsEndpoints.ValidateViewRootChange(current, proposed);
-                if (error is not null) return ApiErrors.BadRequest(error);
+                if (error is not null)
+                {
+                    return ApiErrors.BadRequest(error);
+                }
+
                 var errors = JsonConfigValidator.Validate(proposed, "libraries.json");
-                if (errors.Count > 0) return ApiErrors.BadRequest(string.Join(" ", errors));
+                if (errors.Count > 0)
+                {
+                    return ApiErrors.BadRequest(string.Join(" ", errors));
+                }
 
                 // Validate all logical conflicts, but probe only paths affected by this edit.
                 var changed = request.Library;
@@ -52,17 +65,24 @@ internal static class LibraryMutationEndpoints
                 {
                     if (changed.OrganizationPolicy.Mode == "custom"
                         && organizer.ValidateTemplate(changed.OrganizationPolicy.CustomTemplate ?? "", out var templateError) is null)
+                    {
                         return ApiErrors.BadRequest(templateError ?? "Invalid template.");
+                    }
+
                     foreach (var source in changed.Sources.Where(source =>
                         !Same(source, request.ExpectedLibrary?.Sources.FirstOrDefault(x => x.Id == source.Id))))
                     {
                         var result = folders.Validate(new ValidateServerFolderRequest
                         {
-                            ManualPath = source.Path, CurrentSourceId = source.Id,
+                            ManualPath = source.Path,
+                            CurrentSourceId = source.Id,
                             SelectionMode = source.ManagementMode == "managed_by_tuvima"
                                 ? ServerFolderSelectionModes.ManagedLibrary : ServerFolderSelectionModes.ExistingLibrary,
                         }, proposed);
-                        if (!result.CanSelect) return ApiErrors.BadRequest(result.Issues.First(x => x.Severity == "error").Message);
+                        if (!result.CanSelect)
+                        {
+                            return ApiErrors.BadRequest(result.Issues.First(x => x.Severity == "error").Message);
+                        }
                     }
                 }
                 else
@@ -73,13 +93,23 @@ internal static class LibraryMutationEndpoints
                         RelativePath = proposed.ViewStorage.RelativeRoot,
                         SelectionMode = ServerFolderSelectionModes.PersonalSpaceManaged,
                     }, proposed);
-                    if (!result.CanSelect) return ApiErrors.BadRequest(result.Issues.First(x => x.Severity == "error").Message);
+                    if (!result.CanSelect)
+                    {
+                        return ApiErrors.BadRequest(result.Issues.First(x => x.Severity == "error").Message);
+                    }
                 }
                 configuration.SaveLibraries(proposed);
                 if (request.ViewStorage is not null)
+                {
                     foreach (var profile in await profiles.GetAllAsync(ct))
+                    {
                         if ((await policies.GetPolicyAsync(profile.Id, ct)).ViewEnabled)
+                        {
                             await storage.EnsurePersonalSpaceAsync(profile.Id, ct);
+                        }
+                    }
+                }
+
                 return Results.Ok(SettingsContractMapper.ToContract(proposed));
             }
             catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException or ServerFolderAccessException)
@@ -93,20 +123,35 @@ internal static class LibraryMutationEndpoints
     internal static string? ApplyEdit(LibrariesConfigurationDto dto, LibraryMutationRequest request)
     {
         if ((request.Library is null) == (request.ViewStorage is null))
+        {
             throw new ArgumentException("Choose exactly one library or View root to edit.");
+        }
+
         if (request.Library is { } edited)
         {
             var index = dto.Libraries.FindIndex(x => x.Id == edited.Id);
             var existing = index < 0 ? null : dto.Libraries[index];
             if (!Same(existing, request.ExpectedLibrary))
+            {
                 return "This library changed in another session. Reload before editing again.";
-            if (index < 0) dto.Libraries.Add(edited);
-            else dto.Libraries[index] = edited;
+            }
+
+            if (index < 0)
+            {
+                dto.Libraries.Add(edited);
+            }
+            else
+            {
+                dto.Libraries[index] = edited;
+            }
         }
         else
         {
             if (!Same(dto.ViewStorage, request.ExpectedViewStorage))
+            {
                 return "View storage changed in another session. Reload before editing again.";
+            }
+
             dto.ViewStorage.StorageLocationId = request.ViewStorage!.StorageLocationId;
             dto.ViewStorage.RelativeRoot = request.ViewStorage.RelativeRoot;
         }

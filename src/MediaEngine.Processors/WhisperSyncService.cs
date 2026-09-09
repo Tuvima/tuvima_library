@@ -56,7 +56,10 @@ public sealed class WhisperSyncService : IWhisperSyncService
     public async Task<bool> CancelJobAsync(Guid jobId, CancellationToken ct = default)
     {
         var job = await _repo.FindByIdAsync(jobId, ct);
-        if (job is null) return false;
+        if (job is null)
+        {
+            return false;
+        }
 
         if (job.Status is AlignmentJobStatus.Completed or AlignmentJobStatus.Failed)
         {
@@ -72,7 +75,10 @@ public sealed class WhisperSyncService : IWhisperSyncService
     public async Task<bool> ProcessNextPendingAsync(CancellationToken ct = default)
     {
         var job = await _repo.FindPendingAsync(ct);
-        if (job is null) return false;
+        if (job is null)
+        {
+            return false;
+        }
 
         _logger.LogInformation("Processing WhisperSync alignment job {JobId}", job.Id);
         await _repo.UpdateStatusAsync(job.Id, AlignmentJobStatus.Processing, null, null, ct);

@@ -57,9 +57,15 @@ public sealed class OnboardingRepositoryTests : IDisposable
     {
         await _repository.TryBeginAsync("session", Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours(1), CancellationToken.None);
         foreach (var key in new[] { "preflight", "administrator" })
+        {
             await _repository.SetStepAsync(key, "passed", null, null, null, CancellationToken.None);
+        }
+
         foreach (var key in new[] { "media-locations", "providers" })
+        {
             await _repository.SetStepAsync(key, "deferred", "Later", null, null, CancellationToken.None);
+        }
+
         var reloaded = new OnboardingRepository(_database);
         Assert.Equal("deferred", reloaded.Get().Steps.Single(step => step.Key == "media-locations").Status);
         Assert.True(await reloaded.CompleteAsync(CancellationToken.None));
@@ -68,7 +74,14 @@ public sealed class OnboardingRepositoryTests : IDisposable
     public void Dispose()
     {
         _database.Dispose();
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        if (File.Exists(_databasePath)) File.Delete(_databasePath);
+        using (var pool = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_databasePath}"))
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearPool(pool);
+        }
+
+        if (File.Exists(_databasePath))
+        {
+            File.Delete(_databasePath);
+        }
     }
 }

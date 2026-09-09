@@ -2,12 +2,15 @@ using MediaEngine.Api.DependencyInjection;
 using MediaEngine.Api.Realtime;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Display;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion.DependencyInjection;
 using MediaEngine.Plugins;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -36,10 +39,26 @@ public sealed class EngineCompositionValidationTests
         services.AddSingleton<IHostApplicationLifetime, TestHostApplicationLifetime>();
         services.AddSingleton<IEventPublisher, SignalREventPublisher>();
         services.AddSingleton<ISecretStore, DataProtectionSecretStore>();
-        services.AddSingleton<ApiKeyService>();
-        services.AddSingleton<IApiKeyLookupCache, ApiKeyLookupCache>();
 
         services.AddTuvimaStorage();
+        services.AddSingleton<IPermissionRegistry, PermissionRegistry>();
+        services.AddScoped<IRequestAuthorityResolver, RequestAuthorityResolver>();
+        services.AddScoped<CatalogueResourceAuthorizationService>();
+        services.AddScoped<DashboardAuthorityProjector>();
+        services.AddScoped<IAccountAccessMutationService, AccountAccessMutationService>();
+        services.AddScoped<ApplicationAdministrationService>();
+        services.AddScoped<IGrantAdminUnlockService, GrantAdminUnlockService>();
+        services.AddScoped<IAccountAccessDecisionService, AccountAccessDecisionService>();
+        services.AddScoped<ISelfServiceAuthorizationService>(provider =>
+            (AccountAccessDecisionService)provider.GetRequiredService<IAccountAccessDecisionService>());
+        services.AddScoped<MediaEngine.Domain.Contracts.IAuthorizationEvaluator, AuthorizationEvaluator>();
+        services.AddSingleton<IAuthorizationInvalidationService, AuthorizationInvalidationService>();
+        services.AddSingleton<IAuthorizationAuditWriter, AuthorizationAuditWriter>();
+        services.AddScoped<IAuthorizationHandler, EffectiveAdministratorHandler>();
+        services.AddScoped<IAuthorizationHandler, HumanSelfServiceHandler>();
+        services.AddScoped<IAuthorizationHandler, ApplicationPermissionHandler>();
+        services.AddScoped<IAuthorizationHandler, AdministratorOrApplicationHandler>();
+        services.AddScoped<IAuthorizationHandler, HumanOrApplicationPermissionHandler>();
         services.AddTuvimaPlayback();
         services.AddMediaEngineIngestion(configuration, configLoader);
         services.AddTuvimaDisplay();
@@ -47,6 +66,9 @@ public sealed class EngineCompositionValidationTests
         services.AddTuvimaProviders(configLoader);
         services.AddTuvimaAi(configLoader);
         services.AddTuvimaPlugins();
+        services.AddPluginApplicationServices();
+        services.AddApplicationEvents();
+        services.AddApplicationWebhooks();
         services.AddTuvimaHostedServices();
 
         using var provider = services.BuildServiceProvider(
@@ -102,15 +124,25 @@ public sealed class EngineCompositionValidationTests
         services.AddTuvimaDisplay();
         services.AddTuvimaPlayback();
 
-        Assert.All(
-            services.Where(descriptor =>
+        var displayAndDetail = services.Where(descriptor =>
                 descriptor.ServiceType.Namespace?.StartsWith(
                     "MediaEngine.Api.Services.Display",
                     StringComparison.Ordinal) == true
                 || descriptor.ServiceType.Namespace?.StartsWith(
                     "MediaEngine.Api.Services.Details",
-                    StringComparison.Ordinal) == true),
+                    StringComparison.Ordinal) == true).ToList();
+        var requestScoped = new HashSet<Type>
+        {
+            typeof(IDisplayProjectionReadService),
+            typeof(ContributorShelfReadService),
+            typeof(DisplayComposerService),
+        };
+        Assert.All(
+            displayAndDetail.Where(descriptor => !requestScoped.Contains(descriptor.ServiceType)),
             descriptor => Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime));
+        Assert.All(
+            displayAndDetail.Where(descriptor => requestScoped.Contains(descriptor.ServiceType)),
+            descriptor => Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime));
         Assert.Contains(
             services,
             descriptor =>

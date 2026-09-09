@@ -26,7 +26,9 @@ public sealed class QidLabelResolver : IQidLabelResolver
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return fallbackLabel;
+        }
 
         var label = await _repo.GetLabelAsync(qid, ct).ConfigureAwait(false);
         return label ?? fallbackLabel;
@@ -39,7 +41,9 @@ public sealed class QidLabelResolver : IQidLabelResolver
     {
         var qidList = qids.Where(q => !string.IsNullOrWhiteSpace(q)).ToList();
         if (qidList.Count == 0)
+        {
             return new Dictionary<string, string>();
+        }
 
         var cached = await _repo.GetLabelsAsync(qidList, ct).ConfigureAwait(false);
 

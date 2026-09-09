@@ -1,11 +1,13 @@
+using System.Security.Cryptography;
+using System.Text;
+using Dapper;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Storage;
 using Microsoft.AspNetCore.Identity;
-using System.Security.Cryptography;
-using System.Text;
 
 namespace MediaEngine.Identity.Tests;
 
@@ -18,6 +20,7 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     private readonly ProfileRepository _profiles;
     private readonly FirstPartyIdentityService _service;
     private readonly ManualTimeProvider _clock = new(new DateTimeOffset(2026, 9, 3, 12, 0, 0, TimeSpan.Zero));
+    private readonly MutableAuthenticationPolicyProvider _policy = new();
 
     public FirstPartyIdentityServiceTests()
     {
@@ -33,7 +36,8 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
             _profiles,
             new PasswordHasher<AccountCredential>(),
             new PasswordHasher<ProfileCredential>(),
-            _clock);
+            _clock,
+            _policy);
     }
 
     [Fact]
@@ -46,8 +50,109 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
             "owner@example.com", "correct horse battery staple", "Owner", "device", "Browser", "Dashboard", pin: "0123");
         var credential = await _identities.GetCredentialAsync(issued.Profile.Id, MediaEngine.Domain.Entities.ProfileCredentialKind.ProfilePin);
         Assert.NotNull(credential);
-        Assert.True((await _service.AuthenticatePinAsync(issued.Profile.Id, "0123", "pin-device", "Browser", "Dashboard")).Succeeded);
+        Assert.False((await _service.AuthenticatePinAsync(issued.Profile.Id, "0123", "pin-device", "Browser", "Dashboard")).Succeeded);
         Assert.NotEmpty(issued.RecoveryCodes);
+        Assert.True(await _service.IsAdministratorConfiguredAsync());
+        Assert.Single(await _accounts.GetAllAsync());
+    }
+
+    [Fact]
+    public async Task BootstrapCompletion_DoesNotDependOnProfilePresentationRole()
+    {
+        await _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner",
+            "browser-1", "Living room", "Dashboard");
+        using (var connection = _database.CreateConnection())
+        {
+            connection.Execute(
+                "UPDATE profiles SET role='RestrictedProfile' WHERE id=@profileId;",
+                new { profileId = Profile.SeedProfileId });
+        }
+
+        Assert.True(await _service.IsAdministratorConfiguredAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.BootstrapAdministratorAsync(
+                "takeover@example.com", "different secure password", "Takeover",
+                "browser-2", "Other", "Dashboard"));
+    }
+
+    [Fact]
+    public async Task BootstrapCompletion_PersistsWhenAccountGrantAndSignInMethodAreDisabled()
+    {
+        await _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner",
+            "browser-1", "Living room", "Dashboard");
+        using (var connection = _database.CreateConnection())
+        {
+            connection.Execute(
+                "UPDATE accounts SET is_enabled=0,is_administrator=0 WHERE id=@accountId;",
+                new { accountId = Account.SeedAccountId });
+            connection.Execute(
+                "UPDATE account_profile_grants SET is_enabled=0,admin_enabled=0 WHERE account_id=@accountId;",
+                new { accountId = Account.SeedAccountId });
+            connection.Execute(
+                "DELETE FROM account_credentials WHERE account_id=@accountId;",
+                new { accountId = Account.SeedAccountId });
+        }
+
+        Assert.True(await _service.IsAdministratorConfiguredAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.BootstrapAdministratorAsync(
+                "takeover@example.com", "different secure password", "Takeover",
+                "browser-2", "Other", "Dashboard"));
+    }
+
+    [Fact]
+    public async Task BootstrapCompletion_PersistsForPasskeyOnlyAdministrator()
+    {
+        await _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner",
+            "browser-1", "Living room", "Dashboard");
+        using (var connection = _database.CreateConnection())
+        {
+            connection.Execute(
+                "DELETE FROM account_credentials WHERE account_id=@accountId;",
+                new { accountId = Account.SeedAccountId });
+            connection.Execute("""
+                INSERT INTO account_passkeys(credential_id,account_id,name,data_json,created_at,last_used_at)
+                VALUES(@credentialId,@accountId,'Security key','{}',@createdAt,NULL);
+                """, new
+            {
+                credentialId = new byte[] { 1, 2, 3, 4 },
+                accountId = Account.SeedAccountId,
+                createdAt = _clock.GetUtcNow().ToString("O"),
+            });
+        }
+
+        Assert.True(await _service.IsAdministratorConfiguredAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.BootstrapAdministratorAsync(
+                "takeover@example.com", "different secure password", "Takeover",
+                "browser-2", "Other", "Dashboard"));
+    }
+
+    [Fact]
+    public async Task ConcurrentBootstrap_AllowsOnlyOneAccountCreation()
+    {
+        var attempts = Enumerable.Range(0, 2).Select(index => Task.Run(async () =>
+        {
+            try
+            {
+                await _service.BootstrapAdministratorAsync(
+                    $"owner{index}@example.com", "correct horse battery staple", "Owner",
+                    $"browser-{index}", "Browser", "Dashboard");
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }));
+
+        var outcomes = await Task.WhenAll(attempts);
+
+        Assert.Single(outcomes, succeeded => succeeded);
+        Assert.Single(await _accounts.GetAllAsync());
         Assert.True(await _service.IsAdministratorConfiguredAsync());
     }
 
@@ -73,8 +178,21 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
         Assert.NotNull(login.IssuedSession);
         Assert.NotNull(await _service.ValidateSessionAsync(login.IssuedSession.PlaintextToken));
 
+        await _accounts.SetAdminUnlockAsync(new GrantAdminUnlock
+        {
+            SessionId = login.IssuedSession.Session.Id,
+            AccountId = login.IssuedSession.Account.Id,
+            ProfileId = login.IssuedSession.ActiveProfile.Id,
+            ProtectionVersion = 1,
+            Method = "GrantPin",
+            GrantedAt = _clock.GetUtcNow(),
+            ExpiresAt = _clock.GetUtcNow().AddMinutes(30),
+        });
+
         Assert.True(await _service.RevokeSessionAsync(login.IssuedSession.Session.Id, "test"));
         Assert.Null(await _service.ValidateSessionAsync(login.IssuedSession.PlaintextToken));
+        Assert.Null(await _accounts.GetAdminUnlockAsync(login.IssuedSession.Session.Id,
+            login.IssuedSession.Account.Id, login.IssuedSession.ActiveProfile.Id, _clock.GetUtcNow()));
     }
 
     [Fact]
@@ -88,6 +206,46 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
         Assert.NotNull(stored);
         Assert.Equal(bootstrap.Session.Id, stored.Id);
         Assert.Equal(bootstrap.Session.AccountId, stored.AccountId);
+    }
+
+    [Fact]
+    public async Task SessionPolicy_ControlsExpiryAndRevokesOldestSessionAtLimit()
+    {
+        _policy.Settings.SessionLifetimeHours = 6;
+        _policy.Settings.MaximumActiveSessions = 2;
+        var bootstrap = await _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner", "browser-1", "Living room", "Dashboard");
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        var second = (await _service.AuthenticatePasswordAsync(
+            "owner@example.com", "correct horse battery staple", "browser-2", "Office", "Dashboard")).IssuedSession!;
+        _clock.Advance(TimeSpan.FromMinutes(1));
+        var third = (await _service.AuthenticatePasswordAsync(
+            "owner@example.com", "correct horse battery staple", "browser-3", "Phone", "Dashboard")).IssuedSession!;
+
+        Assert.Equal(TimeSpan.FromHours(6), third.Session.ExpiresAt - third.Session.CreatedAt);
+        Assert.Null(await _service.ValidateSessionAsync(bootstrap.PlaintextToken));
+        Assert.NotNull(await _service.ValidateSessionAsync(second.PlaintextToken));
+        Assert.NotNull(await _service.ValidateSessionAsync(third.PlaintextToken));
+        Assert.Equal(2, (await _service.GetSessionsAsync(third.Account.Id)).Count(session => session.IsActive(_clock.GetUtcNow())));
+    }
+
+    [Fact]
+    public async Task SessionPolicy_SerializesConcurrentIssuanceAtTheConfiguredLimit()
+    {
+        _policy.Settings.MaximumActiveSessions = 2;
+        var bootstrap = await _service.BootstrapAdministratorAsync(
+            "owner@example.com", "correct horse battery staple", "Owner", "browser-1", "Living room", "Dashboard");
+
+        var attempts = await Task.WhenAll(
+            _service.AuthenticatePasswordAsync(
+                "owner@example.com", "correct horse battery staple", "browser-2", "Office", "Dashboard"),
+            _service.AuthenticatePasswordAsync(
+                "owner@example.com", "correct horse battery staple", "browser-3", "Phone", "Dashboard"));
+
+        Assert.All(attempts, attempt => Assert.True(attempt.Succeeded));
+        Assert.Equal(2, (await _service.GetSessionsAsync(bootstrap.Account.Id))
+            .Count(session => session.IsActive(_clock.GetUtcNow())));
+        Assert.Null(await _service.ValidateSessionAsync(bootstrap.PlaintextToken));
     }
 
     [Fact]
@@ -114,7 +272,7 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ProfilePin_IsDistinctFromAdministratorPasswordAndCanBeRemoved()
+    public async Task LocalOnlyAccount_CanEnterWithoutPinAndRequiresPinAfterOneIsConfigured()
     {
         await _service.BootstrapAdministratorAsync(
             "owner@example.com", "correct horse battery staple", "Owner", "browser-1", "Living room", "Dashboard");
@@ -126,9 +284,41 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
             Role = ProfileRole.RestrictedProfile,
             CreatedAt = DateTimeOffset.UtcNow,
         };
-        await _profiles.InsertAsync(profile);
+        await InsertProfileAsync(profile);
+
+        var localAccount = new Account
+        {
+            Id = Guid.NewGuid(),
+            IsLocalOnly = true,
+            IsEnabled = true,
+            AuthorizationVersion = 1,
+            CreatedAt = _clock.GetUtcNow(),
+            UpdatedAt = _clock.GetUtcNow(),
+        };
+        await _accounts.CreateAccountAsync(
+            localAccount,
+            new AccountProfileGrant
+            {
+                AccountId = localAccount.Id,
+                ProfileId = profile.Id,
+                IsDefault = true,
+                IsEnabled = true,
+                AuthorizationVersion = 1,
+                GrantedAt = _clock.GetUtcNow(),
+            },
+            new HashSet<MediaEngine.Domain.Authorization.AccountFeatureId>(),
+            new HashSet<Guid>());
+
+        var passwordlessLogin = await _service.AuthenticatePinAsync(
+            profile.Id, string.Empty, "tablet", "Kids tablet", "Dashboard");
+        Assert.True(passwordlessLogin.Succeeded);
+        Assert.Equal("ProfileEntry", passwordlessLogin.IssuedSession!.Session.AuthenticationMethod);
+        Assert.NotNull(await _service.ValidateSessionAsync(passwordlessLogin.IssuedSession.PlaintextToken));
 
         await _service.SetProfilePinAsync(profile.Id, "2468");
+        Assert.Null(await _service.ValidateSessionAsync(passwordlessLogin.IssuedSession.PlaintextToken));
+        Assert.False((await _service.AuthenticatePinAsync(
+            profile.Id, "0000", "tablet", "Kids tablet", "Dashboard")).Succeeded);
         var pinLogin = await _service.AuthenticatePinAsync(
             profile.Id, "2468", "tablet", "Kids tablet", "Dashboard");
         Assert.True(pinLogin.Succeeded);
@@ -161,7 +351,7 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
             Role = ProfileRole.RestrictedProfile,
             CreatedAt = DateTimeOffset.UtcNow,
         };
-        await _profiles.InsertAsync(profile);
+        await InsertProfileAsync(profile);
         await _accounts.GrantProfileAsync(new AccountProfileGrant
         {
             AccountId = bootstrap.Account.Id,
@@ -246,51 +436,60 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task AccountProfileGrants_ControlSwitchingAndSwitchingClearsElevation()
+    public async Task AccountProfileGrants_ControlSwitchingAndSwitchingClearsGrantUnlock()
     {
         var bootstrap = await _service.BootstrapAdministratorAsync(
             "owner@example.com", "correct horse battery staple", "Dad", "browser-1", "Server", "Dashboard");
-        await _service.SetAdministratorPinAsync(bootstrap.Profile.Id, "2468");
-        var elevated = await _service.ElevateAdministratorAsync(bootstrap.PlaintextToken, "2468");
-        Assert.True(elevated.Succeeded);
+        await _accounts.SetAdminUnlockAsync(new GrantAdminUnlock
+        {
+            SessionId = bootstrap.Session.Id,
+            AccountId = bootstrap.Account.Id,
+            ProfileId = bootstrap.Profile.Id,
+            ProtectionVersion = 1,
+            Method = "GrantPin",
+            GrantedAt = _clock.GetUtcNow(),
+            ExpiresAt = _clock.GetUtcNow().AddMinutes(30),
+        });
+        Assert.NotNull(await _accounts.GetAdminUnlockAsync(
+            bootstrap.Session.Id,
+            bootstrap.Account.Id,
+            bootstrap.Profile.Id,
+            _clock.GetUtcNow()));
 
         var child = new Profile
         {
-            Id = Guid.NewGuid(), DisplayName = "Child", AvatarColor = "#123456",
-            Role = ProfileRole.RestrictedProfile, CreatedAt = _clock.GetUtcNow(),
+            Id = Guid.NewGuid(),
+            DisplayName = "Child",
+            AvatarColor = "#123456",
+            Role = ProfileRole.RestrictedProfile,
+            CreatedAt = _clock.GetUtcNow(),
         };
         var ungranted = new Profile
         {
-            Id = Guid.NewGuid(), DisplayName = "Guest", AvatarColor = "#654321",
-            Role = ProfileRole.StandardUser, CreatedAt = _clock.GetUtcNow(),
+            Id = Guid.NewGuid(),
+            DisplayName = "Guest",
+            AvatarColor = "#654321",
+            Role = ProfileRole.StandardUser,
+            CreatedAt = _clock.GetUtcNow(),
         };
-        await _profiles.InsertAsync(child);
-        await _profiles.InsertAsync(ungranted);
+        await InsertProfileAsync(child);
+        await InsertProfileAsync(ungranted);
         await _accounts.GrantProfileAsync(new AccountProfileGrant
         {
-            AccountId = bootstrap.Account.Id, ProfileId = child.Id, GrantedAt = _clock.GetUtcNow(),
+            AccountId = bootstrap.Account.Id,
+            ProfileId = child.Id,
+            GrantedAt = _clock.GetUtcNow(),
         });
 
         await _service.SwitchActiveProfileAsync(bootstrap.PlaintextToken, child.Id, null);
         await _service.SwitchActiveProfileAsync(bootstrap.PlaintextToken, bootstrap.Profile.Id, null);
-        Assert.Null(await _service.GetAdministratorElevationAsync(bootstrap.PlaintextToken));
+        Assert.Null(await _accounts.GetAdminUnlockAsync(
+            bootstrap.Session.Id,
+            bootstrap.Account.Id,
+            bootstrap.Profile.Id,
+            _clock.GetUtcNow()));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             _service.SwitchActiveProfileAsync(bootstrap.PlaintextToken, ungranted.Id, null));
-    }
-
-    [Fact]
-    public async Task AdministratorElevation_ExpiresAfterThirtyMinutes()
-    {
-        var bootstrap = await _service.BootstrapAdministratorAsync(
-            "owner@example.com", "correct horse battery staple", "Dad", "browser-1", "Server", "Dashboard");
-
-        var elevated = await _service.ElevateAdministratorAsync(
-            bootstrap.PlaintextToken, "correct horse battery staple");
-        Assert.True(elevated.Succeeded);
-        Assert.Equal(_clock.GetUtcNow().AddMinutes(30), await _service.GetAdministratorElevationAsync(bootstrap.PlaintextToken));
-
-        _clock.Advance(TimeSpan.FromMinutes(31));
-        Assert.Null(await _service.GetAdministratorElevationAsync(bootstrap.PlaintextToken));
     }
 
     [Fact]
@@ -334,18 +533,28 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
         const string token = "one-time-invitation-token";
         var invited = new Account
         {
-            Id = Guid.NewGuid(), Email = "family@example.com", NormalizedEmail = "FAMILY@EXAMPLE.COM",
-            IsEnabled = true, CreatedAt = _clock.GetUtcNow(), UpdatedAt = _clock.GetUtcNow(),
+            Id = Guid.NewGuid(),
+            Email = "family@example.com",
+            NormalizedEmail = "FAMILY@EXAMPLE.COM",
+            IsEnabled = true,
+            CreatedAt = _clock.GetUtcNow(),
+            UpdatedAt = _clock.GetUtcNow(),
         };
         await _accounts.InsertAsync(invited);
         await _accounts.GrantProfileAsync(new AccountProfileGrant
         {
-            AccountId = invited.Id, ProfileId = bootstrap.Profile.Id, IsDefault = true, GrantedAt = _clock.GetUtcNow(),
+            AccountId = invited.Id,
+            ProfileId = bootstrap.Profile.Id,
+            IsDefault = true,
+            GrantedAt = _clock.GetUtcNow(),
         });
         await _accounts.InsertInvitationAsync(new AccountInvitation
         {
-            Id = Guid.NewGuid(), AccountId = invited.Id, TokenHash = HashToken(token),
-            CreatedAt = _clock.GetUtcNow(), ExpiresAt = _clock.GetUtcNow().AddDays(7),
+            Id = Guid.NewGuid(),
+            AccountId = invited.Id,
+            TokenHash = HashToken(token),
+            CreatedAt = _clock.GetUtcNow(),
+            ExpiresAt = _clock.GetUtcNow().AddDays(7),
         });
 
         var accepted = await _service.AcceptInvitationAsync(
@@ -354,6 +563,25 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
         Assert.NotNull(await _service.ValidateSessionAsync(accepted.PlaintextToken));
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() =>
             _service.AcceptInvitationAsync(token, "different password", "other", "Other", "Dashboard"));
+    }
+
+    private Task InsertProfileAsync(Profile profile)
+    {
+        using var connection = _database.CreateConnection();
+        connection.Execute("""
+            INSERT INTO profiles(id,display_name,avatar_color,avatar_image_path,role,created_at,navigation_config)
+            VALUES(@Id,@DisplayName,@AvatarColor,@AvatarImagePath,@Role,@CreatedAt,@NavigationConfig);
+            """, new
+        {
+            profile.Id,
+            profile.DisplayName,
+            profile.AvatarColor,
+            profile.AvatarImagePath,
+            Role = profile.Role.ToString(),
+            CreatedAt = profile.CreatedAt.ToString("O"),
+            profile.NavigationConfig,
+        });
+        return Task.CompletedTask;
     }
 
     public void Dispose()
@@ -387,5 +615,11 @@ public sealed class FirstPartyIdentityServiceTests : IDisposable
         private DateTimeOffset _now = now;
         public override DateTimeOffset GetUtcNow() => _now;
         public void Advance(TimeSpan duration) => _now += duration;
+    }
+
+    private sealed class MutableAuthenticationPolicyProvider : IAuthenticationPolicyProvider
+    {
+        public AuthSettings Settings { get; } = new();
+        public AuthSettings GetCurrent() => Settings;
     }
 }

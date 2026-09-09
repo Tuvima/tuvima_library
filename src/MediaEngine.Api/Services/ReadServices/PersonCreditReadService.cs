@@ -1330,10 +1330,14 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
     private static bool MembershipOverlapsWork(PersonLibraryCreditRow row)
     {
         if (!TryReadYear(row.Year, out var workYear))
+        {
             return true;
+        }
 
         if (TryReadYear(row.MembershipStartDate, out var startYear) && workYear < startYear)
+        {
             return false;
+        }
 
         return !TryReadYear(row.MembershipEndDate, out var endYear) || workYear <= endYear;
     }
@@ -1342,7 +1346,9 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
     {
         year = 0;
         if (string.IsNullOrWhiteSpace(value))
+        {
             return false;
+        }
 
         var token = value.Trim();
         return token.Length >= 4 && int.TryParse(token[..4], out year);

@@ -1,6 +1,6 @@
-using System.Text.Json;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
+using System.Text.Json;
 using MediaEngine.Contracts.Authentication;
 using Microsoft.AspNetCore.DataProtection;
 

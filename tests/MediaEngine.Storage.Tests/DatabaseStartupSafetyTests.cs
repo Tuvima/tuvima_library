@@ -48,6 +48,19 @@ public sealed class DatabaseStartupSafetyTests
             "client_devices",
             "device_pairing_requests",
             "client_tokens",
+            "accounts",
+            "account_profile_grants",
+            "account_feature_grants",
+            "account_library_grants",
+            "grant_admin_protections",
+            "grant_admin_unlocks",
+            "applications",
+            "application_credentials",
+            "application_permission_grants",
+            "application_client_bindings",
+            "authorization_audit_events",
+            "view_shared_library",
+            "view_shared_assets",
         ];
 
         foreach (var table in requiredTables)
@@ -112,7 +125,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v6-shared-library-contributions", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v7-access-authority", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
 
         (string Table, string Column)[] internalGuidColumns =
         [
@@ -175,8 +188,12 @@ public sealed class DatabaseStartupSafetyTests
             ("character_portraits", "person_id"),
             ("character_portraits", "fictional_entity_id"),
             ("client_devices", "id"),
+            ("client_devices", "application_id"),
+            ("client_devices", "account_id"),
             ("client_devices", "profile_id"),
             ("client_tokens", "id"),
+            ("client_tokens", "application_id"),
+            ("client_tokens", "account_id"),
             ("client_tokens", "device_id"),
             ("client_tokens", "profile_id"),
             ("client_tokens", "token_family_id"),
@@ -199,7 +216,6 @@ public sealed class DatabaseStartupSafetyTests
             ("alignment_jobs", "id"),
             ("alignment_jobs", "ebook_asset_id"),
             ("alignment_jobs", "audiobook_asset_id"),
-            ("api_keys", "id"),
             ("audio_fingerprints", "asset_id"),
             ("collection_items", "id"),
             ("collection_items", "collection_id"),
@@ -214,6 +230,8 @@ public sealed class DatabaseStartupSafetyTests
             ("deferred_enrichment_queue", "id"),
             ("deferred_enrichment_queue", "entity_id"),
             ("device_pairing_requests", "id"),
+            ("device_pairing_requests", "application_id"),
+            ("device_pairing_requests", "account_id"),
             ("device_pairing_requests", "profile_id"),
             ("device_pairing_requests", "approved_by_profile_id"),
             ("editions", "work_id"),
@@ -251,6 +269,7 @@ public sealed class DatabaseStartupSafetyTests
             ("view_personal_spaces", "library_id"),
             ("view_storage_labels", "personal_space_id"),
             ("view_sources", "id"),
+            ("view_sources", "library_id"),
             ("view_sources", "personal_space_id"),
             ("view_source_policies", "source_id"),
             ("view_folder_pins", "profile_id"),
@@ -269,10 +288,12 @@ public sealed class DatabaseStartupSafetyTests
             ("view_gallery_shares", "gallery_id"),
             ("view_gallery_shares", "profile_id"),
             ("view_shared_assets", "item_id"),
+            ("view_shared_assets", "origin_item_id"),
             ("view_shared_assets", "original_profile_id"),
             ("view_shared_assets", "promoted_by_profile_id"),
             ("view_shared_contributions", "id"),
             ("view_shared_contributions", "submitted_by_profile_id"),
+            ("view_shared_library", "library_id"),
             ("view_shared_contributions", "decided_by_profile_id"),
             ("view_shared_contribution_items", "id"),
             ("view_shared_contribution_items", "contribution_id"),
@@ -329,6 +350,11 @@ public sealed class DatabaseStartupSafetyTests
             ("accounts", "id"),
             ("account_profile_grants", "account_id"),
             ("account_profile_grants", "profile_id"),
+            ("account_feature_grants", "account_id"),
+            ("account_library_grants", "account_id"),
+            ("account_library_grants", "library_id"),
+            ("grant_admin_protections", "account_id"),
+            ("grant_admin_protections", "profile_id"),
             ("account_invitations", "id"),
             ("account_invitations", "account_id"),
             ("account_passkeys", "account_id"),
@@ -339,8 +365,17 @@ public sealed class DatabaseStartupSafetyTests
             ("auth_sessions", "id"),
             ("auth_sessions", "account_id"),
             ("auth_sessions", "active_profile_id"),
-            ("administrator_elevation_grants", "session_id"),
-            ("administrator_elevation_grants", "profile_id"),
+            ("grant_admin_unlocks", "session_id"),
+            ("grant_admin_unlocks", "account_id"),
+            ("grant_admin_unlocks", "profile_id"),
+            ("applications", "id"),
+            ("application_credentials", "id"),
+            ("application_credentials", "application_id"),
+            ("application_permission_grants", "application_id"),
+            ("application_client_bindings", "application_id"),
+            ("authorization_audit_events", "actor_account_id"),
+            ("authorization_audit_events", "actor_profile_id"),
+            ("authorization_audit_events", "actor_application_id"),
             ("password_reset_challenges", "id"),
             ("password_reset_challenges", "account_id"),
             ("audiobook_bookmarks", "id"),
@@ -382,6 +417,23 @@ public sealed class DatabaseStartupSafetyTests
             ("series_manifest_items", "linked_work_id"),
             ("service_credentials", "id"),
             ("identity_audit_events", "account_id"),
+            ("application_events", "event_id"),
+            ("application_events", "library_id"),
+            ("application_events", "profile_id"),
+            ("application_webhooks", "id"),
+            ("application_webhooks", "application_id"),
+            ("application_webhook_deliveries", "id"),
+            ("application_webhook_deliveries", "webhook_id"),
+            ("application_webhook_deliveries", "event_id"),
+            ("playback_telemetry_sessions", "id"),
+            ("playback_telemetry_sessions", "player_session_id"),
+            ("playback_telemetry_sessions", "authority_session_id"),
+            ("playback_telemetry_sessions", "account_id"),
+            ("playback_telemetry_sessions", "profile_id"),
+            ("playback_telemetry_sessions", "application_id"),
+            ("playback_telemetry_sessions", "device_id"),
+            ("playback_telemetry_sessions", "asset_id"),
+            ("playback_telemetry_sessions", "library_id"),
             ("identity_audit_events", "profile_id"),
             ("identity_audit_events", "session_id"),
             ("text_tracks", "id"),
@@ -415,6 +467,46 @@ public sealed class DatabaseStartupSafetyTests
         Assert.Equal("TEXT", ColumnType(conn, "media_assets", "content_hash"));
         Assert.Equal("TEXT", ColumnType(conn, "bridge_ids", "provider_id"));
         Assert.Equal("TEXT", ColumnType(conn, "provider_response_cache", "provider_id"));
+    }
+
+    [Fact]
+    public void NativeApplicationSeed_RunsOnceAndPreservesAdministrativeChangesAcrossRestart()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+
+        using (var conn = fixture.Database.CreateConnection())
+        using (var command = conn.CreateCommand())
+        {
+            command.CommandText = """
+                UPDATE applications
+                SET is_enabled=0
+                WHERE id=X'00000000000000000000000000000004';
+                DELETE FROM application_permission_grants
+                WHERE application_id=X'00000000000000000000000000000004'
+                  AND permission_id='downloads.write';
+                DELETE FROM application_client_bindings WHERE client_id='tuvima-automotive';
+                """;
+            command.ExecuteNonQuery();
+        }
+
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+        using (var conn = fixture.Database.CreateConnection())
+        {
+            Assert.Equal("0", Scalar(conn, "SELECT is_enabled FROM applications WHERE id=X'00000000000000000000000000000004';"));
+            Assert.Equal("0", Scalar(conn, "SELECT COUNT(*) FROM application_permission_grants WHERE application_id=X'00000000000000000000000000000004' AND permission_id='downloads.write';"));
+            Assert.Equal("0", Scalar(conn, "SELECT COUNT(*) FROM application_client_bindings WHERE client_id='tuvima-automotive';"));
+            using var delete = conn.CreateCommand();
+            delete.CommandText = "DELETE FROM applications WHERE id=X'00000000000000000000000000000004';";
+            delete.ExecuteNonQuery();
+        }
+
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+        using var restarted = fixture.Database.CreateConnection();
+        Assert.Equal("0", Scalar(restarted, "SELECT COUNT(*) FROM applications WHERE id=X'00000000000000000000000000000004';"));
     }
 
     [Fact]
@@ -585,7 +677,7 @@ public sealed class DatabaseStartupSafetyTests
         fixture.Database.RunStartupChecks();
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v6-shared-library-contributions", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v7-access-authority", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.True(TableExists(conn, "review_queue"));
     }
 
@@ -618,7 +710,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         var exception = Assert.Throws<InvalidOperationException>(() => fixture.Database.InitializeSchema());
-        Assert.Contains("guid-blob-v6-shared-library-contributions", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("guid-blob-v7-access-authority", exception.Message, StringComparison.Ordinal);
         Assert.Contains("not migrated in place", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -642,7 +734,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var conn = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v6-shared-library-contributions", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v7-access-authority", Scalar(conn, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("BLOB", ColumnType(conn, "metadata_providers", "id"));
         Assert.True(TableExists(conn, "review_queue"));
 
@@ -681,7 +773,7 @@ public sealed class DatabaseStartupSafetyTests
         }
 
         using var current = fixture.Database.CreateConnection();
-        Assert.Equal("guid-blob-v6-shared-library-contributions", Scalar(current, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
+        Assert.Equal("guid-blob-v7-access-authority", Scalar(current, "SELECT value FROM storage_metadata WHERE key = 'storage_epoch';"));
         Assert.Equal("INTEGER", ColumnType(current, "user_states", "revision"));
     }
 

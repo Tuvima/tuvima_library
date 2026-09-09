@@ -1,7 +1,9 @@
 using System.Text.Json;
 using MediaEngine.Api.Models;
+using MediaEngine.Api.Services.View;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.PersonalMedia;
@@ -29,7 +31,9 @@ public sealed class CollectionPersonalMediaService(
     IProfileRepository profiles,
     IViewProfileRepository viewProfiles,
     IViewGalleryRepository galleries,
-    ICollectionViewSourceRepository sources)
+    ICollectionViewSourceRepository sources,
+    IAuthorizationEvaluator authorization,
+    IViewResourceAuthorizationService viewAuthorization)
 {
     private static readonly IReadOnlySet<string> ViewRuleFields = new HashSet<string>(StringComparer.Ordinal)
     {
@@ -38,12 +42,25 @@ public sealed class CollectionPersonalMediaService(
     };
 
     public async Task<IReadOnlyList<CollectionGalleryReferenceDto>> ListEligibleGalleriesAsync(
-        Guid ownerProfileId,
+        RequestAuthority authority,
         CancellationToken ct = default)
     {
+        if (!await IsAllowedAsync(authority, write: true, ct))
+        {
+            return [];
+        }
+
+        if (!await CanWriteSourceAsync(authority, CollectionViewSourceKind.SmartRule, null, ct))
+        {
+            return [];
+        }
+
+        var ownerProfileId = authority.ActiveProfileId!.Value;
         var policy = await viewProfiles.GetPolicyAsync(ownerProfileId, ct);
         if (!policy.ViewEnabled)
+        {
             return [];
+        }
 
         var owned = await galleries.GetOwnedAsync(ownerProfileId, ct);
         return owned.Select(gallery => new CollectionGalleryReferenceDto(
@@ -56,33 +73,66 @@ public sealed class CollectionPersonalMediaService(
 
     public async Task<CollectionPersonalMediaListResult> ListForViewerAsync(
         Guid collectionId,
-        Guid viewerProfileId,
+        RequestAuthority authority,
         CancellationToken ct = default)
     {
+        if (!await IsAllowedAsync(authority, write: false, ct))
+        {
+            return new(false, false, []);
+        }
+
+        var viewerProfileId = authority.ActiveProfileId!.Value;
         var collection = await collections.GetByIdAsync(collectionId, ct);
         if (collection is null)
+        {
             return new(false, false, []);
+        }
 
         var viewer = await profiles.GetByIdAsync(viewerProfileId, ct);
         if (!CollectionAccessPolicy.CanAccess(collection, viewer))
+        {
             return new(true, false, []);
+        }
 
         var projection = await sources.GetAuthorizedProjectionAsync([collectionId], viewerProfileId, ct);
-        return new(true, true, projection.Select(ToDto).ToList());
+        var authorized = new List<CollectionPersonalMediaSourceDto>(projection.Count);
+        foreach (var source in projection)
+        {
+            if (await CanReadSourceAsync(authority, source, ct))
+            {
+                authorized.Add(ToDto(source));
+            }
+        }
+        return new(true, true, authorized);
     }
 
     public async Task<CollectionPersonalMediaWriteResult> AddAsync(
         Guid collectionId,
-        Guid ownerProfileId,
+        RequestAuthority authority,
         CollectionPersonalMediaSourceWriteRequest request,
         CancellationToken ct = default)
     {
-        var access = await CanEditCustomCollectionAsync(collectionId, ownerProfileId, ct);
+        if (!await IsAllowedAsync(authority, write: true, ct))
+        {
+            return new(true, false);
+        }
+
+        var ownerProfileId = authority.ActiveProfileId!.Value;
+        var access = await CanEditCustomCollectionAsync(collectionId, authority, ct);
         if (!access.Found || !access.Allowed)
+        {
             return new(access.Found, access.Allowed);
+        }
 
         if (!TryValidateRequest(request, out var kind, out var rule, out var error))
+        {
             return new(true, true, Error: error);
+        }
+
+        if (!await CanWriteSourceAsync(authority, kind, request.GalleryId, ct))
+        {
+            return new(true, false);
+        }
 
         try
         {
@@ -100,16 +150,43 @@ public sealed class CollectionPersonalMediaService(
     public async Task<CollectionPersonalMediaWriteResult> UpdateAsync(
         Guid collectionId,
         Guid sourceId,
-        Guid ownerProfileId,
+        RequestAuthority authority,
         CollectionPersonalMediaSourceWriteRequest request,
         CancellationToken ct = default)
     {
-        var access = await CanEditCustomCollectionAsync(collectionId, ownerProfileId, ct);
+        if (!await IsAllowedAsync(authority, write: true, ct))
+        {
+            return new(true, false);
+        }
+
+        var ownerProfileId = authority.ActiveProfileId!.Value;
+        var access = await CanEditCustomCollectionAsync(collectionId, authority, ct);
         if (!access.Found || !access.Allowed)
+        {
             return new(access.Found, access.Allowed);
+        }
+
+        var existing = (await sources.ListAsync(collectionId, ownerProfileId, ct))
+            .FirstOrDefault(source => source.Id == sourceId);
+        if (existing is null)
+        {
+            return new(false, true);
+        }
+
+        if (!await CanWriteSourceAsync(authority, existing.Kind, existing.GalleryId, ct))
+        {
+            return new(true, false);
+        }
 
         if (!TryValidateRequest(request, out var kind, out var rule, out var error))
+        {
             return new(true, true, Error: error);
+        }
+
+        if (!await CanWriteSourceAsync(authority, kind, request.GalleryId, ct))
+        {
+            return new(true, false);
+        }
 
         try
         {
@@ -134,12 +211,32 @@ public sealed class CollectionPersonalMediaService(
     public async Task<CollectionPersonalMediaWriteResult> RemoveAsync(
         Guid collectionId,
         Guid sourceId,
-        Guid ownerProfileId,
+        RequestAuthority authority,
         CancellationToken ct = default)
     {
-        var access = await CanEditCustomCollectionAsync(collectionId, ownerProfileId, ct);
+        if (!await IsAllowedAsync(authority, write: true, ct))
+        {
+            return new(true, false);
+        }
+
+        var ownerProfileId = authority.ActiveProfileId!.Value;
+        var access = await CanEditCustomCollectionAsync(collectionId, authority, ct);
         if (!access.Found || !access.Allowed)
+        {
             return new(access.Found, access.Allowed);
+        }
+
+        var existing = (await sources.ListAsync(collectionId, ownerProfileId, ct))
+            .FirstOrDefault(source => source.Id == sourceId);
+        if (existing is null)
+        {
+            return new(false, true);
+        }
+
+        if (!await CanWriteSourceAsync(authority, existing.Kind, existing.GalleryId, ct))
+        {
+            return new(true, false);
+        }
 
         try
         {
@@ -154,18 +251,91 @@ public sealed class CollectionPersonalMediaService(
 
     private async Task<(bool Found, bool Allowed)> CanEditCustomCollectionAsync(
         Guid collectionId,
-        Guid ownerProfileId,
+        RequestAuthority authority,
         CancellationToken ct)
     {
         var collection = await collections.GetByIdAsync(collectionId, ct);
         if (collection is null)
+        {
             return (false, false);
-        var owner = await profiles.GetByIdAsync(ownerProfileId, ct);
+        }
+
         return (true,
             collection.CollectionType == CollectionType.Custom
-            && owner?.Role == ProfileRole.Administrator
-            && CollectionAccessPolicy.CanEdit(collection, owner));
+            && authority.IsEffectiveAdministrator);
     }
+
+    private async Task<bool> IsAllowedAsync(RequestAuthority authority, bool write, CancellationToken ct)
+    {
+        if (!authority.HasHumanContext || authority.ActiveProfileId is null)
+        {
+            return false;
+        }
+
+        var requirement = new AuthorizationRequirement(
+            authority.HasApplicationContext
+                ? write ? ApplicationPermissionIds.CollectionsWrite : ApplicationPermissionIds.CollectionsRead
+                : null,
+            AccountFeatureId.View,
+            RequiresHumanContext: true,
+            RequiresAdministrator: write,
+            RequiresAdministratorSurfaceUnlock: write);
+        if (!(await authorization.EvaluateAsync(authority, requirement, null, ct)).IsAllowed)
+        {
+            return false;
+        }
+
+        if (!write && authority.HasApplicationContext)
+        {
+            var viewRequirement = new AuthorizationRequirement(
+                ApplicationPermissionIds.ViewPersonalRead,
+                AccountFeatureId.View,
+                RequiresHumanContext: true);
+            return (await authorization.EvaluateAsync(authority, viewRequirement, null, ct)).IsAllowed;
+        }
+        return true;
+    }
+
+    private async Task<bool> CanReadSourceAsync(
+        RequestAuthority authority,
+        CollectionViewSourceProjection source,
+        CancellationToken ct)
+    {
+        if (source.Kind == CollectionViewSourceKind.Gallery && source.GalleryId is { } galleryId)
+        {
+            return (await viewAuthorization.AuthorizeAsync(authority,
+                new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, galleryId), ct)).IsAllowed;
+        }
+
+        if (source.Kind != CollectionViewSourceKind.SmartRule
+            || source.OwnerProfileId != authority.ActiveProfileId)
+        {
+            return false;
+        }
+
+        return (await viewAuthorization.AuthorizeAsync(authority,
+            new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Search, null), ct)).IsAllowed;
+    }
+
+    private Task<bool> CanWriteSourceAsync(
+        RequestAuthority authority,
+        CollectionViewSourceKind kind,
+        Guid? galleryId,
+        CancellationToken ct)
+    {
+        var request = kind == CollectionViewSourceKind.Gallery && galleryId is { } id
+            ? new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, id,
+                ViewResourceAction.Manage)
+            : new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, null,
+                ViewResourceAction.Manage);
+        return IsViewAllowedAsync(authority, request, ct);
+    }
+
+    private async Task<bool> IsViewAllowedAsync(
+        RequestAuthority authority,
+        ViewResourceRequest request,
+        CancellationToken ct) =>
+        (await viewAuthorization.AuthorizeAsync(authority, request, ct)).IsAllowed;
 
     public static bool TryValidateRequest(
         CollectionPersonalMediaSourceWriteRequest request,

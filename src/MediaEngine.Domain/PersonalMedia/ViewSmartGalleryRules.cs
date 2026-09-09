@@ -48,7 +48,9 @@ public static class ViewSmartGalleryRules
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
         if (json.Length > MaximumDocumentLength)
+        {
             throw new ArgumentException($"Smart Gallery rules cannot exceed {MaximumDocumentLength} characters.", nameof(json));
+        }
 
         CollectionRuleDefinition definition;
         try
@@ -72,9 +74,14 @@ public static class ViewSmartGalleryRules
     {
         ArgumentNullException.ThrowIfNull(definition);
         if (definition.Version != CurrentVersion)
+        {
             throw new ArgumentException($"Smart Gallery rule version {definition.Version} is unsupported; expected version {CurrentVersion}.", nameof(definition));
+        }
+
         if (definition.Groups is null || definition.Groups.Count is < 1 or > MaximumGroups)
+        {
             throw new ArgumentException($"Smart Gallery rules require between 1 and {MaximumGroups} groups.", nameof(definition));
+        }
 
         for (var groupIndex = 0; groupIndex < definition.Groups.Count; groupIndex++)
         {
@@ -83,51 +90,84 @@ public static class ViewSmartGalleryRules
             group.MatchMode = NormalizeChoice(group.MatchMode, "all", "any", $"group {groupIndex + 1} match mode");
             group.JoinWithPrevious = NormalizeChoice(group.JoinWithPrevious, "and", "or", $"group {groupIndex + 1} join");
             if (group.Conditions is null || group.Conditions.Count is < 1 or > MaximumConditionsPerGroup)
+            {
                 throw new ArgumentException($"Smart Gallery rule group {groupIndex + 1} requires between 1 and {MaximumConditionsPerGroup} conditions.", nameof(definition));
+            }
 
             for (var conditionIndex = 0; conditionIndex < group.Conditions.Count; conditionIndex++)
+            {
                 ValidateCondition(group.Conditions[conditionIndex], groupIndex, conditionIndex);
+            }
         }
     }
 
     private static void ValidateCondition(CollectionRulePredicate? condition, int groupIndex, int conditionIndex)
     {
         var label = $"condition {conditionIndex + 1} in group {groupIndex + 1}";
-        if (condition is null) throw new ArgumentException($"Smart Gallery rule {label} is missing.");
+        if (condition is null)
+        {
+            throw new ArgumentException($"Smart Gallery rule {label} is missing.");
+        }
+
         if (string.IsNullOrWhiteSpace(condition.Field) || string.IsNullOrWhiteSpace(condition.Op))
+        {
             throw new ArgumentException($"Smart Gallery rule {label} requires a field and operator.");
+        }
+
         condition.Field = condition.Field.Trim().ToLowerInvariant();
         condition.Op = condition.Op.Trim().ToLowerInvariant();
         if (!Operators.TryGetValue(condition.Field, out var supported))
+        {
             throw new ArgumentException($"Smart Gallery field '{condition.Field}' is unsupported.");
+        }
+
         if (!supported.Contains(condition.Op))
+        {
             throw new ArgumentException($"Operator '{condition.Op}' is unsupported for Smart Gallery field '{condition.Field}'.");
+        }
 
         var values = condition.GetEffectiveValues();
         if (condition.Op is "known" or "unknown")
         {
             if (values.Length != 0)
+            {
                 throw new ArgumentException($"Smart Gallery {label} must not include values for '{condition.Op}'.");
+            }
+
             return;
         }
 
         var requiredCount = condition.Op == "between" ? 2 : 1;
         if (values.Length < requiredCount || values.Length > MaximumValuesPerCondition
             || (condition.Op != "in" && values.Length != requiredCount))
+        {
             throw new ArgumentException(condition.Op == "between"
                 ? $"Smart Gallery {label} requires exactly two values."
                 : condition.Op == "in"
                     ? $"Smart Gallery {label} requires between 1 and {MaximumValuesPerCondition} values."
                     : $"Smart Gallery {label} requires exactly one value.");
+        }
+
         if (values.Any(value => string.IsNullOrWhiteSpace(value) || value.Length > MaximumValueLength))
+        {
             throw new ArgumentException($"Smart Gallery {label} contains an empty or overlong value.");
+        }
 
         if (condition.Field == "media_type" && values.Any(value => !LocalMediaKinds.Contains(value)))
+        {
             throw new ArgumentException("Smart Gallery media_type values must be image, video, document, audio, or other.");
+        }
+
         if (condition.Field == "orientation" && values.Any(value => !OrientationValues.Contains(value)))
+        {
             throw new ArgumentException("Smart Gallery orientation values must be landscape, portrait, or square.");
+        }
+
         if (condition.Field == "favorite" && values.Any(value => !bool.TryParse(value, out _)))
+        {
             throw new ArgumentException("Smart Gallery favorite values must be true or false.");
+        }
+
         if (condition.Field == "duration")
         {
             var parsed = new List<double>(values.Length);
@@ -135,11 +175,16 @@ public static class ViewSmartGalleryRules
             {
                 if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number)
                     || !double.IsFinite(number) || number < 0)
+                {
                     throw new ArgumentException("Smart Gallery duration values must be finite non-negative numbers.");
+                }
+
                 parsed.Add(number);
             }
             if (condition.Op == "between" && parsed[0] > parsed[1])
+            {
                 throw new ArgumentException("Smart Gallery duration between values must be in ascending order.");
+            }
         }
         if (condition.Field == "captured_date")
         {
@@ -148,11 +193,16 @@ public static class ViewSmartGalleryRules
             {
                 if (!DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture,
                     DateTimeStyles.None, out var date))
+                {
                     throw new ArgumentException("Smart Gallery captured_date values must use yyyy-MM-dd.");
+                }
+
                 parsed.Add(date);
             }
             if (condition.Op == "between" && parsed[0] > parsed[1])
+            {
                 throw new ArgumentException("Smart Gallery captured_date between values must be in ascending order.");
+            }
         }
     }
 

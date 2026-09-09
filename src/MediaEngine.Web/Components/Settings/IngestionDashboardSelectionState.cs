@@ -20,7 +20,9 @@ public sealed class IngestionDashboardSelectionState
         Func<IReadOnlyList<IngestionDashboardStage>, IngestionDashboardStage?> defaultStage)
     {
         if (BatchId is null && batches.FirstOrDefault() is { } latestBatch)
+        {
             BatchId = latestBatch.BatchId;
+        }
 
         if (stages.Count == 0)
         {
@@ -50,7 +52,9 @@ public sealed class IngestionDashboardSelectionState
         {
             var selected = batches.FirstOrDefault(batch => batch.BatchId == selectedId);
             if (selected is not null)
+            {
                 return selected;
+            }
         }
 
         return batches.FirstOrDefault();

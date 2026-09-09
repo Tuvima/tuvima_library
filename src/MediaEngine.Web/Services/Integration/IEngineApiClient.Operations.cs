@@ -1,10 +1,10 @@
 using System.Text.Json;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
-using MediaEngine.Contracts.Paging;
-using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Contracts.Operations;
+using MediaEngine.Contracts.Paging;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;

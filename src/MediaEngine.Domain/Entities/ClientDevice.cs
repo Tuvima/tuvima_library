@@ -3,6 +3,8 @@ namespace MediaEngine.Domain.Entities;
 public sealed class ClientDevice
 {
     public Guid Id { get; set; }
+    public Guid ApplicationId { get; set; }
+    public Guid AccountId { get; set; }
     public Guid ProfileId { get; set; }
     public string DeviceName { get; set; } = string.Empty;
     public string DeviceClass { get; set; } = string.Empty;
@@ -22,6 +24,7 @@ public sealed class ClientDevice
 public sealed class DevicePairingRequest
 {
     public Guid Id { get; set; }
+    public Guid ApplicationId { get; set; }
     public string DeviceCodeHash { get; set; } = string.Empty;
     public string UserCodeHash { get; set; } = string.Empty;
     public string ClientId { get; set; } = string.Empty;
@@ -36,6 +39,7 @@ public sealed class DevicePairingRequest
     public int PollIntervalSeconds { get; set; } = 5;
     public DateTimeOffset? LastPolledAt { get; set; }
     public Guid? ProfileId { get; set; }
+    public Guid? AccountId { get; set; }
     public Guid? ApprovedByProfileId { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
@@ -46,12 +50,17 @@ public sealed class DevicePairingRequest
 public sealed class ClientToken
 {
     public Guid Id { get; set; }
+    public Guid ApplicationId { get; set; }
+    public Guid AccountId { get; set; }
     public Guid DeviceId { get; set; }
     public Guid ProfileId { get; set; }
     public Guid TokenFamilyId { get; set; }
     public string Kind { get; set; } = string.Empty;
     public string TokenHash { get; set; } = string.Empty;
     public string Scopes { get; set; } = string.Empty;
+    public long AccountAuthorizationVersion { get; set; }
+    public long GrantAuthorizationVersion { get; set; }
+    public long ApplicationAuthorizationVersion { get; set; }
     public int Generation { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }

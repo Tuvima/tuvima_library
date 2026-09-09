@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
-using MediaEngine.Contracts.Realtime;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -35,7 +35,11 @@ public sealed class BatchProgressService
     /// </summary>
     public async Task ShiftToReviewAsync(Guid? batchId, CancellationToken ct)
     {
-        if (batchId is null) return;
+        if (batchId is null)
+        {
+            return;
+        }
+
         try
         {
             await EmitProgressAsync(batchId.Value, isFinal: false, ct).ConfigureAwait(false);
@@ -51,7 +55,11 @@ public sealed class BatchProgressService
     /// </summary>
     public async Task ShiftToIdentifiedAsync(Guid? batchId, CancellationToken ct)
     {
-        if (batchId is null) return;
+        if (batchId is null)
+        {
+            return;
+        }
+
         try
         {
             await EmitProgressAsync(batchId.Value, isFinal: false, ct).ConfigureAwait(false);
@@ -81,10 +89,17 @@ public sealed class BatchProgressService
             _lastProgressEmitUtc[batchId] = now;
 
             var batch = await _batchRepo.GetByIdAsync(batchId, ct).ConfigureAwait(false);
-            if (batch is null) return;
+            if (batch is null)
+            {
+                return;
+            }
 
             var progress = await GetProgressAsync(batchId, ct).ConfigureAwait(false);
-            if (progress is null) return;
+            if (progress is null)
+            {
+                return;
+            }
+
             var completed = progress.IsComplete;
             if (completed && !string.Equals(batch.Status, "completed", StringComparison.OrdinalIgnoreCase))
             {
@@ -94,7 +109,9 @@ public sealed class BatchProgressService
             await _eventPublisher.PublishAsync(SignalREvents.BatchProgress, progress, ct).ConfigureAwait(false);
 
             if (isFinal || completed)
+            {
                 _lastProgressEmitUtc.TryRemove(batchId, out _);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -105,7 +122,11 @@ public sealed class BatchProgressService
     public async Task<BatchProgressEvent?> GetProgressAsync(Guid batchId, CancellationToken ct = default)
     {
         var batch = await _batchRepo.GetByIdAsync(batchId, ct).ConfigureAwait(false);
-        if (batch is null) return null;
+        if (batch is null)
+        {
+            return null;
+        }
+
         var snapshot = await _batchRepo.GetProgressSnapshotAsync(batchId, ct).ConfigureAwait(false);
         var total = Math.Max(batch.FilesTotal, snapshot.TotalJobs + snapshot.FilesSkipped);
         var failed = snapshot.TotalJobs > 0
@@ -140,14 +161,20 @@ public sealed class BatchProgressService
             && active == 0
             && snapshot.OutstandingOperations == 0;
 
-        if (!completed && pct >= 100) pct = 99;
+        if (!completed && pct >= 100)
+        {
+            pct = 99;
+        }
 
         int? etaSecs = null;
         if (progressed > 0 && queued > 0)
         {
             var elapsed = (DateTimeOffset.UtcNow - batch.StartedAt).TotalSeconds;
             var rate = elapsed > 0 ? progressed / elapsed : 0;
-            if (rate > 0) etaSecs = (int)Math.Round(queued / rate);
+            if (rate > 0)
+            {
+                etaSecs = (int)Math.Round(queued / rate);
+            }
         }
 
         var lifecycleStage = ResolveLifecycleStage(snapshot, queued, review, completed);
@@ -182,25 +209,39 @@ public sealed class BatchProgressService
         bool completed)
     {
         if (completed)
+        {
             return "Complete";
+        }
 
         if (snapshot.UniverseEnriching > 0)
+        {
             return "Enriching";
+        }
 
         if (snapshot.Hydrating > 0)
+        {
             return "Hydrating";
+        }
 
         if (snapshot.BridgeSearching > 0 || snapshot.QidResolved > 0)
+        {
             return "ResolvingUniverse";
+        }
 
         if (snapshot.RetailSearching > 0 || snapshot.RetailMatched > 0 || snapshot.RetailMatchedNeedsReview > 0)
+        {
             return "Identifying";
+        }
 
         if (review > 0)
+        {
             return "Review";
+        }
 
         if (queued > 0)
+        {
             return "Queued";
+        }
 
         return "Processing";
     }

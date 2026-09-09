@@ -1,4 +1,6 @@
 using MediaEngine.Api.Services.View;
+using MediaEngine.Domain.Authorization;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
 
 namespace MediaEngine.Api.Tests;
@@ -19,8 +21,8 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceDescriptor(
                 kind,
                 resourceId,
-                sharedOwner.Policy.ProfileId,
-                sharedOwner.PersonalSpace!.LibraryId,
+                null,
+                Guid.Parse("00000000-0000-0000-0000-000000000003"),
                 IsSharedLibraryAsset: true));
 
         var allowed = await service.AuthorizeAsync(
@@ -47,7 +49,7 @@ public sealed class ViewResourceAuthorizationTests
             new ViewResourceRequest(ViewScopeRequest.Shared, ViewResourceKind.Search, null));
 
         Assert.True(decision.IsAllowed);
-        Assert.Empty(decision.Scope!.LibraryIds);
+        Assert.Single(decision.Scope!.LibraryIds);
     }
 
     [Fact]
@@ -194,21 +196,188 @@ public sealed class ViewResourceAuthorizationTests
         var service = Create([caller]);
 
         var decision = await service.AuthorizeAsync(
-            null,
+            new RequestAuthority(PrincipalKind.Anonymous, false),
             new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Search, null));
 
         Assert.Equal(ViewAccessOutcome.Unauthenticated, decision.Outcome);
     }
 
+    [Fact]
+    public async Task AdministratorApplicationMayReadOneExplicitProfileWithPermissionAndAudit()
+    {
+        var target = State(access: false, include: false);
+        var evaluator = new AllowEvaluator();
+        var service = Create([target], evaluator);
+        var applicationId = Guid.NewGuid();
+        var authority = new RequestAuthority(PrincipalKind.ServiceApplication, true,
+            ApplicationId: applicationId, ApplicationEnabled: true, ApplicationIsAdministrator: true);
+        Assert.True(authority.IsAdministratorApplication);
+
+        var decision = await service.AuthorizeAsync(authority, new ViewResourceRequest(
+            ViewScopeRequest.ForProfile(target.Policy.ProfileId), ViewResourceKind.Search, null));
+
+        Assert.True(decision.IsAllowed);
+        Assert.Equal(target.Policy.ProfileId, decision.Scope!.ProfileId);
+        Assert.Equal(ApplicationPermissionIds.ViewPersonalRead, evaluator.LastRequirement!.ApplicationPermission);
+        Assert.Equal("view-profile-admin-read", evaluator.LastResource!.ResourceType);
+        Assert.Equal(target.Policy.ProfileId.ToString("D"), evaluator.LastResource.ResourceId);
+    }
+
+    [Fact]
+    public async Task OrdinaryServiceApplicationCannotReadPersonalProfile()
+    {
+        var target = State(access: false, include: false);
+        var service = Create([target]);
+        var authority = new RequestAuthority(PrincipalKind.ServiceApplication, true,
+            ApplicationId: Guid.NewGuid(), ApplicationEnabled: true);
+
+        var decision = await service.AuthorizeAsync(authority, new ViewResourceRequest(
+            ViewScopeRequest.ForProfile(target.Policy.ProfileId), ViewResourceKind.Search, null));
+
+        Assert.Equal(ViewAccessOutcome.Forbidden, decision.Outcome);
+    }
+
+    [Fact]
+    public async Task GalleryRevocationAppliesOnTheNextResourceDecision()
+    {
+        var caller = State(access: false, include: false);
+        var owner = State(access: false, include: false);
+        var galleryId = Guid.NewGuid();
+        var store = new MutableResourceStore(new ViewResourceDescriptor(
+            ViewResourceKind.Gallery, galleryId, owner.Policy.ProfileId,
+            owner.PersonalSpace!.LibraryId,
+            new HashSet<Guid> { caller.Policy.ProfileId }));
+        var service = new ViewResourceAuthorizationService(
+            new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller, owner)),
+            store,
+            new AllowEvaluator());
+
+        var before = await service.AuthorizeAsync(Identity(caller),
+            new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, galleryId));
+        store.Resource = store.Resource! with { SharedWithProfileIds = new HashSet<Guid>() };
+        var after = await service.AuthorizeAsync(Identity(caller),
+            new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, galleryId));
+
+        Assert.True(before.IsAllowed);
+        Assert.Equal(ViewAccessOutcome.NotFound, after.Outcome);
+    }
+
+    [Fact]
+    public async Task RevokedGalleryShareImmediatelyDeniesItsDerivative()
+    {
+        var caller = State(access: false, include: false);
+        var owner = State(access: false, include: false);
+        var derivativeId = Guid.NewGuid();
+        var store = new MutableResourceStore(new ViewResourceDescriptor(
+            ViewResourceKind.Thumbnail, derivativeId, owner.Policy.ProfileId,
+            owner.PersonalSpace!.LibraryId,
+            new HashSet<Guid> { caller.Policy.ProfileId }));
+        var service = new ViewResourceAuthorizationService(
+            new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller, owner)),
+            store,
+            new AllowEvaluator());
+
+        var before = await service.AuthorizeAsync(Identity(caller), new ViewResourceRequest(
+            ViewScopeRequest.Mine, ViewResourceKind.Thumbnail, derivativeId));
+        store.Resource = store.Resource! with { SharedWithProfileIds = new HashSet<Guid>() };
+        var after = await service.AuthorizeAsync(Identity(caller), new ViewResourceRequest(
+            ViewScopeRequest.Mine, ViewResourceKind.Thumbnail, derivativeId));
+
+        Assert.True(before.IsAllowed);
+        Assert.Equal(ViewAccessOutcome.NotFound, after.Outcome);
+    }
+
+    [Fact]
+    public async Task SharedMarkerCannotCrossTheAuthorizedSharedLibrary()
+    {
+        var caller = State(access: true, include: false);
+        var resourceId = Guid.NewGuid();
+        var service = Create([caller], new ViewResourceDescriptor(
+            ViewResourceKind.Asset, resourceId, null, Guid.NewGuid(),
+            IsSharedLibraryAsset: true));
+
+        var decision = await service.AuthorizeAsync(Identity(caller), new ViewResourceRequest(
+            ViewScopeRequest.Shared, ViewResourceKind.Asset, resourceId));
+
+        Assert.Equal(ViewAccessOutcome.NotFound, decision.Outcome);
+    }
+
+    [Fact]
+    public async Task SharedFolderPolicyRequiresAdministratorSurfaceUnlock()
+    {
+        var caller = State(access: true, include: false);
+        var evaluator = new DenySurfaceEvaluator();
+        var service = new ViewResourceAuthorizationService(
+            new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller)),
+            new ResourceStore(), evaluator);
+
+        var authority = Identity(caller) with
+        {
+            AccountIsAdministrator = true,
+            GrantAdminEnabled = true,
+        };
+        var decision = await service.AuthorizeAsync(authority, new ViewResourceRequest(
+            ViewScopeRequest.Shared, ViewResourceKind.FolderPolicy, null,
+            ViewResourceAction.Manage));
+
+        Assert.Equal(ViewAccessOutcome.Forbidden, decision.Outcome);
+        Assert.True(evaluator.LastRequirement!.RequiresAdministrator);
+        Assert.True(evaluator.LastRequirement.RequiresAdministratorSurfaceUnlock);
+    }
+
+    [Fact]
+    public async Task DelegatedClientWithoutViewPermissionCannotReadPersonalResources()
+    {
+        var caller = State(access: true, include: false);
+        var evaluator = new AllowEvaluator(ApplicationPermissionIds.ViewPersonalRead);
+        var store = new CountingScopeStore([caller]);
+        var service = new ViewResourceAuthorizationService(
+            new ViewScopeResolver(store), new ResourceStore(), evaluator);
+        var authority = new RequestAuthority(PrincipalKind.DelegatedUserClient, true,
+            Guid.NewGuid(), caller.Policy.ProfileId, Guid.NewGuid(),
+            AccountEnabled: true, GrantEnabled: true, ApplicationEnabled: true);
+
+        var decision = await service.AuthorizeAsync(authority,
+            new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Search, null));
+
+        Assert.Equal(ViewAccessOutcome.Forbidden, decision.Outcome);
+        Assert.Equal(ApplicationPermissionIds.ViewPersonalRead,
+            evaluator.LastRequirement!.ApplicationPermission);
+        Assert.Equal(0, store.ProfileReads);
+    }
+
+    [Fact]
+    public async Task MissingAccountViewFeatureDoesNotEnumerateScopes()
+    {
+        var caller = State(access: true, include: false);
+        var store = new CountingScopeStore([caller]);
+        var service = new ViewResourceAuthorizationService(
+            new ViewScopeResolver(store), new ResourceStore(), new DenyEvaluator());
+
+        var decision = await service.AuthorizeAsync(Identity(caller),
+            new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Search, null));
+
+        Assert.Equal(ViewAccessOutcome.Forbidden, decision.Outcome);
+        Assert.Equal(0, store.ProfileReads);
+    }
+
     private static ViewResourceAuthorizationService Create(
         ViewScopeStoreEntry[] profiles,
         params ViewResourceDescriptor[] resources) =>
+        Create(profiles, new AllowEvaluator(), resources);
+
+    private static ViewResourceAuthorizationService Create(
+        ViewScopeStoreEntry[] profiles,
+        AllowEvaluator evaluator,
+        params ViewResourceDescriptor[] resources) =>
         new(
             new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(profiles)),
-            new ResourceStore(resources));
+            new ResourceStore(resources),
+            evaluator);
 
-    private static ViewRequestProfile Identity(ViewScopeStoreEntry state) =>
-        new(state.Policy.ProfileId, "RestrictedProfile");
+    private static RequestAuthority Identity(ViewScopeStoreEntry state) =>
+        new(PrincipalKind.Human, true, Guid.NewGuid(), state.Policy.ProfileId,
+            AccountEnabled: true, GrantEnabled: true);
 
     private static ViewScopeStoreEntry State(bool access, bool include)
     {
@@ -228,5 +397,81 @@ public sealed class ViewResourceAuthorizationTests
             CancellationToken ct = default) =>
             Task.FromResult(resources.FirstOrDefault(resource =>
                 resource.Kind == kind && resource.ResourceId == resourceId));
+    }
+
+    private sealed class MutableResourceStore(ViewResourceDescriptor resource) : IViewResourceStore
+    {
+        public ViewResourceDescriptor? Resource { get; set; } = resource;
+
+        public Task<ViewResourceDescriptor?> FindAsync(
+            ViewResourceKind kind,
+            Guid resourceId,
+            Guid requestingProfileId,
+            CancellationToken ct = default) =>
+            Task.FromResult(Resource is { } candidate
+                && candidate.Kind == kind && candidate.ResourceId == resourceId
+                    ? candidate
+                    : null);
+    }
+
+    private sealed class CountingScopeStore(IReadOnlyList<ViewScopeStoreEntry> profiles) : IViewScopeStore
+    {
+        public int ProfileReads { get; private set; }
+
+        public Task<ViewScopeStoreEntry?> FindProfileAsync(Guid profileId, CancellationToken ct = default) =>
+            Task.FromResult(profiles.FirstOrDefault(profile => profile.Policy.ProfileId == profileId));
+
+        public Task<IReadOnlyList<ViewScopeStoreEntry>> GetProfilesAsync(CancellationToken ct = default)
+        {
+            ProfileReads++;
+            return Task.FromResult(profiles);
+        }
+
+        public Task<Guid?> GetSharedLibraryIdAsync(CancellationToken ct = default) =>
+            Task.FromResult<Guid?>(Guid.Parse("00000000-0000-0000-0000-000000000003"));
+    }
+
+    private sealed class DenyEvaluator : IAuthorizationEvaluator
+    {
+        public ValueTask<AuthorizationDecision> EvaluateAsync(
+            RequestAuthority authority,
+            AuthorizationRequirement requirement,
+            ResourceAuthorizationContext? resource,
+            CancellationToken cancellationToken = default) =>
+            ValueTask.FromResult(AuthorizationDecision.Deny(AuthorizationDenialReason.MissingFeatureGrant));
+    }
+
+    private sealed class DenySurfaceEvaluator : IAuthorizationEvaluator
+    {
+        public AuthorizationRequirement? LastRequirement { get; private set; }
+
+        public ValueTask<AuthorizationDecision> EvaluateAsync(
+            RequestAuthority authority,
+            AuthorizationRequirement requirement,
+            ResourceAuthorizationContext? resource,
+            CancellationToken cancellationToken = default)
+        {
+            LastRequirement = requirement;
+            return ValueTask.FromResult(requirement.RequiresAdministratorSurfaceUnlock
+                ? AuthorizationDecision.Deny(AuthorizationDenialReason.AdministratorUnlockRequired)
+                : AuthorizationDecision.Allow());
+        }
+    }
+
+    private sealed class AllowEvaluator(ApplicationPermissionId? deniedPermission = null) : IAuthorizationEvaluator
+    {
+        public AuthorizationRequirement? LastRequirement { get; private set; }
+        public ResourceAuthorizationContext? LastResource { get; private set; }
+        public ValueTask<AuthorizationDecision> EvaluateAsync(RequestAuthority authority,
+            AuthorizationRequirement requirement, ResourceAuthorizationContext? resource,
+            CancellationToken cancellationToken = default)
+        {
+            LastRequirement = requirement;
+            LastResource = resource;
+            return ValueTask.FromResult(deniedPermission.HasValue
+                && requirement.ApplicationPermission == deniedPermission
+                ? AuthorizationDecision.Deny(AuthorizationDenialReason.MissingPermission)
+                : AuthorizationDecision.Allow());
+        }
     }
 }

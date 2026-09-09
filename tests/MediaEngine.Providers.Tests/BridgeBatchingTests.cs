@@ -81,7 +81,9 @@ public sealed class BridgeBatchingTests
         {
             var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (string.IsNullOrWhiteSpace(query))
+            {
                 return result;
+            }
 
             foreach (var segment in query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
             {

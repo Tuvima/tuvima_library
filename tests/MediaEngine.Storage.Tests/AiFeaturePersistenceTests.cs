@@ -331,7 +331,9 @@ public sealed class AiFeaturePersistenceTests : IDisposable
 
         AiFeatureState? state = null;
         for (var attempt = 0; attempt < 10; attempt++)
+        {
             state = await _canonicals.RecordAiFeatureFailureAsync(request);
+        }
 
         Assert.NotNull(state);
         Assert.Equal(AiFeatureStatus.RetryPending, state.Status);

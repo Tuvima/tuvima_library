@@ -36,7 +36,9 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(operation.IdempotencyKey))
+        {
             throw new ArgumentException("Media operation idempotency key is required.", nameof(operation));
+        }
 
         var now = DateTimeOffset.UtcNow;
         var id = operation.Id == Guid.Empty ? Guid.NewGuid() : operation.Id;
@@ -98,7 +100,9 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
             return Task.FromResult<MediaOperation?>(null);
+        }
 
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<MediaOperationRow>(
@@ -111,7 +115,9 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(sourcePath))
+        {
             return Task.FromResult<MediaOperation?>(null);
+        }
 
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<MediaOperationRow>(
@@ -135,7 +141,9 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(sourcePath))
+        {
             return Task.FromResult<MediaOperation?>(null);
+        }
 
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<MediaOperationRow>(
@@ -355,13 +363,13 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
                 updated_at = @now
             WHERE id = @id;
             """, new
-            {
-                id,
-                error,
-                category = category.ToString(),
-                poisonIncrement = policy.ConsumesPoisonBudget ? 1 : 0,
-                now = DateTimeOffset.UtcNow.ToString("O"),
-            });
+        {
+            id,
+            error,
+            category = category.ToString(),
+            poisonIncrement = policy.ConsumesPoisonBudget ? 1 : 0,
+            now = DateTimeOffset.UtcNow.ToString("O"),
+        });
         return Task.CompletedTask;
     }
 

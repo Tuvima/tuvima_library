@@ -35,16 +35,24 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         ArgumentNullException.ThrowIfNull(entries);
 
         if (!MetadataFieldConstants.IsMultiValued(key))
+        {
             throw new ArgumentException($"Canonical key '{key}' is scalar and cannot be stored as an array.", nameof(key));
+        }
 
         if (entries.Any(entry => entry.Ordinal < 0))
+        {
             throw new ArgumentOutOfRangeException(nameof(entries), "Canonical array ordinals must be non-negative.");
+        }
 
         if (entries.Any(entry => string.IsNullOrWhiteSpace(entry.Value)))
+        {
             throw new ArgumentException("Canonical array values cannot be empty or whitespace.", nameof(entries));
+        }
 
         if (entries.Select(entry => entry.Ordinal).Distinct().Count() != entries.Count)
+        {
             throw new ArgumentException("Canonical array ordinals must be unique within an entity and key.", nameof(entries));
+        }
 
         await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -68,7 +76,7 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
                     entries.Select(e => new
                     {
                         EntityId = entityId,
-                        Key      = key,
+                        Key = key,
                         e.Ordinal,
                         e.Value,
                         ValueQid = e.ValueQid,
@@ -101,8 +109,8 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
 
         var results = rows.ConvertAll(r => new CanonicalArrayEntry
         {
-            Ordinal  = r.Ordinal,
-            Value    = r.Value,
+            Ordinal = r.Ordinal,
+            Value = r.Value,
             ValueQid = r.ValueQid,
         });
 
@@ -138,8 +146,8 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
             }
             list.Add(new CanonicalArrayEntry
             {
-                Ordinal  = row.Ordinal,
-                Value    = row.Value,
+                Ordinal = row.Ordinal,
+                Value = row.Value,
                 ValueQid = row.ValueQid,
             });
         }
@@ -147,7 +155,9 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         var readOnly = new Dictionary<string, IReadOnlyList<CanonicalArrayEntry>>(
             StringComparer.OrdinalIgnoreCase);
         foreach (var (k, list) in grouped)
+        {
             readOnly[k] = list;
+        }
 
         return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>(readOnly);
     }
@@ -159,8 +169,10 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
     {
         ct.ThrowIfCancellationRequested();
         if (entityIds.Count == 0)
+        {
             return Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>>(
                 new Dictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>());
+        }
 
         using var conn = _db.CreateConnection();
         var rows = new List<CanonicalArrayEntityKeyedRow>();
@@ -216,7 +228,9 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         ct.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         if (!MetadataFieldConstants.IsMultiValued(key))
+        {
             throw new ArgumentException($"Canonical key '{key}' is scalar and cannot be queried as an array.", nameof(key));
+        }
 
         using var conn = _db.CreateConnection();
         var rows = conn.Query<CanonicalArrayKeyedRow>(
@@ -264,9 +278,9 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
     /// </summary>
     private sealed class CanonicalArrayKeyedRow
     {
-        public string  Key      { get; set; } = string.Empty;
-        public int     Ordinal  { get; set; }
-        public string  Value    { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;
+        public int Ordinal { get; set; }
+        public string Value { get; set; } = string.Empty;
         public string? ValueQid { get; set; }
     }
 

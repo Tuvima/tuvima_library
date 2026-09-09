@@ -17,7 +17,8 @@ public sealed class LibraryWorkFeedReadService(IDatabaseConnection db) : ILibrar
 
     public async Task<PagedResponse<LibraryWorkListItemDto>> GetWorksAsync(
         PagedRequest page,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlySet<Guid>? allowedWorkIds = null)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = db.CreateConnection();
@@ -61,6 +62,7 @@ public sealed class LibraryWorkFeedReadService(IDatabaseConnection db) : ILibrar
                 WHERE w.work_kind != 'parent'
                   AND {visibleWorkPredicate}
                   AND {visibleAssetPredicate}
+                  AND (@RestrictWorks = 0 OR w.id IN @AllowedWorkIds)
             )
             SELECT
                 work_id AS WorkId,
@@ -79,11 +81,21 @@ public sealed class LibraryWorkFeedReadService(IDatabaseConnection db) : ILibrar
                 work_id
             LIMIT @LimitPlusOne OFFSET @Offset;
             """,
-            new { LimitPlusOne = page.Limit + 1, page.Offset },
+            new
+            {
+                LimitPlusOne = page.Limit + 1,
+                page.Offset,
+                RestrictWorks = allowedWorkIds is null ? 0 : 1,
+                AllowedWorkIds = (allowedWorkIds ?? new HashSet<Guid>())
+                    .Select(GuidSql.ToBlob)
+                    .ToArray(),
+            },
             cancellationToken: ct)).ConfigureAwait(false)).ToList();
 
         if (workRows.Count == 0)
+        {
             return new PagedResponse<LibraryWorkListItemDto>([], page.Offset, page.Limit, false);
+        }
 
         var assetCanonicalValues = await LoadCanonicalValuesAsync(
             conn,
@@ -230,12 +242,16 @@ public sealed class LibraryWorkFeedReadService(IDatabaseConnection db) : ILibrar
         bool overwriteExisting)
     {
         if (source is null)
+        {
             return;
+        }
 
         foreach (var (key, value) in source)
         {
             if (!string.IsNullOrWhiteSpace(value) && (overwriteExisting || !target.ContainsKey(key)))
+            {
                 target[key] = value;
+            }
         }
     }
 

@@ -1,6 +1,6 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Models;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Intelligence.Tests;
@@ -18,7 +18,7 @@ public sealed class PriorityCascadeRestrictionTests
     private static readonly Guid LocalProcessorId = Guid.Parse("a1b2c3d4-e5f6-4700-8900-0a1b2c3d4e5f");
     private static readonly Guid OpenLibraryProviderId = Guid.Parse("b4000004-0000-4000-8000-000000000005");
     private static readonly Guid ProviderA = Guid.Parse("aaaa0000-0000-0000-0000-000000000001");
-    private static readonly Guid EntityId  = Guid.Parse("eeee0000-0000-0000-0000-000000000002");
+    private static readonly Guid EntityId = Guid.Parse("eeee0000-0000-0000-0000-000000000002");
 
     private static readonly ScoringConfiguration DefaultConfig = new();
 
@@ -227,7 +227,7 @@ public sealed class PriorityCascadeRestrictionTests
             ],
             ProviderWeights = new Dictionary<Guid, double>
             {
-                [ProviderA]          = 1.0,
+                [ProviderA] = 1.0,
                 [WikidataProviderId] = 1.0,
             },
             Configuration = DefaultConfig,
@@ -254,7 +254,7 @@ public sealed class PriorityCascadeRestrictionTests
             ],
             ProviderWeights = new Dictionary<Guid, double>
             {
-                [ProviderA]          = 1.0,
+                [ProviderA] = 1.0,
                 [WikidataProviderId] = 1.0,
             },
             Configuration = DefaultConfig,
@@ -285,7 +285,7 @@ public sealed class PriorityCascadeRestrictionTests
             ],
             ProviderWeights = new Dictionary<Guid, double>
             {
-                [LocalProcessorId]   = 1.0,
+                [LocalProcessorId] = 1.0,
                 [WikidataProviderId] = 1.0,
             },
             Configuration = DefaultConfig,
@@ -313,7 +313,7 @@ public sealed class PriorityCascadeRestrictionTests
             ProviderWeights = new Dictionary<Guid, double>
             {
                 [OpenLibraryProviderId] = 1.0,
-                [WikidataProviderId]    = 1.0,
+                [WikidataProviderId] = 1.0,
             },
             Configuration = DefaultConfig,
         };
@@ -340,7 +340,7 @@ public sealed class PriorityCascadeRestrictionTests
             ],
             ProviderWeights = new Dictionary<Guid, double>
             {
-                [ProviderA]          = 1.0,
+                [ProviderA] = 1.0,
                 [WikidataProviderId] = 1.0,
             },
             Configuration = DefaultConfig,
@@ -367,7 +367,7 @@ public sealed class PriorityCascadeRestrictionTests
             ],
             ProviderWeights = new Dictionary<Guid, double>
             {
-                [ProviderA]          = 1.0,
+                [ProviderA] = 1.0,
                 [WikidataProviderId] = 1.0,
             },
             Configuration = DefaultConfig,
@@ -435,13 +435,13 @@ public sealed class PriorityCascadeRestrictionTests
 
     private static MetadataClaim MakeClaim(
         string key, string value, Guid providerId, double confidence) => new()
-    {
-        Id         = Guid.NewGuid(),
-        EntityId   = EntityId,
-        ProviderId = providerId,
-        ClaimKey   = key,
-        ClaimValue = value,
-        Confidence = confidence,
-        ClaimedAt  = DateTimeOffset.UtcNow,
-    };
+        {
+            Id = Guid.NewGuid(),
+            EntityId = EntityId,
+            ProviderId = providerId,
+            ClaimKey = key,
+            ClaimValue = value,
+            Confidence = confidence,
+            ClaimedAt = DateTimeOffset.UtcNow,
+        };
 }

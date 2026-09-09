@@ -41,7 +41,9 @@ public sealed class FavoriteService : IDisposable
     {
         var state = await GetStateAsync(profileId, createCollection: false, ct);
         if (state?.CollectionId is not Guid collectionId)
+        {
             return null;
+        }
 
         var isFavorite = state.ItemIdsByWorkId.TryGetValue(workId, out var itemId);
         return new FavoriteMembership(collectionId, isFavorite ? itemId : null, isFavorite);
@@ -56,7 +58,9 @@ public sealed class FavoriteService : IDisposable
         }
 
         if (state?.CollectionId is not Guid collectionId)
+        {
             return null;
+        }
 
         var isFavorite = state.ItemIdsByWorkId.TryGetValue(workId, out var itemId);
         var membership = new FavoriteMembership(collectionId, isFavorite ? itemId : null, isFavorite);
@@ -90,22 +94,30 @@ public sealed class FavoriteService : IDisposable
     public async Task RefreshAsync(Guid? profileId, CancellationToken ct = default)
     {
         if (profileId.HasValue)
+        {
             await ReloadStateAsync(profileId.Value, ct);
+        }
     }
 
     private async Task<FavoriteState?> GetStateAsync(Guid? profileId, bool createCollection, CancellationToken ct)
     {
         if (!profileId.HasValue)
+        {
             return null;
+        }
 
         if (_cache.TryGetValue(profileId.Value, out var cached) && (!createCollection || cached.CollectionId.HasValue))
+        {
             return cached;
+        }
 
         await _stateGate.WaitAsync(ct);
         try
         {
             if (_cache.TryGetValue(profileId.Value, out cached) && (!createCollection || cached.CollectionId.HasValue))
+            {
                 return cached;
+            }
 
             return await ReloadStateAsync(profileId.Value, ct, createCollection);
         }

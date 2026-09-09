@@ -1,10 +1,10 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using Microsoft.Extensions.Logging;
-using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Intelligence;
 
@@ -62,7 +62,7 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         ArgumentNullException.ThrowIfNull(logger);
 
         _configLoader = configLoader;
-        _logger       = logger;
+        _logger = logger;
 
         // Log the field priority config at startup so the operator can confirm it loaded.
         var initialPriorities = configLoader.LoadFieldPriorities();
@@ -92,7 +92,7 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         // take effect without a restart. The file is small and the load is a no-op
         // cache miss (file → parse → return) — negligible cost per scoring call.
         var fieldPriorities = _configLoader.LoadFieldPriorities();
-        var pipelines       = _configLoader.LoadPipelines();
+        var pipelines = _configLoader.LoadPipelines();
         var mediaTypePipeline = pipelines.GetPipelineForMediaType(context.DetectedMediaType);
         var enabledProviderNameToGuid = BuildEnabledProviderMap(_configLoader.LoadAllProviders());
 
@@ -106,7 +106,10 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             ct.ThrowIfCancellationRequested();
 
             var claimsForField = group.ToList();
-            if (claimsForField.Count == 0) continue;
+            if (claimsForField.Count == 0)
+            {
+                continue;
+            }
 
             // ── Tier A: User locks — only honoured for user-contributed fields ──
             // Structured metadata (title, author, year, genre, etc.) is resolved
@@ -126,11 +129,11 @@ public sealed class PriorityCascadeEngine : IScoringEngine
 
                     fieldScores.Add(new FieldScore
                     {
-                        Key               = group.Key,
-                        WinningValue      = winner.ClaimValue,
-                        Confidence        = 1.0,
+                        Key = group.Key,
+                        WinningValue = winner.ClaimValue,
+                        Confidence = 1.0,
                         WinningProviderId = winner.ProviderId,
-                        IsConflicted      = false,
+                        IsConflicted = false,
                     });
                     continue;
                 }
@@ -195,11 +198,11 @@ public sealed class PriorityCascadeEngine : IScoringEngine
                     {
                         fieldScores.Add(new FieldScore
                         {
-                            Key               = group.Key,
-                            WinningValue      = bestEmbeddedOrManual.ClaimValue,
-                            Confidence        = bestEmbeddedOrManual.Confidence,
+                            Key = group.Key,
+                            WinningValue = bestEmbeddedOrManual.ClaimValue,
+                            Confidence = bestEmbeddedOrManual.Confidence,
                             WinningProviderId = bestEmbeddedOrManual.ProviderId,
-                            IsConflicted      = false,
+                            IsConflicted = false,
                         });
                         continue;
                     }
@@ -207,11 +210,11 @@ public sealed class PriorityCascadeEngine : IScoringEngine
 
                 fieldScores.Add(new FieldScore
                 {
-                    Key               = group.Key,
-                    WinningValue      = wikidataClaim.ClaimValue,
-                    Confidence        = wikidataClaim.Confidence,
+                    Key = group.Key,
+                    WinningValue = wikidataClaim.ClaimValue,
+                    Confidence = wikidataClaim.Confidence,
                     WinningProviderId = wikidataClaim.ProviderId,
-                    IsConflicted      = false,
+                    IsConflicted = false,
                 });
                 continue;
             }
@@ -228,11 +231,11 @@ public sealed class PriorityCascadeEngine : IScoringEngine
 
             fieldScores.Add(new FieldScore
             {
-                Key               = group.Key,
-                WinningValue      = bestClaim.ClaimValue,
-                Confidence        = bestClaim.Confidence,
+                Key = group.Key,
+                WinningValue = bestClaim.ClaimValue,
+                Confidence = bestClaim.Confidence,
                 WinningProviderId = bestClaim.ProviderId,
-                IsConflicted      = false,
+                IsConflicted = false,
             });
         }
 
@@ -242,7 +245,9 @@ public sealed class PriorityCascadeEngine : IScoringEngine
 
         // Apply Library Folder category confidence prior (same as before).
         if (context.CategoryConfidencePrior > 0.0)
+        {
             overallConfidence = Math.Min(1.0, overallConfidence + context.CategoryConfidencePrior);
+        }
 
         // Apply media-type-aware confidence floor boost (same as before).
         overallConfidence = ApplyConfidenceFloor(
@@ -250,10 +255,10 @@ public sealed class PriorityCascadeEngine : IScoringEngine
 
         var result = new ScoringResult
         {
-            EntityId          = context.EntityId,
-            FieldScores       = fieldScores,
+            EntityId = context.EntityId,
+            FieldScores = fieldScores,
             OverallConfidence = overallConfidence,
-            ScoredAt          = DateTimeOffset.UtcNow,
+            ScoredAt = DateTimeOffset.UtcNow,
         };
 
         return Task.FromResult(result);
@@ -281,7 +286,9 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         foreach (var providerName in fieldOverride.Priority)
         {
             if (!providerNameToGuid.TryGetValue(providerName, out var providerGuid))
+            {
                 continue;
+            }
 
             var claim = claimsForField
                 .Where(c => c.ProviderId == providerGuid)
@@ -292,11 +299,11 @@ public sealed class PriorityCascadeEngine : IScoringEngine
             {
                 return new FieldScore
                 {
-                    Key               = claim.ClaimKey,
-                    WinningValue      = claim.ClaimValue,
-                    Confidence        = claim.Confidence,
+                    Key = claim.ClaimKey,
+                    WinningValue = claim.ClaimValue,
+                    Confidence = claim.Confidence,
                     WinningProviderId = claim.ProviderId,
-                    IsConflicted      = false,
+                    IsConflicted = false,
                 };
             }
         }
@@ -311,7 +318,9 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         foreach (var provider in providerConfigurations)
         {
             if (!provider.Enabled)
+            {
                 continue;
+            }
 
             if (!string.IsNullOrEmpty(provider.Name)
                 && Guid.TryParse(provider.ProviderId, out var guid))
@@ -359,18 +368,24 @@ public sealed class PriorityCascadeEngine : IScoringEngine
     private static bool LooksMostlyNonLatin(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return false;
+        }
 
         var letterCount = 0;
         var latinCount = 0;
         foreach (var c in value)
         {
             if (!char.IsLetter(c))
+            {
                 continue;
+            }
 
             letterCount++;
             if (IsBasicLatinLetter(c))
+            {
                 latinCount++;
+            }
         }
 
         return letterCount > 0 && latinCount * 2 < letterCount;
@@ -389,20 +404,28 @@ public sealed class PriorityCascadeEngine : IScoringEngine
         ScoringConfiguration config)
     {
         if (detectedMediaType == MediaType.Unknown)
+        {
             return overallConfidence;
+        }
 
         string mediaTypeName = detectedMediaType.ToString();
         if (!config.ConfidenceFloors.TryGetValue(mediaTypeName, out var floor))
+        {
             return overallConfidence;
+        }
 
         var fieldLookup = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         foreach (var fs in fieldScores)
+        {
             fieldLookup[fs.Key] = fs.Confidence;
+        }
 
         foreach (var criticalField in floor.CriticalFields)
         {
             if (!fieldLookup.TryGetValue(criticalField, out double score) || score < floor.MinFieldScore)
+            {
                 return overallConfidence;
+            }
         }
 
         return Math.Min(1.0, overallConfidence + floor.FloorBoost);

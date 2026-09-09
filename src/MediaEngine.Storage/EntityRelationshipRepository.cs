@@ -42,12 +42,12 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
             new
             {
                 edge.Id,
-                SubjectQid     = edge.SubjectQid,
-                RelType        = edge.RelationshipTypeValue,
-                ObjectQid      = edge.ObjectQid,
+                SubjectQid = edge.SubjectQid,
+                RelType = edge.RelationshipTypeValue,
+                ObjectQid = edge.ObjectQid,
                 edge.Confidence,
                 edge.ContextWorkQid,
-                DiscoveredAt   = edge.DiscoveredAt,
+                DiscoveredAt = edge.DiscoveredAt,
                 edge.StartTime,
                 edge.EndTime,
             });
@@ -80,7 +80,9 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
 
         var qids = NormalizeQids(objectQids);
         if (qids.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<EntityRelationship>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var rows = new List<EntityRelationshipRow>();
@@ -111,11 +113,15 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
     {
         ct.ThrowIfCancellationRequested();
         if (entityQids.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<EntityRelationship>>([]);
+        }
 
         var qids = NormalizeQids(entityQids);
         if (qids.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<EntityRelationship>>([]);
+        }
 
         var qidSet = qids.ToHashSet(StringComparer.OrdinalIgnoreCase);
         using var conn = _db.CreateConnection();
@@ -194,27 +200,27 @@ public sealed class EntityRelationshipRepository : IEntityRelationshipRepository
     /// </summary>
     private sealed class EntityRelationshipRow
     {
-        public Guid           Id                    { get; set; }
-        public string         SubjectQid            { get; set; } = string.Empty;
-        public string         RelationshipTypeValue { get; set; } = string.Empty;
-        public string         ObjectQid             { get; set; } = string.Empty;
-        public double         Confidence            { get; set; }
-        public string?        ContextWorkQid        { get; set; }
-        public DateTimeOffset DiscoveredAt          { get; set; }
-        public string?        StartTime             { get; set; }
-        public string?        EndTime               { get; set; }
+        public Guid Id { get; set; }
+        public string SubjectQid { get; set; } = string.Empty;
+        public string RelationshipTypeValue { get; set; } = string.Empty;
+        public string ObjectQid { get; set; } = string.Empty;
+        public double Confidence { get; set; }
+        public string? ContextWorkQid { get; set; }
+        public DateTimeOffset DiscoveredAt { get; set; }
+        public string? StartTime { get; set; }
+        public string? EndTime { get; set; }
     }
 
     private static EntityRelationship MapRow(EntityRelationshipRow r) => new()
     {
-        Id                    = r.Id,
-        SubjectQid            = r.SubjectQid,
+        Id = r.Id,
+        SubjectQid = r.SubjectQid,
         RelationshipTypeValue = r.RelationshipTypeValue,
-        ObjectQid             = r.ObjectQid,
-        Confidence            = r.Confidence,
-        ContextWorkQid        = r.ContextWorkQid,
-        DiscoveredAt          = r.DiscoveredAt,
-        StartTime             = r.StartTime,
-        EndTime               = r.EndTime,
+        ObjectQid = r.ObjectQid,
+        Confidence = r.Confidence,
+        ContextWorkQid = r.ContextWorkQid,
+        DiscoveredAt = r.DiscoveredAt,
+        StartTime = r.StartTime,
+        EndTime = r.EndTime,
     };
 }

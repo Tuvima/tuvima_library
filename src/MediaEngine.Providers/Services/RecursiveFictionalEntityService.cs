@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -45,7 +45,7 @@ public sealed class RecursiveFictionalEntityService : IRecursiveFictionalEntityS
         ArgumentNullException.ThrowIfNull(logger);
         _entityRepo = entityRepo;
         _harvesting = harvesting;
-        _logger     = logger;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -58,7 +58,9 @@ public sealed class RecursiveFictionalEntityService : IRecursiveFictionalEntityS
         CancellationToken ct = default)
     {
         if (references.Count == 0)
+        {
             return;
+        }
 
         _logger.LogInformation(
             "Processing {Count} fictional entity references for work {WorkQid} in universe {UniverseQid}",
@@ -69,7 +71,9 @@ public sealed class RecursiveFictionalEntityService : IRecursiveFictionalEntityS
             ct.ThrowIfCancellationRequested();
 
             if (string.IsNullOrWhiteSpace(reference.WikidataQid))
+            {
                 continue;
+            }
 
             try
             {
@@ -134,18 +138,18 @@ public sealed class RecursiveFictionalEntityService : IRecursiveFictionalEntityS
         {
             var entityType = reference.EntitySubType switch
             {
-                FictionalEntityType.Character    => EntityType.Character,
-                FictionalEntityType.Location     => EntityType.Location,
+                FictionalEntityType.Character => EntityType.Character,
+                FictionalEntityType.Location => EntityType.Location,
                 FictionalEntityType.Organization => EntityType.Organization,
                 _ => EntityType.Character,
             };
 
             await _harvesting.EnqueueAsync(new HarvestRequest
             {
-                EntityId   = entity.Id,
+                EntityId = entity.Id,
                 EntityType = entityType,
-                MediaType  = MediaType.Unknown,
-                Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                MediaType = MediaType.Unknown,
+                Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
                     ["wikidata_qid"] = reference.WikidataQid,
                     ["label"] = reference.Label ?? reference.WikidataQid,

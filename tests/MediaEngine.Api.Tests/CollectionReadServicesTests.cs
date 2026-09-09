@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Dapper;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
@@ -6,7 +7,6 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Text.Json;
 
 namespace MediaEngine.Api.Tests;
 
@@ -167,6 +167,80 @@ public sealed class CollectionReadServicesTests : IDisposable
         var managed = await _catalog.GetManagedAsync(null, CancellationToken.None);
         var entry = Assert.Single(managed);
         Assert.Equal(supportedId, entry.Id);
+    }
+
+    [Fact]
+    public async Task CollectionCatalog_AppliesAllowedWorksBeforeCountsAndArtwork()
+    {
+        var collectionId = Guid.NewGuid();
+        var allowedWorkId = Guid.NewGuid();
+        var hiddenWorkId = Guid.NewGuid();
+        var allowedAssetId = Guid.NewGuid();
+        var hiddenAssetId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections
+                    (id, display_name, collection_type, scope, resolution, is_enabled)
+                VALUES (@collectionId, 'Scoped collection', 'Custom', 'library', 'materialized', 1);
+                INSERT INTO works (id, media_type, work_kind, ownership, curator_state)
+                VALUES (@allowedWorkId, 'Books', 'standalone', 'Owned', 'Accepted'),
+                       (@hiddenWorkId, 'Movies', 'standalone', 'Owned', 'Accepted');
+                INSERT INTO editions (id, work_id)
+                VALUES (@allowedEditionId, @allowedWorkId), (@hiddenEditionId, @hiddenWorkId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES (@allowedAssetId, @allowedEditionId, @allowedHash, 'C:/library/allowed.epub'),
+                       (@hiddenAssetId, @hiddenEditionId, @hiddenHash, 'C:/library/hidden.mkv');
+                INSERT INTO collection_items (id, collection_id, work_id, sort_order)
+                VALUES (@hiddenItemId, @collectionId, @hiddenWorkId, 0),
+                       (@allowedItemId, @collectionId, @allowedWorkId, 1);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@allowedAssetId, 'title', 'Allowed book', CURRENT_TIMESTAMP),
+                       (@allowedAssetId, 'cover_url', '/allowed.jpg', CURRENT_TIMESTAMP),
+                       (@hiddenAssetId, 'title', 'Hidden movie', CURRENT_TIMESTAMP),
+                       (@hiddenAssetId, 'cover_url', '/hidden.jpg', CURRENT_TIMESTAMP);
+                """,
+                new
+                {
+                    collectionId,
+                    allowedWorkId,
+                    hiddenWorkId,
+                    allowedAssetId,
+                    hiddenAssetId,
+                    allowedEditionId = Guid.NewGuid(),
+                    hiddenEditionId = Guid.NewGuid(),
+                    allowedHash = Guid.NewGuid().ToString("N"),
+                    hiddenHash = Guid.NewGuid().ToString("N"),
+                    allowedItemId = Guid.NewGuid(),
+                    hiddenItemId = Guid.NewGuid(),
+                });
+        }
+
+        var entry = Assert.Single(await _catalog.GetCatalogAsync(
+            null,
+            CancellationToken.None,
+            new HashSet<Guid> { allowedWorkId }));
+
+        Assert.Equal(1, entry.ItemCount);
+        Assert.Equal(1, entry.ReadCount);
+        Assert.Equal(0, entry.WatchCount);
+        Assert.Equal(allowedWorkId, Assert.Single(entry.ArtworkItems).WorkId);
+        Assert.DoesNotContain(entry.ArtworkItems, item => item.WorkId == hiddenWorkId);
+
+        var items = await _catalog.GetItemsAsync(
+            collectionId,
+            null,
+            1,
+            CancellationToken.None,
+            new HashSet<Guid> { allowedWorkId });
+        Assert.Equal(allowedWorkId, Assert.Single(items.Items).WorkId);
+
+        var managed = Assert.Single(await _catalog.GetManagedAsync(
+            null,
+            CancellationToken.None,
+            new HashSet<Guid> { allowedWorkId }));
+        Assert.Equal(1, managed.ItemCount);
     }
 
     [Fact]

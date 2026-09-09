@@ -50,11 +50,15 @@ public sealed class NatPmpRouterPortMapper : IRouterPortMapper
                 BinaryPrimitives.WriteUInt32BigEndian(payload.AsSpan(8, 4), lifetimeSeconds);
                 var response = await _transport.ExchangeAsync(gateway.GatewayAddress, NatPmpPort, payload, TimeSpan.FromSeconds(2), ct);
                 if (response.Length < 16 || response[0] != 0 || response[1] != 130)
+                {
                     continue;
+                }
 
                 var resultCode = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(2, 2));
                 if (resultCode != 0)
+                {
                     return new RouterMappingResult(RouterMappingState.RouterRefused, Method, TranslateResult(resultCode), ReasonCode: $"nat-pmp-result-{resultCode}");
+                }
 
                 var externalPort = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(10, 2));
                 var lease = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(12, 4));
@@ -69,7 +73,10 @@ public sealed class NatPmpRouterPortMapper : IRouterPortMapper
             catch (Exception ex) when (ex is SocketException or OperationCanceledException or InvalidOperationException)
             {
                 if (ex is OperationCanceledException && ct.IsCancellationRequested)
+                {
                     throw;
+                }
+
                 _logger.LogDebug(ex, "NAT-PMP was unavailable through gateway {Gateway}", gateway.GatewayAddress);
             }
         }

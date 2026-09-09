@@ -110,7 +110,9 @@ public sealed class ProviderHealthRepository : IProviderHealthRepository
             new { ProviderId = providerId, Now = now });
 
         if (wasDown)
+        {
             _logger.LogInformation("Provider {Provider} recovered — was down since last failure", providerId);
+        }
 
         return Task.FromResult(wasDown);
     }
@@ -164,7 +166,9 @@ public sealed class ProviderHealthRepository : IProviderHealthRepository
             });
 
         if (newStatus == ProviderHealthStatus.Down && newFailures == 3)
+        {
             _logger.LogWarning("Provider {Provider} marked DOWN — {Reason}", providerId, reason);
+        }
 
         return Task.FromResult(newStatus);
     }
@@ -176,13 +180,21 @@ public sealed class ProviderHealthRepository : IProviderHealthRepository
     {
         if (string.IsNullOrEmpty(downSinceStr) ||
             !DateTimeOffset.TryParse(downSinceStr, out var downSince))
+        {
             return now.AddMinutes(5);
+        }
 
         var downDuration = now - downSince;
         if (downDuration.TotalMinutes < 30)
+        {
             return now.AddMinutes(5);
+        }
+
         if (downDuration.TotalHours < 2)
+        {
             return now.AddMinutes(15);
+        }
+
         return now.AddHours(1);
     }
 

@@ -918,7 +918,9 @@ public sealed class IngestionOperationsContractTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "MediaEngine.slnx")))
+        {
             dir = dir.Parent;
+        }
 
         return dir?.FullName ?? throw new InvalidOperationException("Repo root not found.");
     }
@@ -936,18 +938,18 @@ public sealed class IngestionOperationsContractTests
         int processed,
         int identified,
         int review) => new()
-    {
-        Id = Guid.NewGuid(),
-        StartedAt = startedAt,
-        CreatedAt = startedAt,
-        UpdatedAt = startedAt.AddMinutes(1),
-        CompletedAt = startedAt.AddMinutes(2),
-        Status = "completed",
-        FilesTotal = total,
-        FilesProcessed = processed,
-        FilesIdentified = identified,
-        FilesReview = review,
-    };
+        {
+            Id = Guid.NewGuid(),
+            StartedAt = startedAt,
+            CreatedAt = startedAt,
+            UpdatedAt = startedAt.AddMinutes(1),
+            CompletedAt = startedAt.AddMinutes(2),
+            Status = "completed",
+            FilesTotal = total,
+            FilesProcessed = processed,
+            FilesIdentified = identified,
+            FilesReview = review,
+        };
 
     private static (int Count, int Total) ResolveActivityProgress(
         string stageKey,

@@ -2,9 +2,9 @@ using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Logging.Abstractions;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Web.Services.Integration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Tests;
 

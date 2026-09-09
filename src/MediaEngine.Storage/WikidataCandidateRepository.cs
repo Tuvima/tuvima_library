@@ -19,7 +19,9 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
     {
         ct.ThrowIfCancellationRequested();
         if (candidates.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -103,33 +105,33 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
 
     private sealed class WikidataCandidateRow
     {
-        public Guid    Id                 { get; set; }
-        public Guid    JobId              { get; set; }
-        public string  Qid                { get; set; } = "";
-        public string  Label              { get; set; } = "";
-        public string? Description        { get; set; }
-        public string  MatchedBy          { get; set; } = "";
-        public string? BridgeIdType       { get; set; }
-        public long    IsExactMatch       { get; set; }
-        public double  ScoreTotal         { get; set; }
+        public Guid Id { get; set; }
+        public Guid JobId { get; set; }
+        public string Qid { get; set; } = "";
+        public string Label { get; set; } = "";
+        public string? Description { get; set; }
+        public string MatchedBy { get; set; } = "";
+        public string? BridgeIdType { get; set; }
+        public long IsExactMatch { get; set; }
+        public double ScoreTotal { get; set; }
         public string? ScoreBreakdownJson { get; set; }
-        public string  Outcome            { get; set; } = "";
-        public string  CreatedAt          { get; set; } = "";
+        public string Outcome { get; set; } = "";
+        public string CreatedAt { get; set; } = "";
     }
 
     private static WikidataBridgeCandidate MapRow(WikidataCandidateRow r) => new()
     {
-        Id                 = r.Id,
-        JobId              = r.JobId,
-        Qid                = r.Qid,
-        Label              = r.Label,
-        Description        = r.Description,
-        MatchedBy          = r.MatchedBy,
-        BridgeIdType       = r.BridgeIdType,
-        IsExactMatch       = r.IsExactMatch != 0,
-        ScoreTotal         = r.ScoreTotal,
+        Id = r.Id,
+        JobId = r.JobId,
+        Qid = r.Qid,
+        Label = r.Label,
+        Description = r.Description,
+        MatchedBy = r.MatchedBy,
+        BridgeIdType = r.BridgeIdType,
+        IsExactMatch = r.IsExactMatch != 0,
+        ScoreTotal = r.ScoreTotal,
         ScoreBreakdownJson = r.ScoreBreakdownJson,
-        Outcome            = r.Outcome,
-        CreatedAt          = DateTimeOffset.Parse(r.CreatedAt),
+        Outcome = r.Outcome,
+        CreatedAt = DateTimeOffset.Parse(r.CreatedAt),
     };
 }

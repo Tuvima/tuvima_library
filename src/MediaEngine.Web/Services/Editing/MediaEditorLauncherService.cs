@@ -7,12 +7,12 @@ namespace MediaEngine.Web.Services.Editing;
 public sealed class MediaEditorLauncherService
 {
     private readonly IDialogService _dialogService;
-    private readonly AdministratorElevationNavigationService? _elevation;
+    private readonly AdministratorSurfaceAccessService? _administratorAccess;
 
-    public MediaEditorLauncherService(IDialogService dialogService, AdministratorElevationNavigationService? elevation = null)
+    public MediaEditorLauncherService(IDialogService dialogService, AdministratorSurfaceAccessService? administratorAccess = null)
     {
         _dialogService = dialogService;
-        _elevation = elevation;
+        _administratorAccess = administratorAccess;
     }
 
     public async Task<bool> OpenAsync(MediaEditorLaunchRequest request)
@@ -20,13 +20,19 @@ public sealed class MediaEditorLauncherService
         ArgumentNullException.ThrowIfNull(request);
 
         if (request.EntityIds.Count == 0)
+        {
             return false;
+        }
 
-        if (_elevation is not null && !await _elevation.EnsureElevatedAsync())
+        if (_administratorAccess is not null && !await _administratorAccess.EnsureUnlockedAsync())
+        {
             return false;
+        }
 
         if (request.Mode == SharedMediaEditorMode.Batch && request.EntityIds.Count <= 1)
+        {
             return false;
+        }
 
         if (request.Mode == SharedMediaEditorMode.Batch)
         {
@@ -42,10 +48,15 @@ public sealed class MediaEditorLauncherService
                     CloseOnEscapeKey = true,
                 });
             if (confirmDialog is null)
+            {
                 return false;
+            }
+
             var confirmResult = await confirmDialog.Result;
             if (confirmResult is null || confirmResult.Canceled)
+            {
                 return false;
+            }
         }
 
         if (string.Equals(request.LaunchEntityKind, "Person", StringComparison.OrdinalIgnoreCase))
@@ -63,7 +74,10 @@ public sealed class MediaEditorLauncherService
                     CloseOnEscapeKey = true,
                 });
             if (personDialog is null)
+            {
                 return false;
+            }
+
             var personResult = await personDialog.Result;
             return personResult is not null && !personResult.Canceled;
         }
@@ -84,7 +98,9 @@ public sealed class MediaEditorLauncherService
                 CloseOnEscapeKey = true,
             });
         if (dialog is null)
+        {
             return false;
+        }
 
         var result = await dialog.Result;
         return result is not null && !result.Canceled;

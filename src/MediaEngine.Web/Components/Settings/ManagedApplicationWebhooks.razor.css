@@ -1,0 +1,58 @@
+.application-webhooks__heading,
+.application-webhook__summary,
+.application-webhook__actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+}
+
+.application-webhooks__heading small,
+.application-webhook small {
+    display: block;
+    color: var(--app-text-muted);
+}
+
+.application-webhook,
+.application-webhook-editor {
+    display: grid;
+    gap: .75rem;
+    padding: .85rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+}
+
+.application-webhook__summary > div,
+.application-webhook__status {
+    display: grid;
+    gap: .2rem;
+    min-width: 0;
+}
+
+.application-webhook__summary strong {
+    overflow-wrap: anywhere;
+}
+
+.application-webhook__actions {
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.application-webhook-events {
+    display: grid;
+    gap: .35rem;
+}
+
+.application-webhook-secret strong,
+.application-webhook-secret code {
+    display: block;
+}
+
+.application-webhook-secret code {
+    margin-top: .6rem;
+    padding: .65rem;
+    overflow-wrap: anywhere;
+    border-radius: var(--app-radius-sm);
+    background: rgb(0 0 0 / 28%);
+    user-select: all;
+}

@@ -34,7 +34,9 @@ public sealed class WorkHierarchyMaintenanceService
                     EmptyParentSql,
                     transaction: tx).ToList();
                 if (parentIds.Count == 0)
+                {
                     break;
+                }
 
                 foreach (var parentId in parentIds)
                 {
@@ -47,7 +49,9 @@ public sealed class WorkHierarchyMaintenanceService
         }, ct).ConfigureAwait(false);
 
         if (deleted > 0)
+        {
             _logger?.LogInformation("Removed {Count} empty parent work rows", deleted);
+        }
 
         return deleted;
     }

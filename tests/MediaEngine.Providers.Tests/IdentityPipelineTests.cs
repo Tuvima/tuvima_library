@@ -252,11 +252,17 @@ public sealed class IdentityPipelineTests
 
         string outcome;
         if (score >= autoAcceptThreshold)
+        {
             outcome = "AutoAccepted";
+        }
         else if (score >= ambiguousThreshold)
+        {
             outcome = "Ambiguous";
+        }
         else
+        {
             outcome = "Rejected";
+        }
 
         Assert.Equal(expectedOutcome, outcome);
     }
@@ -270,13 +276,17 @@ public sealed class IdentityPipelineTests
             : new DirectoryInfo(Directory.GetCurrentDirectory());
 
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         if (directory is null)
         {
             directory = new DirectoryInfo(AppContext.BaseDirectory);
             while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            {
                 directory = directory.Parent;
+            }
         }
 
         var root = directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");

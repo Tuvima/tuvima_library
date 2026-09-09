@@ -32,9 +32,9 @@ public sealed class PseudonymIntegrationTests : IDisposable
     // Known QIDs for assertion targets. Verified against live Wikidata
     // at the time the tests were written — confirmed via the output of
     // PseudonymIntegrationTests on 2026-04-08.
-    private const string StephenKingQid   = "Q39829";
+    private const string StephenKingQid = "Q39829";
     private const string DanielAbrahamQid = "Q1159871";
-    private const string TyFranckQid      = "Q18608460";
+    private const string TyFranckQid = "Q18608460";
 
     private readonly ITestOutputHelper _output;
     private readonly WikidataReconciler _reconciler;
@@ -58,9 +58,9 @@ public sealed class PseudonymIntegrationTests : IDisposable
             factory.CreateClient("WikidataReconciliation"),
             new WikidataReconcilerOptions
             {
-                UserAgent             = "Tuvima Library/PseudonymIntegration (mailto:test@tuvima.dev)",
-                MaxLag                = 0,
-                TypeHierarchyDepth    = 3,
+                UserAgent = "Tuvima Library/PseudonymIntegration (mailto:test@tuvima.dev)",
+                MaxLag = 0,
+                TypeHierarchyDepth = 3,
                 IncludeSitelinkLabels = true,
             });
     }
@@ -80,7 +80,7 @@ public sealed class PseudonymIntegrationTests : IDisposable
         // Either path is correct and this test accepts both.
         var result = await _reconciler.Authors.ResolveAsync(new AuthorResolutionRequest
         {
-            RawAuthorString  = "Richard Bachman",
+            RawAuthorString = "Richard Bachman",
             DetectPseudonyms = true,
         });
 
@@ -111,7 +111,7 @@ public sealed class PseudonymIntegrationTests : IDisposable
         // string values. Stephen King has (at least) Richard Bachman.
         var result = await _reconciler.Authors.ResolveAsync(new AuthorResolutionRequest
         {
-            RawAuthorString  = "Stephen King",
+            RawAuthorString = "Stephen King",
             DetectPseudonyms = true,
         });
 
@@ -144,7 +144,7 @@ public sealed class PseudonymIntegrationTests : IDisposable
         // both Daniel Abraham and Ty Franck.
         var result = await _reconciler.Authors.ResolveAsync(new AuthorResolutionRequest
         {
-            RawAuthorString  = "James S.A. Corey",
+            RawAuthorString = "James S.A. Corey",
             DetectPseudonyms = true,
         });
 
@@ -160,7 +160,9 @@ public sealed class PseudonymIntegrationTests : IDisposable
         if (resolved.RealAuthors is not null)
         {
             foreach (var real in resolved.RealAuthors)
+            {
                 _output.WriteLine($"    — {real.CanonicalName} ({real.Qid})");
+            }
         }
 
         Assert.NotNull(resolved.Qid);
@@ -174,7 +176,7 @@ public sealed class PseudonymIntegrationTests : IDisposable
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         Assert.Contains(DanielAbrahamQid, realAuthorQids);
-        Assert.Contains(TyFranckQid,       realAuthorQids);
+        Assert.Contains(TyFranckQid, realAuthorQids);
 
         // Pattern 3 is mutually exclusive with Pattern 1 on the same result.
         Assert.Null(resolved.RealNameQid);
@@ -190,7 +192,7 @@ public sealed class PseudonymIntegrationTests : IDisposable
         // each with a Qid and neither with Pattern 1/3 fields set.
         var result = await _reconciler.Authors.ResolveAsync(new AuthorResolutionRequest
         {
-            RawAuthorString  = "Neil Gaiman & Terry Pratchett",
+            RawAuthorString = "Neil Gaiman & Terry Pratchett",
             DetectPseudonyms = true,
         });
 

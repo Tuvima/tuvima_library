@@ -57,13 +57,15 @@ public static class TuvimaAdminApplication
         var identities = new IdentityRepository(database);
         var accounts = new AccountRepository(database);
         var profiles = new ProfileRepository(database);
+        using var configuration = new ConfigurationDirectoryLoader(configDirectory);
         IHostAdministratorRecoveryService recovery = new FirstPartyIdentityService(
             identities,
             accounts,
             profiles,
             new PasswordHasher<AccountCredential>(),
             new PasswordHasher<ProfileCredential>(),
-            TimeProvider.System);
+            TimeProvider.System,
+            new ConfigurationAuthenticationPolicyProvider(configuration));
         var command = new ResetAdministratorPasswordCommand(
             authorizer,
             recovery,

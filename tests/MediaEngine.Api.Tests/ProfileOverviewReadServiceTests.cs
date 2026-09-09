@@ -143,17 +143,8 @@ public sealed class ProfileOverviewReadServiceTests : IDisposable
         public Task<Profile?> GetProfileAsync(Guid id, CancellationToken ct = default) =>
             Task.FromResult(profile?.Id == id ? profile : null);
 
-        public Task<Profile> CreateProfileAsync(string displayName, ProfileRole role, string avatarColor, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
         public Task<bool> UpdateProfileAsync(Profile profile, CancellationToken ct = default) =>
             throw new NotSupportedException();
-
-        public Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<Profile> GetDefaultProfileAsync(CancellationToken ct = default) =>
-            Task.FromResult(profile ?? new Profile { Id = Profile.SeedProfileId, DisplayName = "Owner", Role = ProfileRole.Administrator });
     }
 
     private sealed class FakeActivityRepository : ISystemActivityRepository

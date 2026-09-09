@@ -10,45 +10,46 @@ internal static class ManagedCollectionMapper
     public static ManagedCollectionDto FromDomain(
         Collection collection,
         int itemCount,
-        Profile? activeProfile) => new()
-    {
-        Id = collection.Id,
-        Name = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
-        Description = collection.Description,
-        IconName = collection.IconName,
-        CoverArtworkUrl = string.IsNullOrWhiteSpace(collection.CoverArtworkPath)
+        Profile? activeProfile,
+        bool hasCollectionsWrite = false) => new()
+        {
+            Id = collection.Id,
+            Name = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
+            Description = collection.Description,
+            IconName = collection.IconName,
+            CoverArtworkUrl = string.IsNullOrWhiteSpace(collection.CoverArtworkPath)
             ? null
             : activeProfile is null
                 ? $"/collections/{collection.Id}/artwork/poster"
                 : $"/collections/{collection.Id}/artwork/poster?profileId={activeProfile.Id:D}",
-        BackgroundArtworkUrl = string.IsNullOrWhiteSpace(collection.BackgroundArtworkPath) ? null
+            BackgroundArtworkUrl = string.IsNullOrWhiteSpace(collection.BackgroundArtworkPath) ? null
             : activeProfile is null ? $"/collections/{collection.Id}/artwork/background" : $"/collections/{collection.Id}/artwork/background?profileId={activeProfile.Id:D}",
-        BannerArtworkUrl = null,
-        LogoArtworkUrl = string.IsNullOrWhiteSpace(collection.LogoArtworkPath) ? null
+            BannerArtworkUrl = null,
+            LogoArtworkUrl = string.IsNullOrWhiteSpace(collection.LogoArtworkPath) ? null
             : activeProfile is null ? $"/collections/{collection.Id}/artwork/logo" : $"/collections/{collection.Id}/artwork/logo?profileId={activeProfile.Id:D}",
-        CollectionType = collection.CollectionType.ToStorageValue(),
-        Scope = collection.Scope.ToStorageValue(),
-        ProfileId = collection.ProfileId,
-        Visibility = CollectionAccessPolicy.ResolveVisibility(collection),
-        IsEnabled = collection.IsEnabled,
-        IsFeatured = collection.IsFeatured,
-        MinItems = collection.MinItems,
-        RuleJson = collection.RuleJson,
-        Resolution = collection.Resolution.ToStorageValue(),
-        RuleHash = collection.RuleHash,
-        MatchMode = collection.MatchMode.ToStorageValue(),
-        SortField = collection.SortField,
-        SortDirection = collection.SortDirection.ToStorageValue(),
-        SecondarySortField = collection.SecondarySortField,
-        SecondarySortDirection = collection.SecondarySortDirection?.ToStorageValue(),
-        RefreshSchedule = collection.RefreshSchedule,
-        ItemCount = itemCount,
-        Status = !collection.IsEnabled ? "Disabled" : itemCount == 0 ? "Empty" : "Active",
-        CreatedAt = collection.CreatedAt,
-        ModifiedAt = collection.ModifiedAt,
-        CanEdit = CollectionAccessPolicy.CanEdit(collection, activeProfile),
-        CanShare = CollectionAccessPolicy.CanManageSharedCollections(activeProfile),
-    };
+            CollectionType = collection.CollectionType.ToStorageValue(),
+            Scope = collection.Scope.ToStorageValue(),
+            ProfileId = collection.ProfileId,
+            Visibility = CollectionAccessPolicy.ResolveVisibility(collection),
+            IsEnabled = collection.IsEnabled,
+            IsFeatured = collection.IsFeatured,
+            MinItems = collection.MinItems,
+            RuleJson = collection.RuleJson,
+            Resolution = collection.Resolution.ToStorageValue(),
+            RuleHash = collection.RuleHash,
+            MatchMode = collection.MatchMode.ToStorageValue(),
+            SortField = collection.SortField,
+            SortDirection = collection.SortDirection.ToStorageValue(),
+            SecondarySortField = collection.SecondarySortField,
+            SecondarySortDirection = collection.SecondarySortDirection?.ToStorageValue(),
+            RefreshSchedule = collection.RefreshSchedule,
+            ItemCount = itemCount,
+            Status = !collection.IsEnabled ? "Disabled" : itemCount == 0 ? "Empty" : "Active",
+            CreatedAt = collection.CreatedAt,
+            ModifiedAt = collection.ModifiedAt,
+            CanEdit = CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite),
+            CanShare = CollectionAccessPolicy.CanManageSharedCollections(hasCollectionsWrite),
+        };
 
     public static CollectionManagementCatalogDto ToCatalog(
         Collection collection,
@@ -59,12 +60,13 @@ internal static class ManagedCollectionMapper
         IReadOnlyList<CollectionArtworkItemDto>? artworkItems = null,
         ArtworkPalette? artworkPalette = null,
         string? displayNameOverride = null,
-        CollectionCatalogPersonDto? person = null)
+        CollectionCatalogPersonDto? person = null,
+        bool hasCollectionsWrite = false)
     {
-        var baseDto = FromDomain(collection, itemCount, activeProfile);
+        var baseDto = FromDomain(collection, itemCount, activeProfile, hasCollectionsWrite);
         var isGlobal = string.Equals(baseDto.Visibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase);
-        var canEdit = CollectionAccessPolicy.CanEdit(collection, activeProfile);
-        var canManageGlobal = CollectionAccessPolicy.CanManageSharedCollections(activeProfile);
+        var canEdit = CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite);
+        var canManageGlobal = CollectionAccessPolicy.CanManageSharedCollections(hasCollectionsWrite);
 
         return new CollectionManagementCatalogDto
         {

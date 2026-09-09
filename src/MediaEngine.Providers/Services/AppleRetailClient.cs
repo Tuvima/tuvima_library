@@ -42,7 +42,9 @@ public sealed class AppleRetailClient
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(trackTitle))
+        {
             return null;
+        }
 
         AppleTrackSearchMatch? bestMatch = null;
 
@@ -60,11 +62,15 @@ public sealed class AppleRetailClient
                     ct).ConfigureAwait(false);
                 var results = json?["results"]?.AsArray();
                 if (results is null || results.Count == 0)
+                {
                     continue;
+                }
 
                 var currentMatch = EvaluateTrackSearchResults(results, artist, trackTitle, albumTitle);
                 if (currentMatch is null)
+                {
                     continue;
+                }
 
                 if (currentMatch.TitleExact && currentMatch.ArtistExact && currentMatch.SingleTrackRelease)
                 {
@@ -73,7 +79,9 @@ public sealed class AppleRetailClient
                 }
 
                 if (bestMatch is null || currentMatch.Score > bestMatch.Score)
+                {
                     bestMatch = currentMatch;
+                }
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -104,7 +112,9 @@ public sealed class AppleRetailClient
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(album))
+        {
             return null;
+        }
 
         var url = _requestBuilder.BuildAppleAlbumSearchUrl(artist, album, country, language);
 
@@ -119,7 +129,9 @@ public sealed class AppleRetailClient
 
             var results = json?["results"]?.AsArray();
             if (results is null || results.Count == 0)
+            {
                 return null;
+            }
 
             double bestScore = 0.0;
             double bestAlbumScore = 0.0;
@@ -131,7 +143,9 @@ public sealed class AppleRetailClient
             foreach (var result in results)
             {
                 if (result is null)
+                {
                     continue;
+                }
 
                 var resultCollection = result["collectionName"]?.GetValue<string>();
                 var resultArtist = result["artistName"]?.GetValue<string>();
@@ -140,7 +154,9 @@ public sealed class AppleRetailClient
                     : null;
 
                 if (string.IsNullOrWhiteSpace(resultCollection) || resultId is null)
+                {
                     continue;
+                }
 
                 var albumScore = MusicAlbumIdentity.ComputeBaseNameOverlap(album, resultCollection);
                 var artistScore = !string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(resultArtist)
@@ -207,20 +223,26 @@ public sealed class AppleRetailClient
 
             var results = json?["results"]?.AsArray();
             if (results is null || results.Count == 0)
+            {
                 return [];
+            }
 
             var tracks = new List<JsonNode>();
             foreach (var node in results)
             {
                 if (node is null)
+                {
                     continue;
+                }
 
                 var wrapperType = node["wrapperType"]?.GetValue<string>();
                 var kind = node["kind"]?.GetValue<string>();
                 if (string.Equals(wrapperType, "track", StringComparison.OrdinalIgnoreCase)
                     && (string.IsNullOrWhiteSpace(kind)
                         || string.Equals(kind, "song", StringComparison.OrdinalIgnoreCase)))
+                {
                     tracks.Add(node);
+                }
             }
 
             return tracks;
@@ -273,7 +295,9 @@ public sealed class AppleRetailClient
         foreach (var result in results)
         {
             if (result is null)
+            {
                 continue;
+            }
 
             var resultTrackName = result["trackName"]?.GetValue<string>();
             var resultArtist = result["artistName"]?.GetValue<string>();
@@ -284,7 +308,9 @@ public sealed class AppleRetailClient
                 : null;
 
             if (string.IsNullOrWhiteSpace(resultTrackName) || resultId is null)
+            {
                 continue;
+            }
 
             var titleScore = RetailTextSimilarity.ComputeWordOverlap(trackTitle, resultTrackName);
             var artistScore = !string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(resultArtist)
@@ -303,13 +329,19 @@ public sealed class AppleRetailClient
                 : titleScore * 0.50 + artistScore * 0.25 + albumScore * 0.25;
 
             if (titleExact)
+            {
                 combined += 0.10;
+            }
 
             if (artistExact)
+            {
                 combined += 0.15;
+            }
 
             if (titleExact && artistExact && singleTrackRelease)
+            {
                 combined += 0.20;
+            }
 
             combined = Math.Clamp(combined, 0.0, 1.0);
             if (combined > bestScore)

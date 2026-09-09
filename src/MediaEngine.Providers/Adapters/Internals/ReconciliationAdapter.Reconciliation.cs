@@ -2,16 +2,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 
@@ -28,7 +28,9 @@ public sealed partial class ReconciliationAdapter
         string? fileLanguage = null)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(query))
+        {
             return [];
+        }
 
         var request = BuildManualSearchRequest(
             query, mediaType, fileLanguage,
@@ -96,7 +98,9 @@ public sealed partial class ReconciliationAdapter
         {
             var mediaTypeKey = mediaType.ToString();
             if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
+            {
                 typeQids = classes;
+            }
         }
 
         // Merge multi-value and single-value property constraints — multi-value
@@ -106,7 +110,10 @@ public sealed partial class ReconciliationAdapter
         {
             allConstraints = [];
             if (multiValueConstraints is { Count: > 0 })
+            {
                 allConstraints.AddRange(multiValueConstraints);
+            }
+
             if (propertyConstraints is { Count: > 0 })
             {
                 var multiValuePIds = multiValueConstraints?.Select(c => c.PropertyId).ToHashSet() ?? [];
@@ -119,15 +126,15 @@ public sealed partial class ReconciliationAdapter
 
         return new ReconciliationRequest
         {
-            Query                = query,
-            Limit                = limitOverride ?? _config.Reconciliation.MaxCandidates,
-            Language             = singleLanguage,
-            Languages            = languages,
+            Query = query,
+            Limit = limitOverride ?? _config.Reconciliation.MaxCandidates,
+            Language = singleLanguage,
+            Languages = languages,
             DiacriticInsensitive = true,
-            Cleaners             = QueryCleaners.All(),
-            Types                = typeQids,
-            TypeHierarchyDepth   = 1,
-            Properties           = allConstraints
+            Cleaners = QueryCleaners.All(),
+            Types = typeQids,
+            TypeHierarchyDepth = 1,
+            Properties = allConstraints
         };
     }
 
@@ -153,7 +160,9 @@ public sealed partial class ReconciliationAdapter
         MediaType mediaType = MediaType.Unknown)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(query))
+        {
             return [];
+        }
 
         var request = BuildManualSearchRequest(
             query, mediaType, fileLanguage,
@@ -189,7 +198,9 @@ public sealed partial class ReconciliationAdapter
     {
         var result = new Dictionary<string, IReadOnlyList<ReconciliationResult>>(StringComparer.Ordinal);
         if (requests.Count == 0 || _reconciler is null)
+        {
             return result;
+        }
 
         // Per-request build via the single source of truth so batch
         // reconciliation can never drift from manual/single reconciliation.
@@ -203,7 +214,9 @@ public sealed partial class ReconciliationAdapter
         {
             var batchResults = await _reconciler.ReconcileBatchAsync(libRequests, ct).ConfigureAwait(false);
             for (int i = 0; i < requests.Count && i < batchResults.Count; i++)
+            {
                 result[requests[i].QueryId] = batchResults[i];
+            }
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception ex)
@@ -226,7 +239,9 @@ public sealed partial class ReconciliationAdapter
         CancellationToken ct = default)
     {
         if (qids.Count == 0 || propertyCodes.Count == 0)
+        {
             return new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>>(StringComparer.OrdinalIgnoreCase);
+        }
 
         if (_reconciler is null)
         {
@@ -301,7 +316,9 @@ public sealed partial class ReconciliationAdapter
         string? yearHint = null)
     {
         if (candidates.Count == 0)
+        {
             return candidates;
+        }
 
         var mediaTypeKey = mediaType.ToString();
         if (!_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var expectedClasses)
@@ -320,7 +337,9 @@ public sealed partial class ReconciliationAdapter
             && excludedClasses.Count > 0)
         {
             foreach (var qid in excludedClasses)
+            {
                 excludedSet.Add(qid);
+            }
         }
 
         var qids = candidates.Select(c => c.Id).ToList();
@@ -349,7 +368,9 @@ public sealed partial class ReconciliationAdapter
                     {
                         if (string.IsNullOrWhiteSpace(c.Value?.EntityLabel)
                             && c.Value?.RawValue is string raw && raw.StartsWith('Q'))
+                        {
                             personQids.Add(raw);
+                        }
                     }
                 }
             }
@@ -370,7 +391,9 @@ public sealed partial class ReconciliationAdapter
                 foreach (var (qid, label) in labels)
                 {
                     if (!string.IsNullOrWhiteSpace(label))
+                    {
                         personLabelMap[qid] = label;
+                    }
                 }
             }
             catch (Exception ex)
@@ -440,9 +463,14 @@ public sealed partial class ReconciliationAdapter
             {
                 var candidateIsbns = new List<string>();
                 if (cProps.TryGetValue("P212", out var p212))
+                {
                     candidateIsbns.AddRange(p212.Where(c => c.Value?.RawValue is not null).Select(c => c.Value!.RawValue!));
+                }
+
                 if (cProps.TryGetValue("P957", out var p957))
+                {
                     candidateIsbns.AddRange(p957.Where(c => c.Value?.RawValue is not null).Select(c => c.Value!.RawValue!));
+                }
 
                 var normalizedHint = isbnHint.Replace("-", "").Replace(" ", "");
                 if (candidateIsbns.Any(isbn =>
@@ -492,7 +520,9 @@ public sealed partial class ReconciliationAdapter
                             label ??= claim.Value?.RawValue;
                             if (!string.IsNullOrWhiteSpace(label)
                                 && !label.StartsWith('Q'))
+                            {
                                 wikidataAuthors.Add(label);
+                            }
                         }
                     }
                 }
@@ -511,7 +541,11 @@ public sealed partial class ReconciliationAdapter
                         int bestIdx = -1;
                         for (int i = 0; i < wikidataAuthors.Count; i++)
                         {
-                            if (usedIndices.Contains(i)) continue;
+                            if (usedIndices.Contains(i))
+                            {
+                                continue;
+                            }
+
                             var sim = _fuzzy.ComputeTokenSetRatio(fa, wikidataAuthors[i]);
                             if (sim > bestSim)
                             {
@@ -533,7 +567,9 @@ public sealed partial class ReconciliationAdapter
                     {
                         var fullStringSim = _fuzzy.ComputeTokenSetRatio(authorHint, wdAuthor);
                         if (fullStringSim > bestAuthorMatch)
+                        {
                             bestAuthorMatch = fullStringSim;
+                        }
                     }
                 }
 
@@ -633,12 +669,12 @@ public sealed partial class ReconciliationAdapter
                 var blended = (compositeNorm * 0.85) + (s.Candidate.Score * 0.15);
                 return new ReconciliationResult
                 {
-                    Id          = s.Candidate.Id,
-                    Name        = s.Candidate.Name,
+                    Id = s.Candidate.Id,
+                    Name = s.Candidate.Name,
                     Description = s.Candidate.Description,
-                    Score       = blended,
-                    Match       = s.Candidate.Match,
-                    Types       = s.Candidate.Types,
+                    Score = blended,
+                    Match = s.Candidate.Match,
+                    Types = s.Candidate.Types,
                 };
             })
             .ToList();

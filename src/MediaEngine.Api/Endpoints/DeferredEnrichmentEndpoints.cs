@@ -1,5 +1,6 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Metadata;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -30,7 +31,7 @@ public static class DeferredEnrichmentEndpoints
         .WithName("TriggerPass2")
         .WithSummary("Trigger immediate processing of all pending Pass 2 (Universe Lookup) items.")
         .Produces<DeferredEnrichmentTriggerResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun);
 
         // ── GET /metadata/pass2/status ───────────────────────────────────
         group.MapGet("/status", async (
@@ -43,7 +44,7 @@ public static class DeferredEnrichmentEndpoints
         .WithName("GetPass2Status")
         .WithSummary("Returns the current Pass 2 queue status.")
         .Produces<DeferredEnrichmentStatusResponse>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         return app;
     }

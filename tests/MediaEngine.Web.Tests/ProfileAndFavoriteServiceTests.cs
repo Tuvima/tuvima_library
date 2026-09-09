@@ -1,9 +1,12 @@
+using System.Security.Claims;
 using Bunit;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Playback;
 using MediaEngine.Web.Tests.Support;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.JSInterop;
 
@@ -35,7 +38,8 @@ public sealed class ProfileAndFavoriteServiceTests : AsyncBunitContext
         var session = new ActiveProfileSessionService(
             Services.GetRequiredService<IJSRuntime>(),
             api,
-            activeProfile);
+            activeProfile,
+            new ProfileAuthenticationStateProvider(ProfileId));
 
         var pendingProfiles = Enumerable.Range(0, 32)
             .Select(_ => session.GetActiveProfileAsync())
@@ -50,6 +54,35 @@ public sealed class ProfileAndFavoriteServiceTests : AsyncBunitContext
         Assert.Equal(1, profileRequests);
         Assert.All(profiles, profile => Assert.Equal(ProfileId, profile?.Id));
         Assert.Equal(ProfileId, activeProfile.ProfileId);
+    }
+
+    [Fact]
+    public async Task LoadingProfiles_PreservesValidatedAuthorityAndCurrentProfileOverRetainedCookie()
+    {
+        var retainedProfile = Guid.NewGuid();
+        var account = Guid.NewGuid();
+        var authority = new DashboardAuthorityResponse(account, ProfileId, true, true, 1, 1,
+            true, true, null, 1,
+            [new AccountProfileGrantDto(Guid.NewGuid(), ProfileId, "Current", null, true, true, true,
+                new GrantAdminProtectionDto(false, "UntilProfileSwitch", 30, 1, false, null), 1, DateTimeOffset.UtcNow)],
+            ["settings.administration"], ["access.manage"]);
+        var dashboard = new DashboardSessionAccessor();
+        dashboard.Set("current-session", account, ProfileId, Guid.NewGuid(), authority);
+        var snapshot = dashboard.CurrentSnapshot();
+        var api = EngineApiClientStub.Create(stub => stub.SetHandler(nameof(IEngineApiClient.GetProfilesAsync),
+            _ => Task.FromResult(new List<ProfileViewModel> { CreateProfile() })));
+        using var profiles = new ActiveProfileSessionService(Services.GetRequiredService<IJSRuntime>(), api,
+            authenticationStateProvider: new ProfileAuthenticationStateProvider(retainedProfile),
+            dashboardSession: dashboard);
+
+        var active = await profiles.GetActiveProfileAsync();
+        await profiles.RefreshProfilesAsync();
+
+        Assert.Equal(ProfileId, active?.Id);
+        Assert.Equal(snapshot, dashboard.CurrentSnapshot());
+        Assert.Same(authority, dashboard.Authority);
+        Assert.True(dashboard.HasNavigation("settings.administration"));
+        Assert.True(dashboard.HasAction("access.manage"));
     }
 
     [Fact]
@@ -183,6 +216,15 @@ public sealed class ProfileAndFavoriteServiceTests : AsyncBunitContext
         Assert.Equal(favoritesCollectionId, list.CollectionId);
         Assert.Collection(list.Items, item => Assert.Equal(workId, item.WorkId));
         Assert.Equal(0, createCollectionRequests);
+    }
+
+    private sealed class ProfileAuthenticationStateProvider(Guid profileId) : AuthenticationStateProvider
+    {
+        public override Task<AuthenticationState> GetAuthenticationStateAsync() => Task.FromResult(
+            new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity([
+                new Claim("tuvima:active_profile_id", profileId.ToString()),
+                new Claim(DashboardEngineAuthenticationHandler.SessionTokenClaim, "retained-session")
+            ], "test"))));
     }
 
     private static ProfileViewModel CreateProfile() => new(

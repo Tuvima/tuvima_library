@@ -45,11 +45,15 @@ public sealed class WikidataSeriesManifestHydrationService
         ArgumentNullException.ThrowIfNull(context);
 
         if (!ShouldHydrate(context.MediaType))
+        {
             return;
+        }
 
         var candidates = await ResolveSeriesManifestCandidatesAsync(context, ct).ConfigureAwait(false);
         if (candidates.Count == 0)
+        {
             return;
+        }
 
         foreach (var candidate in candidates)
         {
@@ -74,7 +78,9 @@ public sealed class WikidataSeriesManifestHydrationService
         finally
         {
             if (lazy.IsValueCreated && lazy.Value.IsCompleted)
+            {
                 _inFlight.TryRemove(cacheKey, out _);
+            }
         }
     }
 
@@ -392,7 +398,9 @@ public sealed class WikidataSeriesManifestHydrationService
             context.ResolvedWorkQid,
             context.SeriesHint ?? context.Title).ToList();
         if (candidates.Count > 0)
+        {
             return candidates;
+        }
 
         if (context.Lineage is not null)
         {
@@ -407,13 +415,17 @@ public sealed class WikidataSeriesManifestHydrationService
                     string.Equals(r.RelType, "series", StringComparison.OrdinalIgnoreCase)
                     && !string.IsNullOrWhiteSpace(r.RelQid));
                 if (seriesRelationship is not null)
+                {
                     AddSeriesManifestCandidate(candidates, seriesRelationship.RelQid, seriesRelationship.RelLabel);
+                }
 
                 if (candidates.Count == 0)
                 {
                     var collection = await _collectionRepo.GetByIdAsync(collectionId.Value, ct).ConfigureAwait(false);
                     if (!string.IsNullOrWhiteSpace(collection?.WikidataQid))
+                    {
                         AddSeriesManifestCandidate(candidates, collection.WikidataQid, collection.DisplayName);
+                    }
                 }
             }
         }
@@ -433,7 +445,9 @@ public sealed class WikidataSeriesManifestHydrationService
             foreach (var claim in claims.Where(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase)))
             {
                 if (TryParseQidValue(claim.Value, out var qid, out var label))
+                {
                     AddSeriesManifestCandidate(candidates, qid, label);
+                }
             }
         }
 
@@ -479,7 +493,9 @@ public sealed class WikidataSeriesManifestHydrationService
     private static bool IsUnsupportedSeriesCandidateLabel(string? label)
     {
         if (string.IsNullOrWhiteSpace(label))
+        {
             return false;
+        }
 
         var normalized = label.Trim().ToLowerInvariant();
         return normalized.StartsWith("list of ", StringComparison.Ordinal)
@@ -538,7 +554,9 @@ public sealed class WikidataSeriesManifestHydrationService
         foreach (var item in items)
         {
             if (!IsManifestItemInScope(item, context, seriesQid))
+            {
                 continue;
+            }
 
             yield return item;
         }
@@ -565,7 +583,9 @@ public sealed class WikidataSeriesManifestHydrationService
         if (context.MediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Comics)
         {
             if (LooksLikeEditionOrTranslation(item))
+            {
                 return false;
+            }
         }
 
         return IsMemberMediaCompatible(item.MediaKind, context.MediaType);
@@ -598,7 +618,9 @@ public sealed class WikidataSeriesManifestHydrationService
             item.IsExpandedFromCollection ? "expanded-from-collection" : null).ToLowerInvariant();
 
         if (string.IsNullOrWhiteSpace(haystack))
+        {
             return false;
+        }
 
         var editionMarkers = new[]
         {
@@ -614,10 +636,14 @@ public sealed class WikidataSeriesManifestHydrationService
             "collection of",
         };
         if (editionMarkers.Any(marker => haystack.Contains(marker, StringComparison.OrdinalIgnoreCase)))
+        {
             return true;
+        }
 
         if (!item.IsExpandedFromCollection)
+        {
             return false;
+        }
 
         var languageMarkers = new[]
         {
@@ -717,7 +743,9 @@ public sealed class WikidataSeriesManifestHydrationService
     private static bool IsCachedHydrationCurrent(SeriesManifestHydration hydration)
     {
         if (string.IsNullOrWhiteSpace(hydration.ApiMetadataJson))
+        {
             return false;
+        }
 
         try
         {
@@ -736,14 +764,18 @@ public sealed class WikidataSeriesManifestHydrationService
         qid = null;
         label = null;
         if (string.IsNullOrWhiteSpace(value))
+        {
             return false;
+        }
 
         var trimmed = value.Trim();
         var parts = trimmed.Split("::", 2, StringSplitOptions.TrimEntries);
         var qidPart = parts[0];
         var slashIndex = qidPart.LastIndexOf('/');
         if (slashIndex >= 0)
+        {
             qidPart = qidPart[(slashIndex + 1)..];
+        }
 
         if (qidPart.Length > 1 && qidPart[0] is 'Q' && qidPart.Skip(1).All(char.IsDigit))
         {
@@ -759,7 +791,9 @@ public sealed class WikidataSeriesManifestHydrationService
     {
         var existing = await _collectionRepo.FindByQidAsync(seriesQid, ct).ConfigureAwait(false);
         if (existing is not null)
+        {
             return existing;
+        }
 
         var collection = new Collection
         {

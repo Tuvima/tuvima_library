@@ -1864,7 +1864,9 @@ public static class DevSeedEndpoints
 
                 var directory = Path.Combine(audiobooksDir, SanitizeFileName(ab.Artist), SanitizeFileName(ab.Title));
                 for (var part = 1; part <= ab.PartCount; part++)
+                {
                     paths.Add(Path.Combine(directory, $"{part:D3} - Part {part:D2}.mp3"));
+                }
             }
         }
 

@@ -2,16 +2,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 
@@ -32,7 +32,9 @@ public sealed partial class ReconciliationAdapter
         if (string.IsNullOrWhiteSpace(qid))
         {
             if (string.IsNullOrWhiteSpace(request.Title))
+            {
                 return [];
+            }
 
             // The library's Cleaners = QueryCleaners.All() and DiacriticInsensitive = true
             // handle title cleaning and diacritics normalization automatically.
@@ -42,7 +44,9 @@ public sealed partial class ReconciliationAdapter
             var searchTitle = Regex.Replace(request.Title, @"\s*;\s+or,\s+.*$", string.Empty,
                 RegexOptions.IgnoreCase).Trim();
             if (string.IsNullOrWhiteSpace(searchTitle))
+            {
                 searchTitle = request.Title;
+            }
 
             // For books and audiobooks, strip edition markers and genre-subtitle suffixes
             // that confuse CirrusSearch: "(Unabridged)", ": A Novel", "- A Memoir", etc.
@@ -50,7 +54,9 @@ public sealed partial class ReconciliationAdapter
             {
                 var cleaned = CleanAudiobookTitle(searchTitle);
                 if (!string.IsNullOrWhiteSpace(cleaned))
+                {
                     searchTitle = cleaned;
+                }
             }
 
             // Guard: do not attempt reconciliation when media type is unknown.
@@ -113,13 +119,13 @@ public sealed partial class ReconciliationAdapter
                 // finds Q56276181 instead of the novel Q131767 dominating the plain search).
                 var typeHint = request.MediaType switch
                 {
-                    MediaType.Books      => "novel book",
+                    MediaType.Books => "novel book",
                     MediaType.Audiobooks => "audiobook",
-                    MediaType.Movies     => "film movie",
-                    MediaType.TV         => "television series",
-                    MediaType.Music      => "song music",
-                    MediaType.Comics     => "comic manga",
-                    _                    => null
+                    MediaType.Movies => "film movie",
+                    MediaType.TV => "television series",
+                    MediaType.Music => "song music",
+                    MediaType.Comics => "comic manga",
+                    _ => null
                 };
 
                 if (typeHint is not null)
@@ -191,7 +197,9 @@ public sealed partial class ReconciliationAdapter
             {
                 var label = await FetchDisplayLabelAsync(qid, displayLanguage, ct).ConfigureAwait(false);
                 if (!string.IsNullOrWhiteSpace(label))
+                {
                     reconciliationLabel = label;
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -278,13 +286,17 @@ public sealed partial class ReconciliationAdapter
         // When we pivoted to an audiobook edition, also emit the edition QID as a separate
         // claim so other parts of the pipeline can reference it (e.g. for cover art lookup).
         if (audiobookEditionQid is not null)
+        {
             claims.Add(new ProviderClaim("audiobook_edition_qid", audiobookEditionQid, 1.0));
+        }
 
         // Emit the reconciliation match label as the display title claim. Source-language
         // labels are retained separately as original_title when they differ from the
         // configured metadata language.
         if (!string.IsNullOrWhiteSpace(reconciliationLabel))
+        {
             claims.Add(new ProviderClaim(MetadataFieldConstants.Title, reconciliationLabel, ClaimConfidence.ReconciliationTitle));
+        }
 
         // extProps holds the master work extension properties — used by pen name detection and
         // edition bridge ID resolution below. Set inside both branches.
@@ -306,7 +318,9 @@ public sealed partial class ReconciliationAdapter
             var masterExtensions = await ExtendAsync([masterWorkQid], masterProps, ct).ConfigureAwait(false);
             masterExtensions.TryGetValue(masterWorkQid, out extProps);
             if (extProps is not null)
+            {
                 claims.AddRange(ExtensionToClaims(masterWorkQid, extProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit, metadataLanguage: language));
+            }
 
             // Edition: edition-specific properties + bridges
             var editionProps = (_config.DataExtension.AudiobookEditionProperties ?? [])
@@ -319,7 +333,9 @@ public sealed partial class ReconciliationAdapter
             {
                 var editionExtensions = await ExtendAsync([audiobookEditionQid], editionProps, ct).ConfigureAwait(false);
                 if (editionExtensions.TryGetValue(audiobookEditionQid, out var editionEntityProps))
+                {
                     claims.AddRange(ExtensionToClaims(audiobookEditionQid, editionEntityProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit, metadataLanguage: language, editionScopedDates: true));
+                }
             }
 
             _logger.LogDebug(
@@ -340,7 +356,9 @@ public sealed partial class ReconciliationAdapter
             allProps.Add($"D{language}");
 
             if (allProps.Count == 0)
+            {
                 return [new ProviderClaim(BridgeIdKeys.WikidataQid, masterWorkQid, 1.0)];
+            }
 
             _logger.LogInformation(
                 "{Provider}: Data Extension for {QID} — requesting {Count} properties: [{Props}]",
@@ -378,9 +396,9 @@ public sealed partial class ReconciliationAdapter
                 var authorResolution = await _reconciler.Authors.ResolveAsync(
                     new AuthorResolutionRequest
                     {
-                        RawAuthorString  = request.Author,
-                        WorkQidHint      = masterWorkQid,
-                        Language         = language,
+                        RawAuthorString = request.Author,
+                        WorkQidHint = masterWorkQid,
+                        Language = language,
                         DetectPseudonyms = true,
                     }, ct).ConfigureAwait(false);
 
@@ -389,7 +407,9 @@ public sealed partial class ReconciliationAdapter
                 foreach (var resolved in authorResolution.Authors)
                 {
                     if (string.IsNullOrWhiteSpace(resolved.Qid))
+                    {
                         continue;
+                    }
 
                     // Pattern 1 — solo pen name resolved via reverse P742.
                     // Example: "Richard Bachman" → resolved.RealNameQid is
@@ -547,7 +567,9 @@ public sealed partial class ReconciliationAdapter
                 {
                     var masterExtensions = await ExtendAsync([masterWorkQid], ["P747"], ct).ConfigureAwait(false);
                     if (masterExtensions.TryGetValue(masterWorkQid, out var masterProps2))
+                    {
                         editionSourceProps = masterProps2;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -602,10 +624,15 @@ public sealed partial class ReconciliationAdapter
                                 {
                                     if (!edProps2.TryGetValue(propCode, out var vals)
                                         || vals.Count == 0)
+                                    {
                                         continue;
+                                    }
 
                                     var firstVal = vals.FirstOrDefault();
-                                    if (firstVal is null) continue;
+                                    if (firstVal is null)
+                                    {
+                                        continue;
+                                    }
 
                                     var strVal = firstVal.Value?.RawValue ?? firstVal.Value?.EntityId;
                                     if (!string.IsNullOrWhiteSpace(strVal))
@@ -727,17 +754,26 @@ public sealed partial class ReconciliationAdapter
                     var aliasesEmitted = 0;
                     foreach (var alias in aliasEntity.Aliases)
                     {
-                        if (string.IsNullOrWhiteSpace(alias)) continue;
-                        if (emittedTitles.Contains(alias)) continue;
+                        if (string.IsNullOrWhiteSpace(alias))
+                        {
+                            continue;
+                        }
+
+                        if (emittedTitles.Contains(alias))
+                        {
+                            continue;
+                        }
 
                         claims.Add(new ProviderClaim("alternate_title", alias, ClaimConfidence.AlternateTitle));
                         aliasesEmitted++;
                     }
 
                     if (aliasesEmitted > 0)
+                    {
                         _logger.LogDebug(
                             "{Provider}: emitted {Count} alias(es) as alternate_title for {QID}",
                             Name, aliasesEmitted, masterWorkQid);
+                    }
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -777,7 +813,7 @@ public sealed partial class ReconciliationAdapter
     // ── Private: DiscoverChildEntitiesAsync ──────────────────────────────────
 
     private const int MaxChildEntities = 500;
-    private const int MaxTvSeasons     = 20;
+    private const int MaxTvSeasons = 20;
 
     // ─────────────────────────────────────────────────────────────────────────
     // Tuvima.Wikidata child discovery facade.

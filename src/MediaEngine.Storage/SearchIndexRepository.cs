@@ -51,12 +51,15 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
         {
             if (rdr.Read())
             {
-                workId       = rdr.IsDBNull(0) ? null : GuidSql.FromDb(rdr.GetValue(0));
-                assetId      = rdr.IsDBNull(1) ? null : GuidSql.FromDb(rdr.GetValue(1));
+                workId = rdr.IsDBNull(0) ? null : GuidSql.FromDb(rdr.GetValue(0));
+                assetId = rdr.IsDBNull(1) ? null : GuidSql.FromDb(rdr.GetValue(1));
                 rootParentId = rdr.IsDBNull(2) ? null : GuidSql.FromDb(rdr.GetValue(2));
             }
         }
-        if (workId is null) return Task.CompletedTask;
+        if (workId is null)
+        {
+            return Task.CompletedTask;
+        }
 
         // Self-scope reads (asset row).
         string? title = null, originalTitle = null;
@@ -74,8 +77,15 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
             {
                 var k = sr.GetString(0);
                 var v = sr.IsDBNull(1) ? null : sr.GetString(1);
-                if (k == "title")          title         = v;
-                if (k == "original_title") originalTitle = v;
+                if (k == "title")
+                {
+                    title = v;
+                }
+
+                if (k == "original_title")
+                {
+                    originalTitle = v;
+                }
             }
         }
 
@@ -98,7 +108,10 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
             {
                 var k = pr.GetString(0);
                 var v = pr.IsDBNull(1) ? null : pr.GetString(1);
-                if (k == "author")      author      = v;
+                if (k == "author")
+                {
+                    author = v;
+                }
             }
 
             using var descriptionCmd = conn.CreateCommand();
@@ -133,7 +146,9 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
         if (string.IsNullOrWhiteSpace(title)
             && string.IsNullOrWhiteSpace(originalTitle)
             && string.IsNullOrWhiteSpace(author))
+        {
             return Task.CompletedTask;
+        }
 
         // FTS5 does not support UPSERT — delete then insert.
         using var del = conn.CreateCommand();
@@ -147,11 +162,11 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
             VALUES (@workId, @title, @originalTitle, @alternateTitles, @author, @description);
             """;
         ins.Parameters.Add("@workId", SqliteType.Blob).Value = GuidSql.ToBlob(workId.Value);
-        ins.Parameters.AddWithValue("@title",           (object?)title           ?? DBNull.Value);
-        ins.Parameters.AddWithValue("@originalTitle",   (object?)originalTitle   ?? DBNull.Value);
+        ins.Parameters.AddWithValue("@title", (object?)title ?? DBNull.Value);
+        ins.Parameters.AddWithValue("@originalTitle", (object?)originalTitle ?? DBNull.Value);
         ins.Parameters.AddWithValue("@alternateTitles", (object?)alternateTitles ?? DBNull.Value);
-        ins.Parameters.AddWithValue("@author",          (object?)author          ?? DBNull.Value);
-        ins.Parameters.AddWithValue("@description",     (object?)description     ?? DBNull.Value);
+        ins.Parameters.AddWithValue("@author", (object?)author ?? DBNull.Value);
+        ins.Parameters.AddWithValue("@description", (object?)description ?? DBNull.Value);
         ins.ExecuteNonQuery();
         return Task.CompletedTask;
     }
@@ -160,7 +175,9 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
     public Task<IReadOnlyList<Guid>> SearchAsync(string query, int limit = 50, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(query))
+        {
             return Task.FromResult<IReadOnlyList<Guid>>([]);
+        }
 
         ct.ThrowIfCancellationRequested();
         var trimmed = query.Trim();

@@ -1,7 +1,7 @@
 using System.IO.Compression;
 using System.Xml.Linq;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Ingestion.Contracts;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Ingestion;
 
@@ -50,7 +50,10 @@ public sealed class ComicMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
     /// <inheritdoc/>
     public bool CanHandle(string filePath)
     {
-        if (string.IsNullOrWhiteSpace(filePath)) return false;
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return false;
+        }
         // Only CBZ (ZIP-based). CBR (RAR) is not supported for write-back.
         return Path.GetExtension(filePath).Equals(".cbz", StringComparison.OrdinalIgnoreCase);
     }
@@ -90,31 +93,41 @@ public sealed class ComicMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
 
             var root = doc.Root!;
 
-            SetElement(root, "Title",   tags, "title");
-            SetElement(root, "Writer",  tags, "author");
-            SetElement(root, "Genre",   tags, "genre");
+            SetElement(root, "Title", tags, "title");
+            SetElement(root, "Writer", tags, "author");
+            SetElement(root, "Genre", tags, "genre");
             SetElement(root, "Summary", tags, "description");
-            SetElement(root, "Series",  tags, "series");
-            SetElement(root, "Number",  tags, "series_position");
+            SetElement(root, "Series", tags, "series");
+            SetElement(root, "Number", tags, "series_position");
 
             if (tags.TryGetValue("year", out var yearStr) && int.TryParse(yearStr, out _))
+            {
                 SetElementDirect(root, "Year", yearStr);
+            }
 
             if (tags.TryGetValue("publisher", out var pub))
+            {
                 SetElementDirect(root, "Publisher", pub);
+            }
 
             if (tags.TryGetValue("illustrator", out var illustrator))
+            {
                 SetElementDirect(root, "Penciller", illustrator);
+            }
 
             if (tags.TryGetValue("page_count", out var pages) && int.TryParse(pages, out _))
+            {
                 SetElementDirect(root, "PageCount", pages);
+            }
 
             // Custom identifier fields — written as <Tuvima_{Key}> elements so
             // re-ingestion can short-circuit the matching cascade.
             foreach (var key in CustomIdKeys)
             {
                 if (tags.TryGetValue(key, out var idValue) && !string.IsNullOrWhiteSpace(idValue))
+                {
                     SetElementDirect(root, "Tuvima_" + key, idValue);
+                }
             }
 
             // Remove existing entry and re-add with updated content.
@@ -128,7 +141,9 @@ public sealed class ComicMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
             // Backup cleanup — success.
             var backupPath = filePath + BackupSuffix;
             if (File.Exists(backupPath))
+            {
                 File.Delete(backupPath);
+            }
 
             _logger.LogInformation("ComicTagger: wrote ComicInfo.xml with {Count} tags to {Path}",
                 tags.Count, filePath);
@@ -152,15 +167,21 @@ public sealed class ComicMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
         IReadOnlyDictionary<string, string> tags, string tagKey)
     {
         if (tags.TryGetValue(tagKey, out var value) && !string.IsNullOrWhiteSpace(value))
+        {
             SetElementDirect(root, elementName, value);
+        }
     }
 
     private static void SetElementDirect(XElement root, string elementName, string value)
     {
         var el = root.Element(elementName);
         if (el is not null)
+        {
             el.Value = value;
+        }
         else
+        {
             root.Add(new XElement(elementName, value));
+        }
     }
 }

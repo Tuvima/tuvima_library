@@ -60,7 +60,28 @@ public sealed class DetailComposerService
         string? selectedContainerId = null,
         Guid? profileId = null,
         string? callerRole = null)
-        => _composer.BuildAsync(entityType, id, context, ct, selectedContainerId, profileId, callerRole);
+        => _composer.BuildAsync(entityType, id, context, ct, selectedContainerId, profileId);
+
+    internal Task<DetailPageViewModel?> BuildAuthorizedAsync(
+        DetailEntityType entityType,
+        Guid id,
+        DetailPresentationContext context,
+        CancellationToken ct,
+        string? selectedContainerId,
+        Guid? profileId,
+        DetailActionAuthorizationContext actionAuthorization,
+        IReadOnlyList<Guid>? authorizedAssetIds = null,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks = null)
+        => _composer.BuildAsync(
+            entityType,
+            id,
+            context,
+            ct,
+            selectedContainerId,
+            profileId,
+            actionAuthorization,
+            authorizedAssetIds,
+            authorizedWorks);
 
     public static bool TryParseEntityType(string value, out DetailEntityType entityType)
         => DetailPresentationPolicy.TryParseEntityType(value, out entityType);

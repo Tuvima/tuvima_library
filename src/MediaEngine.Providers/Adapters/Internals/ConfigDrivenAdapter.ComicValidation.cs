@@ -6,16 +6,16 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Models;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Adapters;
 
@@ -42,7 +42,9 @@ public sealed partial class ConfigDrivenAdapter
         claims = EnrichComicVineCreatorClaims(claims, resultNode, request);
 
         if (!ClaimsMatchRequest(claims, request, strategy))
+        {
             return [];
+        }
 
         claims = await EnrichClaimsWithTmdbDetailsAsync(claims, resultNode, request, ct)
             .ConfigureAwait(false);
@@ -126,7 +128,9 @@ public sealed partial class ConfigDrivenAdapter
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(volumeId))
+        {
             return null;
+        }
 
         var lazy = _comicVineVolumeFacts.GetOrAdd(
             volumeId,
@@ -154,7 +158,9 @@ public sealed partial class ConfigDrivenAdapter
         var baseUrl = ResolveBaseUrl(request);
         var apiKey = _config.HttpClient?.ApiKey;
         if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+        {
             return null;
+        }
 
         var url = $"{baseUrl.TrimEnd('/')}/volume/4050-{Uri.EscapeDataString(volumeId)}/?api_key={Uri.EscapeDataString(apiKey)}&format=json";
         using var client = _httpFactory.CreateClient(_config.Name);
@@ -166,7 +172,9 @@ public sealed partial class ConfigDrivenAdapter
 
         var volume = json?["results"];
         if (volume is null)
+        {
             return null;
+        }
 
         var issueCount = volume["count_of_issues"]?.GetValue<long?>() is { } count
             ? (int?)Convert.ToInt32(count, CultureInfo.InvariantCulture)
@@ -239,14 +247,18 @@ public sealed partial class ConfigDrivenAdapter
             responseTotal ??= json?["number_of_total_results"]?.GetValue<int?>();
             var results = json?["results"]?.AsArray();
             if (results is null)
+            {
                 break;
+            }
 
             foreach (var issue in results.Where(issue => issue is not null))
             {
                 var id = ExtractFirstString(issue!, ["id"]);
                 var ordinal = ExtractFirstString(issue!, ["issue_number"]);
                 if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(ordinal))
+                {
                     continue;
+                }
 
                 items.Add(new ProviderSequenceManifestItem
                 {
@@ -278,7 +290,9 @@ public sealed partial class ConfigDrivenAdapter
             .ThenBy(item => item.Ordinal, StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (distinctItems.Count == 0)
+        {
             return null;
+        }
 
         var total = providerIssueCount ?? responseTotal;
         var isAuthoritative = completedAllPages
@@ -361,11 +375,15 @@ public sealed partial class ConfigDrivenAdapter
         foreach (var credit in credits)
         {
             if (credit is null)
+            {
                 continue;
+            }
 
             var name = ExtractFirstString(credit, ["name", "person.name", "credited_name"]);
             if (string.IsNullOrWhiteSpace(name))
+            {
                 continue;
+            }
 
             var role = ExtractFirstString(credit, [
                 "role",
@@ -377,7 +395,9 @@ public sealed partial class ConfigDrivenAdapter
             ]);
             var targetKey = ResolveComicCreatorClaimKey(role);
             if (targetKey is null)
+            {
                 continue;
+            }
 
             AddDistinctClaim(enriched, targetKey, name, 0.82);
         }
@@ -388,7 +408,9 @@ public sealed partial class ConfigDrivenAdapter
     private static string? ResolveComicCreatorClaimKey(string? role)
     {
         if (string.IsNullOrWhiteSpace(role))
+        {
             return null;
+        }
 
         var normalized = NormalizeComicText(role);
         if (normalized.Contains("writer", StringComparison.Ordinal)
@@ -432,24 +454,34 @@ public sealed partial class ConfigDrivenAdapter
         SearchStrategyConfig strategy)
     {
         if (string.IsNullOrWhiteSpace(request.Title))
+        {
             return true;
+        }
 
         var candidateTitle = claims.FirstOrDefault(c =>
             string.Equals(c.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value;
         if (string.IsNullOrWhiteSpace(candidateTitle))
+        {
             return true;
+        }
 
         if (request.MediaType == MediaType.Comics && ComicClaimsMatchRequest(claims, request))
+        {
             return true;
+        }
 
         if (request.MediaType == MediaType.Comics && ComicVolumeClaimsMatchRequest(claims, request, strategy))
+        {
             return true;
+        }
 
         var titleScore = ComputeWordOverlap(
             CleanTitleForSearch(request.Title) ?? request.Title,
             CleanTitleForSearch(candidateTitle) ?? candidateTitle);
         if (titleScore >= 0.40)
+        {
             return true;
+        }
 
         var candidateAuthor = claims.FirstOrDefault(c =>
             string.Equals(c.Key, MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase))?.Value;
@@ -487,7 +519,9 @@ public sealed partial class ConfigDrivenAdapter
         }
 
         if (strategy.Name.Contains("volume", StringComparison.OrdinalIgnoreCase))
+        {
             return NormalizeComicVineVolumeClaims(claims, request);
+        }
 
         return claims
             .Where(claim => !string.Equals(claim.Key, MetadataFieldConstants.Description, StringComparison.OrdinalIgnoreCase))
@@ -582,7 +616,9 @@ public sealed partial class ConfigDrivenAdapter
             ?? request.Hints?.GetValueOrDefault(MetadataFieldConstants.Series);
         var fileIssue = GetComicIssueHint(request);
         if (string.IsNullOrWhiteSpace(fileSeries) || string.IsNullOrWhiteSpace(fileIssue))
+        {
             return false;
+        }
 
         var candidateSeries = claims.FirstOrDefault(c =>
             string.Equals(c.Key, MetadataFieldConstants.Series, StringComparison.OrdinalIgnoreCase))?.Value;
@@ -605,12 +641,16 @@ public sealed partial class ConfigDrivenAdapter
         SearchStrategyConfig strategy)
     {
         if (!strategy.Name.Contains("volume", StringComparison.OrdinalIgnoreCase))
+        {
             return false;
+        }
 
         var fileSeries = request.Series
             ?? request.Hints?.GetValueOrDefault(MetadataFieldConstants.Series);
         if (string.IsNullOrWhiteSpace(fileSeries))
+        {
             return false;
+        }
 
         var candidateSeries = claims.FirstOrDefault(c =>
                 string.Equals(c.Key, MetadataFieldConstants.Series, StringComparison.OrdinalIgnoreCase))?.Value
@@ -625,7 +665,9 @@ public sealed partial class ConfigDrivenAdapter
         var volumeId = claims.FirstOrDefault(c =>
             string.Equals(c.Key, BridgeIdKeys.ComicVineVolumeId, StringComparison.OrdinalIgnoreCase))?.Value;
         if (string.IsNullOrWhiteSpace(volumeId))
+        {
             return false;
+        }
 
         var supportingSignals = 0;
         var fileIssue = GetComicIssueHint(request);

@@ -51,7 +51,9 @@ public sealed class AudioPreprocessor
     public async Task<string?> ExtractFirstSecondsAsync(string inputPath, int seconds = 30, CancellationToken ct = default)
     {
         if (!_ffmpeg.IsAvailable)
+        {
             return null;
+        }
 
         var tempWav = Path.Combine(Path.GetTempPath(), $"whisper_lang_{Guid.NewGuid():N}.wav");
 

@@ -35,7 +35,9 @@ public sealed class RetailRequestBuilder
     public static string? BuildAppleCoverUrl(string? artworkUrl100)
     {
         if (string.IsNullOrWhiteSpace(artworkUrl100))
+        {
             return null;
+        }
 
         return artworkUrl100
             .Replace("100x100bb", "9999x9999bb", StringComparison.OrdinalIgnoreCase)
@@ -45,7 +47,9 @@ public sealed class RetailRequestBuilder
     public static string? BuildTmdbImageUrl(string? stillPath)
     {
         if (string.IsNullOrWhiteSpace(stillPath))
+        {
             return null;
+        }
 
         return stillPath.StartsWith("http", StringComparison.OrdinalIgnoreCase)
             ? stillPath
@@ -60,7 +64,9 @@ public sealed class RetailRequestBuilder
     public static string? BuildTmdbEpisodeStillUrl(string? stillPath)
     {
         if (string.IsNullOrWhiteSpace(stillPath))
+        {
             return null;
+        }
 
         return stillPath.StartsWith("http", StringComparison.OrdinalIgnoreCase)
             ? stillPath

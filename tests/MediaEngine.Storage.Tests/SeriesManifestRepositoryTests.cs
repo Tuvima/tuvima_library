@@ -1,8 +1,8 @@
-using MediaEngine.Domain.Aggregates;
-using MediaEngine.Domain.Entities;
-using MediaEngine.Domain.Constants;
-using MediaEngine.Domain.Enums;
 using Dapper;
+using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Storage.Tests;
 

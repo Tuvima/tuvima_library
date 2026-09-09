@@ -219,7 +219,7 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
             """,
             new
             {
-                Id                    = entity.Id,
+                Id = entity.Id,
                 entity.WikidataQid,
                 entity.Label,
                 entity.Description,
@@ -228,8 +228,8 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
                 entity.FictionalUniverseLabel,
                 entity.ImageUrl,
                 entity.LocalImagePath,
-                CreatedAt             = entity.CreatedAt,
-                EnrichedAt            = entity.EnrichedAt,
+                CreatedAt = entity.CreatedAt,
+                EnrichedAt = entity.EnrichedAt,
             });
         return Task.CompletedTask;
     }
@@ -300,7 +300,9 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
             .Distinct()
             .ToList();
         if (ids.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<FictionalEntityWorkLink>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var rows = new List<WorkLinkRow>();
@@ -417,9 +419,9 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
     /// <summary>Intermediate row type for the work-link queries.</summary>
     private sealed class WorkLinkRow
     {
-        public Guid    EntityId  { get; set; }
-        public string  WorkQid   { get; set; } = string.Empty;
+        public Guid EntityId { get; set; }
+        public string WorkQid { get; set; } = string.Empty;
         public string? WorkLabel { get; set; }
-        public string  LinkType  { get; set; } = string.Empty;
+        public string LinkType { get; set; } = string.Empty;
     }
 }

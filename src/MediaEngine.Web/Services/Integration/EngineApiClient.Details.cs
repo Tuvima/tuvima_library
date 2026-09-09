@@ -3,16 +3,16 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
-using MediaEngine.Contracts.Settings;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -32,6 +32,36 @@ public sealed partial class EngineApiClient
         {
             _logger.LogWarning(ex, "GET /settings/security/auth failed");
             return null;
+        }
+    }
+
+    public Task<AuthSettingsDto?> UpdateAuthSettingsAsync(
+        UpdateAuthSettingsRequest request,
+        CancellationToken ct = default) =>
+        PutAsync<UpdateAuthSettingsRequest, AuthSettingsDto>(
+            "PUT /settings/security/auth", "/settings/security/auth", request, ct: ct);
+
+    public Task<AuthSettingsDto?> UpdateExternalAuthProviderAsync(
+        string providerId,
+        UpdateExternalAuthProviderRequest request,
+        CancellationToken ct = default) =>
+        PutAsync<UpdateExternalAuthProviderRequest, AuthSettingsDto>(
+            "PUT /settings/security/auth/providers/{providerId}",
+            $"/settings/security/auth/providers/{Uri.EscapeDataString(providerId)}", request, ct: ct);
+
+    public async Task<bool> DeleteExternalAuthProviderAsync(string providerId, CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await _http.DeleteAsync(
+                $"/settings/security/auth/providers/{Uri.EscapeDataString(providerId)}", ct).ConfigureAwait(false);
+            return response.IsSuccessStatusCode;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "DELETE authentication provider configuration failed");
+            return false;
         }
     }
 
@@ -96,7 +126,10 @@ public sealed partial class EngineApiClient
             var ctx = Uri.EscapeDataString(context.ToString().ToLowerInvariant());
             var query = new List<string> { $"context={ctx}" };
             if (!string.IsNullOrWhiteSpace(containerId))
+            {
                 query.Add($"containerId={Uri.EscapeDataString(containerId)}");
+            }
+
             AddQuery(query, "profileId", profileId?.ToString("D"));
             var detail = await _http.GetFromJsonAsync<DetailPageViewModel>($"/api/v1/details/{entity}/{id:D}?{string.Join('&', query)}", ct);
             return detail is null ? null : NormalizeDetailArtwork(detail);
@@ -254,13 +287,24 @@ public sealed partial class EngineApiClient
         {
             var queryParts = new List<string> { $"field={Uri.EscapeDataString(field)}" };
             if (!string.IsNullOrWhiteSpace(query))
+            {
                 queryParts.Add($"query={Uri.EscapeDataString(query)}");
+            }
+
             if (!string.IsNullOrWhiteSpace(source))
+            {
                 queryParts.Add($"source={Uri.EscapeDataString(source)}");
+            }
+
             if (parentEntityId.HasValue)
+            {
                 queryParts.Add($"parentEntityId={Uri.EscapeDataString(parentEntityId.Value.ToString())}");
+            }
+
             if (!string.IsNullOrWhiteSpace(parentValue))
+            {
                 queryParts.Add($"parentValue={Uri.EscapeDataString(parentValue)}");
+            }
 
             var url = $"/metadata/{entityId}/membership-suggestions?{string.Join("&", queryParts)}";
             return await _http.GetFromJsonAsync<List<MediaEditorMembershipSuggestionDto>>(url, ct) ?? [];
@@ -494,7 +538,11 @@ public sealed partial class EngineApiClient
         try
         {
             var resp = await _http.GetAsync($"/collections/{collectionId}/parent", ct);
-            if (resp.StatusCode == HttpStatusCode.NotFound) return null;
+            if (resp.StatusCode == HttpStatusCode.NotFound)
+            {
+                return null;
+            }
+
             resp.EnsureSuccessStatusCode();
             var raw = await resp.Content.ReadFromJsonAsync<CollectionParentResponse>(cancellationToken: ct);
             return raw?.parentCollection is { } parent

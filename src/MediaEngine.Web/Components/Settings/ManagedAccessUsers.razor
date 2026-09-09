@@ -1,0 +1,888 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Authentication
+@using MediaEngine.Web.Services.Integration
+@inject DashboardIdentityClient Identity
+@inject DashboardSessionAccessor Session
+
+<SettingsSectionPanel Title="Users" Description="Accounts control access. Profiles retain each person's library experience and history." Icon="@Icons.Material.Outlined.Group">
+    @if (!CanManage)
+    {
+        <AppAlert Severity="Severity.Warning">Administrator access is required to manage users.</AppAlert>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(_notice))
+        {
+            <AppAlert Severity="Severity.Success" Class="access-notice">@_notice</AppAlert>
+        }
+        <div class="access-toolbar" @ref="_returnFocus" tabindex="-1">
+            <AppButton Label="Invite user" StartIcon="@Icons.Material.Outlined.Mail" OnClick="OpenInvitation" />
+            <AppButton Label="New user" StartIcon="@Icons.Material.Outlined.PersonAdd" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" OnClick="NewUser" />
+        </div>
+        @if (_loading)
+        {
+            <MudProgressLinear Indeterminate="true" aria-label="Loading users" />
+        }
+        else if (_accounts.Count == 0)
+        {
+            <AppEmptyState Title="No users" Message="Create a local account or invite someone to an existing profile." />
+        }
+        else
+        {
+            <div class="access-users" role="table" aria-label="User accounts">
+                <div class="access-users__header" role="row">
+                    <span role="columnheader">Account</span><span role="columnheader">Profiles</span><span role="columnheader">Status</span><span role="columnheader">Last active</span><span role="columnheader">Actions</span>
+                </div>
+                @foreach (var account in _accounts)
+                {
+                    <div class="access-users__row" role="row" @key="account.Id">
+                        <div class="access-users__identity" role="cell">
+                            <strong>@AccountLabel(account)</strong>
+                            <div class="access-users__badges">
+                                @if (account.IsLocalOnly) { <AppChip Text="Local only" /> }
+                                @if (account.IsAdministrator) { <AppChip Text="Administrator" Tone="AppUiTone.Primary" /> }
+                            </div>
+                        </div>
+                        <div class="access-profile-chips" role="cell">
+                            @foreach (var grant in account.ProfileGrants.Take(8))
+                            {
+                                <span class="access-profile-chip">
+                                    <span class="access-profile-chip__avatar">@Initials(grant.DisplayName)</span><span>@grant.DisplayName</span>
+                                    @if (grant.AdminEnabled) { <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Size="Size.Small" aria-label="Administrator dashboard allowed" /> }
+                                </span>
+                            }
+                        </div>
+                        <div role="cell"><span class="access-status @(account.IsEnabled ? "access-status--enabled" : "access-status--disabled")">@(account.IsEnabled ? "Enabled" : "Disabled")</span></div>
+                        <div class="access-users__last-active" role="cell">@(account.LastActiveAt?.ToLocalTime().ToString("g") ?? "Never")</div>
+                        <div class="access-users__actions" role="cell">
+                            <AppIconButton Icon="@Icons.Material.Filled.MoreVert" AriaLabel="@($"Actions for {AccountLabel(account)}")" OnClick="@(() => ToggleActions(account.Id))" />
+                            @if (_actionAccountId == account.Id)
+                            {
+                                <div class="access-action-menu" role="menu">
+                                    <AppButton Label="Edit permissions" FullWidth="true" ButtonStyle="AppButtonStyle.Text" role="menuitem" OnClick="@(() => OpenPermissions(account))" />
+                                    <AppButton Label="Manage profiles" FullWidth="true" ButtonStyle="AppButtonStyle.Text" role="menuitem" OnClick="@(() => OpenProfiles(account))" />
+                                    <AppButton Label="Account details" FullWidth="true" ButtonStyle="AppButtonStyle.Text" role="menuitem" OnClick="@(() => EditAccount(account))" />
+                                    <AppButton Label="@(account.IsEnabled ? "Disable user" : "Enable user")" FullWidth="true" ButtonStyle="AppButtonStyle.Text" role="menuitem" OnClick="@(() => ToggleEnabled(account))" />
+                                    <AppButton Label="Delete user" FullWidth="true" ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Error" Class="access-action-menu__danger" role="menuitem" OnClick="@(() => ConfirmDelete(account))" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</SettingsSectionPanel>
+
+@if (_open)
+{
+<div class="access-drawer-host">
+<MudDrawer Open="true" OpenChanged="DrawerChanged" Anchor="Anchor.End" Width="560px" Overlay="true" Variant="DrawerVariant.Temporary" Class="access-drawer">
+    <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
+    <div class="access-drawer__shell" @onkeydown="HandleDrawerKeyDown">
+        <header class="access-drawer__header">
+            <div><MudText Typo="Typo.overline">Access · Users</MudText><MudText Typo="Typo.h6">@DrawerTitle</MudText></div>
+            <AppIconButton Icon="@Icons.Material.Filled.Close" AriaLabel="Close user drawer" OnClick="Close" />
+        </header>
+        <div class="access-drawer__body">
+            @if (!string.IsNullOrWhiteSpace(_error)) { <AppAlert Severity="Severity.Error">@_error</AppAlert> }
+            @if (!string.IsNullOrWhiteSpace(_drawerMessage)) { <AppAlert Severity="Severity.Success">@_drawerMessage</AppAlert> }
+
+            @if (_mode == UserDrawerMode.Account)
+            {
+                <section class="access-form-section">
+                    <MudText Typo="Typo.subtitle1">Account</MudText>
+                    @if (_editing is null)
+                    {
+                        <AppAlert Severity="Severity.Info">This creates a local-only account. It can sign in through access allowed by the configured trusted-local policy. Use Invite user for an email account.</AppAlert>
+                    }
+                    else
+                    {
+                        <AppTextField @bind-Value="_email" Label="Email" Disabled="@_localOnly" FullWidth="true" />
+                        <AppChip Text="@(_localOnly ? "Local only" : "Remote capable")" />
+                    }
+                    <AppSwitchRow @bind-Value="_administrator" Disabled="@_saving" Label="Administrator eligible" Description="Each profile grant still decides where administrator settings are available." />
+                    @if (_editing is not null) { <AppSwitchRow @bind-Value="_enabled" Disabled="@_saving" Label="Account enabled" Description="Disabling the account revokes its access and sessions." /> }
+                </section>
+                @if (_editing is null)
+                {
+                    <section class="access-form-section">
+                        <MudText Typo="Typo.subtitle1">First profile</MudText>
+                        <AppTextField @bind-Value="_profileName" Label="Profile name" FullWidth="true" />
+                        <AppTextField @bind-Value="_profileColor" Label="Avatar color" HelpText="Use a color such as #7C4DFF." FullWidth="true" />
+                    </section>
+                    <ManagedAccessUserPermissions FeatureIds="_featureIds" LibraryIds="_libraryIds" Libraries="_libraries" FeatureChanged="ToggleFeature" LibraryChanged="ToggleLibrary" />
+                }
+            }
+            else if (_mode == UserDrawerMode.Permissions && _editing is not null)
+            {
+                @if (_editing.IsAdministrator)
+                {
+                    <AppAlert Severity="Severity.Info">Administrator access overrides normal content restrictions while an administrator-enabled profile is active. These permissions remain editable for other profiles.</AppAlert>
+                }
+                <ManagedAccessUserPermissions FeatureIds="_featureIds" LibraryIds="_libraryIds" Libraries="_libraries" FeatureChanged="ToggleFeature" LibraryChanged="ToggleLibrary" />
+            }
+            else if (_mode == UserDrawerMode.Profiles && _editing is not null)
+            {
+                <section class="access-form-section">
+                    <div><MudText Typo="Typo.subtitle1">Profile grants</MudText><small>@_editing.ProfileGrants.Count of 8 profiles granted</small></div>
+                    @foreach (var grant in _editing.ProfileGrants)
+                    {
+                        <section class="access-grant" @key="grant.ProfileId">
+                            <div class="access-grant__heading"><span class="access-profile-chip__avatar">@Initials(grant.DisplayName)</span><div><strong>@grant.DisplayName</strong><small>@(grant.IsDefault ? "Default profile" : "Granted profile")</small></div></div>
+                            <div class="access-grant__rename">
+                                <AppTextField Value="@ProfileName(grant)" ValueChanged="@((string value) => _profileNames[grant.ProfileId] = value)" Label="Profile name" FullWidth="true" />
+                                <AppButton Label="Rename" Size="AppControlSize.Compact" Disabled="@(string.IsNullOrWhiteSpace(ProfileName(grant)) || ProfileName(grant) == grant.DisplayName)" OnClick="@(() => RenameProfile(grant))" />
+                            </div>
+                            <AppSwitchRow Value="@grant.IsDefault" ValueChanged="@((bool value) => SaveGrant(grant, value, grant.AdminEnabled))" Disabled="@grant.IsDefault" Label="Default profile" />
+                            @if (_editing.IsAdministrator)
+                            {
+                                <AppSwitchRow Value="@grant.AdminEnabled" ValueChanged="@((bool value) => SaveGrant(grant, grant.IsDefault, value))" Disabled="@_saving" Label="Allow admin dashboard" Description="This setting applies only to this account's use of the profile." />
+                                @if (grant.AdminEnabled)
+                                {
+                                    <div class="access-protection">
+                                        <div><strong>@(grant.AdminProtection.Enabled ? "Admin settings are protected" : "Protect admin settings")</strong><small>Require a PIN before opening administrator settings from this profile.</small></div>
+                                        <AppTextField InputType="InputType.Password" Value="@Pin(grant.ProfileId)" ValueChanged="@(value => _pins[grant.ProfileId] = value ?? string.Empty)" Disabled="@_saving" aria-label="@($"New administrator PIN for {grant.DisplayName}")" />
+                                        <AppNativeSelect Value="@ProtectionOption(grant.ProfileId)" OnChange="@(value => _protectionOptions[grant.ProfileId] = value.Value?.ToString() ?? "FixedDuration:30")" Disabled="@_saving" aria-label="@($"PIN unlock duration for {grant.DisplayName}")">
+                                            <option value="FixedDuration:15">For 15 minutes</option>
+                                            <option value="FixedDuration:30">For 30 minutes</option>
+                                            <option value="FixedDuration:60">For 1 hour</option>
+                                            <option value="UntilProfileSwitch">Until profile switch</option>
+                                            <option value="LockOnLeave">Lock when leaving settings</option>
+                                        </AppNativeSelect>
+                                        <div class="access-protection__actions">
+                                            <AppButton Label="@(grant.AdminProtection.Enabled ? "Update protection" : "Enable protection")" Size="AppControlSize.Compact" Disabled="@(_saving || string.IsNullOrWhiteSpace(Pin(grant.ProfileId)))" OnClick="@(() => SaveProtection(grant, true))" />
+                                            @if (grant.AdminProtection.Enabled) { <AppButton Label="Remove protection" Size="AppControlSize.Compact" Tone="AppUiTone.Error" Disabled="@_saving" OnClick="@(() => SaveProtection(grant, false))" /> }
+                                        </div>
+                                    </div>
+                                }
+                            }
+                            <AppButton Label="Revoke profile" Size="AppControlSize.Compact" Tone="AppUiTone.Error" Disabled="@(_saving || _editing.ProfileGrants.Count == 1)" OnClick="@(() => Revoke(grant))" />
+                        </section>
+                    }
+                </section>
+                @if (_editing.ProfileGrants.Count < 8)
+                {
+                    <section class="access-form-section">
+                        <MudText Typo="Typo.subtitle1">Create a profile</MudText>
+                        <AppTextField @bind-Value="_profileName" Label="Profile name" FullWidth="true" />
+                        <AppTextField @bind-Value="_profileColor" Label="Avatar color" FullWidth="true" />
+                        <AppSwitchRow @bind-Value="_newProfileDefault" Label="Make this the default profile" />
+                        <AppButton Label="Create profile" Disabled="@(_saving || string.IsNullOrWhiteSpace(_profileName))" OnClick="CreateProfile" />
+                    </section>
+                    @if (GrantableProfiles.Count > 0)
+                    {
+                        <section class="access-form-section">
+                            <MudText Typo="Typo.subtitle1">Grant an existing profile</MudText>
+                            <AppNativeSelect Value="@_grantProfile" OnChange="@(value => _grantProfile = value.Value?.ToString() ?? string.Empty)" aria-label="Add existing profile">
+                                <option value="">Select a profile</option>@foreach (var profile in GrantableProfiles) { <option value="@profile.Id">@profile.DisplayName</option> }
+                            </AppNativeSelect>
+                            <AppButton Label="Grant profile" Disabled="@(_saving || string.IsNullOrWhiteSpace(_grantProfile))" OnClick="GrantProfile" />
+                        </section>
+                    }
+                }
+                else { <AppAlert Severity="Severity.Info">This account already has the maximum of eight profiles.</AppAlert> }
+            }
+            else if (_mode == UserDrawerMode.Invitation)
+            {
+                <section class="access-form-section">
+                    <MudText Typo="Typo.subtitle1">Invite by email</MudText>
+                    <AppTextField @bind-Value="_email" Label="Email" FullWidth="true" />
+                    <small>Select between one and eight existing profiles. The invitation creates a remote-capable account.</small>
+                    <div class="access-permission-list">
+                        @foreach (var profile in _profiles) { <AppCheckbox Value="@_invitationProfiles.Contains(profile.Id)" ValueChanged="@((bool value) => ToggleInvitationProfile(profile.Id, value))" Label="@profile.DisplayName" /> }
+                    </div>
+                    @if (_invitationProfiles.Count > 0)
+                    {
+                        <AppNativeSelect Value="@(_invitationDefault?.ToString("D") ?? string.Empty)" OnChange="SetInvitationDefault" aria-label="Invitation default profile">
+                            @foreach (var profile in _profiles.Where(profile => _invitationProfiles.Contains(profile.Id))) { <option value="@profile.Id">@profile.DisplayName</option> }
+                        </AppNativeSelect>
+                    }
+                </section>
+                <ManagedAccessUserPermissions FeatureIds="_featureIds" LibraryIds="_libraryIds" Libraries="_libraries" FeatureChanged="ToggleFeature" LibraryChanged="ToggleLibrary" />
+                @if (_invitation is not null)
+                {
+                    <AppAlert Severity="Severity.Success" Class="access-invitation"><strong>Invitation created.</strong><span>Copy this token now. It will not be shown again.</span><code>@_invitation.Token</code><small>Expires @_invitation.ExpiresAt.ToLocalTime().ToString("g")</small></AppAlert>
+                }
+            }
+            else if (_mode == UserDrawerMode.Delete && _editing is not null)
+            {
+                <AppAlert Severity="Severity.Warning">Delete @AccountLabel(_editing)? This revokes the account and its profile grants. Personal media files are kept.</AppAlert>
+                <p>This action cannot be undone from the Dashboard.</p>
+            }
+        </div>
+        <footer class="access-drawer__footer">
+            <AppButton Label="Cancel" OnClick="Close" />
+            @if (_mode == UserDrawerMode.Account) { <AppButton Label="@(_editing is null ? "Create user" : "Save account")" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" Disabled="@(_saving || !CanSaveAccount)" OnClick="SaveAccount" /> }
+            else if (_mode == UserDrawerMode.Permissions) { <AppButton Label="Save permissions" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" Disabled="@_saving" OnClick="SavePermissions" /> }
+            else if (_mode == UserDrawerMode.Invitation && _invitation is null) { <AppButton Label="Create invitation" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" Disabled="@(_saving || string.IsNullOrWhiteSpace(_email) || _invitationProfiles.Count == 0)" OnClick="CreateInvitation" /> }
+            else if (_mode == UserDrawerMode.Delete) { <AppButton Label="Delete user" Tone="AppUiTone.Error" ButtonStyle="AppButtonStyle.Filled" Disabled="@_saving" OnClick="DeleteAccount" /> }
+        </footer>
+    </div>
+    </MudFocusTrap>
+</MudDrawer>
+</div>
+}
+
+@code {
+    private readonly HashSet<string> _featureIds = new(StringComparer.Ordinal);
+    private readonly HashSet<Guid> _libraryIds = [];
+    private readonly HashSet<Guid> _invitationProfiles = [];
+    private readonly Dictionary<Guid, string> _profileNames = [];
+    private readonly Dictionary<Guid, string> _pins = [];
+    private readonly Dictionary<Guid, string> _protectionOptions = [];
+    private List<AccountAccessResponse> _accounts = [];
+    private List<ManagedProfileResponse> _profiles = [];
+    private List<AccessLibraryOptionDto> _libraries = [];
+    private AccountAccessResponse? _editing;
+    private AccountInvitationResponse? _invitation;
+    private UserDrawerMode _mode;
+    private Guid? _actionAccountId;
+    private Guid? _invitationDefault;
+    private long _drawerGeneration;
+    private bool _loading = true;
+    private bool _open;
+    private bool _saving;
+    private bool _localOnly;
+    private bool _administrator;
+    private bool _enabled = true;
+    private bool _newProfileDefault;
+    private string _email = string.Empty;
+    private string _profileName = string.Empty;
+    private string _profileColor = "#7C4DFF";
+    private string _grantProfile = string.Empty;
+    private string _error = string.Empty;
+    private string _drawerMessage = string.Empty;
+    private string _notice = string.Empty;
+    private ElementReference _returnFocus;
+    private bool _restoreFocus;
+
+    private bool CanManage => Session.HasAction("access.manage");
+    private bool CanSaveAccount => (_localOnly || !string.IsNullOrWhiteSpace(_email)) && (_editing is not null || !string.IsNullOrWhiteSpace(_profileName));
+    private string EditingLabel => _editing is null ? string.Empty : AccountLabel(_editing);
+    private string DrawerTitle => _mode switch
+    {
+        UserDrawerMode.Permissions => $"Permissions · {EditingLabel}",
+        UserDrawerMode.Profiles => $"Profiles · {EditingLabel}",
+        UserDrawerMode.Invitation => "Invite user",
+        UserDrawerMode.Delete => $"Delete · {EditingLabel}",
+        _ => _editing is null ? "New user" : $"Account · {EditingLabel}",
+    };
+    private List<ManagedProfileResponse> GrantableProfiles => _editing is null
+        ? []
+        : _profiles.Where(profile => _editing.ProfileGrants.All(grant => grant.ProfileId != profile.Id)).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CanManage)
+            await ReloadAll();
+        _loading = false;
+    }
+
+    private void NewUser()
+    {
+        ResetDrawer(UserDrawerMode.Account);
+        _editing = null;
+        _localOnly = true;
+        _featureIds.UnionWith(ManagedAccessUserPermissions.Features.Select(feature => feature.Id));
+        _libraryIds.UnionWith(_libraries.Select(library => library.Id));
+        _open = true;
+    }
+
+    private void EditAccount(AccountAccessResponse account)
+    {
+        ResetDrawer(UserDrawerMode.Account);
+        LoadAccount(account);
+        _open = true;
+    }
+
+    private void OpenPermissions(AccountAccessResponse account)
+    {
+        ResetDrawer(UserDrawerMode.Permissions);
+        LoadAccount(account);
+        _open = true;
+    }
+
+    private void OpenProfiles(AccountAccessResponse account)
+    {
+        ResetDrawer(UserDrawerMode.Profiles);
+        LoadAccount(account);
+        foreach (var grant in account.ProfileGrants)
+        {
+            _profileNames[grant.ProfileId] = grant.DisplayName;
+            _protectionOptions[grant.ProfileId] = grant.AdminProtection.UnlockMode == "FixedDuration"
+                ? $"FixedDuration:{grant.AdminProtection.UnlockMinutes ?? 30}"
+                : grant.AdminProtection.UnlockMode;
+        }
+        _open = true;
+    }
+    private void OpenInvitation()
+    {
+        ResetDrawer(UserDrawerMode.Invitation);
+        _editing = null;
+        _featureIds.UnionWith(ManagedAccessUserPermissions.Features.Select(feature => feature.Id));
+        _libraryIds.UnionWith(_libraries.Select(library => library.Id));
+        _open = true;
+    }
+    private void ConfirmDelete(AccountAccessResponse account)
+    {
+        ResetDrawer(UserDrawerMode.Delete);
+        LoadAccount(account);
+        _open = true;
+    }
+
+    private void LoadAccount(AccountAccessResponse account)
+    {
+        _editing = account;
+        _email = account.Email ?? string.Empty;
+        _localOnly = account.IsLocalOnly;
+        _administrator = account.IsAdministrator;
+        _enabled = account.IsEnabled;
+        _featureIds.UnionWith(account.FeatureGrants.Where(grant => grant.Allowed).Select(grant => grant.Feature));
+        _libraryIds.UnionWith(account.LibraryGrants.Where(grant => grant.Allowed).Select(grant => grant.LibraryId));
+    }
+
+    private void ResetDrawer(UserDrawerMode mode)
+    {
+        _drawerGeneration++;
+        _saving = false;
+        _mode = mode;
+        _actionAccountId = null;
+        _invitation = null;
+        _invitationProfiles.Clear();
+        _invitationDefault = null;
+        _featureIds.Clear();
+        _libraryIds.Clear();
+        _profileNames.Clear();
+        _pins.Clear();
+        _protectionOptions.Clear();
+        _email = _profileName = _grantProfile = _error = _drawerMessage = string.Empty;
+        _profileColor = "#7C4DFF";
+        _administrator = _localOnly = _newProfileDefault = false;
+        _enabled = true;
+    }
+
+    private async Task SaveAccount()
+    {
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            if (_editing is null)
+            {
+                var result = await Identity.CreateManagedAccountResultAsync(new(null, true, _administrator, null,
+                    new(_profileName.Trim(), _profileColor), _featureIds.Order().ToArray(), _libraryIds.Order().ToArray()));
+                if (!IsCurrentMutation(generation))
+                    return;
+                if (result.Succeeded && result.Value is not null)
+                {
+                    _notice = $"{AccountLabel(result.Value)} was created.";
+                    await ReloadAll(generation);
+                    if (IsCurrentMutation(generation))
+                        Close();
+                }
+                else
+                {
+                    _error = Message(result.Failure);
+                }
+            }
+            else
+            {
+                var result = await Identity.UpdateManagedAccountResultAsync(_editing.Id,
+                    new(_editing.IsLocalOnly ? null : _email.Trim(), _editing.IsLocalOnly, _enabled, _administrator));
+                if (!IsCurrentMutation(generation))
+                    return;
+                if (result.Succeeded && result.Value is not null)
+                {
+                    ReplaceAccount(result.Value);
+                    _notice = $"{AccountLabel(result.Value)} was updated.";
+                    Close();
+                }
+                else
+                {
+                    _error = Message(result.Failure);
+                }
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task SavePermissions()
+    {
+        if (_editing is null)
+            return;
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            var label = EditingLabel;
+            var result = await Identity.ReplaceManagedAccountAccessResultAsync(_editing.Id,
+                new(_featureIds.Order().ToArray(), _libraryIds.Order().ToArray()));
+            if (!IsCurrentMutation(generation))
+                return;
+            if (result.Succeeded)
+            {
+                await ReloadAll(generation);
+                if (!IsCurrentMutation(generation))
+                    return;
+                _notice = $"Permissions for {label} were saved.";
+                Close();
+            }
+            else
+            {
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task ToggleEnabled(AccountAccessResponse account)
+    {
+        if (!TryBeginMutation(out var generation))
+            return;
+        _actionAccountId = null;
+        try
+        {
+            var result = await Identity.UpdateManagedAccountResultAsync(account.Id,
+                new(account.Email, account.IsLocalOnly, !account.IsEnabled, account.IsAdministrator));
+            if (!IsCurrentMutation(generation))
+                return;
+            if (result.Succeeded && result.Value is not null)
+            {
+                ReplaceAccount(result.Value);
+                _notice = $"{AccountLabel(result.Value)} was {(result.Value.IsEnabled ? "enabled" : "disabled")}.";
+            }
+            else
+            {
+                EditAccount(account);
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task CreateProfile()
+    {
+        if (_editing is null)
+            return;
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            var result = await Identity.CreateManagedProfileResultAsync(
+                new(_editing.Id, _profileName.Trim(), _profileColor, _newProfileDefault));
+            if (!IsCurrentMutation(generation))
+                return;
+            if (result.Succeeded && result.Value is not null)
+            {
+                _profileName = string.Empty;
+                _newProfileDefault = false;
+                _drawerMessage = $"{result.Value.DisplayName} was created and granted.";
+                await ReloadKeepingEditing(generation);
+            }
+            else
+            {
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task RenameProfile(AccountProfileGrantDto grant)
+    {
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            var result = await Identity.UpdateManagedProfileResultAsync(grant.ProfileId,
+                new(ProfileName(grant).Trim(), ProfileAvatarColor(grant.ProfileId)));
+            if (!IsCurrentMutation(generation))
+                return;
+            if (result.Succeeded && result.Value is not null)
+            {
+                _drawerMessage = $"Profile renamed to {result.Value.DisplayName}.";
+                await ReloadKeepingEditing(generation);
+            }
+            else
+            {
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task SaveGrant(AccountProfileGrantDto grant, bool isDefault, bool adminEnabled)
+    {
+        if (_editing is null)
+            return;
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            var result = await Identity.SetManagedProfileGrantResultAsync(_editing.Id, grant.ProfileId,
+                new(isDefault, _editing.IsAdministrator && adminEnabled));
+            if (!IsCurrentMutation(generation))
+                return;
+            if (result.Succeeded)
+            {
+                _drawerMessage = isDefault
+                    ? $"{grant.DisplayName} is now the default profile."
+                    : $"{grant.DisplayName} access was updated.";
+                await ReloadKeepingEditing(generation);
+            }
+            else
+            {
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task SaveProtection(AccountProfileGrantDto grant, bool enabled, string? mode = null)
+    {
+        if (_editing is null)
+            return;
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            var option = mode ?? ProtectionOption(grant.ProfileId);
+            var parts = option.Split(':', 2);
+            var unlockMode = parts[0];
+            var unlockMinutes = unlockMode == "FixedDuration" && parts.Length == 2 && int.TryParse(parts[1], out var minutes)
+                ? minutes
+                : grant.AdminProtection.UnlockMinutes;
+            var result = await Identity.SetGrantProtectionResultAsync(_editing.Id, grant.ProfileId,
+                new(enabled, enabled ? Pin(grant.ProfileId) : null, unlockMode, unlockMinutes));
+            if (!IsCurrentMutation(generation))
+                return;
+            _pins.Remove(grant.ProfileId);
+            if (result.Succeeded)
+            {
+                _drawerMessage = enabled
+                    ? $"Admin protection for {grant.DisplayName} was updated."
+                    : $"Admin protection for {grant.DisplayName} was removed.";
+                await ReloadKeepingEditing(generation);
+            }
+            else
+            {
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task Revoke(AccountProfileGrantDto grant)
+    {
+        if (_editing is null)
+            return;
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            var result = await Identity.RevokeManagedProfileGrantResultAsync(_editing.Id, grant.ProfileId);
+            if (!IsCurrentMutation(generation))
+                return;
+            if (result.Succeeded)
+            {
+                _drawerMessage = $"{grant.DisplayName} was revoked from this account.";
+                await ReloadKeepingEditing(generation);
+            }
+            else
+            {
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task GrantProfile()
+    {
+        if (_editing is null || !Guid.TryParse(_grantProfile, out var profileId))
+            return;
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            var result = await Identity.SetManagedProfileGrantResultAsync(_editing.Id, profileId, new(false, false));
+            if (!IsCurrentMutation(generation))
+                return;
+            if (result.Succeeded)
+            {
+                var profileName = _profiles.FirstOrDefault(profile => profile.Id == profileId)?.DisplayName ?? "Profile";
+                _drawerMessage = $"{profileName} was granted to this account.";
+                _grantProfile = string.Empty;
+                await ReloadKeepingEditing(generation);
+            }
+            else
+            {
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task CreateInvitation()
+    {
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            var result = await Identity.CreateInvitationResultAsync(new CreateAccountInvitationRequest
+            {
+                Email = _email.Trim(),
+                ProfileIds = _invitationProfiles.Order().ToArray(),
+                DefaultProfileId = _invitationDefault,
+            });
+            if (!IsCurrentMutation(generation))
+                return;
+            if (result.Succeeded && result.Value is not null)
+            {
+                _invitation = result.Value;
+                var permissions = await Identity.ReplaceManagedAccountAccessResultAsync(
+                    result.Value.AccountId,
+                    new(_featureIds.Order().ToArray(), _libraryIds.Order().ToArray()));
+                if (!IsCurrentMutation(generation))
+                    return;
+                _drawerMessage = permissions.Succeeded
+                    ? "Invitation ready to copy. Account permissions were saved."
+                    : "Invitation ready to copy.";
+                if (!permissions.Succeeded)
+                    _error = $"The invitation was created, but permissions were not saved. {Message(permissions.Failure)}";
+                await ReloadAll(generation);
+            }
+            else
+            {
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task DeleteAccount()
+    {
+        if (_editing is null)
+            return;
+        if (!TryBeginMutation(out var generation))
+            return;
+        try
+        {
+            ClearMessages();
+            var label = EditingLabel;
+            var result = await Identity.DeleteManagedAccountResultAsync(_editing.Id);
+            if (!IsCurrentMutation(generation))
+                return;
+            if (result.Succeeded)
+            {
+                await ReloadAll(generation);
+                if (!IsCurrentMutation(generation))
+                    return;
+                _notice = $"{label} was deleted. Personal media files were kept.";
+                Close();
+            }
+            else
+            {
+                _error = Message(result.Failure);
+            }
+        }
+        finally
+        {
+            EndMutation(generation);
+        }
+    }
+
+    private async Task ReloadAll(long? generation = null)
+    {
+        var accounts = Identity.GetManagedAccountsAsync();
+        var profiles = Identity.GetManagedProfilesAsync();
+        var libraries = Identity.GetAccessLibrariesAsync();
+        await Task.WhenAll(accounts, profiles, libraries);
+        if (generation is { } expected && !IsCurrentMutation(expected))
+            return;
+        _accounts = accounts.Result;
+        _profiles = profiles.Result;
+        _libraries = libraries.Result;
+    }
+
+    private async Task ReloadKeepingEditing(long? generation = null)
+    {
+        var id = _editing?.Id;
+        await ReloadAll(generation);
+        if (generation is { } expected && !IsCurrentMutation(expected))
+            return;
+        _editing = id is null ? null : _accounts.FirstOrDefault(account => account.Id == id);
+        _profileNames.Clear();
+        if (_editing is not null)
+            foreach (var grant in _editing.ProfileGrants)
+            {
+                _profileNames[grant.ProfileId] = grant.DisplayName;
+                _protectionOptions[grant.ProfileId] = grant.AdminProtection.UnlockMode == "FixedDuration"
+                    ? $"FixedDuration:{grant.AdminProtection.UnlockMinutes ?? 30}"
+                    : grant.AdminProtection.UnlockMode;
+            }
+    }
+
+    private void ReplaceAccount(AccountAccessResponse account)
+    {
+        var index = _accounts.FindIndex(candidate => candidate.Id == account.Id);
+        if (index >= 0)
+            _accounts[index] = account;
+        else
+            _accounts.Add(account);
+        _editing = account;
+    }
+
+    private void ToggleFeature((string Id, bool Value) change)
+    {
+        if (change.Value)
+            _featureIds.Add(change.Id);
+        else
+            _featureIds.Remove(change.Id);
+    }
+
+    private void ToggleLibrary((Guid Id, bool Value) change)
+    {
+        if (change.Value)
+            _libraryIds.Add(change.Id);
+        else
+            _libraryIds.Remove(change.Id);
+    }
+
+    private void ToggleInvitationProfile(Guid id, bool value)
+    {
+        if (value && _invitationProfiles.Count < 8)
+            _invitationProfiles.Add(id);
+        else if (!value)
+            _invitationProfiles.Remove(id);
+        if (_invitationDefault is null || !_invitationProfiles.Contains(_invitationDefault.Value))
+        {
+            var first = _invitationProfiles.FirstOrDefault();
+            _invitationDefault = first == Guid.Empty ? null : first;
+        }
+    }
+
+    private void SetInvitationDefault(ChangeEventArgs value)
+    {
+        _invitationDefault = Guid.TryParse(value.Value?.ToString(), out var id) && _invitationProfiles.Contains(id)
+            ? id
+            : null;
+    }
+
+    private void ToggleActions(Guid id) => _actionAccountId = _actionAccountId == id ? null : id;
+    private string ProfileName(AccountProfileGrantDto grant) => _profileNames.GetValueOrDefault(grant.ProfileId, grant.DisplayName);
+    private string ProfileAvatarColor(Guid id) => _profiles.FirstOrDefault(profile => profile.Id == id)?.AvatarColor ?? "#7C4DFF";
+    private string Pin(Guid id) => _pins.GetValueOrDefault(id, "");
+    private string ProtectionOption(Guid id) => _protectionOptions.GetValueOrDefault(id, "FixedDuration:30");
+    private static string AccountLabel(AccountAccessResponse account) => account.Email ?? "Local-only account";
+    private static string Initials(string value) => string.Concat(value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(part => char.ToUpperInvariant(part[0])));
+    private void ClearMessages() => _error = _drawerMessage = string.Empty;
+
+    private bool TryBeginMutation(out long generation)
+    {
+        generation = _drawerGeneration;
+        if (_saving)
+            return false;
+        _saving = true;
+        return true;
+    }
+
+    private bool IsCurrentMutation(long generation) => generation == _drawerGeneration;
+
+    private void EndMutation(long generation)
+    {
+        if (IsCurrentMutation(generation))
+            _saving = false;
+    }
+
+    private void DrawerChanged(bool value)
+    {
+        if (value)
+            _open = true;
+        else
+            Close();
+    }
+
+    private void HandleDrawerKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+            Close();
+    }
+
+    private void Close()
+    {
+        _drawerGeneration++;
+        _saving = false;
+        _open = false;
+        _actionAccountId = null;
+        _invitation = null;
+        _pins.Clear();
+        _protectionOptions.Clear();
+        _restoreFocus = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_restoreFocus) return;
+        _restoreFocus = false;
+        await _returnFocus.FocusAsync();
+    }
+
+    private static string Message(DashboardAccessMutationFailure failure) => failure switch
+    {
+        DashboardAccessMutationFailure.Validation => "Check the values and try again.",
+        DashboardAccessMutationFailure.Conflict => "This change conflicts with the current account state.",
+        DashboardAccessMutationFailure.Forbidden => "You no longer have permission for this change.",
+        DashboardAccessMutationFailure.Unauthorized => "Your session has expired.",
+        DashboardAccessMutationFailure.NotFound => "This account or profile no longer exists.",
+        DashboardAccessMutationFailure.Transient => "The Engine is unavailable. Try again.",
+        _ => "The change could not be saved. Try again.",
+    };
+
+    private enum UserDrawerMode
+    {
+        Account,
+        Permissions,
+        Profiles,
+        Invitation,
+        Delete,
+    }
+}

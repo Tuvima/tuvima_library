@@ -1,6 +1,8 @@
 using Dapper;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -179,6 +181,87 @@ public sealed class DurablePipelineTests : IDisposable
         Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM identity_jobs;"));
         Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM review_queue WHERE status = 'Pending';"));
         Assert.True(File.Exists(filePath));
+    }
+
+    [Fact]
+    public async Task HandleDeletedAsync_PublishesSourceBackedRemovalAfterAssetIsOrphaned()
+    {
+        var removedPath = Path.Combine(_watchDir, "removed-book.epub");
+        var libraryId = Guid.NewGuid();
+        var assetId = SeedAssetForDeletion(removedPath, libraryId, MediaType.Books);
+        string? statusAtPublish = null;
+        _publisher.BeforePublish = (eventName, _) =>
+        {
+            if (!string.Equals(eventName, SignalREvents.MediaRemoved, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            using var connection = _dbFactory.Connection.CreateConnection();
+            statusAtPublish = connection.QuerySingle<string>(
+                "SELECT status FROM media_assets WHERE id = @assetId;",
+                new { assetId });
+        };
+
+        using var debounce = new DebounceQueue();
+        using var engine = CreateEngine(debounce, CreateDeletionOptions());
+
+        await InvokeHandleDeletedAsync(engine, removedPath);
+
+        Assert.Equal(AssetStatus.Orphaned.ToString(), statusAtPublish);
+        var published = Assert.Single(
+            _publisher.Published,
+            item => string.Equals(item.EventName, SignalREvents.MediaRemoved, StringComparison.Ordinal));
+        var payload = Assert.IsType<MediaRemovedEvent>(published.Payload);
+        Assert.Equal(assetId, payload.AssetId);
+        Assert.Equal(removedPath, payload.FilePath);
+        Assert.Equal(AssetStatus.Orphaned.ToString(), payload.Status);
+        Assert.Equal(libraryId, payload.LibraryId);
+        Assert.Equal(AccountFeatureId.Read.Value, payload.FeatureId);
+    }
+
+    [Fact]
+    public async Task HandleDeletedAsync_WhenOrphanUpdateFails_DoesNotPublishRemoval()
+    {
+        var removedPath = Path.Combine(_watchDir, "failed-removal.epub");
+        var assetId = SeedAssetForDeletion(removedPath, Guid.NewGuid(), MediaType.Books);
+        using (var connection = _dbFactory.Connection.CreateConnection())
+        {
+            connection.Execute("""
+                CREATE TRIGGER fail_media_asset_status_update
+                BEFORE UPDATE OF status ON media_assets
+                BEGIN
+                    SELECT RAISE(ABORT, 'forced update failure');
+                END;
+                """);
+        }
+
+        using var debounce = new DebounceQueue();
+        using var engine = CreateEngine(debounce, CreateDeletionOptions());
+
+        var error = await Assert.ThrowsAnyAsync<Exception>(
+            () => InvokeHandleDeletedAsync(engine, removedPath));
+
+        Assert.Contains("forced update failure", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain(
+            _publisher.Published,
+            item => string.Equals(item.EventName, SignalREvents.MediaRemoved, StringComparison.Ordinal));
+        var asset = await _assetRepo.FindByIdAsync(assetId);
+        Assert.NotNull(asset);
+        Assert.Equal(AssetStatus.Normal, asset.Status);
+    }
+
+    [Fact]
+    public async Task HandleDeletedAsync_UnknownAsset_DoesNotPublishRemoval()
+    {
+        using var debounce = new DebounceQueue();
+        using var engine = CreateEngine(debounce, CreateDeletionOptions());
+
+        await InvokeHandleDeletedAsync(engine, Path.Combine(_watchDir, "unknown.epub"));
+
+        Assert.DoesNotContain(
+            _publisher.Published,
+            item => string.Equals(item.EventName, SignalREvents.MediaRemoved, StringComparison.Ordinal));
     }
 
     // ── Test 2: Duplicate file ingestion creates only one asset ───────────
@@ -942,6 +1025,66 @@ public sealed class DurablePipelineTests : IDisposable
         var path = Path.Combine(_watchDir, name);
         File.WriteAllText(path, content);
         return path;
+    }
+
+    private Guid SeedAssetForDeletion(string path, Guid libraryId, MediaType mediaType)
+    {
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        using var connection = _dbFactory.Connection.CreateConnection();
+        connection.Execute("""
+            INSERT INTO works (id, media_type, work_kind, ownership)
+            VALUES (@workId, @mediaType, 'standalone', 'Owned');
+            INSERT INTO editions (id, work_id)
+            VALUES (@editionId, @workId);
+            INSERT INTO media_assets
+                (id, edition_id, content_hash, file_path_root, status, library_id)
+            VALUES
+                (@assetId, @editionId, @contentHash, @path, 'Normal', @libraryId);
+            """,
+            new
+            {
+                workId,
+                mediaType = mediaType.ToString(),
+                editionId,
+                assetId,
+                contentHash = assetId.ToString("N"),
+                path,
+                libraryId = libraryId.ToString(),
+            });
+
+        return assetId;
+    }
+
+    private IngestionOptions CreateDeletionOptions() => new()
+    {
+        WatchDirectories = [_watchDir],
+        LibraryRoot = _libraryDir,
+        AutoOrganize = false,
+        IncludeSubdirectories = false,
+        PollIntervalSeconds = 0,
+    };
+
+    private static async Task InvokeHandleDeletedAsync(IngestionEngine engine, string path)
+    {
+        var method = typeof(IngestionEngine).GetMethod(
+            "HandleDeletedAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var invocation = method.Invoke(
+            engine,
+            [
+                new IngestionCandidate
+                {
+                    Path = path,
+                    EventType = FileEventType.Deleted,
+                    DetectedAt = DateTimeOffset.UtcNow,
+                    ReadyAt = DateTimeOffset.UtcNow,
+                },
+                CancellationToken.None,
+            ]);
+        await Assert.IsAssignableFrom<Task>(invocation);
     }
 
     private static int GetOwnedTaskCount(IngestionEngine engine)

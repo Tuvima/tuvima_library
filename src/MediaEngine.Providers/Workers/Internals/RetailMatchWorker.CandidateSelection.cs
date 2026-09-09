@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -13,7 +14,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -42,11 +42,15 @@ public sealed partial class RetailMatchWorker
     {
         hints.TryGetValue(MetadataFieldConstants.ShowName, out var showName);
         if (string.IsNullOrWhiteSpace(showName))
+        {
             hints.TryGetValue(MetadataFieldConstants.Series, out showName);
+        }
 
         hints.TryGetValue(MetadataFieldConstants.SeasonNumber, out var season);
         if (string.IsNullOrWhiteSpace(season))
+        {
             hints.TryGetValue("season", out season);
+        }
 
         return $"{(showName ?? string.Empty).Trim().ToLowerInvariant()}|{(season ?? "1").Trim()}";
     }
@@ -76,7 +80,9 @@ public sealed partial class RetailMatchWorker
                 var value = claims.FirstOrDefault(c =>
                     string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
                 if (!string.IsNullOrWhiteSpace(value))
+                {
                     return value;
+                }
             }
 
             return null;
@@ -158,11 +164,17 @@ public sealed partial class RetailMatchWorker
             evidence["title_anchors_issue_identity"] = titleAnchorsIssueIdentity;
 
             if (seriesMatches && issueMatches)
+            {
                 structuralBonus += 0.35;
+            }
             else if (titleAnchorsIssueIdentity)
+            {
                 structuralBonus += 0.35;
+            }
             else if (issueMatches)
+            {
                 structuralBonus += 0.20;
+            }
 
             var applyIssueMismatchPenalty = !titleAnchorsIssueIdentity
                 && !string.IsNullOrWhiteSpace(fileIssue)
@@ -171,7 +183,9 @@ public sealed partial class RetailMatchWorker
             evidence["issue_mismatch_penalty_applied"] = applyIssueMismatchPenalty;
 
             if (applyIssueMismatchPenalty)
+            {
                 structuralBonus -= 0.25;
+            }
         }
 
         return (structuralBonus, evidence);
@@ -180,10 +194,14 @@ public sealed partial class RetailMatchWorker
     private static bool AreEquivalentOrdinals(string? left, string? right)
     {
         if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+        {
             return false;
+        }
 
         if (int.TryParse(left, out var leftNumber) && int.TryParse(right, out var rightNumber))
+        {
             return leftNumber == rightNumber;
+        }
 
         return string.Equals(left.TrimStart('0'), right.TrimStart('0'), StringComparison.OrdinalIgnoreCase)
             || string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -192,12 +210,16 @@ public sealed partial class RetailMatchWorker
     private static bool TitleContainsSeriesAnchor(string? title, string? series)
     {
         if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(series))
+        {
             return false;
+        }
 
         var normalizedTitle = RetailTextSimilarity.NormalizeComparableText(title);
         var normalizedSeries = RetailTextSimilarity.NormalizeComparableText(series);
         if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
+        {
             return false;
+        }
 
         return normalizedTitle.Contains(normalizedSeries, StringComparison.Ordinal);
     }
@@ -205,7 +227,9 @@ public sealed partial class RetailMatchWorker
     private static bool TryGetDurationSeconds(IReadOnlyDictionary<string, string> fileHints, out double seconds)
     {
         if (TryGetNumericSeconds(fileHints.GetValueOrDefault("duration_sec"), false, out seconds))
+        {
             return true;
+        }
 
         return TryParseFlexibleDuration(fileHints.GetValueOrDefault(MetadataFieldConstants.DurationField), out seconds);
     }
@@ -214,7 +238,9 @@ public sealed partial class RetailMatchWorker
     {
         seconds = 0.0;
         if (milliseconds is not > 0)
+        {
             return false;
+        }
 
         seconds = milliseconds.Value / 1000.0;
         return true;
@@ -223,7 +249,9 @@ public sealed partial class RetailMatchWorker
     private static bool TryParseFlexibleDuration(string? value, out double seconds)
     {
         if (TryGetNumericSeconds(value, true, out seconds))
+        {
             return true;
+        }
 
         if (!string.IsNullOrWhiteSpace(value)
             && TimeSpan.TryParse(value, out var timeSpan)
@@ -241,7 +269,9 @@ public sealed partial class RetailMatchWorker
     {
         ordinal = 0;
         if (string.IsNullOrWhiteSpace(value))
+        {
             return false;
+        }
 
         var digits = new string(value.Where(char.IsDigit).ToArray());
         return !string.IsNullOrWhiteSpace(digits)
@@ -284,7 +314,9 @@ public sealed partial class RetailMatchWorker
         int queuedTrackCount)
     {
         if (queuedTrackCount <= 1)
+        {
             return selection.AlbumExactCount > 0 || selection.TotalAlbumScore >= 0.92;
+        }
 
         return selection.SupportCount >= Math.Min(2, queuedTrackCount)
                && (selection.AlbumExactCount > 0
@@ -296,7 +328,9 @@ public sealed partial class RetailMatchWorker
         string? album)
     {
         if (string.IsNullOrWhiteSpace(album))
+        {
             return false;
+        }
 
         return match.AlbumExact || match.AlbumScore >= 0.92;
     }
@@ -305,10 +339,14 @@ public sealed partial class RetailMatchWorker
     {
         seconds = 0.0;
         if (string.IsNullOrWhiteSpace(value))
+        {
             return false;
+        }
 
         if (!double.TryParse(value, out var raw) || raw <= 0)
+        {
             return false;
+        }
 
         seconds = preferMillisecondsForLargeValues && raw > 20000
             ? raw / 1000.0
@@ -320,7 +358,9 @@ public sealed partial class RetailMatchWorker
     private static bool DurationsCorroborate(double fileDurationSeconds, double candidateDurationSeconds)
     {
         if (fileDurationSeconds <= 0 || candidateDurationSeconds <= 0)
+        {
             return false;
+        }
 
         var absoluteDiff = Math.Abs(fileDurationSeconds - candidateDurationSeconds);
         var relativeDiff = absoluteDiff / Math.Max(fileDurationSeconds, candidateDurationSeconds);
@@ -337,15 +377,21 @@ public sealed partial class RetailMatchWorker
     private static bool IsBetterCandidate(RetailMatchCandidate candidate, RetailMatchCandidate? currentBest)
     {
         if (currentBest is null)
+        {
             return true;
+        }
 
         var candidateRank = GetOutcomeRank(candidate.Outcome);
         var bestRank = GetOutcomeRank(currentBest.Outcome);
         if (candidateRank != bestRank)
+        {
             return candidateRank > bestRank;
+        }
 
         if (Math.Abs(candidate.ScoreTotal - currentBest.ScoreTotal) > 0.0001)
+        {
             return candidate.ScoreTotal > currentBest.ScoreTotal;
+        }
 
         return candidate.Rank < currentBest.Rank;
     }
@@ -356,7 +402,9 @@ public sealed partial class RetailMatchWorker
         MediaTypePipeline pipeline)
     {
         if (candidates.Count == 0 || pipeline.Providers.Count == 0)
+        {
             return currentBest;
+        }
 
         var identityProviders = pipeline.Providers
             .Where(provider => IsIdentityPurpose(provider.Purpose))
@@ -365,7 +413,9 @@ public sealed partial class RetailMatchWorker
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         if (identityProviders.Count == 0)
+        {
             return currentBest;
+        }
 
         RetailMatchCandidate? identityBest = null;
         foreach (var candidate in candidates)
@@ -377,11 +427,15 @@ public sealed partial class RetailMatchWorker
             }
 
             if (IsBetterCandidate(candidate, identityBest))
+            {
                 identityBest = candidate;
+            }
         }
 
         if (identityBest?.Outcome == "AutoAccepted")
+        {
             return identityBest;
+        }
 
         var fallbackIdentityProviders = pipeline.Providers
             .Where(provider => provider.UseAsIdentityFallback)
@@ -399,11 +453,15 @@ public sealed partial class RetailMatchWorker
             }
 
             if (IsBetterCandidate(candidate, fallbackBest))
+            {
                 fallbackBest = candidate;
+            }
         }
 
         if (fallbackBest?.Outcome == "AutoAccepted")
+        {
             return fallbackBest;
+        }
 
         return identityBest ?? fallbackBest ?? currentBest;
     }
@@ -422,7 +480,9 @@ public sealed partial class RetailMatchWorker
         IReadOnlyList<ProviderClaim> claims)
     {
         if (decision.Outcome != "Rejected")
+        {
             return true;
+        }
 
         if (!acceptedIdentity
             || pipelineEntry?.RequiresIdentity != true
@@ -432,7 +492,9 @@ public sealed partial class RetailMatchWorker
         }
 
         if (!claims.Any(IsEnrichmentClaim))
+        {
             return false;
+        }
 
         return retailScore.TitleScore >= 0.85
                && retailScore.AuthorScore >= 0.75;

@@ -31,7 +31,9 @@ public static class IdNormalization
     public static string NormalizeIsbn(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return string.Empty;
+        }
 
         // Strip dashes, spaces, and leading/trailing whitespace.
         var stripped = raw.Replace("-", "", StringComparison.Ordinal)
@@ -42,7 +44,9 @@ public static class IdNormalization
         {
             // ISBN-10: validate then promote to ISBN-13.
             if (IsValidIsbn10(stripped))
+            {
                 return ConvertIsbn10To13(stripped);
+            }
 
             // Invalid check digit — return stripped as-is.
             return stripped;
@@ -52,7 +56,9 @@ public static class IdNormalization
         {
             // ISBN-13: validate check digit.
             if (IsValidIsbn13(stripped))
+            {
                 return stripped;
+            }
 
             // Invalid check digit — return stripped as-is.
             return stripped;
@@ -70,13 +76,18 @@ public static class IdNormalization
     private static bool IsValidIsbn10(string isbn10)
     {
         if (isbn10.Length != 10)
+        {
             return false;
+        }
 
         int sum = 0;
         for (int i = 0; i < 9; i++)
         {
             if (!char.IsAsciiDigit(isbn10[i]))
+            {
                 return false;
+            }
+
             sum += (isbn10[i] - '0') * (10 - i);
         }
 
@@ -84,7 +95,9 @@ public static class IdNormalization
         char checkChar = isbn10[9];
 
         if (expected == 10)
+        {
             return checkChar is 'X' or 'x';
+        }
 
         return char.IsAsciiDigit(checkChar) && (checkChar - '0') == expected;
     }
@@ -97,20 +110,27 @@ public static class IdNormalization
     private static bool IsValidIsbn13(string isbn13)
     {
         if (isbn13.Length != 13)
+        {
             return false;
+        }
 
         int sum = 0;
         for (int i = 0; i < 12; i++)
         {
             if (!char.IsAsciiDigit(isbn13[i]))
+            {
                 return false;
+            }
+
             int weight = (i % 2 == 0) ? 1 : 3;
             sum += (isbn13[i] - '0') * weight;
         }
 
         int expected = (10 - (sum % 10)) % 10;
         if (!char.IsAsciiDigit(isbn13[12]))
+        {
             return false;
+        }
 
         return (isbn13[12] - '0') == expected;
     }
@@ -144,7 +164,9 @@ public static class IdNormalization
     public static string NormalizeAsin(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return string.Empty;
+        }
 
         return raw.Trim().ToUpperInvariant();
     }
@@ -159,7 +181,9 @@ public static class IdNormalization
     public static string NormalizeIsrc(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return string.Empty;
+        }
 
         return raw.Replace("-", "", StringComparison.Ordinal)
                   .Trim()
@@ -175,13 +199,13 @@ public static class IdNormalization
     /// </summary>
     public static IReadOnlyList<string> GetPrimaryIdFields(MediaType type) => type switch
     {
-        MediaType.Books      => ["isbn"],
+        MediaType.Books => ["isbn"],
         MediaType.Audiobooks => ["asin", "isbn"],
-        MediaType.Music      => ["isrc"],
-        MediaType.Movies     => ["tmdb_id", "imdb_id"],
-        MediaType.TV         => ["tmdb_id", "imdb_id"],
-        MediaType.Comics    => [BridgeIdKeys.ComicVineId],
-        _                   => [],
+        MediaType.Music => ["isrc"],
+        MediaType.Movies => ["tmdb_id", "imdb_id"],
+        MediaType.TV => ["tmdb_id", "imdb_id"],
+        MediaType.Comics => [BridgeIdKeys.ComicVineId],
+        _ => [],
     };
 
     /// <summary>

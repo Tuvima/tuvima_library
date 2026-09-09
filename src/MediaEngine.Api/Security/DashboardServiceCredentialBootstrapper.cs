@@ -34,7 +34,10 @@ public sealed class DashboardServiceCredentialBootstrapper(
             if (!CryptographicOperations.FixedTimeEquals(
                     Encoding.UTF8.GetBytes(active.TokenHash),
                     Encoding.UTF8.GetBytes(HashToken(token))))
+            {
                 throw new InvalidOperationException("The Dashboard service credential bundle does not match the Engine database.");
+            }
+
             return;
         }
 
@@ -46,8 +49,11 @@ public sealed class DashboardServiceCredentialBootstrapper(
         var plaintext = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
         var credential = new ServiceCredential
         {
-            Id = Guid.NewGuid(), Purpose = DashboardServiceCredentialOptions.Purpose,
-            KeyId = Guid.NewGuid().ToString("N"), TokenHash = HashToken(plaintext), CreatedAt = DateTimeOffset.UtcNow,
+            Id = Guid.NewGuid(),
+            Purpose = DashboardServiceCredentialOptions.Purpose,
+            KeyId = Guid.NewGuid().ToString("N"),
+            TokenHash = HashToken(plaintext),
+            CreatedAt = DateTimeOffset.UtcNow,
         };
         await identities.InsertServiceCredentialAsync(credential, ct).ConfigureAwait(false);
 

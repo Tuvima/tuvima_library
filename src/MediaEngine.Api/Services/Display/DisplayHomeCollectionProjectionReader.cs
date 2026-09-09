@@ -27,7 +27,10 @@ public sealed class DisplayHomeCollectionProjectionReader
         _profiles = profiles;
     }
 
-    public async Task<IReadOnlyList<DisplayHomeCollectionRow>> LoadAsync(Guid? profileId, CancellationToken ct)
+    public async Task<IReadOnlyList<DisplayHomeCollectionRow>> LoadAsync(
+        Guid? profileId,
+        CancellationToken ct,
+        IReadOnlySet<Guid>? allowedWorkIds = null)
     {
         var placements = await _placements.GetByLocationAsync(HomeLocation, ct);
         if (placements.Count == 0)
@@ -36,7 +39,7 @@ public sealed class DisplayHomeCollectionProjectionReader
         }
 
         var activeProfile = await ResolveActiveProfileAsync(profileId, ct);
-        var catalog = await _catalog.GetCatalogAsync(activeProfile, ct);
+        var catalog = await _catalog.GetCatalogAsync(activeProfile, ct, allowedWorkIds);
         var catalogById = catalog.ToDictionary(item => item.Id);
 
         var rows = new List<DisplayHomeCollectionRow>();

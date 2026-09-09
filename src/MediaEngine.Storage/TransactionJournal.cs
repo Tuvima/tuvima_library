@@ -47,7 +47,9 @@ public sealed class TransactionJournal : ITransactionJournal
     public void Prune(int maxEntries = 100_000)
     {
         if (maxEntries <= 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(maxEntries), "Must be > 0.");
+        }
 
         using var conn = _db.CreateConnection();
 
@@ -55,7 +57,9 @@ public sealed class TransactionJournal : ITransactionJournal
         var count = conn.ExecuteScalar<long>("SELECT COUNT(*) FROM transaction_log");
 
         if (count <= maxEntries)
+        {
             return;
+        }
 
         var excess = count - maxEntries;
 

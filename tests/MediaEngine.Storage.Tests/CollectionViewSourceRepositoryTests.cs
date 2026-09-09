@@ -148,8 +148,11 @@ public sealed class CollectionViewSourceRepositoryTests : IDisposable
                  0, @now, @now);
             """, new
         {
-            id = Guid.NewGuid(), collectionId, ownerProfileId = owner.ProfileId,
-            itemId = asset.ItemId, now = DateTimeOffset.UtcNow,
+            id = Guid.NewGuid(),
+            collectionId,
+            ownerProfileId = owner.ProfileId,
+            itemId = asset.ItemId,
+            now = DateTimeOffset.UtcNow,
         }));
         Assert.Equal(19, exception.SqliteErrorCode);
     }
@@ -207,8 +210,12 @@ public sealed class CollectionViewSourceRepositoryTests : IDisposable
                 (@id, @name, @type, @scope, @profileId, @stamp, @stamp);
             """, new
         {
-            id, name, type, scope = profileId.HasValue ? "user" : "library",
-            profileId, stamp = "2026-01-01T00:00:00.0000000+00:00",
+            id,
+            name,
+            type,
+            scope = profileId.HasValue ? "user" : "library",
+            profileId,
+            stamp = "2026-01-01T00:00:00.0000000+00:00",
         });
         return id;
     }
@@ -265,7 +272,14 @@ public sealed class CollectionViewSourceRepositoryTests : IDisposable
     public void Dispose()
     {
         _database.Dispose();
-        SqliteConnection.ClearAllPools();
-        if (File.Exists(_path)) File.Delete(_path);
+        using (var pool = new SqliteConnection($"Data Source={_path}"))
+        {
+            SqliteConnection.ClearPool(pool);
+        }
+
+        if (File.Exists(_path))
+        {
+            File.Delete(_path);
+        }
     }
 }

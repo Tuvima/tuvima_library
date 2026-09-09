@@ -11,7 +11,7 @@ using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Plugins;
 
-public sealed class PluginToolRuntime : IPluginToolRuntime
+internal sealed class PluginToolRuntime
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ILogger<PluginToolRuntime> _logger;
@@ -29,15 +29,16 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
             ? Path.GetFullPath(".data")
             : Path.Combine(core.LibraryRoot, ".data");
         _toolRoot = Path.Combine(root, "plugin-tools");
-        Directory.CreateDirectory(_toolRoot);
     }
 
     public async Task<PluginToolResolution> ResolveToolAsync(
         string pluginId,
         PluginToolRequirement requirement,
         IReadOnlyDictionary<string, JsonElement> settings,
+        Action authorizeDownload,
         CancellationToken cancellationToken = default)
     {
+        ValidateRequirement(requirement);
         if (TryGetSetting(settings, $"{requirement.Id}_tool_path", out var explicitPath)
             || TryGetSetting(settings, "tool_path", out explicitPath))
         {
@@ -48,15 +49,21 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
 
         var cached = FindCachedTool(requirement);
         if (cached is not null)
+        {
             return new PluginToolResolution { IsAvailable = true, ExecutablePath = cached, Status = "cached", Message = "Using cached plugin tool." };
+        }
 
         var pathTool = FindOnPath(requirement.ExecutableName);
         if (pathTool is not null)
+        {
             return new PluginToolResolution { IsAvailable = true, ExecutablePath = pathTool, Status = "path", Message = "Using tool from PATH." };
+        }
 
         var autoInstall = TryGetBool(settings, "auto_install_tools", defaultValue: true);
         if (!autoInstall)
+        {
             return new PluginToolResolution { IsAvailable = false, Status = "disabled", Message = "Automatic tool installation is disabled." };
+        }
 
         var platform = SelectPlatform(requirement);
         if (platform is null || string.IsNullOrWhiteSpace(platform.DownloadUrl) || string.IsNullOrWhiteSpace(platform.Sha256))
@@ -69,9 +76,16 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
             };
         }
 
-        var installDir = Path.Combine(_toolRoot, requirement.Id, requirement.Version);
+        authorizeDownload();
+        var installDir = ContainedToolPath(requirement.Id, requirement.Version);
         Directory.CreateDirectory(installDir);
-        var archivePath = Path.Combine(installDir, Path.GetFileName(new Uri(platform.DownloadUrl).LocalPath));
+        var archiveName = Path.GetFileName(new Uri(platform.DownloadUrl).LocalPath);
+        if (string.IsNullOrWhiteSpace(archiveName))
+        {
+            throw new InvalidOperationException("Plugin tool download URL has no archive name.");
+        }
+
+        var archivePath = ContainedPath(installDir, archiveName);
 
         try
         {
@@ -91,9 +105,11 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
 
             ExtractToolPayload(archivePath, installDir);
 
-            var executable = Path.Combine(installDir, platform.RelativeExecutablePath ?? requirement.ExecutableName);
+            var executable = ContainedPath(installDir, platform.RelativeExecutablePath ?? requirement.ExecutableName);
             if (!File.Exists(executable) && IsDirectExecutable(archivePath))
+            {
                 File.Copy(archivePath, executable, overwrite: true);
+            }
 
             TryMakeExecutable(executable);
             return File.Exists(executable)
@@ -132,10 +148,12 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
             EnableRaisingEvents = true,
         };
         foreach (var arg in arguments)
+        {
             process.StartInfo.ArgumentList.Add(arg);
+        }
 
-        process.OutputDataReceived += (_, e) => { if (e.Data is not null) stdout.AppendLine(e.Data); };
-        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) stderr.AppendLine(e.Data); };
+        process.OutputDataReceived += (_, e) => { if (e.Data is not null) { stdout.AppendLine(e.Data); } };
+        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) { stderr.AppendLine(e.Data); } };
 
         try
         {
@@ -165,16 +183,31 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
 
     private string? FindCachedTool(PluginToolRequirement requirement)
     {
-        var baseDir = Path.Combine(_toolRoot, requirement.Id, requirement.Version);
-        var candidate = Path.Combine(baseDir, requirement.ExecutableName);
-        if (File.Exists(candidate)) return candidate;
-        if (OperatingSystem.IsWindows() && File.Exists(candidate + ".exe")) return candidate + ".exe";
+        var baseDir = ContainedToolPath(requirement.Id, requirement.Version);
+        var candidate = ContainedPath(baseDir, requirement.ExecutableName);
+        if (File.Exists(candidate))
+        {
+            return candidate;
+        }
+
+        if (OperatingSystem.IsWindows() && File.Exists(candidate + ".exe"))
+        {
+            return candidate + ".exe";
+        }
+
         var discovered = Directory.Exists(baseDir)
             ? Directory.EnumerateFiles(baseDir, requirement.ExecutableName, SearchOption.AllDirectories).FirstOrDefault()
             : null;
-        if (discovered is not null) return discovered;
+        if (discovered is not null)
+        {
+            return discovered;
+        }
+
         if (OperatingSystem.IsWindows() && Directory.Exists(baseDir))
+        {
             return Directory.EnumerateFiles(baseDir, requirement.ExecutableName + ".exe", SearchOption.AllDirectories).FirstOrDefault();
+        }
+
         return null;
     }
 
@@ -188,7 +221,10 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
             foreach (var name in names)
             {
                 var candidate = Path.Combine(dir.Trim(), name);
-                if (File.Exists(candidate)) return candidate;
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
             }
         }
         return null;
@@ -201,11 +237,55 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
             ?? requirement.Platforms.FirstOrDefault(p => rid.StartsWith(p.Rid, StringComparison.OrdinalIgnoreCase));
     }
 
+    private static void ValidateRequirement(PluginToolRequirement requirement)
+    {
+        ValidateSegment(requirement.Id, nameof(requirement.Id));
+        ValidateSegment(requirement.Version, nameof(requirement.Version));
+        if (Path.GetFileName(requirement.ExecutableName) != requirement.ExecutableName || string.IsNullOrWhiteSpace(requirement.ExecutableName))
+        {
+            throw new InvalidOperationException("Plugin tool executable_name must be a file name.");
+        }
+
+        foreach (var platform in requirement.Platforms)
+        {
+            if (string.IsNullOrWhiteSpace(platform.Sha256) || platform.Sha256.Length != 64 || !platform.Sha256.All(Uri.IsHexDigit))
+            {
+                throw new InvalidOperationException("Downloaded plugin tools require a SHA-256 checksum.");
+            }
+        }
+    }
+
+    private string ContainedToolPath(string toolId, string version) =>
+        ContainedPath(Path.GetFullPath(_toolRoot), Path.Combine(toolId, version));
+
+    private static string ContainedPath(string root, string relativePath)
+    {
+        var normalizedRoot = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var candidate = Path.GetFullPath(Path.Combine(root, relativePath));
+        if (!candidate.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Plugin tool path escapes its allowed directory.");
+        }
+
+        return candidate;
+    }
+
+    private static void ValidateSegment(string value, string name)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value is "." or ".." || value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || value.Contains('/') || value.Contains('\\'))
+        {
+            throw new InvalidOperationException($"Plugin tool {name} must be a simple path segment.");
+        }
+    }
+
     private static bool TryGetSetting(IReadOnlyDictionary<string, JsonElement> settings, string key, out string value)
     {
         value = "";
         if (!settings.TryGetValue(key, out var element) || element.ValueKind != JsonValueKind.String)
+        {
             return false;
+        }
+
         value = element.GetString() ?? "";
         return !string.IsNullOrWhiteSpace(value);
     }
@@ -213,7 +293,10 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
     private static bool TryGetBool(IReadOnlyDictionary<string, JsonElement> settings, string key, bool defaultValue)
     {
         if (!settings.TryGetValue(key, out var element))
+        {
             return defaultValue;
+        }
+
         return element.ValueKind switch
         {
             JsonValueKind.True => true,
@@ -263,7 +346,11 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
 
     private void TryMakeExecutable(string path)
     {
-        if (!File.Exists(path) || OperatingSystem.IsWindows()) return;
+        if (!File.Exists(path) || OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         try
         {
             using var chmod = Process.Start("chmod", ["+x", path]);
@@ -279,7 +366,10 @@ public sealed class PluginToolRuntime : IPluginToolRuntime
     {
         try
         {
-            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+            }
         }
         catch (Exception ex)
         {

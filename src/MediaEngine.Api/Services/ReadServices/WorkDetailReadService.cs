@@ -28,7 +28,9 @@ public sealed class WorkDetailReadService(IDatabaseConnection db) : IWorkDetailR
             """, new { workId }, cancellationToken: ct));
 
         if (row is null)
+        {
             return null;
+        }
 
         var work = new WorkDetailDto
         {
@@ -110,7 +112,9 @@ public sealed class WorkDetailReadService(IDatabaseConnection db) : IWorkDetailR
         CancellationToken ct)
     {
         if (entityIds.Count == 0)
+        {
             return [];
+        }
 
         var rows = await connection.QueryAsync<CanonicalValueRow>(new CommandDefinition("""
             SELECT entity_id AS EntityId,

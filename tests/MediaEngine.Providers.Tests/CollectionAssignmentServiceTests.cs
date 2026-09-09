@@ -1,8 +1,8 @@
-using MediaEngine.Providers.Services;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Models;
+using MediaEngine.Providers.Services;
 using Tuvima.Wikidata;
 
 namespace MediaEngine.Providers.Tests;

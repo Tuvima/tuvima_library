@@ -82,7 +82,10 @@ public sealed class NetworkTopologyService : INetworkTopologyService
     private static bool LooksLikeContainerBridge(GatewayCandidate? gateway)
     {
         if (gateway is null)
+        {
             return false;
+        }
+
         var name = gateway.InterfaceName;
         return name.StartsWith("eth", StringComparison.OrdinalIgnoreCase)
             || name.StartsWith("veth", StringComparison.OrdinalIgnoreCase);

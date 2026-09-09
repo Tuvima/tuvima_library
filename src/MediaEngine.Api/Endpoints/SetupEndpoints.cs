@@ -38,7 +38,11 @@ public static class SetupEndpoints
             HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             SetupPreflightService preflight, OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             var result = await preflight.RunAsync(ct).ConfigureAwait(false);
             await onboarding.SetStepAsync(
                 "preflight", result.Passed ? "passed" : "blocked",
@@ -52,7 +56,11 @@ public static class SetupEndpoints
             SetupSessionService sessions, IFirstPartyIdentityService identity,
             OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             if (await identity.IsAdministratorConfiguredAsync(ct).ConfigureAwait(false))
             {
                 await onboarding.SetStepAsync("administrator", "passed", "Administrator account is configured.", null, null, ct).ConfigureAwait(false);
@@ -78,7 +86,11 @@ public static class SetupEndpoints
             SetupMediaLocationValidationService mediaLocations,
             OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             var result = mediaLocations.Validate();
             await onboarding.SetStepAsync("media-locations", result.Passed ? "passed" : "blocked", result.Detail,
                 result.Passed ? null : "/setup?step=media-locations", null, ct).ConfigureAwait(false);
@@ -89,7 +101,11 @@ public static class SetupEndpoints
             HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             IConfigurationLoader configuration, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             return Results.Ok(SettingsContractMapper.ToContract(configuration.LoadLibraries()));
         }).Produces<LibrariesConfigurationDto>();
 
@@ -97,16 +113,32 @@ public static class SetupEndpoints
             UpdateLibrariesRequest request, HttpContext context, ClaimsPrincipal user,
             SetupSessionService sessions, IConfigurationLoader configuration, MediaEngine.Api.Services.Settings.ServerFolderBrowserService folders, MediaEngine.Ingestion.Contracts.IFileOrganizer organizer, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             var config = SettingsContractMapper.ToStorage(request);
             var error = SettingsEndpoints.ValidateViewStorage(config)
                 ?? SettingsEndpoints.ValidateViewRootChange(configuration.LoadLibraries(), config)
                 ?? SettingsEndpoints.ValidateConfiguredPaths(config);
-            if (error is not null) return ApiErrors.BadRequest(error);
+            if (error is not null)
+            {
+                return ApiErrors.BadRequest(error);
+            }
+
             var validationErrors = JsonConfigValidator.Validate(config, "libraries.json");
-            if (validationErrors.Count > 0) return ApiErrors.BadRequest(string.Join(" ", validationErrors));
+            if (validationErrors.Count > 0)
+            {
+                return ApiErrors.BadRequest(string.Join(" ", validationErrors));
+            }
+
             var sourceError = SettingsEndpoints.ValidateLibrarySources(config, folders, organizer);
-            if (sourceError is not null) return ApiErrors.BadRequest(sourceError);
+            if (sourceError is not null)
+            {
+                return ApiErrors.BadRequest(sourceError);
+            }
+
             configuration.SaveLibraries(config);
             return Results.Ok(SettingsContractMapper.ToContract(config));
         }).Produces<LibrariesConfigurationDto>()
@@ -116,7 +148,11 @@ public static class SetupEndpoints
             HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             ServerFolderBrowserService service, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             return Results.Ok(service.GetStorageLocations());
         }).Produces<IReadOnlyList<ServerStorageLocationDto>>();
 
@@ -124,7 +160,11 @@ public static class SetupEndpoints
             BrowseServerFoldersRequest request, HttpContext context, ClaimsPrincipal user,
             SetupSessionService sessions, ServerFolderBrowserService service, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             try { return Results.Ok(service.Browse(request)); }
             catch (ServerFolderAccessException exception) { return ApiErrors.BadRequest(exception.Message); }
         }).Produces<BrowseServerFoldersResultDto>();
@@ -133,7 +173,11 @@ public static class SetupEndpoints
             ValidateServerFolderRequest request, HttpContext context, ClaimsPrincipal user,
             SetupSessionService sessions, ServerFolderBrowserService service, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             try { return Results.Ok(service.Validate(request)); }
             catch (ServerFolderAccessException exception) { return ApiErrors.BadRequest(exception.Message); }
         }).Produces<ServerFolderValidationResultDto>();
@@ -143,7 +187,11 @@ public static class SetupEndpoints
             HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             ProviderCredentialService credentials, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             return Results.Ok(await credentials.SaveAsync(name, request.Credentials, ct).ConfigureAwait(false));
         }).Produces<ProviderCredentialOperationResultDto>();
 
@@ -152,7 +200,11 @@ public static class SetupEndpoints
             HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             ProviderCredentialService credentials, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             return Results.Ok(await credentials.TestAsync(name, request.Credentials, ct).ConfigureAwait(false));
         }).Produces<ProviderCredentialOperationResultDto>();
 
@@ -161,11 +213,20 @@ public static class SetupEndpoints
             SetupSessionService sessions, OnboardingRepository onboarding,
             CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             if (stepKey != "providers" && !(stepKey == "media-locations" && request.Status == "deferred"))
+            {
                 return ApiErrors.BadRequest("This setup step has a dedicated server-side validator.");
+            }
+
             if (request.Status is not ("passed" or "deferred"))
+            {
                 return ApiErrors.BadRequest("Optional setup steps may be passed or deferred.");
+            }
 
             await onboarding.SetStepAsync(stepKey, request.Status,
                 request.Detail ?? (request.Status == "deferred" ? "Deferred during first-run setup." : "Configured during first-run setup."),
@@ -177,13 +238,25 @@ public static class SetupEndpoints
             HttpRequest request, HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             DatabaseBackupService backups, OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
-            if (!request.HasFormContentType) return ApiErrors.BadRequest("Upload the backup as multipart form data.");
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
+            if (!request.HasFormContentType)
+            {
+                return ApiErrors.BadRequest("Upload the backup as multipart form data.");
+            }
+
             try
             {
                 var form = await request.ReadFormAsync(ct).ConfigureAwait(false);
                 var file = form.Files.GetFile("backup");
-                if (file is null || file.Length == 0) return ApiErrors.BadRequest("Choose a Tuvima backup ZIP file.");
+                if (file is null || file.Length == 0)
+                {
+                    return ApiErrors.BadRequest("Choose a Tuvima backup ZIP file.");
+                }
+
                 await using var stream = file.OpenReadStream();
                 return Results.Ok(await backups.UploadAndInspectAsync(stream, file.FileName, onboarding, ct).ConfigureAwait(false));
             }
@@ -200,7 +273,11 @@ public static class SetupEndpoints
             DatabaseBackupService backups, OnboardingRepository onboarding,
             IHostApplicationLifetime lifetime, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             try
             {
                 var result = backups.ConfirmUploadedRestore(operationId, onboarding);
@@ -223,7 +300,11 @@ public static class SetupEndpoints
             HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             return Results.Ok(BuildReadiness(onboarding.Get()));
         }).Produces<SetupReadinessDto>();
 
@@ -231,7 +312,11 @@ public static class SetupEndpoints
             HttpContext context, ClaimsPrincipal user, SetupSessionService sessions,
             OnboardingRepository onboarding, CancellationToken ct) =>
         {
-            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false)) return Results.Unauthorized();
+            if (!await AuthorizedAsync(context, user, sessions, ct).ConfigureAwait(false))
+            {
+                return Results.Unauthorized();
+            }
+
             return await onboarding.CompleteAsync(ct).ConfigureAwait(false)
                 ? Results.Ok(await sessions.GetStatusAsync(ct).ConfigureAwait(false))
                 : ApiErrors.Conflict("Required setup capabilities are still blocked.");
@@ -243,9 +328,19 @@ public static class SetupEndpoints
     private static async Task<bool> AuthorizedAsync(
         HttpContext context, ClaimsPrincipal user, SetupSessionService sessions, CancellationToken ct)
     {
-        if (user.IsInRole(MediaEngine.Domain.AppRoles.Administrator)) return true;
-        return await sessions.ValidateSessionAsync(
-            context.Request.Headers[SetupSessionService.SessionHeader].ToString(), ct).ConfigureAwait(false);
+        _ = user;
+        if (await sessions.ValidateSessionAsync(
+                context.Request.Headers[SetupSessionService.SessionHeader].ToString(), ct)
+                .ConfigureAwait(false))
+        {
+            return true;
+        }
+
+        var resolver = context.RequestServices.GetRequiredService<IRequestAuthorityResolver>();
+        var decisions = context.RequestServices.GetRequiredService<IAccountAccessDecisionService>();
+        var authority = await resolver.ResolveAsync(context, ct).ConfigureAwait(false);
+        return (await decisions.EvaluateAdministratorAsync(authority, true, ct)
+            .ConfigureAwait(false)).IsAllowed;
     }
 
     private static SetupReadinessDto BuildReadiness(OnboardingWorkflowRecord workflow)

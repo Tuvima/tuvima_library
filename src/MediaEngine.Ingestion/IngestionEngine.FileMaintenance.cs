@@ -1,26 +1,27 @@
 using System.Text.Json;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
-using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Authorization;
+using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Detection;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
-using MediaEngine.Processors.Contracts;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion;
 
@@ -45,6 +46,20 @@ public sealed partial class IngestionEngine
             return;
         }
 
+        var lineage = _writeBackStageDependencies.WorkRepository is null
+            ? null
+            : await _writeBackStageDependencies.WorkRepository.GetLineageByAssetAsync(asset.Id, ct).ConfigureAwait(false);
+        var featureId = lineage?.MediaType switch
+        {
+            MediaType.Books or MediaType.Comics => AccountFeatureId.Read.Value,
+            MediaType.Movies or MediaType.TV => AccountFeatureId.Watch.Value,
+            MediaType.Audiobooks or MediaType.Music => AccountFeatureId.Listen.Value,
+            _ => null,
+        };
+        var libraryId = Guid.TryParse(asset.LibraryId, out var parsedLibraryId) && parsedLibraryId != Guid.Empty
+            ? parsedLibraryId
+            : (Guid?)null;
+
         await _assetRepo.UpdateStatusAsync(asset.Id, Domain.Enums.AssetStatus.Orphaned, ct)
                         .ConfigureAwait(false);
 
@@ -54,7 +69,7 @@ public sealed partial class IngestionEngine
 
         await SafePublishAsync(
             SignalREvents.MediaRemoved,
-            new MediaRemovedEvent(asset.Id, candidate.Path, "Orphaned"),
+            new MediaRemovedEvent(asset.Id, candidate.Path, "Orphaned", libraryId, featureId),
             ct).ConfigureAwait(false);
     }
 
@@ -116,7 +131,9 @@ public sealed partial class IngestionEngine
     private async Task DeleteHashCacheEntryAsync(string path, CancellationToken ct)
     {
         if (_hashStageDependencies.FileHashCache is null)
+        {
             return;
+        }
 
         try
         {

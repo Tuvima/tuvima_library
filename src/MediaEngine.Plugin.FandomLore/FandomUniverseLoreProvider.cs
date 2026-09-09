@@ -6,11 +6,6 @@ namespace MediaEngine.Plugin.FandomLore;
 
 public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
 {
-    private static readonly HttpClient Http = new()
-    {
-        Timeout = TimeSpan.FromSeconds(20),
-    };
-
     public string Kind => "universe-lore-provider";
 
     public async Task<IReadOnlyList<PluginLoreSourceCandidate>> DiscoverSourcesAsync(
@@ -20,23 +15,31 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!FandomSettings.ReadBool(context.Settings, "auto_discovery_enabled", true))
+        {
             return [];
+        }
 
         var sourceMode = FandomSettings.ReadString(context.Settings, "source_mode", "hybrid_review");
         if (string.Equals(sourceMode, "manual_only", StringComparison.OrdinalIgnoreCase))
+        {
             return [];
+        }
 
         var url = $"https://www.wikidata.org/w/api.php?action=wbgetclaims&format=json&entity={Uri.EscapeDataString(universe.UniverseQid)}&property=P6262";
         using var document = await GetJsonAsync(url, context, cancellationToken).ConfigureAwait(false);
         if (document is null)
+        {
             return [];
+        }
 
         var values = ReadP6262Values(document.RootElement);
         var candidates = new Dictionary<string, PluginLoreSourceCandidate>(StringComparer.OrdinalIgnoreCase);
         foreach (var value in values)
         {
             if (!TryBuildSourceCandidate(value, out var candidate))
+            {
                 continue;
+            }
 
             candidates.TryAdd(candidate.SourceKey, candidate);
         }
@@ -54,7 +57,9 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
 
         var contentMode = FandomSettings.ReadString(context.Settings, "content_mode", "structured_only");
         if (!string.Equals(contentMode, "structured_only", StringComparison.OrdinalIgnoreCase))
+        {
             return new PluginUniverseLoreResult([], [], "Only structured-only extraction is supported.");
+        }
 
         var maxPages = Math.Clamp(FandomSettings.ReadInt(context.Settings, "max_pages_per_run", 50), 1, 500);
         var threshold = Math.Clamp(FandomSettings.ReadDouble(context.Settings, "confidence_threshold", 0.65), 0.1, 1.0);
@@ -63,7 +68,9 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
 
         using var document = await GetJsonAsync(url, context, cancellationToken).ConfigureAwait(false);
         if (document is null)
+        {
             return new PluginUniverseLoreResult([], [], "Fandom API did not return a usable response.");
+        }
 
         var entities = new List<PluginLoreEntity>();
         foreach (var page in ReadPages(document.RootElement))
@@ -71,7 +78,9 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
             cancellationToken.ThrowIfCancellationRequested();
             var classification = ClassifyPage(page.Title, page.Categories, page.Templates);
             if (classification.Type == "Unknown" || classification.Confidence < threshold)
+            {
                 continue;
+            }
 
             var evidence = JsonSerializer.SerializeToElement(new
             {
@@ -108,9 +117,11 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
         request.Headers.UserAgent.ParseAdd(BuildUserAgent(context));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-        using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+        using var response = await context.Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
+        {
             return null;
+        }
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         return await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
@@ -151,7 +162,9 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
         candidate = default!;
         var raw = p6262Value.Trim();
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return false;
+        }
 
         string baseUrl;
         string sourceName;
@@ -166,7 +179,9 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
         {
             var parts = raw.Split(':', 2, StringSplitOptions.TrimEntries);
             if (parts.Length == 0 || string.IsNullOrWhiteSpace(parts[0]))
+            {
                 return false;
+            }
 
             var wikiKey = parts[0].Trim().ToLowerInvariant();
             pageTitle = parts.Length == 2 ? parts[1].Replace('_', ' ') : null;
@@ -218,7 +233,9 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
                 ? titleElement.GetString() ?? ""
                 : "";
             if (string.IsNullOrWhiteSpace(title))
+            {
                 continue;
+            }
 
             var pageId = page.TryGetProperty("pageid", out var pageIdElement) && pageIdElement.TryGetInt64(out var parsedPageId)
                 ? parsedPageId
@@ -239,7 +256,9 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
     private static IReadOnlyList<string> ReadTitleArray(JsonElement page, string propertyName)
     {
         if (!page.TryGetProperty(propertyName, out var values) || values.ValueKind != JsonValueKind.Array)
+        {
             return [];
+        }
 
         return values.EnumerateArray()
             .Select(item => item.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String
@@ -257,13 +276,24 @@ public sealed class FandomUniverseLoreProvider : IUniverseLoreProvider
     {
         var haystack = string.Join(" ", [title, .. categories, .. templates]).ToLowerInvariant();
         if (ContainsAny(haystack, "characters", "character pages", "fictional characters"))
+        {
             return new("Character", 0.78);
+        }
+
         if (ContainsAny(haystack, "locations", "places", "planets", "cities", "settlements", "regions"))
+        {
             return new("Location", 0.74);
+        }
+
         if (ContainsAny(haystack, "factions", "organizations", "organisations", "groups", "teams", "houses", "guilds", "clans"))
+        {
             return new("Organization", 0.74);
+        }
+
         if (ContainsAny(haystack, "events", "battles", "wars", "incidents"))
+        {
             return new("Event", 0.7);
+        }
 
         return new("Unknown", 0.0);
     }

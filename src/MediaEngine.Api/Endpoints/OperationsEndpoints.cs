@@ -2,6 +2,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Operations;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
@@ -27,7 +28,7 @@ public static class OperationsEndpoints
         .WithName("ListMediaOperations")
         .WithSummary("List durable media operations by queue order.")
         .Produces<IReadOnlyList<OperationDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionStatusRead);
 
         group.MapGet("/{id:guid}", async (
             Guid id,
@@ -37,7 +38,9 @@ public static class OperationsEndpoints
         {
             var operation = await repository.GetByIdAsync(id, ct);
             if (operation is null)
+            {
                 return ApiErrors.NotFound($"Media operation '{id}' not found.");
+            }
 
             var timeline = await events.GetByOperationAsync(id, ct);
             return Results.Ok(new OperationDetailDto
@@ -49,7 +52,7 @@ public static class OperationsEndpoints
         .WithName("GetMediaOperation")
         .WithSummary("Get one durable media operation and its event timeline.")
         .Produces<OperationDetailDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/summary", async (
             IMediaOperationRepository repository,
@@ -61,7 +64,7 @@ public static class OperationsEndpoints
         .WithName("GetMediaOperationsSummary")
         .WithSummary("Get media operation counts by status.")
         .Produces<IReadOnlyDictionary<string, int>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionStatusRead);
 
         group.MapPost("/{id:guid}/retry", async (
             Guid id,
@@ -69,7 +72,9 @@ public static class OperationsEndpoints
             CancellationToken ct) =>
         {
             if (await repository.GetByIdAsync(id, ct) is null)
+            {
                 return ApiErrors.NotFound($"Media operation '{id}' not found.");
+            }
 
             await repository.RequeueAsync(id, ct);
             return Results.Accepted($"/operations/{id}");
@@ -77,7 +82,7 @@ public static class OperationsEndpoints
         .WithName("RetryMediaOperation")
         .WithSummary("Requeue a durable media operation for another attempt.")
         .Produces(StatusCodes.Status202Accepted)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionRetry);
 
         group.MapPost("/{id:guid}/cancel", async (
             Guid id,
@@ -85,7 +90,9 @@ public static class OperationsEndpoints
             CancellationToken ct) =>
         {
             if (await repository.GetByIdAsync(id, ct) is null)
+            {
                 return ApiErrors.NotFound($"Media operation '{id}' not found.");
+            }
 
             await repository.MarkCancelledAsync(id, "Cancelled by user.", ct);
             return Results.Accepted($"/operations/{id}");
@@ -93,7 +100,7 @@ public static class OperationsEndpoints
         .WithName("CancelMediaOperation")
         .WithSummary("Cancel a durable media operation.")
         .Produces(StatusCodes.Status202Accepted)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionCancel);
 
         return app;
     }

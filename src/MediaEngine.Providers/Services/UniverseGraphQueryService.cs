@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
+using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata.Graph;
 
 namespace MediaEngine.Providers.Services;
@@ -28,8 +28,8 @@ public sealed class UniverseGraphQueryService : IUniverseGraphQueryService
         ArgumentNullException.ThrowIfNull(relRepo);
         ArgumentNullException.ThrowIfNull(logger);
         _entityRepo = entityRepo;
-        _relRepo    = relRepo;
-        _logger     = logger;
+        _relRepo = relRepo;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -80,7 +80,9 @@ public sealed class UniverseGraphQueryService : IUniverseGraphQueryService
     private async Task<EntityGraph> GetOrLoadGraphAsync(string universeQid, CancellationToken ct)
     {
         if (_graphCache.TryGetValue(universeQid, out var cached))
+        {
             return cached;
+        }
 
         var loadLock = _loadLocks.GetOrAdd(universeQid, _ => new SemaphoreSlim(1, 1));
         await loadLock.WaitAsync(ct).ConfigureAwait(false);
@@ -88,7 +90,9 @@ public sealed class UniverseGraphQueryService : IUniverseGraphQueryService
         {
             // Double-check after acquiring lock.
             if (_graphCache.TryGetValue(universeQid, out cached))
+            {
                 return cached;
+            }
 
             var graph = await BuildGraphFromSqliteAsync(universeQid, ct).ConfigureAwait(false);
             _graphCache[universeQid] = graph;
@@ -107,7 +111,7 @@ public sealed class UniverseGraphQueryService : IUniverseGraphQueryService
 
     private async Task<EntityGraph> BuildGraphFromSqliteAsync(string universeQid, CancellationToken ct)
     {
-        var entities   = await _entityRepo.GetByUniverseAsync(universeQid, ct).ConfigureAwait(false);
+        var entities = await _entityRepo.GetByUniverseAsync(universeQid, ct).ConfigureAwait(false);
         var entityQids = entities.Select(e => e.WikidataQid).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         var nodes = new List<GraphNode>();
@@ -118,13 +122,13 @@ public sealed class UniverseGraphQueryService : IUniverseGraphQueryService
             ct.ThrowIfCancellationRequested();
 
             var workLinks = await _entityRepo.GetWorkLinksAsync(entity.Id, ct).ConfigureAwait(false);
-            var workQids  = workLinks.Select(l => l.WorkQid).ToList();
+            var workQids = workLinks.Select(l => l.WorkQid).ToList();
 
             nodes.Add(new GraphNode
             {
-                Qid      = entity.WikidataQid,
-                Label    = entity.Label,
-                Type     = entity.EntitySubType,
+                Qid = entity.WikidataQid,
+                Label = entity.Label,
+                Type = entity.EntitySubType,
                 WorkQids = workQids,
             });
         }
@@ -137,10 +141,10 @@ public sealed class UniverseGraphQueryService : IUniverseGraphQueryService
 
             edges.Add(new GraphEdge
             {
-                SubjectQid     = rel.SubjectQid,
-                Relationship   = rel.RelationshipTypeValue,
-                ObjectQid      = rel.ObjectQid,
-                Confidence     = rel.Confidence,
+                SubjectQid = rel.SubjectQid,
+                Relationship = rel.RelationshipTypeValue,
+                ObjectQid = rel.ObjectQid,
+                Confidence = rel.Confidence,
                 ContextWorkQid = rel.ContextWorkQid,
             });
         }

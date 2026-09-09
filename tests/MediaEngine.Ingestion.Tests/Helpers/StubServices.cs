@@ -1,13 +1,13 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
-using IdentityJob = MediaEngine.Domain.Entities.IdentityJob;
 using MediaEngine.Domain.Models;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
+using IdentityJob = MediaEngine.Domain.Entities.IdentityJob;
 
 namespace MediaEngine.Ingestion.Tests.Helpers;
 
@@ -16,10 +16,12 @@ namespace MediaEngine.Ingestion.Tests.Helpers;
 internal sealed class StubEventPublisher : IEventPublisher
 {
     public List<(string EventName, object Payload)> Published { get; } = [];
+    public Action<string, object>? BeforePublish { get; set; }
 
     public Task PublishAsync<TPayload>(string eventName, TPayload payload, CancellationToken ct = default)
         where TPayload : notnull
     {
+        BeforePublish?.Invoke(eventName, payload);
         Published.Add((eventName, payload));
         return Task.CompletedTask;
     }
@@ -181,9 +183,16 @@ internal sealed class StubFileOrganizer : IFileOrganizer
     public Task<bool> ExecuteMoveAsync(string sourcePath, string destinationPath, CancellationToken ct = default)
     {
         var dir = Path.GetDirectoryName(destinationPath);
-        if (dir is not null) Directory.CreateDirectory(dir);
+        if (dir is not null)
+        {
+            Directory.CreateDirectory(dir);
+        }
+
         if (File.Exists(sourcePath))
+        {
             File.Move(sourcePath, destinationPath, overwrite: true);
+        }
+
         return Task.FromResult(true);
     }
 }
@@ -229,7 +238,9 @@ internal sealed class TestProcessorLibraryItem : IProcessorRouter
     {
         // Priority 1: dequeue from FIFO queue.
         if (_resultQueue.TryDequeue(out var queued))
+        {
             return Task.FromResult(queued);
+        }
 
         // Priority 2: single-shot next result.
         if (_nextResult is not null)
@@ -305,7 +316,7 @@ internal sealed class StubSmartLabeler : ISmartLabeler
     public Task<CleanedSearchQuery> CleanAsync(string rawFilename, CancellationToken ct = default)
         => Task.FromResult(new CleanedSearchQuery
         {
-            Title      = rawFilename,
+            Title = rawFilename,
             Confidence = 0.0, // Below the 0.5 threshold — ingestion will ignore this result.
         });
 }
@@ -329,9 +340,9 @@ internal sealed class StubMediaTypeAdvisor : IMediaTypeAdvisor
         CancellationToken ct = default)
         => Task.FromResult(new MediaTypeCandidate
         {
-            Type       = MediaType.Unknown,
+            Type = MediaType.Unknown,
             Confidence = 0.0,
-            Reason     = "Stub — no AI classification in tests",
+            Reason = "Stub — no AI classification in tests",
         });
 }
 

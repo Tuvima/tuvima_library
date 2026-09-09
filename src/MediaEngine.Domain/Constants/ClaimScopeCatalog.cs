@@ -51,52 +51,52 @@ public static class ClaimScopeCatalog
         {
             // Container bridge IDs — only meaningful at the album/show/series level.
             // ComicVine is overridden for Comics because issue search returns issue IDs.
-            [BridgeIdKeys.AppleMusicCollectionId]    = ClaimScope.Parent,
-            [BridgeIdKeys.AppleArtistId]             = ClaimScope.Parent,
-            [BridgeIdKeys.MusicBrainzId]             = ClaimScope.Parent,
-            [BridgeIdKeys.MusicBrainzArtistId]       = ClaimScope.Parent,
-            [BridgeIdKeys.MusicBrainzReleaseId]      = ClaimScope.Parent,
+            [BridgeIdKeys.AppleMusicCollectionId] = ClaimScope.Parent,
+            [BridgeIdKeys.AppleArtistId] = ClaimScope.Parent,
+            [BridgeIdKeys.MusicBrainzId] = ClaimScope.Parent,
+            [BridgeIdKeys.MusicBrainzArtistId] = ClaimScope.Parent,
+            [BridgeIdKeys.MusicBrainzReleaseId] = ClaimScope.Parent,
             [BridgeIdKeys.MusicBrainzReleaseGroupId] = ClaimScope.Parent,
-            [BridgeIdKeys.TvdbId]                    = ClaimScope.Parent,
-            [BridgeIdKeys.ComicVineId]               = ClaimScope.Parent,
-            [BridgeIdKeys.ComicVineVolumeId]         = ClaimScope.Parent,
+            [BridgeIdKeys.TvdbId] = ClaimScope.Parent,
+            [BridgeIdKeys.ComicVineId] = ClaimScope.Parent,
+            [BridgeIdKeys.ComicVineVolumeId] = ClaimScope.Parent,
 
             // Container-level descriptive fields.
-            [MetadataFieldConstants.Album]             = ClaimScope.Parent,
-            [MetadataFieldConstants.ShowName]          = ClaimScope.Parent,
-            [MetadataFieldConstants.Series]            = ClaimScope.Parent,
-            [MetadataFieldConstants.Franchise]         = ClaimScope.Parent,
-            [MetadataFieldConstants.Network]           = ClaimScope.Parent,
-            [MetadataFieldConstants.Tagline]           = ClaimScope.Parent,
-            [MetadataFieldConstants.Subtitle]          = ClaimScope.Parent,
-            [MetadataFieldConstants.ShortDescription]  = ClaimScope.Parent,
-            [MetadataFieldConstants.PublisherField]    = ClaimScope.Parent,
-            [MetadataFieldConstants.SeasonCount]       = ClaimScope.Parent,
-            [MetadataFieldConstants.EpisodeCount]      = ClaimScope.Parent,
-            [MetadataFieldConstants.TrackCount]        = ClaimScope.Parent,
-            [MetadataFieldConstants.IssueCount]        = ClaimScope.Parent,
-            [MetadataFieldConstants.SequenceTotal]     = ClaimScope.Parent,
+            [MetadataFieldConstants.Album] = ClaimScope.Parent,
+            [MetadataFieldConstants.ShowName] = ClaimScope.Parent,
+            [MetadataFieldConstants.Series] = ClaimScope.Parent,
+            [MetadataFieldConstants.Franchise] = ClaimScope.Parent,
+            [MetadataFieldConstants.Network] = ClaimScope.Parent,
+            [MetadataFieldConstants.Tagline] = ClaimScope.Parent,
+            [MetadataFieldConstants.Subtitle] = ClaimScope.Parent,
+            [MetadataFieldConstants.ShortDescription] = ClaimScope.Parent,
+            [MetadataFieldConstants.PublisherField] = ClaimScope.Parent,
+            [MetadataFieldConstants.SeasonCount] = ClaimScope.Parent,
+            [MetadataFieldConstants.EpisodeCount] = ClaimScope.Parent,
+            [MetadataFieldConstants.TrackCount] = ClaimScope.Parent,
+            [MetadataFieldConstants.IssueCount] = ClaimScope.Parent,
+            [MetadataFieldConstants.SequenceTotal] = ClaimScope.Parent,
             [MetadataFieldConstants.SequenceTotalScope] = ClaimScope.Parent,
-            [MetadataFieldConstants.SeriesStartYear]   = ClaimScope.Parent,
-            [MetadataFieldConstants.SeriesEndYear]     = ClaimScope.Parent,
+            [MetadataFieldConstants.SeriesStartYear] = ClaimScope.Parent,
+            [MetadataFieldConstants.SeriesEndYear] = ClaimScope.Parent,
             [MetadataFieldConstants.ChildEntitiesJson] = ClaimScope.Parent,
             [MetadataFieldConstants.SequenceManifestJson] = ClaimScope.Parent,
-            ["cast_member_character"]                  = ClaimScope.Parent,
-            ["network_logo_url"]                       = ClaimScope.Parent,
-            ["studio"]                                 = ClaimScope.Parent,
-            ["studio_logo_url"]                        = ClaimScope.Parent,
-            ["production_company"]                     = ClaimScope.Parent,
-            [MetadataFieldConstants.AwardReceived]       = ClaimScope.Parent,
-            [MetadataFieldConstants.AwardNominated]      = ClaimScope.Parent,
-            [MetadataFieldConstants.AwardFamily]         = ClaimScope.Parent,
-            [MetadataFieldConstants.NominationFamily]    = ClaimScope.Parent,
-            [MetadataFieldConstants.CountryOfOrigin]     = ClaimScope.Parent,
-            [MetadataFieldConstants.ProductionCompany]   = ClaimScope.Parent,
-            [MetadataFieldConstants.RecordLabel]         = ClaimScope.Parent,
-            [MetadataFieldConstants.SetInPeriod]         = ClaimScope.Parent,
-            [MetadataFieldConstants.FilmingLocation]     = ClaimScope.Parent,
-            [MetadataFieldConstants.MainSubject]         = ClaimScope.Parent,
-            [MetadataFieldConstants.BasedOn]             = ClaimScope.Parent,
+            ["cast_member_character"] = ClaimScope.Parent,
+            ["network_logo_url"] = ClaimScope.Parent,
+            ["studio"] = ClaimScope.Parent,
+            ["studio_logo_url"] = ClaimScope.Parent,
+            ["production_company"] = ClaimScope.Parent,
+            [MetadataFieldConstants.AwardReceived] = ClaimScope.Parent,
+            [MetadataFieldConstants.AwardNominated] = ClaimScope.Parent,
+            [MetadataFieldConstants.AwardFamily] = ClaimScope.Parent,
+            [MetadataFieldConstants.NominationFamily] = ClaimScope.Parent,
+            [MetadataFieldConstants.CountryOfOrigin] = ClaimScope.Parent,
+            [MetadataFieldConstants.ProductionCompany] = ClaimScope.Parent,
+            [MetadataFieldConstants.RecordLabel] = ClaimScope.Parent,
+            [MetadataFieldConstants.SetInPeriod] = ClaimScope.Parent,
+            [MetadataFieldConstants.FilmingLocation] = ClaimScope.Parent,
+            [MetadataFieldConstants.MainSubject] = ClaimScope.Parent,
+            [MetadataFieldConstants.BasedOn] = ClaimScope.Parent,
         };
 
     // ── Per-media-type overrides applied AFTER the default map. ──────────
@@ -105,81 +105,81 @@ public static class ClaimScopeCatalog
         {
             [MediaType.Music] = new(StringComparer.OrdinalIgnoreCase)
             {
-                [BridgeIdKeys.WikidataQid]           = ClaimScope.Parent,
+                [BridgeIdKeys.WikidataQid] = ClaimScope.Parent,
                 [MetadataFieldConstants.WikidataQidScope] = ClaimScope.Parent,
                 [MetadataFieldConstants.QidResolutionMethod] = ClaimScope.Parent,
                 [BridgeIdKeys.MusicBrainzRecordingId] = ClaimScope.Self,
-                [BridgeIdKeys.MusicBrainzWorkId]     = ClaimScope.Self,
-                [BridgeIdKeys.Isrc]                  = ClaimScope.Self,
-                [MetadataFieldConstants.Author]      = ClaimScope.Self,
-                [MetadataFieldConstants.Artist]      = ClaimScope.Self,
-                ["album_artist"]                    = ClaimScope.Parent,
-                [MetadataFieldConstants.Year]        = ClaimScope.Parent,  // album release year
-                [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
+                [BridgeIdKeys.MusicBrainzWorkId] = ClaimScope.Self,
+                [BridgeIdKeys.Isrc] = ClaimScope.Self,
+                [MetadataFieldConstants.Author] = ClaimScope.Self,
+                [MetadataFieldConstants.Artist] = ClaimScope.Self,
+                ["album_artist"] = ClaimScope.Parent,
+                [MetadataFieldConstants.Year] = ClaimScope.Parent,  // album release year
+                [MetadataFieldConstants.Genre] = ClaimScope.Parent,
                 [MetadataFieldConstants.Description] = ClaimScope.Parent,  // album-level
-                [MetadataFieldConstants.Cover]       = ClaimScope.Parent,  // album art
-                [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,
-                [MetadataFieldConstants.Composer]    = ClaimScope.Self,
+                [MetadataFieldConstants.Cover] = ClaimScope.Parent,  // album art
+                [MetadataFieldConstants.CoverUrl] = ClaimScope.Parent,
+                [MetadataFieldConstants.Composer] = ClaimScope.Self,
                 [MetadataFieldConstants.RecordLabel] = ClaimScope.Parent,
             },
             [MediaType.TV] = new(StringComparer.OrdinalIgnoreCase)
             {
-                [BridgeIdKeys.WikidataQid]             = ClaimScope.Parent,
+                [BridgeIdKeys.WikidataQid] = ClaimScope.Parent,
                 [MetadataFieldConstants.WikidataQidScope] = ClaimScope.Parent,
                 [MetadataFieldConstants.QidResolutionMethod] = ClaimScope.Parent,
                 // TMDB exposes both a show id and an episode id. The generic
                 // tmdb_id is the show/container identity for TV; the distinct
                 // tmdb_episode_id remains attached to the owned episode.
-                [BridgeIdKeys.TmdbId]                  = ClaimScope.Parent,
-                [BridgeIdKeys.TmdbEpisodeId]           = ClaimScope.Self,
-                [MetadataFieldConstants.Author]      = ClaimScope.Parent,  // showrunner
-                [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
-                [MetadataFieldConstants.CastMember]  = ClaimScope.Parent,
-                [MetadataFieldConstants.Year]        = ClaimScope.Parent,  // show start year
-                ["first_air_date"]                    = ClaimScope.Parent,
+                [BridgeIdKeys.TmdbId] = ClaimScope.Parent,
+                [BridgeIdKeys.TmdbEpisodeId] = ClaimScope.Self,
+                [MetadataFieldConstants.Author] = ClaimScope.Parent,  // showrunner
+                [MetadataFieldConstants.Genre] = ClaimScope.Parent,
+                [MetadataFieldConstants.CastMember] = ClaimScope.Parent,
+                [MetadataFieldConstants.Year] = ClaimScope.Parent,  // show start year
+                ["first_air_date"] = ClaimScope.Parent,
                 [MetadataFieldConstants.Description] = ClaimScope.Parent,
-                [MetadataFieldConstants.Cover]       = ClaimScope.Parent,
-                [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,
+                [MetadataFieldConstants.Cover] = ClaimScope.Parent,
+                [MetadataFieldConstants.CoverUrl] = ClaimScope.Parent,
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
-                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
                 // director stays Self — different per episode
             },
             [MediaType.Comics] = new(StringComparer.OrdinalIgnoreCase)
             {
-                [MetadataFieldConstants.Subtitle]     = ClaimScope.Work,
-                [BridgeIdKeys.ComicVineId]        = ClaimScope.Self,
-                [BridgeIdKeys.ComicVineVolumeId]  = ClaimScope.Parent,
-                [MetadataFieldConstants.Author]       = ClaimScope.Parent,
-                [MetadataFieldConstants.Illustrator]  = ClaimScope.Parent,
-                [MetadataFieldConstants.Genre]        = ClaimScope.Parent,
-                [MetadataFieldConstants.Description]  = ClaimScope.Parent,
-                [MetadataFieldConstants.IssueTitle]   = ClaimScope.Self,
+                [MetadataFieldConstants.Subtitle] = ClaimScope.Work,
+                [BridgeIdKeys.ComicVineId] = ClaimScope.Self,
+                [BridgeIdKeys.ComicVineVolumeId] = ClaimScope.Parent,
+                [MetadataFieldConstants.Author] = ClaimScope.Parent,
+                [MetadataFieldConstants.Illustrator] = ClaimScope.Parent,
+                [MetadataFieldConstants.Genre] = ClaimScope.Parent,
+                [MetadataFieldConstants.Description] = ClaimScope.Parent,
+                [MetadataFieldConstants.IssueTitle] = ClaimScope.Self,
                 [MetadataFieldConstants.IssueDescription] = ClaimScope.Self,
                 [MetadataFieldConstants.IssueSourceUrl] = ClaimScope.Self,
-                [MetadataFieldConstants.Cover]        = ClaimScope.Self,
-                [MetadataFieldConstants.CoverUrl]     = ClaimScope.Self,
+                [MetadataFieldConstants.Cover] = ClaimScope.Self,
+                [MetadataFieldConstants.CoverUrl] = ClaimScope.Self,
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
-                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
             },
             [MediaType.Books] = new(StringComparer.OrdinalIgnoreCase)
             {
-                [MetadataFieldConstants.Subtitle]    = ClaimScope.Work,
-                [MetadataFieldConstants.Author]      = ClaimScope.Parent,
-                [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
+                [MetadataFieldConstants.Subtitle] = ClaimScope.Work,
+                [MetadataFieldConstants.Author] = ClaimScope.Parent,
+                [MetadataFieldConstants.Genre] = ClaimScope.Parent,
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
-                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
             },
             [MediaType.Audiobooks] = new(StringComparer.OrdinalIgnoreCase)
             {
-                [MetadataFieldConstants.Subtitle]    = ClaimScope.Edition,
-                [MetadataFieldConstants.Author]      = ClaimScope.Parent,
-                [MetadataFieldConstants.Narrator]    = ClaimScope.Parent,
-                [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
+                [MetadataFieldConstants.Subtitle] = ClaimScope.Edition,
+                [MetadataFieldConstants.Author] = ClaimScope.Parent,
+                [MetadataFieldConstants.Narrator] = ClaimScope.Parent,
+                [MetadataFieldConstants.Genre] = ClaimScope.Parent,
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
-                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
                 [MetadataFieldConstants.PublisherField] = ClaimScope.Edition,
             },
@@ -189,16 +189,16 @@ public static class ClaimScopeCatalog
                 // the movie's own Work id. Declaring these fields Parent-scoped
                 // routes them to works.id (rather than media_assets.id), which
                 // gives every reader a single uniform lookup target.
-                [MetadataFieldConstants.Year]        = ClaimScope.Parent,
+                [MetadataFieldConstants.Year] = ClaimScope.Parent,
                 [MetadataFieldConstants.Description] = ClaimScope.Parent,
-                [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
-                [MetadataFieldConstants.Cover]       = ClaimScope.Parent,
-                [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,
-                [MetadataFieldConstants.CastMember]  = ClaimScope.Parent,
-                [MetadataFieldConstants.Director]    = ClaimScope.Parent,
-                [MetadataFieldConstants.Runtime]     = ClaimScope.Parent,
+                [MetadataFieldConstants.Genre] = ClaimScope.Parent,
+                [MetadataFieldConstants.Cover] = ClaimScope.Parent,
+                [MetadataFieldConstants.CoverUrl] = ClaimScope.Parent,
+                [MetadataFieldConstants.CastMember] = ClaimScope.Parent,
+                [MetadataFieldConstants.Director] = ClaimScope.Parent,
+                [MetadataFieldConstants.Runtime] = ClaimScope.Parent,
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
-                [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
+                [MetadataFieldConstants.Characters] = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
             },
         };
@@ -212,7 +212,9 @@ public static class ClaimScopeCatalog
     public static ClaimScope GetScope(string claimKey, MediaType mediaType)
     {
         if (string.IsNullOrEmpty(claimKey))
+        {
             return ClaimScope.Self;
+        }
 
         var lookupKey = BridgeIdKeys.All.Contains(claimKey)
             ? claimKey
@@ -248,7 +250,9 @@ public static class ClaimScopeCatalog
         foreach (var (key, scope) in DefaultMap)
         {
             if (scope == ClaimScope.Parent)
+            {
                 set.Add(key);
+            }
         }
 
         if (Overrides.TryGetValue(mediaType, out var ovr))
@@ -256,9 +260,13 @@ public static class ClaimScopeCatalog
             foreach (var (key, scope) in ovr)
             {
                 if (scope == ClaimScope.Parent)
+                {
                     set.Add(key);
+                }
                 else
+                {
                     set.Remove(key); // override demoted a default Parent → Self
+                }
             }
         }
 
@@ -267,7 +275,9 @@ public static class ClaimScopeCatalog
         foreach (var key in set)
         {
             if (MetadataFieldConstants.MultiValuedKeys.Contains(key))
+            {
                 withCompanions.Add(key + MetadataFieldConstants.CompanionQidSuffix);
+            }
         }
         return withCompanions;
     }

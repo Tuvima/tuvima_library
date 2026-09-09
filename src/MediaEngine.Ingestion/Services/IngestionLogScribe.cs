@@ -1,7 +1,7 @@
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using Microsoft.Extensions.Logging;
@@ -141,7 +141,9 @@ public sealed class IngestionLogScribe : IIngestionLogScribe
         string? mediaType = null)
     {
         if (!candidate.BatchId.HasValue)
+        {
             return Task.CompletedTask;
+        }
 
         return SafePublishAsync(
             SignalREvents.IngestionItemProgress,

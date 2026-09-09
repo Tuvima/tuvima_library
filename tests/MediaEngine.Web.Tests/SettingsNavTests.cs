@@ -4,6 +4,16 @@ namespace MediaEngine.Web.Tests;
 
 public sealed class SettingsNavTests
 {
+    [Theory]
+    [InlineData("users")]
+    [InlineData("applications")]
+    [InlineData("authentication")]
+    public void CanonicalAccessSections_AreAvailableOnMobile(string subsection)
+    {
+        Assert.True(SettingsNav.IsMobileRouteAvailable(SettingsSection.Access, subsection));
+        Assert.False(SettingsNav.IsMobileRouteAvailable(SettingsSection.Access, subsection, "unknown-detail"));
+    }
+
     [Fact]
     public void SettingsPage_UsesTheMediaLaneShellInsteadOfAParallelSidebar()
     {
@@ -44,17 +54,17 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void SettingsPage_UsesActiveProfileRoleInsteadOfHardcodedAdministrator()
+    public void SettingsPage_UsesServerAuthorityInsteadOfProfileRoles()
     {
         var settingsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
         var orchestratorSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\UIOrchestratorService.cs"));
         var sessionSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\ActiveProfileSessionService.cs"));
 
-        Assert.Contains("await LoadActiveProfileRoleAsync()", settingsSource, StringComparison.Ordinal);
-        Assert.Contains("SettingsNav.ResolveRoute(Section, _currentRole)", settingsSource, StringComparison.Ordinal);
-        Assert.Contains("private string _currentRole = \"Administrator\"", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("await LoadAuthorityAsync()", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("SettingsNav.ResolveRoute(Section, CanManageAdministration)", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("DashboardSessionAccessor Session", settingsSource, StringComparison.Ordinal);
         Assert.Contains("ShouldDeferForRoleResolution", settingsSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("private readonly string _currentRole = \"Administrator\"", settingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("_currentRole", settingsSource, StringComparison.Ordinal);
         Assert.Contains("SetActiveProfileAsync", orchestratorSource, StringComparison.Ordinal);
         Assert.Contains("AuthenticationStateProvider", sessionSource, StringComparison.Ordinal);
         Assert.Contains("tuvima:active_profile_id", sessionSource, StringComparison.Ordinal);
@@ -62,15 +72,14 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void SettingsPage_GatesClientSideAdministratorNavigationOnElevation()
+    public void SettingsPage_GatesClientSideAdministrationNavigationOnServerAuthority()
     {
         var settingsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
 
-        Assert.Contains("@inject IAdministratorElevationNavigationService Elevation", settingsSource, StringComparison.Ordinal);
-        Assert.Contains("protected override async Task OnParametersSetAsync()", settingsSource, StringComparison.Ordinal);
-        Assert.Contains("await EnsureElevationForCurrentRouteAsync()", settingsSource, StringComparison.Ordinal);
-        Assert.Contains("await Elevation.EnsureElevatedAsync()", settingsSource, StringComparison.Ordinal);
-        Assert.Contains("IsAdministrator && !_adminElevationResolved", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("CanManageAdministration => Session.HasNavigation(\"settings.administration\")", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("SettingsNav.ResolveRoute(Section, CanManageAdministration)", settingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnsureElevationForCurrentRouteAsync", settingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("IAdministratorElevationNavigationService", settingsSource, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -149,7 +158,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.LocalAi, "/settings/ai")]
     [InlineData(SettingsSection.Plugins, "/settings/plugins")]
     [InlineData(SettingsSection.Delivery, "/settings/delivery")]
-    [InlineData(SettingsSection.Access, "/settings/access")]
+    [InlineData(SettingsSection.Access, "/settings/access/users")]
     [InlineData(SettingsSection.Server, "/settings/backup-recovery")]
     [InlineData(SettingsSection.Review, "/settings/review")]
     [InlineData(SettingsSection.ProviderTester, "/settings/provider-tester")]
@@ -157,7 +166,7 @@ public sealed class SettingsNavTests
     public void ResolveRoute_CanonicalSegments_AreStable(SettingsSection section, string expectedRoute)
     {
         var segment = expectedRoute.Split('/', StringSplitOptions.RemoveEmptyEntries)[1];
-        var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
+        var resolution = SettingsNav.ResolveRoute(segment, true);
 
         Assert.Equal(section, resolution.Section);
         Assert.Equal(expectedRoute, resolution.CanonicalRoute);
@@ -170,7 +179,7 @@ public sealed class SettingsNavTests
     [Fact]
     public void ResolveRoute_BaseSettings_MapsToUserOverview()
     {
-        var resolution = SettingsNav.ResolveRoute(null, "Administrator");
+        var resolution = SettingsNav.ResolveRoute(null, true);
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/settings/profile", resolution.CanonicalRoute);
@@ -182,7 +191,7 @@ public sealed class SettingsNavTests
     [Fact]
     public void ResolveRoute_RemovedAdminAlias_IsUnknown()
     {
-        var resolution = SettingsNav.ResolveRoute("admin", "Administrator");
+        var resolution = SettingsNav.ResolveRoute("admin", true);
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/not-found", resolution.CanonicalRoute);
@@ -193,7 +202,7 @@ public sealed class SettingsNavTests
     [Fact]
     public void ResolveRoute_ProfileSegment_MapsToProfile()
     {
-        var resolution = SettingsNav.ResolveRoute("profile", "Administrator");
+        var resolution = SettingsNav.ResolveRoute("profile", true);
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/settings/profile", resolution.CanonicalRoute);
@@ -206,7 +215,7 @@ public sealed class SettingsNavTests
     [Fact]
     public void ResolveRoute_DisplaySegment_IsUnknownAndRoutesToNotFound()
     {
-        var resolution = SettingsNav.ResolveRoute("display", "Administrator");
+        var resolution = SettingsNav.ResolveRoute("display", true);
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/not-found", resolution.CanonicalRoute);
@@ -226,7 +235,7 @@ public sealed class SettingsNavTests
     [InlineData("activity")]
     public void ResolveRoute_RemovedAliasesAreUnknown(string alias)
     {
-        var resolution = SettingsNav.ResolveRoute(alias, "Administrator");
+        var resolution = SettingsNav.ResolveRoute(alias, true);
 
         Assert.Equal("/not-found", resolution.CanonicalRoute);
         Assert.False(resolution.IsKnownRoute);
@@ -236,7 +245,7 @@ public sealed class SettingsNavTests
     [Fact]
     public void ResolveRoute_DisallowedAdminPage_FallsBackToUserOverview()
     {
-        var resolution = SettingsNav.ResolveRoute("metadata", "Viewer");
+        var resolution = SettingsNav.ResolveRoute("metadata", false);
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/settings/profile", resolution.CanonicalRoute);
@@ -251,7 +260,7 @@ public sealed class SettingsNavTests
     [InlineData("wikidata")]
     public void ResolveRoute_RemovedMetadataAliases_AreUnknown(string segment)
     {
-        var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
+        var resolution = SettingsNav.ResolveRoute(segment, true);
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/not-found", resolution.CanonicalRoute);
@@ -262,7 +271,7 @@ public sealed class SettingsNavTests
     [Fact]
     public void FilteredGroups_NonAdmin_OnlyShowsPublicGroups()
     {
-        var groups = SettingsNav.FilteredGroups("Viewer").Select(group => group.Key).ToArray();
+        var groups = SettingsNav.FilteredGroups(false).Select(group => group.Key).ToArray();
 
         Assert.Equal(["personal"], groups);
     }
@@ -270,17 +279,17 @@ public sealed class SettingsNavTests
     [Fact]
     public void FilteredTreeGroups_Admin_RendersUserAndAdminSettingsTree()
     {
-        var groups = SettingsNav.FilteredTreeGroups("Administrator").Select(group => group.Key).ToArray();
+        var groups = SettingsNav.FilteredTreeGroups(true).Select(group => group.Key).ToArray();
 
         Assert.Equal(["personal", "administration", "advanced"], groups);
 
-        var userLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "personal"), "Administrator")
+        var userLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "personal"), true)
             .Select(item => item.Label)
             .ToArray();
 
         Assert.Equal(["Profile", "Account & Security", "Playback & Reading"], userLabels);
 
-        var adminLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "administration"), "Administrator")
+        var adminLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "administration"), true)
             .Select(item => item.Label)
             .ToArray();
 
@@ -297,7 +306,7 @@ public sealed class SettingsNavTests
         ], adminLabels);
 
         var adminGroup = SettingsNav.TreeGroups.Single(group => group.Key == "administration");
-        var childGroups = SettingsNav.FilteredChildTreeGroups(adminGroup, "Administrator").Select(group => group.Key).ToArray();
+        var childGroups = SettingsNav.FilteredChildTreeGroups(adminGroup, true).Select(group => group.Key).ToArray();
 
         Assert.Empty(childGroups);
         Assert.DoesNotContain(SettingsNav.TreeGroups, group => string.Equals(group.Key, "library-operations", StringComparison.OrdinalIgnoreCase));
@@ -324,7 +333,7 @@ public sealed class SettingsNavTests
     [InlineData("enrichment-tester", SettingsSection.EnrichmentTester, "/settings/enrichment-tester")]
     public void ResolveRoute_SecondaryRoutes_StillResolveForAdmins(string segment, SettingsSection expectedSection, string expectedRoute)
     {
-        var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
+        var resolution = SettingsNav.ResolveRoute(segment, true);
 
         Assert.Equal(expectedSection, resolution.Section);
         Assert.Equal(expectedRoute, resolution.CanonicalRoute);
@@ -346,16 +355,16 @@ public sealed class SettingsNavTests
     [Fact]
     public void LibrariesRoute_IsCanonicalAndFoldersAliasRemainsRemoved()
     {
-        var libraries = SettingsNav.ResolveRoute("libraries", "Administrator");
+        var libraries = SettingsNav.ResolveRoute("libraries", true);
         Assert.True(libraries.IsKnownRoute);
         Assert.Equal(SettingsSection.Libraries, libraries.Section);
         Assert.Equal("/settings/libraries", libraries.CanonicalRoute);
 
-        var folders = SettingsNav.ResolveRoute("folders", "Administrator");
+        var folders = SettingsNav.ResolveRoute("folders", true);
         Assert.False(folders.IsKnownRoute);
         Assert.Equal("/not-found", folders.CanonicalRoute);
 
-        var importFolders = SettingsNav.ResolveRoute("import-folders", "Administrator");
+        var importFolders = SettingsNav.ResolveRoute("import-folders", true);
         Assert.False(importFolders.IsKnownRoute);
         Assert.Equal("/not-found", importFolders.CanonicalRoute);
     }
@@ -363,7 +372,7 @@ public sealed class SettingsNavTests
     [Fact]
     public void IngestionRoute_IsCanonical()
     {
-        var resolution = SettingsNav.ResolveRoute("ingestion", "Administrator");
+        var resolution = SettingsNav.ResolveRoute("ingestion", true);
 
         Assert.True(resolution.IsKnownRoute);
         Assert.Equal(SettingsSection.Ingestion, resolution.Section);
@@ -372,16 +381,17 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void Curator_SeesPersonalReviewButNotServerAdministration()
+    public void AccountWithoutAdministration_SeesOwnSecurityButNotReviewOrServerAdministration()
     {
         var visible = SettingsNav.TreeGroups
-            .SelectMany(group => SettingsNav.FilteredTreeItems(group, "StandardUser"))
+            .SelectMany(group => SettingsNav.FilteredTreeItems(group, false))
             .Select(item => item.Value)
             .ToArray();
 
         Assert.Contains(SettingsSection.Overview, visible);
         Assert.Contains(SettingsSection.Playback, visible);
-        Assert.Contains(SettingsSection.Review, visible);
+        Assert.Contains(SettingsSection.Account, visible);
+        Assert.DoesNotContain(SettingsSection.Review, visible);
         Assert.DoesNotContain(SettingsSection.Server, visible);
         Assert.DoesNotContain(SettingsSection.Providers, visible);
     }

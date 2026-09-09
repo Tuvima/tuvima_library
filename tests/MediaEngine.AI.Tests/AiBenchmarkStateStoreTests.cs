@@ -55,7 +55,9 @@ public sealed class AiBenchmarkStateStoreTests
         finally
         {
             if (Directory.Exists(directory))
+            {
                 Directory.Delete(directory, recursive: true);
+            }
         }
     }
 }

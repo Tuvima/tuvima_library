@@ -6,16 +6,16 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Models;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Adapters;
 
@@ -40,7 +40,9 @@ public sealed partial class ConfigDrivenAdapter
             ?? resultNode["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
             ?? resultNode["id"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(tmdbId))
+        {
             return claims;
+        }
 
         var endpoint = mediaType == MediaType.TV ? "tv" : "movie";
         var baseUrl = _config.Endpoints.GetValueOrDefault("api") ?? "https://api.themoviedb.org/3";
@@ -57,7 +59,9 @@ public sealed partial class ConfigDrivenAdapter
             {
                 var cached = await _responseCache.FindAsync(detailCacheKey, ct).ConfigureAwait(false);
                 if (cached is not null)
+                {
                     details = JsonNode.Parse(cached.ResponseJson);
+                }
             }
 
             if (details is null)
@@ -65,7 +69,9 @@ public sealed partial class ConfigDrivenAdapter
                 using var client = _httpFactory.CreateClient(_config.Name);
                 using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
                     return claims;
+                }
 
                 response.EnsureSuccessStatusCode();
                 var responseBody = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -86,7 +92,9 @@ public sealed partial class ConfigDrivenAdapter
             }
 
             if (details is null)
+            {
                 return claims;
+            }
 
             var enriched = claims.ToList();
             AddIfMissing(enriched, MetadataFieldConstants.Description, details["overview"]?.GetValue<string>(), 0.85);
@@ -117,7 +125,9 @@ public sealed partial class ConfigDrivenAdapter
     private static void AddIfMissing(List<ProviderClaim> claims, string key, string? value, double confidence)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return;
+        }
 
         if (claims.Any(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase)
             && string.Equals(c.Value, value, StringComparison.OrdinalIgnoreCase)))
@@ -132,7 +142,9 @@ public sealed partial class ConfigDrivenAdapter
     {
         var collection = details["belongs_to_collection"];
         if (collection is null)
+        {
             return;
+        }
 
         var collectionId = collection["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
             ?? collection["id"]?.GetValue<string>();
@@ -151,18 +163,24 @@ public sealed partial class ConfigDrivenAdapter
     {
         var collection = details["belongs_to_collection"];
         if (collection is null)
+        {
             return;
+        }
 
         var collectionId = collection["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
             ?? collection["id"]?.GetValue<string>();
         var movieId = details["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
             ?? details["id"]?.GetValue<string>();
         if (string.IsNullOrWhiteSpace(collectionId) || string.IsNullOrWhiteSpace(movieId))
+        {
             return;
+        }
 
         var baseUrl = _config.Endpoints.GetValueOrDefault("api") ?? ResolveBaseUrl(request);
         if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+        {
             return;
+        }
 
         var language = $"{request.Language.ToLowerInvariant()}-{request.Country.ToUpperInvariant()}";
         var url = $"{baseUrl.TrimEnd('/')}/collection/{Uri.EscapeDataString(collectionId)}?language={Uri.EscapeDataString(language)}&api_key={Uri.EscapeDataString(_config.HttpClient.ApiKey)}";
@@ -182,11 +200,15 @@ public sealed partial class ConfigDrivenAdapter
                 .ToList();
 
             if (parts is null or { Count: 0 })
+            {
                 return;
+            }
 
             var position = parts.FindIndex(part => string.Equals(part.Id, movieId, StringComparison.OrdinalIgnoreCase));
             if (position < 0)
+            {
                 return;
+            }
 
             AddIfMissing(claims, MetadataFieldConstants.SeriesPosition, (position + 1).ToString(CultureInfo.InvariantCulture), 0.90);
             AddIfMissing(claims, MetadataFieldConstants.SequenceTotal, parts.Count.ToString(CultureInfo.InvariantCulture), 0.90);
@@ -235,13 +257,17 @@ public sealed partial class ConfigDrivenAdapter
         {
             var cached = await _responseCache.FindAsync(cacheKey, ct).ConfigureAwait(false);
             if (cached is not null)
+            {
                 return JsonNode.Parse(cached.ResponseJson);
+            }
         }
 
         using var client = _httpFactory.CreateClient(_config.Name);
         using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
             return null;
+        }
 
         response.EnsureSuccessStatusCode();
         var responseBody = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -272,7 +298,9 @@ public sealed partial class ConfigDrivenAdapter
             ? details["content_ratings"]?["results"]?.AsArray()
             : details["release_dates"]?["results"]?.AsArray();
         if (results is null)
+        {
             return null;
+        }
 
         foreach (var country in new[] { "US", "GB", "CA", "AU" })
         {
@@ -284,7 +312,9 @@ public sealed partial class ConfigDrivenAdapter
                     .Select(node => node?["certification"]?.GetValue<string>())
                     .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
             if (!string.IsNullOrWhiteSpace(rating))
+            {
                 return rating;
+            }
         }
 
         return null;
@@ -296,7 +326,9 @@ public sealed partial class ConfigDrivenAdapter
             : details["credits"]?["cast"]?.AsArray();
 
         if (castArray is null)
+        {
             return;
+        }
 
         foreach (var castNode in castArray
             .Where(node => node is not null)
@@ -306,7 +338,9 @@ public sealed partial class ConfigDrivenAdapter
         {
             var name = castNode?["name"]?.GetValue<string>();
             if (string.IsNullOrWhiteSpace(name))
+            {
                 continue;
+            }
 
             claims.Add(new ProviderClaim(MetadataFieldConstants.CastMember, name, 0.90));
             AddIfPresent(claims, "cast_member_character", ExtractTmdbCharacterName(castNode, mediaType), 0.90);
@@ -323,7 +357,9 @@ public sealed partial class ConfigDrivenAdapter
     private static string? ExtractTmdbCharacterName(JsonNode? castNode, MediaType mediaType)
     {
         if (castNode is null)
+        {
             return null;
+        }
 
         if (mediaType == MediaType.TV)
         {
@@ -338,7 +374,9 @@ public sealed partial class ConfigDrivenAdapter
                 .ToList();
 
             if (roles is { Count: > 0 })
+            {
                 return string.Join(" / ", roles);
+            }
         }
 
         return castNode["character"]?.GetValue<string>();
@@ -347,7 +385,9 @@ public sealed partial class ConfigDrivenAdapter
     private static void AddIfPresent(List<ProviderClaim> claims, string key, string? value, double confidence)
     {
         if (!string.IsNullOrWhiteSpace(value))
+        {
             claims.Add(new ProviderClaim(key, value, confidence));
+        }
     }
 
     private static string? BuildTmdbProfileUrl(string? profilePath)
@@ -384,7 +424,9 @@ public sealed partial class ConfigDrivenAdapter
             .ToList();
 
         if (companies is not { Count: > 0 })
+        {
             return;
+        }
 
         var studio = companies.First();
         AddIfMissing(claims, "studio", studio.Name, 0.88);
@@ -399,14 +441,18 @@ public sealed partial class ConfigDrivenAdapter
             : details["credits"]?["crew"]?.AsArray();
 
         if (crewArray is null)
+        {
             return;
+        }
 
         foreach (var crewNode in crewArray.Where(node => node is not null))
         {
             var name = crewNode?["name"]?.GetValue<string>();
             var role = ResolveTmdbCrewRole(crewNode);
             if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(role))
+            {
                 continue;
+            }
 
             var key = role.ToLowerInvariant() switch
             {
@@ -417,7 +463,9 @@ public sealed partial class ConfigDrivenAdapter
                 _ => null,
             };
             if (key is null)
+            {
                 continue;
+            }
 
             claims.Add(new ProviderClaim(key, name, 0.88));
 
@@ -441,19 +489,32 @@ public sealed partial class ConfigDrivenAdapter
         }
 
         if (string.IsNullOrWhiteSpace(job))
+        {
             return null;
+        }
 
         if (job.Contains("Director", StringComparison.OrdinalIgnoreCase))
+        {
             return "Director";
+        }
+
         if (job.Contains("Screenplay", StringComparison.OrdinalIgnoreCase)
             || job.Contains("Writer", StringComparison.OrdinalIgnoreCase)
             || job.Contains("Story", StringComparison.OrdinalIgnoreCase))
+        {
             return "Screenwriter";
+        }
+
         if (job.Contains("Composer", StringComparison.OrdinalIgnoreCase)
             || job.Contains("Music", StringComparison.OrdinalIgnoreCase))
+        {
             return "Composer";
+        }
+
         if (job.Contains("Producer", StringComparison.OrdinalIgnoreCase))
+        {
             return "Producer";
+        }
 
         return null;
     }
@@ -530,9 +591,9 @@ public sealed partial class ConfigDrivenAdapter
         url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
         url = ReplacePlaceholder(url, "{client_key}", _config.HttpClient?.ClientKey, encode: true);
         url = ReplacePlaceholder(url, "{access_token}", _config.HttpClient?.AccessToken, encode: true);
-        url = ReplacePlaceholder(url, "{lang}",    request.Language.ToLowerInvariant(), encode: true);
-        url = ReplacePlaceholder(url, "{country}", request.Country.ToUpperInvariant(),  encode: true);
-        url = ReplacePlaceholder(url, "{year}",    yearFromTitle ?? string.Empty, encode: true);
+        url = ReplacePlaceholder(url, "{lang}", request.Language.ToLowerInvariant(), encode: true);
+        url = ReplacePlaceholder(url, "{country}", request.Country.ToUpperInvariant(), encode: true);
+        url = ReplacePlaceholder(url, "{year}", yearFromTitle ?? string.Empty, encode: true);
         url = ReplacePlaceholder(url, "{tvdb_id}", ResolveRequestField(request, BridgeIdKeys.TvdbId), encode: true);
         url = ReplacePlaceholder(url, "{musicbrainz_id}", ResolveRequestField(request, BridgeIdKeys.MusicBrainzId), encode: true);
         url = ReplacePlaceholder(
@@ -554,7 +615,9 @@ public sealed partial class ConfigDrivenAdapter
             {
                 var placeholder = $"{{{key}}}";
                 if (url.Contains(placeholder, StringComparison.Ordinal) && !string.IsNullOrEmpty(value))
+                {
                     url = ReplacePlaceholder(url, placeholder, value, encode: true);
+                }
             }
         }
 
@@ -566,7 +629,9 @@ public sealed partial class ConfigDrivenAdapter
             {
                 var placeholder = $"{{{key}}}";
                 if (url.Contains(placeholder, StringComparison.Ordinal) && !string.IsNullOrEmpty(value))
+                {
                     url = ReplacePlaceholder(url, placeholder, value, encode: true);
+                }
             }
         }
 
@@ -587,7 +652,10 @@ public sealed partial class ConfigDrivenAdapter
             if (string.IsNullOrWhiteSpace(value))
             {
                 if (clause.Required)
+                {
                     return string.Empty;
+                }
+
                 continue;
             }
 
@@ -644,7 +712,9 @@ public sealed partial class ConfigDrivenAdapter
     {
         // Prefer BaseUrl from the harvesting service (populated from config endpoints).
         if (!string.IsNullOrEmpty(request.BaseUrl))
+        {
             return request.BaseUrl.TrimEnd('/');
+        }
 
         // Fall back to the first endpoint in the provider config.
         if (_config.Endpoints.Count > 0)
@@ -659,11 +729,15 @@ public sealed partial class ConfigDrivenAdapter
     private static string ReplacePlaceholder(string template, string placeholder, string? value, bool encode)
     {
         if (!template.Contains(placeholder, StringComparison.Ordinal))
+        {
             return template;
+        }
 
         var replacement = value ?? string.Empty;
         if (encode && !string.IsNullOrEmpty(replacement))
+        {
             replacement = Uri.EscapeDataString(replacement);
+        }
 
         return template.Replace(placeholder, replacement, StringComparison.Ordinal);
     }
@@ -675,7 +749,9 @@ public sealed partial class ConfigDrivenAdapter
     internal static string? CleanTitleForSearch(string? title)
     {
         if (string.IsNullOrWhiteSpace(title))
+        {
             return title;
+        }
 
         // Strip trailing (YYYY) — e.g. "Blade Runner 2049 (2017)" ? "Blade Runner 2049"
         var cleaned = Regex.Replace(title, @"\s*\(\d{4}\)\s*$", string.Empty);
@@ -693,7 +769,9 @@ public sealed partial class ConfigDrivenAdapter
     internal static string? ExtractYearFromTitle(string? title)
     {
         if (string.IsNullOrWhiteSpace(title))
+        {
             return null;
+        }
 
         var match = Regex.Match(title, @"\((\d{4})\)\s*$");
         return match.Success ? match.Groups[1].Value : null;

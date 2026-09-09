@@ -21,7 +21,7 @@ public sealed class CommercialSkipPlugin : ITuvimaPlugin
                 Description = "Produces commercial playback segments that the player can skip.",
             },
         ],
-        Permissions = ["media.read", "process.execute", "tool.download"],
+        Permissions = [PluginPermissionIds.MediaRead, PluginPermissionIds.ProcessExecute, PluginPermissionIds.ToolDownload, PluginPermissionIds.PluginStorage],
         ToolRequirements =
         [
             new PluginToolRequirement

@@ -50,7 +50,11 @@ public sealed class SetupMediaLocationValidationService(
                     return Failure(sources.Count, readable, source.Path, exception.Message);
                 }
 
-                if (validation.HasRead) readable++;
+                if (validation.HasRead)
+                {
+                    readable++;
+                }
+
                 if (!validation.CanSelect)
                 {
                     var reason = validation.Issues.FirstOrDefault(issue =>
@@ -94,7 +98,9 @@ public sealed class SetupMediaLocationValidationService(
         }
 
         if (primaryRoles.Count != 1)
+        {
             return "A library with managed folders must have exactly one primary destination.";
+        }
 
         var primary = primaryRoles[0];
         if (primary.ManagementMode != LibrarySourceManagementModes.ManagedByTuvima

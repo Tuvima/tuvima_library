@@ -225,13 +225,13 @@ public sealed class ReorganizationPlannerTests
     private static ReorganizationPlanningRequest Request(
         IReadOnlyList<FileSourceMutationPolicy> sources,
         IReadOnlyList<ReorganizationCandidate> candidates) => new()
-    {
-        PlanId = Guid.Parse("b1741b2b-f691-4013-a8c4-f3aee5559c6b"),
-        LibraryId = "library",
-        Sources = sources,
-        Candidates = candidates,
-        CreatedAt = new DateTimeOffset(2026, 8, 19, 10, 0, 0, TimeSpan.Zero),
-    };
+        {
+            PlanId = Guid.Parse("b1741b2b-f691-4013-a8c4-f3aee5559c6b"),
+            LibraryId = "library",
+            Sources = sources,
+            Candidates = candidates,
+            CreatedAt = new DateTimeOffset(2026, 8, 19, 10, 0, 0, TimeSpan.Zero),
+        };
 
     private static ReorganizationCandidate Candidate(
         FileSourceMutationPolicy source,
@@ -239,13 +239,13 @@ public sealed class ReorganizationPlannerTests
         string current,
         string? proposed,
         long sizeBytes = 1) => new()
-    {
-        SourceId = source.SourceId,
-        DestinationSourceId = destination.SourceId,
-        CurrentPath = current,
-        ProposedPath = proposed,
-        SizeBytes = sizeBytes,
-    };
+        {
+            SourceId = source.SourceId,
+            DestinationSourceId = destination.SourceId,
+            CurrentPath = current,
+            ProposedPath = proposed,
+            SizeBytes = sizeBytes,
+        };
 
     private static string NewRoot(string name)
         => Path.Combine(Path.GetTempPath(), "tuvima-reorganization", Guid.NewGuid().ToString("N"), name);

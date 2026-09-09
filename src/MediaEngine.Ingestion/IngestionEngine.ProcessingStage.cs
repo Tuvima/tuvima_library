@@ -33,11 +33,15 @@ public sealed partial class IngestionEngine
     {
         var asset = await _assetRepo.FindByIdAsync(assetId, ct).ConfigureAwait(false);
         if (asset is null)
+        {
             return new(assetId, "AssetMissing", false, false, "The library asset could not be found.");
+        }
 
         var path = asset.FilePathRoot;
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
             return new(assetId, "FileUnavailable", false, false, "The media file is currently unavailable.");
+        }
 
         var hash = await ComputeHashWithCacheAsync(path, ct).ConfigureAwait(false);
         var changed = !string.Equals(asset.ContentHash, hash.Hash.Hex, StringComparison.OrdinalIgnoreCase);
@@ -45,7 +49,9 @@ public sealed partial class IngestionEngine
         {
             var duplicate = await _assetRepo.FindByHashAsync(hash.Hash.Hex, ct).ConfigureAwait(false);
             if (duplicate is not null && duplicate.Id != asset.Id)
+            {
                 return new(assetId, "HashConflict", false, true, "The file now duplicates another library asset, so its existing metadata was left unchanged.");
+            }
         }
         var refreshed = await RefreshExistingAssetMetadataAsync(
             asset,
@@ -54,13 +60,17 @@ public sealed partial class IngestionEngine
             ct,
             queueIdentityRefresh: false).ConfigureAwait(false);
         if (!refreshed)
+        {
             return new(assetId, "Failed", false, changed, "The file was read, but its local metadata could not be refreshed.");
+        }
 
         if (changed)
         {
             var hashUpdated = await _assetRepo.UpdateContentHashAsync(asset.Id, hash.Hash.Hex, ct).ConfigureAwait(false);
             if (!hashUpdated)
+            {
                 return new(assetId, "HashConflict", true, true, "Local metadata was refreshed, but the file bytes duplicate another library asset.");
+            }
         }
 
         return new(
@@ -153,7 +163,9 @@ public sealed partial class IngestionEngine
                 .Select(field => field.Key)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var key in refreshedKeys.Where(key => !winningKeys.Contains(key)))
+            {
                 await _canonicalRepo.DeleteByKeyAsync(asset.Id, key, ct).ConfigureAwait(false);
+            }
 
             await SafeActivityLogAsync(new SystemActivityEntry
             {

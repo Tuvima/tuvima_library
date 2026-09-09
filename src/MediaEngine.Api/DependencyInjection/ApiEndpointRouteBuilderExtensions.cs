@@ -3,6 +3,7 @@ using MediaEngine.Api.DevSupport;
 #endif
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Realtime;
+using MediaEngine.Api.Security;
 using MediaEngine.Domain;
 
 namespace MediaEngine.Api.DependencyInjection;
@@ -14,10 +15,15 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapHub<Intercom>(SignalREvents.IntercomPath)
             .RequireRateLimiting("intercom")
             .AllowAnonymous();
+        app.MapHub<ApplicationEventsHub>(MediaEngine.Contracts.Authentication.ApplicationEventClientMethods.HubPath)
+            .RequireRateLimiting("intercom")
+            .RequireAuthorization(AuthPolicies.Authenticated);
         app.MapSystemEndpoints();
         app.MapSetupEndpoints();
         app.MapAuthenticationEndpoints();
         app.MapAccountEndpoints();
+        app.MapApplicationEndpoints();
+        app.MapApplicationWebhookEndpoints();
         app.MapClientAuthorizationEndpoints();
         app.MapMaintenanceEndpoints();
         app.MapAdminEndpoints();
@@ -29,6 +35,7 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapViewDiscoveryEndpoints();
         app.MapPlaybackEndpoints();
         app.MapPlayerEndpoints();
+        app.MapPlaybackTelemetryEndpoints();
         app.MapPlaybackSegmentEndpoints();
         app.MapReadEndpoints();
         app.MapReaderEndpoints();
@@ -63,6 +70,7 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapReportEndpoints();
         app.MapAiEndpoints();
         app.MapPluginEndpoints();
+        app.MapPluginApplicationServiceEndpoints();
 
         return app;
     }

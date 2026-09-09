@@ -54,17 +54,23 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
             // Gather all available descriptions from canonical values.
             var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
             if (canonicals is null || canonicals.Count == 0)
+            {
                 return null;
+            }
 
             var descriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var cv in canonicals)
             {
                 if (string.Equals(cv.Key, "plot_summary", StringComparison.OrdinalIgnoreCase)
                     && !string.IsNullOrWhiteSpace(cv.Value))
+                {
                     descriptions["Wikipedia Plot"] = cv.Value;
+                }
                 else if (string.Equals(cv.Key, "description", StringComparison.OrdinalIgnoreCase)
                     && !string.IsNullOrWhiteSpace(cv.Value))
+                {
                     descriptions["Description"] = cv.Value;
+                }
             }
 
             if (descriptions.Count == 0)
@@ -85,13 +91,20 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
             {
                 var maxLen = label.Contains("Plot", StringComparison.OrdinalIgnoreCase) ? 1200 : 600;
                 var truncated = text.Length > maxLen ? text[..maxLen] + "..." : text;
-                if (truncated.Length > remaining) truncated = truncated[..remaining];
+                if (truncated.Length > remaining)
+                {
+                    truncated = truncated[..remaining];
+                }
+
                 if (truncated.Length > 0)
                 {
                     parts.Add($"[{label}]: {truncated}");
                     remaining -= truncated.Length;
                 }
-                if (remaining <= 0) break;
+                if (remaining <= 0)
+                {
+                    break;
+                }
             }
 
             var combinedDescriptions = string.Join("\n\n", parts);
@@ -190,15 +203,15 @@ public sealed class DescriptionIntelligenceService : IDescriptionIntelligenceSer
 
     private static string NormalizeRole(string? role) => (role?.Trim().ToLowerInvariant()) switch
     {
-        "narrator"   => "Narrator",
+        "narrator" => "Narrator",
         "translator" => "Translator",
-        "editor"     => "Editor",
-        "director"   => "Director",
-        "cast"       => "Actor",
-        "host"       => "Host",
-        "producer"   => "Producer",
-        "author"     => "Author",
-        _            => "Author",
+        "editor" => "Editor",
+        "director" => "Director",
+        "cast" => "Actor",
+        "host" => "Host",
+        "producer" => "Producer",
+        "author" => "Author",
+        _ => "Author",
     };
 
     /// <summary>Pass 1 DTO: vocabulary fields (no people).</summary>

@@ -20,7 +20,9 @@ public static class ForwardedHeaderConfiguration
         foreach (var address in remote.TrustedProxies)
         {
             if (IPAddress.TryParse(address, out var proxy))
+            {
                 AddProxy(options, proxy);
+            }
         }
 
         foreach (var cidr in remote.TrustedProxyNetworks)
@@ -35,7 +37,9 @@ public static class ForwardedHeaderConfiguration
                         network.BaseAddress.MapToIPv6(),
                         96 + network.PrefixLength);
                     if (!options.KnownIPNetworks.Contains(mapped))
+                    {
                         options.KnownIPNetworks.Add(mapped);
+                    }
                 }
             }
         }
@@ -53,23 +57,37 @@ public static class ForwardedHeaderConfiguration
     private static void AddProxy(ForwardedHeadersOptions options, IPAddress address)
     {
         if (!options.KnownProxies.Contains(address))
+        {
             options.KnownProxies.Add(address);
+        }
+
         if (address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork)
         {
             var mapped = address.MapToIPv6();
             if (!options.KnownProxies.Contains(mapped))
+            {
                 options.KnownProxies.Add(mapped);
+            }
         }
     }
 
     public static bool IsLocalNetworkClient(IPAddress? address)
     {
         if (address is null || IPAddress.IsLoopback(address))
+        {
             return true;
+        }
+
         if (address.IsIPv4MappedToIPv6)
+        {
             address = address.MapToIPv4();
+        }
+
         if (address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        {
             return address.IsIPv6LinkLocal || address.IsIPv6SiteLocal;
+        }
+
         var bytes = address.GetAddressBytes();
         return bytes[0] == 10
             || bytes[0] == 127

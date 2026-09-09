@@ -21,7 +21,9 @@ public sealed class MediaEditorTabState
     {
         ActiveTab = Normalize(tabId);
         if (!string.Equals(ActiveTab, "file", StringComparison.OrdinalIgnoreCase))
+        {
             LastNonFileTab = ActiveTab;
+        }
     }
 
     public void ActivateFile() => ActiveTab = "file";
@@ -29,13 +31,17 @@ public sealed class MediaEditorTabState
     public void RememberCurrentNonFile()
     {
         if (!string.Equals(ActiveTab, "file", StringComparison.OrdinalIgnoreCase))
+        {
             LastNonFileTab = ActiveTab;
+        }
     }
 
     public void EnsureVisible(Func<string, bool> isVisible, IEnumerable<string> visibleTabs)
     {
         if (isVisible(ActiveTab))
+        {
             return;
+        }
 
         if (!string.IsNullOrWhiteSpace(LastNonFileTab) && isVisible(LastNonFileTab))
         {

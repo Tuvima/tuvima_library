@@ -24,7 +24,9 @@ public static class HomeVisibilitySql
         };
 
         if (!string.IsNullOrWhiteSpace(catalogOnlySql))
+        {
             conditions.Add($"COALESCE({catalogOnlySql}, 0) = 0");
+        }
 
         return string.Join("\nAND ", conditions);
     }

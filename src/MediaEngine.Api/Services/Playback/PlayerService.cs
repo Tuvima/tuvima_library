@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
 using System.Globalization;
 using Dapper;
+using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Playback;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Playback;
@@ -12,7 +14,6 @@ namespace MediaEngine.Api.Services.Playback;
 
 public sealed class PlayerService
 {
-    private static readonly Guid DefaultProfileId = Guid.Parse("00000000-0000-0000-0000-000000000001");
     private static readonly TimeSpan StaleSessionWindow = TimeSpan.FromSeconds(45);
 
     private readonly PlayerSessionRepository _sessions;
@@ -24,6 +25,8 @@ public sealed class PlayerService
     private readonly AudiobookListenHistoryRepository _history;
     private readonly AudiobookBookmarkRepository _bookmarks;
     private readonly MusicPlayStatsRepository _musicStats;
+    private readonly PlayerCatalogueScope _scope;
+    private readonly PlaybackTelemetryLifecycleService _telemetry;
     private readonly ConcurrentDictionary<Guid, PlaybackConnectionContextDto> _connectionContexts = new();
 
     public PlayerService(
@@ -35,7 +38,9 @@ public sealed class PlayerService
         IUserPlaybackSettingsService settings,
         AudiobookListenHistoryRepository history,
         AudiobookBookmarkRepository bookmarks,
-        MusicPlayStatsRepository musicStats)
+        MusicPlayStatsRepository musicStats,
+        PlayerCatalogueScope scope,
+        PlaybackTelemetryLifecycleService telemetry)
     {
         _sessions = sessions;
         _playback = playback;
@@ -46,11 +51,13 @@ public sealed class PlayerService
         _history = history;
         _bookmarks = bookmarks;
         _musicStats = musicStats;
+        _scope = scope;
+        _telemetry = telemetry;
     }
 
     public async Task<PlayerStateDto> GetStateAsync(Guid? profileId, string? deviceId, string? client, CancellationToken ct = default)
     {
-        var normalizedProfile = ResolveProfileId(profileId);
+        var normalizedProfile = await _scope.RequireProfileAsync(profileId, ct);
         await _sessions.EnsureSessionAsync(
             normalizedProfile,
             Guid.NewGuid(),
@@ -66,7 +73,8 @@ public sealed class PlayerService
 
     public async Task<PlayerStateDto> ReplaceQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default)
     {
-        var profileId = ResolveProfileId(request.ProfileId);
+        var profileId = await _scope.RequireProfileAsync(request.ProfileId, ct);
+        var priorSession = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
         var deviceId = NormalizeDeviceId(request.DeviceId);
         var client = NormalizeClient(request.Client);
         var sessionId = Guid.NewGuid();
@@ -102,12 +110,17 @@ public sealed class PlayerService
             request.Force,
             ct);
 
+        if (priorSession is not null)
+        {
+            await _telemetry.CloseAsync(priorSession.SessionId, PlaybackCompletionReasons.Replaced, ct);
+        }
+
         return await GetStateAsync(profileId, deviceId, client, ct);
     }
 
     public async Task<PlayerStateDto> AddQueueItemsAsync(PlayerQueueMutationDto request, bool insertNext, CancellationToken ct = default)
     {
-        var profileId = ResolveProfileId(request.ProfileId);
+        var profileId = await _scope.RequireProfileAsync(request.ProfileId, ct);
         var deviceId = NormalizeDeviceId(request.DeviceId);
         var client = NormalizeClient(request.Client);
         var items = await ResolveQueueItemsAsync(request, ct);
@@ -129,31 +142,45 @@ public sealed class PlayerService
 
     public async Task<PlayerStateDto> ReorderQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default)
     {
-        var profileId = ResolveProfileId(request.ProfileId);
+        var profileId = await _scope.RequireProfileAsync(request.ProfileId, ct);
+        await RequireQueueItemsAsync(profileId, request.QueueItemIds, ct);
         await _sessions.ReorderQueueAsync(profileId, request.QueueItemIds, request.ExpectedStateVersion, request.Force, ct);
         return await GetStateAsync(profileId, request.DeviceId, request.Client, ct);
     }
 
     public async Task<PlayerStateDto> RemoveQueueItemAsync(Guid queueItemId, PlayerQueueMutationDto request, CancellationToken ct = default)
     {
-        var profileId = ResolveProfileId(request.ProfileId);
+        var profileId = await _scope.RequireProfileAsync(request.ProfileId, ct);
+        await RequireQueueItemsAsync(profileId, [queueItemId], ct);
         await _sessions.RemoveQueueItemAsync(profileId, queueItemId, request.ExpectedStateVersion, request.Force, ct);
         return await GetStateAsync(profileId, request.DeviceId, request.Client, ct);
     }
 
     public async Task<PlayerStateDto> ClearQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default)
     {
-        var profileId = ResolveProfileId(request.ProfileId);
+        var profileId = await _scope.RequireProfileAsync(request.ProfileId, ct);
+        var priorSession = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
         await _sessions.ClearQueueAsync(profileId, request.ExpectedStateVersion, request.Force, ct);
+        if (priorSession is not null)
+        {
+            await _telemetry.CloseAsync(priorSession.SessionId, PlaybackCompletionReasons.Stopped, ct);
+        }
+
         return await GetStateAsync(profileId, request.DeviceId, request.Client, ct);
     }
 
     public async Task<PlayerStateDto> ApplyCommandAsync(PlayerCommandRequestDto request, CancellationToken ct = default)
     {
-        var profileId = ResolveProfileId(request.ProfileId);
+        var profileId = await _scope.RequireProfileAsync(request.ProfileId, ct);
         await _sessions.EnsureSessionAsync(profileId, Guid.NewGuid(), NormalizeDeviceId(request.DeviceId), NormalizeClient(request.Client), ct);
         var state = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct)
             ?? EmptyState(profileId, NormalizeDeviceId(request.DeviceId), NormalizeClient(request.Client));
+        state = await _scope.FilterStateAsync(state, ct);
+
+        if (request.QueueItemId.HasValue && !state.Queue.Any(item => item.QueueItemId == request.QueueItemId))
+        {
+            throw new PlayerResourceDeniedException();
+        }
 
         var command = NormalizeCommand(request.Command);
         switch (command)
@@ -218,23 +245,46 @@ public sealed class PlayerService
                 break;
         }
 
+        await ObserveCommandAsync(profileId, state, command, request, ct);
+
         return await GetStateAsync(profileId, request.DeviceId, request.Client, ct);
     }
 
     public async Task<PlayerStateDto> HeartbeatAsync(PlayerHeartbeatDto heartbeat, CancellationToken ct = default)
     {
-        var profileId = ResolveProfileId(heartbeat.ProfileId);
+        var profileId = await _scope.RequireProfileAsync(heartbeat.ProfileId, ct);
         var deviceId = NormalizeDeviceId(heartbeat.DeviceId);
         var client = NormalizeClient(heartbeat.Client);
         var activeSession = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
         if (heartbeat.SessionId.HasValue && activeSession is not null && activeSession.SessionId != heartbeat.SessionId.Value)
+        {
             return await GetStateAsync(profileId, deviceId, client, ct);
+        }
+
+        var heartbeatAsset = heartbeat.AssetId ?? activeSession?.Queue
+            .FirstOrDefault(item => item.QueueItemId == (heartbeat.QueueItemId ?? activeSession.CurrentQueueItemId))?.AssetId;
+        if (heartbeatAsset.HasValue)
+        {
+            await _scope.RequireAssetAsync(heartbeatAsset.Value, ct);
+        }
+
+        if (heartbeat.QueueItemId.HasValue && activeSession?.Queue.Any(item =>
+                item.QueueItemId == heartbeat.QueueItemId && item.AssetId == heartbeatAsset) != true)
+        {
+            throw new PlayerResourceDeniedException();
+        }
+
         if (heartbeat.Connection is not null)
         {
             _connectionContexts[profileId] = NormalizeConnection(heartbeat.Connection);
         }
-        await _sessions.EnsureSessionAsync(profileId, heartbeat.SessionId ?? Guid.NewGuid(), deviceId, client, ct);
+        var trustedPlayerSessionId = activeSession?.SessionId ?? Guid.NewGuid();
+        await _sessions.EnsureSessionAsync(profileId, trustedPlayerSessionId, deviceId, client, ct);
         var priorState = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
+        if (priorState is not null)
+        {
+            priorState = await _scope.FilterStateAsync(priorState, ct);
+        }
 
         var position = Math.Max(0, heartbeat.PositionSeconds);
         var duration = heartbeat.DurationSeconds;
@@ -255,12 +305,7 @@ public sealed class PlayerService
             heartbeat: true,
             ct: ct);
 
-        var assetId = heartbeat.AssetId;
-        if (!assetId.HasValue && heartbeat.QueueItemId.HasValue)
-        {
-            var current = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
-            assetId = current?.Queue.FirstOrDefault(item => item.QueueItemId == heartbeat.QueueItemId.Value)?.AssetId;
-        }
+        var assetId = heartbeatAsset;
 
         UserPlaybackSettingsDto? settings = null;
         if (assetId.HasValue)
@@ -273,7 +318,7 @@ public sealed class PlayerService
                 duration,
                 progress,
                 state,
-                heartbeat.SessionId,
+                trustedPlayerSessionId,
                 deviceId,
                 client,
                 settings.Listening,
@@ -303,19 +348,99 @@ public sealed class PlayerService
             await _musicStats.TrackHeartbeatAsync(profileId, historyItem, heartbeat, ct);
         }
 
+        if (assetId.HasValue)
+        {
+            await _telemetry.ObserveAsync(
+                trustedPlayerSessionId,
+                assetId.Value,
+                state,
+                position,
+                duration,
+                heartbeat.Sequence,
+                heartbeat.PlaybackRate ?? 1d,
+                isExplicitSeek: false,
+                heartbeat.HasPlaybackEnded,
+                completionReason: null,
+                client,
+                heartbeat.Connection,
+                ct);
+        }
+
         return await GetStateAsync(profileId, deviceId, client, ct);
+    }
+
+    private async Task ObserveCommandAsync(
+        Guid profileId,
+        PlayerStateDto prior,
+        string command,
+        PlayerCommandRequestDto request,
+        CancellationToken ct)
+    {
+        if (command is not (PlayerCommands.Play or PlayerCommands.Pause or PlayerCommands.Stop or
+            PlayerCommands.Next or PlayerCommands.Previous or PlayerCommands.Seek or PlayerCommands.RelativeSeek))
+        {
+            return;
+        }
+
+        var updated = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
+        if (updated is null)
+        {
+            return;
+        }
+
+        updated = await _scope.FilterStateAsync(updated, ct);
+        var stopped = command == PlayerCommands.Stop;
+        var item = stopped ? prior.CurrentItem : updated.CurrentItem;
+        if (item?.AssetId is not { } assetId)
+        {
+            return;
+        }
+
+        var position = stopped ? prior.PositionSeconds : updated.PositionSeconds;
+        var duration = stopped ? prior.DurationSeconds : updated.DurationSeconds;
+        await _telemetry.ObserveAsync(
+            updated.SessionId,
+            assetId,
+            stopped ? PlayerPlaybackStates.Stopped : updated.PlaybackState,
+            position,
+            duration,
+            sequence: null,
+            updated.PlaybackRate,
+            isExplicitSeek: command is PlayerCommands.Seek or PlayerCommands.RelativeSeek,
+            hasPlaybackEnded: false,
+            completionReason: stopped ? PlaybackCompletionReasons.Stopped : null,
+            request.Client,
+            connection: null,
+            ct);
     }
 
     public async Task<PlayerStateDto> TakeoverAsync(PlayerSessionTakeoverRequestDto request, CancellationToken ct = default)
     {
-        var profileId = ResolveProfileId(request.ProfileId);
+        var profileId = await _scope.RequireProfileAsync(request.ProfileId, ct);
+        var priorSession = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
         var deviceId = NormalizeDeviceId(request.DeviceId);
         var client = NormalizeClient(request.Client);
         await _sessions.TakeoverAsync(profileId, Guid.NewGuid(), deviceId, client, request.Force, StaleSessionWindow, ct);
+        if (priorSession is not null)
+        {
+            await _telemetry.CloseAsync(priorSession.SessionId, PlaybackCompletionReasons.Takeover, ct);
+        }
+
         return await GetStateAsync(profileId, deviceId, client, ct);
     }
 
     public PlayerCapabilitiesDto GetCapabilities() => new();
+
+    private async Task RequireQueueItemsAsync(Guid profileId, IEnumerable<Guid> requestedIds, CancellationToken ct)
+    {
+        var state = await _sessions.GetStateAsync(profileId, StaleSessionWindow, ct);
+        var allowed = state is null ? new HashSet<Guid>()
+            : (await _scope.FilterStateAsync(state, ct)).Queue.Select(item => item.QueueItemId).ToHashSet();
+        if (requestedIds.Any(id => !allowed.Contains(id)))
+        {
+            throw new PlayerResourceDeniedException();
+        }
+    }
 
     private async Task PlayAsync(Guid profileId, PlayerStateDto state, Guid? requestedQueueItemId, CancellationToken ct)
     {
@@ -384,7 +509,7 @@ public sealed class PlayerService
 
         foreach (var requested in request.Items.Where(item => item.WorkId != Guid.Empty))
         {
-            var resolved = ResolvePlayableWork(requested.WorkId, ct);
+            var resolved = await ResolvePlayableWorkAsync(requested.WorkId, requested.AssetId, ct);
             if (resolved is null)
             {
                 continue;
@@ -396,7 +521,7 @@ public sealed class PlayerService
 
         foreach (var workId in request.WorkIds.Where(id => id != Guid.Empty).Distinct().Where(id => !explicitWorkIds.Contains(id)))
         {
-            var resolved = ResolvePlayableWork(workId, ct);
+            var resolved = await ResolvePlayableWorkAsync(workId, null, ct);
             if (resolved is null)
             {
                 continue;
@@ -442,13 +567,19 @@ public sealed class PlayerService
             CoverUrl = StringHelpers.FirstNonBlank(requested.CoverUrl, resolved.CoverUrl, assetId.HasValue ? $"/stream/{assetId.Value}/cover" : null),
             DurationSeconds = requested.DurationSeconds ?? resolved.DurationSeconds,
             PositionSeconds = requested.PositionSeconds.HasValue ? Math.Max(0, requested.PositionSeconds.Value) : resolved.PositionSeconds,
-            StreamUrl = StringHelpers.FirstNonBlank(requested.StreamUrl, resolved.StreamUrl, assetId.HasValue ? $"/stream/{assetId.Value}" : null),
-            DownloadUrl = StringHelpers.FirstNonBlank(requested.DownloadUrl, resolved.DownloadUrl, assetId.HasValue ? $"/stream/{assetId.Value}" : null),
+            StreamUrl = resolved.StreamUrl,
+            DownloadUrl = resolved.DownloadUrl,
         };
     }
 
-    private PlayerQueueItemDto? ResolvePlayableWork(Guid workId, CancellationToken ct)
+    private async Task<PlayerQueueItemDto?> ResolvePlayableWorkAsync(Guid workId, Guid? requestedAsset, CancellationToken ct)
     {
+        var allowedAsset = await _scope.FindAssetAsync(workId, requestedAsset, ct);
+        if (allowedAsset is null)
+        {
+            throw new PlayerResourceDeniedException();
+        }
+
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<PlayableWorkRow>("""
@@ -523,13 +654,14 @@ public sealed class PlayerService
             LEFT JOIN canonical_values wcv ON wcv.entity_id = w.id
             LEFT JOIN canonical_values acv ON acv.entity_id = ma.id
             WHERE w.id = @workId
+              AND ma.id = @allowedAsset
               AND LOWER(REPLACE(w.media_type, ' ', '')) IN
                   ('music', 'audiobooks', 'audiobook', 'audio', 'movie', 'movies', 'film', 'films',
                    'tv', 'television', 'tvepisode', 'episode')
             GROUP BY w.id, ma.id
             ORDER BY ma.presented_at IS NULL, ma.presented_at DESC, ma.file_path_root
             LIMIT 1;
-            """, new { workId });
+            """, new { workId, allowedAsset });
 
         if (row is null)
         {
@@ -564,6 +696,7 @@ public sealed class PlayerService
 
     private async Task<PlayerStateDto> EnrichStateAsync(PlayerStateDto state, CancellationToken ct)
     {
+        state = await _scope.FilterStateAsync(state, ct);
         var connection = _connectionContexts.GetValueOrDefault(state.ProfileId) ?? new PlaybackConnectionContextDto();
         var current = state.CurrentItem;
         if (current?.AssetId is null)
@@ -603,11 +736,7 @@ public sealed class PlayerService
             Experience = ExperienceFor(queue),
             Capabilities = GetCapabilities(),
             AudiobookHistory = IsAudiobook(enrichedCurrent.MediaType)
-                ? await _history.GetRecentAsync(
-                    state.ProfileId,
-                    enrichedCurrent.WorkId,
-                    (await GetPlaybackSettingsOrDefaultAsync(state.ProfileId, ct)).Listening.AudiobookHistoryLimit,
-                    ct)
+                ? await GetAudiobookHistoryAsync(state.ProfileId, enrichedCurrent.WorkId, null, ct)
                 : [],
             Warnings = manifest.Warnings,
             Connection = connection,
@@ -652,7 +781,10 @@ public sealed class PlayerService
 
         var prior = await _userStates.GetAsync(profileId, assetId, ct);
         if (sessionId.HasValue && prior?.ExtendedProperties.GetValueOrDefault("blocked_player_session_id") == sessionId.Value.ToString("D"))
+        {
             return;
+        }
+
         if (ShouldPreservePriorResume(
             prior,
             positionSeconds,
@@ -689,7 +821,13 @@ public sealed class PlayerService
         }
 
         foreach (var key in new[] { "hide_continue", "status_changed_at", "blocked_player_session_id" })
-            if (prior?.ExtendedProperties.TryGetValue(key, out var value) == true) extended[key] = value;
+        {
+            if (prior?.ExtendedProperties.TryGetValue(key, out var value) == true)
+            {
+                extended[key] = value;
+            }
+        }
+
         await _userStates.SaveAsync(new UserState
         {
             Revision = prior?.Revision ?? 0,
@@ -776,45 +914,43 @@ public sealed class PlayerService
         int? limit,
         CancellationToken ct = default)
     {
-        var normalizedProfile = ResolveProfileId(profileId);
+        var normalizedProfile = await _scope.RequireProfileAsync(profileId, ct);
         var settings = await GetPlaybackSettingsOrDefaultAsync(normalizedProfile, ct);
         return await _history.GetRecentAsync(
             normalizedProfile,
             workId,
             limit ?? settings.Listening.AudiobookHistoryLimit,
-            ct);
+            ct, await _scope.AssetIdsAsync(ct));
     }
 
-    public Task<IReadOnlyList<AudiobookBookmarkDto>> GetAudiobookBookmarksAsync(
+    public async Task<IReadOnlyList<AudiobookBookmarkDto>> GetAudiobookBookmarksAsync(
         Guid? profileId,
         Guid workId,
         CancellationToken ct = default)
     {
-        var normalizedProfile = ResolveProfileId(profileId);
-        return _bookmarks.GetByWorkAsync(normalizedProfile, workId, ct);
+        var normalizedProfile = await _scope.RequireProfileAsync(profileId, ct);
+        return await _bookmarks.GetByWorkAsync(normalizedProfile, workId, ct, await _scope.AssetIdsAsync(ct));
     }
 
-    public Task<AudiobookBookmarkDto> CreateAudiobookBookmarkAsync(
+    public async Task<AudiobookBookmarkDto> CreateAudiobookBookmarkAsync(
         Guid? profileId,
         Guid workId,
         CreateAudiobookBookmarkRequestDto request,
         CancellationToken ct = default)
     {
-        var normalizedProfile = ResolveProfileId(profileId ?? request.ProfileId);
-        return _bookmarks.CreateAsync(normalizedProfile, workId, request, ct);
+        var normalizedProfile = await _scope.RequireProfileAsync(profileId ?? request.ProfileId, ct);
+        await _scope.RequireAssetAsync(request.AssetId, ct, workId);
+        return await _bookmarks.CreateAsync(normalizedProfile, workId, request, ct);
     }
 
-    public Task<bool> DeleteAudiobookBookmarkAsync(
+    public async Task<bool> DeleteAudiobookBookmarkAsync(
         Guid? profileId,
         Guid bookmarkId,
         CancellationToken ct = default)
     {
-        var normalizedProfile = ResolveProfileId(profileId);
-        return _bookmarks.DeleteAsync(normalizedProfile, bookmarkId, ct);
+        var normalizedProfile = await _scope.RequireProfileAsync(profileId, ct);
+        return await _bookmarks.DeleteAsync(normalizedProfile, bookmarkId, ct, await _scope.AssetIdsAsync(ct));
     }
-
-    private static Guid ResolveProfileId(Guid? profileId) =>
-        profileId.GetValueOrDefault() == Guid.Empty ? DefaultProfileId : profileId!.Value;
 
     private static string NormalizeDeviceId(string? deviceId) =>
         string.IsNullOrWhiteSpace(deviceId) ? "web" : deviceId.Trim();

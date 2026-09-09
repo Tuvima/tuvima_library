@@ -10,10 +10,10 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// </summary>
 public sealed class CollectionViewModel
 {
-    public Guid                Id               { get; init; }
-    public Guid?               UniverseId       { get; init; }
-    public DateTimeOffset      CreatedAt        { get; init; }
-    public List<WorkViewModel> Works            { get; init; } = [];
+    public Guid Id { get; init; }
+    public Guid? UniverseId { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+    public List<WorkViewModel> Works { get; init; } = [];
 
     // ── Parent Collection / franchise hierarchy ────────────────────────────────────
 
@@ -60,9 +60,9 @@ public sealed class CollectionViewModel
         ?? Works.Select(GetTitle).FirstOrDefault(t => !string.IsNullOrEmpty(t))
         ?? $"Collection {Id:N}"[..12];
 
-    public int    WorkCount  => WorkCountOverride ?? Works.Count;
+    public int WorkCount => WorkCountOverride ?? Works.Count;
     public string MediaTypes => MediaTypesOverride ?? string.Join(", ", Works.Select(w => w.MediaType).Distinct());
-    public bool   HasWorks   => Works.Count > 0 || (WorkCountOverride ?? 0) > 0;
+    public bool HasWorks => Works.Count > 0 || (WorkCountOverride ?? 0) > 0;
 
     /// <summary>Cover art URL from the first Work's canonical "cover" value (external provider URL).</summary>
     public string? CoverUrl => Works.Select(w => w.CoverUrl).FirstOrDefault(u => !string.IsNullOrEmpty(u));
@@ -143,15 +143,15 @@ public sealed class CollectionViewModel
         var workList = works.ToList();
         return new()
         {
-            Id               = id,
-            UniverseId       = universeId,
-            CreatedAt        = createdAt,
-            Works            = workList,
-            CollectionDisplayName   = displayName,
+            Id = id,
+            UniverseId = universeId,
+            CreatedAt = createdAt,
+            Works = workList,
+            CollectionDisplayName = displayName,
             DominantHexColor = UniverseMapper.ColourForCollection(workList),
-            ParentCollectionId      = parentCollectionId,
-            ParentCollectionName    = parentCollectionName,
-            ChildCollectionCount    = childCollectionCount,
+            ParentCollectionId = parentCollectionId,
+            ParentCollectionName = parentCollectionName,
+            ChildCollectionCount = childCollectionCount,
         };
     }
 
@@ -166,17 +166,17 @@ public sealed class CollectionViewModel
     {
         return new()
         {
-            Id                            = id,
-            UniverseId                    = universeId,
-            CreatedAt                     = createdAt,
-            Works                         = [],
-            CollectionDisplayName                = displayName,
-            DominantHexColor              = "#A78BFA",  // Purple accent for Universe-level collections
-            ChildCollectionCount                 = childCollectionCount,
-            DescriptionOverride           = description,
-            WorkCountOverride             = totalWorks,
-            MediaTypesOverride            = mediaTypes,
-            FictionalUniverseQidOverride  = wikidataQid,
+            Id = id,
+            UniverseId = universeId,
+            CreatedAt = createdAt,
+            Works = [],
+            CollectionDisplayName = displayName,
+            DominantHexColor = "#A78BFA",  // Purple accent for Universe-level collections
+            ChildCollectionCount = childCollectionCount,
+            DescriptionOverride = description,
+            WorkCountOverride = totalWorks,
+            MediaTypesOverride = mediaTypes,
+            FictionalUniverseQidOverride = wikidataQid,
         };
     }
 

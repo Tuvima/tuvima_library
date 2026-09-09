@@ -1,22 +1,22 @@
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
-using MediaEngine.Contracts.Display;
-using Microsoft.AspNetCore.Components.Web;
-using Microsoft.AspNetCore.Components;
-using Microsoft.Extensions.Logging;
-using Microsoft.JSInterop;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Domain.Services;
+using MediaEngine.Web.Components.Browse;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
-using MediaEngine.Web.Components.Browse;
 using MediaEngine.Web.Models.ViewDTOs;
-using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Navigation;
 using MediaEngine.Web.Services.Playback;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 using MudBlazor;
 
 namespace MediaEngine.Web.Components.Pages;
@@ -723,7 +723,9 @@ public partial class ListenPage
     {
         var orderedIds = PlaylistCollections.Select(playlist => playlist.Id).ToList();
         if (!ListenPlaylistOrderState.TryMoveByOffset(orderedIds, playlistId, direction, out var updatedOrder))
+        {
             return;
+        }
 
         _playlistOrder = updatedOrder;
         await SavePlaylistOrderAsync();
@@ -742,7 +744,9 @@ public partial class ListenPage
     private async Task DropPlaylistReorderAsync(Guid targetPlaylistId)
     {
         if (!_draggingPlaylistId.HasValue || _draggingPlaylistId.Value == targetPlaylistId)
+        {
             return;
+        }
 
         var orderedIds = PlaylistCollections.Select(playlist => playlist.Id).ToList();
         if (!ListenPlaylistOrderState.TryMoveBefore(
@@ -750,7 +754,9 @@ public partial class ListenPage
                 _draggingPlaylistId.Value,
                 targetPlaylistId,
                 out var updatedOrder))
+        {
             return;
+        }
 
         _playlistOrder = updatedOrder;
         _draggingPlaylistId = null;
@@ -772,7 +778,10 @@ public partial class ListenPage
             return;
         }
         if (!string.Equals(args.Key, "Enter", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(_newPlaylistName))
+        {
             return;
+        }
+
         if (_activeProfileId is null)
         {
             Snackbar.Add("An active profile is required to create playlists.", Severity.Warning);
@@ -816,7 +825,10 @@ public partial class ListenPage
             return;
         }
         if (!string.Equals(args.Key, "Enter", StringComparison.Ordinal) || string.IsNullOrWhiteSpace(_renamePlaylistName))
+        {
             return;
+        }
+
         if (!await ApiClient.UpdateCollectionAsync(
                 playlist.Id,
                 _renamePlaylistName.Trim(),
@@ -879,19 +891,22 @@ public partial class ListenPage
         });
 
         if (changed)
+        {
             await LoadAsync();
+        }
     }
     private async Task SavePlaylistOrderAsync()
     {
         if (_activeProfile is null)
+        {
             return;
+        }
 
         var updatedConfig = ListenPlaylistOrderState.Write(_playlistNavigationConfig, _playlistOrder);
         var saved = await Orchestrator.UpdateProfileAsync(
             _activeProfile.Id,
             _activeProfile.DisplayName,
             _activeProfile.AvatarColor,
-            _activeProfile.Role,
             updatedConfig);
 
         if (saved)
@@ -932,13 +947,24 @@ public partial class ListenPage
     {
         var tracks = new List<string> { $"{_playlistColumnWidths["song"]}px" };
         if (IsPlaylistColumnVisible("favorite"))
+        {
             tracks.Add($"{_playlistColumnWidths["favorite"]}px");
+        }
+
         if (IsPlaylistColumnVisible("artist"))
+        {
             tracks.Add($"{_playlistColumnWidths["artist"]}px");
+        }
+
         if (IsPlaylistColumnVisible("album"))
+        {
             tracks.Add($"{_playlistColumnWidths["album"]}px");
+        }
+
         if (IsPlaylistColumnVisible("time"))
+        {
             tracks.Add($"{_playlistColumnWidths["time"]}px");
+        }
 
         tracks.Add("118px");
         return string.Join(" ", tracks);
@@ -969,7 +995,9 @@ public partial class ListenPage
             : _playlistColumnWidths;
 
         if (!widths.TryGetValue(key, out var width))
+        {
             return;
+        }
 
         _resizingColumnSet = set;
         _resizingColumnKey = key;
@@ -980,14 +1008,18 @@ public partial class ListenPage
     private void ResizeColumn(double clientX)
     {
         if (string.IsNullOrWhiteSpace(_resizingColumnSet) || string.IsNullOrWhiteSpace(_resizingColumnKey))
+        {
             return;
+        }
 
         var widths = string.Equals(_resizingColumnSet, "songs", StringComparison.OrdinalIgnoreCase)
             ? _songColumnWidths
             : _playlistColumnWidths;
 
         if (!widths.ContainsKey(_resizingColumnKey))
+        {
             return;
+        }
 
         widths[_resizingColumnKey] = Math.Clamp(_resizeStartWidth + (int)Math.Round(clientX - _resizeStartX), 64, 560);
     }
@@ -1033,7 +1065,9 @@ public partial class ListenPage
     private Task SetPlaylistTrackEndDropTargetAsync()
     {
         if (!_draggingPlaylistTrackItemId.HasValue)
+        {
             return Task.CompletedTask;
+        }
 
         _playlistTrackDropTargetItemId = null;
         _playlistTrackDropAfter = true;
@@ -1044,21 +1078,29 @@ public partial class ListenPage
     private async Task DropPlaylistTrackReorderAsync(Guid targetItemId, bool after = false)
     {
         if (!_draggingPlaylistTrackItemId.HasValue || _draggingPlaylistTrackItemId.Value == targetItemId)
+        {
             return;
+        }
 
         var orderedItems = _playlistItems.OrderBy(item => item.SortOrder).ToList();
         var sourceIndex = orderedItems.FindIndex(item => item.Id == _draggingPlaylistTrackItemId.Value);
         var targetIndex = orderedItems.FindIndex(item => item.Id == targetItemId);
         if (sourceIndex < 0 || targetIndex < 0)
+        {
             return;
+        }
 
         var moved = orderedItems[sourceIndex];
         orderedItems.RemoveAt(sourceIndex);
         if (sourceIndex < targetIndex)
+        {
             targetIndex--;
+        }
 
         if (after)
+        {
             targetIndex++;
+        }
 
         targetIndex = Math.Clamp(targetIndex, 0, orderedItems.Count);
         orderedItems.Insert(targetIndex, moved);
@@ -1069,12 +1111,16 @@ public partial class ListenPage
     private async Task DropPlaylistTrackAtEndAsync()
     {
         if (!_draggingPlaylistTrackItemId.HasValue)
+        {
             return;
+        }
 
         var orderedItems = _playlistItems.OrderBy(item => item.SortOrder).ToList();
         var sourceIndex = orderedItems.FindIndex(item => item.Id == _draggingPlaylistTrackItemId.Value);
         if (sourceIndex < 0 || sourceIndex == orderedItems.Count - 1)
+        {
             return;
+        }
 
         var moved = orderedItems[sourceIndex];
         orderedItems.RemoveAt(sourceIndex);
@@ -1561,7 +1607,9 @@ public partial class ListenPage
     {
         var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete {work.Title} from the library?");
         if (!confirmed)
+        {
             return;
+        }
 
         var response = await ApiClient.BatchDeleteLibraryCatalogItemsAsync([work.Id]);
         if (response is null)
@@ -1830,7 +1878,9 @@ public partial class ListenPage
     {
         var target = CurrentTrackSurfaceTracks.FirstOrDefault(work => work.Id == entityId);
         if (target is null)
+        {
             return;
+        }
 
         await PlayTracksAsync(CurrentTrackSurfaceTracks, target.Id, CurrentTrackSurfaceLabel);
     }
@@ -1852,7 +1902,9 @@ public partial class ListenPage
     {
         column = NormalizeSongSortColumn(column);
         if (!string.Equals(NormalizeSongSortColumn(_songSortColumn), column, StringComparison.OrdinalIgnoreCase))
+        {
             return string.Empty;
+        }
 
         return _songSortDescending ? Icons.Material.Outlined.ArrowDownward : Icons.Material.Outlined.ArrowUpward;
     }
@@ -1861,7 +1913,9 @@ public partial class ListenPage
     {
         var target = CurrentTrackSurfaceTracks.FirstOrDefault(work => work.Id == entityId);
         if (target is null)
+        {
             return;
+        }
 
         await ToggleFavoriteAsync(target);
     }
@@ -1895,7 +1949,9 @@ public partial class ListenPage
     private async Task PlaySelectedTracksAsync()
     {
         if (SelectedTrackWorks.Count == 0)
+        {
             return;
+        }
 
         await PlayTracksAsync(SelectedTrackWorks, SelectedTrackWorks[0].Id, "Selected Tracks");
         _selectedTrackIds.Clear();
@@ -1904,14 +1960,20 @@ public partial class ListenPage
     private async Task QueueSelectedTracksAsync(bool next)
     {
         if (SelectedTrackWorks.Count == 0)
+        {
             return;
+        }
 
         foreach (var track in SelectedTrackWorks)
         {
             if (next)
+            {
                 await Playback.InsertNextAsync(track);
+            }
             else
+            {
                 await Playback.AddToQueueAsync(track);
+            }
         }
 
         Snackbar.Add(next ? "Selected songs will play next." : "Selected songs added to the queue.", Severity.Success);
@@ -1922,7 +1984,9 @@ public partial class ListenPage
     {
         var target = SelectedTrackWorks.FirstOrDefault();
         if (target is null)
+        {
             return;
+        }
 
         await EditTrackAsync(target);
     }
@@ -1930,13 +1994,17 @@ public partial class ListenPage
     private async Task DeleteSelectedTracksAsync()
     {
         if (SelectedTrackWorks.Count == 0)
+        {
             return;
+        }
 
         var deleteCount = SelectedTrackWorks.Count;
 
         var confirmed = await JS.InvokeAsync<bool>("confirm", $"Delete {deleteCount} selected song(s) from the library?");
         if (!confirmed)
+        {
             return;
+        }
 
         var response = await ApiClient.BatchDeleteLibraryCatalogItemsAsync(SelectedTrackWorks.Select(track => track.Id).ToArray());
         if (response is null)
@@ -1954,13 +2022,17 @@ public partial class ListenPage
     private async Task AddSelectedTracksToPlaylistAsync(Guid? collectionId = null)
     {
         if (SelectedTrackWorks.Count == 0)
+        {
             return;
+        }
 
         if (collectionId.HasValue)
         {
             var collection = PlaylistCollections.FirstOrDefault(item => item.Id == collectionId.Value);
             if (collection is null)
+            {
                 return;
+            }
 
             await AddTracksToPlaylistAsync(SelectedTrackWorks, collection);
             return;
@@ -1981,7 +2053,9 @@ public partial class ListenPage
         foreach (var work in works)
         {
             if (await ApiClient.AddCollectionItemAsync(collection.Id, work.Id, _activeProfileId.Value))
+            {
                 added++;
+            }
         }
 
         if (added == 0)
@@ -2038,7 +2112,9 @@ public partial class ListenPage
             : AudioDrag.WorkIds.ToHashSet();
 
         if (draggingWorkIds.Count == 0)
+        {
             return;
+        }
 
         var draggedWorks = draggingWorkIds
             .Select(id => _workLookup.GetValueOrDefault(id))
@@ -2083,7 +2159,9 @@ public partial class ListenPage
     private Task OnTrackArtistClicked(string artistName)
     {
         if (!string.IsNullOrWhiteSpace(artistName))
+        {
             OpenArtist(artistName);
+        }
 
         return Task.CompletedTask;
     }
@@ -2167,7 +2245,9 @@ public partial class ListenPage
     private async Task SavePlaylistTrackOrderAsync(List<CollectionItemDto> orderedItems)
     {
         if (ActivePlaylistCollection is null)
+        {
             return;
+        }
 
         var saved = await ApiClient.ReorderCollectionItemsAsync(
             ActivePlaylistCollection.Id,
@@ -2191,7 +2271,9 @@ public partial class ListenPage
     private async Task RemovePlaylistTrackAsync(Guid itemId)
     {
         if (ActivePlaylistCollection is null)
+        {
             return;
+        }
 
         var removed = await ApiClient.RemoveCollectionItemAsync(ActivePlaylistCollection.Id, itemId, _activeProfileId);
         if (!removed)
@@ -2305,7 +2387,9 @@ public partial class ListenPage
                 string.Equals(item.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
             if (!string.IsNullOrWhiteSpace(value))
+            {
                 return value;
+            }
         }
 
         return null;
@@ -2314,13 +2398,19 @@ public partial class ListenPage
     private static DateTimeOffset? ParseCanonicalDate(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal, out var parsed))
+        {
             return parsed;
+        }
 
         if (DateTimeOffset.TryParse(value, CultureInfo.CurrentCulture, DateTimeStyles.AssumeLocal, out parsed))
+        {
             return parsed;
+        }
 
         return null;
     }

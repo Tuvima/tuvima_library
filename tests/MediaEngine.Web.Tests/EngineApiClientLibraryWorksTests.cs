@@ -3,8 +3,8 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using MediaEngine.Contracts.Details;
-using Microsoft.Extensions.Logging.Abstractions;
 using MediaEngine.Web.Services.Integration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Tests;
 

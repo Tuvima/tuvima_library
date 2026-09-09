@@ -31,7 +31,7 @@ public sealed class ViewMediaProxyTests
     }
 
     [Fact]
-    public async Task EngineProxyClient_SendsCleanPathThroughProfileAssertionHandler()
+    public async Task EngineProxyClient_SendsCleanPathWithoutProfileAssertion()
     {
         var activeProfile = new ActiveProfileAccessor();
         activeProfile.SetProfile(ProfileId);
@@ -62,8 +62,8 @@ public sealed class ViewMediaProxyTests
             $"http://engine.test/view/items/{AssetId:D}/content",
             capture.Request?.RequestUri?.AbsoluteUri);
         Assert.Equal("bytes=0-99", capture.Request?.Headers.Range?.ToString());
-        Assert.True(capture.Request?.Headers.Contains(ViewProfileAssertionHandler.SignatureHeader));
-        Assert.Equal(ProfileId.ToString("D"), capture.Request?.Headers.GetValues(ViewProfileAssertionHandler.ProfileHeader).Single());
+        Assert.False(capture.Request?.Headers.Contains(ViewProfileAssertionHandler.SignatureHeader));
+        Assert.False(capture.Request?.Headers.Contains(ViewProfileAssertionHandler.ProfileHeader));
     }
 
     [Fact]
@@ -119,7 +119,7 @@ public sealed class ViewMediaProxyTests
     }
 
     [Fact]
-    public async Task Proxy_UsesGrantProfileForSignedEngineFetchAndForwardsRange()
+    public async Task Proxy_ForwardsGrantResourceAndRangeWithoutChangingActiveProfile()
     {
         var grants = CreateGrantService();
         var token = grants.Create(ProfileId, LibraryId, AssetId, ViewMediaResourceKind.Content);
@@ -137,11 +137,10 @@ public sealed class ViewMediaProxyTests
             token.Value,
             context,
             grants,
-            activeProfile,
             engine,
             CancellationToken.None);
 
-        Assert.Equal(ProfileId, activeProfile.ProfileId);
+        Assert.Equal(OtherProfileId, activeProfile.ProfileId);
         Assert.Equal(ProfileId, engine.Grant?.ProfileId);
         Assert.Equal(LibraryId, engine.Grant?.LibraryId);
         Assert.Equal(AssetId, engine.Grant?.AssetId);
@@ -169,7 +168,6 @@ public sealed class ViewMediaProxyTests
             tampered,
             context,
             grants,
-            new ActiveProfileAccessor(),
             engine,
             CancellationToken.None);
 
@@ -192,7 +190,6 @@ public sealed class ViewMediaProxyTests
             token.Value,
             context,
             grants,
-            new ActiveProfileAccessor(),
             engine,
             CancellationToken.None);
 

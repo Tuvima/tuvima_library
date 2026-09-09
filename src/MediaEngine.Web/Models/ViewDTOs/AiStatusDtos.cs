@@ -12,7 +12,10 @@ public sealed class AiProblemDetailsDto
     {
         var parts = new List<string> { Title };
         if (!string.IsNullOrWhiteSpace(Detail) && !string.Equals(Detail, Title, StringComparison.Ordinal))
+        {
             parts.Add(Detail);
+        }
+
         parts.AddRange(BlockingReasons.Where(reason => !string.IsNullOrWhiteSpace(reason)));
         return string.Join(" ", parts.Distinct(StringComparer.Ordinal));
     }

@@ -43,26 +43,29 @@ public sealed class SettingsServerAdministrationTests
 
         Assert.Contains("data-access-section", source, StringComparison.Ordinal);
         Assert.Contains("case \"authentication\"", source, StringComparison.Ordinal);
-        Assert.Contains("case \"session-policy\"", source, StringComparison.Ordinal);
-        Assert.Contains("<ApiKeysTab />", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("session-policy", source, StringComparison.Ordinal);
+        Assert.Contains("case \"applications\"", source, StringComparison.Ordinal);
+        Assert.Contains("<ManagedAccessApplications />", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingsSectionHeader", source, StringComparison.Ordinal);
+
+        var security = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\SecurityTab.razor");
+        Assert.Contains("Remote access and sessions", security, StringComparison.Ordinal);
+        Assert.Contains("Trusted local networks", security, StringComparison.Ordinal);
+        Assert.Contains("UpdateExternalAuthProviderAsync", security, StringComparison.Ordinal);
+        Assert.Contains("Disabled=\"@(!ExternalCapableMode)\"", security, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Access_DoesNotPresentDerivedIdsOrCreationDatesAsRuntimeStatus()
     {
-        var users = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersTab.razor");
-        var keys = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ApiKeysTab.razor");
+        var users = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ManagedAccessUsers.razor");
+        var applications = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ManagedAccessApplications.razor");
 
-        Assert.Contains("Created", users, StringComparison.Ordinal);
-        Assert.Contains("AdministratorCount", users, StringComparison.Ordinal);
-        Assert.Contains("/settings/access/authentication", users, StringComparison.Ordinal);
-        Assert.DoesNotContain("row.LastActive", users, StringComparison.Ordinal);
-        Assert.DoesNotContain("row.Status", users, StringComparison.Ordinal);
+        Assert.Contains("Last active", users, StringComparison.Ordinal);
+        Assert.Contains("Manage profiles", users, StringComparison.Ordinal);
         Assert.DoesNotContain("pending invite", users, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("foreach (var p in profiles)", users, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetKeyDisplay", keys, StringComparison.Ordinal);
-        Assert.DoesNotContain("ToggleReveal", keys, StringComparison.Ordinal);
+        Assert.Contains("Copy this credential now", applications, StringComparison.Ordinal);
+        Assert.DoesNotContain("ToggleReveal", applications, StringComparison.Ordinal);
     }
 
     [Fact]

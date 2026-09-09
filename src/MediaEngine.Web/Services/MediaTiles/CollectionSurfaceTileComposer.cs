@@ -319,15 +319,29 @@ public static class CollectionSurfaceTileComposer
 
         var aggregateCounts = new List<MediaTileMediaCountViewModel>();
         if (collection.WatchCount > 0)
+        {
             aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.PlayArrow, "Watch", collection.WatchCount));
+        }
+
         if (collection.ReadCount > 0)
+        {
             aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MenuBook, "Read", collection.ReadCount));
+        }
+
         if (collection.ListenCount > 0)
+        {
             aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.Headphones, "Listen", collection.ListenCount));
+        }
+
         if (collection.OtherCount > 0)
+        {
             aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MoreHoriz, "Other", collection.OtherCount));
+        }
+
         if (aggregateCounts.Count > 0)
+        {
             return aggregateCounts;
+        }
 
         return collection.ArtworkItems
             .GroupBy(item => NormalizeMediaType(item.MediaType), StringComparer.OrdinalIgnoreCase)
@@ -368,19 +382,36 @@ public static class CollectionSurfaceTileComposer
     {
         var value = mediaType ?? string.Empty;
         if (value.Contains("tv", StringComparison.OrdinalIgnoreCase) || value.Contains("show", StringComparison.OrdinalIgnoreCase))
+        {
             return "TV";
+        }
+
         if (value.Contains("movie", StringComparison.OrdinalIgnoreCase) || value.Contains("film", StringComparison.OrdinalIgnoreCase))
+        {
             return "Movies";
+        }
+
         if (value.Contains("audio", StringComparison.OrdinalIgnoreCase))
+        {
             return "Audiobooks";
+        }
+
         if (value.Contains("music", StringComparison.OrdinalIgnoreCase)
             || value.Contains("song", StringComparison.OrdinalIgnoreCase)
             || value.Contains("album", StringComparison.OrdinalIgnoreCase))
+        {
             return "Music";
+        }
+
         if (value.Contains("comic", StringComparison.OrdinalIgnoreCase))
+        {
             return "Comics";
+        }
+
         if (value.Contains("book", StringComparison.OrdinalIgnoreCase) || value.Contains("epub", StringComparison.OrdinalIgnoreCase))
+        {
             return "Books";
+        }
 
         return string.Empty;
     }
@@ -478,12 +509,20 @@ public static class CollectionSurfaceTileComposer
     private static ArtworkShape ToArtworkShape(string? shape, string? mediaType)
     {
         if (string.Equals(shape, "square", StringComparison.OrdinalIgnoreCase))
+        {
             return ArtworkShape.Square;
+        }
+
         if (string.Equals(shape, "wide", StringComparison.OrdinalIgnoreCase)
             || string.Equals(shape, "landscape", StringComparison.OrdinalIgnoreCase))
+        {
             return ArtworkShape.Wide;
+        }
+
         if (string.Equals(shape, "portrait", StringComparison.OrdinalIgnoreCase))
+        {
             return ArtworkShape.Portrait;
+        }
 
         var normalized = NormalizeMediaType(mediaType);
         return normalized is "Audiobooks" or "Music"
@@ -500,7 +539,9 @@ public static class CollectionSurfaceTileComposer
             .OrderBy(item => StableHash(collection.Id, item.WorkId))
             .ToList();
         if (candidates.Count == 0)
+        {
             return null;
+        }
 
         var index = (StableHash(collection.Id, collection.Id) & int.MaxValue) % candidates.Count;
         return candidates[index];
@@ -513,7 +554,10 @@ public static class CollectionSurfaceTileComposer
         {
             var hash = 17;
             foreach (var value in bytes)
+            {
                 hash = (hash * 31) + value;
+            }
+
             return hash;
         }
     }

@@ -1,0 +1,25 @@
+.access-user-permissions {
+    display: grid;
+    gap: .65rem;
+}
+
+.access-user-permissions + .access-user-permissions {
+    padding-top: 1.1rem;
+    border-top: 1px solid var(--app-border);
+}
+
+.access-user-permissions small {
+    color: var(--app-text-muted);
+}
+
+.access-user-permissions__libraries {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .25rem .75rem;
+}
+
+@media (max-width: 640px) {
+    .access-user-permissions__libraries {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

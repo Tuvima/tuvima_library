@@ -711,7 +711,10 @@ public sealed class DisplayCardBuilder
         var start = works.Select(work => ParseSortYear(work.Year)).Where(year => year > 0).DefaultIfEmpty(0).Min();
         var end = works.Select(work => ParseSortYear(work.SeriesEndYear)).Where(year => year >= start && year > 0).DefaultIfEmpty(0).Max();
         if (start <= 0)
+        {
             return fallbackYear;
+        }
+
         return end > start ? $"{start}\u2013{end}" : start.ToString(CultureInfo.InvariantCulture);
     }
 

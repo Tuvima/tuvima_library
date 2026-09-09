@@ -124,7 +124,10 @@ public sealed class EnrichmentRefreshScheduleService
         {
             var target = ResolveWorkTarget(entityId);
             if (target is null)
+            {
                 return null;
+            }
+
             normalizedType = "Work";
             entityId = target.EntityId;
         }
@@ -174,7 +177,10 @@ public sealed class EnrichmentRefreshScheduleService
         {
             refreshTarget = ResolveWorkTarget(entityId);
             if (refreshTarget is null)
+            {
                 return null;
+            }
+
             normalizedType = "Work";
             entityId = refreshTarget.EntityId;
         }
@@ -186,7 +192,9 @@ public sealed class EnrichmentRefreshScheduleService
         {
             var person = await _persons.FindByIdAsync(entityId, ct).ConfigureAwait(false);
             if (person is null)
+            {
                 return null;
+            }
 
             await _harvesting.EnqueueAsync(new HarvestRequest
             {
@@ -281,7 +289,9 @@ public sealed class EnrichmentRefreshScheduleService
         foreach (var item in due.Items.Where(item => item.NextDueAt <= DateTimeOffset.UtcNow))
         {
             if (await QueueNowAsync(item.EntityType, item.EntityId, "Scheduled", ct).ConfigureAwait(false) is not null)
+            {
                 queued++;
+            }
         }
 
         return queued;
@@ -297,9 +307,9 @@ public sealed class EnrichmentRefreshScheduleService
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
-        innerCt.ThrowIfCancellationRequested();
-        var people = conn.Query<SeedRow>(
-            """
+            innerCt.ThrowIfCancellationRequested();
+            var people = conn.Query<SeedRow>(
+                """
             SELECT person.id AS EntityId, person.enriched_at AS LastSuccessAt, person.created_at AS CreatedAt
             FROM persons person
             LEFT JOIN enrichment_refresh_schedule schedule
@@ -314,11 +324,13 @@ public sealed class EnrichmentRefreshScheduleService
                    OR (person.enriched_at IS NOT NULL
                        AND (schedule.last_success_at IS NULL OR person.enriched_at > schedule.last_success_at)));
             """, transaction: tx);
-        foreach (var person in people)
-            UpsertSeed(conn, tx, "Person", person, "people", "wikidata", "people.default", personDays, now);
+            foreach (var person in people)
+            {
+                UpsertSeed(conn, tx, "Person", person, "people", "wikidata", "people.default", personDays, now);
+            }
 
-        var works = conn.Query<SeedRow>(
-            """
+            var works = conn.Query<SeedRow>(
+                """
             SELECT work.id AS EntityId,
                    CASE WHEN EXISTS (
                        SELECT 1
@@ -346,17 +358,19 @@ public sealed class EnrichmentRefreshScheduleService
                    OR (enriched.value IS NOT NULL
                        AND (schedule.last_success_at IS NULL OR enriched.value > schedule.last_success_at)));
             """, new
+                {
+                    now = now.ToString("O"),
+                    discoveryCapability = CapabilityId.EnrichmentStructuredDiscoveryMetadata,
+                    discoveryVersion = StructuredDiscoveryFieldCatalog.CapabilityVersion,
+                    structuredPolicy,
+                }, tx);
+            foreach (var work in works)
             {
-                now = now.ToString("O"),
-                discoveryCapability = CapabilityId.EnrichmentStructuredDiscoveryMetadata,
-                discoveryVersion = StructuredDiscoveryFieldCatalog.CapabilityVersion,
-                structuredPolicy,
-            }, tx);
-        foreach (var work in works)
-            UpsertSeed(conn, tx, "Work", work, "universe", "wikidata", structuredPolicy, mediaDays, now);
+                UpsertSeed(conn, tx, "Work", work, "universe", "wikidata", structuredPolicy, mediaDays, now);
+            }
 
-        conn.Execute(
-            """
+            conn.Execute(
+                """
             UPDATE enrichment_refresh_schedule
             SET status = 'Scheduled',
                 failure_count = failure_count + 1,
@@ -368,11 +382,11 @@ public sealed class EnrichmentRefreshScheduleService
               AND last_attempt_at < @staleAttempt
               AND (last_success_at IS NULL OR last_success_at < last_attempt_at);
             """,
-            new
-            {
-                now = now.ToString("O"),
-                staleAttempt = now.AddHours(-24).ToString("O"),
-            }, tx);
+                new
+                {
+                    now = now.ToString("O"),
+                    staleAttempt = now.AddHours(-24).ToString("O"),
+                }, tx);
 
         }, ct);
     }
@@ -398,7 +412,10 @@ public sealed class EnrichmentRefreshScheduleService
                     """,
                     new { entityId }, tx);
                 if (person is not null)
+                {
                     UpsertSeed(conn, tx, "Person", person, "people", "wikidata", "people.default", Math.Max(1, settings.PersonRefreshDays), now);
+                }
+
                 return;
             }
 
@@ -434,7 +451,9 @@ public sealed class EnrichmentRefreshScheduleService
                     discoveryVersion = StructuredDiscoveryFieldCatalog.CapabilityVersion,
                 }, tx);
             if (work is not null)
+            {
                 UpsertSeed(conn, tx, "Work", work, "universe", "wikidata", structuredPolicy, Math.Max(1, settings.Stage3RefreshDays), now);
+            }
         }, ct);
     }
 

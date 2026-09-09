@@ -1,9 +1,9 @@
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Contracts;
-using MediaEngine.Domain.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Intelligence;
@@ -88,7 +88,9 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .ToList();
             if (configured is { Count: > 0 })
+            {
                 return new HashSet<string>(configured, StringComparer.OrdinalIgnoreCase);
+            }
         }
         catch
         {
@@ -178,7 +180,9 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
 
             var sibling = await _collectionRepo.GetByIdAsync(siblingId, ct).ConfigureAwait(false);
             if (sibling is null || sibling.ParentCollectionId is not null)
+            {
                 continue;
+            }
 
             await _collectionRepo.SetParentCollectionAsync(siblingId, parentCollection.Id, ct).ConfigureAwait(false);
 

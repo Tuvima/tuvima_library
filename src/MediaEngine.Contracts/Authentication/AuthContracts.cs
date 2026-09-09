@@ -24,17 +24,39 @@ public sealed class LocalLoginRequest
     [JsonPropertyName("device_id")] public string DeviceId { get; init; } = string.Empty;
     [JsonPropertyName("device_name")] public string DeviceName { get; init; } = string.Empty;
     [JsonPropertyName("client")] public string Client { get; init; } = "Dashboard";
+    [JsonPropertyName("original_client_is_local")] public bool OriginalClientIsLocal { get; init; }
+    [JsonPropertyName("original_client_is_https")] public bool OriginalClientIsHttps { get; init; }
 }
 
 public sealed class ExternalSessionRequest
 {
-    [JsonPropertyName("provider")] public string Provider { get; init; } = string.Empty;
-    [JsonPropertyName("issuer")] public string Issuer { get; init; } = string.Empty;
-    [JsonPropertyName("subject")] public string Subject { get; init; } = string.Empty;
+    [JsonPropertyName("transaction_ticket")] public string TransactionTicket { get; init; } = string.Empty;
     [JsonPropertyName("device_id")] public string DeviceId { get; init; } = string.Empty;
     [JsonPropertyName("device_name")] public string DeviceName { get; init; } = string.Empty;
     [JsonPropertyName("client")] public string Client { get; init; } = "Dashboard";
+    [JsonPropertyName("original_client_is_local")] public bool OriginalClientIsLocal { get; init; }
+    [JsonPropertyName("original_client_is_https")] public bool OriginalClientIsHttps { get; init; }
 }
+
+public static class ExternalIdentityTransactionPurposes
+{
+    public const string SignIn = "sign_in";
+    public const string Link = "link";
+}
+
+public sealed class BeginExternalIdentityTransactionRequest
+{
+    [JsonPropertyName("purpose")] public string Purpose { get; init; } = string.Empty;
+    [JsonPropertyName("provider")] public string Provider { get; init; } = string.Empty;
+    [JsonPropertyName("issuer")] public string Issuer { get; init; } = string.Empty;
+    [JsonPropertyName("subject")] public string Subject { get; init; } = string.Empty;
+    [JsonPropertyName("email")] public string? Email { get; init; }
+    [JsonPropertyName("display_name")] public string? DisplayName { get; init; }
+}
+
+public sealed record ExternalIdentityTransactionResponse(
+    [property: JsonPropertyName("ticket")] string Ticket,
+    [property: JsonPropertyName("expires_at")] DateTimeOffset ExpiresAt);
 
 public sealed class AuthSessionResponse
 {
@@ -43,7 +65,7 @@ public sealed class AuthSessionResponse
     [JsonPropertyName("account_id")] public Guid AccountId { get; init; }
     [JsonPropertyName("active_profile_id")] public Guid ActiveProfileId { get; init; }
     [JsonPropertyName("display_name")] public string DisplayName { get; init; } = string.Empty;
-    [JsonPropertyName("role")] public string Role { get; init; } = string.Empty;
+    [JsonPropertyName("authority")] public required DashboardAuthorityResponse Authority { get; init; }
     [JsonPropertyName("authentication_method")] public string AuthenticationMethod { get; init; } = string.Empty;
     [JsonPropertyName("expires_at")] public DateTimeOffset ExpiresAt { get; init; }
     [JsonPropertyName("recovery_codes")] public IReadOnlyList<string> RecoveryCodes { get; init; } = [];
@@ -55,7 +77,7 @@ public sealed class SessionValidationResponse
     [JsonPropertyName("account_id")] public Guid AccountId { get; init; }
     [JsonPropertyName("active_profile_id")] public Guid ActiveProfileId { get; init; }
     [JsonPropertyName("display_name")] public string DisplayName { get; init; } = string.Empty;
-    [JsonPropertyName("role")] public string Role { get; init; } = string.Empty;
+    [JsonPropertyName("authority")] public required DashboardAuthorityResponse Authority { get; init; }
     [JsonPropertyName("authentication_method")] public string AuthenticationMethod { get; init; } = string.Empty;
     [JsonPropertyName("expires_at")] public DateTimeOffset ExpiresAt { get; init; }
 }
@@ -86,6 +108,8 @@ public sealed class RecoverPasswordRequest
     [JsonPropertyName("email")] public string Email { get; init; } = string.Empty;
     [JsonPropertyName("recovery_code")] public string RecoveryCode { get; init; } = string.Empty;
     [JsonPropertyName("new_password")] public string NewPassword { get; init; } = string.Empty;
+    [JsonPropertyName("original_client_is_local")] public bool OriginalClientIsLocal { get; init; }
+    [JsonPropertyName("original_client_is_https")] public bool OriginalClientIsHttps { get; init; }
 }
 
 public sealed class SetProfilePinRequest
@@ -96,21 +120,31 @@ public sealed class SetProfilePinRequest
 public sealed record RegenerateRecoveryCodesRequest(
     [property: JsonPropertyName("current_password")] string CurrentPassword);
 
-public sealed record BeginPasswordResetRequest([property: JsonPropertyName("email")] string Email);
+public sealed record BeginPasswordResetRequest(
+    [property: JsonPropertyName("email")] string Email,
+    [property: JsonPropertyName("original_client_is_local")] bool OriginalClientIsLocal = false,
+    [property: JsonPropertyName("original_client_is_https")] bool OriginalClientIsHttps = false);
 public sealed record BeginPasswordResetResponse([property: JsonPropertyName("token")] string? Token);
 public sealed record ResetPasswordTokenRequest(
     [property: JsonPropertyName("token")] string Token,
-    [property: JsonPropertyName("new_password")] string NewPassword);
+    [property: JsonPropertyName("new_password")] string NewPassword,
+    [property: JsonPropertyName("original_client_is_local")] bool OriginalClientIsLocal = false,
+    [property: JsonPropertyName("original_client_is_https")] bool OriginalClientIsHttps = false);
 
 public sealed record PasskeyOptionsResponse(
     [property: JsonPropertyName("options_json")] string OptionsJson,
     [property: JsonPropertyName("state")] string State);
-public sealed record BeginPasskeyLoginRequest([property: JsonPropertyName("email")] string? Email);
+public sealed record BeginPasskeyLoginRequest(
+    [property: JsonPropertyName("email")] string? Email,
+    [property: JsonPropertyName("original_client_is_local")] bool OriginalClientIsLocal = false,
+    [property: JsonPropertyName("original_client_is_https")] bool OriginalClientIsHttps = false);
 public sealed record CompletePasskeyLoginRequest(
     [property: JsonPropertyName("credential_json")] string CredentialJson,
     [property: JsonPropertyName("state")] string State,
     [property: JsonPropertyName("device_id")] string DeviceId,
-    [property: JsonPropertyName("device_name")] string DeviceName);
+    [property: JsonPropertyName("device_name")] string DeviceName,
+    [property: JsonPropertyName("original_client_is_local")] bool OriginalClientIsLocal = false,
+    [property: JsonPropertyName("original_client_is_https")] bool OriginalClientIsHttps = false);
 public sealed record CompletePasskeyRegistrationRequest(
     [property: JsonPropertyName("credential_json")] string CredentialJson,
     [property: JsonPropertyName("state")] string State,
@@ -167,15 +201,13 @@ public sealed record AcceptAccountInvitationRequest(
     [property: JsonPropertyName("token")] string Token,
     [property: JsonPropertyName("password")] string Password,
     [property: JsonPropertyName("device_id")] string DeviceId,
-    [property: JsonPropertyName("device_name")] string DeviceName);
+    [property: JsonPropertyName("device_name")] string DeviceName,
+    [property: JsonPropertyName("original_client_is_local")] bool OriginalClientIsLocal = false,
+    [property: JsonPropertyName("original_client_is_https")] bool OriginalClientIsHttps = false);
 
 public sealed class LinkAccountExternalLoginRequest
 {
-    [JsonPropertyName("provider")] public string Provider { get; init; } = string.Empty;
-    [JsonPropertyName("issuer")] public string Issuer { get; init; } = string.Empty;
-    [JsonPropertyName("subject")] public string Subject { get; init; } = string.Empty;
-    [JsonPropertyName("email")] public string? Email { get; init; }
-    [JsonPropertyName("display_name")] public string? DisplayName { get; init; }
+    [JsonPropertyName("transaction_ticket")] public string TransactionTicket { get; init; } = string.Empty;
 }
 
 public sealed class AccountExternalLoginDto
@@ -208,3 +240,18 @@ public sealed record DashboardServiceCredentialBundle(
     [property: JsonPropertyName("key_id")] string KeyId,
     [property: JsonPropertyName("protected_token")] string ProtectedToken,
     [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt);
+
+public sealed record DashboardAuthorityResponse(
+    [property: JsonPropertyName("account_id")] Guid AccountId,
+    [property: JsonPropertyName("active_profile_id")] Guid ActiveProfileId,
+    [property: JsonPropertyName("account_enabled")] bool AccountEnabled,
+    [property: JsonPropertyName("grant_enabled")] bool GrantEnabled,
+    [property: JsonPropertyName("account_authorization_version")] long AccountAuthorizationVersion,
+    [property: JsonPropertyName("grant_authorization_version")] long GrantAuthorizationVersion,
+    [property: JsonPropertyName("effective_administrator")] bool EffectiveAdministrator,
+    [property: JsonPropertyName("administrator_surface_unlocked")] bool AdministratorSurfaceUnlocked,
+    [property: JsonPropertyName("administrator_unlock_expires_at")] DateTimeOffset? AdministratorUnlockExpiresAt,
+    [property: JsonPropertyName("administrator_protection_version")] long AdministratorProtectionVersion,
+    [property: JsonPropertyName("profile_grants")] IReadOnlyList<AccountProfileGrantDto> ProfileGrants,
+    [property: JsonPropertyName("navigation_capabilities")] IReadOnlyList<string> NavigationCapabilities,
+    [property: JsonPropertyName("action_capabilities")] IReadOnlyList<string> ActionCapabilities);

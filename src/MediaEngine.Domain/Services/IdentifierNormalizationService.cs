@@ -17,22 +17,24 @@ public static class IdentifierNormalizationService
     public static string? NormalizeRaw(string propertyCode, string rawValue)
     {
         if (string.IsNullOrWhiteSpace(rawValue))
+        {
             return null;
+        }
 
         return propertyCode switch
         {
-            "P212"  => NormalizeIsbn13(rawValue),
-            "P957"  => NormalizeIsbn10(rawValue),
+            "P212" => NormalizeIsbn13(rawValue),
+            "P957" => NormalizeIsbn10(rawValue),
             "P5749" => NormalizeAsin(rawValue),
-            "P345"  => NormalizeImdbId(rawValue),
+            "P345" => NormalizeImdbId(rawValue),
             "P6395" => NormalizeAppleBooksId(rawValue),
             "P4947" => NormalizeTmdbId(rawValue),
-            "P434"  => NormalizeMusicBrainzId(rawValue),
+            "P434" => NormalizeMusicBrainzId(rawValue),
             "P2969" => NormalizeGoodreadsId(rawValue),
             "P5905" => NormalizeComicVineId(rawValue),
             "P1243" => NormalizeIsrc(rawValue),
-            "P244"  => NormalizeLccn(rawValue),
-            _       => rawValue.Trim()
+            "P244" => NormalizeLccn(rawValue),
+            _ => rawValue.Trim()
         };
     }
 
@@ -44,7 +46,9 @@ public static class IdentifierNormalizationService
     public static string? ToWikidataFormat(string propertyCode, string rawValue)
     {
         if (string.IsNullOrWhiteSpace(rawValue))
+        {
             return null;
+        }
 
         // For all currently supported identifiers, Wikidata format is the same as NormalizeRaw.
         return NormalizeRaw(propertyCode, rawValue);
@@ -58,7 +62,9 @@ public static class IdentifierNormalizationService
     public static string? ToRetailFormat(string propertyCode, string rawValue)
     {
         if (string.IsNullOrWhiteSpace(rawValue))
+        {
             return null;
+        }
 
         // For all currently supported identifiers, retail format is the same as NormalizeRaw.
         return NormalizeRaw(propertyCode, rawValue);
@@ -75,7 +81,7 @@ public static class IdentifierNormalizationService
         {
             "isbn_13" => "isbn",
             "isbn_10" => "isbn",
-            _         => null
+            _ => null
         };
     }
 
@@ -115,14 +121,18 @@ public static class IdentifierNormalizationService
         var digits = Regex.Replace(rawValue, @"[^0-9]", string.Empty);
 
         if (digits.Length != 13)
+        {
             return null;
+        }
 
         // Mod10 checksum: alternate weights 1 and 3.
         var sum = 0;
         for (var i = 0; i < 12; i++)
         {
             if (!int.TryParse(digits[i].ToString(), out var d))
+            {
                 return null;
+            }
 
             sum += d * (i % 2 == 0 ? 1 : 3);
         }
@@ -130,7 +140,9 @@ public static class IdentifierNormalizationService
         var checkDigit = (10 - (sum % 10)) % 10;
 
         if (!int.TryParse(digits[12].ToString(), out var lastDigit))
+        {
             return null;
+        }
 
         return checkDigit == lastDigit ? digits : null;
     }
@@ -147,17 +159,23 @@ public static class IdentifierNormalizationService
         var cleaned = Regex.Replace(rawValue.ToUpperInvariant(), @"[^0-9X]", string.Empty);
 
         if (cleaned.Length != 10)
+        {
             return null;
+        }
 
         // Validate: digits 0–8 must be numeric; position 9 may be 'X' or a digit.
         for (var i = 0; i < 9; i++)
         {
             if (!char.IsDigit(cleaned[i]))
+            {
                 return null;
+            }
         }
 
         if (!char.IsDigit(cleaned[9]) && cleaned[9] != 'X')
+        {
             return null;
+        }
 
         // ISBN-10 checksum: sum of (digit * position from 10 down to 1), mod 11 == 0.
         var sum = 0;
@@ -173,7 +191,9 @@ public static class IdentifierNormalizationService
             // Check if it looks like an ISSN (4 digits, dash, 4 digits where last may be X).
             // If so, treat it as not an ISBN-10.
             if (Regex.IsMatch(rawValue.Trim(), @"^\d{4}-\d{3}[\dX]$", RegexOptions.IgnoreCase))
+            {
                 return null;
+            }
 
             return null;
         }
@@ -242,7 +262,9 @@ public static class IdentifierNormalizationService
 
         // Validate UUID format: 8-4-4-4-12 hex chars with dashes.
         if (Regex.IsMatch(cleaned, @"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"))
+        {
             return cleaned;
+        }
 
         return null;
     }
@@ -286,7 +308,9 @@ public static class IdentifierNormalizationService
         var cleaned = Regex.Replace(rawValue.ToUpperInvariant(), @"[\s\-]", string.Empty);
 
         if (cleaned.Length != 12)
+        {
             return null;
+        }
 
         return Regex.IsMatch(cleaned, @"^[A-Z0-9]{12}$") ? cleaned : null;
     }
@@ -321,11 +345,15 @@ public static class IdentifierNormalizationService
         // Strip "collection/" prefix if present.
         var collectionIndex = value.IndexOf("collection/", StringComparison.OrdinalIgnoreCase);
         if (collectionIndex >= 0)
+        {
             value = value[(collectionIndex + "collection/".Length)..];
+        }
 
         // Strip leading "id" prefix if present.
         if (value.StartsWith("id", StringComparison.OrdinalIgnoreCase))
+        {
             value = value[2..];
+        }
 
         // Extract numeric portion.
         var match = Regex.Match(value, @"\d+");

@@ -1,13 +1,13 @@
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 using Xunit.Abstractions;
 
@@ -41,7 +41,7 @@ public sealed class Stage2BaselineCapture : IDisposable
 
     public Stage2BaselineCapture(ITestOutputHelper output)
     {
-        _output  = output;
+        _output = output;
         _adapter = BuildAdapter();
     }
 
@@ -174,7 +174,7 @@ public sealed class Stage2BaselineCapture : IDisposable
     public async Task CaptureStage2Baseline()
     {
         var requests = BuildRequests();
-        var results  = await _adapter.ResolveBatchAsync(requests);
+        var results = await _adapter.ResolveBatchAsync(requests);
 
         var baseline = new SortedDictionary<string, BaselineEntry>(StringComparer.Ordinal);
         foreach (var request in requests)
@@ -192,14 +192,14 @@ public sealed class Stage2BaselineCapture : IDisposable
 
             baseline[request.CorrelationKey] = new BaselineEntry
             {
-                Found               = result.Found,
-                Qid                 = result.Qid,
-                IsEdition           = result.IsEdition,
-                WorkQid             = result.WorkQid,
-                EditionQid          = result.EditionQid,
+                Found = result.Found,
+                Qid = result.Qid,
+                IsEdition = result.IsEdition,
+                WorkQid = result.WorkQid,
+                EditionQid = result.EditionQid,
                 PrimaryBridgeIdType = result.PrimaryBridgeIdType,
-                MatchedBy           = result.MatchedBy.ToString(),
-                ClaimCount          = result.Claims.Count,
+                MatchedBy = result.MatchedBy.ToString(),
+                ClaimCount = result.Claims.Count,
                 CollectedBridgeIdKeys = result.CollectedBridgeIds.Keys
                     .OrderBy(k => k, StringComparer.Ordinal)
                     .ToList(),
@@ -217,7 +217,7 @@ public sealed class Stage2BaselineCapture : IDisposable
         });
 
         var root = FindRepoRoot();
-        var dir  = Path.Combine(root, "tests", "fixtures");
+        var dir = Path.Combine(root, "tests", "fixtures");
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, "stage2-baseline.json");
         await File.WriteAllTextAsync(path, json + Environment.NewLine);
@@ -243,9 +243,9 @@ public sealed class Stage2BaselineCapture : IDisposable
     [Trait("Category", "Baseline")]
     public async Task CaptureStage2BaselineViaLibraryPath()
     {
-        var adapter  = BuildAdapterWithLibraryPath();
+        var adapter = BuildAdapterWithLibraryPath();
         var requests = BuildRequests();
-        var results  = await adapter.ResolveBatchAsync(requests);
+        var results = await adapter.ResolveBatchAsync(requests);
 
         var baseline = new SortedDictionary<string, BaselineEntry>(StringComparer.Ordinal);
         foreach (var request in requests)
@@ -263,14 +263,14 @@ public sealed class Stage2BaselineCapture : IDisposable
 
             baseline[request.CorrelationKey] = new BaselineEntry
             {
-                Found               = result.Found,
-                Qid                 = result.Qid,
-                IsEdition           = result.IsEdition,
-                WorkQid             = result.WorkQid,
-                EditionQid          = result.EditionQid,
+                Found = result.Found,
+                Qid = result.Qid,
+                IsEdition = result.IsEdition,
+                WorkQid = result.WorkQid,
+                EditionQid = result.EditionQid,
                 PrimaryBridgeIdType = result.PrimaryBridgeIdType,
-                MatchedBy           = result.MatchedBy.ToString(),
-                ClaimCount          = result.Claims.Count,
+                MatchedBy = result.MatchedBy.ToString(),
+                ClaimCount = result.Claims.Count,
                 CollectedBridgeIdKeys = result.CollectedBridgeIds.Keys
                     .OrderBy(k => k, StringComparer.Ordinal)
                     .ToList(),
@@ -288,7 +288,7 @@ public sealed class Stage2BaselineCapture : IDisposable
         });
 
         var root = FindRepoRoot();
-        var dir  = Path.Combine(root, "tests", "fixtures");
+        var dir = Path.Combine(root, "tests", "fixtures");
         Directory.CreateDirectory(dir);
         var path = Path.Combine(dir, "stage2-baseline-v2.json");
         await File.WriteAllTextAsync(path, json + Environment.NewLine);
@@ -298,23 +298,23 @@ public sealed class Stage2BaselineCapture : IDisposable
 
     private static ReconciliationAdapter BuildAdapterWithLibraryPath()
     {
-        var root        = FindRepoRoot();
-        var configDir   = Path.Combine(root, "config");
-        var loader      = new ConfigurationDirectoryLoader(configDir);
+        var root = FindRepoRoot();
+        var configDir = Path.Combine(root, "config");
+        var loader = new ConfigurationDirectoryLoader(configDir);
 
         var providerCfgPath = Path.Combine(configDir, "providers", "wikidata_reconciliation.json");
         var providerCfgJson = File.ReadAllText(providerCfgPath);
-        var providerCfg     = JsonSerializer.Deserialize<ReconciliationProviderConfig>(providerCfgJson, s_jsonOptions)
+        var providerCfg = JsonSerializer.Deserialize<ReconciliationProviderConfig>(providerCfgJson, s_jsonOptions)
                               ?? throw new InvalidOperationException("Failed to deserialize wikidata_reconciliation.json");
         providerCfg.ThrottleMs = 100;
 
-        var factory         = BuildHttpFactory("wikidata_reconciliation", "headshot_download", "WikidataReconciliation");
-        var reconcilerHttp  = factory.CreateClient("WikidataReconciliation");
-        var reconciler      = new WikidataReconciler(reconcilerHttp, new WikidataReconcilerOptions
+        var factory = BuildHttpFactory("wikidata_reconciliation", "headshot_download", "WikidataReconciliation");
+        var reconcilerHttp = factory.CreateClient("WikidataReconciliation");
+        var reconciler = new WikidataReconciler(reconcilerHttp, new WikidataReconcilerOptions
         {
-            UserAgent             = "Tuvima Library/Stage2BaselineV2 (mailto:test@tuvima.dev)",
-            MaxLag                = 0,
-            TypeHierarchyDepth    = 3,
+            UserAgent = "Tuvima Library/Stage2BaselineV2 (mailto:test@tuvima.dev)",
+            MaxLag = 0,
+            TypeHierarchyDepth = 3,
             IncludeSitelinkLabels = true,
         });
 
@@ -324,8 +324,8 @@ public sealed class Stage2BaselineCapture : IDisposable
             NullLogger<ReconciliationAdapter>.Instance,
             new StubFuzzyMatchingService(),
             responseCache: null,
-            configLoader:  loader,
-            reconciler:    reconciler);
+            configLoader: loader,
+            reconciler: reconciler);
     }
 
     public void Dispose() { /* HttpClient owned by IHttpClientFactory */ }
@@ -359,9 +359,9 @@ public sealed class Stage2BaselineCapture : IDisposable
 
     private static ReconciliationAdapter BuildAdapter()
     {
-        var root   = FindRepoRoot();
-        var path   = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
-        var json   = File.ReadAllText(path);
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
+        var json = File.ReadAllText(path);
         var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOptions)
                      ?? throw new InvalidOperationException("Failed to deserialize wikidata_reconciliation.json");
 
@@ -375,7 +375,7 @@ public sealed class Stage2BaselineCapture : IDisposable
         var reconciler = new WikidataReconciler(reconcilerHttp, new WikidataReconcilerOptions
         {
             UserAgent = "Tuvima Library/Stage2Baseline (mailto:test@tuvima.dev)",
-            MaxLag    = 0,
+            MaxLag = 0,
             TypeHierarchyDepth = 3,
             IncludeSitelinkLabels = true,
         });
@@ -394,7 +394,10 @@ public sealed class Stage2BaselineCapture : IDisposable
         while (dir != null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
         throw new InvalidOperationException("Could not find repository root (.git directory)");

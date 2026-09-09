@@ -135,7 +135,9 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
                 && group.Any(row => string.Equals(row.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)))
             .ToList();
         if (crossFormatGroups.Count == 0)
+        {
             return 0;
+        }
 
         var bookAuthorScopeIds = crossFormatGroups
             .SelectMany(group => group)
@@ -171,7 +173,9 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
                 .Select(authorGroup => authorGroup.First())
                 .ToList();
             if (sourceAuthors.Count == 0)
+            {
                 continue;
+            }
 
             foreach (var audiobook in group
                          .Where(row => string.Equals(row.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase))
@@ -204,7 +208,9 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
         }
 
         if (desiredByAudiobookScope.Count == 0)
+        {
             return 0;
+        }
 
         var targetIds = desiredByAudiobookScope.Keys.ToList();
         var currentRows = conn.Query<CanonicalAuthorRow>(
@@ -228,7 +234,9 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
                 pair.Value))
             .ToList();
         if (changes.Count == 0)
+        {
             return 0;
+        }
 
         await _db.ExecuteWriteAsync((writeConnection, transaction, innerCt) =>
         {
@@ -275,7 +283,9 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
         IReadOnlyList<CanonicalAuthorRow> desired)
     {
         if (current.Count != desired.Count)
+        {
             return false;
+        }
 
         return current
             .OrderBy(row => row.Ordinal)
@@ -292,7 +302,9 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
         foreach (var entityId in new[] { row.RootWorkId, row.WorkId, row.AssetId }.Distinct())
         {
             if (authorsByEntity.TryGetValue(entityId, out var authors) && authors.Count > 0)
+            {
                 return authors;
+            }
         }
 
         return [];
@@ -322,7 +334,9 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
                 new { source = sourceWorkId },
                 tx) > 0;
             if (!sourceExists)
+            {
                 return 0;
+            }
 
             var now = DateTimeOffset.UtcNow.ToString("O");
             var args = new

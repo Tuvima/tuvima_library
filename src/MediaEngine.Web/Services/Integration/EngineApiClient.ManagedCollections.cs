@@ -13,7 +13,9 @@ public sealed partial class EngineApiClient
     private static string AppendCollectionProfileQuery(string url, Guid? profileId)
     {
         if (!profileId.HasValue)
+        {
             return url;
+        }
 
         var separator = url.Contains('?', StringComparison.Ordinal) ? "&" : "?";
         return $"{url}{separator}profileId={profileId.Value:D}";
@@ -31,13 +33,24 @@ public sealed partial class EngineApiClient
             foreach (var collection in collections)
             {
                 if (collection.CoverArtworkUrl is not null)
+                {
                     collection.CoverArtworkUrl = AbsoluteUrl(collection.CoverArtworkUrl);
+                }
+
                 if (collection.BackgroundArtworkUrl is not null)
+                {
                     collection.BackgroundArtworkUrl = AbsoluteUrl(collection.BackgroundArtworkUrl);
+                }
+
                 if (collection.BannerArtworkUrl is not null)
+                {
                     collection.BannerArtworkUrl = AbsoluteUrl(collection.BannerArtworkUrl);
+                }
+
                 if (collection.LogoArtworkUrl is not null)
+                {
                     collection.LogoArtworkUrl = AbsoluteUrl(collection.LogoArtworkUrl);
+                }
             }
 
             return collections;
@@ -87,7 +100,9 @@ public sealed partial class EngineApiClient
             var contract = await _http.GetFromJsonAsync<CollectionManagementCatalogDto>(url, ct);
             var collection = contract is null ? null : CollectionManagementCatalogViewModel.FromContract(contract);
             if (collection is not null)
+            {
                 NormalizeManagedCollectionArtwork(collection);
+            }
 
             return collection;
         }
@@ -103,19 +118,31 @@ public sealed partial class EngineApiClient
     private void NormalizeManagedCollectionArtwork(CollectionManagementCatalogViewModel collection)
     {
         if (collection.CoverArtworkUrl is not null)
+        {
             collection.CoverArtworkUrl = AbsoluteUrl(collection.CoverArtworkUrl);
+        }
+
         if (collection.BackgroundArtworkUrl is not null)
+        {
             collection.BackgroundArtworkUrl = AbsoluteUrl(collection.BackgroundArtworkUrl);
+        }
+
         if (collection.LogoArtworkUrl is not null)
+        {
             collection.LogoArtworkUrl = AbsoluteUrl(collection.LogoArtworkUrl);
+        }
 
         if (collection.Person?.HeadshotUrl is not null)
+        {
             collection.Person.HeadshotUrl = AbsoluteUrl(collection.Person.HeadshotUrl);
+        }
 
         foreach (var artworkItem in collection.ArtworkItems)
         {
             if (artworkItem.CoverUrl is not null)
+            {
                 artworkItem.CoverUrl = AbsoluteUrl(artworkItem.CoverUrl);
+            }
         }
     }
 }

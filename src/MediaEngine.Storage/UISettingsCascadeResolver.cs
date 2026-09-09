@@ -1,6 +1,6 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Storage;
 
@@ -41,7 +41,9 @@ public sealed class UISettingsCascadeResolver
         // 3. Load profile preferences (nullable — omitted means "use cascade defaults")
         UIProfileSettings? profile = null;
         if (!string.IsNullOrWhiteSpace(profileId))
+        {
             profile = _configLoader.LoadConfig<UIProfileSettings>("ui/profiles", profileId);
+        }
 
         // 4. Cascade merge
         return CascadeMerge(global, device, profile, deviceClass);
@@ -58,15 +60,15 @@ public sealed class UISettingsCascadeResolver
         // Start with global defaults
         var result = new ResolvedUISettings
         {
-            DeviceClass     = deviceClass,
-            DarkMode        = global.DarkMode,
-            AccentColor     = global.AccentColor,
-            ContentPadding  = global.ContentPadding,
+            DeviceClass = deviceClass,
+            DarkMode = global.DarkMode,
+            AccentColor = global.AccentColor,
+            ContentPadding = global.ContentPadding,
             ContentMaxWidth = global.ContentMaxWidth,
-            BorderRadius    = global.BorderRadius,
-            Features        = CloneFeatures(global.Features),
-            Shell           = CloneShell(global.Shell),
-            Pages           = ClonePages(global.Pages),
+            BorderRadius = global.BorderRadius,
+            Features = CloneFeatures(global.Features),
+            Shell = CloneShell(global.Shell),
+            Pages = ClonePages(global.Pages),
         };
 
         // Apply device overrides
@@ -75,24 +77,46 @@ public sealed class UISettingsCascadeResolver
             result.Constraints = device.Constraints ?? new UIDeviceConstraints();
 
             if (device.DarkMode.HasValue)
+            {
                 result.DarkMode = device.DarkMode.Value;
+            }
+
             if (device.ContentPadding is not null)
+            {
                 result.ContentPadding = device.ContentPadding;
+            }
+
             if (device.ContentMaxWidth is not null)
+            {
                 result.ContentMaxWidth = device.ContentMaxWidth;
+            }
+
             if (device.BorderRadius.HasValue)
+            {
                 result.BorderRadius = device.BorderRadius.Value;
+            }
+
             if (device.Features is not null)
+            {
                 MergeFeatures(result.Features, device.Features);
+            }
+
             if (device.Shell is not null)
+            {
                 MergeShell(result.Shell, device.Shell);
+            }
+
             if (device.Pages is not null)
+            {
                 MergePages(result.Pages, device.Pages);
+            }
         }
 
         // Apply constraint: force dark mode
         if (result.Constraints.ForceDarkMode)
+        {
             result.DarkMode = true;
+        }
 
         // Apply constraint: disable features
         foreach (var disabled in result.Constraints.FeaturesDisabled)
@@ -104,11 +128,19 @@ public sealed class UISettingsCascadeResolver
         if (profile is not null)
         {
             if (profile.DarkMode.HasValue && !result.Constraints.ForceDarkMode)
+            {
                 result.DarkMode = profile.DarkMode.Value;
+            }
+
             if (profile.AccentColor is not null)
+            {
                 result.AccentColor = profile.AccentColor;
+            }
+
             if (profile.BorderRadius.HasValue)
+            {
                 result.BorderRadius = profile.BorderRadius.Value;
+            }
         }
 
         return result;
@@ -118,21 +150,21 @@ public sealed class UISettingsCascadeResolver
 
     private static UIFeatureFlags CloneFeatures(UIFeatureFlags source) => new()
     {
-        CommandPalette    = source.CommandPalette,
-        SearchButton      = source.SearchButton,
-        ThemeToggle       = source.ThemeToggle,
-        AvatarMenu        = source.AvatarMenu,
-        ServerSettings    = source.ServerSettings,
+        CommandPalette = source.CommandPalette,
+        SearchButton = source.SearchButton,
+        ThemeToggle = source.ThemeToggle,
+        AvatarMenu = source.AvatarMenu,
+        ServerSettings = source.ServerSettings,
         PendingFilesAlert = source.PendingFilesAlert,
-        ViewToggle        = source.ViewToggle,
-        ProfileSection    = source.ProfileSection,
-        ColorPicker       = source.ColorPicker,
+        ViewToggle = source.ViewToggle,
+        ProfileSection = source.ProfileSection,
+        ColorPicker = source.ColorPicker,
     };
 
     private static UIShellSettings CloneShell(UIShellSettings source) => new()
     {
-        AppBarStyle     = source.AppBarStyle,
-        LogoVariant     = source.LogoVariant,
+        AppBarStyle = source.AppBarStyle,
+        LogoVariant = source.LogoVariant,
         IntentDockItems = [.. source.IntentDockItems],
         IntentDockStyle = source.IntentDockStyle,
     };
@@ -141,25 +173,25 @@ public sealed class UISettingsCascadeResolver
     {
         Home = new UIHomePageSettings
         {
-            CollectionHeroEnabled      = source.Home.CollectionHeroEnabled,
-            CollectionHeroLayout       = source.Home.CollectionHeroLayout,
+            CollectionHeroEnabled = source.Home.CollectionHeroEnabled,
+            CollectionHeroLayout = source.Home.CollectionHeroLayout,
             ProgressCardsLayout = source.Home.ProgressCardsLayout,
-            BentoColumns        = source.Home.BentoColumns,
-            BentoTileStyle      = source.Home.BentoTileStyle,
+            BentoColumns = source.Home.BentoColumns,
+            BentoTileStyle = source.Home.BentoTileStyle,
             PendingFilesDisplay = source.Home.PendingFilesDisplay,
         },
         Preferences = new UIPreferencesPageSettings
         {
-            PageEnabled      = source.Preferences.PageEnabled,
-            TabBarLayout     = source.Preferences.TabBarLayout,
+            PageEnabled = source.Preferences.PageEnabled,
+            TabBarLayout = source.Preferences.TabBarLayout,
             GeneralTabLayout = source.Preferences.GeneralTabLayout,
             ColorSwatchCount = source.Preferences.ColorSwatchCount,
             PlaybackTabEnabled = source.Preferences.PlaybackTabEnabled,
         },
         ServerSettings = new UIServerSettingsPageSettings
         {
-            PageEnabled      = source.ServerSettings.PageEnabled,
-            TabBarLayout     = source.ServerSettings.TabBarLayout,
+            PageEnabled = source.ServerSettings.PageEnabled,
+            TabBarLayout = source.ServerSettings.TabBarLayout,
             TabContentLayout = source.ServerSettings.TabContentLayout,
         },
     };
@@ -170,21 +202,21 @@ public sealed class UISettingsCascadeResolver
     {
         // Device features override global: we apply all values from the device
         // feature block since it represents the device's explicit defaults.
-        target.CommandPalette    = source.CommandPalette;
-        target.SearchButton      = source.SearchButton;
-        target.ThemeToggle       = source.ThemeToggle;
-        target.AvatarMenu        = source.AvatarMenu;
-        target.ServerSettings    = source.ServerSettings;
+        target.CommandPalette = source.CommandPalette;
+        target.SearchButton = source.SearchButton;
+        target.ThemeToggle = source.ThemeToggle;
+        target.AvatarMenu = source.AvatarMenu;
+        target.ServerSettings = source.ServerSettings;
         target.PendingFilesAlert = source.PendingFilesAlert;
-        target.ViewToggle        = source.ViewToggle;
-        target.ProfileSection    = source.ProfileSection;
-        target.ColorPicker       = source.ColorPicker;
+        target.ViewToggle = source.ViewToggle;
+        target.ProfileSection = source.ProfileSection;
+        target.ColorPicker = source.ColorPicker;
     }
 
     private static void MergeShell(UIShellSettings target, UIShellSettings source)
     {
-        target.AppBarStyle     = source.AppBarStyle;
-        target.LogoVariant     = source.LogoVariant;
+        target.AppBarStyle = source.AppBarStyle;
+        target.LogoVariant = source.LogoVariant;
         target.IntentDockItems = [.. source.IntentDockItems];
         target.IntentDockStyle = source.IntentDockStyle;
     }
@@ -192,23 +224,23 @@ public sealed class UISettingsCascadeResolver
     private static void MergePages(UIPageSettings target, UIPageSettings source)
     {
         // Home
-        target.Home.CollectionHeroEnabled      = source.Home.CollectionHeroEnabled;
-        target.Home.CollectionHeroLayout       = source.Home.CollectionHeroLayout;
+        target.Home.CollectionHeroEnabled = source.Home.CollectionHeroEnabled;
+        target.Home.CollectionHeroLayout = source.Home.CollectionHeroLayout;
         target.Home.ProgressCardsLayout = source.Home.ProgressCardsLayout;
-        target.Home.BentoColumns        = source.Home.BentoColumns;
-        target.Home.BentoTileStyle      = source.Home.BentoTileStyle;
+        target.Home.BentoColumns = source.Home.BentoColumns;
+        target.Home.BentoTileStyle = source.Home.BentoTileStyle;
         target.Home.PendingFilesDisplay = source.Home.PendingFilesDisplay;
 
         // Preferences
-        target.Preferences.PageEnabled      = source.Preferences.PageEnabled;
-        target.Preferences.TabBarLayout     = source.Preferences.TabBarLayout;
+        target.Preferences.PageEnabled = source.Preferences.PageEnabled;
+        target.Preferences.TabBarLayout = source.Preferences.TabBarLayout;
         target.Preferences.GeneralTabLayout = source.Preferences.GeneralTabLayout;
         target.Preferences.ColorSwatchCount = source.Preferences.ColorSwatchCount;
         target.Preferences.PlaybackTabEnabled = source.Preferences.PlaybackTabEnabled;
 
         // Server Settings
-        target.ServerSettings.PageEnabled      = source.ServerSettings.PageEnabled;
-        target.ServerSettings.TabBarLayout     = source.ServerSettings.TabBarLayout;
+        target.ServerSettings.PageEnabled = source.ServerSettings.PageEnabled;
+        target.ServerSettings.TabBarLayout = source.ServerSettings.TabBarLayout;
         target.ServerSettings.TabContentLayout = source.ServerSettings.TabContentLayout;
     }
 
@@ -220,16 +252,16 @@ public sealed class UISettingsCascadeResolver
     {
         switch (name.ToLowerInvariant())
         {
-            case "command_palette":     flags.CommandPalette    = value; break;
-            case "search_button":       flags.SearchButton      = value; break;
-            case "theme_toggle":        flags.ThemeToggle       = value; break;
-            case "avatar_menu":         flags.AvatarMenu        = value; break;
-            case "server_settings":     flags.ServerSettings    = value; break;
+            case "command_palette": flags.CommandPalette = value; break;
+            case "search_button": flags.SearchButton = value; break;
+            case "theme_toggle": flags.ThemeToggle = value; break;
+            case "avatar_menu": flags.AvatarMenu = value; break;
+            case "server_settings": flags.ServerSettings = value; break;
             case "pending_files_alert": flags.PendingFilesAlert = value; break;
-            case "view_toggle":         flags.ViewToggle        = value; break;
-            case "profile_section":     flags.ProfileSection    = value; break;
-            case "color_picker":        flags.ColorPicker       = value; break;
-            // Unknown feature names silently ignored for forward compatibility
+            case "view_toggle": flags.ViewToggle = value; break;
+            case "profile_section": flags.ProfileSection = value; break;
+            case "color_picker": flags.ColorPicker = value; break;
+                // Unknown feature names silently ignored for forward compatibility
         }
     }
 }

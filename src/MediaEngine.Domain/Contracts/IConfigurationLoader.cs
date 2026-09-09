@@ -1,5 +1,5 @@
-using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Domain.Contracts;
 

@@ -47,7 +47,9 @@ public static class MediaMimeTypes
     public static string? InferImageExtension(string? contentTypeOrUrl)
     {
         if (string.IsNullOrWhiteSpace(contentTypeOrUrl))
+        {
             return null;
+        }
 
         var trimmed = contentTypeOrUrl.Trim();
 
@@ -85,7 +87,9 @@ public static class MediaMimeTypes
     {
         var trimmed = fileNameOrExtension.Trim();
         if (trimmed.Length == 0)
+        {
             return string.Empty;
+        }
 
         var looksLikeBareExtension = trimmed.StartsWith('.')
             && !trimmed.Contains('/')

@@ -17,14 +17,18 @@ public sealed class StreamingServiceLogoResolver
     internal static string NormalizeAlias(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         Span<char> buffer = stackalloc char[value.Length];
         var index = 0;
         foreach (var character in value)
         {
             if (char.IsLetterOrDigit(character))
+            {
                 buffer[index++] = char.ToLowerInvariant(character);
+            }
         }
 
         return new string(buffer[..index]);
@@ -75,7 +79,9 @@ public sealed class StreamingServiceLogoResolver
         {
             var key = NormalizeAlias(alias);
             if (key.Length > 0)
+            {
                 map[key] = path;
+            }
         }
     }
 }

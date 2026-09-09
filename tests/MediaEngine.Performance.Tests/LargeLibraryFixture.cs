@@ -137,6 +137,8 @@ public sealed class LargeLibraryFixture : IDisposable
         Database.Dispose();
         SqliteConnection.ClearAllPools();
         if (File.Exists(_path))
+        {
             File.Delete(_path);
+        }
     }
 }

@@ -133,11 +133,15 @@ public sealed class ImageCacheRepository : IImageCacheRepository
     private static string? NormalizeSourceUrl(string? sourceUrl)
     {
         if (string.IsNullOrWhiteSpace(sourceUrl))
+        {
             return null;
+        }
 
         var trimmed = sourceUrl.Trim();
         if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+        {
             return trimmed;
+        }
 
         var builder = new UriBuilder(uri)
         {

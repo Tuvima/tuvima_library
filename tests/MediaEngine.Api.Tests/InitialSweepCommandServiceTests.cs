@@ -38,7 +38,9 @@ public sealed class InitialSweepCommandServiceTests
     {
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
         while (!predicate())
+        {
             await Task.Delay(10, timeout.Token);
+        }
     }
 
     private sealed class ControllableSweep : IInitialSweepService

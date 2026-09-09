@@ -28,17 +28,17 @@ public static class PersonReferenceExtractor
         var performerRole = splitMusicCredit ? "Performer" : ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();
-        AddPersonRefsFromLists(refs, "Author",       byKey, MetadataFieldConstants.Author,   "author_qid");
-        AddPersonRefsFromLists(refs, "Narrator",     byKey, MetadataFieldConstants.Narrator, "narrator_qid");
-        AddPersonRefsFromLists(refs, performerRole,  byKey, "performer",                     "performer_qid");
-        AddPersonRefsFromLists(refs, performerRole,  byKey, MetadataFieldConstants.Artist,   "artist_qid", splitMusicCredit);
-        AddPersonRefsFromLists(refs, performerRole,  byKey, "album_artist",                  "album_artist_qid", splitMusicCredit);
-        AddPersonRefsFromLists(refs, "Director",     byKey, "director",                      "director_qid");
-        AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter",                  "screenwriter_qid");
-        AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",                      "composer_qid");
-        AddPersonRefsFromLists(refs, "Producer",     byKey, "producer",                      "producer_qid");
-        AddPersonRefsFromLists(refs, "Actor",        byKey, "cast_member",                   "cast_member_qid");
-        AddPersonRefsFromLists(refs, "Actor",        byKey, MetadataFieldConstants.GuestStar, "guest_star_qid");
+        AddPersonRefsFromLists(refs, "Author", byKey, MetadataFieldConstants.Author, "author_qid");
+        AddPersonRefsFromLists(refs, "Narrator", byKey, MetadataFieldConstants.Narrator, "narrator_qid");
+        AddPersonRefsFromLists(refs, performerRole, byKey, "performer", "performer_qid");
+        AddPersonRefsFromLists(refs, performerRole, byKey, MetadataFieldConstants.Artist, "artist_qid", splitMusicCredit);
+        AddPersonRefsFromLists(refs, performerRole, byKey, "album_artist", "album_artist_qid", splitMusicCredit);
+        AddPersonRefsFromLists(refs, "Director", byKey, "director", "director_qid");
+        AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
+        AddPersonRefsFromLists(refs, "Composer", byKey, "composer", "composer_qid");
+        AddPersonRefsFromLists(refs, "Producer", byKey, "producer", "producer_qid");
+        AddPersonRefsFromLists(refs, "Actor", byKey, "cast_member", "cast_member_qid");
+        AddPersonRefsFromLists(refs, "Actor", byKey, MetadataFieldConstants.GuestStar, "guest_star_qid");
 
         // Mark author refs as collective pseudonyms when the adapter flagged it.
         if (byKey.TryGetValue("author_is_collective_pseudonym", out var pseudoFlags)
@@ -47,7 +47,9 @@ public static class PersonReferenceExtractor
             for (int i = 0; i < refs.Count; i++)
             {
                 if (string.Equals(refs[i].Role, "Author", StringComparison.OrdinalIgnoreCase))
+                {
                     refs[i] = refs[i] with { IsCollectivePseudonym = true };
+                }
             }
         }
 
@@ -72,17 +74,17 @@ public static class PersonReferenceExtractor
         var performerRole = splitMusicCredit ? "Performer" : ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();
-        AddPersonRefsFromLists(refs, "Author",       byKey, MetadataFieldConstants.Author,   "author_qid");
-        AddPersonRefsFromLists(refs, "Narrator",     byKey, MetadataFieldConstants.Narrator, "narrator_qid");
-        AddPersonRefsFromLists(refs, performerRole,  byKey, "performer",                     "performer_qid");
-        AddPersonRefsFromLists(refs, performerRole,  byKey, MetadataFieldConstants.Artist,   "artist_qid", splitMusicCredit);
-        AddPersonRefsFromLists(refs, performerRole,  byKey, "album_artist",                  "album_artist_qid", splitMusicCredit);
-        AddPersonRefsFromLists(refs, "Director",     byKey, "director",                      "director_qid");
-        AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter",                  "screenwriter_qid");
-        AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",                      "composer_qid");
-        AddPersonRefsFromLists(refs, "Producer",     byKey, "producer",                      "producer_qid");
-        AddPersonRefsFromLists(refs, "Actor",        byKey, "cast_member",                   "cast_member_qid");
-        AddPersonRefsFromLists(refs, "Actor",        byKey, MetadataFieldConstants.GuestStar, "guest_star_qid");
+        AddPersonRefsFromLists(refs, "Author", byKey, MetadataFieldConstants.Author, "author_qid");
+        AddPersonRefsFromLists(refs, "Narrator", byKey, MetadataFieldConstants.Narrator, "narrator_qid");
+        AddPersonRefsFromLists(refs, performerRole, byKey, "performer", "performer_qid");
+        AddPersonRefsFromLists(refs, performerRole, byKey, MetadataFieldConstants.Artist, "artist_qid", splitMusicCredit);
+        AddPersonRefsFromLists(refs, performerRole, byKey, "album_artist", "album_artist_qid", splitMusicCredit);
+        AddPersonRefsFromLists(refs, "Director", byKey, "director", "director_qid");
+        AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter", "screenwriter_qid");
+        AddPersonRefsFromLists(refs, "Composer", byKey, "composer", "composer_qid");
+        AddPersonRefsFromLists(refs, "Producer", byKey, "producer", "producer_qid");
+        AddPersonRefsFromLists(refs, "Actor", byKey, "cast_member", "cast_member_qid");
+        AddPersonRefsFromLists(refs, "Actor", byKey, MetadataFieldConstants.GuestStar, "guest_star_qid");
 
         return refs
             .Where(r => string.IsNullOrEmpty(r.WikidataQid) && !string.IsNullOrWhiteSpace(r.Name))
@@ -113,17 +115,17 @@ public static class PersonReferenceExtractor
         var performerRole = splitMusicCredit ? "Performer" : ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();
-        AddPersonRefsFromArrays(refs, "Author",       arrays, MetadataFieldConstants.Author,   "author_qid");
-        AddPersonRefsFromArrays(refs, "Narrator",     arrays, MetadataFieldConstants.Narrator, "narrator_qid");
-        AddPersonRefsFromArrays(refs, performerRole,  arrays, "performer",                     "performer_qid");
-        AddPersonRefsFromArrays(refs, performerRole,  arrays, MetadataFieldConstants.Artist,   "artist_qid", splitMusicCredit);
-        AddPersonRefsFromArrays(refs, performerRole,  arrays, "album_artist",                  "album_artist_qid", splitMusicCredit);
-        AddPersonRefsFromArrays(refs, "Director",     arrays, "director",                      "director_qid");
-        AddPersonRefsFromArrays(refs, "Screenwriter", arrays, "screenwriter",                  "screenwriter_qid");
-        AddPersonRefsFromArrays(refs, "Composer",     arrays, "composer",                      "composer_qid");
-        AddPersonRefsFromArrays(refs, "Producer",     arrays, "producer",                      "producer_qid");
-        AddPersonRefsFromArrays(refs, "Actor",        arrays, "cast_member",                   "cast_member_qid");
-        AddPersonRefsFromArrays(refs, "Actor",        arrays, MetadataFieldConstants.GuestStar, "guest_star_qid");
+        AddPersonRefsFromArrays(refs, "Author", arrays, MetadataFieldConstants.Author, "author_qid");
+        AddPersonRefsFromArrays(refs, "Narrator", arrays, MetadataFieldConstants.Narrator, "narrator_qid");
+        AddPersonRefsFromArrays(refs, performerRole, arrays, "performer", "performer_qid");
+        AddPersonRefsFromArrays(refs, performerRole, arrays, MetadataFieldConstants.Artist, "artist_qid", splitMusicCredit);
+        AddPersonRefsFromArrays(refs, performerRole, arrays, "album_artist", "album_artist_qid", splitMusicCredit);
+        AddPersonRefsFromArrays(refs, "Director", arrays, "director", "director_qid");
+        AddPersonRefsFromArrays(refs, "Screenwriter", arrays, "screenwriter", "screenwriter_qid");
+        AddPersonRefsFromArrays(refs, "Composer", arrays, "composer", "composer_qid");
+        AddPersonRefsFromArrays(refs, "Producer", arrays, "producer", "producer_qid");
+        AddPersonRefsFromArrays(refs, "Actor", arrays, "cast_member", "cast_member_qid");
+        AddPersonRefsFromArrays(refs, "Actor", arrays, MetadataFieldConstants.GuestStar, "guest_star_qid");
 
         return CollapseEquivalentRoles(refs
             .GroupBy(r => $"{r.Role}::{r.WikidataQid ?? r.Name}", StringComparer.OrdinalIgnoreCase)
@@ -135,9 +137,9 @@ public static class PersonReferenceExtractor
 
     private static string ResolvePerformerRole(MediaType mediaType) => mediaType switch
     {
-        MediaType.Music      => "Performer",
+        MediaType.Music => "Performer",
         MediaType.Audiobooks => "Narrator",
-        _                    => "Actor",
+        _ => "Actor",
     };
 
     private static Dictionary<string, List<string>> AccumulateByKey(IReadOnlyList<ProviderClaim> claims)
@@ -164,7 +166,9 @@ public static class PersonReferenceExtractor
         bool splitMusicCredit = false)
     {
         if (!byKey.TryGetValue(nameKey, out var storedNames))
+        {
             return;
+        }
 
         var names = ExpandJoinedPersonValues(storedNames, splitMusicCredit);
         byKey.TryGetValue(qidKey, out var storedQids);
@@ -186,12 +190,16 @@ public static class PersonReferenceExtractor
                     qidLabel = segment[(colonIdx + 2)..].Trim();
                 }
                 else if (!string.IsNullOrWhiteSpace(segment))
+                {
                     qid = segment.Trim();
+                }
             }
 
             var displayName = StringHelpers.FirstNonBlank(qidLabel, name, qid)?.Trim();
             if (string.IsNullOrWhiteSpace(displayName))
+            {
                 continue;
+            }
 
             refs.Add(new PersonReference(role, displayName, string.IsNullOrEmpty(qid) ? null : qid));
         }
@@ -202,7 +210,9 @@ public static class PersonReferenceExtractor
         bool splitMusicCredit = false)
     {
         if (values is null || values.Count == 0)
+        {
             return [];
+        }
 
         return values
             .SelectMany(value => SplitPersonValue(value, splitMusicCredit))
@@ -215,7 +225,9 @@ public static class PersonReferenceExtractor
             ';',
             StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
         if (!splitMusicCredit)
+        {
             return semicolonParts;
+        }
 
         var result = new List<string>();
         foreach (var part in semicolonParts)
@@ -253,7 +265,9 @@ public static class PersonReferenceExtractor
         bool splitMusicCredit = false)
     {
         if (!arrays.TryGetValue(nameKey, out var names) || names.Count == 0)
+        {
             return;
+        }
 
         arrays.TryGetValue(qidKey, out var qidEntries);
         if (splitMusicCredit && qidEntries is null)
@@ -278,7 +292,9 @@ public static class PersonReferenceExtractor
             string? qidLabel = null;
 
             if (!string.IsNullOrWhiteSpace(nameEntry?.ValueQid))
+            {
                 qid = nameEntry.ValueQid.Trim();
+            }
 
             if (qidEntries is not null && i < qidEntries.Count)
             {
@@ -300,7 +316,9 @@ public static class PersonReferenceExtractor
 
             var displayName = StringHelpers.FirstNonBlank(qidLabel, name, qid)?.Trim();
             if (string.IsNullOrWhiteSpace(displayName))
+            {
                 continue;
+            }
 
             refs.Add(new PersonReference(role, displayName, string.IsNullOrEmpty(qid) ? null : qid));
         }
@@ -316,7 +334,9 @@ public static class PersonReferenceExtractor
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         if (narratorQids.Count == 0)
+        {
             return result;
+        }
 
         return result
             .Where(r => !(string.Equals(r.Role, "Actor", StringComparison.OrdinalIgnoreCase)

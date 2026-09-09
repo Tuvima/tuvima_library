@@ -37,7 +37,9 @@ public sealed class CollectionSearchReadService : ICollectionSearchReadService
         {
             matchedWorkIds = await _searchIndex.SearchAsync(trimmed, 80, ct).ConfigureAwait(false);
             if (matchedWorkIds.Count == 0)
+            {
                 return [];
+            }
         }
 
         var searchPredicate = matchedWorkIds is not null

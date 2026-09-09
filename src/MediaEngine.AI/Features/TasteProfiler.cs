@@ -58,13 +58,24 @@ public sealed class TasteProfiler : ITasteProfiler
         {
             var weight = Math.Max(0.10, Math.Clamp(signal.ProgressPct, 0, 100) / 100.0);
             foreach (var genre in signal.Genres.Where(value => !string.IsNullOrWhiteSpace(value)))
+            {
                 Increment(genreWeights, genre.Trim().ToLowerInvariant(), weight);
+            }
+
             foreach (var mood in signal.Moods.Where(value => !string.IsNullOrWhiteSpace(value)))
+            {
                 Increment(moodWeights, mood.Trim().ToLowerInvariant(), weight);
+            }
+
             if (signal.ReleaseYear is > 0)
+            {
                 Increment(eraWeights, $"{(signal.ReleaseYear.Value / 10) * 10}s", weight);
+            }
+
             if (!string.IsNullOrWhiteSpace(signal.MediaType))
+            {
                 Increment(typeWeights, signal.MediaType.Trim(), weight);
+            }
         }
 
         var genreDistribution = ToDistribution(genreWeights);
@@ -158,7 +169,9 @@ public sealed class TasteProfiler : ITasteProfiler
     private static IReadOnlyDictionary<string, double> ToDistribution(Dictionary<string, double> weights)
     {
         if (weights.Count == 0)
+        {
             return new Dictionary<string, double>();
+        }
 
         var total = weights.Values.Sum();
         return weights.ToDictionary(

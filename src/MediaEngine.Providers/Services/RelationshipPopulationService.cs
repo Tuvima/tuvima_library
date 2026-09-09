@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -64,54 +64,54 @@ internal static class RelationshipClaimMap
         new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
         {
             // Character → Character relationships
-            ["father_qid"]             = (RelationshipType.Father, FictionalEntityType.Character),
-            ["mother_qid"]             = (RelationshipType.Mother, FictionalEntityType.Character),
-            ["spouse_qid"]             = (RelationshipType.Spouse, FictionalEntityType.Character),
-            ["sibling_qid"]            = (RelationshipType.Sibling, FictionalEntityType.Character),
-            ["child_qid"]              = (RelationshipType.Child, FictionalEntityType.Character),
-            ["opponent_qid"]           = (RelationshipType.Opponent, FictionalEntityType.Character),
-            ["student_of_qid"]         = (RelationshipType.StudentOf, FictionalEntityType.Character),
+            ["father_qid"] = (RelationshipType.Father, FictionalEntityType.Character),
+            ["mother_qid"] = (RelationshipType.Mother, FictionalEntityType.Character),
+            ["spouse_qid"] = (RelationshipType.Spouse, FictionalEntityType.Character),
+            ["sibling_qid"] = (RelationshipType.Sibling, FictionalEntityType.Character),
+            ["child_qid"] = (RelationshipType.Child, FictionalEntityType.Character),
+            ["opponent_qid"] = (RelationshipType.Opponent, FictionalEntityType.Character),
+            ["student_of_qid"] = (RelationshipType.StudentOf, FictionalEntityType.Character),
 
             // Character → Character (romantic)
-            ["partner_qid"]            = (RelationshipType.Partner, FictionalEntityType.Character),
+            ["partner_qid"] = (RelationshipType.Partner, FictionalEntityType.Character),
 
             // Character → Organization
-            ["member_of_qid"]          = (RelationshipType.MemberOf, FictionalEntityType.Organization),
+            ["member_of_qid"] = (RelationshipType.MemberOf, FictionalEntityType.Organization),
 
             // Character → Organization (allegiance)
-            ["allegiance_qid"]         = (RelationshipType.Allegiance, FictionalEntityType.Organization),
+            ["allegiance_qid"] = (RelationshipType.Allegiance, FictionalEntityType.Organization),
 
             // Character → Location
-            ["residence_qid"]          = (RelationshipType.Residence, FictionalEntityType.Location),
+            ["residence_qid"] = (RelationshipType.Residence, FictionalEntityType.Location),
 
             // Character → Organization/Location (education)
-            ["educated_at_qid"]        = (RelationshipType.EducatedAt, FictionalEntityType.Organization),
+            ["educated_at_qid"] = (RelationshipType.EducatedAt, FictionalEntityType.Organization),
 
             // Character/Location/Org → Person (creator)
-            ["creator_qid"]            = (RelationshipType.Creator, FictionalEntityType.Character),
+            ["creator_qid"] = (RelationshipType.Creator, FictionalEntityType.Character),
 
             // Location → Location
-            ["located_in_qid"]         = (RelationshipType.LocatedIn, FictionalEntityType.Location),
-            ["part_of_qid"]            = (RelationshipType.PartOf, FictionalEntityType.Location),
+            ["located_in_qid"] = (RelationshipType.LocatedIn, FictionalEntityType.Location),
+            ["part_of_qid"] = (RelationshipType.PartOf, FictionalEntityType.Location),
 
             // Organization → Character (head)
-            ["head_of_qid"]            = (RelationshipType.HeadOf, FictionalEntityType.Character),
+            ["head_of_qid"] = (RelationshipType.HeadOf, FictionalEntityType.Character),
 
             // Organization → Organization
             ["parent_organization_qid"] = (RelationshipType.ParentOrganization, FictionalEntityType.Organization),
-            ["has_parts_qid"]           = (RelationshipType.HasParts, FictionalEntityType.Organization),
+            ["has_parts_qid"] = (RelationshipType.HasParts, FictionalEntityType.Organization),
 
             // Character/Location/Org → Entity (position)
-            ["position_held_qid"]      = (RelationshipType.PositionHeld, FictionalEntityType.Character),
+            ["position_held_qid"] = (RelationshipType.PositionHeld, FictionalEntityType.Character),
 
             // Character/Org → Event (conflict)
-            ["conflict_qid"]           = (RelationshipType.Conflict, FictionalEntityType.Event),
+            ["conflict_qid"] = (RelationshipType.Conflict, FictionalEntityType.Event),
 
             // Character → Character (social web)
             ["significant_person_qid"] = (RelationshipType.SignificantPerson, FictionalEntityType.Character),
 
             // Character → Organization (affiliation)
-            ["affiliation_qid"]        = (RelationshipType.Affiliation, FictionalEntityType.Organization),
+            ["affiliation_qid"] = (RelationshipType.Affiliation, FictionalEntityType.Organization),
         };
 }
 
@@ -136,11 +136,11 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
         ArgumentNullException.ThrowIfNull(harvestQueue);
         ArgumentNullException.ThrowIfNull(graphQuery);
         ArgumentNullException.ThrowIfNull(logger);
-        _relRepo         = relRepo;
-        _entityRepo      = entityRepo;
-        _harvestQueue    = harvestQueue;
-        _graphQuery      = graphQuery;
-        _logger          = logger;
+        _relRepo = relRepo;
+        _entityRepo = entityRepo;
+        _harvestQueue = harvestQueue;
+        _graphQuery = graphQuery;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -163,7 +163,9 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
 
             if (!canonicalValues.TryGetValue(claimKey, out var rawQidValue) ||
                 string.IsNullOrWhiteSpace(rawQidValue))
+            {
                 continue;
+            }
 
             var qids = new[] { rawQidValue };
 
@@ -175,7 +177,9 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
                     : rawQid;
 
                 if (string.IsNullOrWhiteSpace(targetQid) || !targetQid.StartsWith('Q'))
+                {
                     continue;
+                }
 
                 try
                 {
@@ -195,14 +199,14 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
                     // Create graph edge (idempotent via UNIQUE constraint).
                     await _relRepo.CreateAsync(new EntityRelationship
                     {
-                        SubjectQid            = entityQid,
+                        SubjectQid = entityQid,
                         RelationshipTypeValue = relType,
-                        ObjectQid             = targetQid,
-                        Confidence            = 0.9,
-                        ContextWorkQid        = contextWorkQid,
-                        DiscoveredAt          = DateTimeOffset.UtcNow,
-                        StartTime             = startTime,
-                        EndTime               = endTime,
+                        ObjectQid = targetQid,
+                        Confidence = 0.9,
+                        ContextWorkQid = contextWorkQid,
+                        DiscoveredAt = DateTimeOffset.UtcNow,
+                        StartTime = startTime,
+                        EndTime = endTime,
                     }, ct).ConfigureAwait(false);
 
                     edgesCreated++;
@@ -249,17 +253,19 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
     {
         var existing = await _entityRepo.FindByQidAsync(qid, ct).ConfigureAwait(false);
         if (existing is not null)
+        {
             return;
+        }
 
         var entity = new FictionalEntity
         {
-            Id                     = Guid.NewGuid(),
-            WikidataQid            = qid,
-            Label                  = qid, // Will be updated when/if enriched
-            EntitySubType          = entitySubType,
-            FictionalUniverseQid   = universeQid,
+            Id = Guid.NewGuid(),
+            WikidataQid = qid,
+            Label = qid, // Will be updated when/if enriched
+            EntitySubType = entitySubType,
+            FictionalUniverseQid = universeQid,
             FictionalUniverseLabel = universeLabel,
-            CreatedAt              = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
         };
         await _entityRepo.CreateAsync(entity, ct).ConfigureAwait(false);
 
@@ -272,24 +278,24 @@ public sealed class RelationshipPopulationService : IRelationshipPopulationServi
         {
             var entityType = entitySubType switch
             {
-                FictionalEntityType.Character    => EntityType.Character,
-                FictionalEntityType.Location     => EntityType.Location,
+                FictionalEntityType.Character => EntityType.Character,
+                FictionalEntityType.Location => EntityType.Location,
                 FictionalEntityType.Organization => EntityType.Organization,
-                FictionalEntityType.Event        => EntityType.Event,
-                _                                => EntityType.Character,
+                FictionalEntityType.Event => EntityType.Event,
+                _ => EntityType.Character,
             };
 
             await _harvestQueue.EnqueueAsync(new HarvestRequest
             {
-                EntityId   = entity.Id,
+                EntityId = entity.Id,
                 EntityType = entityType,
-                MediaType  = MediaType.Unknown,
-                Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                MediaType = MediaType.Unknown,
+                Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                 {
-                    ["wikidata_qid"]    = qid,
-                    ["label"]           = qid,
+                    ["wikidata_qid"] = qid,
+                    ["label"] = qid,
                     ["entity_sub_type"] = entitySubType,
-                    ["universe_qid"]    = universeQid,
+                    ["universe_qid"] = universeQid,
                     ["enrichment_depth"] = (currentDepth + 1).ToString(),
                 },
             }, ct).ConfigureAwait(false);

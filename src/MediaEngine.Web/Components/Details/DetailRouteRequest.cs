@@ -96,7 +96,9 @@ public sealed record DetailRouteRequest
     private static DetailPresentationContext ParseContext(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return DetailPresentationContext.Default;
+        }
 
         var normalized = value
             .Replace("-", string.Empty, StringComparison.Ordinal)

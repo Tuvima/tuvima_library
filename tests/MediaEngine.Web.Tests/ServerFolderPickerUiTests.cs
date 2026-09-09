@@ -30,15 +30,15 @@ public sealed class ServerFolderPickerUiTests
     {
         var libraries = Read("src/MediaEngine.Web/Components/Settings/LibrariesTab.razor");
         var wizard = Read("src/MediaEngine.Web/Components/Settings/AddLibraryWizard.razor");
-        var users = Read("src/MediaEngine.Web/Components/Settings/UsersTab.razor");
+        var view = Read("src/MediaEngine.Web/Components/Settings/ViewLibrarySettings.razor");
 
         Assert.Contains("DialogParameters<ServerFolderPicker>", libraries, StringComparison.Ordinal);
         Assert.Contains("DialogParameters<ServerFolderPicker>", wizard, StringComparison.Ordinal);
         Assert.Contains("ServerFolderSelectionModes.ManagedLibrary", wizard, StringComparison.Ordinal);
         Assert.Contains("ServerFolderSelectionModes.ExistingLibrary", wizard, StringComparison.Ordinal);
-        Assert.Contains("DialogParameters<ServerFolderPicker>", users, StringComparison.Ordinal);
+        Assert.Contains("DialogParameters<ServerFolderPicker>", view, StringComparison.Ordinal);
         Assert.Contains("ServerFolderSelectionModes.PersonalSpaceManaged", Read("src/MediaEngine.Web/Components/Settings/ViewLibrarySettings.razor"), StringComparison.Ordinal);
-        Assert.Contains("ServerFolderSelectionModes.PersonalSpaceExisting", users, StringComparison.Ordinal);
+        Assert.Contains("ServerFolderSelectionModes.PersonalSpaceExisting", view, StringComparison.Ordinal);
     }
 
     [Fact]

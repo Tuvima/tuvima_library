@@ -1,6 +1,6 @@
+using MediaEngine.Ingestion.Models;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
-using MediaEngine.Ingestion.Models;
 
 namespace MediaEngine.Api.Services.HealthChecks;
 
@@ -11,14 +11,18 @@ public sealed class LibraryRootHealthCheck(IOptions<IngestionOptions> options) :
     {
         var root = options.Value.LibraryRoot;
         if (string.IsNullOrWhiteSpace(root))
+        {
             return Task.FromResult(HealthCheckResult.Degraded(
                 "Library Root is not configured.",
                 data: new Dictionary<string, object> { ["category"] = "storage", ["required"] = false }));
+        }
 
         if (!Directory.Exists(root))
+        {
             return Task.FromResult(HealthCheckResult.Unhealthy(
                 $"Library Root does not exist: {root}",
                 data: new Dictionary<string, object> { ["category"] = "storage", ["required"] = true }));
+        }
 
         var probe = Path.Combine(root, $".tuvima-readiness-{Guid.NewGuid():N}.tmp");
         try
@@ -44,7 +48,13 @@ public sealed class LibraryRootHealthCheck(IOptions<IngestionOptions> options) :
         }
         finally
         {
-            try { if (File.Exists(probe)) File.Delete(probe); }
+            try
+            {
+                if (File.Exists(probe))
+                {
+                    File.Delete(probe);
+                }
+            }
             catch (Exception) { }
         }
     }

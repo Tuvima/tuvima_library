@@ -54,7 +54,9 @@ public sealed class StorageMaintenanceHostedService : BackgroundService
                 var maintenance = _configLoader.LoadMaintenance();
                 schedule = maintenance.Schedules.GetValueOrDefault(ScheduleKey, DefaultSchedule);
                 if (string.IsNullOrWhiteSpace(schedule))
+                {
                     schedule = DefaultSchedule;
+                }
             }
             catch (Exception ex)
             {

@@ -1,6 +1,6 @@
 using System.Text.Json;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Progress;

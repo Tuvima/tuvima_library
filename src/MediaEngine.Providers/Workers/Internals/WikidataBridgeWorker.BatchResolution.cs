@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -10,7 +11,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
 
@@ -39,7 +39,9 @@ public sealed partial class WikidataBridgeWorker
             ct: ct);
 
         if (jobs.Count == 0)
+        {
             return 0;
+        }
 
         _logger.LogInformation("Wikidata: leased {JobCount} job(s) for bridge resolution", jobs.Count);
 
@@ -131,7 +133,9 @@ public sealed partial class WikidataBridgeWorker
             foreach (var job in jobs)
             {
                 if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType))
+                {
                     mediaType = MediaType.Unknown;
+                }
 
                 var lineage = lineagesByEntity.GetValueOrDefault(job.EntityId);
                 var bridgeIds = CollectScopedBridgeIdsForResolution(
@@ -152,7 +156,7 @@ public sealed partial class WikidataBridgeWorker
                 var resolutionScope = ResolveBridgeResolutionScope(mediaType);
                 bridgeIds = OrderBridgeIdsForResolution(mediaType, resolutionScope, bridgeIds);
 
-                var bridgeDict  = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var bridgeDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var bridge in bridgeIds)
@@ -216,7 +220,7 @@ public sealed partial class WikidataBridgeWorker
             {
                 var bridgeCount = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count > 0);
                 var titleOnlyCount = contexts.Count(ctx => ctx.MediaType != MediaType.Music && ctx.BridgeIds.Count == 0 && !string.IsNullOrWhiteSpace(ctx.TitleHint));
-                var musicCount  = contexts.Count(ctx => ctx.MediaType == MediaType.Music);
+                var musicCount = contexts.Count(ctx => ctx.MediaType == MediaType.Music);
                 _logger.LogInformation(
                     "Wikidata: dispatching {TotalJobs} job(s) to ResolveBatchAsync - {MusicCount} music, {BridgeCount} with bridge IDs, {TitleOnlyCount} non-music title-only request(s) expected to be skipped",
                     contexts.Count, musicCount, bridgeCount, titleOnlyCount);
@@ -232,7 +236,9 @@ public sealed partial class WikidataBridgeWorker
             foreach (var ctx in contexts)
             {
                 if (!resolveResults.TryGetValue(ctx.Job.Id.ToString(), out var result) || !result.Found)
+                {
                     continue;
+                }
 
                 await UpdateBridgeOperationStageAsync(ctx.Operation, MediaOperationStage.Analyzing, 60, "Wikidata bridge result received.", ct, new
                 {
@@ -250,10 +256,10 @@ public sealed partial class WikidataBridgeWorker
                 ctx.PrimaryBridgeIdType = result.PrimaryBridgeIdType;
                 ctx.MatchedBy = result.MatchedBy switch
                 {
-                    ResolveStrategy.MusicAlbum         => "music_album",
-                    ResolveStrategy.BridgeId           => "bridge_id",
-                    ResolveStrategy.TextSearch         => "retail_text",
-                    _                                  => null,
+                    ResolveStrategy.MusicAlbum => "music_album",
+                    ResolveStrategy.BridgeId => "bridge_id",
+                    ResolveStrategy.TextSearch => "retail_text",
+                    _ => null,
                 };
 
                 // Persist the resolution method as a canonical value so the
@@ -354,13 +360,13 @@ public sealed partial class WikidataBridgeWorker
                 sharedClaims = await reconAdapter.FetchAsync(
                     new ProviderLookupRequest
                     {
-                        EntityId       = representative.Job.EntityId,
-                        EntityType     = EntityType.MediaAsset,
-                        MediaType      = representative.MediaType,
-                        Title          = representative.TitleHint,
-                        Year           = representative.YearHint,
+                        EntityId = representative.Job.EntityId,
+                        EntityType = EntityType.MediaAsset,
+                        MediaType = representative.MediaType,
+                        Title = representative.TitleHint,
+                        Year = representative.YearHint,
                         PreResolvedQid = representative.ResolvedQid,
-                        FileLanguage   = representative.LanguageHint,
+                        FileLanguage = representative.LanguageHint,
                     }, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -374,16 +380,22 @@ public sealed partial class WikidataBridgeWorker
             // them too, so FinaliseJobAsync skips its own FetchAsync call for all
             // members of the group.
             foreach (var sibling in siblings)
+            {
                 sibling.PreFetchedClaims = sharedClaims;
+            }
 
             if (siblings.Count > 1)
+            {
                 dedupSavings += siblings.Count - 1;
+            }
         }
 
         if (dedupSavings > 0)
+        {
             _logger.LogInformation(
                 "Wikidata: QID dedup saved {Savings} FetchAsync call(s) across {Groups} unique QID group(s)",
                 dedupSavings, qidGroups.Count(g => g.Count() > 1));
+        }
 
         var allCandidates = new List<WikidataBridgeCandidate>();
 
@@ -410,7 +422,9 @@ public sealed partial class WikidataBridgeWorker
 
         // Batch-insert all candidates in one call.
         if (allCandidates.Count > 0)
+        {
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
+        }
 
         if (_batchProgress is not null)
         {

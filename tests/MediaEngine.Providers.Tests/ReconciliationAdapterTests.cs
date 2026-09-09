@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 using Xunit.Abstractions;
 
@@ -34,7 +34,7 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
     public ReconciliationAdapterTests(ITestOutputHelper output)
     {
-        _output  = output;
+        _output = output;
         _adapter = BuildAdapter();
     }
 
@@ -95,7 +95,9 @@ public sealed class ReconciliationAdapterTests : IDisposable
             var candidates = kvp.Value;
             _output.WriteLine($"  [{key}]: {candidates.Count} candidates");
             foreach (var c in candidates.Take(3))
+            {
                 _output.WriteLine($"    {c.Id}  \"{c.Name}\"  score={c.Score:F1}");
+            }
         }
 
         Assert.Equal(3, results.Count);
@@ -183,7 +185,9 @@ public sealed class ReconciliationAdapterTests : IDisposable
 
         _output.WriteLine($"  Parts ({parts.Count}):");
         foreach (var p in parts)
+        {
             _output.WriteLine($"    id={p.Value?.EntityId}  label={p.Value?.RawValue}");
+        }
     }
 
     // ── Data Extension: instance_of (media type filtering) ───────────────────
@@ -232,11 +236,11 @@ public sealed class ReconciliationAdapterTests : IDisposable
     {
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "Dune",
-            Author     = "Frank Herbert",
+            MediaType = MediaType.Books,
+            Title = "Dune",
+            Author = "Frank Herbert",
         };
 
         var claims = await _adapter.FetchAsync(request);
@@ -259,18 +263,20 @@ public sealed class ReconciliationAdapterTests : IDisposable
     {
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "Dune",
-            Author     = "Frank Herbert",
+            MediaType = MediaType.Books,
+            Title = "Dune",
+            Author = "Frank Herbert",
         };
 
         var results = await _adapter.SearchAsync(request, limit: 10);
 
         _output.WriteLine($"SearchAsync: Dune — {results.Count} result(s)");
         foreach (var r in results)
+        {
             _output.WriteLine($"  {r.ProviderItemId}  \"{r.Title}\"  confidence={r.Confidence:F2}  desc={r.Description}");
+        }
 
         Assert.NotEmpty(results);
 
@@ -298,10 +304,10 @@ public sealed class ReconciliationAdapterTests : IDisposable
     /// </summary>
     private static ReconciliationAdapter BuildAdapter()
     {
-        var root     = FindRepoRoot();
-        var path     = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
-        var json     = File.ReadAllText(path);
-        var config   = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOptions)
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
+        var json = File.ReadAllText(path);
+        var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOptions)
                        ?? throw new InvalidOperationException("Failed to deserialize wikidata_reconciliation.json");
 
         // Reduce throttle for tests so the suite runs faster.
@@ -317,7 +323,10 @@ public sealed class ReconciliationAdapterTests : IDisposable
         while (dir != null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
         throw new InvalidOperationException("Could not find repository root (.git directory)");
@@ -345,7 +354,10 @@ public sealed class ReconciliationAdapterTests : IDisposable
     {
         _output.WriteLine($"\n═══ {label} — {candidates.Count} candidate(s) ═══");
         foreach (var c in candidates)
+        {
             _output.WriteLine($"  {c.Id}  \"{c.Name}\"  score={c.Score:F1}  match={c.Match}  desc={c.Description}");
+        }
+
         _output.WriteLine("");
     }
 
@@ -359,10 +371,10 @@ public sealed class ReconciliationAdapterTests : IDisposable
             {
                 foreach (var v in values)
                 {
-                    var str       = v.Value?.Kind == WikidataValueKind.String ? v.Value.RawValue : null;
-                    var id        = v.Value?.EntityId;
+                    var str = v.Value?.Kind == WikidataValueKind.String ? v.Value.RawValue : null;
+                    var id = v.Value?.EntityId;
                     var monoLabel = v.Value?.Kind == WikidataValueKind.MonolingualText ? v.Value.RawValue : null;
-                    var date      = v.Value?.Kind == WikidataValueKind.Time ? v.Value.RawValue : null;
+                    var date = v.Value?.Kind == WikidataValueKind.Time ? v.Value.RawValue : null;
                     _output.WriteLine($"    [{pCode}]  str={str}  id={id}  label={monoLabel}  date={date}");
                 }
             }

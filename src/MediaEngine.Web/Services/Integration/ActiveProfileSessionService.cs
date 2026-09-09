@@ -1,7 +1,7 @@
-using MediaEngine.Web.Models.ViewDTOs;
-using Microsoft.JSInterop;
-using Microsoft.AspNetCore.Components.Authorization;
 using System.Security.Claims;
+using MediaEngine.Web.Models.ViewDTOs;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -58,6 +58,11 @@ public sealed class ActiveProfileSessionService : IDisposable
             }
 
             _profiles = await _api.GetProfilesAsync(ct);
+            if (_dashboardSession?.Authority is { } authority)
+            {
+                var grantedIds = authority.ProfileGrants.Select(grant => grant.ProfileId).ToHashSet();
+                _profiles = _profiles.Where(profile => grantedIds.Contains(profile.Id)).ToList();
+            }
             _profilesLoaded = true;
             _activeProfile = await ResolveActiveProfileAsync(_profiles, ct);
             _activeProfileAccessor.SetProfile(_activeProfile?.Id);
@@ -94,6 +99,10 @@ public sealed class ActiveProfileSessionService : IDisposable
 
         if (_identityClient is not null && _dashboardSession?.SessionToken is not null)
         {
+            if (_dashboardSession.ShouldLockOnLeave)
+            {
+                await _identityClient.ExitAdministratorAsync(ct).ConfigureAwait(false);
+            }
             var switched = await _identityClient.SwitchProfileAsync(
                 new MediaEngine.Contracts.Authentication.SwitchProfileRequest { ProfileId = profileId, Secret = secret }, ct);
             if (switched.Status != DashboardProfileSwitchStatus.Succeeded || switched.Session is null)
@@ -113,7 +122,7 @@ public sealed class ActiveProfileSessionService : IDisposable
                 session.AccountId,
                 session.ActiveProfileId,
                 session.SessionId,
-                session.Role);
+                session.Authority);
         }
 
         _activeProfile = profile;
@@ -157,12 +166,12 @@ public sealed class ActiveProfileSessionService : IDisposable
         if (_authenticationStateProvider is not null)
         {
             var principal = (await _authenticationStateProvider.GetAuthenticationStateAsync()).User;
-            var token = principal.FindFirstValue(DashboardEngineAuthenticationHandler.SessionTokenClaim);
-            var accountId = ParseGuid(principal.FindFirstValue("tuvima:account_id"));
-            var activeId = ParseGuid(principal.FindFirstValue("tuvima:active_profile_id"));
-            var sessionId = ParseGuid(principal.FindFirstValue("tuvima:session_id"));
-            var role = principal.FindFirstValue(ClaimTypes.Role);
-            _dashboardSession?.Set(token, accountId, activeId, sessionId, role);
+            // Loading presentation data must not overwrite live authority or a
+            // profile switch with the retained cookie principal.
+            _dashboardSession?.InitializeFromPrincipal(principal);
+            var activeId = _dashboardSession is null
+                ? ParseGuid(principal.FindFirstValue("tuvima:active_profile_id"))
+                : _dashboardSession.CurrentSnapshot().ActiveProfileId;
 
             if (activeId is { } authenticatedActiveId)
             {
@@ -170,9 +179,7 @@ public sealed class ActiveProfileSessionService : IDisposable
             }
         }
 
-        // The production Dashboard always registers AuthenticationStateProvider. This
-        // fallback exists only for isolated component/service tests without an auth host.
-        return _authenticationStateProvider is null ? profiles.FirstOrDefault() : null;
+        return null;
     }
 
     private static Guid? ParseGuid(string? value) => Guid.TryParse(value, out var parsed) ? parsed : null;

@@ -1,5 +1,6 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Metadata;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 
@@ -25,8 +26,9 @@ public static class CanonEndpoints
             var discrepancies = await canonService.DetectAsync(entityId, ct);
             return Results.Ok(discrepancies.Select(MapDiscrepancy).ToList());
         })
+        .WithName("GetCanonDiscrepancies")
         .Produces<IReadOnlyList<CanonDiscrepancyDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead);
 
         return app;
     }

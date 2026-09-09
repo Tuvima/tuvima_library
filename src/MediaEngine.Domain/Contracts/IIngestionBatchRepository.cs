@@ -80,7 +80,9 @@ public interface IIngestionBatchRepository
         CancellationToken ct = default)
     {
         for (var index = 0; index < amount; index++)
+        {
             await IncrementCounterAsync(id, column, ct).ConfigureAwait(false);
+        }
     }
 
     /// <summary>

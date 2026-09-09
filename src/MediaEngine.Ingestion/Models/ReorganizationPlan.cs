@@ -102,7 +102,9 @@ public sealed record ReorganizationPlan
     public IReadOnlyList<ReorganizationPlanOperation> GetConfirmedOperations()
     {
         if (!CanExecute)
+        {
             throw new InvalidOperationException("Reorganization operations cannot execute before the plan is confirmed.");
+        }
 
         return Operations.Where(static operation => operation.IsExecutable).ToList();
     }
@@ -110,13 +112,19 @@ public sealed record ReorganizationPlan
     public ReorganizationPlan Confirm(string expectedFingerprint, DateTimeOffset confirmedAt)
     {
         if (Status != ReorganizationPlanStatus.Draft)
+        {
             throw new InvalidOperationException("Only a draft reorganization plan can be confirmed.");
+        }
 
         if (!CanConfirm)
+        {
             throw new InvalidOperationException("The reorganization plan contains no executable changes or has unresolved safety issues.");
+        }
 
         if (!string.Equals(Fingerprint, expectedFingerprint, StringComparison.Ordinal))
+        {
             throw new InvalidOperationException("The reorganization plan changed after it was previewed.");
+        }
 
         return this with
         {

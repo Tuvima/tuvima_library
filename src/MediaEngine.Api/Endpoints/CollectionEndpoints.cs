@@ -1,17 +1,19 @@
 using System.Globalization;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
-using MediaEngine.Contracts.Collections;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Collections;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
-using MediaEngine.Contracts.Persons;
+using MediaEngine.Contracts.Authentication;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Contracts.Search;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -21,22 +23,23 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using static MediaEngine.Api.Services.Collections.CollectionResponseFormatting;
-using CollectionDto = MediaEngine.Contracts.Collections.CollectionDto;
-using WorkDto = MediaEngine.Contracts.Collections.WorkDto;
-using ParentCollectionDto = MediaEngine.Contracts.Collections.ParentCollectionDto;
-using RelatedCollectionsResponse = MediaEngine.Contracts.Collections.RelatedCollectionsResponse;
-using SeriesManifestViewDto = MediaEngine.Contracts.Collections.SeriesManifestViewDto;
 using CollectionCreateRequest = MediaEngine.Contracts.Collections.CollectionCreateRequest;
-using CollectionUpdateRequest = MediaEngine.Contracts.Collections.CollectionUpdateRequest;
-using CollectionPreviewRequest = MediaEngine.Contracts.Collections.CollectionPreviewRequest;
-using CollectionPreviewResponse = MediaEngine.Contracts.Collections.CollectionPreviewResponse;
+using CollectionDto = MediaEngine.Contracts.Collections.CollectionDto;
 using CollectionItemAddRequest = MediaEngine.Contracts.Collections.CollectionItemAddRequest;
 using CollectionItemReorderRequest = MediaEngine.Contracts.Collections.CollectionItemReorderRequest;
+using CollectionPreviewRequest = MediaEngine.Contracts.Collections.CollectionPreviewRequest;
+using CollectionPreviewResponse = MediaEngine.Contracts.Collections.CollectionPreviewResponse;
+using CollectionUpdateRequest = MediaEngine.Contracts.Collections.CollectionUpdateRequest;
 using EnabledRequest = MediaEngine.Contracts.Collections.CollectionEnabledRequest;
 using FeaturedRequest = MediaEngine.Contracts.Collections.CollectionFeaturedRequest;
+using ParentCollectionDto = MediaEngine.Contracts.Collections.ParentCollectionDto;
 using PlacementRequest = MediaEngine.Contracts.Collections.CollectionPlacementRequest;
+using RelatedCollectionsResponse = MediaEngine.Contracts.Collections.RelatedCollectionsResponse;
+using SeriesManifestViewDto = MediaEngine.Contracts.Collections.SeriesManifestViewDto;
+using WorkDto = MediaEngine.Contracts.Collections.WorkDto;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -63,40 +66,58 @@ public static class CollectionEndpoints
         .WithSummary("Returns a Wikidata-backed ordered series manifest with owned and missing item states.")
         .Produces<SeriesManifestViewDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+            .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "collectionId");
 
         group.MapGet("/", async (
             ICollectionBrowseReadService browseReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var collections = await browseReadService.GetAllAsync(ct);
-            return Results.Ok(collections);
+            var visibleProjection = await display.LoadWorksAsync(ct);
+            var visibleWorkIds = visibleProjection.Select(work => work.WorkId).ToHashSet();
+            return Results.Ok(collections
+                .Select(collection => FilterCollection(collection, visibleWorkIds))
+                .Where(collection => collection.Works.Count > 0)
+                .ToList());
         })
         .WithName("GetAllCollections")
         .WithSummary("List all media collections with their works and canonical metadata values.")
         .Produces<List<CollectionDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         group.MapGet("/search", async (
             string? q,
             ICollectionSearchReadService searchReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var results = await searchReadService.SearchAsync(q, ct);
-            return Results.Ok(results);
+            var visibleProjection = await display.LoadWorksAsync(ct);
+            var visibleWorkIds = visibleProjection.Select(work => work.WorkId).ToHashSet();
+            return Results.Ok(results.Where(result => visibleWorkIds.Contains(result.WorkId)).ToList());
         })
         .WithName("SearchCollections")
         .WithSummary("Full-text search across all works. Returns up to 20 matching results.")
         .Produces<List<SearchResultDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
 
         // GET /collections/{id}/related?limit= — cascading related collections: series → author → genre → explore.
         // GET /collections/parents — list all Parent Collections for top-level franchise navigation.
         // IMPORTANT: registered before /{id:guid} routes to avoid route conflicts.
-        group.MapGet("/parents", async (ICollectionRepository collectionRepo, CancellationToken ct) =>
+        group.MapGet("/parents", async (
+            ICollectionRepository collectionRepo,
+            IDisplayProjectionReadService display,
+            CancellationToken ct) =>
         {
-            var allCollections = await collectionRepo.GetAllAsync(ct);
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
+            var allCollections = (await collectionRepo.GetAllAsync(ct))
+                .Where(collection => collection.Works.Any(work => visibleWorkIds.Contains(work.Id)))
+                .ToList();
 
             var parentIds = allCollections
                 .Where(h => h.ParentCollectionId.HasValue)
@@ -112,6 +133,7 @@ public static class CollectionEndpoints
                     // Aggregate media types across all works in child collections
                     var mediaTypes = children
                         .SelectMany(c => c.Works)
+                        .Where(work => visibleWorkIds.Contains(work.Id))
                         .Select(w => w.MediaType.ToString())
                         .Where(t => !string.IsNullOrWhiteSpace(t))
                         .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -130,7 +152,7 @@ public static class CollectionEndpoints
                         CreatedAt = h.CreatedAt,
                         ChildCollectionCount = children.Count,
                         MediaTypes = string.Join(", ", mediaTypes),
-                        TotalWorks = children.Sum(c => c.Works.Count),
+                        TotalWorks = children.Sum(c => c.Works.Count(work => visibleWorkIds.Contains(work.Id))),
                     };
                 })
                 .OrderBy(h => h.DisplayName)
@@ -141,7 +163,7 @@ public static class CollectionEndpoints
         .WithName("GetParentCollections")
         .WithSummary("Returns all Parent Collections (franchise-level groupings).")
         .Produces<List<ParentCollectionDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /collections/{id}/children — returns child Collections of a given parent.
         group.MapGet("/{id:guid}/children", async (Guid id, ICollectionRepository collectionRepo, CancellationToken ct) =>
@@ -159,7 +181,8 @@ public static class CollectionEndpoints
         .WithName("GetCollectionChildren")
         .WithSummary("Returns child Collections of the given Parent Collection.")
         .Produces<List<CollectionChildSummary>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+            .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "id");
 
         // GET /collections/{id}/parent — returns the parent Collection of a given Collection (if any).
         group.MapGet("/{id:guid}/parent", async (Guid id, ICollectionRepository collectionRepo, CancellationToken ct) =>
@@ -191,16 +214,23 @@ public static class CollectionEndpoints
         .WithName("GetCollectionParent")
         .WithSummary("Returns the Parent Collection of the given Collection, if any.")
         .Produces<CollectionParentResponse>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+            .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "id");
 
         group.MapGet("/{id:guid}/related", async (
             Guid id,
             int? limit,
             ICollectionRepository collectionRepo,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
-            var allCollections = await collectionRepo.GetAllAsync(ct);
-            var dtos = allCollections.Select(collection => collection.ToContract()).ToList();
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
+            var dtos = (await collectionRepo.GetAllAsync(ct))
+                .Select(collection => FilterCollection(collection.ToContract(), visibleWorkIds))
+                .Where(collection => collection.Works.Count > 0)
+                .ToList();
 
             var target = dtos.FirstOrDefault(h => h.Id == id);
             if (target is null)
@@ -288,7 +318,8 @@ public static class CollectionEndpoints
         .WithName("GetRelatedCollections")
         .WithSummary("Related collections via cascade: series → author → genre → explore.")
         .Produces<RelatedCollectionsResponse>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+            .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "id");
 
         // ── Group Detail ─────────────────────────────────────────────────────────
 
@@ -300,8 +331,9 @@ public static class CollectionEndpoints
             ICanonicalValueArrayRepository canonicalArrayRepo,
             IPersonRepository personRepo,
             IPersonCreditReadService personCreditReadService,
-            AppleRetailClient appleRetailClient,
+            [FromServices] AppleRetailClient appleRetailClient,
             ICollectionBrowseReadService browseReadService,
+            IDisplayProjectionReadService display,
             AlbumTrackManifestService manifestService,
             CancellationToken ct) =>
         {
@@ -311,8 +343,18 @@ public static class CollectionEndpoints
                 return ApiErrors.NotFound($"Collection '{collectionId}' not found.");
             }
 
+            var visibleProjection = await display.LoadWorksAsync(ct);
+            var visibleWorkIds = visibleProjection.Select(work => work.WorkId).ToHashSet();
+            var visibleWorks = collection.Works
+                .Where(work => visibleWorkIds.Contains(work.Id))
+                .ToList();
+            if (visibleWorks.Count == 0)
+            {
+                return ApiErrors.NotFound($"Collection '{collectionId}' not found.");
+            }
+
             // Determine primary media type from the works.
-            var primaryMediaType = collection.Works
+            var primaryMediaType = visibleWorks
                 .GroupBy(w => w.MediaType.ToString())
                 .OrderByDescending(g => g.Count())
                 .FirstOrDefault()?.Key;
@@ -326,9 +368,9 @@ public static class CollectionEndpoints
             // values (author, cover, genre, network, year) live on this row.
             Guid? rootParentWorkId = null;
             IReadOnlyList<CanonicalValue> parentCvs = [];
-            if (collection.Works.Count > 0)
+            if (visibleWorks.Count > 0)
             {
-                var rid = await browseReadService.GetRootWorkIdAsync(collection.Works[0].Id, ct);
+                var rid = await browseReadService.GetRootWorkIdAsync(visibleWorks[0].Id, ct);
                 if (rid.HasValue)
                 {
                     rootParentWorkId = rid.Value;
@@ -340,10 +382,13 @@ public static class CollectionEndpoints
                 parentCvs.FirstOrDefault(c => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
             var rootWorkQid = collection.WikidataQid ?? ParentCv(BridgeIdKeys.WikidataQid);
-            var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(collection.Works.Select(w => w.Id), ct);
+            var primaryAssetIds = visibleProjection
+                .Where(work => visibleWorkIds.Contains(work.WorkId))
+                .GroupBy(work => work.WorkId)
+                .ToDictionary(group => group.Key, group => (Guid?)group.First().AssetId);
 
             // Build per-work DTOs.
-            var workDtos = collection.Works
+            var workDtos = visibleWorks
                 .OrderBy(w => w.Ordinal ?? int.MaxValue)
                 .ThenBy(w => w.Id)
                 .Select(w =>
@@ -577,7 +622,8 @@ public static class CollectionEndpoints
         .WithSummary("Returns collection header metadata and child works sorted by sequence for sub-page rendering. TV works are grouped by season.")
         .Produces<CollectionGroupDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+            .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "collectionId");
 
         // GET /collections/artist-group-detail?collection_ids=id1,id2,... — combined multi-collection detail for artist-level drill-down.
         group.MapGet("/artist-group-detail", async (
@@ -585,6 +631,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             IPersonRepository personRepo,
             ICollectionBrowseReadService browseReadService,
+            IDisplayProjectionReadService display,
             AlbumTrackManifestService manifestService,
             CancellationToken ct) =>
         {
@@ -612,6 +659,9 @@ public static class CollectionEndpoints
             var allYears = new List<string>();
 
             int albumIndex = 0;
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
             var collectionsById = (await collectionRepo.GetCollectionsWithWorksAsync(collectionIds, ct))
                 .ToDictionary(collection => collection.Id);
             foreach (var collectionId in collectionIds)
@@ -620,10 +670,17 @@ public static class CollectionEndpoints
                 {
                     continue;
                 }
+                var visibleWorks = collection.Works
+                    .Where(work => visibleWorkIds.Contains(work.Id))
+                    .ToList();
+                if (visibleWorks.Count == 0)
+                {
+                    continue;
+                }
 
                 // Build owned track DTOs from collection.Works.
-                var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(collection.Works.Select(w => w.Id), ct);
-                var ownedTracks = collection.Works
+                var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(visibleWorks.Select(w => w.Id), ct);
+                var ownedTracks = visibleWorks
                     .OrderBy(w => w.Ordinal ?? int.MaxValue)
                     .ThenBy(w => w.Id)
                     .Select(w =>
@@ -663,20 +720,20 @@ public static class CollectionEndpoints
                 string? albumCover = null;
                 string? albumYear = null;
                 string? childJson = null;
-                if (collection.Works.Count > 0)
+                if (visibleWorks.Count > 0)
                 {
-                    var firstWorkDto = collection.Works[0].ToContract();
+                    var firstWorkDto = visibleWorks[0].ToContract();
                     combinedCreator ??= GetCanonical(firstWorkDto, "artist")
                                        ?? GetCanonical(firstWorkDto, "author");
                     combinedGenre ??= GetCanonical(firstWorkDto, "genre");
                     albumCover = BuildCoverStreamUrl(
-                        collection.Works[0],
-                        primaryAssetIds.GetValueOrDefault(collection.Works[0].Id));
+                        visibleWorks[0],
+                        primaryAssetIds.GetValueOrDefault(visibleWorks[0].Id));
                     albumYear = GetCanonical(firstWorkDto, "release_year") ?? GetCanonical(firstWorkDto, "year");
 
                     // child_entities_json may be on any track in the album (album-level claim attached
                     // to whichever track was being processed when Stage 2 ran). Try each in order.
-                    foreach (var w in collection.Works)
+                    foreach (var w in visibleWorks)
                     {
                         var dto = w.ToContract();
                         childJson = GetCanonical(dto, MetadataFieldConstants.ChildEntitiesJson);
@@ -759,7 +816,7 @@ public static class CollectionEndpoints
         .WithSummary("Returns combined multi-collection detail for artist-level drill-down in the Music tab. Each collection becomes an album 'season'.")
         .Produces<CollectionGroupDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /collections/artist-detail-by-name?artistName=X — Artist drill-down for system-view mode.
         // Queries works directly from canonical_values, grouped by album, returning the same CollectionGroupDetailDto shape.
@@ -767,6 +824,7 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "artistName")] string? artistName,
             ICollectionBrowseReadService browseReadService,
             IPersonRepository personRepo,
+            IDisplayProjectionReadService display,
             AlbumTrackManifestService manifestService,
             CancellationToken ct) =>
         {
@@ -775,7 +833,12 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest("artistName parameter is required");
             }
 
-            var rows = await browseReadService.GetArtistWorksAsync(artistName, ct);
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
+            var rows = (await browseReadService.GetArtistWorksAsync(artistName, ct))
+                .Where(row => visibleWorkIds.Contains(row.WorkId))
+                .ToList();
             var albumMap = new Dictionary<string, List<CollectionGroupWorkDto>>(StringComparer.OrdinalIgnoreCase);
             var albumCovers = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
             var albumYears = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
@@ -907,7 +970,7 @@ public static class CollectionEndpoints
         .WithSummary("Returns artist drill-down detail by artist name, querying directly from canonical values. Used when system-view collections are active and ContentGroup collections are unavailable.")
         .Produces<CollectionGroupDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /collections/system-view-detail?groupField=album&groupValue=The%20Record&mediaType=Music
         // Generic grouped detail endpoint for non-routed system views such as music albums/artists.
@@ -918,8 +981,9 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "mediaType")] string? mediaType,
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "artistName")] string? artistName,
             ICanonicalValueRepository canonicalRepo,
-            AppleRetailClient appleRetailClient,
+            [FromServices] AppleRetailClient appleRetailClient,
             ICollectionBrowseReadService browseReadService,
+            IDisplayProjectionReadService display,
             AlbumTrackManifestService manifestService,
             CancellationToken ct) =>
         {
@@ -946,12 +1010,17 @@ public static class CollectionEndpoints
                 _ => null,
             };
 
-            var rows = await browseReadService.GetSystemViewDetailWorksAsync(
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
+            var rows = (await browseReadService.GetSystemViewDetailWorksAsync(
                 groupField,
                 groupValue,
                 mediaType,
                 artistName,
-                ct);
+                ct))
+                .Where(row => visibleWorkIds.Contains(row.WorkId))
+                .ToList();
             // sectionKey → owned CollectionGroupWorkDtos. Unowned items are merged after
             // the reader loop using child_entities_json from the parent.
             var sectionMap = new Dictionary<string, List<CollectionGroupWorkDto>>(StringComparer.OrdinalIgnoreCase);
@@ -1212,7 +1281,7 @@ public static class CollectionEndpoints
         .WithSummary("Generic system-view drill-down. Returns works grouped by a secondary field for any group field (show_name, series, album, artist).")
         .Produces<CollectionGroupDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // ── Content Groups ───────────────────────────────────────────────────────
 
@@ -1220,18 +1289,25 @@ public static class CollectionEndpoints
         group.MapGet("/content-groups", async (
             ICollectionRepository collectionRepo,
             ICollectionBrowseReadService browseReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var collections = await collectionRepo.GetContentGroupsAsync(ct);
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
             var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(
-                collections.SelectMany(collection => collection.Works).Select(work => work.Id),
+                collections.SelectMany(collection => collection.Works)
+                    .Where(work => visibleWorkIds.Contains(work.Id))
+                    .Select(work => work.Id),
                 ct);
 
             var dtos = collections.Select(h =>
             {
+                var visibleWorks = h.Works.Where(work => visibleWorkIds.Contains(work.Id)).ToList();
                 // Mixed-format groups belong to cross-media Collections rather than
                 // being presented as a lane-local shelf based on a simple majority.
-                var mediaTypeGroups = h.Works
+                var mediaTypeGroups = visibleWorks
                     .GroupBy(w => w.MediaType.ToString())
                     .OrderByDescending(g => g.Count())
                     .ToList();
@@ -1244,7 +1320,7 @@ public static class CollectionEndpoints
                 string? background = null;
                 string? banner = null;
                 string? logo = null;
-                foreach (var w in h.Works)
+                foreach (var w in visibleWorks)
                 {
                     var primaryAssetId = primaryAssetIds.GetValueOrDefault(w.Id);
                     cover = BuildCoverStreamUrl(w, primaryAssetId);
@@ -1257,21 +1333,21 @@ public static class CollectionEndpoints
                 }
 
                 // Creator from first work.
-                var firstDto = h.Works.Count > 0 ? h.Works[0].ToContract() : null;
+                var firstDto = visibleWorks.Count > 0 ? visibleWorks[0].ToContract() : null;
                 string? creator = GetCanonical(firstDto, "author")
                                   ?? GetCanonical(firstDto, "artist");
                 string? releaseDate = NormalizeReleaseDate(
                     GetCanonical(firstDto, "release_date")
                     ?? GetCanonical(firstDto, "date")
                     ?? GetCanonical(firstDto, "year"));
-                var previewItems = h.Works
+                var previewItems = visibleWorks
                     .Select(work =>
                     {
                         var dto = work.ToContract();
                         var primaryAssetId = primaryAssetIds.GetValueOrDefault(work.Id);
                         var coverUrl = BuildCoverStreamUrl(work, primaryAssetId);
                         var backgroundUrl = BuildBackgroundStreamUrl(work, primaryAssetId);
-                    string? bannerUrl = null;
+                        string? bannerUrl = null;
                         var imageUrl = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
                             ? backgroundUrl ?? bannerUrl ?? coverUrl
                             : coverUrl ?? backgroundUrl ?? bannerUrl;
@@ -1323,7 +1399,7 @@ public static class CollectionEndpoints
                         item.Description,
                         item.Facts))
                     .ToList();
-                var contentYears = h.Works
+                var contentYears = visibleWorks
                     .Select(work => ParseDisplayYear(
                         GetCanonical(work.ToContract(), "release_year")
                         ?? GetCanonical(work.ToContract(), "year")))
@@ -1337,8 +1413,8 @@ public static class CollectionEndpoints
                     DisplayName = h.DisplayName ?? $"Collection {h.Id.ToString("N")[..8]}",
                     WikidataQid = h.WikidataQid,
                     PrimaryMediaType = primaryMediaType,
-                    WorkCount = h.Works.Count,
-                    DistinctTitleCount = CountDistinctWorkTitles(h.Works),
+                    WorkCount = visibleWorks.Count,
+                    DistinctTitleCount = CountDistinctWorkTitles(visibleWorks),
                     PreviewItems = previewItems,
                     CoverUrl = cover,
                     BackgroundUrl = background,
@@ -1380,6 +1456,7 @@ public static class CollectionEndpoints
                         : null,
                 };
             })
+            .Where(group => group.WorkCount > 0)
             .OrderBy(d => d.DisplayName)
             .ToList();
 
@@ -1388,7 +1465,7 @@ public static class CollectionEndpoints
         .WithName("GetContentGroups")
         .WithSummary("Returns structural collections that contain works (albums, TV series, book series, movie series), grouped by primary media type.")
         .Produces<List<ContentGroupDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /collections/system-views?mediaType=&groupField= — System view collections resolved as content groups.
         // Used by library container views (By Show, By Artist, By Album) that are driven by System collections
@@ -1397,9 +1474,14 @@ public static class CollectionEndpoints
             string? mediaType,
             string? groupField,
             ICollectionBrowseReadService browseReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
-            var result = await browseReadService.GetSystemViewGroupsAsync(mediaType, groupField, ct);
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
+            var result = await browseReadService.GetSystemViewGroupsAsync(
+                mediaType, groupField, ct, visibleWorkIds);
             var normalizedGroups = NormalizeSystemViewGroups(result, mediaType, groupField);
             return Results.Ok(normalizedGroups
                 .OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
@@ -1408,7 +1490,7 @@ public static class CollectionEndpoints
         .WithName("GetSystemViewGroups")
         .WithSummary("Resolves built-in browse views (By Show, By Artist, By Album) as dynamic content groups for the library container views.")
         .Produces<List<ContentGroupDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // ── Managed Collection endpoints (managed collections surface) ──────────────────────────────
 
@@ -1416,32 +1498,38 @@ public static class CollectionEndpoints
         group.MapGet("/managed", async (
             Guid? profileId,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             CollectionCatalogReadService catalogReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            return Results.Ok(await catalogReadService.GetManagedAsync(activeProfile, ct));
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
+            var allowedWorkIds = (await display.LoadWorksAsync(ct)).Select(work => work.WorkId).ToHashSet();
+            return Results.Ok(await catalogReadService.GetManagedAsync(activeProfile, ct, allowedWorkIds));
         })
         .WithName("GetManagedCollections")
         .WithSummary("List authored collections accessible to the active profile.")
         .Produces<List<ManagedCollectionDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /collections/catalog — classified collection catalog for the Collections hub.
         group.MapGet("/catalog", async (
             Guid? profileId,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             CollectionCatalogReadService catalogReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            var catalog = await catalogReadService.GetCatalogAsync(activeProfile, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
+            var allowedWorkIds = (await display.LoadWorksAsync(ct)).Select(work => work.WorkId).ToHashSet();
+            var catalog = await catalogReadService.GetCatalogAsync(activeProfile, ct, allowedWorkIds);
             return Results.Ok(catalog);
         })
         .WithName("GetCollectionCatalog")
         .WithSummary("Returns all collections visible to the active profile with server-side family and lane classification for the Collections hub.")
         .Produces<List<CollectionManagementCatalogDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /collections/managed/counts — type → count for stats bar.
         group.MapPost("/reconcile", async (
@@ -1466,25 +1554,27 @@ public static class CollectionEndpoints
         .WithName("ReconcileCollections")
         .WithSummary("Repairs missing collection shelf assignments for already-ingested media.")
         .Produces<CollectionBackfillResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite);
 
         group.MapGet("/managed/counts", async (
             Guid? profileId,
-            ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
+            CollectionCatalogReadService catalogReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            var counts = (await collectionRepo.GetManagedCollectionsAsync(ct))
-                .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
-                .GroupBy(collection => collection.CollectionType.ToStorageValue())
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
+            var allowedWorkIds = (await display.LoadWorksAsync(ct)).Select(work => work.WorkId).ToHashSet();
+            var counts = (await catalogReadService.GetManagedAsync(activeProfile, ct, allowedWorkIds))
+                .GroupBy(collection => collection.CollectionType)
                 .ToDictionary(grouping => grouping.Key, grouping => grouping.Count());
             return Results.Ok(counts);
         })
         .WithName("GetManagedCollectionCounts")
         .WithSummary("Returns authored collection count grouped by type for the active profile.")
         .Produces<Dictionary<string, int>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /collections/{id}/items?limit=20 — curated item preview.
         group.MapGet("/media-lookup", async (
@@ -1496,11 +1586,13 @@ public static class CollectionEndpoints
             Guid? profileId,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             ICollectionMediaLookupReadService mediaLookupReadService,
             CollectionCatalogReadService catalogReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             HashSet<Guid> existingWorkIds = [];
             if (collectionId.HasValue)
             {
@@ -1522,23 +1614,30 @@ public static class CollectionEndpoints
             }
 
             var page = PagedRequest.From(offset, limit, defaultLimit: 24);
-            var results = await mediaLookupReadService.LookupAsync(q, mediaTypes, existingWorkIds, page.Offset, page.Limit, ct);
+            var allowedWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
+            var results = await mediaLookupReadService.LookupAsync(
+                q, mediaTypes, existingWorkIds, allowedWorkIds, page.Offset, page.Limit, ct);
             return Results.Ok(results);
         })
         .WithName("LookupCollectionMedia")
         .WithSummary("Searches local owned media for curated collection membership.")
         .Produces<List<CollectionMediaLookupDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         group.MapGet("/{id:guid}/summary", async (
             Guid id,
             Guid? profileId,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             CollectionCatalogReadService catalogReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            var summary = await catalogReadService.GetSummaryAsync(id, activeProfile, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
+            var allowedWorkIds = (await display.LoadWorksAsync(ct)).Select(work => work.WorkId).ToHashSet();
+            var summary = await catalogReadService.GetSummaryAsync(id, activeProfile, ct, allowedWorkIds);
             return summary is null
                 ? ApiErrors.NotFound($"Collection '{id}' not found or not visible to the active profile.")
                 : Results.Ok(summary);
@@ -1547,20 +1646,24 @@ public static class CollectionEndpoints
         .WithSummary("Returns the Collections hub summary for one visible collection.")
         .Produces<CollectionManagementCatalogDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+            .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "id");
 
         group.MapGet("/{id:guid}/items", async (
             Guid id,
             int? limit,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CollectionCatalogReadService catalogReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var page = PagedRequest.From(null, limit, defaultLimit: 20);
             var take = page.Limit;
-            var result = await catalogReadService.GetItemsAsync(id, activeProfile, take, ct);
+            var allowedWorkIds = (await display.LoadWorksAsync(ct)).Select(work => work.WorkId).ToHashSet();
+            var result = await catalogReadService.GetItemsAsync(id, activeProfile, take, ct, allowedWorkIds);
             if (!result.Found)
             {
                 return ApiErrors.NotFound($"Collection '{id}' not found.");
@@ -1576,25 +1679,28 @@ public static class CollectionEndpoints
         .WithName("GetCollectionItems")
         .WithSummary("Returns curated items for a collection with resolved work metadata.")
         .Produces<List<CollectionItemDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+            .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "id");
 
         group.MapPost("/{id:guid}/items", async (
             Guid id,
             CollectionItemAddRequest body,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CollectionCatalogReadService catalogReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
                 return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return ApiErrors.Forbidden("The active profile cannot edit this collection.");
             }
@@ -1610,6 +1716,11 @@ public static class CollectionEndpoints
             }
 
             var collectionWorkId = await catalogReadService.ResolveMembershipWorkIdAsync(body.WorkId, ct);
+            var allowedWorkIds = (await display.LoadWorksAsync(ct)).Select(work => work.WorkId).ToHashSet();
+            if (!allowedWorkIds.Contains(collectionWorkId))
+            {
+                return ApiErrors.Forbidden("The requested work is outside the caller's available libraries.");
+            }
             var existingItems = await collectionRepo.GetCollectionItemsAsync(id, 1000, ct);
             var existingDisplayWorkIds = await catalogReadService.GetDisplayWorkIdsAsync(existingItems.Select(item => item.WorkId), ct);
             if (existingDisplayWorkIds.Contains(collectionWorkId))
@@ -1635,24 +1746,26 @@ public static class CollectionEndpoints
         .WithName("AddCollectionItem")
         .WithSummary("Adds a work to a saved/manual collection.")
         .Produces(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         group.MapDelete("/{id:guid}/items/{itemId:guid}", async (
             Guid id,
             Guid itemId,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
                 return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return Results.Forbid();
             }
@@ -1675,24 +1788,26 @@ public static class CollectionEndpoints
         .WithName("RemoveCollectionItem")
         .WithSummary("Removes a work from a saved/manual collection.")
         .Produces(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         group.MapPut("/{id:guid}/items/reorder", async (
             Guid id,
             CollectionItemReorderRequest body,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
                 return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return Results.Forbid();
             }
@@ -1717,7 +1832,8 @@ public static class CollectionEndpoints
         .WithName("ReorderCollectionItems")
         .WithSummary("Reorders saved/manual collection items.")
         .Produces(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         // Collection artwork slots mirror the shared editor: poster, background, and transparent logo.
         group.MapGet("/{id:guid}/artwork/{slot}", async (
@@ -1725,10 +1841,11 @@ public static class CollectionEndpoints
             string slot,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
@@ -1741,7 +1858,9 @@ public static class CollectionEndpoints
             }
 
             if (!TryGetCollectionArtwork(collection, slot, out var artworkPath, out var artworkMimeType))
+            {
                 return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
+            }
 
             if (string.IsNullOrWhiteSpace(artworkPath) || !File.Exists(artworkPath))
             {
@@ -1758,7 +1877,8 @@ public static class CollectionEndpoints
         .WithSummary("Serves one custom collection artwork slot.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+            .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "id");
 
         group.MapPost("/{id:guid}/artwork/{slot}", async (
             Guid id,
@@ -1766,11 +1886,12 @@ public static class CollectionEndpoints
             HttpRequest request,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             TuvimaDataPaths dataPaths,
             Guid? profileId,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
@@ -1782,13 +1903,15 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
             }
 
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return Results.Forbid();
             }
 
             if (!TryGetCollectionArtwork(collection, slot, out var currentPath, out _))
+            {
                 return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
+            }
 
             if (!request.HasFormContentType)
             {
@@ -1818,7 +1941,9 @@ public static class CollectionEndpoints
             var directory = Path.Combine(dataPaths.Root, "collections", id.ToString("D"));
             Directory.CreateDirectory(directory);
             if (slot.Equals("logo", StringComparison.OrdinalIgnoreCase) && mimeType != "image/png")
+            {
                 return ApiErrors.BadRequest("Collection logos must be transparent PNG images.");
+            }
 
             var normalizedSlot = slot.ToLowerInvariant();
             var targetPath = Path.Combine(directory, $"{normalizedSlot}{extension}");
@@ -1843,17 +1968,19 @@ public static class CollectionEndpoints
         .WithSummary("Uploads one custom artwork slot for a managed collection.")
         .Produces<CollectionArtworkUploadResponse>(StatusCodes.Status200OK)
         .DisableAntiforgery()
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         group.MapDelete("/{id:guid}/artwork/{slot}", async (
             Guid id,
             string slot,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
@@ -1865,13 +1992,15 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
             }
 
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return Results.Forbid();
             }
 
             if (!TryGetCollectionArtwork(collection, slot, out var artworkPath, out _))
+            {
                 return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
+            }
 
             if (!string.IsNullOrWhiteSpace(artworkPath) && File.Exists(artworkPath))
             {
@@ -1884,7 +2013,8 @@ public static class CollectionEndpoints
         .WithName("DeleteCollectionArtwork")
         .WithSummary("Clears one custom artwork slot for a managed collection.")
         .Produces(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         // PUT /collections/{id}/enabled — toggle collection visibility.
         group.MapPut("/{id:guid}/enabled", async (
@@ -1892,17 +2022,18 @@ public static class CollectionEndpoints
             EnabledRequest body,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
                 return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return Results.Forbid();
             }
@@ -1913,7 +2044,8 @@ public static class CollectionEndpoints
         .WithName("UpdateCollectionEnabled")
         .WithSummary("Toggle a collection's enabled state.")
         .Produces(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         // PUT /collections/{id}/featured — toggle collection featured state.
         group.MapPut("/{id:guid}/featured", async (
@@ -1921,17 +2053,18 @@ public static class CollectionEndpoints
             FeaturedRequest body,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
                 return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return Results.Forbid();
             }
@@ -1942,7 +2075,8 @@ public static class CollectionEndpoints
         .WithName("UpdateCollectionFeatured")
         .WithSummary("Toggle a collection's featured state.")
         .Produces(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         // ── Parameterized Collection endpoints ─────────────────────────────────────────
 
@@ -1953,6 +2087,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             ICollectionBrowseReadService browseReadService,
             ICollectionMediaLookupReadService mediaLookupReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var collection = await collectionRepo.GetByIdAsync(id, ct);
@@ -1960,6 +2095,10 @@ public static class CollectionEndpoints
             {
                 return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
+
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
 
             // For materialized collections, return works directly
             if (collection.Resolution == CollectionResolution.Materialized)
@@ -1971,7 +2110,9 @@ public static class CollectionEndpoints
                 }
 
                 var take = limit ?? 0;
-                var works = take > 0 ? collectionWithWorks.Works.Take(take).ToList() : collectionWithWorks.Works;
+                var authorizedWorks = collectionWithWorks.Works
+                    .Where(work => visibleWorkIds.Contains(work.Id));
+                var works = take > 0 ? authorizedWorks.Take(take).ToList() : authorizedWorks.ToList();
                 var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(works.Select(w => w.Id), ct);
                 var items = works.Select(w =>
                 {
@@ -2003,7 +2144,9 @@ public static class CollectionEndpoints
                 collection.SortDirection.ToStorageValue(),
                 limit ?? 0,
                 secondarySortField: collection.SecondarySortField,
-                secondarySortDirection: collection.SecondarySortDirection?.ToStorageValue());
+                secondarySortDirection: collection.SecondarySortDirection?.ToStorageValue())
+                .Where(visibleWorkIds.Contains)
+                .ToList();
 
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(resolved);
@@ -2012,12 +2155,13 @@ public static class CollectionEndpoints
         .WithSummary("Evaluate a collection's rules and return matching items.")
         .Produces<List<CollectionResolvedItemDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "id");
 
         // GET /collections/resolve/by-name?name=All%20Songs&limit=200
         // Resolves a System collection by display name and returns matching items.
-        // Unlike /library/items, this path bypasses the libraryItem visibility filter so
-        // items that are still in the pipeline (no QID, no review) are included.
+        // This path includes visible items that are still in the metadata pipeline while
+        // intersecting the result with the caller's current catalogue authority.
         // Used by the library flat views (All Songs) to show music even before the
         // retail/Wikidata pipeline completes.  Fields are read from both the asset-level
         // and the root parent Work-level canonical_values rows so that parent-scoped
@@ -2027,6 +2171,7 @@ public static class CollectionEndpoints
             int? limit,
             ICollectionBrowseReadService browseReadService,
             ICollectionMediaLookupReadService mediaLookupReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(name))
@@ -2048,11 +2193,17 @@ public static class CollectionEndpoints
                 return Results.Ok(new List<CollectionResolvedItemDto>());
             }
 
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
             var entityIds = browseReadService.EvaluateRules(
                 ruleDefinition,
                 collection.SortField,
                 collection.SortDirection.ToStorageValue(),
-                limit ?? 200);
+                0)
+                .Where(visibleWorkIds.Contains)
+                .Take(limit ?? 200)
+                .ToList();
 
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(resolved);
@@ -2062,13 +2213,15 @@ public static class CollectionEndpoints
         .Produces<List<CollectionResolvedItemDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /collections/by-location/{location} — collections placed at a location
         group.MapGet("/by-location/{location}", async (
             string location,
             ICollectionPlacementRepository placementRepo,
             ICollectionRepository collectionRepo,
+            HttpContext httpContext,
+            CatalogueResourceAuthorizationService resourceAuthorization,
             CancellationToken ct) =>
         {
             var placements = await placementRepo.GetByLocationAsync(location, ct);
@@ -2082,6 +2235,15 @@ public static class CollectionEndpoints
             {
                 if (!collectionsById.TryGetValue(p.CollectionId, out var collection)
                     || !collection.IsEnabled)
+                {
+                    continue;
+                }
+                if (await resourceAuthorization.EvaluateEntityAsync(
+                        httpContext,
+                        "Collection",
+                        collection.Id,
+                        ApplicationPermissionIds.LibraryRead,
+                        ct) != CatalogueResourceAccess.Allowed)
                 {
                     continue;
                 }
@@ -2102,7 +2264,7 @@ public static class CollectionEndpoints
         .WithName("GetCollectionsByLocation")
         .WithSummary("Returns all collections placed at a specific UI location, ordered by position.")
         .Produces<List<CollectionLocationPlacementSummary>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // POST /collections/preview — evaluate rules without saving
         group.MapPost("/preview", async (
@@ -2110,6 +2272,7 @@ public static class CollectionEndpoints
             ICollectionBrowseReadService browseReadService,
             CollectionCatalogReadService catalogReadService,
             ICollectionMediaLookupReadService mediaLookupReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var definition = body.RuleDefinition.ToDomain();
@@ -2118,6 +2281,9 @@ public static class CollectionEndpoints
                 return Results.Ok(new CollectionPreviewResponse(0, []));
             }
 
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
             var matchedWorkIds = browseReadService.EvaluateRules(
                 definition,
                 body.SortField,
@@ -2125,7 +2291,9 @@ public static class CollectionEndpoints
                 0,
                 body.Query,
                 body.SecondarySortField,
-                body.SecondarySortDirection);
+                body.SecondarySortDirection)
+                .Where(visibleWorkIds.Contains)
+                .ToList();
             var displayWorkIds = await catalogReadService.GetDisplayWorkIdsAsync(matchedWorkIds, ct);
             var total = displayWorkIds.Count;
             var entityIds = displayWorkIds
@@ -2142,7 +2310,7 @@ public static class CollectionEndpoints
         .WithName("PreviewCollection")
         .WithSummary("Evaluate collection rules and return matching items without saving.")
         .Produces<CollectionPreviewResponse>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite);
 
         // POST /collections — create a new collection
         group.MapPost("/", async (
@@ -2151,7 +2319,9 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             ICollectionPlacementRepository placementRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             CollectionCatalogReadService catalogReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(body.Name))
@@ -2164,17 +2334,16 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest($"Collection type '{body.CollectionType}' is reserved for browse-only system data.");
             }
 
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            if (activeProfile is null)
-            {
-                return ApiErrors.BadRequest("profileId is required to create a collection.");
-            }
-
             var isCuratedCollection = string.Equals(
                 body.CollectionType,
                 CollectionTypeNames.Custom,
                 StringComparison.OrdinalIgnoreCase);
-            if (isCuratedCollection && !CollectionAccessPolicy.CanManageCuratedCollections(activeProfile))
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
+            if (activeProfile is null && !isCuratedCollection)
+            {
+                return ApiErrors.BadRequest("An active profile is required to create a private collection.");
+            }
+            if (isCuratedCollection && !CollectionAccessPolicy.CanManageCuratedCollections(hasCollectionsWrite: true))
             {
                 return Results.Forbid();
             }
@@ -2183,7 +2352,7 @@ public static class CollectionEndpoints
                 ? CollectionAccessPolicy.SharedVisibility
                 : CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
             if (string.Equals(normalizedVisibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase)
-                && !CollectionAccessPolicy.CanManageSharedCollections(activeProfile))
+                && !CollectionAccessPolicy.CanManageSharedCollections(hasCollectionsWrite: true))
             {
                 return Results.Forbid();
             }
@@ -2205,7 +2374,9 @@ public static class CollectionEndpoints
             {
                 var duplicate = await collectionRepo.FindByRuleHashAsync(ruleHash, ct);
                 if (duplicate is not null && duplicate.IsEnabled)
+                {
                     return ApiErrors.Conflict($"These rules already define '{duplicate.DisplayName ?? "an existing collection"}' ({duplicate.Id}).");
+                }
             }
 
             if (resolution == CollectionResolution.Query && body.WorkIds.Count > 0)
@@ -2221,6 +2392,11 @@ public static class CollectionEndpoints
                     resolvedWorkIds.Add(await catalogReadService.ResolveMembershipWorkIdAsync(workId, ct));
                 }
                 resolvedWorkIds = resolvedWorkIds.Distinct().ToList();
+                var allowedWorkIds = (await display.LoadWorksAsync(ct)).Select(work => work.WorkId).ToHashSet();
+                if (resolvedWorkIds.Any(workId => !allowedWorkIds.Contains(workId)))
+                {
+                    return ApiErrors.Forbidden("One or more requested works are outside the caller's available libraries.");
+                }
             }
 
             var collection = new Collection
@@ -2248,7 +2424,7 @@ public static class CollectionEndpoints
                 CollectionMatchMode.All,
                 AggregateStateSerializer.ParseCollectionSortDirection(body.SortDirection),
                 CollectionUniverseStatus.Unknown);
-            CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile.Id);
+            CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile?.Id);
 
             var initialItems = resolvedWorkIds
                 .Select((workId, index) => new CollectionItem
@@ -2287,7 +2463,7 @@ public static class CollectionEndpoints
         .WithName("CreateCollection")
         .WithSummary("Create a new collection with rules and optional placements.")
         .Produces<CollectionCreatedResponse>(StatusCodes.Status201Created)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite);
 
         // PUT /collections/{id} — update collection
         group.MapPut("/{id:guid}", async (
@@ -2295,10 +2471,11 @@ public static class CollectionEndpoints
             CollectionUpdateRequest body,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
@@ -2310,7 +2487,7 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
             }
 
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return ApiErrors.Forbidden("The active profile cannot edit this collection.");
             }
@@ -2371,7 +2548,7 @@ public static class CollectionEndpoints
             {
                 var normalizedVisibility = CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
                 if (string.Equals(normalizedVisibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase)
-                    && !CollectionAccessPolicy.CanManageSharedCollections(activeProfile))
+                    && !CollectionAccessPolicy.CanManageSharedCollections(hasCollectionsWrite: true))
                 {
                     return ApiErrors.Forbidden("The active profile cannot publish shared collections.");
                 }
@@ -2388,7 +2565,10 @@ public static class CollectionEndpoints
                     collection.RuleHash = CollectionRuleEvaluator.ComputeRuleHash(definition);
                     var duplicate = await collectionRepo.FindByRuleHashAsync(collection.RuleHash, ct);
                     if (duplicate is not null && duplicate.Id != collection.Id && duplicate.IsEnabled)
+                    {
                         return ApiErrors.Conflict($"These rules already define '{duplicate.DisplayName ?? "an existing collection"}' ({duplicate.Id}).");
+                    }
+
                     collection.ChangeResolution(CollectionResolution.Query);
                 }
                 else
@@ -2406,17 +2586,19 @@ public static class CollectionEndpoints
         .WithName("UpdateCollection")
         .WithSummary("Update a collection's rules, settings, or metadata.")
         .Produces(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         // DELETE /collections/{id} — soft delete (disable)
         group.MapDelete("/{id:guid}", async (
             Guid id,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
+            HttpContext httpContext,
             Guid? profileId,
             CancellationToken ct) =>
         {
-            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
+            var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, httpContext, ct);
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
@@ -2433,7 +2615,7 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest("System collections cannot be deleted.");
             }
 
-            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
+            if (!CollectionAccessPolicy.CanEdit(collection, activeProfile, hasCollectionsWrite: true))
             {
                 return Results.Forbid();
             }
@@ -2444,7 +2626,8 @@ public static class CollectionEndpoints
         .WithName("DeleteCollection")
         .WithSummary("Soft-delete a collection by disabling it.")
         .Produces(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         // GET /collections/field-values/{field} — distinct values for autocomplete
         group.MapGet("/field-values/{field}", async (
@@ -2461,7 +2644,7 @@ public static class CollectionEndpoints
         .WithName("GetFieldValues")
         .WithSummary("Returns distinct values for a metadata field (used for collection builder autocomplete).")
         .Produces<IReadOnlyList<string>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite);
 
         group.MapGet("/entity-field-values/{field}", async (
             string field,
@@ -2473,7 +2656,9 @@ public static class CollectionEndpoints
             var isGenericEntityField = StructuredDiscoveryFieldCatalog.IsEntityBacked(field);
             if (!isGenericEntityField
                 && field is not ("person_qid" or "wikidata_franchise"))
+            {
                 return ApiErrors.BadRequest("The requested collection field is not entity-backed.");
+            }
 
             var page = PagedRequest.From(null, limit, defaultLimit: 100);
             return Results.Ok(await browseReadService.GetEntityFieldValuesAsync(field, q, page.Limit, ct));
@@ -2481,7 +2666,7 @@ public static class CollectionEndpoints
         .WithName("GetEntityFieldValues")
         .WithSummary("Returns local QID-backed values and labels for the collection rule editor.")
         .Produces<IReadOnlyList<CollectionRuleValueDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite);
 
         // GET /collections/{id}/placements
         group.MapGet("/{id:guid}/placements", async (
@@ -2501,7 +2686,8 @@ public static class CollectionEndpoints
         .WithName("GetCollectionPlacements")
         .WithSummary("Returns placements for a collection.")
         .Produces<IEnumerable<CollectionPlacementSummary>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+            .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "id");
 
         // PUT /collections/{id}/placements — replace all placements
         group.MapPut("/{id:guid}/placements", async (
@@ -2530,7 +2716,8 @@ public static class CollectionEndpoints
         .WithName("UpdateCollectionPlacements")
         .WithSummary("Replace all placements for a collection.")
         .Produces(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.CollectionsWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.CollectionsWrite, "Collection", "id");
 
         return app;
     }
@@ -2550,15 +2737,34 @@ public static class CollectionEndpoints
     private static async Task<Profile?> ResolveActiveProfileAsync(
         Guid? profileId,
         IProfileRepository profileRepo,
+        HttpContext httpContext,
         CancellationToken ct)
     {
-        if (!profileId.HasValue)
+        var authority = await httpContext.RequestServices
+            .GetRequiredService<IRequestAuthorityResolver>()
+            .ResolveAsync(httpContext, ct);
+        if (authority.ActiveProfileId is not { } activeProfileId
+            || (profileId.HasValue && profileId.Value != activeProfileId))
         {
             return null;
         }
 
-        return await profileRepo.GetByIdAsync(profileId.Value, ct);
+        return await profileRepo.GetByIdAsync(activeProfileId, ct);
     }
+
+    private static CollectionDto FilterCollection(
+        CollectionDto collection,
+        IReadOnlySet<Guid> visibleWorkIds) =>
+        new()
+        {
+            Id = collection.Id,
+            UniverseId = collection.UniverseId,
+            DisplayName = collection.DisplayName,
+            ParentCollectionId = collection.ParentCollectionId,
+            UniverseStatus = collection.UniverseStatus,
+            CreatedAt = collection.CreatedAt,
+            Works = collection.Works.Where(work => visibleWorkIds.Contains(work.Id)).ToList(),
+        };
 
     private static bool TryGetCollectionArtwork(Collection collection, string slot, out string? path, out string? mimeType)
     {

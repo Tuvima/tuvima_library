@@ -15,6 +15,8 @@ public sealed class ViewDiscoveryEndpointRouteTests
         Assert.Contains("group.MapGet(\"/people\"", endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("libraryId", endpoints, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("libraryIds", endpoints, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains(".RequireAuthorization(AuthPolicies.Authenticated);", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("RequireAnyRole", endpoints, StringComparison.Ordinal);
         Assert.Contains("app.MapViewDiscoveryEndpoints();", mapper, StringComparison.Ordinal);
     }
 
@@ -24,7 +26,10 @@ public sealed class ViewDiscoveryEndpointRouteTests
         while (directory is not null)
         {
             if (File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            {
                 return directory.FullName;
+            }
+
             directory = directory.Parent;
         }
         throw new DirectoryNotFoundException("Repository root was not found.");

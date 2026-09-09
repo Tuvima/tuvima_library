@@ -2,7 +2,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace MediaEngine.Api.Services.Display;
 
-public sealed class DisplayProjectionReadService : IDisplayProjectionReadService
+public sealed class DisplayProjectionReadService : IRawDisplayProjectionReadService
 {
     private const int HomeProjectionLimit = 1_000;
     private static readonly TimeSpan ProjectionCacheDuration = TimeSpan.FromSeconds(30);
@@ -30,7 +30,9 @@ public sealed class DisplayProjectionReadService : IDisplayProjectionReadService
     {
         const string cacheKey = "display:works:all";
         if (_cache.TryGetValue(cacheKey, out IReadOnlyList<DisplayWorkRow>? cached) && cached is not null)
+        {
             return cached;
+        }
 
         var rows = await _works.LoadAsync(ct);
         _cache.Set(cacheKey, rows, ProjectionCacheDuration);
@@ -41,7 +43,9 @@ public sealed class DisplayProjectionReadService : IDisplayProjectionReadService
     {
         const string cacheKey = "display:works:home";
         if (_cache.TryGetValue(cacheKey, out IReadOnlyList<DisplayWorkRow>? cached) && cached is not null)
+        {
             return cached;
+        }
 
         var rows = await _works.LoadAsync(ct, HomeProjectionLimit);
         _cache.Set(cacheKey, rows, ProjectionCacheDuration);
@@ -52,7 +56,9 @@ public sealed class DisplayProjectionReadService : IDisplayProjectionReadService
     {
         var cacheKey = $"display:journey:{lane ?? "all"}";
         if (_cache.TryGetValue(cacheKey, out IReadOnlyList<DisplayJourneyRow>? cached) && cached is not null)
+        {
             return cached;
+        }
 
         var rows = await _journey.LoadAsync(lane, ct);
         _cache.Set(cacheKey, rows, ProjectionCacheDuration);
@@ -63,7 +69,9 @@ public sealed class DisplayProjectionReadService : IDisplayProjectionReadService
     {
         var cacheKey = $"display:favorites:{profileId?.ToString("N") ?? "shared"}";
         if (_cache.TryGetValue(cacheKey, out IReadOnlySet<Guid>? cached) && cached is not null)
+        {
             return cached;
+        }
 
         var rows = await _favorites.LoadAsync(profileId, ct);
         _cache.Set(cacheKey, rows, ProjectionCacheDuration);
@@ -74,12 +82,19 @@ public sealed class DisplayProjectionReadService : IDisplayProjectionReadService
     {
         var cacheKey = $"display:home-collections:{profileId?.ToString("N") ?? "shared"}";
         if (_cache.TryGetValue(cacheKey, out IReadOnlyList<DisplayHomeCollectionRow>? cached) && cached is not null)
+        {
             return cached;
+        }
 
         var rows = await _homeCollections.LoadAsync(profileId, ct);
         _cache.Set(cacheKey, rows, ProjectionCacheDuration);
         return rows;
     }
+
+    public Task<IReadOnlyList<DisplayHomeCollectionRow>> LoadHomeCollectionsAsync(
+        Guid? profileId,
+        IReadOnlySet<Guid> allowedWorkIds,
+        CancellationToken ct) => _homeCollections.LoadAsync(profileId, ct, allowedWorkIds);
 }
 
 

@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -25,6 +23,8 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
 using static MediaEngine.Api.Services.Details.Internals.DetailViewModelBuilder;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
@@ -36,6 +36,7 @@ internal sealed partial class DetailCompositionOrchestrator
         DetailPresentationContext context,
         bool isAdminView,
         DetailActionAuthorizationContext actionAuthorization,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks,
         CancellationToken ct)
     {
         var person = await _persons.FindByIdAsync(personId, ct);
@@ -56,9 +57,14 @@ internal sealed partial class DetailCompositionOrchestrator
                 {
                     var overrides = JsonSerializer.Deserialize<Dictionary<string, string>>(overridesJson);
                     if (overrides?.TryGetValue("name", out var displayName) == true && !string.IsNullOrWhiteSpace(displayName))
+                    {
                         person.Name = displayName.Trim();
+                    }
+
                     if (overrides?.TryGetValue("biography", out var displayBiography) == true && !string.IsNullOrWhiteSpace(displayBiography))
+                    {
                         person.Biography = displayBiography.Trim();
+                    }
                 }
                 catch (JsonException)
                 {
@@ -69,6 +75,18 @@ internal sealed partial class DetailCompositionOrchestrator
 
         var credits = await _personCredits.GetLibraryCreditsAsync(personId, ct);
         var characterRoles = await _personCredits.GetCharacterRolesAsync(personId, ct);
+        if (authorizedWorks is not null)
+        {
+            var visibleWorkIds = authorizedWorks.Select(work => work.WorkId).ToHashSet();
+            credits = FilterAuthorizedPersonCredits(credits, authorizedWorks);
+            characterRoles = characterRoles
+                .Where(role => role.WorkId.HasValue && visibleWorkIds.Contains(role.WorkId.Value))
+                .ToList();
+            if (credits.Count == 0)
+            {
+                return null;
+            }
+        }
         // A musical group exposes members. Old P527 data may have been written
         // as aliases before group/member semantics were separated, so group
         // pages intentionally ignore alias rows.
@@ -133,11 +151,44 @@ internal sealed partial class DetailCompositionOrchestrator
         };
     }
 
+    private static List<PersonLibraryCreditDto> FilterAuthorizedPersonCredits(
+        IEnumerable<PersonLibraryCreditDto> credits,
+        IReadOnlyList<DisplayWorkRow> authorizedWorks)
+    {
+        var visibleByWork = authorizedWorks
+            .GroupBy(work => work.WorkId)
+            .ToDictionary(group => group.Key, group => group.First());
+
+        return credits
+            .Where(credit => visibleByWork.ContainsKey(credit.WorkId))
+            .Select(credit =>
+            {
+                var visible = visibleByWork[credit.WorkId];
+                return new PersonLibraryCreditDto
+                {
+                    WorkId = credit.WorkId,
+                    CollectionId = credit.CollectionId,
+                    MediaType = credit.MediaType,
+                    Title = credit.Title,
+                    CoverUrl = visible.CoverUrl,
+                    Year = credit.Year,
+                    Role = credit.Role,
+                    AssociationType = credit.AssociationType,
+                    ViaGroupId = credit.ViaGroupId,
+                    ViaGroupName = credit.ViaGroupName,
+                    AssociationIsInferred = credit.AssociationIsInferred,
+                    Characters = credit.Characters,
+                };
+            })
+            .ToList();
+    }
+
     private async Task<DetailPageViewModel?> BuildCharacterAsync(
         Guid characterId,
         DetailPresentationContext context,
         bool isAdminView,
         DetailActionAuthorizationContext actionAuthorization,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks,
         CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
@@ -160,6 +211,26 @@ internal sealed partial class DetailCompositionOrchestrator
         if (row is null)
         {
             return null;
+        }
+
+        if (authorizedWorks is not null)
+        {
+            var visibleWorkQids = authorizedWorks
+                .Select(work => work.IdentityQid)
+                .Where(qid => !string.IsNullOrWhiteSpace(qid))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var hasVisibleAppearance = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+                "SELECT EXISTS(SELECT 1 FROM fictional_entity_work_links WHERE entity_id = @id AND work_qid IN @workQids);",
+                new
+                {
+                    id = characterId,
+                    workQids = visibleWorkQids.Count > 0 ? visibleWorkQids : ["__none__"],
+                },
+                cancellationToken: ct));
+            if (hasVisibleAppearance == 0)
+            {
+                return null;
+            }
         }
 
         var portraits = await conn.QueryAsync<CharacterPortraitRow>(new CommandDefinition(
@@ -218,13 +289,15 @@ internal sealed partial class DetailCompositionOrchestrator
         DetailPresentationContext context,
         bool isAdminView,
         DetailActionAuthorizationContext actionAuthorization,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks,
         CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<CollectionDetailRow>(new CommandDefinition(
+        var rawRow = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
             """
             SELECT id AS Id,
                    display_name AS DisplayName,
+                   collection_type AS CollectionType,
                    wikidata_qid AS WikidataQid,
                    (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key IN ('description', 'overview') LIMIT 1) AS Description,
                    (SELECT value FROM canonical_values WHERE entity_id = collections.id AND key = 'tagline' LIMIT 1) AS Tagline,
@@ -238,18 +311,41 @@ internal sealed partial class DetailCompositionOrchestrator
             WHERE id = @id
             LIMIT 1;
             """,
-            new { id },
+            new { id = GuidSql.ToBlob(id) },
             cancellationToken: ct));
 
-        if (row is null)
+        if (rawRow is null)
         {
             return null;
         }
 
-        var works = await LoadCollectionWorksAsync(id, rootWorkId: null, ct);
+        var row = new CollectionDetailRow(
+            Guid.Parse(StringValue(rawRow.Id) ?? id.ToString("D")),
+            StringValue(rawRow.DisplayName),
+            StringValue(rawRow.CollectionType),
+            StringValue(rawRow.WikidataQid),
+            StringValue(rawRow.Description),
+            StringValue(rawRow.Tagline),
+            StringValue(rawRow.CoverUrl),
+            StringValue(rawRow.BackgroundUrl),
+            StringValue(rawRow.BannerUrl),
+            StringValue(rawRow.LogoUrl),
+            StringValue(rawRow.HeroBrandLabel),
+            StringValue(rawRow.HeroBrandImageUrl));
+
+        var works = await LoadCollectionWorksAsync(
+            id,
+            rootWorkId: null,
+            ct,
+            authorizedAssetIds: authorizedWorks?.Select(work => work.AssetId).Distinct().ToList());
+        works = FilterAuthorizedCollectionWorks(works, authorizedWorks);
+        if (authorizedWorks is not null && works.Count == 0)
+        {
+            return null;
+        }
         var relatedArt = works.Select(w => w.ArtworkUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().Take(10).ToList();
-        var characterGroups = await BuildCollectionCharactersAsync(id, row.WikidataQid, ct);
-        var contributorGroups = await BuildUniverseCastGroupsAsync(row.WikidataQid, ct);
+        var characterGroups = await BuildCollectionCharactersAsync(id, row.WikidataQid, authorizedWorks, ct);
+        var contributorGroups = await BuildUniverseCastGroupsAsync(row.WikidataQid, authorizedWorks, ct);
         var relationships = await BuildUniverseRelationshipGroupsAsync(row.WikidataQid, ct);
         var mediaGroups = BuildCollectionMediaGroups(DetailEntityType.Universe, works, new HashSet<Guid>(), expectedTotal: null);
 

@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -25,6 +23,8 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
 using static MediaEngine.Api.Services.Details.Internals.DetailViewModelBuilder;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
@@ -40,7 +40,8 @@ internal sealed partial class DetailCompositionOrchestrator
         CancellationToken ct,
         Guid? currentWorkId = null,
         Guid? profileId = null,
-        string? selectedContainerId = null)
+        string? selectedContainerId = null,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks = null)
     {
         using var conn = _db.CreateConnection();
         var rawRow = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
@@ -159,10 +160,17 @@ internal sealed partial class DetailCompositionOrchestrator
                     collectionId,
                     rootWorkId,
                     ct,
-                    resolvedCollectionItems.Select(item => item.WorkId).Distinct().ToList(), profileId);
+                    resolvedCollectionItems.Select(item => item.WorkId).Distinct().ToList(),
+                    profileId,
+                    authorizedWorks?.Select(work => work.AssetId).Distinct().ToList());
         if (entityType == DetailEntityType.Collection && resolvedCollectionItems.Count > 0)
         {
             ownedWorks = NormalizeStandardCollectionWorks(ownedWorks, resolvedCollectionItems);
+        }
+        ownedWorks = FilterAuthorizedCollectionWorks(ownedWorks, authorizedWorks);
+        if (authorizedWorks is not null && ownedWorks.Count == 0)
+        {
+            return null;
         }
         if (!hasCollectionRow
             && (entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum
@@ -269,8 +277,10 @@ internal sealed partial class DetailCompositionOrchestrator
         var fullContributorGroups = entityType == DetailEntityType.TvShow
             ? await BuildTvCreditsAsync(rootWorkId ?? collectionId, ct) : contributorGroups;
         if (entityType == DetailEntityType.TvShow)
+        {
             contributorGroups = tvInProgressEpisode is not null
                 ? await BuildTvCreditsAsync(Guid.Parse(tvInProgressEpisode.Id), ct) : fullContributorGroups;
+        }
 
         var musicAlbumCompanion = entityType == DetailEntityType.MusicAlbum
             ? await BuildMusicAlbumCompanionAsync(
@@ -280,7 +290,7 @@ internal sealed partial class DetailCompositionOrchestrator
             : null;
         var characterGroups = IsStructuralContainer(entityType)
             ? []
-            : await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
+            : await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, authorizedWorks, ct);
         var heroProgress = BuildCollectionHeroProgress(entityType, works);
         var manifest = await ResolveCollectionSequenceManifestAsync(
             collectionId,
@@ -333,7 +343,8 @@ internal sealed partial class DetailCompositionOrchestrator
                     : BuildCollectionEditorTarget(collectionId, entityType, rootWorkId)
                 : null,
             Title = collectionTitle,
-            Subtitle = entityType == DetailEntityType.TvShow ? ResolveTvContext(works) switch {
+            Subtitle = entityType == DetailEntityType.TvShow ? ResolveTvContext(works) switch
+            {
                 { Reason: TvEpisodeSelectionReason.AllOwnedCompleted } => "All owned episodes watched",
                 { Reason: TvEpisodeSelectionReason.RemainingOwned } => "Earlier owned episodes remain unwatched",
                 { HasGap: true } => "Next available episode - intervening episodes are not in the library",
@@ -374,6 +385,36 @@ internal sealed partial class DetailCompositionOrchestrator
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
         };
+    }
+
+    private static IReadOnlyList<CollectionWorkSummary> FilterAuthorizedCollectionWorks(
+        IReadOnlyList<CollectionWorkSummary> works,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks)
+    {
+        if (authorizedWorks is null)
+        {
+            return works;
+        }
+
+        var visibleByWork = authorizedWorks
+            .GroupBy(work => work.WorkId)
+            .ToDictionary(group => group.Key, group => group.First());
+        return works
+            .Select(work => Guid.TryParse(work.Id, out var workId)
+                && visibleByWork.TryGetValue(workId, out var visible)
+                    ? work with
+                    {
+                        AssetId = visible.AssetId.ToString("D"),
+                        ArtworkUrl = FirstText(visible.CoverUrl, visible.SquareUrl),
+                        BackgroundUrl = FirstText(visible.BackgroundUrl, visible.BannerUrl),
+                        HasAsset = true,
+                        IsCatalogOnly = false,
+                        Ownership = "Owned",
+                    }
+                    : null)
+            .Where(work => work is not null)
+            .Cast<CollectionWorkSummary>()
+            .ToList();
     }
 
     private async Task<SeriesManifestViewDto?> ResolveCollectionSequenceManifestAsync(

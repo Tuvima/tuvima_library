@@ -87,7 +87,11 @@ public sealed class ComicProcessor : IMediaProcessor
     /// <inheritdoc/>
     public bool CanProcess(string filePath)
     {
-        if (!File.Exists(filePath)) return false;
+        if (!File.Exists(filePath))
+        {
+            return false;
+        }
+
         return DetectContainer(filePath) != ComicContainer.Unknown;
     }
 
@@ -99,14 +103,18 @@ public sealed class ComicProcessor : IMediaProcessor
 
         var container = DetectContainer(filePath);
         if (container == ComicContainer.Unknown)
+        {
             return Task.FromResult(Corrupt(filePath, "No recognised comic archive magic bytes."));
+        }
 
         var claims = new List<ExtractedClaim>();
 
         // Title from filename stem.
         var stem = Path.GetFileNameWithoutExtension(filePath);
         if (!string.IsNullOrWhiteSpace(stem))
+        {
             claims.Add(Claim("title", stem, 0.5));
+        }
 
         // Container label — authoritative.
         claims.Add(Claim("container", container == ComicContainer.Cbz ? "CBZ" : "CBR", 1.0));
@@ -119,7 +127,9 @@ public sealed class ComicProcessor : IMediaProcessor
         {
             int? pageCount = CountPages(filePath, container);
             if (pageCount.HasValue)
+            {
                 claims.Add(Claim("page_count", pageCount.Value.ToString(), 1.0));
+            }
 
             (coverImage, coverImageMimeType) = ExtractFirstPageImage(filePath, container);
 
@@ -145,15 +155,21 @@ public sealed class ComicProcessor : IMediaProcessor
     {
         Span<byte> header = stackalloc byte[6];
         if (!ProcessorHeaderReader.TryRead(filePath, header, out var read) || read < 4)
+        {
             return ComicContainer.Unknown;
+        }
 
         // RAR: 6-byte signature
         if (read >= 6 && header[..6].SequenceEqual(RarMagic))
+        {
             return ComicContainer.Cbr;
+        }
 
         // ZIP: 4-byte signature
         if (header[..4].SequenceEqual(ZipMagic))
+        {
             return IsComicZip(filePath) ? ComicContainer.Cbz : ComicContainer.Unknown;
+        }
 
         return ComicContainer.Unknown;
     }
@@ -176,7 +192,9 @@ public sealed class ComicProcessor : IMediaProcessor
                 using var reader = new System.IO.StreamReader(mimeEntry.Open());
                 if (reader.ReadToEnd().Trim()
                         .Equals(EpubMimeValue, StringComparison.OrdinalIgnoreCase))
+                {
                     return false;
+                }
             }
 
             // Must contain at least one image entry.
@@ -212,7 +230,11 @@ public sealed class ComicProcessor : IMediaProcessor
 
     private static bool IsImageEntry(SharpCompress.Archives.IArchiveEntry entry)
     {
-        if (entry.IsDirectory) return false;
+        if (entry.IsDirectory)
+        {
+            return false;
+        }
+
         var ext = Path.GetExtension(entry.Key ?? string.Empty);
         return ImageExtensions.Contains(ext);
     }
@@ -220,7 +242,11 @@ public sealed class ComicProcessor : IMediaProcessor
     private static bool IsImageEntry(ZipArchiveEntry entry)
     {
         // Skip directory entries (name ends with '/').
-        if (entry.FullName.EndsWith('/')) return false;
+        if (entry.FullName.EndsWith('/'))
+        {
+            return false;
+        }
+
         var ext = Path.GetExtension(entry.Name);
         return ImageExtensions.Contains(ext);
     }
@@ -238,7 +264,9 @@ public sealed class ComicProcessor : IMediaProcessor
                     .FirstOrDefault();
 
                 if (firstZipImage is null)
+                {
                     return (null, null);
+                }
 
                 using var zipStream = firstZipImage.Open();
                 using var zipBuffer = new MemoryStream();
@@ -256,7 +284,9 @@ public sealed class ComicProcessor : IMediaProcessor
                 .FirstOrDefault();
 
             if (firstImage is null)
+            {
                 return (null, null);
+            }
 
             using var stream = firstImage.OpenEntryStream();
             using var buffer = new MemoryStream();
@@ -303,7 +333,10 @@ public sealed class ComicProcessor : IMediaProcessor
                 var zipEntry = zip.Entries
                     .FirstOrDefault(e => !e.FullName.EndsWith('/')
                                          && string.Equals(Path.GetFileName(e.FullName), "ComicInfo.xml", StringComparison.OrdinalIgnoreCase));
-                if (zipEntry is null) return;
+                if (zipEntry is null)
+                {
+                    return;
+                }
 
                 using var zipStream = zipEntry.Open();
                 ParseComicInfoXml(zipStream, claims);
@@ -316,7 +349,10 @@ public sealed class ComicProcessor : IMediaProcessor
                 .FirstOrDefault(e => !e.IsDirectory
                                      && string.Equals(Path.GetFileName(e.Key), "ComicInfo.xml", StringComparison.OrdinalIgnoreCase));
 
-            if (comicInfoEntry is null) return;
+            if (comicInfoEntry is null)
+            {
+                return;
+            }
 
             using var stream = comicInfoEntry.OpenEntryStream();
             ParseComicInfoXml(stream, claims);
@@ -331,20 +367,29 @@ public sealed class ComicProcessor : IMediaProcessor
     {
         var doc = XDocument.Load(stream);
         var root = doc.Root;
-        if (root is null) return;
+        if (root is null)
+        {
+            return;
+        }
 
         var hasIssueIdentity = !string.IsNullOrWhiteSpace(ReadElement(root, "Series"))
             && !string.IsNullOrWhiteSpace(ReadElement(root, "Number"));
 
         AddClaimIfPresent(root, "Title", MetadataFieldConstants.Title, 0.8, claims);
         if (hasIssueIdentity)
+        {
             AddClaimIfPresent(root, "Title", MetadataFieldConstants.IssueTitle, 0.8, claims);
+        }
+
         AddClaimIfPresent(root, "Writer", "author", 0.8, claims);
         AddClaimIfPresent(root, "Penciller", "illustrator", 0.8, claims);
         AddClaimIfPresent(root, "Genre", "genre", 0.7, claims);
         AddClaimIfPresent(root, "Summary", MetadataFieldConstants.Description, 0.7, claims);
         if (hasIssueIdentity)
+        {
             AddClaimIfPresent(root, "Summary", MetadataFieldConstants.IssueDescription, 0.7, claims);
+        }
+
         AddClaimIfPresent(root, "Year", "year", 0.8, claims);
         AddClaimIfPresent(root, "Publisher", "publisher", 0.7, claims);
         AddClaimIfPresent(root, "Series", MetadataFieldConstants.Series, 0.8, claims);
@@ -367,7 +412,9 @@ public sealed class ComicProcessor : IMediaProcessor
     {
         var value = ReadElement(root, elementName);
         if (!string.IsNullOrWhiteSpace(value))
+        {
             claims.Add(Claim(claimKey, value, confidence));
+        }
     }
 
     // -------------------------------------------------------------------------

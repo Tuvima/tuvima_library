@@ -79,8 +79,10 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
     {
         ct.ThrowIfCancellationRequested();
         if (qids.Count == 0)
+        {
             return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<Guid>>>(
                 new Dictionary<string, IReadOnlyList<Guid>>(StringComparer.OrdinalIgnoreCase));
+        }
 
         using var conn = _db.CreateConnection();
         var rows = conn.Query<WorkQidRow>(
@@ -370,7 +372,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
             new { collectionId });
 
         if (hydration is null)
+        {
             return Task.FromResult<SeriesManifestViewDto?>(null);
+        }
 
         var rows = conn.Query<ItemRow>(
             """
@@ -509,7 +513,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
     private static IReadOnlyList<SeriesManifestWarningDto> DeserializeWarnings(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return [];
+        }
 
         try
         {
@@ -524,7 +530,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
     private static IReadOnlyList<string> DeserializeStringArray(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return [];
+        }
 
         try
         {
@@ -539,7 +547,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
     private static ManifestApiMetadata DeserializeApiMetadata(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return new ManifestApiMetadata();
+        }
 
         try
         {
@@ -567,7 +577,9 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         foreach (var name in names)
         {
             if (root.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String)
+            {
                 return value.GetString();
+            }
         }
 
         return null;
@@ -578,13 +590,19 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         foreach (var name in names)
         {
             if (!root.TryGetProperty(name, out var value))
+            {
                 continue;
+            }
 
             if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var parsed))
+            {
                 return parsed;
+            }
 
             if (value.ValueKind == JsonValueKind.String && int.TryParse(value.GetString(), out parsed))
+            {
                 return parsed;
+            }
         }
 
         return null;
@@ -595,13 +613,19 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         foreach (var name in names)
         {
             if (!root.TryGetProperty(name, out var value))
+            {
                 continue;
+            }
 
             if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var parsed))
+            {
                 return parsed;
+            }
 
             if (value.ValueKind == JsonValueKind.String && double.TryParse(value.GetString(), out parsed))
+            {
                 return parsed;
+            }
         }
 
         return null;

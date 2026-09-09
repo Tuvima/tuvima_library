@@ -2,16 +2,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 
@@ -45,24 +45,36 @@ public sealed partial class ReconciliationAdapter
                     {
                         var qid = p31.Value?.EntityId ?? p31.Value?.RawValue;
                         if (!string.IsNullOrWhiteSpace(qid) && qid.StartsWith('Q'))
+                        {
                             instanceOfQids.Add(qid);
+                        }
                     }
                 }
 
                 foreach (var pCode in BridgeResolutionPCodes)
                 {
                     if (!resolvedProps.TryGetValue(pCode, out var pValues) || pValues.Count == 0)
+                    {
                         continue;
+                    }
 
                     var firstVal = pValues[0].Value;
-                    if (firstVal is null) continue;
+                    if (firstVal is null)
+                    {
+                        continue;
+                    }
 
                     var rawVal = firstVal.RawValue ?? firstVal.EntityId;
-                    if (string.IsNullOrWhiteSpace(rawVal)) continue;
+                    if (string.IsNullOrWhiteSpace(rawVal))
+                    {
+                        continue;
+                    }
 
                     var normalized = IdentifierNormalizationService.NormalizeRaw(pCode, rawVal);
                     if (string.IsNullOrWhiteSpace(normalized))
+                    {
                         continue;
+                    }
 
                     // Convert P-code → bridge claim key (e.g. "P212" → "isbn_13") so the
                     // dictionary stores the same keys that bridge_ids.id_type uses.
@@ -72,10 +84,14 @@ public sealed partial class ReconciliationAdapter
                     var claimKey = pCode;
                     if (_config.DataExtension.PropertyLabels.TryGetValue(pCode, out var label)
                         && !string.IsNullOrWhiteSpace(label))
+                    {
                         claimKey = label;
+                    }
 
                     if (!BridgeIdHelper.IsBridgeId(claimKey))
+                    {
                         continue;
+                    }
 
                     collectedBridgeIds[claimKey] = normalized;
                 }
@@ -121,7 +137,9 @@ public sealed partial class ReconciliationAdapter
         claims.Insert(0, new ProviderClaim(BridgeIdKeys.WikidataQid, effectiveWorkQid, 1.0));
 
         if (isEdition && !string.IsNullOrWhiteSpace(editionQid))
+        {
             claims.Add(new ProviderClaim("edition_qid", editionQid, 1.0));
+        }
 
         return (claims, collectedBridgeIds, instanceOfQids);
     }
@@ -155,11 +173,15 @@ public sealed partial class ReconciliationAdapter
     {
         var results = new Dictionary<string, WikidataResolveResult>(StringComparer.Ordinal);
         if (requests is null || requests.Count == 0 || _reconciler is null)
+        {
             return results;
+        }
 
         // Initialise every correlation key to NotFound so callers always get an entry.
         foreach (var r in requests)
+        {
             results[r.CorrelationKey] = WikidataResolveResult.NotFound;
+        }
 
         // Build the library request set + remember which input each library request
         // came from so resolved QIDs can be mapped back to their job context.
@@ -169,10 +191,15 @@ public sealed partial class ReconciliationAdapter
         {
             var libReq = BuildBridgeResolutionRequest(r);
             if (libReq is not null)
+            {
                 libRequests.Add(libReq);
+            }
         }
 
-        if (libRequests.Count == 0) return results;
+        if (libRequests.Count == 0)
+        {
+            return results;
+        }
 
         // ── Pass 1: dispatch built requests to the library ──────────────────
         IReadOnlyDictionary<string, BridgeResolutionResult> libResults;
@@ -244,7 +271,9 @@ public sealed partial class ReconciliationAdapter
         foreach (var (correlationKey, libResult) in libResults)
         {
             if (results.TryGetValue(correlationKey, out var existing) && existing.Found)
+            {
                 continue;
+            }
 
             if (!libResult.Found || string.IsNullOrWhiteSpace(libResult.ResolvedEntityQid))
             {
@@ -256,7 +285,9 @@ public sealed partial class ReconciliationAdapter
 
             WikidataResolveRequest? input = null;
             if (inputByCorrelationKey is not null)
+            {
                 inputByCorrelationKey.TryGetValue(correlationKey, out input);
+            }
 
             var accepted = await SelectAcceptedBridgeCandidateAsync(
                 correlationKey,
@@ -350,19 +381,19 @@ public sealed partial class ReconciliationAdapter
 
             results[correlationKey] = new WikidataResolveResult
             {
-                Found               = true,
-                Qid                 = finalQid,
-                IsEdition           = finalIsEdition,
-                WorkQid             = finalWorkQid,
-                EditionQid          = finalEditionQid,
-                Claims              = claims,
-                CollectedBridgeIds  = collectedBridgeIds,
-                MatchedBy           = MapBridgeResolutionStrategy(libResult.MatchedBy),
+                Found = true,
+                Qid = finalQid,
+                IsEdition = finalIsEdition,
+                WorkQid = finalWorkQid,
+                EditionQid = finalEditionQid,
+                Claims = claims,
+                CollectedBridgeIds = collectedBridgeIds,
+                MatchedBy = MapBridgeResolutionStrategy(libResult.MatchedBy),
                 PrimaryBridgeIdType = selectedCandidate?.MatchedBridgeIdType,
-                BridgeDiagnostics   = libResult.Diagnostics,
+                BridgeDiagnostics = libResult.Diagnostics,
                 RankedBridgeCandidates = libResult.Candidates,
-                BridgeRollup        = bridgeRollup,
-                BridgeSeries        = bridgeSeries,
+                BridgeRollup = bridgeRollup,
+                BridgeSeries = bridgeSeries,
                 BridgeRelationships = bridgeRelationships,
             };
 
@@ -475,7 +506,9 @@ public sealed partial class ReconciliationAdapter
         foreach (var candidate in libResult.Candidates)
         {
             if (string.IsNullOrWhiteSpace(candidate.Qid) || !seen.Add(candidate.Qid))
+            {
                 continue;
+            }
 
             attempts.Add((candidate, candidate.Qid, false));
         }
@@ -498,10 +531,14 @@ public sealed partial class ReconciliationAdapter
             AddDistinctClaim(merged, "series_qid", $"{qid}::{label}", series.Confidence);
 
             if (!string.IsNullOrWhiteSpace(series.Position))
+            {
                 AddDistinctClaim(merged, MetadataFieldConstants.SeriesPosition, series.Position!, series.Confidence);
+            }
 
             if (!string.IsNullOrWhiteSpace(series.SourcePropertyId))
+            {
                 AddDistinctClaim(merged, MetadataFieldConstants.SeriesMembershipSource, series.SourcePropertyId!, 1.0);
+            }
         }
 
         return merged;
@@ -556,7 +593,9 @@ public sealed partial class ReconciliationAdapter
             .ToList();
 
         if (seriesCandidates.Count == 0)
+        {
             return null;
+        }
 
         var normalizedSeriesTitle = NormalizeComicSeriesLookupText(request.SeriesTitle!);
         if (!string.IsNullOrWhiteSpace(normalizedSeriesTitle))
@@ -568,7 +607,9 @@ public sealed partial class ReconciliationAdapter
                     StringComparison.OrdinalIgnoreCase));
 
             if (!string.IsNullOrWhiteSpace(exactMatch.Qid))
+            {
                 return exactMatch.Qid;
+            }
         }
 
         return seriesCandidates.Count == 1 ? seriesCandidates[0].Qid : null;
@@ -577,11 +618,15 @@ public sealed partial class ReconciliationAdapter
     private static (string Qid, string Label)? ParseEntityReferenceClaim(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var parts = value.Split("::", 2, StringSplitOptions.TrimEntries);
         if (parts.Length == 0 || string.IsNullOrWhiteSpace(parts[0]))
+        {
             return null;
+        }
 
         return (parts[0], parts.Length > 1 ? parts[1] : string.Empty);
     }
@@ -589,7 +634,9 @@ public sealed partial class ReconciliationAdapter
     private static string NormalizeComicSeriesLookupText(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         var normalized = Regex.Replace(value, @"[^\p{L}\p{N}]+", " ");
         return normalized.Trim().ToLowerInvariant();
@@ -671,7 +718,11 @@ public sealed partial class ReconciliationAdapter
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (_reconciler is null) return WikidataResolveResult.NotFound;
+        if (_reconciler is null)
+        {
+            return WikidataResolveResult.NotFound;
+        }
+
         return await ResolveAsyncViaLibraryAsync(request, ct).ConfigureAwait(false);
     }
 
@@ -688,7 +739,10 @@ public sealed partial class ReconciliationAdapter
         CancellationToken ct = default)
     {
         if (_reconciler is null || requests is null || requests.Count == 0)
+        {
             return new Dictionary<string, WikidataResolveResult>(StringComparer.Ordinal);
+        }
+
         return await ResolveBatchAsyncViaLibraryAsync(requests, ct).ConfigureAwait(false);
     }
 

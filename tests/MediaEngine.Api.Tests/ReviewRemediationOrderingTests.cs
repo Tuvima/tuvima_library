@@ -34,7 +34,10 @@ public sealed class ReviewRemediationOrderingTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
+
         return File.ReadAllText(Path.Combine(directory!.FullName, relativePath));
     }
 }

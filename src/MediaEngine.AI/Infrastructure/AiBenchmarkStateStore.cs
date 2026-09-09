@@ -30,7 +30,9 @@ public sealed class AiBenchmarkStateStore
         try
         {
             if (!File.Exists(_statePath))
+            {
                 return NewProfile(fingerprint, backend, gpuName);
+            }
 
             var profile = JsonSerializer.Deserialize<HardwareProfile>(File.ReadAllText(_statePath), JsonOptions)
                 ?? NewProfile(fingerprint, backend, gpuName);
@@ -107,7 +109,9 @@ public sealed class AiBenchmarkStateStore
             try
             {
                 if (File.Exists("/etc/machine-id"))
+                {
                     return File.ReadAllText("/etc/machine-id").Trim();
+                }
             }
             catch (IOException)
             {

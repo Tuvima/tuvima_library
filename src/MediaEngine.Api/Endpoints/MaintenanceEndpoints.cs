@@ -2,6 +2,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Contracts.Maintenance;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -37,7 +38,7 @@ public static class MaintenanceEndpoints
         .WithName("GetRetagSweepState")
         .WithSummary("Returns the pending writeback-fields.json diff and current per-media-type hashes.")
         .Produces<RetagSweepStateResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         // ── POST /maintenance/retag-sweep/apply ───────────────────────────
         // Commits the staged diff so the worker starts re-tagging. Idempotent.
@@ -50,7 +51,7 @@ public static class MaintenanceEndpoints
         .WithName("ApplyRetagSweepPending")
         .WithSummary("Commits the staged writeback field diff so the sweep becomes eligible.")
         .Produces<RetagSweepAppliedResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite);
 
         // ── POST /maintenance/retag-sweep/run-now ─────────────────────────
         // Raises PendingApplied (without applying anything) to wake the
@@ -65,7 +66,7 @@ public static class MaintenanceEndpoints
         .WithName("RunRetagSweepNow")
         .WithSummary("Wakes the retag sweep worker immediately for an out-of-band pass.")
         .Produces<RetagSweepTriggeredResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite);
 
         // ── POST /maintenance/retag-sweep/retry/{assetId} ─────────────────
         // Clears the terminal failure flag on a single asset so the next
@@ -87,7 +88,7 @@ public static class MaintenanceEndpoints
         .WithName("RetryRetagForAsset")
         .WithSummary("Clears the terminal re-tag failure flag on a single asset so the worker retries it.")
         .Produces<RetagSweepRetryResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite);
 
         // ── POST /maintenance/initial-sweep/run ───────────────────────────
         // Runs the hash-everything-up-front sweep across every configured
@@ -107,7 +108,7 @@ public static class MaintenanceEndpoints
         .WithSummary("Runs the SHA-256 initial sweep across every configured library source path.")
         .Produces<InitialSweepStartedResponse>(StatusCodes.Status202Accepted)
         .ProducesProblem(StatusCodes.Status409Conflict)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionRun);
 
         app.MapPost("/maintenance/storage/run", async (
             bool? dryRun,
@@ -138,7 +139,7 @@ public static class MaintenanceEndpoints
         .WithName("RunStorageMaintenance")
         .WithSummary("Runs storage/cache maintenance immediately. Supports ?dryRun=true for counts only.")
         .Produces<StorageMaintenanceResultDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.StorageConfigWrite);
 
         return app;
     }

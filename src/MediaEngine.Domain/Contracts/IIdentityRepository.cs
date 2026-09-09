@@ -11,7 +11,7 @@ public interface IIdentityRepository
     Task UpsertCredentialAsync(ProfileCredential credential, CancellationToken ct = default);
     Task DeleteCredentialAsync(Guid profileId, ProfileCredentialKind kind, CancellationToken ct = default);
     Task UpdateCredentialAttemptAsync(Guid credentialId, int failedAttemptCount, DateTimeOffset? lockedUntil, DateTimeOffset? lastUsedAt, CancellationToken ct = default);
-    Task<bool> HasAdministratorPasswordAsync(CancellationToken ct = default);
+    Task<bool> IsAdministratorBootstrapCompletedAsync(CancellationToken ct = default);
 
     Task InsertSessionAsync(AuthSession session, CancellationToken ct = default);
     Task<AuthSession?> GetSessionByTokenHashAsync(string tokenHash, CancellationToken ct = default);
@@ -31,10 +31,6 @@ public interface IIdentityRepository
     Task<PasswordResetChallenge?> GetActivePasswordResetChallengeAsync(string tokenHash, DateTimeOffset now, CancellationToken ct = default);
     Task<bool> ConsumePasswordResetChallengeAsync(Guid challengeId, DateTimeOffset consumedAt, CancellationToken ct = default);
     Task InvalidatePasswordResetChallengesAsync(Guid accountId, CancellationToken ct = default);
-
-    Task SetElevationGrantAsync(Guid sessionId, Guid profileId, string method, DateTimeOffset grantedAt, DateTimeOffset expiresAt, CancellationToken ct = default);
-    Task<DateTimeOffset?> GetElevationExpiryAsync(Guid sessionId, Guid profileId, DateTimeOffset now, CancellationToken ct = default);
-    Task ClearElevationGrantAsync(Guid sessionId, CancellationToken ct = default);
 
     Task<ServiceCredential?> GetActiveServiceCredentialAsync(string purpose, CancellationToken ct = default);
     Task<ServiceCredential?> GetServiceCredentialByHashAsync(string tokenHash, CancellationToken ct = default);

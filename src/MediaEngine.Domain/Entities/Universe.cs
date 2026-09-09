@@ -41,7 +41,9 @@ public sealed class Universe
         ArgumentNullException.ThrowIfNull(collection);
 
         if (collection.Id != Guid.Empty && _collections.Any(existing => existing.Id == collection.Id))
+        {
             return;
+        }
 
         _collections.Add(collection);
     }
@@ -51,6 +53,8 @@ public sealed class Universe
         ArgumentNullException.ThrowIfNull(collections);
 
         foreach (var collection in collections)
+        {
             AddCollection(collection);
+        }
     }
 }

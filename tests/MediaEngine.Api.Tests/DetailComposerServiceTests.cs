@@ -1,10 +1,10 @@
+using System.Text.Json;
 using MediaEngine.Api.Services.Details;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
-using System.Text.Json;
 
 namespace MediaEngine.Api.Tests;
 
@@ -296,8 +296,7 @@ public sealed class DetailComposerServiceTests
         Assert.DoesNotContain("SELECT DISTINCT COALESCE(gp.id, p.id, w.id)", source);
         Assert.Contains("ownedAlbumRootIds.Remove(currentAlbumRootWorkId)", source);
         var companionComposer = source[
-            source.IndexOf("BuildMusicAlbumCompanionAsync(", StringComparison.Ordinal)..
-            source.IndexOf("LoadOwnedMusicAlbumRootIdsForArtistAsync(", StringComparison.Ordinal)];
+            source.IndexOf("BuildMusicAlbumCompanionAsync(", StringComparison.Ordinal)..source.IndexOf("LoadOwnedMusicAlbumRootIdsForArtistAsync(", StringComparison.Ordinal)];
         Assert.DoesNotContain(".Take(3)", companionComposer);
         Assert.Contains("MusicAlbumCompanion = musicAlbumCompanion", source);
         Assert.Contains("DetailEntityType.MusicAlbum => BuildMusicAlbumActions()", source);
@@ -439,7 +438,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("PositionSort = positionSort", source);
         Assert.DoesNotContain("?? index + 1", source);
         Assert.Contains("Guid.TryParse(selectedContainerId, out var showId)", source);
-        Assert.Contains("workId,\n                profileId);", source);
+        Assert.Contains("workId,\n                profileId,\n                authorizedWorks: authorizedWorks);", source);
         Assert.Contains(".Where(work => expectedTotal is > 0 || work.IsOwned)", source);
         Assert.Contains("selectedGroup?.HasAuthoritativeTotal == true", source);
         Assert.Contains("HasAuthoritativeTotal = mainSequenceExpectedTotal.HasValue", source);
@@ -569,8 +568,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct)", source);
         Assert.Contains("IReadOnlyList<CreditGroupViewModel> contributorGroups = IsStructuralContainer(entityType)", source);
         Assert.Contains("var characterGroups = IsStructuralContainer(entityType)", source);
-        Assert.Contains(": await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct)", source);
-        Assert.Contains("BuildUniverseCastGroupsAsync(row.WikidataQid, ct)", source);
+        Assert.Contains(": await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, authorizedWorks, ct)", source);
+        Assert.Contains("BuildUniverseCastGroupsAsync(row.WikidataQid, authorizedWorks, ct)", source);
         Assert.Contains("BuildUniverseRelationshipGroupsAsync(row.WikidataQid, ct)", source);
         Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl(row.PortraitId", source);
         Assert.Contains("private sealed class CollectionCharacterRow", source);

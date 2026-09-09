@@ -249,7 +249,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
             """, new { id });
 
         if (row is null)
+        {
             return null;
+        }
 
         var entry = ToEntry(row);
         var bridgeIds = await ReadBridgeIdentifiersAsync(conn, row, ct).ConfigureAwait(false);
@@ -334,28 +336,28 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         string? coverUrl,
         Dictionary<string, string> bridgeIdentifiers,
         Dictionary<string, string> detectedFacts) => new()
-    {
-        Id = entry.Id,
-        EntityId = entry.EntityId,
-        EntityType = entry.EntityType,
-        Trigger = entry.Trigger,
-        Status = entry.Status,
-        ProposedCollectionId = entry.ProposedCollectionId,
-        ConfidenceScore = entry.ConfidenceScore,
-        CandidatesJson = entry.CandidatesJson,
-        Detail = entry.Detail,
-        CreatedAt = entry.CreatedAt,
-        ResolvedAt = entry.ResolvedAt,
-        ResolvedBy = entry.ResolvedBy,
-        SourceOperationId = entry.SourceOperationId,
-        SourceCapabilityId = entry.SourceCapabilityId,
-        SourceCapabilitySubKey = entry.SourceCapabilitySubKey,
-        MediaType = mediaType,
-        EntityTitle = entityTitle,
-        CoverUrl = coverUrl,
-        BridgeIdentifiers = bridgeIdentifiers,
-        DetectedFacts = detectedFacts,
-    };
+        {
+            Id = entry.Id,
+            EntityId = entry.EntityId,
+            EntityType = entry.EntityType,
+            Trigger = entry.Trigger,
+            Status = entry.Status,
+            ProposedCollectionId = entry.ProposedCollectionId,
+            ConfidenceScore = entry.ConfidenceScore,
+            CandidatesJson = entry.CandidatesJson,
+            Detail = entry.Detail,
+            CreatedAt = entry.CreatedAt,
+            ResolvedAt = entry.ResolvedAt,
+            ResolvedBy = entry.ResolvedBy,
+            SourceOperationId = entry.SourceOperationId,
+            SourceCapabilityId = entry.SourceCapabilityId,
+            SourceCapabilitySubKey = entry.SourceCapabilitySubKey,
+            MediaType = mediaType,
+            EntityTitle = entityTitle,
+            CoverUrl = coverUrl,
+            BridgeIdentifiers = bridgeIdentifiers,
+            DetectedFacts = detectedFacts,
+        };
 
     private static async Task<Dictionary<string, string>> ReadDetectedFactsAsync(
         System.Data.IDbConnection conn,
@@ -369,7 +371,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
             .ToArray();
 
         if (entityIds.Length == 0)
+        {
             return [];
+        }
 
         var command = new CommandDefinition("""
             SELECT key AS Key, value AS Value
@@ -403,7 +407,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
             .ToArray();
 
         if (entityIds.Length == 0)
+        {
             return [];
+        }
 
         var command = new CommandDefinition("""
             SELECT key AS Key, value AS Value

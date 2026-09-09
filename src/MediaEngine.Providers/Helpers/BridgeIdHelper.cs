@@ -1,6 +1,6 @@
 using MediaEngine.Domain;
-using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Providers.Helpers;
 
@@ -40,7 +40,9 @@ public sealed class BridgeIdHelper
 
         if (reconConfig?.DataExtension?.PropertyLabels is not null &&
             reconConfig.DataExtension.PropertyLabels.TryGetValue(pCode, out var claimKey))
+        {
             return claimKey;
+        }
 
         return pCode;
     }
@@ -78,11 +80,17 @@ public sealed class BridgeIdHelper
 
     private void EnsureMap()
     {
-        if (_claimKeyToPCode is not null) return;
+        if (_claimKeyToPCode is not null)
+        {
+            return;
+        }
 
         lock (_mapLock)
         {
-            if (_claimKeyToPCode is not null) return;
+            if (_claimKeyToPCode is not null)
+            {
+                return;
+            }
 
             var reconConfig = _configLoader
                 .LoadConfig<ReconciliationProviderConfig>("providers", "wikidata_reconciliation");
@@ -91,53 +99,81 @@ public sealed class BridgeIdHelper
             if (reconConfig?.DataExtension?.PropertyLabels is not null)
             {
                 foreach (var kvp in reconConfig.DataExtension.PropertyLabels)
+                {
                     map[kvp.Value] = kvp.Key;
+                }
             }
 
             // Aliases
             if (!map.ContainsKey(BridgeIdKeys.Isbn) && map.TryGetValue(BridgeIdKeys.Isbn13, out var isbn13PCode))
+            {
                 map[BridgeIdKeys.Isbn] = isbn13PCode;
+            }
 
             if (!map.ContainsKey(BridgeIdKeys.TmdbId))
             {
                 if (map.TryGetValue("tmdb_movie_id", out var tmdbMoviePCode))
+                {
                     map[BridgeIdKeys.TmdbId] = tmdbMoviePCode;
+                }
                 else if (map.TryGetValue("tmdb_tv_id", out var tmdbTvPCode))
+                {
                     map[BridgeIdKeys.TmdbId] = tmdbTvPCode;
+                }
             }
 
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzId))
             {
                 if (map.TryGetValue("musicbrainz_release_group_id", out var mbReleaseGroupPCode))
+                {
                     map[BridgeIdKeys.MusicBrainzId] = mbReleaseGroupPCode;
+                }
                 else if (map.TryGetValue("musicbrainz_artist_id", out var mbArtistPCode))
+                {
                     map[BridgeIdKeys.MusicBrainzId] = mbArtistPCode;
+                }
             }
 
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzRecordingId))
+            {
                 map[BridgeIdKeys.MusicBrainzRecordingId] = "P4404";
+            }
 
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzArtistId))
+            {
                 map[BridgeIdKeys.MusicBrainzArtistId] = "P434";
+            }
 
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzWorkId))
+            {
                 map[BridgeIdKeys.MusicBrainzWorkId] = "P435";
+            }
 
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzReleaseId))
+            {
                 map[BridgeIdKeys.MusicBrainzReleaseId] = "P5813";
+            }
 
             if (!map.ContainsKey(BridgeIdKeys.MusicBrainzReleaseGroupId))
+            {
                 map[BridgeIdKeys.MusicBrainzReleaseGroupId] = "P436";
+            }
 
             if (!map.ContainsKey(BridgeIdKeys.Isrc))
+            {
                 map[BridgeIdKeys.Isrc] = "P1243";
+            }
 
             if (!map.ContainsKey(BridgeIdKeys.OpenLibraryId))
             {
                 if (map.TryGetValue("openlibrary_id", out var openLibraryPCode))
+                {
                     map[BridgeIdKeys.OpenLibraryId] = openLibraryPCode;
+                }
                 else
+                {
                     map[BridgeIdKeys.OpenLibraryId] = "P648";
+                }
             }
 
             _claimKeyToPCode = map;

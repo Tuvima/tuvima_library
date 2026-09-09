@@ -1,6 +1,6 @@
 ﻿-- =============================================================================
 -- Tuvima Library - SQLite initialization script
--- Current storage epoch: guid-blob-v6-shared-library-contributions
+-- Current storage epoch: guid-blob-v7-access-authority
 --
 -- Internal UUIDs are stored as 16-byte BLOBs where the current domain model owns
 -- the identifier. External provider identifiers, QIDs, hashes, URLs, and file
@@ -22,15 +22,6 @@ CREATE TABLE IF NOT EXISTS alignment_jobs (
     error_message       TEXT,
     created_at          TEXT NOT NULL DEFAULT (datetime('now')),
     completed_at        TEXT
-);
-
-CREATE TABLE IF NOT EXISTS api_keys (
-    id          BLOB NOT NULL PRIMARY KEY,       -- UUID
-    label       TEXT NOT NULL,                   -- human-readable, e.g. "Radarr Integration"
-    hashed_key  TEXT NOT NULL UNIQUE,            -- SHA-256 hex of the plaintext key
-    role        TEXT NOT NULL DEFAULT 'Administrator'
-                    CHECK (role IN ('Administrator', 'StandardUser', 'RestrictedProfile')),
-    created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS audio_fingerprints (
@@ -543,16 +534,18 @@ CREATE TABLE IF NOT EXISTS view_storage_labels (
 
 CREATE TABLE IF NOT EXISTS view_sources (
     id                  BLOB NOT NULL PRIMARY KEY,
-    personal_space_id   BLOB NOT NULL REFERENCES view_personal_spaces(id) ON DELETE CASCADE,
+    scope_kind          TEXT NOT NULL CHECK (scope_kind IN ('personal','shared')),
+    personal_space_id   BLOB REFERENCES view_personal_spaces(id) ON DELETE CASCADE,
+    library_id          BLOB NOT NULL,
     source_type         TEXT NOT NULL
                             CHECK (source_type IN ('folder', 'browser_upload', 'device_import',
                                                    'mobile_backup', 'network', 'other')),
     name                TEXT NOT NULL,
     source_key          TEXT,
-    storage_mode       TEXT NOT NULL DEFAULT 'managed'
+    storage_mode        TEXT NOT NULL DEFAULT 'managed'
                             CHECK (storage_mode IN ('managed', 'linked')),
-    relative_path      TEXT,
-    external_path      TEXT,
+    relative_path       TEXT,
+    external_path       TEXT,
     include_subdirectories INTEGER NOT NULL DEFAULT 1
                             CHECK (include_subdirectories IN (0, 1)),
     enabled             INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
@@ -561,8 +554,41 @@ CREATE TABLE IF NOT EXISTS view_sources (
     updated_at          TEXT NOT NULL,
     CHECK ((storage_mode = 'managed' AND relative_path IS NOT NULL AND external_path IS NULL)
         OR (storage_mode = 'linked' AND external_path IS NOT NULL AND relative_path IS NULL)),
-    UNIQUE (personal_space_id, source_key)
+    CHECK ((scope_kind = 'personal' AND personal_space_id IS NOT NULL)
+        OR (scope_kind = 'shared' AND personal_space_id IS NULL))
 );
+
+CREATE TABLE IF NOT EXISTS view_shared_library (
+    singleton_key INTEGER NOT NULL PRIMARY KEY CHECK (singleton_key = 1),
+    library_id BLOB NOT NULL UNIQUE,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE TRIGGER IF NOT EXISTS trg_view_personal_space_shared_collision_insert
+BEFORE INSERT ON view_personal_spaces WHEN EXISTS (
+    SELECT 1 FROM view_shared_library WHERE library_id=NEW.library_id)
+BEGIN SELECT RAISE(ABORT,'Personal Space library cannot use the Shared library identity'); END;
+CREATE TRIGGER IF NOT EXISTS trg_view_personal_space_shared_collision_update
+BEFORE UPDATE OF library_id ON view_personal_spaces WHEN EXISTS (
+    SELECT 1 FROM view_shared_library WHERE library_id=NEW.library_id)
+BEGIN SELECT RAISE(ABORT,'Personal Space library cannot use the Shared library identity'); END;
+CREATE TRIGGER IF NOT EXISTS trg_view_personal_space_identity_immutable
+BEFORE UPDATE OF owner_profile_id,library_id ON view_personal_spaces
+WHEN NEW.owner_profile_id<>OLD.owner_profile_id OR NEW.library_id<>OLD.library_id
+BEGIN SELECT RAISE(ABORT,'Personal Space owner and library identities are immutable'); END;
+CREATE TRIGGER IF NOT EXISTS trg_view_shared_library_collision_insert
+BEFORE INSERT ON view_shared_library WHEN EXISTS (
+    SELECT 1 FROM view_personal_spaces WHERE library_id=NEW.library_id)
+BEGIN SELECT RAISE(ABORT,'Shared library identity cannot be used by a Personal Space'); END;
+CREATE TRIGGER IF NOT EXISTS trg_view_shared_library_identity_immutable
+BEFORE UPDATE OF library_id ON view_shared_library WHEN NEW.library_id<>OLD.library_id
+BEGIN SELECT RAISE(ABORT,'Shared library identity is immutable'); END;
+CREATE TRIGGER IF NOT EXISTS trg_view_shared_library_delete
+BEFORE DELETE ON view_shared_library
+BEGIN SELECT RAISE(ABORT,'Shared library identity cannot be deleted'); END;
+INSERT OR IGNORE INTO view_shared_library(singleton_key, library_id, created_at, updated_at)
+VALUES (1, X'00000000000000000000000000000003',
+    strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 
 -- Timeline inclusion is separate from source registration. Browser uploads
 -- participate by default; additional folders opt in explicitly.
@@ -597,6 +623,7 @@ CREATE TABLE IF NOT EXISTS view_folder_timeline_policies (
 -- while its durable physical keeper location belongs to the server library.
 CREATE TABLE IF NOT EXISTS view_shared_assets (
     item_id                BLOB NOT NULL PRIMARY KEY REFERENCES local_items(id) ON DELETE RESTRICT,
+    origin_item_id         BLOB REFERENCES local_items(id) ON DELETE SET NULL,
     original_profile_id    BLOB REFERENCES profiles(id) ON DELETE SET NULL,
     destination_kind       TEXT NOT NULL CHECK (destination_kind IN ('timeline', 'folder')),
     destination_label      TEXT,
@@ -697,8 +724,9 @@ CREATE TABLE IF NOT EXISTS view_devices (
 -- provenance. This model is intentionally independent from catalogue identity.
 CREATE TABLE IF NOT EXISTS local_items (
     id                  BLOB NOT NULL PRIMARY KEY,
-    personal_space_id   BLOB NOT NULL REFERENCES view_personal_spaces(id) ON DELETE CASCADE,
-    owner_profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    scope_kind          TEXT NOT NULL CHECK (scope_kind IN ('personal','shared')),
+    personal_space_id   BLOB REFERENCES view_personal_spaces(id) ON DELETE CASCADE,
+    owner_profile_id    BLOB REFERENCES profiles(id) ON DELETE CASCADE,
     library_id          BLOB NOT NULL,
     media_kind          TEXT NOT NULL
                             CHECK (media_kind IN ('image', 'video', 'document', 'audio', 'other')),
@@ -712,6 +740,8 @@ CREATE TABLE IF NOT EXISTS local_items (
     hidden              INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1)),
     archived_at         TEXT,
     trashed_at          TEXT,
+    CHECK ((scope_kind = 'personal' AND personal_space_id IS NOT NULL AND owner_profile_id IS NOT NULL)
+        OR (scope_kind = 'shared' AND personal_space_id IS NULL AND owner_profile_id IS NULL)),
     UNIQUE (personal_space_id, id)
 );
 
@@ -1332,6 +1362,8 @@ CREATE TABLE IF NOT EXISTS accounts (
     normalized_email TEXT,
     is_local_only    INTEGER NOT NULL DEFAULT 0 CHECK (is_local_only IN (0, 1)),
     is_enabled       INTEGER NOT NULL DEFAULT 1 CHECK (is_enabled IN (0, 1)),
+    is_administrator INTEGER NOT NULL DEFAULT 0 CHECK (is_administrator IN (0, 1)),
+    authorization_version INTEGER NOT NULL DEFAULT 1 CHECK (authorization_version > 0),
     created_at       TEXT NOT NULL,
     updated_at       TEXT NOT NULL,
     CHECK ((is_local_only = 1 AND email IS NULL AND normalized_email IS NULL)
@@ -1344,6 +1376,9 @@ CREATE TABLE IF NOT EXISTS account_profile_grants (
     account_id BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     is_default INTEGER NOT NULL DEFAULT 0 CHECK (is_default IN (0, 1)),
+    is_enabled INTEGER NOT NULL DEFAULT 1 CHECK (is_enabled IN (0, 1)),
+    admin_enabled INTEGER NOT NULL DEFAULT 0 CHECK (admin_enabled IN (0, 1)),
+    authorization_version INTEGER NOT NULL DEFAULT 1 CHECK (authorization_version > 0),
     granted_at TEXT NOT NULL,
     PRIMARY KEY (account_id, profile_id)
 );
@@ -1358,6 +1393,56 @@ CREATE TABLE IF NOT EXISTS account_invitations (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS ux_account_profile_default
     ON account_profile_grants(account_id) WHERE is_default = 1;
+
+CREATE TABLE IF NOT EXISTS account_feature_grants (
+    account_id BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    feature_id TEXT NOT NULL CHECK (feature_id IN ('read','watch','listen','view')),
+    granted_at TEXT NOT NULL,
+    PRIMARY KEY (account_id, feature_id)
+);
+
+CREATE TRIGGER IF NOT EXISTS trg_view_sources_scope_insert BEFORE INSERT ON view_sources BEGIN
+    SELECT CASE WHEN NEW.scope_kind='personal' AND NOT EXISTS (SELECT 1 FROM view_personal_spaces s WHERE s.id=NEW.personal_space_id AND s.library_id=NEW.library_id) THEN RAISE(ABORT,'personal View source must match its Personal Space library') WHEN NEW.scope_kind='shared' AND NOT EXISTS (SELECT 1 FROM view_shared_library s WHERE s.singleton_key=1 AND s.library_id=NEW.library_id) THEN RAISE(ABORT,'Shared View source must match the Shared library') END;
+END;
+CREATE TRIGGER IF NOT EXISTS trg_view_sources_scope_update BEFORE UPDATE OF scope_kind,personal_space_id,library_id ON view_sources BEGIN
+    SELECT CASE WHEN NEW.scope_kind='personal' AND NOT EXISTS (SELECT 1 FROM view_personal_spaces s WHERE s.id=NEW.personal_space_id AND s.library_id=NEW.library_id) THEN RAISE(ABORT,'personal View source must match its Personal Space library') WHEN NEW.scope_kind='shared' AND NOT EXISTS (SELECT 1 FROM view_shared_library s WHERE s.singleton_key=1 AND s.library_id=NEW.library_id) THEN RAISE(ABORT,'Shared View source must match the Shared library') END;
+END;
+CREATE TRIGGER IF NOT EXISTS trg_local_items_scope_insert BEFORE INSERT ON local_items BEGIN
+    SELECT CASE WHEN NEW.scope_kind='personal' AND NOT EXISTS (SELECT 1 FROM view_personal_spaces s WHERE s.id=NEW.personal_space_id AND s.library_id=NEW.library_id AND s.owner_profile_id=NEW.owner_profile_id) THEN RAISE(ABORT,'personal View item must match its owner and Personal Space library') WHEN NEW.scope_kind='shared' AND NOT EXISTS (SELECT 1 FROM view_shared_library s WHERE s.singleton_key=1 AND s.library_id=NEW.library_id) THEN RAISE(ABORT,'Shared View item must match the Shared library') END;
+END;
+CREATE TRIGGER IF NOT EXISTS trg_local_items_scope_update BEFORE UPDATE OF scope_kind,personal_space_id,owner_profile_id,library_id ON local_items BEGIN
+    SELECT CASE WHEN NEW.scope_kind='personal' AND NOT EXISTS (SELECT 1 FROM view_personal_spaces s WHERE s.id=NEW.personal_space_id AND s.library_id=NEW.library_id AND s.owner_profile_id=NEW.owner_profile_id) THEN RAISE(ABORT,'personal View item must match its owner and Personal Space library') WHEN NEW.scope_kind='shared' AND NOT EXISTS (SELECT 1 FROM view_shared_library s WHERE s.singleton_key=1 AND s.library_id=NEW.library_id) THEN RAISE(ABORT,'Shared View item must match the Shared library') END;
+END;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_view_sources_personal_key ON view_sources(personal_space_id, source_key)
+    WHERE scope_kind = 'personal' AND source_key IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS ux_view_sources_shared_key ON view_sources(library_id, source_key)
+    WHERE scope_kind = 'shared' AND source_key IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS account_library_grants (
+    account_id BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    library_id BLOB NOT NULL,
+    granted_at TEXT NOT NULL,
+    PRIMARY KEY (account_id, library_id)
+);
+
+CREATE TABLE IF NOT EXISTS grant_admin_protections (
+    account_id BLOB NOT NULL,
+    profile_id BLOB NOT NULL,
+    is_enabled INTEGER NOT NULL DEFAULT 0 CHECK (is_enabled IN (0, 1)),
+    unlock_mode TEXT NOT NULL DEFAULT 'FixedDuration'
+        CHECK (unlock_mode IN ('FixedDuration','UntilProfileSwitch','LockOnLeave')),
+    unlock_minutes INTEGER,
+    pin_hash TEXT,
+    hash_scheme TEXT,
+    failed_attempt_count INTEGER NOT NULL DEFAULT 0,
+    locked_until TEXT,
+    protection_version INTEGER NOT NULL DEFAULT 1 CHECK (protection_version > 0),
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY (account_id, profile_id),
+    FOREIGN KEY (account_id, profile_id) REFERENCES account_profile_grants(account_id, profile_id) ON DELETE CASCADE,
+    CHECK ((is_enabled = 0 AND pin_hash IS NULL AND hash_scheme IS NULL)
+        OR (is_enabled = 1 AND pin_hash IS NOT NULL AND hash_scheme IS NOT NULL))
+);
 
 CREATE TABLE IF NOT EXISTS account_external_logins (
     id            BLOB NOT NULL PRIMARY KEY,
@@ -1398,7 +1483,7 @@ CREATE TABLE IF NOT EXISTS account_credentials (
 CREATE TABLE IF NOT EXISTS profile_credentials (
     id                   BLOB NOT NULL PRIMARY KEY,
     profile_id           BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    credential_kind      TEXT NOT NULL CHECK (credential_kind IN ('ProfilePin', 'AdministratorPin')),
+    credential_kind      TEXT NOT NULL CHECK (credential_kind = 'ProfilePin'),
     secret_hash          TEXT NOT NULL,
     hash_scheme          TEXT NOT NULL,
     hash_version         INTEGER NOT NULL,
@@ -1431,12 +1516,52 @@ CREATE TABLE IF NOT EXISTS auth_sessions (
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_account_active
     ON auth_sessions(account_id, revoked_at, expires_at);
 
-CREATE TABLE IF NOT EXISTS administrator_elevation_grants (
+CREATE TABLE IF NOT EXISTS grant_admin_unlocks (
     session_id BLOB NOT NULL PRIMARY KEY REFERENCES auth_sessions(id) ON DELETE CASCADE,
-    profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-    method     TEXT NOT NULL,
+    account_id BLOB NOT NULL,
+    profile_id BLOB NOT NULL,
+    protection_version INTEGER NOT NULL,
+    method TEXT NOT NULL,
     granted_at TEXT NOT NULL,
-    expires_at TEXT NOT NULL
+    expires_at TEXT,
+    FOREIGN KEY (account_id, profile_id) REFERENCES account_profile_grants(account_id, profile_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS applications (
+    id BLOB NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    application_type TEXT NOT NULL CHECK (application_type IN ('UserClient','ServerIntegration','Automation','Other')),
+    is_enabled INTEGER NOT NULL DEFAULT 1 CHECK (is_enabled IN (0, 1)),
+    is_administrator INTEGER NOT NULL DEFAULT 0 CHECK (is_administrator IN (0, 1)),
+    authorization_version INTEGER NOT NULL DEFAULT 1 CHECK (authorization_version > 0),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_used_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS application_credentials (
+    id BLOB NOT NULL PRIMARY KEY,
+    application_id BLOB NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    credential_hash TEXT NOT NULL UNIQUE,
+    hash_scheme TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT,
+    last_used_at TEXT,
+    revoked_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS application_permission_grants (
+    application_id BLOB NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    permission_id TEXT NOT NULL,
+    granted_at TEXT NOT NULL,
+    PRIMARY KEY (application_id, permission_id)
+);
+CREATE TABLE IF NOT EXISTS application_client_bindings (
+    application_id BLOB NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    client_id TEXT NOT NULL PRIMARY KEY COLLATE BINARY,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS account_passkeys (
@@ -1461,6 +1586,8 @@ CREATE TABLE IF NOT EXISTS password_reset_challenges (
 -- clients. Request fields and browser storage are never identity authorities.
 CREATE TABLE IF NOT EXISTS client_devices (
     id                BLOB NOT NULL PRIMARY KEY,
+    application_id    BLOB NOT NULL REFERENCES applications(id) ON DELETE RESTRICT,
+    account_id        BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     profile_id        BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     device_name       TEXT NOT NULL,
     device_class      TEXT NOT NULL CHECK (device_class IN ('web','mobile','television','automotive')),
@@ -1479,6 +1606,7 @@ CREATE INDEX IF NOT EXISTS idx_client_devices_profile_active
 
 CREATE TABLE IF NOT EXISTS device_pairing_requests (
     id                     BLOB NOT NULL PRIMARY KEY,
+    application_id         BLOB NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
     device_code_hash       TEXT NOT NULL UNIQUE,
     user_code_hash         TEXT NOT NULL UNIQUE,
     client_id              TEXT NOT NULL,
@@ -1494,6 +1622,7 @@ CREATE TABLE IF NOT EXISTS device_pairing_requests (
     poll_interval_seconds  INTEGER NOT NULL DEFAULT 5,
     last_polled_at         TEXT,
     profile_id             BLOB REFERENCES profiles(id) ON DELETE CASCADE,
+    account_id             BLOB REFERENCES accounts(id) ON DELETE CASCADE,
     approved_by_profile_id BLOB REFERENCES profiles(id) ON DELETE SET NULL,
     created_at             TEXT NOT NULL,
     expires_at             TEXT NOT NULL,
@@ -1505,12 +1634,17 @@ CREATE INDEX IF NOT EXISTS idx_device_pairing_expiry
 
 CREATE TABLE IF NOT EXISTS client_tokens (
     id              BLOB NOT NULL PRIMARY KEY,
+    application_id  BLOB NOT NULL REFERENCES applications(id) ON DELETE RESTRICT,
+    account_id      BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
     device_id       BLOB NOT NULL REFERENCES client_devices(id) ON DELETE CASCADE,
     profile_id      BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     token_family_id BLOB NOT NULL,
     token_kind      TEXT NOT NULL CHECK (token_kind IN ('access','refresh')),
     token_hash      TEXT NOT NULL UNIQUE,
     scopes          TEXT NOT NULL,
+    account_authorization_version INTEGER NOT NULL,
+    grant_authorization_version INTEGER NOT NULL,
+    application_authorization_version INTEGER NOT NULL,
     generation      INTEGER NOT NULL DEFAULT 0,
     created_at      TEXT NOT NULL,
     expires_at      TEXT NOT NULL,
@@ -1560,6 +1694,20 @@ CREATE TABLE IF NOT EXISTS identity_audit_events (
 
 CREATE INDEX IF NOT EXISTS idx_identity_audit_profile_occurred
     ON identity_audit_events(profile_id, occurred_at DESC);
+
+CREATE TABLE IF NOT EXISTS authorization_audit_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL,
+    occurred_at TEXT NOT NULL,
+    actor_account_id BLOB REFERENCES accounts(id) ON DELETE SET NULL,
+    actor_profile_id BLOB REFERENCES profiles(id) ON DELETE SET NULL,
+    actor_application_id BLOB REFERENCES applications(id) ON DELETE SET NULL,
+    subject_type TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    changes_json TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_authorization_audit_subject
+    ON authorization_audit_events(subject_type, subject_id, occurred_at DESC);
 
 -- Administrator-owned View capability policy. Viewing, submitting to, and
 -- reviewing the Shared Library are deliberately independent permissions.
@@ -1791,7 +1939,36 @@ CREATE TABLE IF NOT EXISTS storage_metadata (
 );
 
 INSERT OR REPLACE INTO storage_metadata (key, value)
-VALUES ('storage_epoch', 'guid-blob-v6-shared-library-contributions');
+VALUES ('storage_epoch', 'guid-blob-v7-access-authority');
+
+-- Seed the built-in native-client Application once for a new access epoch. The
+-- marker preserves later administrative disable, delete, permission, and binding edits.
+INSERT OR IGNORE INTO applications
+    (id,name,description,application_type,is_enabled,is_administrator,authorization_version,created_at,updated_at)
+SELECT X'00000000000000000000000000000004','Tuvima native clients',
+    'Built-in delegated identity for paired native clients.','UserClient',1,0,1,
+    strftime('%Y-%m-%dT%H:%M:%fZ','now'),strftime('%Y-%m-%dT%H:%M:%fZ','now')
+WHERE NOT EXISTS (SELECT 1 FROM storage_metadata WHERE key='access_native_seeded');
+
+WITH pending AS (
+    SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM storage_metadata WHERE key='access_native_seeded')
+), permissions(permission_id) AS (VALUES
+    ('library.read'),('artwork.read'),('progress.read'),('progress.write'),
+    ('queue.read'),('queue.write'),('playback.read'),('playback.write'),
+    ('downloads.read'),('downloads.write'))
+INSERT OR IGNORE INTO application_permission_grants(application_id,permission_id,granted_at)
+SELECT X'00000000000000000000000000000004',permission_id,strftime('%Y-%m-%dT%H:%M:%fZ','now')
+FROM pending CROSS JOIN permissions;
+
+WITH pending AS (
+    SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM storage_metadata WHERE key='access_native_seeded')
+), clients(client_id) AS (VALUES
+    ('tuvima-tv'),('tuvima-mobile'),('tuvima-automotive'),('tuvima-web'))
+INSERT OR IGNORE INTO application_client_bindings(application_id,client_id,created_at)
+SELECT X'00000000000000000000000000000004',client_id,strftime('%Y-%m-%dT%H:%M:%fZ','now')
+FROM pending CROSS JOIN clients;
+
+INSERT OR IGNORE INTO storage_metadata(key,value) VALUES ('access_native_seeded','1');
 
 CREATE TABLE IF NOT EXISTS system_activity (
     id           INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
@@ -1946,8 +2123,6 @@ CREATE TABLE IF NOT EXISTS works (
     ownership            TEXT NOT NULL DEFAULT 'Owned'
 , universe_mismatch INTEGER NOT NULL DEFAULT 0 CHECK (universe_mismatch IN (0, 1)), universe_mismatch_at TEXT, wikidata_status TEXT DEFAULT 'pending', wikidata_checked_at TEXT, wikidata_qid TEXT, curator_state TEXT, rejected_at TEXT, provisional_metadata_json TEXT, match_level TEXT DEFAULT 'work', wikidata_match_source TEXT, wikidata_match_locked INTEGER NOT NULL DEFAULT 0, wikidata_rejected_qids_json TEXT);
 
-CREATE INDEX IF NOT EXISTS idx_api_keys_hashed_key
-    ON api_keys (hashed_key);
 
 CREATE INDEX IF NOT EXISTS idx_bridge_ids_entity
     ON bridge_ids(entity_id);
@@ -2594,6 +2769,100 @@ CREATE TABLE IF NOT EXISTS personal_status_commands (
     undone INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS ix_personal_status_history ON personal_status_commands(profile_id, target_id, changed_at);
+
+CREATE TABLE IF NOT EXISTS application_events (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_id BLOB NOT NULL UNIQUE,
+    event_type TEXT NOT NULL,
+    version INTEGER NOT NULL CHECK(version > 0),
+    occurred_at TEXT NOT NULL,
+    server_id TEXT NOT NULL,
+    subject_type TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    library_id BLOB,
+    profile_id BLOB,
+    feature_id TEXT CHECK(feature_id IS NULL OR feature_id IN ('read', 'watch', 'listen')),
+    payload_json TEXT NOT NULL CHECK(length(CAST(payload_json AS BLOB)) <= 65536)
+);
+CREATE INDEX IF NOT EXISTS ix_application_events_type_sequence ON application_events(event_type, sequence);
+CREATE INDEX IF NOT EXISTS ix_application_events_library_sequence ON application_events(library_id, sequence);
+CREATE INDEX IF NOT EXISTS ix_application_events_profile_sequence ON application_events(profile_id, sequence);
+CREATE INDEX IF NOT EXISTS ix_application_events_occurred ON application_events(occurred_at);
+
+CREATE TABLE IF NOT EXISTS application_webhooks (
+    id BLOB PRIMARY KEY,
+    application_id BLOB NOT NULL REFERENCES applications(id) ON DELETE CASCADE,
+    url TEXT NOT NULL,
+    event_types_json TEXT NOT NULL,
+    allow_local_network INTEGER NOT NULL DEFAULT 0,
+    is_enabled INTEGER NOT NULL DEFAULT 1,
+    secret_ciphertext TEXT NOT NULL,
+    version INTEGER NOT NULL DEFAULT 1,
+    last_event_sequence INTEGER NOT NULL DEFAULT 0,
+    last_status TEXT NOT NULL DEFAULT 'Waiting for events',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    last_attempt_at TEXT,
+    last_success_at TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_application_webhooks_application ON application_webhooks(application_id);
+CREATE TABLE IF NOT EXISTS application_webhook_deliveries (
+    id BLOB PRIMARY KEY,
+    webhook_id BLOB NOT NULL REFERENCES application_webhooks(id) ON DELETE CASCADE,
+    webhook_version INTEGER NOT NULL,
+    event_id BLOB NOT NULL,
+    event_sequence INTEGER NOT NULL,
+    event_json TEXT NOT NULL CHECK(length(CAST(event_json AS BLOB)) <= 70000),
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(webhook_id,event_id)
+);
+CREATE INDEX IF NOT EXISTS ix_application_webhook_delivery_due ON application_webhook_deliveries(status,next_attempt_at);
+
+CREATE TABLE IF NOT EXISTS playback_telemetry_sessions (
+    id BLOB NOT NULL PRIMARY KEY,
+    player_session_id BLOB NOT NULL,
+    authority_session_id BLOB,
+    account_id BLOB NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    profile_id BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    application_id BLOB REFERENCES applications(id) ON DELETE SET NULL,
+    device_id BLOB REFERENCES client_devices(id) ON DELETE SET NULL,
+    asset_id BLOB REFERENCES media_assets(id) ON DELETE SET NULL,
+    library_id BLOB NOT NULL,
+    media_type TEXT NOT NULL,
+    feature_id TEXT NOT NULL CHECK(feature_id IN('read','watch','listen')),
+    state TEXT NOT NULL CHECK(state IN('playing','paused','stopped','completed')),
+    started_at TEXT NOT NULL,
+    last_observed_at TEXT NOT NULL,
+    ended_at TEXT,
+    started_position_seconds REAL NOT NULL CHECK(started_position_seconds >= 0),
+    last_position_seconds REAL NOT NULL CHECK(last_position_seconds >= 0),
+    duration_seconds REAL CHECK(duration_seconds IS NULL OR duration_seconds >= 0),
+    played_duration_seconds REAL NOT NULL DEFAULT 0 CHECK(played_duration_seconds >= 0),
+    last_sequence INTEGER NOT NULL DEFAULT -1 CHECK(last_sequence >= -1),
+    completion_reason TEXT CHECK(completion_reason IS NULL OR completion_reason IN('stopped','completed','replaced','takeover','stale','error')),
+    delivery_mode TEXT CHECK(delivery_mode IS NULL OR delivery_mode IN('direct-play','remux','transcode','reader','offline','unknown')),
+    container TEXT,
+    video_codec TEXT,
+    audio_codec TEXT,
+    width INTEGER CHECK(width IS NULL OR width > 0),
+    height INTEGER CHECK(height IS NULL OR height > 0),
+    bitrate_kbps INTEGER CHECK(bitrate_kbps IS NULL OR bitrate_kbps > 0),
+    connection_type TEXT CHECK(connection_type IS NULL OR connection_type IN('local','remote','unknown')),
+    client_name TEXT,
+    client_version TEXT,
+    CHECK((ended_at IS NULL AND completion_reason IS NULL AND state IN('playing','paused'))
+        OR (ended_at IS NOT NULL AND completion_reason IS NOT NULL AND state IN('stopped','completed')))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_playback_telemetry_active_player ON playback_telemetry_sessions(player_session_id) WHERE ended_at IS NULL;
+CREATE INDEX IF NOT EXISTS ix_playback_telemetry_active ON playback_telemetry_sessions(last_observed_at DESC) WHERE ended_at IS NULL;
+CREATE INDEX IF NOT EXISTS ix_playback_telemetry_history ON playback_telemetry_sessions(ended_at DESC,id);
+CREATE INDEX IF NOT EXISTS ix_playback_telemetry_library ON playback_telemetry_sessions(library_id,started_at DESC,id);
+CREATE INDEX IF NOT EXISTS ix_playback_telemetry_profile ON playback_telemetry_sessions(account_id,profile_id,started_at DESC,id);
+CREATE INDEX IF NOT EXISTS ix_playback_telemetry_device ON playback_telemetry_sessions(device_id,started_at DESC,id) WHERE device_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS consumption_history (
     id BLOB PRIMARY KEY,

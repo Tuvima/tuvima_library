@@ -26,6 +26,8 @@ public sealed class DisplayJourneyProjectionReader
         var sql = $"""
             SELECT
                 us.asset_id AS AssetId,
+                ma.library_id AS LibraryId,
+                us.user_id AS ProfileId,
                 w.id AS WorkId,
                 CASE
                     WHEN w.media_type = 'Music' THEN COALESCE(pw.id, w.id)

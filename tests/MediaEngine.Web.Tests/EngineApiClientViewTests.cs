@@ -97,7 +97,9 @@ public sealed class EngineApiClientViewTests
                 request.RequestUri!.PathAndQuery,
                 request.Content?.ReadAsStringAsync().GetAwaiter().GetResult()));
             if (request.Method == HttpMethod.Put)
+            {
                 return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
 
             var json = request.RequestUri.AbsolutePath == "/view/share-targets"
                 ? $$"""[{"profile_id":"{{targetId}}","display_name":"Sarah","avatar_color":"#7457D9","avatar_url":null}]"""

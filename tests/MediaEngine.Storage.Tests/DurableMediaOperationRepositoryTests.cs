@@ -351,37 +351,37 @@ public sealed class DurableMediaOperationRepositoryTests : IDisposable
         DateTimeOffset? heartbeatAt = null,
         Guid? entityId = null,
         Guid? batchId = null) => new()
-    {
-        OperationType = MediaOperationType.IngestionFile,
-        OperationKind = MediaOperationKind.Ingestion,
-        EntityId = entityId,
-        BatchId = batchId,
-        SourcePath = sourcePath,
-        Status = status,
-        Stage = MediaOperationStage.Queued,
-        QueueName = "ingestion",
-        Priority = 100,
-        PositionKey = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-        HeartbeatAt = heartbeatAt,
-        CreatedAt = DateTimeOffset.UtcNow,
-        UpdatedAt = DateTimeOffset.UtcNow,
-        IdempotencyKey = idempotencyKey
-    };
+        {
+            OperationType = MediaOperationType.IngestionFile,
+            OperationKind = MediaOperationKind.Ingestion,
+            EntityId = entityId,
+            BatchId = batchId,
+            SourcePath = sourcePath,
+            Status = status,
+            Stage = MediaOperationStage.Queued,
+            QueueName = "ingestion",
+            Priority = 100,
+            PositionKey = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            HeartbeatAt = heartbeatAt,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            IdempotencyKey = idempotencyKey
+        };
 
     private static EntityCapabilityState NewCapability(
         Guid entityId,
         string? subKey = null,
         string version = "1.0") => new()
-    {
-        EntityId = entityId,
-        EntityKind = "asset",
-        CapabilityId = CapabilityId.IdentityWikidataBridge,
-        CapabilityKind = MediaOperationKind.Identity,
-        CapabilityVersion = version,
-        SubKey = subKey,
-        Status = EntityCapabilityStatus.Succeeded,
-        Requiredness = CapabilityRequiredness.Optional,
-        CreatedAt = DateTimeOffset.UtcNow,
-        UpdatedAt = DateTimeOffset.UtcNow
-    };
+        {
+            EntityId = entityId,
+            EntityKind = "asset",
+            CapabilityId = CapabilityId.IdentityWikidataBridge,
+            CapabilityKind = MediaOperationKind.Identity,
+            CapabilityVersion = version,
+            SubKey = subKey,
+            Status = EntityCapabilityStatus.Succeeded,
+            Requiredness = CapabilityRequiredness.Optional,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
 }

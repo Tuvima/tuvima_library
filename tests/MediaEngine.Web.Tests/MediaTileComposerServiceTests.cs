@@ -736,21 +736,31 @@ public sealed class MediaTileComposerServiceTests
         };
 
         if (!string.IsNullOrWhiteSpace(coverUrl))
+        {
             canonicalValues.Add(CreateCanonical("cover", coverUrl));
+        }
 
         if (!string.IsNullOrWhiteSpace(backgroundUrl))
+        {
             canonicalValues.Add(CreateCanonical("background", backgroundUrl));
+        }
 
         if (!string.IsNullOrWhiteSpace(bannerUrl))
+        {
             canonicalValues.Add(CreateCanonical("banner", bannerUrl));
+        }
 
         if (!string.IsNullOrWhiteSpace(logoUrl))
+        {
             canonicalValues.Add(CreateCanonical("logo", logoUrl));
+        }
 
         if (canonicalExtras is not null)
         {
             foreach (var entry in canonicalExtras)
+            {
                 canonicalValues.Add(CreateCanonical(entry.Key, entry.Value));
+            }
         }
 
         return new WorkViewModel

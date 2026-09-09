@@ -1,5 +1,6 @@
-using MediaEngine.Api.Models;
+using Dapper;
 using MediaEngine.Api.Endpoints;
+using MediaEngine.Api.Models;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain.Contracts;
@@ -23,7 +24,9 @@ public sealed class PersonAliasReadService : IPersonAliasReadService
     {
         var person = await _personRepo.FindByIdAsync(personId, ct);
         if (person is null)
+        {
             return null;
+        }
 
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
@@ -39,7 +42,9 @@ public sealed class PersonAliasReadService : IPersonAliasReadService
             var aliasId = GuidSql.FromDb(reader.GetValue(0));
             var aliasPerson = await _personRepo.FindByIdAsync(aliasId, ct);
             if (aliasPerson is null)
+            {
                 continue;
+            }
 
             aliases.Add(new PersonAliasItemResponse
             {
@@ -98,7 +103,9 @@ public sealed class PersonWorksReadService : IPersonWorksReadService
     {
         var person = await _personRepo.FindByIdAsync(personId, ct);
         if (person is null)
+        {
             return new HashSet<Guid>();
+        }
 
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
@@ -117,7 +124,9 @@ public sealed class PersonWorksReadService : IPersonWorksReadService
         using (var reader = cmd.ExecuteReader())
         {
             while (reader.Read())
+            {
                 collectionIds.Add(GuidSql.FromDb(reader.GetValue(0)));
+            }
         }
 
         return collectionIds;
@@ -126,6 +135,12 @@ public sealed class PersonWorksReadService : IPersonWorksReadService
 
 public sealed class PersonAssetScopeReadService : IPersonAssetScopeReadService
 {
+    private sealed class RoleCountRow
+    {
+        public string Role { get; init; } = string.Empty;
+        public int Count { get; init; }
+    }
+
     private readonly IPersonRepository _personRepo;
     private readonly IDatabaseConnection _db;
 
@@ -156,6 +171,85 @@ public sealed class PersonAssetScopeReadService : IPersonAssetScopeReadService
             """, workId, ct);
     }
 
+    public Task<IReadOnlySet<Guid>> GetCanonicalPersonIdsAsync(
+        IReadOnlyCollection<Guid> assetIds,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ids = NormalizeAssetIds(assetIds);
+        if (ids.Length == 0)
+        {
+            return Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+        }
+
+        using var connection = _db.CreateConnection();
+        var people = connection.Query<Guid>(
+            "SELECT DISTINCT person_id FROM primary_person_media_credits WHERE media_asset_id IN @assetIds;",
+            new { assetIds = ids.Select(GuidSql.ToBlob).ToArray() });
+        return Task.FromResult<IReadOnlySet<Guid>>(people.ToHashSet());
+    }
+
+    public Task<IReadOnlySet<Guid>> GetCanonicalPersonIdsForCollectionAsync(
+        Guid collectionId,
+        IReadOnlyCollection<Guid> assetIds,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ids = NormalizeAssetIds(assetIds);
+        if (ids.Length == 0)
+        {
+            return Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+        }
+
+        using var connection = _db.CreateConnection();
+        var people = connection.Query<Guid>(
+            """
+            SELECT DISTINCT credit.person_id
+            FROM primary_person_media_credits credit
+            JOIN media_assets asset ON asset.id=credit.media_asset_id
+            JOIN editions edition ON edition.id=asset.edition_id
+            JOIN works work ON work.id=edition.work_id
+            LEFT JOIN collection_items item
+                ON item.work_id=work.id AND item.collection_id=@collectionId
+            WHERE credit.media_asset_id IN @assetIds
+              AND (work.collection_id=@collectionId OR item.collection_id=@collectionId);
+            """,
+            new
+            {
+                collectionId,
+                assetIds = ids.Select(GuidSql.ToBlob).ToArray(),
+            });
+        return Task.FromResult<IReadOnlySet<Guid>>(people.ToHashSet());
+    }
+
+    public Task<IReadOnlyDictionary<string, int>> GetCanonicalRoleCountsAsync(
+        IReadOnlyCollection<Guid> assetIds,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var ids = NormalizeAssetIds(assetIds);
+        if (ids.Length == 0)
+        {
+            return Task.FromResult<IReadOnlyDictionary<string, int>>(
+                new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
+        }
+
+        using var connection = _db.CreateConnection();
+        var rows = connection.Query<RoleCountRow>(
+            """
+            SELECT role AS Role, COUNT(DISTINCT person_id) AS Count
+            FROM primary_person_media_credits
+            WHERE media_asset_id IN @assetIds AND role <> 'Composer'
+            GROUP BY role;
+            """,
+            new { assetIds = ids.Select(GuidSql.ToBlob).ToArray() });
+        return Task.FromResult<IReadOnlyDictionary<string, int>>(
+            rows.ToDictionary(row => row.Role, row => row.Count, StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static Guid[] NormalizeAssetIds(IEnumerable<Guid> assetIds) =>
+        assetIds.Where(id => id != Guid.Empty).Distinct().ToArray();
+
     private async Task<IReadOnlyList<PersonSummaryResponse>> GetByAssetQueryAsync(
         string query,
         Guid id,
@@ -170,7 +264,9 @@ public sealed class PersonAssetScopeReadService : IPersonAssetScopeReadService
         using (var reader = cmd.ExecuteReader())
         {
             while (reader.Read())
+            {
                 assetIds.Add(GuidSql.FromDb(reader.GetValue(0)));
+            }
         }
 
         var linked = await _personRepo.GetByMediaAssetsAsync(assetIds, ct);

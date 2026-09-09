@@ -1,8 +1,8 @@
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -55,20 +55,26 @@ public sealed class EraActorResolverService : IEraActorResolverService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (qids.Count == 0)
+        {
             return new Dictionary<string, ActorResolution>(StringComparer.OrdinalIgnoreCase);
+        }
 
         var performerEdges = (await _relRepo.GetByObjectsAsync(qids, ct).ConfigureAwait(false))
             .Where(edge => edge.RelationshipTypeValue == RelationshipType.Performer)
             .ToList();
         if (performerEdges.Count == 0)
+        {
             return new Dictionary<string, ActorResolution>(StringComparer.OrdinalIgnoreCase);
+        }
 
         var matchedEdges = new Dictionary<string, EntityRelationship>(StringComparer.OrdinalIgnoreCase);
         foreach (var group in performerEdges.GroupBy(edge => edge.ObjectQid, StringComparer.OrdinalIgnoreCase))
         {
             var matchedEdge = SelectPerformerForEra(group, timelineYear);
             if (matchedEdge is not null)
+            {
                 matchedEdges[group.Key] = matchedEdge;
+            }
         }
 
         var peopleByQid = new Dictionary<string, Person>(StringComparer.OrdinalIgnoreCase);
@@ -112,7 +118,9 @@ public sealed class EraActorResolverService : IEraActorResolverService
     {
         var edges = performerEdges.ToList();
         if (edges.Count == 0)
+        {
             return null;
+        }
 
         EntityRelationship? matchedEdge = null;
         if (timelineYear.HasValue)
@@ -123,11 +131,20 @@ public sealed class EraActorResolverService : IEraActorResolverService
                 var endYear = ParseYear(edge.EndTime);
 
                 if (startYear.HasValue && endYear.HasValue)
+                {
                     return timelineYear.Value >= startYear.Value && timelineYear.Value <= endYear.Value;
+                }
+
                 if (startYear.HasValue)
+                {
                     return timelineYear.Value >= startYear.Value;
+                }
+
                 if (endYear.HasValue)
+                {
                     return timelineYear.Value <= endYear.Value;
+                }
+
                 return false;
             });
         }
@@ -138,14 +155,24 @@ public sealed class EraActorResolverService : IEraActorResolverService
     private static int? ParseYear(string? isoDate)
     {
         if (string.IsNullOrWhiteSpace(isoDate))
+        {
             return null;
+        }
 
         if (isoDate.Length == 4 && int.TryParse(isoDate, out var year4))
+        {
             return year4;
+        }
+
         if (isoDate.Length >= 4 && int.TryParse(isoDate[..4], out var yearPrefix))
+        {
             return yearPrefix;
+        }
+
         if (DateTimeOffset.TryParse(isoDate, out var dto))
+        {
             return dto.Year;
+        }
 
         return null;
     }

@@ -59,7 +59,11 @@ public sealed class ByteRangeResult : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
         Content.Dispose();
     }

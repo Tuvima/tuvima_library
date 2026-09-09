@@ -442,7 +442,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                     workId,
                     collectionId,
                     mediaType?.ToString() ?? "Unknown",
-                    title),
+                    title,
+                    assetId),
                 ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

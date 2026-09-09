@@ -1,10 +1,12 @@
-using System.Security.Claims;
-using MediaEngine.Contracts.Authentication;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Details;
+using MediaEngine.Api.Services.Details.Internals;
+using MediaEngine.Api.Services.Display;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
@@ -22,20 +24,44 @@ public static class DetailEndpoints
             Guid id,
             string? context,
             string? containerId,
-            ClaimsPrincipal user,
             HttpContext httpContext,
             DetailComposerService composer,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             if (!DetailComposerService.TryParseEntityType(entityType, out var parsedType))
+            {
                 return ApiErrors.BadRequest($"Unsupported detail entity type '{entityType}'.");
+            }
 
             var presentationContext = DetailComposerService.ParseContext(context);
-            var profileId = Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.ActiveProfileId), out var parsedProfileId)
-                ? parsedProfileId
-                : (Guid?)null;
-            var callerRole = user.FindFirstValue(ClaimTypes.Role);
-            var detail = await composer.BuildAsync(parsedType, id, presentationContext, ct, containerId, profileId, callerRole);
+            var resolver = httpContext.RequestServices.GetRequiredService<IRequestAuthorityResolver>();
+            var authority = await resolver.ResolveAsync(httpContext, ct);
+            var authorizedWorks = await display.LoadWorksAsync(ct);
+            IReadOnlyList<Guid>? authorizedAssetIds = null;
+            if (IsWorkDetail(parsedType))
+            {
+                var resources = httpContext.RequestServices
+                    .GetRequiredService<CatalogueResourceAuthorizationService>();
+                authorizedAssetIds = await resources.GetAuthorizedAssetIdsForWorkAsync(
+                        httpContext,
+                        id,
+                        authority.ActiveProfileId,
+                        ApplicationPermissionIds.LibraryRead,
+                        ct);
+                if (authorizedAssetIds.Count == 0)
+                {
+                    return ApiErrors.NotFound($"No detail page found for {entityType} '{id}'.");
+                }
+            }
+            var actionAuthorization = await DetailActionAuthorizationPolicy.ResolveAsync(
+                authority,
+                httpContext.RequestServices.GetRequiredService<IAccountAccessDecisionService>(),
+                httpContext.RequestServices.GetRequiredService<IAuthorizationEvaluator>(),
+                ct);
+            var detail = await composer.BuildAuthorizedAsync(
+                parsedType, id, presentationContext, ct, containerId,
+                authority.ActiveProfileId, actionAuthorization, authorizedAssetIds, authorizedWorks);
             return detail is null
                 ? ApiErrors.NotFound($"No detail page found for {entityType} '{id}'.")
                 : Results.Ok(detail);
@@ -45,7 +71,8 @@ public static class DetailEndpoints
         .Produces<DetailPageViewModel>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireClientScope(ClientApiScopes.LibraryRead);
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .WithMetadata(new CatalogueEntityAccessMetadata(ApplicationPermissionIds.LibraryRead.Value));
 
         group.MapPut("/{entityType}/{id:guid}/sequence-default", async (
             string entityType,
@@ -56,17 +83,23 @@ public static class DetailEndpoints
             CancellationToken ct) =>
         {
             if (!DetailComposerService.TryParseEntityType(entityType, out var parsedType))
+            {
                 return ApiErrors.BadRequest($"Unsupported detail entity type '{entityType}'.");
+            }
 
             var containerId = NormalizeContainerId(request.ContainerId);
             if (string.IsNullOrWhiteSpace(containerId))
+            {
                 return ApiErrors.BadRequest("A valid sequence container is required.");
+            }
 
             var detail = await composer.BuildAsync(parsedType, id, DetailPresentationContext.Default, ct);
             var matchingContainer = detail?.SequencePlacement?.AvailableContainers.FirstOrDefault(option =>
                 ContainerMatches(option, containerId));
             if (matchingContainer is null)
+            {
                 return ApiErrors.BadRequest("The selected container is not valid for this item.");
+            }
 
             var now = DateTimeOffset.UtcNow;
             await canonicalValues.UpsertBatchAsync(
@@ -98,20 +131,29 @@ public static class DetailEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status403Forbidden)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite, "id");
 
         return app;
     }
 
+    private static bool IsWorkDetail(DetailEntityType type) => type is
+        DetailEntityType.Work or DetailEntityType.Movie or DetailEntityType.TvEpisode or
+        DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.ComicIssue;
+
     private static string? NormalizeContainerId(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var trimmed = value.Trim();
         var slashIndex = trimmed.LastIndexOf('/');
         if (slashIndex >= 0)
+        {
             trimmed = trimmed[(slashIndex + 1)..];
+        }
 
         return trimmed.Length > 1 && trimmed[0] is 'Q' && trimmed.Skip(1).All(char.IsDigit)
             ? trimmed
@@ -122,7 +164,9 @@ public static class DetailEndpoints
     {
         var normalized = NormalizeContainerId(containerId);
         if (string.IsNullOrWhiteSpace(normalized))
+        {
             return false;
+        }
 
         return string.Equals(NormalizeContainerId(option.ContainerId), normalized, StringComparison.OrdinalIgnoreCase)
             || string.Equals(NormalizeContainerId(option.SourceContainerId), normalized, StringComparison.OrdinalIgnoreCase)

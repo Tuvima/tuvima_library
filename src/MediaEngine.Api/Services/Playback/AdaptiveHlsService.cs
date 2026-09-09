@@ -102,7 +102,10 @@ public sealed class AdaptiveHlsService
         CancellationToken ct = default)
     {
         var package = await _packages.FindByIdAsync(packageId, ct).ConfigureAwait(false);
-        if (package is not { Status: "ready" } || package.AssetId != assetId) return null;
+        if (package is not { Status: "ready" } || package.AssetId != assetId)
+        {
+            return null;
+        }
 
         var normalized = resourcePath.Replace('\\', '/').TrimStart('/');
         if (string.IsNullOrWhiteSpace(normalized)
@@ -152,17 +155,25 @@ public sealed class AdaptiveHlsService
         try
         {
             if (!_ffmpeg.IsAvailable || !_ffmpeg.HardwareCapabilities.AdaptiveHlsReady)
+            {
                 throw new InvalidOperationException("FFmpeg does not provide the HLS, H.264, and AAC capabilities required for adaptive delivery.");
+            }
 
             var asset = await _assets.FindByIdAsync(package.AssetId, ct).ConfigureAwait(false)
                 ?? throw new FileNotFoundException("The source asset no longer exists.");
-            if (!File.Exists(asset.FilePathRoot)) throw new FileNotFoundException("The source media file is missing.", asset.FilePathRoot);
+            if (!File.Exists(asset.FilePathRoot))
+            {
+                throw new FileNotFoundException("The source media file is missing.", asset.FilePathRoot);
+            }
 
             DeleteDirectory(staging);
             Directory.CreateDirectory(staging);
             var settings = _configuration.LoadTranscoding();
             var probe = await _ffmpeg.ProbeAsync(asset.FilePathRoot, ct).ConfigureAwait(false);
-            if (probe?.Height is not > 0) throw new InvalidOperationException("The source video dimensions could not be inspected.");
+            if (probe?.Height is not > 0)
+            {
+                throw new InvalidOperationException("The source video dimensions could not be inspected.");
+            }
 
             var renditions = SelectRenditions(settings.AdaptiveHls, probe.Height.Value);
             var encoder = ResolveEncoder(settings.HardwareAcceleration);
@@ -181,7 +192,11 @@ public sealed class AdaptiveHlsService
                     result = await EncodeVideoAsync(asset.FilePathRoot, directory, rendition, "libx264", settings.AdaptiveHls.SegmentSeconds, ct)
                         .ConfigureAwait(false);
                 }
-                if (result.ExitCode != 0) throw new InvalidOperationException($"FFmpeg video rendition failed: {Tail(result.Error)}");
+                if (result.ExitCode != 0)
+                {
+                    throw new InvalidOperationException($"FFmpeg video rendition failed: {Tail(result.Error)}");
+                }
+
                 NormalizePlaylist(Path.Combine(directory, "index.m3u8"));
             }
 
@@ -194,7 +209,11 @@ public sealed class AdaptiveHlsService
                     .ConfigureAwait(false);
                 if (result.ExitCode != 0)
                 {
-                    if (index == 0) throw new InvalidOperationException($"FFmpeg audio rendition failed: {Tail(result.Error)}");
+                    if (index == 0)
+                    {
+                        throw new InvalidOperationException($"FFmpeg audio rendition failed: {Tail(result.Error)}");
+                    }
+
                     DeleteDirectory(directory);
                     continue;
                 }
@@ -256,7 +275,11 @@ public sealed class AdaptiveHlsService
             "-hls_playlist_type", "vod", "-hls_flags", "independent_segments",
             "-hls_segment_filename", segmentPattern, playlist,
         };
-        if (encoder == "libx264") arguments.InsertRange(12, ["-preset", "veryfast", "-profile:v", "main"]);
+        if (encoder == "libx264")
+        {
+            arguments.InsertRange(12, ["-preset", "veryfast", "-profile:v", "main"]);
+        }
+
         return await _ffmpeg.RunAsync(arguments, ct).ConfigureAwait(false);
     }
 
@@ -389,8 +412,16 @@ public sealed class AdaptiveHlsService
                 .Append(audioTracks.Count > 0
                     ? ",CODECS=\"avc1.4d401f,mp4a.40.2\""
                     : ",CODECS=\"avc1.4d401f\"");
-            if (audioTracks.Count > 0) builder.Append(",AUDIO=\"audio\"");
-            if (captions.Count > 0) builder.Append(",SUBTITLES=\"subs\"");
+            if (audioTracks.Count > 0)
+            {
+                builder.Append(",AUDIO=\"audio\"");
+            }
+
+            if (captions.Count > 0)
+            {
+                builder.Append(",SUBTITLES=\"subs\"");
+            }
+
             builder.Append("\nv").Append(index).Append("/index.m3u8\n");
         }
         await File.WriteAllTextAsync(Path.Combine(root, "master.m3u8"), builder.ToString(), new UTF8Encoding(false), ct)
@@ -439,18 +470,28 @@ public sealed class AdaptiveHlsService
     {
         var path = string.IsNullOrWhiteSpace(settings.VariantCachePath) ? ".data/variants" : settings.VariantCachePath;
         var libraryRoot = _configuration.LoadCore().LibraryRoot;
-        if (string.IsNullOrWhiteSpace(libraryRoot)) libraryRoot = AppContext.BaseDirectory;
+        if (string.IsNullOrWhiteSpace(libraryRoot))
+        {
+            libraryRoot = AppContext.BaseDirectory;
+        }
+
         return Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(libraryRoot, path));
     }
 
     private static void NormalizePlaylist(string path)
     {
-        if (!File.Exists(path)) throw new FileNotFoundException("FFmpeg did not produce the expected HLS playlist.", path);
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException("FFmpeg did not produce the expected HLS playlist.", path);
+        }
+
         var lines = File.ReadAllLines(path);
         for (var index = 0; index < lines.Length; index++)
         {
             if (!string.IsNullOrWhiteSpace(lines[index]) && !lines[index].StartsWith('#'))
+            {
                 lines[index] = Path.GetFileName(lines[index].Replace('\\', '/'));
+            }
         }
         File.WriteAllLines(path, lines, new UTF8Encoding(false));
     }
@@ -458,10 +499,17 @@ public sealed class AdaptiveHlsService
     private static void ValidatePackage(string root)
     {
         var master = Path.Combine(root, "master.m3u8");
-        if (!File.Exists(master)) throw new InvalidOperationException("The HLS master playlist was not generated.");
+        if (!File.Exists(master))
+        {
+            throw new InvalidOperationException("The HLS master playlist was not generated.");
+        }
+
         var playlists = Directory.EnumerateFiles(root, "*.m3u8", SearchOption.AllDirectories).ToList();
         if (playlists.Count < 2 || !Directory.EnumerateFiles(root, "*.ts", SearchOption.AllDirectories).Any())
+        {
             throw new InvalidOperationException("The HLS package does not contain playable rendition segments.");
+        }
+
         foreach (var playlist in playlists)
         {
             foreach (var rawLine in File.ReadLines(playlist).Where(line => !string.IsNullOrWhiteSpace(line)))
@@ -480,11 +528,18 @@ public sealed class AdaptiveHlsService
                     {
                         uriStart += uriMarker.Length;
                         var uriEnd = line.IndexOf('"', uriStart);
-                        if (uriEnd > uriStart) resource = line[uriStart..uriEnd];
+                        if (uriEnd > uriStart)
+                        {
+                            resource = line[uriStart..uriEnd];
+                        }
                     }
                 }
 
-                if (resource is null) continue;
+                if (resource is null)
+                {
+                    continue;
+                }
+
                 var referenced = Path.GetFullPath(Path.Combine(
                     Path.GetDirectoryName(playlist)!,
                     resource.Replace('/', Path.DirectorySeparatorChar)));
@@ -513,7 +568,10 @@ public sealed class AdaptiveHlsService
     private static string Tail(string value) => value.Length <= 1000 ? value : value[^1000..];
     private static void DeleteDirectory(string path)
     {
-        if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
+        if (Directory.Exists(path))
+        {
+            Directory.Delete(path, recursive: true);
+        }
     }
 
     private sealed record HlsCaption(string Language, bool IsDefault);

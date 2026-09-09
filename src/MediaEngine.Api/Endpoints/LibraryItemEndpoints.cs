@@ -7,6 +7,7 @@ using MediaEngine.Contracts.Matching;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -61,7 +62,7 @@ public static class LibraryItemEndpoints
         .WithName("GetLibraryCatalogItems")
         .WithSummary("Paginated list of all ingested items with filtering.")
         .Produces<LibraryItemsPageDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead);
 
         group.MapGet("/{entityId}/detail", async (
             Guid entityId,
@@ -77,14 +78,15 @@ public static class LibraryItemEndpoints
         .WithSummary("Full detail for a single library item.")
         .Produces<LibraryItemDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.ReviewRead);
 
         group.MapGet("/counts", async (ILibraryItemRepository repo, CancellationToken ct) =>
             Results.Ok((await repo.GetStatusCountsAsync(ct)).ToContract()))
         .WithName("GetLibraryItemStatusCounts")
         .WithSummary("Status counts for tab badges (All, Staging, Review, Auto, Edited, Duplicate).")
         .Produces<LibraryItemStatusCountsDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead);
 
         group.MapGet("/state-counts", async (
             Guid? batchId,
@@ -94,14 +96,14 @@ public static class LibraryItemEndpoints
         .WithName("GetLibraryItemLifecycleCounts")
         .WithSummary("Four-state counts (Registered, NeedsReview, NoMatch, Failed) with trigger breakdown.")
         .Produces<LibraryItemLifecycleCountsDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead);
 
         group.MapGet("/type-counts", async (ILibraryItemRepository repo, CancellationToken ct) =>
             Results.Ok(await repo.GetMediaTypeCountsAsync(ct)))
         .WithName("GetLibraryItemTypeCounts")
         .WithSummary("Per-media-type item counts.")
         .Produces<Dictionary<string, int>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead);
 
         group.MapPost("/{entityId}/apply-match", async (
             Guid entityId,
@@ -116,7 +118,9 @@ public static class LibraryItemEndpoints
         {
             var target = await store.ResolveTargetAsync(entityId, ct);
             if (target is null)
+            {
                 return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
+            }
 
             var now = DateTimeOffset.UtcNow;
             var claims = BuildApplyMatchClaims(target.AssetId, request, now);
@@ -218,7 +222,8 @@ public static class LibraryItemEndpoints
         .WithSummary("Apply a selected match to a library item. Provide a QID to register the item.")
         .Produces<ApplyMatchResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.ReviewResolve);
 
         group.MapPost("/{entityId}/create-manual", async (
             Guid entityId,
@@ -229,11 +234,15 @@ public static class LibraryItemEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Title))
+            {
                 return ApiErrors.BadRequest("Title is required for manual entry.");
+            }
 
             var target = await store.ResolveTargetAsync(entityId, ct);
             if (target is null)
+            {
                 return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
+            }
 
             var claims = BuildManualClaims(target.AssetId, request, DateTimeOffset.UtcNow);
             await claimRepo.InsertBatchAsync(claims, ct);
@@ -253,7 +262,8 @@ public static class LibraryItemEndpoints
         .Produces<CreateManualResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.ReviewResolve);
 
         group.MapDelete("/{entityId}", async (
             Guid entityId,
@@ -265,7 +275,9 @@ public static class LibraryItemEndpoints
         {
             var targets = await store.GetRemovalTargetsAsync([entityId], ct);
             if (!targets.TryGetValue(entityId, out var target) || target.FilePaths.Count == 0)
+            {
                 return ApiErrors.NotFound($"No media assets found for work {entityId}.");
+            }
 
             var filesDeleted = await DeleteTargetAsync(
                 target, store, hierarchyMaintenance, activityRepo, logger, isBatch: false, ct);
@@ -281,7 +293,7 @@ public static class LibraryItemEndpoints
         .WithSummary("Permanently remove a work and all its files from the library.")
         .Produces<DeleteLibraryItemResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireEffectiveAdministrator();
 
         group.MapPost("/{entityId}/reject", async (
             Guid entityId,
@@ -294,11 +306,15 @@ public static class LibraryItemEndpoints
         {
             var target = await store.ResolveTargetAsync(entityId, ct);
             if (target is null || string.IsNullOrWhiteSpace(target.FilePath))
+            {
                 return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
+            }
 
             var rejectedDirectory = ResolveRejectedDirectory(configLoader);
             if (rejectedDirectory is null)
+            {
                 return ApiErrors.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
+            }
 
             Directory.CreateDirectory(rejectedDirectory);
             try
@@ -323,7 +339,8 @@ public static class LibraryItemEndpoints
         .Produces<RejectLibraryItemResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.ReviewResolve);
 
         group.MapPost("/batch/approve", async (
             BatchLibraryItemRequest request,
@@ -332,7 +349,9 @@ public static class LibraryItemEndpoints
         {
             var entityIds = DistinctEntityIds(request);
             if (entityIds.Length == 0)
+            {
                 return ApiErrors.BadRequest("No entity IDs provided.");
+            }
 
             var processed = await store.ApproveWorksAsync(entityIds, DateTimeOffset.UtcNow, ct);
             return Results.Ok(new BatchLibraryItemResponse
@@ -345,7 +364,7 @@ public static class LibraryItemEndpoints
         .WithName("BatchApproveLibraryCatalogItems")
         .WithSummary("Approve multiple library items in one transaction.")
         .Produces<BatchLibraryItemResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireEffectiveAdministrator();
 
         group.MapPost("/batch/delete", async (
             BatchLibraryItemRequest request,
@@ -357,7 +376,9 @@ public static class LibraryItemEndpoints
         {
             var entityIds = DistinctEntityIds(request);
             if (entityIds.Length == 0)
+            {
                 return ApiErrors.BadRequest("No entity IDs provided.");
+            }
 
             var targets = await store.GetRemovalTargetsAsync(entityIds, ct);
             var processed = 0;
@@ -365,7 +386,9 @@ public static class LibraryItemEndpoints
             foreach (var entityId in entityIds)
             {
                 if (!targets.TryGetValue(entityId, out var target) || target.FilePaths.Count == 0)
+                {
                     continue;
+                }
 
                 try
                 {
@@ -393,7 +416,7 @@ public static class LibraryItemEndpoints
         .WithName("BatchDeleteLibraryCatalogItems")
         .WithSummary("Permanently delete multiple library items and their files in batch.")
         .Produces<BatchLibraryItemResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireEffectiveAdministrator();
 
         group.MapPost("/batch/reject", async (
             BatchLibraryItemRequest request,
@@ -406,11 +429,15 @@ public static class LibraryItemEndpoints
         {
             var entityIds = DistinctEntityIds(request);
             if (entityIds.Length == 0)
+            {
                 return ApiErrors.BadRequest("No entity IDs provided.");
+            }
 
             var rejectedDirectory = ResolveRejectedDirectory(configLoader);
             if (rejectedDirectory is null)
+            {
                 return ApiErrors.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
+            }
 
             Directory.CreateDirectory(rejectedDirectory);
             var targets = await store.ResolveWorkTargetsAsync(entityIds, ct);
@@ -418,7 +445,9 @@ public static class LibraryItemEndpoints
             foreach (var entityId in entityIds)
             {
                 if (!targets.TryGetValue(entityId, out var target) || string.IsNullOrWhiteSpace(target.FilePath))
+                {
                     continue;
+                }
 
                 try
                 {
@@ -446,7 +475,7 @@ public static class LibraryItemEndpoints
         .WithName("BatchRejectLibraryCatalogItems")
         .WithSummary("Reject multiple library items and move their representative files to the rejected folder.")
         .Produces<BatchLibraryItemResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireEffectiveAdministrator();
 
         group.MapPost("/{entityId:guid}/recover", async (
             Guid entityId,
@@ -458,7 +487,9 @@ public static class LibraryItemEndpoints
         {
             var recovered = await store.RecoverAsync(entityId, DateTimeOffset.UtcNow, ct);
             if (recovered is null)
+            {
                 return ApiErrors.NotFound($"Work {entityId} is not in rejected state.");
+            }
 
             await LogSupplementaryActivityAsync(activityRepo, new SystemActivityEntry
             {
@@ -487,7 +518,8 @@ public static class LibraryItemEndpoints
         .WithSummary("Recover a previously rejected library item and return it to review.")
         .Produces<RecoverLibraryItemResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.ReviewResolve);
 
         group.MapPost("/{entityId:guid}/provisional", async (
             Guid entityId,
@@ -499,7 +531,9 @@ public static class LibraryItemEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(body.Title))
+            {
                 return ApiErrors.BadRequest("Title is required for provisional metadata.");
+            }
 
             var provisional = await store.MarkProvisionalAsync(entityId, new LibraryItemProvisionalMetadata
             {
@@ -520,7 +554,9 @@ public static class LibraryItemEndpoints
                 PageCount = body.PageCount,
             }, DateTimeOffset.UtcNow, ct);
             if (provisional is null)
+            {
                 return ApiErrors.NotFound($"Work {entityId} not found.");
+            }
 
             await LogSupplementaryActivityAsync(activityRepo, new SystemActivityEntry
             {
@@ -551,7 +587,8 @@ public static class LibraryItemEndpoints
         .Produces<MarkProvisionalResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.ReviewResolve);
 
         group.MapGet("/{entityId:guid}/history", async (
             Guid entityId,
@@ -561,7 +598,8 @@ public static class LibraryItemEndpoints
         .WithName("GetLibraryCatalogItemHistory")
         .WithSummary("Get processing history timeline for a library item.")
         .Produces<IReadOnlyList<LibraryItemHistoryDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.ReviewRead);
 
         return app;
     }
@@ -603,7 +641,9 @@ public static class LibraryItemEndpoints
         DateTimeOffset now)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return;
+        }
 
         claims.Add(new MetadataClaim
         {
@@ -631,7 +671,9 @@ public static class LibraryItemEndpoints
     private static void AddHint(IDictionary<string, string> hints, string key, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value))
+        {
             hints[key] = value.Trim();
+        }
     }
 
     private static Guid[] DistinctEntityIds(BatchLibraryItemRequest request) =>
@@ -682,7 +724,9 @@ public static class LibraryItemEndpoints
         }
 
         foreach (var path in target.ManagedAssetPaths)
+        {
             TryDeleteManagedAssetFile(path, logger);
+        }
 
         await store.DeleteWorkRecordsAsync(target, ct);
 
@@ -741,7 +785,10 @@ public static class LibraryItemEndpoints
         catch
         {
             if (moved)
+            {
                 TryRestoreMovedFile(newPath, currentPath, logger);
+            }
+
             throw;
         }
 
@@ -814,7 +861,9 @@ public static class LibraryItemEndpoints
         try
         {
             if (File.Exists(movedPath) && !File.Exists(originalPath))
+            {
                 File.Move(movedPath, originalPath);
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -828,12 +877,16 @@ public static class LibraryItemEndpoints
     private static void TryPruneEmptyDirectory(string? directory, ILogger logger)
     {
         if (string.IsNullOrWhiteSpace(directory))
+        {
             return;
+        }
 
         try
         {
             if (Directory.Exists(directory) && !Directory.EnumerateFileSystemEntries(directory).Any())
+            {
                 Directory.Delete(directory);
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -847,10 +900,14 @@ public static class LibraryItemEndpoints
         {
             var fullPath = Path.GetFullPath(path);
             if (!IsManagedAssetPath(fullPath))
+            {
                 return;
+            }
 
             if (File.Exists(fullPath))
+            {
                 File.Delete(fullPath);
+            }
 
             PruneEmptyManagedAssetParents(fullPath);
         }
@@ -871,7 +928,9 @@ public static class LibraryItemEndpoints
                && !string.Equals(Path.GetFileName(current), "assets", StringComparison.OrdinalIgnoreCase))
         {
             if (!Directory.Exists(current) || Directory.EnumerateFileSystemEntries(current).Any())
+            {
                 return;
+            }
 
             Directory.Delete(current);
             current = Path.GetDirectoryName(current);

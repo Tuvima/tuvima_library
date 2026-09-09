@@ -60,19 +60,19 @@ public sealed class IngestionBatchResponseService : IIngestionBatchResponseServi
 
         return new IngestionBatchResponse
         {
-            Id              = batch.Id,
-            Status          = batch.Status,
-            SourcePath      = batch.SourcePath,
-            Category        = batch.Category,
-            FilesTotal      = total,
-            FilesProcessed  = terminal,
+            Id = batch.Id,
+            Status = batch.Status,
+            SourcePath = batch.SourcePath,
+            Category = batch.Category,
+            FilesTotal = total,
+            FilesProcessed = terminal,
             FilesIdentified = Math.Max(0, identified),
-            FilesReview     = Math.Max(0, review),
-            FilesNoMatch    = Math.Max(0, noMatch),
-            FilesFailed     = Math.Max(0, failed),
-            StartedAt       = batch.StartedAt,
-            CompletedAt     = batch.CompletedAt,
-            CreatedAt       = batch.CreatedAt,
+            FilesReview = Math.Max(0, review),
+            FilesNoMatch = Math.Max(0, noMatch),
+            FilesFailed = Math.Max(0, failed),
+            StartedAt = batch.StartedAt,
+            CompletedAt = batch.CompletedAt,
+            CreatedAt = batch.CreatedAt,
         };
     }
 

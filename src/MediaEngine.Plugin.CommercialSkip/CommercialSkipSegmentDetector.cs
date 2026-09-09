@@ -22,9 +22,9 @@ public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
 
     public string Kind => "playback-segment-detector";
 
-    public bool CanAnalyze(PluginMediaAssetContext asset)
+    public bool CanAnalyze(PluginMediaAssetContext asset, IPluginExecutionContext context)
     {
-        return File.Exists(asset.FilePath) && PluginMediaExtensions.Video.Contains(Path.GetExtension(asset.FilePath));
+        return context.Media.Exists(asset) && PluginMediaExtensions.Video.Contains(Path.GetExtension(asset.FilePath));
     }
 
     public async Task<IReadOnlyList<PluginPlaybackSegment>> AnalyzeAsync(
@@ -36,20 +36,20 @@ public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
         if (GetBool(context, "use_comskip", true))
         {
             var comskip = _manifest.ToolRequirements.First(t => t.Id == "comskip");
-            var resolved = await context.Tools.ResolveToolAsync(_manifest.Id, comskip, context.Settings, cancellationToken).ConfigureAwait(false);
+            var resolved = await context.Tools.ResolveToolAsync(comskip.Id, cancellationToken).ConfigureAwait(false);
             if (resolved.IsAvailable && resolved.ExecutablePath is not null)
             {
-                results.AddRange(await RunComskipAsync(asset, context, resolved.ExecutablePath, cancellationToken).ConfigureAwait(false));
+                results.AddRange(await RunComskipAsync(asset, context, resolved, cancellationToken).ConfigureAwait(false));
             }
         }
 
         if (results.Count == 0 && GetBool(context, "use_ffmpeg_fallback", true))
         {
             var ffmpeg = _manifest.ToolRequirements.First(t => t.Id == "ffmpeg");
-            var resolved = await context.Tools.ResolveToolAsync(_manifest.Id, ffmpeg, context.Settings, cancellationToken).ConfigureAwait(false);
+            var resolved = await context.Tools.ResolveToolAsync(ffmpeg.Id, cancellationToken).ConfigureAwait(false);
             if (resolved.IsAvailable && resolved.ExecutablePath is not null)
             {
-                results.AddRange(await RunFfmpegFallbackAsync(asset, context, resolved.ExecutablePath, cancellationToken).ConfigureAwait(false));
+                results.AddRange(await RunFfmpegFallbackAsync(asset, context, resolved, cancellationToken).ConfigureAwait(false));
             }
         }
 
@@ -59,24 +59,26 @@ public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
     private static async Task<IReadOnlyList<PluginPlaybackSegment>> RunComskipAsync(
         PluginMediaAssetContext asset,
         IPluginExecutionContext context,
-        string executable,
+        PluginToolResolution tool,
         CancellationToken ct)
     {
-        var outputDir = Path.Combine(context.TempDirectory, "comskip");
-        Directory.CreateDirectory(outputDir);
+        context.Storage.CreateDirectory("comskip");
+        var outputDir = context.Storage.GetPath("comskip");
         var args = new[] { $"--output={outputDir}", asset.FilePath };
-        var result = await context.Tools.RunToolAsync(executable, args, outputDir, TimeSpan.FromHours(2), ct).ConfigureAwait(false);
+        var result = await context.Tools.RunToolAsync(tool, args, outputDir, TimeSpan.FromHours(2), ct).ConfigureAwait(false);
         if (result.TimedOut || result.ExitCode != 0)
+        {
             return [];
+        }
 
-        var edl = Directory.EnumerateFiles(outputDir, "*.edl").FirstOrDefault();
+        var edl = context.Storage.EnumerateFiles("comskip", "*.edl").FirstOrDefault();
         return edl is null ? [] : ParseEdl(edl, context);
     }
 
     private static async Task<IReadOnlyList<PluginPlaybackSegment>> RunFfmpegFallbackAsync(
         PluginMediaAssetContext asset,
         IPluginExecutionContext context,
-        string executable,
+        PluginToolResolution tool,
         CancellationToken ct)
     {
         var args = new[]
@@ -88,7 +90,7 @@ public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
             "-f", "null",
             "-"
         };
-        var result = await context.Tools.RunToolAsync(executable, args, context.TempDirectory, TimeSpan.FromHours(1), ct).ConfigureAwait(false);
+        var result = await context.Tools.RunToolAsync(tool, args, context.Storage.WorkingDirectory, TimeSpan.FromHours(1), ct).ConfigureAwait(false);
         var log = result.StandardError + Environment.NewLine + result.StandardOutput;
         return BuildFallbackSegments(log, context);
     }
@@ -98,14 +100,22 @@ public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
         var min = GetDouble(context, "minimum_commercial_seconds", 30);
         var max = GetDouble(context, "maximum_commercial_seconds", 600);
         var results = new List<PluginPlaybackSegment>();
-        foreach (var line in File.ReadLines(path))
+        foreach (var line in context.Storage.ReadLines(path))
         {
             var match = EdlLineRegex.Match(line);
-            if (!match.Success) continue;
+            if (!match.Success)
+            {
+                continue;
+            }
+
             var start = double.Parse(match.Groups["start"].Value, CultureInfo.InvariantCulture);
             var end = double.Parse(match.Groups["end"].Value, CultureInfo.InvariantCulture);
             var duration = end - start;
-            if (duration < min || duration > max) continue;
+            if (duration < min || duration > max)
+            {
+                continue;
+            }
+
             results.Add(Segment(start, end, "plugin:commercial-skip:comskip", 0.88));
         }
         return results;
@@ -126,7 +136,9 @@ public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
             var end = cuts[i + 1];
             var duration = end - start;
             if (duration >= min && duration <= max)
+            {
                 results.Add(Segment(start, end, "plugin:commercial-skip:ffmpeg", 0.55));
+            }
         }
 
         return results;
@@ -145,7 +157,11 @@ public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
 
     private static bool GetBool(IPluginExecutionContext context, string key, bool fallback)
     {
-        if (!context.Settings.TryGetValue(key, out var value)) return fallback;
+        if (!context.Settings.TryGetValue(key, out var value))
+        {
+            return fallback;
+        }
+
         return value.ValueKind switch
         {
             System.Text.Json.JsonValueKind.True => true,
@@ -157,7 +173,11 @@ public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
 
     private static double GetDouble(IPluginExecutionContext context, string key, double fallback)
     {
-        if (!context.Settings.TryGetValue(key, out var value)) return fallback;
+        if (!context.Settings.TryGetValue(key, out var value))
+        {
+            return fallback;
+        }
+
         return value.ValueKind switch
         {
             System.Text.Json.JsonValueKind.Number when value.TryGetDouble(out var parsed) => parsed,

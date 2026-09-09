@@ -1,9 +1,9 @@
+using System.Text.Json;
 using Dapper;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Playback;
 using Microsoft.Data.Sqlite;
-using System.Text.Json;
 
 namespace MediaEngine.Api.Tests;
 
@@ -149,7 +149,9 @@ public sealed class PlaybackStateRepositoryTests : IDisposable
         {
             var path = _dbPath + suffix;
             if (File.Exists(path))
+            {
                 File.Delete(path);
+            }
         }
     }
 }

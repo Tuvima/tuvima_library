@@ -11,7 +11,9 @@ public sealed class PluginJobStateService
     {
         var jobs = _jobs.Values.AsEnumerable();
         if (!string.IsNullOrWhiteSpace(pluginId))
+        {
             jobs = jobs.Where(j => string.Equals(j.PluginId, pluginId, StringComparison.OrdinalIgnoreCase));
+        }
 
         return jobs.OrderByDescending(j => j.StartedAt).ToList();
     }
@@ -57,7 +59,9 @@ public sealed class PluginJobStateService
     {
         var key = id.ToString("N");
         if (!_jobs.TryGetValue(key, out var job))
+        {
             return;
+        }
 
         update(job);
         _jobs[key] = job;

@@ -1,6 +1,6 @@
-using MediaEngine.Ingestion.Models;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Ingestion.Models;
 
 namespace MediaEngine.Ingestion;
 

@@ -12,6 +12,35 @@ namespace MediaEngine.Api.Tests;
 public sealed class ProfileAvatarEndpointTests
 {
     [Fact]
+    public async Task ExperienceSavePreservesAuthorityAndAvatarFile_AndStoresPlaylistOrder()
+    {
+        var profile = CreateProfile("unchanged-avatar.png");
+        var service = new FakeProfileService(profile, updateResult: true);
+        var result = await ProfileEndpoints.UpdateExperienceAsync(profile.Id,
+            new(" Updated name ", "#abcdef", "{\"playlist_order\":[\"one\",\"two\"]}"), service, default);
+        Assert.Equal(204, Assert.IsAssignableFrom<IStatusCodeHttpResult>(result).StatusCode);
+        Assert.Equal("Updated name", service.PersistedProfile.DisplayName);
+        Assert.Equal("#ABCDEF", service.PersistedProfile.AvatarColor);
+        Assert.Equal(profile.Role, service.PersistedProfile.Role);
+        Assert.Equal(profile.AvatarImagePath, service.PersistedProfile.AvatarImagePath);
+        Assert.Equal("{\"playlist_order\":[\"one\",\"two\"]}", service.PersistedProfile.NavigationConfig);
+    }
+
+    [Theory]
+    [InlineData("", "#123456", "{}")]
+    [InlineData("Profile", "bad", "{}")]
+    [InlineData("Profile", "#123456", "[]")]
+    [InlineData("Profile", "#123456", "{bad")]
+    public async Task InvalidExperienceDoesNotWrite(string name, string color, string navigation)
+    {
+        var profile = CreateProfile("unchanged-avatar.png");
+        var service = new FakeProfileService(profile, updateResult: true);
+        var result = await ProfileEndpoints.UpdateExperienceAsync(profile.Id, new(name, color, navigation), service, default);
+        Assert.Equal(400, Assert.IsAssignableFrom<IStatusCodeHttpResult>(result).StatusCode);
+        Assert.Equal(0, service.UpdateCount);
+    }
+
+    [Fact]
     public async Task UploadProfileAvatarAsync_PreservesExistingAvatarWhenProfileUpdateFails()
     {
         var root = CreateTemporaryDirectory();
@@ -178,16 +207,5 @@ public sealed class ProfileAvatarEndpointTests
         public Task<IReadOnlyList<Profile>> GetAllProfilesAsync(CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<Profile>>([Clone(PersistedProfile)]);
 
-        public Task<Profile> CreateProfileAsync(
-            string displayName,
-            ProfileRole role,
-            string avatarColor,
-            CancellationToken ct = default) => throw new NotSupportedException();
-
-        public Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<Profile> GetDefaultProfileAsync(CancellationToken ct = default) =>
-            Task.FromResult(Clone(PersistedProfile));
     }
 }

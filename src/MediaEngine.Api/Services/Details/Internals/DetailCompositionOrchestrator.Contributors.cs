@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -24,12 +22,19 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
 internal sealed partial class DetailCompositionOrchestrator
 {
-    private async Task<IReadOnlyList<OwnedFormatViewModel>> LoadOwnedFormatsAsync(Guid workId, LibraryItemDetail detail, CancellationToken ct, Guid? profileId = null)
+    private async Task<IReadOnlyList<OwnedFormatViewModel>> LoadOwnedFormatsAsync(
+        Guid workId,
+        LibraryItemDetail detail,
+        CancellationToken ct,
+        Guid? profileId = null,
+        IReadOnlyList<Guid>? authorizedAssetIds = null)
     {
         using var conn = _db.CreateConnection();
         var rows = (await conn.QueryAsync<OwnedFormatRow>(new CommandDefinition(
@@ -50,9 +55,18 @@ internal sealed partial class DetailCompositionOrchestrator
                                     AND us.user_id = @defaultOwnerUserId
             WHERE e.work_id = @workId
               AND ma.status = 'Normal'
+              AND (@filterAssets=0 OR ma.id IN @authorizedAssetIds)
             ORDER BY COALESCE(e.format_label, ''), ma.file_path_root;
             """,
-            new { workId, defaultOwnerUserId = profileId ?? DefaultOwnerUserId },
+            new
+            {
+                workId,
+                defaultOwnerUserId = profileId ?? DefaultOwnerUserId,
+                filterAssets = authorizedAssetIds is null ? 0 : 1,
+                authorizedAssetIds = authorizedAssetIds is { Count: > 0 }
+                    ? authorizedAssetIds.Select(GuidSql.ToBlob).ToArray()
+                    : [GuidSql.ToBlob(Guid.Empty)],
+            },
             cancellationToken: ct))).ToList();
 
         if (rows.Count == 0)
@@ -110,7 +124,10 @@ internal sealed partial class DetailCompositionOrchestrator
         CancellationToken ct)
     {
         if (entityType == DetailEntityType.TvEpisode)
+        {
             return await BuildTvCreditsAsync(workId, ct);
+        }
+
         var groups = new List<CreditGroupViewModel>();
         async Task AddTextCreditAsync(string title, CreditGroupType type, string? value, string role, string canonicalArrayKey)
         {

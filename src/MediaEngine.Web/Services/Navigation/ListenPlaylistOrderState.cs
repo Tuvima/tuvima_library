@@ -46,11 +46,15 @@ public static class ListenPlaylistOrderState
         updatedOrder = orderedIds.ToList();
         var index = updatedOrder.IndexOf(playlistId);
         if (index < 0 || updatedOrder.Count == 0)
+        {
             return false;
+        }
 
         var targetIndex = Math.Clamp(index + direction, 0, updatedOrder.Count - 1);
         if (targetIndex == index)
+        {
             return false;
+        }
 
         updatedOrder.RemoveAt(index);
         updatedOrder.Insert(targetIndex, playlistId);
@@ -65,16 +69,22 @@ public static class ListenPlaylistOrderState
     {
         updatedOrder = orderedIds.ToList();
         if (playlistId == targetPlaylistId)
+        {
             return false;
+        }
 
         var sourceIndex = updatedOrder.IndexOf(playlistId);
         var targetIndex = updatedOrder.IndexOf(targetPlaylistId);
         if (sourceIndex < 0 || targetIndex < 0)
+        {
             return false;
+        }
 
         updatedOrder.RemoveAt(sourceIndex);
         if (sourceIndex < targetIndex)
+        {
             targetIndex--;
+        }
 
         updatedOrder.Insert(targetIndex, playlistId);
         return true;

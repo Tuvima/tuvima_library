@@ -92,9 +92,13 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
             {
                 var normalizedValue = value?.Trim() ?? string.Empty;
                 if (normalizedValue.Length == 0)
+                {
                     displayOverrides.Remove(key);
+                }
                 else
+                {
                     displayOverrides[key] = normalizedValue;
+                }
             }
 
             var now = DateTimeOffset.UtcNow;
@@ -161,7 +165,9 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
             "SELECT display_overrides_json FROM works WHERE id = @workId;",
             new { workId }, transaction, cancellationToken: ct));
         if (string.IsNullOrWhiteSpace(json))
+        {
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
 
         try
         {
@@ -186,7 +192,9 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
     private static IReadOnlyList<string> ParseTags(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return [];
+        }
 
         try
         {

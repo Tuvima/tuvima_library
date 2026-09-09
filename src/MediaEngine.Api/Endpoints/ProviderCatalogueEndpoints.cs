@@ -1,5 +1,6 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
@@ -16,7 +17,7 @@ namespace MediaEngine.Api.Endpoints;
 /// The Dashboard reads this endpoint once on load and caches the result.
 /// </para>
 ///
-/// Access: any authenticated role (no sensitive data; purely display metadata).
+/// Access: administrator settings or an Application with provider configuration read permission.
 /// Route:  <c>GET /providers/catalogue</c>
 /// </summary>
 public static class ProviderCatalogueEndpoints
@@ -40,7 +41,7 @@ public static class ProviderCatalogueEndpoints
         .WithName("GetProviderCatalogue")
         .WithSummary("Returns consolidated UI metadata for all configured providers.")
         .Produces<IReadOnlyList<ProviderCatalogueDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigRead);
 
         return app;
     }
@@ -52,7 +53,7 @@ public static class ProviderCatalogueEndpoints
         var ui = p.UiMetadata;
 
         // Build per-media-type search/ranking chip dictionaries
-        var searchChips  = BuildChips(ui?.SearchChips);
+        var searchChips = BuildChips(ui?.SearchChips);
         var rankingChips = BuildChips(ui?.RankingChips);
 
         // Fall back to display_name → formatted name string
@@ -60,16 +61,16 @@ public static class ProviderCatalogueEndpoints
 
         return new ProviderCatalogueDto
         {
-            ProviderId          = p.ProviderId!,
-            Name                = p.Name,
-            DisplayName         = displayName,
-            Enabled             = p.Enabled,
-            Domain              = p.Domain.ToString(),
-            MediaTypes          = p.CanHandle?.MediaTypes ?? [],
-            AccentColor         = ui?.AccentColor ?? "#90A4AE",
-            MaterialIcon        = ui?.MaterialIcon ?? p.CustomIconName ?? "Cloud",
+            ProviderId = p.ProviderId!,
+            Name = p.Name,
+            DisplayName = displayName,
+            Enabled = p.Enabled,
+            Domain = p.Domain.ToString(),
+            MediaTypes = p.CanHandle?.MediaTypes ?? [],
+            AccentColor = ui?.AccentColor ?? "#90A4AE",
+            MaterialIcon = ui?.MaterialIcon ?? p.CustomIconName ?? "Cloud",
             ExternalUrlTemplate = string.IsNullOrEmpty(ui?.ExternalUrlTemplate) ? null : ui.ExternalUrlTemplate,
-            ExternalLinks       = ui?.ExternalLinks.ToDictionary(
+            ExternalLinks = ui?.ExternalLinks.ToDictionary(
                 pair => pair.Key,
                 pair => new ProviderExternalLinkDto
                 {
@@ -78,18 +79,18 @@ public static class ProviderCatalogueEndpoints
                     Tooltip = pair.Value.Tooltip,
                 },
                 StringComparer.OrdinalIgnoreCase) ?? new(StringComparer.OrdinalIgnoreCase),
-            Category            = ui?.Category ?? "Open",
-            RequiresKey         = ui?.RequiresKey ?? p.RequiresApiKey,
-            AuthType            = ui?.AuthType ?? ResolveAuthType(p),
-            SearchChips         = searchChips,
-            RankingChips        = rankingChips,
-            IconPath            = p.Icon,
-            HydrationStages     = [.. p.HydrationStages],
-            Capabilities        = [.. p.ProviderCapabilities],
-            SystemRole          = ui?.SystemRole,
+            Category = ui?.Category ?? "Open",
+            RequiresKey = ui?.RequiresKey ?? p.RequiresApiKey,
+            AuthType = ui?.AuthType ?? ResolveAuthType(p),
+            SearchChips = searchChips,
+            RankingChips = rankingChips,
+            IconPath = p.Icon,
+            HydrationStages = [.. p.HydrationStages],
+            Capabilities = [.. p.ProviderCapabilities],
+            SystemRole = ui?.SystemRole,
             RequiredSystemProvider = ui?.RequiredSystemProvider ?? false,
-            LanguageStrategy    = p.LanguageStrategyRaw,
-            Onboarding          = MapOnboarding(p),
+            LanguageStrategy = p.LanguageStrategyRaw,
+            Onboarding = MapOnboarding(p),
         };
     }
 
@@ -98,7 +99,9 @@ public static class ProviderCatalogueEndpoints
     {
         var onboarding = provider.Onboarding;
         if (onboarding is null)
+        {
             return null;
+        }
 
         return new ProviderOnboardingDto
         {
@@ -187,7 +190,9 @@ public static class ProviderCatalogueEndpoints
         MediaEngine.Domain.Configuration.ProviderCredentialFieldConfiguration field)
     {
         if (!string.IsNullOrWhiteSpace(field.Purpose))
+        {
             return field.Purpose.ToLowerInvariant();
+        }
 
         return field.Key.ToLowerInvariant() switch
         {
@@ -204,7 +209,9 @@ public static class ProviderCatalogueEndpoints
         Dictionary<string, List<string>>? source)
     {
         if (source is null or { Count: 0 })
+        {
             return [];
+        }
 
         return source.ToDictionary(
             kv => kv.Key,
@@ -217,10 +224,10 @@ public static class ProviderCatalogueEndpoints
         return delivery switch
         {
             "bearer" => "bearer",
-            "basic"  => "basic",
-            "query"  => "api_key",
+            "basic" => "basic",
+            "query" => "api_key",
             "header" => "api_key",
-            _        => "none",
+            _ => "none",
         };
     }
 

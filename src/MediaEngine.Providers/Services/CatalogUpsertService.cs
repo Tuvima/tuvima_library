@@ -48,11 +48,17 @@ public sealed class CatalogUpsertService
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        if (string.IsNullOrWhiteSpace(childEntitiesJson)) return 0;
+        if (string.IsNullOrWhiteSpace(childEntitiesJson))
+        {
+            return 0;
+        }
 
         // TV catalogue membership lives in scoped provider manifests. Materializing
         // unassigned episode ordinals here can overwrite a season at that ordinal.
-        if (childMediaType == MediaType.TV) return 0;
+        if (childMediaType == MediaType.TV)
+        {
+            return 0;
+        }
 
         ChildEntityPayload? payload;
         try
@@ -67,7 +73,10 @@ public sealed class CatalogUpsertService
             return 0;
         }
 
-        if (payload is null) return 0;
+        if (payload is null)
+        {
+            return 0;
+        }
 
         var children = childMediaType switch
         {
@@ -77,7 +86,9 @@ public sealed class CatalogUpsertService
         };
 
         if (children is null || children.Count == 0)
+        {
             return 0;
+        }
 
         var inserted = 0;
         var allClaims = new List<MetadataClaim>();
@@ -85,12 +96,17 @@ public sealed class CatalogUpsertService
         foreach (var child in children)
         {
             ct.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(child.Title)) continue;
+            if (string.IsNullOrWhiteSpace(child.Title))
+            {
+                continue;
+            }
 
             var childOrdinal = ResolveChildOrdinal(childMediaType, child);
             Guid? existing = null;
             if (childOrdinal is { } ordinal)
+            {
                 existing = await _works.FindChildByOrdinalAsync(parentWorkId, ordinal, ct);
+            }
 
             existing ??= await _works.FindChildByTitleAsync(parentWorkId, child.Title, ct);
 
@@ -98,7 +114,9 @@ public sealed class CatalogUpsertService
             if (existing is not null)
             {
                 if (ids is not null)
+                {
                     await _works.WriteExternalIdentifiersAsync(existing.Value, ids, ct);
+                }
 
                 AppendChildMetadata(existing.Value, childMediaType, child, allClaims, allCanonicals);
                 continue;
@@ -116,10 +134,14 @@ public sealed class CatalogUpsertService
         }
 
         if (_claims is not null && allClaims.Count > 0)
+        {
             await _claims.InsertBatchAsync(allClaims, ct);
+        }
 
         if (_canonicals is not null && allCanonicals.Count > 0)
+        {
             await _canonicals.UpsertBatchAsync(allCanonicals, ct);
+        }
 
         if (inserted > 0)
         {
@@ -134,10 +156,26 @@ public sealed class CatalogUpsertService
     private static IReadOnlyDictionary<string, string>? BuildExternalIds(ChildEntity child)
     {
         var ids = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(child.Qid)) ids[BridgeIdKeys.WikidataQid] = child.Qid;
-        if (!string.IsNullOrWhiteSpace(child.ImdbId)) ids[BridgeIdKeys.ImdbId] = child.ImdbId;
-        if (!string.IsNullOrWhiteSpace(child.TmdbId)) ids[BridgeIdKeys.TmdbId] = child.TmdbId;
-        if (!string.IsNullOrWhiteSpace(child.AppleMusicId)) ids[BridgeIdKeys.AppleMusicId] = child.AppleMusicId;
+        if (!string.IsNullOrWhiteSpace(child.Qid))
+        {
+            ids[BridgeIdKeys.WikidataQid] = child.Qid;
+        }
+
+        if (!string.IsNullOrWhiteSpace(child.ImdbId))
+        {
+            ids[BridgeIdKeys.ImdbId] = child.ImdbId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(child.TmdbId))
+        {
+            ids[BridgeIdKeys.TmdbId] = child.TmdbId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(child.AppleMusicId))
+        {
+            ids[BridgeIdKeys.AppleMusicId] = child.AppleMusicId;
+        }
+
         return ids.Count == 0 ? null : ids;
     }
 
@@ -152,7 +190,9 @@ public sealed class CatalogUpsertService
     private static int? ComposeDiscTrackOrdinal(int? discNumber, int? trackNumber)
     {
         if (trackNumber is null)
+        {
             return null;
+        }
 
         return discNumber is > 1
             ? discNumber.Value * 1000 + trackNumber.Value
@@ -162,7 +202,9 @@ public sealed class CatalogUpsertService
     private static int? ComposeSeasonEpisodeOrdinal(int? seasonNumber, int? episodeNumber)
     {
         if (episodeNumber is null)
+        {
             return null;
+        }
 
         return seasonNumber is > 0
             ? seasonNumber.Value * 1000 + episodeNumber.Value
@@ -177,38 +219,42 @@ public sealed class CatalogUpsertService
         List<CanonicalValue> allCanonicals)
     {
         if (_claims is null && _canonicals is null)
+        {
             return;
+        }
 
         var fields = BuildMetadataFields(childMediaType, child);
         if (fields.Count == 0)
+        {
             return;
+        }
 
         var now = DateTimeOffset.UtcNow;
 
         if (_claims is not null)
         {
             allClaims.AddRange(fields.Select(field => new MetadataClaim
-                {
-                    Id = Guid.NewGuid(),
-                    EntityId = childWorkId,
-                    ProviderId = WellKnownProviders.Wikidata,
-                    ClaimKey = field.Key,
-                    ClaimValue = field.Value,
-                    Confidence = 1.0,
-                    ClaimedAt = now,
-                }));
+            {
+                Id = Guid.NewGuid(),
+                EntityId = childWorkId,
+                ProviderId = WellKnownProviders.Wikidata,
+                ClaimKey = field.Key,
+                ClaimValue = field.Value,
+                Confidence = 1.0,
+                ClaimedAt = now,
+            }));
         }
 
         if (_canonicals is not null)
         {
             allCanonicals.AddRange(fields.Select(field => new CanonicalValue
-                {
-                    EntityId = childWorkId,
-                    Key = field.Key,
-                    Value = field.Value,
-                    LastScoredAt = now,
-                    WinningProviderId = WellKnownProviders.Wikidata,
-                }));
+            {
+                EntityId = childWorkId,
+                Key = field.Key,
+                Value = field.Value,
+                LastScoredAt = now,
+                WinningProviderId = WellKnownProviders.Wikidata,
+            }));
         }
     }
 
@@ -226,7 +272,9 @@ public sealed class CatalogUpsertService
         Add(fields, MetadataFieldConstants.Year, ExtractYear(child.ReleaseDate ?? child.AirDate ?? child.PublicationDate));
 
         if (child.DurationMinutes is { } duration)
+        {
             Add(fields, MetadataFieldConstants.Runtime, duration.ToString());
+        }
 
         Add(fields, MetadataFieldConstants.Director, child.Director);
 
@@ -236,23 +284,38 @@ public sealed class CatalogUpsertService
                 Add(fields, MetadataFieldConstants.EpisodeTitle, child.Title);
                 Add(fields, MetadataFieldConstants.AirDate, child.AirDate ?? child.ReleaseDate);
                 if (child.SeasonNumber is { } seasonNumber)
+                {
                     Add(fields, MetadataFieldConstants.SeasonNumber, seasonNumber.ToString());
+                }
+
                 if (child.EpisodeNumber is { } episodeNumber)
+                {
                     Add(fields, MetadataFieldConstants.EpisodeNumber, episodeNumber.ToString());
+                }
+
                 break;
 
             case MediaType.Music:
                 var trackNumber = child.TrackNumber ?? child.Ordinal;
                 if (trackNumber is { } trackNumberValue)
+                {
                     Add(fields, MetadataFieldConstants.TrackNumber, trackNumberValue.ToString());
+                }
+
                 if (child.DiscNumber is { } discNumber)
+                {
                     Add(fields, "disc_number", discNumber.ToString());
+                }
+
                 Add(fields, BridgeIdKeys.AppleMusicId, child.AppleMusicId);
                 break;
 
             case MediaType.Comics:
                 if (child.Ordinal is { } issueNumber)
+                {
                     Add(fields, MetadataFieldConstants.SeriesPosition, issueNumber.ToString());
+                }
+
                 break;
         }
 
@@ -262,13 +325,17 @@ public sealed class CatalogUpsertService
     private static void Add(IDictionary<string, string> fields, string key, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value))
+        {
             fields[key] = value.Trim();
+        }
     }
 
     private static string? ExtractYear(string? date)
     {
         if (string.IsNullOrWhiteSpace(date) || date.Length < 4)
+        {
             return null;
+        }
 
         var year = date[..4];
         return year.All(char.IsDigit) ? year : null;
@@ -291,16 +358,22 @@ public sealed class CatalogUpsertService
         public List<ChildEntity>? GetTvEpisodes()
         {
             if (Episodes is { Count: > 0 })
+            {
                 return Episodes;
+            }
 
             if (Seasons is not { Count: > 0 })
+            {
                 return null;
+            }
 
             var result = new List<ChildEntity>();
             foreach (var season in Seasons)
             {
                 if (season.Episodes is not { Count: > 0 })
+                {
                     continue;
+                }
 
                 foreach (var episode in season.Episodes)
                 {

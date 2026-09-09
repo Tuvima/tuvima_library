@@ -15,7 +15,7 @@ public interface IPluginCapability
 
 public interface IPlaybackSegmentDetector : IPluginCapability
 {
-    bool CanAnalyze(PluginMediaAssetContext asset);
+    bool CanAnalyze(PluginMediaAssetContext asset, IPluginExecutionContext context);
     Task<IReadOnlyList<PluginPlaybackSegment>> AnalyzeAsync(
         PluginMediaAssetContext asset,
         IPluginExecutionContext context,
@@ -39,25 +39,47 @@ public interface IPluginHealthCheck : IPluginCapability
         CancellationToken cancellationToken = default);
 }
 
-public interface IPluginExecutionContext
+public interface IPluginExecutionContext : IAsyncDisposable
 {
     string PluginId { get; }
     IReadOnlyDictionary<string, JsonElement> Settings { get; }
-    string TempDirectory { get; }
+    IPluginMediaAccess Media { get; }
+    IPluginHttpClient Http { get; }
+    IPluginStorage Storage { get; }
     IPluginToolRuntime Tools { get; }
     IPluginAiClient Ai { get; }
+}
+
+public interface IPluginMediaAccess
+{
+    bool Exists(PluginMediaAssetContext asset);
+}
+
+public interface IPluginHttpClient
+{
+    Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        HttpCompletionOption completionOption = HttpCompletionOption.ResponseContentRead,
+        CancellationToken cancellationToken = default);
+}
+
+public interface IPluginStorage
+{
+    string WorkingDirectory { get; }
+    string GetPath(string relativePath);
+    void CreateDirectory(string relativePath);
+    IReadOnlyList<string> EnumerateFiles(string relativePath, string searchPattern);
+    IReadOnlyList<string> ReadLines(string relativePath);
 }
 
 public interface IPluginToolRuntime
 {
     Task<PluginToolResolution> ResolveToolAsync(
-        string pluginId,
-        PluginToolRequirement requirement,
-        IReadOnlyDictionary<string, JsonElement> settings,
+        string toolId,
         CancellationToken cancellationToken = default);
 
     Task<PluginToolRunResult> RunToolAsync(
-        string executablePath,
+        PluginToolResolution tool,
         IReadOnlyList<string> arguments,
         string workingDirectory,
         TimeSpan timeout,
@@ -67,17 +89,35 @@ public interface IPluginToolRuntime
 public interface IPluginAiClient
 {
     Task<string?> InferTextAsync(
-        string pluginId,
         string role,
         string prompt,
         PluginAiOptions? options = null,
         CancellationToken cancellationToken = default);
 
     Task<T?> InferJsonAsync<T>(
-        string pluginId,
         string role,
         string prompt,
         string grammar,
         PluginAiOptions? options = null,
         CancellationToken cancellationToken = default) where T : class;
+}
+
+public static class PluginPermissionIds
+{
+    public const string MediaRead = "media.read";
+    public const string NetworkHttp = "network.http";
+    public const string ProcessExecute = "process.execute";
+    public const string ToolDownload = "tool.download";
+    public const string AiInfer = "ai.infer";
+    public const string PluginStorage = "storage.plugin";
+
+    public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
+    {
+        MediaRead,
+        NetworkHttp,
+        ProcessExecute,
+        ToolDownload,
+        AiInfer,
+        PluginStorage,
+    };
 }

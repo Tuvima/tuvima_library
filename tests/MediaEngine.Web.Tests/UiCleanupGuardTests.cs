@@ -20,14 +20,14 @@ public sealed class UiCleanupGuardTests
     }
 
     [Fact]
-    public void ApiKeysTab_UsesSharedCodeAndAlignmentClasses()
+    public void ApplicationsAccess_UsesSharedControlsAndScopedCredentialCode()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ApiKeysTab.razor");
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ManagedAccessApplications.razor");
 
-        Assert.Contains("<AppTable>", source, StringComparison.Ordinal);
-        Assert.Contains("api-keys-page__table-wrap", source, StringComparison.Ordinal);
-        Assert.Contains("tl-inline-code", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Style=\"background: transparent", source, StringComparison.Ordinal);
+        Assert.Contains("<AppButton", source, StringComparison.Ordinal);
+        Assert.Contains("access-credential-secret", source, StringComparison.Ordinal);
+        Assert.Contains("<MudFocusTrap", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<MudButton", source, StringComparison.Ordinal);
         Assert.DoesNotContain("style=\"font-family: monospace", source, StringComparison.Ordinal);
     }
 

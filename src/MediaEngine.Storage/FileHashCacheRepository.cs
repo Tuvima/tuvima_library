@@ -39,12 +39,17 @@ public sealed class FileHashCacheRepository : IFileHashCacheRepository
             LIMIT  1;
             """, new { path = absolutePath });
 
-        if (row is null) return Task.FromResult<string?>(null);
+        if (row is null)
+        {
+            return Task.FromResult<string?>(null);
+        }
 
         // Stale-row detection: any mismatch on size or mtime means the file
         // has changed since we last hashed it — the caller must re-hash.
         if (row.Value.SizeBytes != sizeBytes)
+        {
             return Task.FromResult<string?>(null);
+        }
 
         if (!DateTimeOffset.TryParse(
                 row.Value.MtimeUtc,
@@ -57,7 +62,9 @@ public sealed class FileHashCacheRepository : IFileHashCacheRepository
 
         // Round to seconds — filesystem mtime precision varies across platforms.
         if (Math.Abs((storedMtime - mtimeUtc).TotalSeconds) > 1.0)
+        {
             return Task.FromResult<string?>(null);
+        }
 
         return Task.FromResult<string?>(row.Value.Sha256);
     }
@@ -86,11 +93,11 @@ public sealed class FileHashCacheRepository : IFileHashCacheRepository
             """,
             new
             {
-                path   = absolutePath,
-                size   = sizeBytes,
-                mtime  = mtimeUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+                path = absolutePath,
+                size = sizeBytes,
+                mtime = mtimeUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
                 sha256,
-                now    = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                now = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
             });
 
         return Task.CompletedTask;

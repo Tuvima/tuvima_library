@@ -32,7 +32,9 @@ public sealed class MetadataClaimHistoryReadService(
             {
                 var allClaims = new List<MetadataClaim>();
                 foreach (var assetId in assetIds)
+                {
                     allClaims.AddRange(await claimRepo.GetByEntityAsync(assetId, ct));
+                }
 
                 claims = allClaims
                     .GroupBy(c => (c.ClaimKey, c.ClaimValue, c.ProviderId, c.DecisionSourceProviderId))

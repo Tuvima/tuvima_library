@@ -32,7 +32,11 @@ public interface ICollectionBrowseReadService
     Task<IReadOnlyList<string>> GetFieldValuesAsync(string field, string? query, int limit, CancellationToken ct);
     Task<IReadOnlyList<CollectionRuleValueDto>> GetEntityFieldValuesAsync(string field, string? query, int limit, CancellationToken ct)
         => Task.FromResult<IReadOnlyList<CollectionRuleValueDto>>([]);
-    Task<List<ContentGroupDto>> GetSystemViewGroupsAsync(string? mediaType, string? groupField, CancellationToken ct);
+    Task<List<ContentGroupDto>> GetSystemViewGroupsAsync(
+        string? mediaType,
+        string? groupField,
+        CancellationToken ct,
+        IReadOnlySet<Guid>? allowedWorkIds = null);
 }
 
 public interface ICollectionMediaLookupReadService
@@ -41,6 +45,7 @@ public interface ICollectionMediaLookupReadService
         string? query,
         string? mediaTypes,
         IReadOnlySet<Guid> existingWorkIds,
+        IReadOnlySet<Guid> allowedWorkIds,
         int? offset,
         int? limit,
         CancellationToken ct);

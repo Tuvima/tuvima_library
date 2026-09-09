@@ -2,16 +2,21 @@ using System.Text.Json;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Metadata;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Metadata;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Persons;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
+using MediaEngine.Storage;
+using MediaEngine.Storage.Contracts;
 using SkiaSharp;
 
 namespace MediaEngine.Api.Endpoints;
@@ -21,21 +26,29 @@ public static class PersonEndpoints
     public static IEndpointRouteBuilder MapPersonEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/persons")
-                       .WithTags("Persons")
-                       .RequireAnyRole();
+                       .WithTags("Persons");
 
         group.MapGet("/{id:guid}/editor", async (
             Guid id,
             Guid? profileId,
+            HttpContext httpContext,
+            IRequestAuthorityResolver authorityResolver,
             PersonEditorReadService editorData,
             CancellationToken ct) =>
         {
-            var state = await editorData.GetAsync(id, profileId, ct);
+            var authority = await authorityResolver.ResolveAsync(httpContext, ct);
+            if (profileId.HasValue && profileId != authority.ActiveProfileId)
+            {
+                return Results.Forbid();
+            }
+            var state = await editorData.GetAsync(id, authority.ActiveProfileId, ct);
             return state is null ? ApiErrors.NotFound($"Person '{id}' not found.") : Results.Ok(state);
         })
         .WithName("GetPersonEditorState")
         .WithSummary("Returns durable person presentation overrides, profile-local fields, and history.")
-        .Produces<PersonEditorStateResponse>(StatusCodes.Status200OK);
+        .Produces<PersonEditorStateResponse>(StatusCodes.Status200OK)
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.MetadataRead, "Person", "id");
 
         group.MapPut("/{id:guid}/editor", async (
             Guid id,
@@ -45,13 +58,17 @@ public static class PersonEndpoints
             CancellationToken ct) =>
         {
             if (await personRepo.FindByIdAsync(id, ct) is null)
+            {
                 return ApiErrors.NotFound($"Person '{id}' not found.");
+            }
 
             var invalidKeys = request.DisplayOverrides.Keys
                 .Where(key => key is not ("name" or "biography" or "sort_name"))
                 .ToList();
             if (invalidKeys.Count > 0)
+            {
                 return ApiErrors.BadRequest($"Unsupported person override fields: {string.Join(", ", invalidKeys)}.");
+            }
 
             var result = await editorData.SaveAsync(id, request, ct);
 
@@ -62,7 +79,8 @@ public static class PersonEndpoints
         .WithName("SavePersonEditorState")
         .WithSummary("Saves refresh-safe person display overrides and profile-local fields.")
         .Produces<PersonEditorSaveResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite, "Person", "id");
 
         group.MapGet("/{id:guid}/artwork", async (
             Guid id,
@@ -72,7 +90,9 @@ public static class PersonEndpoints
         {
             var person = await personRepo.FindByIdAsync(id, ct);
             if (person is null)
+            {
                 return ApiErrors.NotFound($"Person '{id}' not found.");
+            }
 
             var assets = await assetRepo.GetByEntityAsync(id.ToString(), null, ct);
             var slots = new[] { "Headshot", "Background", "Logo" }
@@ -117,7 +137,9 @@ public static class PersonEndpoints
             return Results.Ok(new ArtworkEditorDto(id, slots));
         })
         .WithName("GetPersonArtwork")
-        .Produces<ArtworkEditorDto>(StatusCodes.Status200OK);
+        .Produces<ArtworkEditorDto>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.ArtworkRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.ArtworkRead, "Person", "id");
 
         group.MapPost("/{id:guid}/artwork/{assetType}", async (
             Guid id,
@@ -130,7 +152,9 @@ public static class PersonEndpoints
             CancellationToken ct) =>
         {
             if (await personRepo.FindByIdAsync(id, ct) is null)
+            {
                 return ApiErrors.NotFound($"Person '{id}' not found.");
+            }
 
             var normalizedType = assetType.Trim() switch
             {
@@ -140,24 +164,39 @@ public static class PersonEndpoints
                 _ => null,
             };
             if (normalizedType is null)
+            {
                 return ApiErrors.BadRequest("Person artwork supports Headshot, Background, and Logo.");
+            }
+
             if (!httpRequest.HasFormContentType)
+            {
                 return ApiErrors.BadRequest("Expected multipart form data.");
+            }
 
             var form = await httpRequest.ReadFormAsync(ct);
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
+            {
                 return ApiErrors.BadRequest("No file provided.");
+            }
+
             if (file.Length > BoundedHttpContent.MaximumImageBytes)
+            {
                 return ApiErrors.BadRequest("Artwork files must be 20 MB or smaller.");
+            }
+
             if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedType))
+            {
                 return ApiErrors.BadRequest(normalizedType == "Logo" ? "Logos must be PNG images." : "Only JPEG and PNG images are accepted.");
+            }
 
             var variantId = Guid.NewGuid();
             var localPath = artworkScopeService.BuildArtworkUploadPath("Person", id, normalizedType, variantId, file.ContentType);
             AssetPathService.EnsureDirectory(localPath);
             await using (var input = file.OpenReadStream())
+            {
                 await BoundedHttpContent.CopyImageToFileAtomicallyAsync(input, localPath, ct);
+            }
 
             var asset = new EntityAsset
             {
@@ -187,7 +226,8 @@ public static class PersonEndpoints
         })
         .WithName("UploadPersonArtwork")
         .Produces<ArtworkUploadResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite, "Person", "id")
         .DisableAntiforgery();
 
         // GET /persons/{id} — person detail including local headshot availability.
@@ -246,7 +286,9 @@ public static class PersonEndpoints
                 EnrichedAt = person.EnrichedAt,
             });
         })
-        .Produces<PersonDetailResponse>(StatusCodes.Status200OK);
+        .Produces<PersonDetailResponse>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Person", "id");
 
         // GET /persons/{id}/aliases — linked pseudonym and real-person entries.
         group.MapGet("/{id:guid}/aliases", async (
@@ -261,7 +303,9 @@ public static class PersonEndpoints
         })
         .WithName("GetPersonAliases")
         .WithSummary("Linked pseudonym and real-person entries for a given person.")
-        .Produces<PersonAliasResponse>(StatusCodes.Status200OK);
+        .Produces<PersonAliasResponse>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Person", "id");
 
         // GET /persons/{id}/headshot — serves the canonical person headshot asset.
         // Local files resolve only from Person.LocalHeadshotPath or .data/assets/people/{personId}/headshot.*.
@@ -355,35 +399,52 @@ public static class PersonEndpoints
             return ApiErrors.NotFound("Headshot not available.");
         })
         .WithName("GetPersonHeadshot")
-        .Produces(StatusCodes.Status200OK);
+        .Produces(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.ArtworkRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.ArtworkRead, "Person", "id");
 
         // GET /persons/by-collection/{collectionId} — all persons linked to works in a collection.
         group.MapGet("/by-collection/{collectionId:guid}", async (
             Guid collectionId,
             IPersonAssetScopeReadService personScopeReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var persons = await personScopeReadService.GetByCollectionAsync(collectionId, ct);
-            return Results.Ok(persons);
+            var assetIds = (await display.LoadWorksAsync(ct)).Select(work => work.AssetId).ToArray();
+            var visiblePersonIds = await personScopeReadService.GetCanonicalPersonIdsForCollectionAsync(
+                collectionId, assetIds, ct);
+            return Results.Ok(persons.Where(person => visiblePersonIds.Contains(person.Id)).ToList());
         })
-        .Produces<IReadOnlyList<PersonSummaryResponse>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<PersonSummaryResponse>>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Collection", "collectionId");
 
         // GET /persons/by-work/{workId} — all persons linked to a specific work.
         group.MapGet("/by-work/{workId:guid}", async (
             Guid workId,
             IPersonAssetScopeReadService personScopeReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var persons = await personScopeReadService.GetByWorkAsync(workId, ct);
-            return Results.Ok(persons);
+            var assetIds = (await display.LoadWorksAsync(ct))
+                .Where(work => work.WorkId == workId)
+                .Select(work => work.AssetId)
+                .ToArray();
+            var visiblePersonIds = await personScopeReadService.GetCanonicalPersonIdsAsync(assetIds, ct);
+            return Results.Ok(persons.Where(person => visiblePersonIds.Contains(person.Id)).ToList());
         })
-        .Produces<IReadOnlyList<PersonSummaryResponse>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<PersonSummaryResponse>>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Work", "workId");
 
         // GET /persons/{id}/library-credits — role-aware owned work credits for a person.
         group.MapGet("/{id:guid}/library-credits", async (
             Guid id,
             IPersonRepository personRepo,
             IPersonCreditReadService personCreditReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(id, ct);
@@ -393,11 +454,13 @@ public static class PersonEndpoints
             }
 
             var credits = await personCreditReadService.GetLibraryCreditsAsync(id, ct);
-            return Results.Ok(credits);
+            return Results.Ok(FilterCredits(credits, await display.LoadWorksAsync(ct)));
         })
         .WithName("GetPersonLibraryCredits")
         .WithSummary("Owned work credits for a person, grouped client-side by role and media type.")
-        .Produces<List<PersonLibraryCreditDto>>(StatusCodes.Status200OK);
+        .Produces<List<PersonLibraryCreditDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Person", "id");
 
         // GET /persons/{id}/works — all collections containing works by this person.
         group.MapGet("/{id:guid}/works", async (
@@ -405,6 +468,7 @@ public static class PersonEndpoints
             IPersonRepository personRepo,
             ICollectionRepository collectionRepo,
             IPersonWorksReadService personWorksReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(id, ct);
@@ -419,49 +483,65 @@ public static class PersonEndpoints
                 return Results.Ok(Array.Empty<MediaEngine.Contracts.Collections.CollectionDto>());
             }
 
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
             var allCollections = await collectionRepo.GetAllAsync(ct);
             var dtos = allCollections
                 .Where(h => collectionIds.Contains(h.Id))
                 .Select(collection => collection.ToContract())
+                .Select(collection => FilterCollection(collection, visibleWorkIds))
+                .Where(collection => collection.Works.Count > 0)
                 .ToList();
 
             return Results.Ok(dtos);
         })
         .WithName("GetWorksByPerson")
         .WithSummary("All collections containing works linked to this person (author/narrator/director).")
-        .Produces<List<MediaEngine.Contracts.Collections.CollectionDto>>(StatusCodes.Status200OK);
+        .Produces<List<MediaEngine.Contracts.Collections.CollectionDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "Person", "id");
 
         // GET /persons/role-counts — count of persons per role.
         // Excludes Composer (absorbed into Artist/Performer in the UI).
-        group.MapGet("/role-counts", async (bool? catalog, IPersonRepository personRepo, CancellationToken ct) =>
+        group.MapGet("/role-counts", async (
+            bool? catalog,
+            IDisplayProjectionReadService display,
+            IPersonAssetScopeReadService personScopeReadService,
+            CancellationToken ct) =>
         {
-            var counts = catalog == true
-                ? await personRepo.GetCatalogRoleCountsAsync(ct)
-                : await personRepo.GetRoleCountsAsync(ct);
-            // Remove Composer — not a UI-visible role
-            var filtered = counts
-                .Where(kvp => !kvp.Key.Equals("Composer", StringComparison.OrdinalIgnoreCase))
-                .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
-            return Results.Ok(filtered);
+            var assetIds = (await display.LoadWorksAsync(ct)).Select(work => work.AssetId).ToArray();
+            return Results.Ok(await personScopeReadService.GetCanonicalRoleCountsAsync(assetIds, ct));
         })
         .WithName("GetPersonRoleCounts")
         .WithSummary("Count of persons per role.")
-        .Produces<IReadOnlyDictionary<string, int>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyDictionary<string, int>>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /persons/presence?ids=guid1,guid2,... — media type counts per person.
-        group.MapGet("/presence", async (string ids, IPersonPresenceReadService presenceReadService, CancellationToken ct) =>
+        group.MapGet("/presence", async (
+            string ids,
+            IPersonPresenceReadService presenceReadService,
+            IPersonAssetScopeReadService personScopeReadService,
+            IDisplayProjectionReadService display,
+            CancellationToken ct) =>
         {
             var personIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Select(value => Guid.TryParse(value, out var parsed) ? parsed : Guid.Empty)
                 .Where(id => id != Guid.Empty)
                 .Take(500)
                 .ToList();
-            var presence = await presenceReadService.GetPresenceAsync(personIds, ct);
+            var visiblePersonIds = await personScopeReadService.GetCanonicalPersonIdsAsync(
+                (await display.LoadWorksAsync(ct)).Select(work => work.AssetId).ToArray(),
+                ct);
+            var presence = await presenceReadService.GetPresenceAsync(
+                personIds.Where(visiblePersonIds.Contains).ToList(), ct);
             return Results.Ok(presence);
         })
         .WithName("GetPersonPresence")
         .WithSummary("Media type counts per person.")
-        .Produces<IReadOnlyDictionary<string, Dictionary<string, int>>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyDictionary<string, Dictionary<string, int>>>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         // GET /persons?catalog=true&q=Le%20Guin&role=Author&limit=50
         group.MapGet("/", async (
@@ -473,6 +553,8 @@ public static class PersonEndpoints
             int? offset,
             int? limit,
             IPersonRepository personRepo,
+            IPersonAssetScopeReadService personScopeReadService,
+            IDisplayProjectionReadService display,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
@@ -501,6 +583,10 @@ public static class PersonEndpoints
                     return p;
                 })
                 .Where(p => p.Roles.Count > 0); // Exclude persons with no remaining roles
+            var visiblePersonIds = await personScopeReadService.GetCanonicalPersonIdsAsync(
+                (await display.LoadWorksAsync(ct)).Select(work => work.AssetId).ToArray(),
+                ct);
+            filtered = filtered.Where(person => visiblePersonIds.Contains(person.Id));
 
             var results = filtered
                 .Select(p => new PersonListItemResponse(
@@ -553,10 +639,56 @@ public static class PersonEndpoints
         })
         .WithName("ListPersons")
         .WithSummary("List persons, optionally filtered by role.")
-        .Produces<PagedResponse<PersonListItemResponse>>(StatusCodes.Status200OK);
+        .Produces<PagedResponse<PersonListItemResponse>>(StatusCodes.Status200OK)
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         return app;
     }
+
+    private static IReadOnlyList<PersonLibraryCreditDto> FilterCredits(
+        IEnumerable<PersonLibraryCreditDto> credits,
+        IReadOnlyList<DisplayWorkRow> visibleWorks)
+    {
+        var visibleByWork = visibleWorks
+            .GroupBy(work => work.WorkId)
+            .ToDictionary(group => group.Key, group => group.First());
+        return credits
+            .Where(credit => visibleByWork.ContainsKey(credit.WorkId))
+            .Select(credit =>
+            {
+                var visible = visibleByWork[credit.WorkId];
+                return new PersonLibraryCreditDto
+                {
+                    WorkId = credit.WorkId,
+                    CollectionId = credit.CollectionId,
+                    MediaType = credit.MediaType,
+                    Title = credit.Title,
+                    CoverUrl = visible.CoverUrl,
+                    Year = credit.Year,
+                    Role = credit.Role,
+                    AssociationType = credit.AssociationType,
+                    ViaGroupId = credit.ViaGroupId,
+                    ViaGroupName = credit.ViaGroupName,
+                    AssociationIsInferred = credit.AssociationIsInferred,
+                    Characters = credit.Characters,
+                };
+            })
+            .ToList();
+    }
+
+    private static MediaEngine.Contracts.Collections.CollectionDto FilterCollection(
+        MediaEngine.Contracts.Collections.CollectionDto collection,
+        IReadOnlySet<Guid> visibleWorkIds) =>
+        new()
+        {
+            Id = collection.Id,
+            UniverseId = collection.UniverseId,
+            DisplayName = collection.DisplayName,
+            ParentCollectionId = collection.ParentCollectionId,
+            UniverseStatus = collection.UniverseStatus,
+            CreatedAt = collection.CreatedAt,
+            Works = collection.Works.Where(work => visibleWorkIds.Contains(work.Id)).ToList(),
+        };
 
     /// <summary>
     /// <see cref="MediaMimeTypes.GetImageMimeType"/> defaults unrecognized extensions to
@@ -636,7 +768,9 @@ public static class PersonEndpoints
     private static (int Width, int Height)? TryMeasureImage(string? path)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+        {
             return null;
+        }
 
         try
         {

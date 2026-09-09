@@ -91,14 +91,14 @@ public sealed class AlignmentJobRepository : IAlignmentJobRepository
             """,
             new
             {
-                Id               = job.Id,
-                EbookAssetId     = job.EbookAssetId,
+                Id = job.Id,
+                EbookAssetId = job.EbookAssetId,
                 AudiobookAssetId = job.AudiobookAssetId,
-                Status           = job.Status.ToString(),
+                Status = job.Status.ToString(),
                 job.AlignmentData,
                 job.ErrorMessage,
-                CreatedAt        = job.CreatedAt.ToString("O"),
-                CompletedAt      = job.CompletedAt.HasValue
+                CreatedAt = job.CreatedAt.ToString("O"),
+                CompletedAt = job.CompletedAt.HasValue
                                        ? job.CompletedAt.Value.ToString("O")
                                        : (string?)null,
             });
@@ -121,11 +121,11 @@ public sealed class AlignmentJobRepository : IAlignmentJobRepository
             """,
             new
             {
-                Id             = id,
-                Status         = status.ToString(),
-                AlignmentData  = alignmentData,
-                ErrorMessage   = errorMessage,
-                CompletedAt    = DateTime.UtcNow.ToString("O"),
+                Id = id,
+                Status = status.ToString(),
+                AlignmentData = alignmentData,
+                ErrorMessage = errorMessage,
+                CompletedAt = DateTime.UtcNow.ToString("O"),
             });
         return Task.CompletedTask;
     }
@@ -147,25 +147,25 @@ public sealed class AlignmentJobRepository : IAlignmentJobRepository
     /// </summary>
     private sealed class AlignmentJobRow
     {
-        public Guid    Id                { get; set; }
-        public Guid    EbookAssetId      { get; set; }
-        public Guid    AudiobookAssetId  { get; set; }
-        public string  Status            { get; set; } = string.Empty;
-        public string? AlignmentData     { get; set; }
-        public string? ErrorMessage      { get; set; }
-        public string  CreatedAt         { get; set; } = string.Empty;
-        public string? CompletedAt       { get; set; }
+        public Guid Id { get; set; }
+        public Guid EbookAssetId { get; set; }
+        public Guid AudiobookAssetId { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public string? AlignmentData { get; set; }
+        public string? ErrorMessage { get; set; }
+        public string CreatedAt { get; set; } = string.Empty;
+        public string? CompletedAt { get; set; }
     }
 
     private static AlignmentJob MapRow(AlignmentJobRow r) => new()
     {
-        Id               = r.Id,
-        EbookAssetId     = r.EbookAssetId,
+        Id = r.Id,
+        EbookAssetId = r.EbookAssetId,
         AudiobookAssetId = r.AudiobookAssetId,
-        Status           = Enum.Parse<AlignmentJobStatus>(r.Status),
-        AlignmentData    = r.AlignmentData,
-        ErrorMessage     = r.ErrorMessage,
-        CreatedAt        = DateTime.Parse(r.CreatedAt),
-        CompletedAt      = r.CompletedAt is null ? null : DateTime.Parse(r.CompletedAt),
+        Status = Enum.Parse<AlignmentJobStatus>(r.Status),
+        AlignmentData = r.AlignmentData,
+        ErrorMessage = r.ErrorMessage,
+        CreatedAt = DateTime.Parse(r.CreatedAt),
+        CompletedAt = r.CompletedAt is null ? null : DateTime.Parse(r.CompletedAt),
     };
 }

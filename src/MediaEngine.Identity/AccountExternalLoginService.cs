@@ -42,7 +42,9 @@ public sealed class AccountExternalLoginService : IAccountExternalLoginService
 
         var account = await _accountRepository.GetByIdAsync(accountId, ct).ConfigureAwait(false);
         if (account is null)
+        {
             throw new InvalidOperationException($"Account '{accountId}' was not found.");
+        }
 
         var normalizedProvider = provider.Trim();
         var normalizedIssuer = NormalizeIssuer(issuer);
@@ -51,7 +53,9 @@ public sealed class AccountExternalLoginService : IAccountExternalLoginService
             .GetByProviderSubjectAsync(normalizedProvider, normalizedIssuer, normalizedSubject, ct)
             .ConfigureAwait(false);
         if (existing is not null)
+        {
             throw new InvalidOperationException("That external sign-in account is already linked.");
+        }
 
         var login = new AccountExternalLogin
         {
@@ -82,13 +86,19 @@ public sealed class AccountExternalLoginService : IAccountExternalLoginService
         ArgumentException.ThrowIfNullOrWhiteSpace(subject);
 
         if (provider.Length > 100)
+        {
             throw new ArgumentException("Provider must be 100 characters or fewer.", nameof(provider));
+        }
 
         if (issuer.Length > 300 || !Uri.TryCreate(issuer, UriKind.Absolute, out var issuerUri) || issuerUri.Scheme != Uri.UriSchemeHttps)
+        {
             throw new ArgumentException("Issuer must be an absolute HTTPS URL of 300 characters or fewer.", nameof(issuer));
+        }
 
         if (subject.Length > 300)
+        {
             throw new ArgumentException("Subject must be 300 characters or fewer.", nameof(subject));
+        }
     }
 
     // OIDC issuer identifiers are exact values. Do not remove a trailing slash or

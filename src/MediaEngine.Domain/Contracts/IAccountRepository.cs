@@ -2,7 +2,7 @@ using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Domain.Contracts;
 
-public interface IAccountRepository
+public interface IAccountRepository : IAccessRepository, IAccountAccessMutationRepository
 {
     Task<Account?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<Account?> GetByNormalizedEmailAsync(string normalizedEmail, CancellationToken ct = default);

@@ -32,9 +32,11 @@ public sealed class ToolRequirementHealthCheck : IPluginHealthCheck
         var warnings = new List<string>();
         foreach (var requirement in _manifest.ToolRequirements)
         {
-            var result = await context.Tools.ResolveToolAsync(_manifest.Id, requirement, context.Settings, cancellationToken).ConfigureAwait(false);
+            var result = await context.Tools.ResolveToolAsync(requirement.Id, cancellationToken).ConfigureAwait(false);
             if (!result.IsAvailable)
+            {
                 warnings.Add($"{requirement.Id}: {result.Message ?? result.Status}");
+            }
         }
 
         return warnings.Count == 0

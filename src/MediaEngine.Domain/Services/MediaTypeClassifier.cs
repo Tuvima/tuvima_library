@@ -14,27 +14,84 @@ public static class MediaTypeClassifier
     /// </summary>
     public static MediaType Classify(string? formatOrType)
     {
-        if (string.IsNullOrWhiteSpace(formatOrType)) return MediaType.Unknown;
+        if (string.IsNullOrWhiteSpace(formatOrType))
+        {
+            return MediaType.Unknown;
+        }
 
         var t = formatOrType.Trim().ToLowerInvariant();
 
         // Exact enum name matches
-        if (t is "books" or "book" or "epub") return MediaType.Books;
-        if (t is "audiobook" or "audiobooks" or "m4b") return MediaType.Audiobooks;
-        if (t is "movies" or "movie") return MediaType.Movies;
-        if (t is "tv") return MediaType.TV;
-        if (t is "music") return MediaType.Music;
-        if (t is "comics" or "comic") return MediaType.Comics;
+        if (t is "books" or "book" or "epub")
+        {
+            return MediaType.Books;
+        }
+
+        if (t is "audiobook" or "audiobooks" or "m4b")
+        {
+            return MediaType.Audiobooks;
+        }
+
+        if (t is "movies" or "movie")
+        {
+            return MediaType.Movies;
+        }
+
+        if (t is "tv")
+        {
+            return MediaType.TV;
+        }
+
+        if (t is "music")
+        {
+            return MediaType.Music;
+        }
+
+        if (t is "comics" or "comic")
+        {
+            return MediaType.Comics;
+        }
 
         // Extension / format substring matches
-        if (t.Contains("epub")) return MediaType.Books;
-        if (t.Contains("audiobook")) return MediaType.Audiobooks;
-        if (t.Contains("m4b")) return MediaType.Audiobooks;
-        if (t.Contains("video") || t.Contains("mkv") || t.Contains("mp4") || t.Contains("avi") || t.Contains("webm")) return MediaType.Movies;
-        if (t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr")) return MediaType.Comics;
-        if (t.Contains("book")) return MediaType.Books;
-        if (t.Contains("mp3") || t.Contains("flac") || t.Contains("aac") || t.Contains("m4a") || t.Contains("ogg") || t.Contains("wav")) return MediaType.Music;
-        if (t.Contains("audio")) return MediaType.Music;
+        if (t.Contains("epub"))
+        {
+            return MediaType.Books;
+        }
+
+        if (t.Contains("audiobook"))
+        {
+            return MediaType.Audiobooks;
+        }
+
+        if (t.Contains("m4b"))
+        {
+            return MediaType.Audiobooks;
+        }
+
+        if (t.Contains("video") || t.Contains("mkv") || t.Contains("mp4") || t.Contains("avi") || t.Contains("webm"))
+        {
+            return MediaType.Movies;
+        }
+
+        if (t.Contains("comic") || t.Contains("cbz") || t.Contains("cbr"))
+        {
+            return MediaType.Comics;
+        }
+
+        if (t.Contains("book"))
+        {
+            return MediaType.Books;
+        }
+
+        if (t.Contains("mp3") || t.Contains("flac") || t.Contains("aac") || t.Contains("m4a") || t.Contains("ogg") || t.Contains("wav"))
+        {
+            return MediaType.Music;
+        }
+
+        if (t.Contains("audio"))
+        {
+            return MediaType.Music;
+        }
 
         return MediaType.Unknown;
     }

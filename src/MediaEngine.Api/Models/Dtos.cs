@@ -8,8 +8,6 @@ namespace MediaEngine.Api.Models;
 
 // -- GET /system/status ---------------------------------------------------------
 
-// -- /admin/api-keys ------------------------------------------------------------
-
 // -- /admin/provider-configs ----------------------------------------------------
 
 // \u2500\u2500 GET /collections/{id}/related \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
@@ -25,7 +23,7 @@ namespace MediaEngine.Api.Models;
 /// DTO for the GET /collections/parents endpoint — franchise-level parent collections (Universes).
 /// Uses snake_case JSON names compatible with the Dashboard's CollectionRaw deserialiser.
 /// </summary>
-    /// <summary>Empty works list — parent collections aggregate through children, not direct works.</summary>
+/// <summary>Empty works list — parent collections aggregate through children, not direct works.</summary>
 
 
 
@@ -69,14 +67,14 @@ public sealed class ClaimDto
 
     public static ClaimDto FromDomain(Domain.Entities.MetadataClaim c) => new()
     {
-        Id           = c.Id,
-        ClaimKey     = c.ClaimKey,
-        ClaimValue   = c.ClaimValue,
-        ProviderId   = c.ProviderId,
+        Id = c.Id,
+        ClaimKey = c.ClaimKey,
+        ClaimValue = c.ClaimValue,
+        ProviderId = c.ProviderId,
         DecisionSourceProviderId = c.DecisionSourceProviderId,
-        Confidence   = c.Confidence,
+        Confidence = c.Confidence,
         IsUserLocked = c.IsUserLocked,
-        ClaimedAt    = c.ClaimedAt,
+        ClaimedAt = c.ClaimedAt,
     };
 }
 
@@ -109,8 +107,6 @@ public sealed class LockClaimResponse
     public DateTimeOffset LockedAt { get; init; }
 }
 
-// -- DELETE /admin/api-keys (revoke all) --------------------------------------
-
 // -- GET/PUT /settings/organization-template ----------------------------------
 
 // -- GET /metadata/conflicts -------------------------------------------------
@@ -131,9 +127,9 @@ public sealed class ConflictDto
 
     public static ConflictDto FromDomain(Domain.Entities.CanonicalValue cv) => new()
     {
-        EntityId    = cv.EntityId,
-        Key         = cv.Key,
-        Value       = cv.Value,
+        EntityId = cv.EntityId,
+        Key = cv.Key,
+        Value = cv.Value,
         LastScoredAt = cv.LastScoredAt,
     };
 }
@@ -261,24 +257,24 @@ public sealed class ReviewItemDto
         string? entityTitle = null,
         string? coverUrl = null,
         Dictionary<string, string>? bridgeIdentifiers = null) => new()
-    {
-        Id                 = e.Id,
-        EntityId           = e.EntityId,
-        EntityType         = e.EntityType,
-        Trigger            = e.Trigger,
-        Status             = e.Status,
-        ProposedCollectionId      = e.ProposedCollectionId,
-        ConfidenceScore    = e.ConfidenceScore,
-        CandidatesJson     = e.CandidatesJson,
-        Detail             = e.Detail,
-        CreatedAt          = e.CreatedAt,
-        ResolvedAt         = e.ResolvedAt,
-        ResolvedBy         = e.ResolvedBy,
-        MediaType          = mediaType,
-        EntityTitle        = entityTitle,
-        CoverUrl           = coverUrl,
-        BridgeIdentifiers  = bridgeIdentifiers ?? [],
-    };
+        {
+            Id = e.Id,
+            EntityId = e.EntityId,
+            EntityType = e.EntityType,
+            Trigger = e.Trigger,
+            Status = e.Status,
+            ProposedCollectionId = e.ProposedCollectionId,
+            ConfidenceScore = e.ConfidenceScore,
+            CandidatesJson = e.CandidatesJson,
+            Detail = e.Detail,
+            CreatedAt = e.CreatedAt,
+            ResolvedAt = e.ResolvedAt,
+            ResolvedBy = e.ResolvedBy,
+            MediaType = mediaType,
+            EntityTitle = entityTitle,
+            CoverUrl = coverUrl,
+            BridgeIdentifiers = bridgeIdentifiers ?? [],
+        };
 }
 
 public sealed class ReviewResolveRequest

@@ -68,7 +68,9 @@ public sealed class MusicAlbumManifestHostedService(
             }
 
             if (interruptedByReset)
+            {
                 continue;
+            }
 
             try
             {

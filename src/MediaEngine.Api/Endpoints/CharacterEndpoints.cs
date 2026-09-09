@@ -1,9 +1,11 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Characters;
 using MediaEngine.Contracts.Persons;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
 
@@ -27,8 +29,7 @@ public static class CharacterEndpoints
     public static IEndpointRouteBuilder MapCharacterEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/library")
-                       .WithTags("Library Characters")
-                       .RequireAnyRole();
+                       .WithTags("Library Characters");
 
         // GET /library/portraits/{portraitId}
         // Serves a character portrait from local storage, downloading and caching if needed.
@@ -89,7 +90,9 @@ public static class CharacterEndpoints
             return Results.File(bytesFromSource, contentType, Path.GetFileName(localPath));
         })
         .WithName("GetCharacterPortrait")
-        .Produces(StatusCodes.Status200OK);
+        .Produces(StatusCodes.Status200OK)
+        .RequireClientScope(ApplicationPermissionIds.ArtworkRead.Value)
+        .RequireCatalogueCharacterPortraitAccess(ApplicationPermissionIds.ArtworkRead);
 
         // GET /library/characters/{fictionalEntityId}/portraits
         // Returns all portraits for a character, enriched with actor name.
@@ -119,7 +122,10 @@ public static class CharacterEndpoints
 
             return Results.Ok(result);
         })
-        .Produces<List<CharacterPortraitDto>>(StatusCodes.Status200OK);
+        .Produces<List<CharacterPortraitDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ApplicationPermissionIds.ArtworkRead.Value)
+        .RequireCatalogueEntityAccess(
+            ApplicationPermissionIds.ArtworkRead, "Character", "fictionalEntityId");
 
         // PUT /library/characters/{fictionalEntityId}/portraits/{portraitId}/default
         // Sets a portrait as the default for its character.
@@ -141,7 +147,9 @@ public static class CharacterEndpoints
             return Results.Ok(new SetDefaultPortraitResponse(portrait_id: portraitId, is_default: true));
         })
         .Produces<SetDefaultPortraitResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireCatalogueEntityAccess(
+            ApplicationPermissionIds.MetadataWrite, "Character", "fictionalEntityId");
 
         // GET /library/persons/{personId}/character-roles
         // Returns all character roles for a person, with portraits and universe info.
@@ -149,6 +157,7 @@ public static class CharacterEndpoints
             Guid personId,
             IPersonRepository personRepo,
             IPersonCreditReadService personCreditReadService,
+            IDisplayProjectionReadService display,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(personId, ct);
@@ -157,30 +166,50 @@ public static class CharacterEndpoints
                 return ApiErrors.NotFound($"Person '{personId}' not found.");
             }
 
-            var result = await personCreditReadService.GetCharacterRolesAsync(personId, ct);
+            var visibleWorkIds = (await display.LoadWorksAsync(ct))
+                .Select(work => work.WorkId)
+                .ToHashSet();
+            var result = (await personCreditReadService.GetCharacterRolesAsync(personId, ct))
+                .Where(role => role.WorkId is { } workId && visibleWorkIds.Contains(workId))
+                .ToList();
             return Results.Ok(result);
         })
-        .Produces<List<PersonCharacterRoleDto>>(StatusCodes.Status200OK);
+        .Produces<List<PersonCharacterRoleDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ApplicationPermissionIds.LibraryRead.Value)
+        .RequireCatalogueEntityAccess(
+            ApplicationPermissionIds.LibraryRead, "Person", "personId");
 
         // GET /library/universes/{universeQid}/characters
         // Returns characters in a universe with default actor/portrait.
         group.MapGet("/universes/{universeQid}/characters", async (
             string universeQid,
+            HttpContext httpContext,
             IFictionalEntityRepository entityRepo,
             ICharacterPortraitRepository portraitRepo,
             IPersonRepository personRepo,
+            CatalogueResourceAuthorizationService resources,
             CancellationToken ct) =>
         {
             var characters = await entityRepo.GetByUniverseAndTypeAsync(universeQid, "Character", ct);
-            var entityIds = characters.Select(e => e.Id).ToList();
+            var visibleCharacters = new List<MediaEngine.Domain.Entities.FictionalEntity>();
+            foreach (var character in characters)
+            {
+                if (await resources.EvaluateEntityAsync(
+                        httpContext, "Character", character.Id, ApplicationPermissionIds.LibraryRead, ct) ==
+                    CatalogueResourceAccess.Allowed)
+                {
+                    visibleCharacters.Add(character);
+                }
+            }
+            var entityIds = visibleCharacters.Select(e => e.Id).ToList();
 
             // Batch-fetch all portraits for these characters.
             var allPortraits = await portraitRepo.GetByCharacterBatchAsync(entityIds, ct);
             var portraitsByChar = allPortraits.GroupBy(p => p.FictionalEntityId)
                                               .ToDictionary(g => g.Key, g => g.ToList());
 
-            var result = new List<UniverseCharacterSummaryDto>(characters.Count);
-            foreach (var character in characters)
+            var result = new List<UniverseCharacterSummaryDto>(visibleCharacters.Count);
+            foreach (var character in visibleCharacters)
             {
                 portraitsByChar.TryGetValue(character.Id, out var charPortraits);
                 var defaultPortrait = charPortraits?.FirstOrDefault(p => p.IsDefault)
@@ -209,7 +238,10 @@ public static class CharacterEndpoints
 
             return Results.Ok(result);
         })
-        .Produces<List<UniverseCharacterSummaryDto>>(StatusCodes.Status200OK);
+        .Produces<List<UniverseCharacterSummaryDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ApplicationPermissionIds.LibraryRead.Value)
+        .RequireCatalogueQidAccess(
+            ApplicationPermissionIds.LibraryRead, "universeQid");
 
         // GET /library/assets/{entityId}
         // Returns all entity assets, grouped by type.
@@ -228,7 +260,9 @@ public static class CharacterEndpoints
                 source_provider: a.SourceProvider));
             return Results.Ok(result);
         })
-        .Produces<IEnumerable<EntityAssetSummaryDto>>(StatusCodes.Status200OK);
+        .Produces<IEnumerable<EntityAssetSummaryDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ApplicationPermissionIds.MetadataRead.Value)
+        .RequireCatalogueEntityAssetContainerAccess(ApplicationPermissionIds.MetadataRead);
 
         // POST /library/enrichment/universe/trigger
         // Manually trigger Stage 3 universe enrichment on the next cycle.
@@ -255,7 +289,7 @@ public static class CharacterEndpoints
             return Results.Ok(new UniverseEnrichmentTriggerResponse(triggered: true, message: "Universe enrichment sweep queued."));
         })
         .Produces<UniverseEnrichmentTriggerResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun);
 
         return app;
     }

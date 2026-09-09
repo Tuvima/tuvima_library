@@ -79,9 +79,9 @@ public sealed class NarrativeRootRepository : INarrativeRootRepository
             """,
             new
             {
-                qid       = root.Qid,
-                label     = root.Label,
-                level     = root.Level,
+                qid = root.Qid,
+                label = root.Label,
+                level = root.Level,
                 parentQid = root.ParentQid,
                 createdAt = root.CreatedAt.ToString("o"),
             });

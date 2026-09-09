@@ -35,15 +35,15 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
             """,
             new
             {
-                Id                 = request.Id,
-                EntityId           = request.EntityId,
+                Id = request.Id,
+                EntityId = request.EntityId,
                 request.WikidataQid,
-                MediaType          = request.MediaType.ToString(),
+                MediaType = request.MediaType.ToString(),
                 request.HintsJson,
-                CreatedAt          = request.CreatedAt,
+                CreatedAt = request.CreatedAt,
                 request.Status,
-                ProcessedAt        = request.ProcessedAt,
-                FailureType        = request.FailureType?.ToString(),
+                ProcessedAt = request.ProcessedAt,
+                FailureType = request.FailureType?.ToString(),
                 FailedProviderName = request.FailedProviderName,
             });
         return Task.CompletedTask;
@@ -185,29 +185,29 @@ public sealed class DeferredEnrichmentRepository : IDeferredEnrichmentRepository
     /// </summary>
     private sealed class DeferredEnrichmentRow
     {
-        public Guid            Id                 { get; set; }
-        public Guid            EntityId           { get; set; }
-        public string?         WikidataQid        { get; set; }
-        public string          MediaType          { get; set; } = string.Empty;
-        public string?         HintsJson          { get; set; }
-        public DateTimeOffset  CreatedAt          { get; set; }
-        public string          Status             { get; set; } = string.Empty;
-        public DateTimeOffset? ProcessedAt        { get; set; }
-        public string?         FailureType        { get; set; }
-        public string?         FailedProviderName { get; set; }
+        public Guid Id { get; set; }
+        public Guid EntityId { get; set; }
+        public string? WikidataQid { get; set; }
+        public string MediaType { get; set; } = string.Empty;
+        public string? HintsJson { get; set; }
+        public DateTimeOffset CreatedAt { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public DateTimeOffset? ProcessedAt { get; set; }
+        public string? FailureType { get; set; }
+        public string? FailedProviderName { get; set; }
     }
 
     private static DeferredEnrichmentRequest MapRow(DeferredEnrichmentRow r) => new()
     {
-        Id                 = r.Id,
-        EntityId           = r.EntityId,
-        WikidataQid        = r.WikidataQid,
-        MediaType          = Enum.TryParse<MediaType>(r.MediaType, true, out var mt) ? mt : MediaType.Unknown,
-        HintsJson          = r.HintsJson,
-        CreatedAt          = r.CreatedAt,
-        Status             = r.Status,
-        ProcessedAt        = r.ProcessedAt,
-        FailureType        = Enum.TryParse<ProviderFailureType>(r.FailureType, true, out var ft) ? ft : null,
+        Id = r.Id,
+        EntityId = r.EntityId,
+        WikidataQid = r.WikidataQid,
+        MediaType = Enum.TryParse<MediaType>(r.MediaType, true, out var mt) ? mt : MediaType.Unknown,
+        HintsJson = r.HintsJson,
+        CreatedAt = r.CreatedAt,
+        Status = r.Status,
+        ProcessedAt = r.ProcessedAt,
+        FailureType = Enum.TryParse<ProviderFailureType>(r.FailureType, true, out var ft) ? ft : null,
         FailedProviderName = r.FailedProviderName,
     };
 }

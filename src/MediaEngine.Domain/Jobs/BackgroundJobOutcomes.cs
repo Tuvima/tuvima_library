@@ -66,23 +66,35 @@ public static class BackgroundJobOutcomeClassifier
         }
 
         if (exception is UnavailableCapabilityException)
+        {
             return BackgroundJobOutcomeCategory.UnavailableCapability;
+        }
 
         if (exception is RateLimitedDependencyException
             || exception is HttpRequestException { StatusCode: HttpStatusCode.TooManyRequests })
+        {
             return BackgroundJobOutcomeCategory.TransientDependencyFailure;
+        }
 
         if (exception is TimeoutException or HttpRequestException)
+        {
             return BackgroundJobOutcomeCategory.TransientDependencyFailure;
+        }
 
         if (exception.GetType().Name == "SqliteException" && IsBusySqliteError(exception))
+        {
             return BackgroundJobOutcomeCategory.TransientDependencyFailure;
+        }
 
         if (exception is InvalidDataException or FormatException or System.Text.Json.JsonException or InvalidOperationException)
+        {
             return BackgroundJobOutcomeCategory.ContentFailure;
+        }
 
         if (exception is ArgumentException or NotSupportedException)
+        {
             return BackgroundJobOutcomeCategory.PermanentFailure;
+        }
 
         return BackgroundJobOutcomeCategory.PermanentFailure;
     }

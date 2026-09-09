@@ -120,7 +120,9 @@ public sealed class CollectionRepository : ICollectionRepository
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (configured is { Count: > 0 })
+            {
                 return configured;
+            }
         }
         catch
         {
@@ -135,7 +137,9 @@ public sealed class CollectionRepository : ICollectionRepository
     private static void AddIfPresent(List<Guid> ids, Guid? value)
     {
         if (value.HasValue)
+        {
             ids.Add(value.Value);
+        }
     }
 
     private static Guid ReadGuid(SqliteDataReader reader, int ordinal) =>
@@ -188,11 +192,15 @@ public sealed class CollectionRepository : ICollectionRepository
     {
         const int workIdOrdinal = 19;
         if (reader.IsDBNull(workIdOrdinal))
+        {
             return;
+        }
 
         var workId = ReadGuid(reader, workIdOrdinal);
         if (works.ContainsKey(workId))
+        {
             return;
+        }
 
         var universeMismatch = !reader.IsDBNull(22) && reader.GetInt32(22) == 1;
         DateTimeOffset? universeMismatchAt = reader.IsDBNull(23)
@@ -229,7 +237,9 @@ public sealed class CollectionRepository : ICollectionRepository
         bool visibleAssetsOnly)
     {
         if (works.Count == 0)
+        {
             return;
+        }
 
         var visibleAssetPredicate = visibleAssetsOnly
             ? $"AND {HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root")}"
@@ -284,11 +294,15 @@ public sealed class CollectionRepository : ICollectionRepository
         foreach (var row in rows)
         {
             if (!works.TryGetValue(row.WorkId, out var work))
+            {
                 continue;
+            }
 
             var key = $"{row.WorkId:N}:{row.EntityId:N}:{row.Key}";
             if (!seen.Add(key))
+            {
                 continue;
+            }
 
             work.AddCanonicalValue(new CanonicalValue
             {
@@ -309,8 +323,8 @@ public sealed class CollectionRepository : ICollectionRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        using var conn  = _db.CreateConnection();
-        var collections  = new Dictionary<Guid, Collection>();
+        using var conn = _db.CreateConnection();
+        var collections = new Dictionary<Guid, Collection>();
         var works = new Dictionary<Guid, Work>();
 
         // ── Query A: all collections LEFT JOIN their works ───────────────────────────
@@ -363,7 +377,9 @@ public sealed class CollectionRepository : ICollectionRepository
                     """;
 
                 for (var i = 0; i < collectionIds.Length; i++)
+                {
                     cmd3.Parameters.Add($"@h{i}", SqliteType.Blob).Value = GuidSql.ToBlob(collectionIds[i]);
+                }
 
                 using var reader3 = cmd3.ExecuteReader();
                 while (reader3.Read())
@@ -409,7 +425,9 @@ public sealed class CollectionRepository : ICollectionRepository
             """, new { relType, qid });
 
         if (collectionId is null)
+        {
             return Task.FromResult<Collection?>(null);
+        }
 
         var collection = conn.QueryFirstOrDefault<Collection>($"""
             SELECT {CollectionSelectColumns}
@@ -417,7 +435,9 @@ public sealed class CollectionRepository : ICollectionRepository
             """, new { id = collectionId.Value });
 
         if (collection is null)
+        {
             return Task.FromResult<Collection?>(null);
+        }
 
         NormalizeCollection(collection);
 
@@ -437,7 +457,9 @@ public sealed class CollectionRepository : ICollectionRepository
     {
         ct.ThrowIfCancellationRequested();
         if (relationships.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -496,7 +518,9 @@ public sealed class CollectionRepository : ICollectionRepository
             """, new { assetId = mediaAssetId });
 
         if (row is null)
+        {
             return Task.FromResult<IReadOnlyList<Guid>>([]);
+        }
 
         var ids = new List<Guid>();
         AddIfPresent(ids, row.LeafWorkId);
@@ -545,7 +569,7 @@ public sealed class CollectionRepository : ICollectionRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        var keep  = keepCollectionId;
+        var keep = keepCollectionId;
         var merge = mergeCollectionId;
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
@@ -629,14 +653,14 @@ public sealed class CollectionRepository : ICollectionRepository
             """,
             new
             {
-                id   = collection.Id,
-                uid  = collection.UniverseId,
+                id = collection.Id,
+                uid = collection.UniverseId,
                 phid = collection.ParentCollectionId,
-                dn   = collection.DisplayName,
-                ca   = collection.CreatedAt.ToString("O"),
-                us   = collection.UniverseStatus.ToStorageValue(),
+                dn = collection.DisplayName,
+                ca = collection.CreatedAt.ToString("O"),
+                us = collection.UniverseStatus.ToStorageValue(),
                 wqid = collection.WikidataQid,
-                ht   = collection.CollectionType.ToStorageValue(),
+                ht = collection.CollectionType.ToStorageValue(),
                 desc = collection.Description,
                 icon = collection.IconName,
                 coverArtworkPath = collection.CoverArtworkPath,
@@ -648,7 +672,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 logoArtworkPath = collection.LogoArtworkPath,
                 logoArtworkMimeType = collection.LogoArtworkMimeType,
                 scope = collection.Scope.ToStorageValue(),
-                pid  = collection.ProfileId,
+                pid = collection.ProfileId,
                 enabled = collection.IsEnabled ? 1 : 0,
                 featured = collection.IsFeatured ? 1 : 0,
                 minItems = collection.MinItems,
@@ -764,7 +788,7 @@ public sealed class CollectionRepository : ICollectionRepository
             """,
             new
             {
-                id  = workId,
+                id = workId,
                 now = DateTimeOffset.UtcNow.ToString("O"),
             });
 
@@ -785,9 +809,9 @@ public sealed class CollectionRepository : ICollectionRepository
             """,
             new
             {
-                id     = workId,
+                id = workId,
                 status,
-                now    = DateTimeOffset.UtcNow.ToString("O"),
+                now = DateTimeOffset.UtcNow.ToString("O"),
             });
 
         return Task.CompletedTask;
@@ -836,7 +860,7 @@ public sealed class CollectionRepository : ICollectionRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        using var conn  = _db.CreateConnection();
+        using var conn = _db.CreateConnection();
         int total = 0;
 
         // Pass 1: Remove editions that have no media assets.
@@ -940,7 +964,9 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
 
         if (parentCollectionId == collectionId)
+        {
             return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -1056,7 +1082,9 @@ public sealed class CollectionRepository : ICollectionRepository
 
         var orderedIds = collectionIds.Distinct().ToList();
         if (orderedIds.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<Collection>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var collectionsById = new Dictionary<Guid, Collection>();
@@ -1070,7 +1098,9 @@ public sealed class CollectionRepository : ICollectionRepository
                 """, new { Ids = batch.Select(GuidSql.ToBlob).ToArray() });
 
             foreach (var collection in rows)
+            {
                 collectionsById[collection.Id] = NormalizeCollection(collection);
+            }
         }
 
         IReadOnlyList<Collection> result = orderedIds
@@ -1102,7 +1132,7 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        using var cmd  = conn.CreateCommand();
+        using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT id, work_id, format_label, wikidata_qid
             FROM   editions
@@ -1113,12 +1143,14 @@ public sealed class CollectionRepository : ICollectionRepository
 
         using var reader = cmd.ExecuteReader();
         if (!reader.Read())
+        {
             return Task.FromResult<Edition?>(null);
+        }
 
         var edition = new Edition
         {
-            Id          = ReadGuid(reader, 0),
-            WorkId      = ReadGuid(reader, 1),
+            Id = ReadGuid(reader, 0),
+            WorkId = ReadGuid(reader, 1),
             FormatLabel = reader.IsDBNull(2) ? null : reader.GetString(2),
             WikidataQid = reader.IsDBNull(3) ? null : reader.GetString(3),
         };
@@ -1133,8 +1165,8 @@ public sealed class CollectionRepository : ICollectionRepository
 
         var edition = new Edition
         {
-            Id          = Guid.NewGuid(),
-            WorkId      = workId,
+            Id = Guid.NewGuid(),
+            WorkId = workId,
             FormatLabel = formatLabel,
             WikidataQid = wikidataQid,
         };
@@ -1148,8 +1180,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 """,
                 new
                 {
-                    id          = edition.Id,
-                    workId      = edition.WorkId,
+                    id = edition.Id,
+                    workId = edition.WorkId,
                     formatLabel = edition.FormatLabel,
                     wikidataQid = edition.WikidataQid,
                 },
@@ -1242,7 +1274,9 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
         var ids = collectionIds.Distinct().ToList();
         if (ids.Count == 0)
+        {
             return Task.FromResult<Dictionary<Guid, int>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var counts = ids.ToDictionary(id => id, _ => 0);
@@ -1259,7 +1293,9 @@ public sealed class CollectionRepository : ICollectionRepository
                 """;
 
             for (var i = 0; i < batch.Length; i++)
+            {
                 cmd.Parameters.AddWithValue(parameters[i], GuidSql.ToBlob(batch[i]));
+            }
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
@@ -1403,8 +1439,8 @@ public sealed class CollectionRepository : ICollectionRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        using var conn  = _db.CreateConnection();
-        var collections  = new Dictionary<Guid, Collection>();
+        using var conn = _db.CreateConnection();
+        var collections = new Dictionary<Guid, Collection>();
         var works = new Dictionary<Guid, Work>();
 
         // Structural collection types that have at least one work assigned.
@@ -1468,7 +1504,9 @@ public sealed class CollectionRepository : ICollectionRepository
 
         var orderedIds = collectionIds.Distinct().ToList();
         if (orderedIds.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<Collection>>([]);
+        }
 
         using var conn = _db.CreateConnection();
         var collections = LoadCollectionsWithWorks(conn, orderedIds, ct);
@@ -1504,7 +1542,9 @@ public sealed class CollectionRepository : ICollectionRepository
                 """;
 
             for (var index = 0; index < batch.Length; index++)
+            {
                 cmd.Parameters.Add(parameterNames[index], SqliteType.Blob).Value = GuidSql.ToBlob(batch[index]);
+            }
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())

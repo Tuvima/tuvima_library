@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading.Channels;
 using Dapper;
 using MediaEngine.Contracts.LocalAssets;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
@@ -13,20 +13,18 @@ public sealed class ViewSharedContributionService(
     IDatabaseConnection database,
     ILocalAssetRepository assets,
     IViewProfileRepository policies,
-    ViewSharedTransferService transfers)
+    ViewSharedTransferService transfers,
+    IAuthorizationEvaluator authorization,
+    IViewSharedContributionQueue queue)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly Channel<Guid> _queue = Channel.CreateUnbounded<Guid>(new UnboundedChannelOptions
-    {
-        SingleReader = true,
-        SingleWriter = false,
-    });
 
     public async Task<ViewSharedContributionPreviewDto> PreviewAsync(
-        Guid actorProfileId,
+        RequestAuthority authority,
         ViewSharedContributionPreviewRequest request,
         CancellationToken ct = default)
     {
+        var actorProfileId = await RequireActorAsync(authority, curator: false, ct);
         await RequireSubmitAsync(actorProfileId, ct);
         return PreviewOwned(actorProfileId, request, ct);
     }
@@ -42,21 +40,33 @@ public sealed class ViewSharedContributionService(
         {
             var item = assets.Find(itemId, ct) ?? throw new KeyNotFoundException("A selected View item was not found.");
             if (item.OwnerProfileId != actorProfileId)
-                throw new UnauthorizedAccessException("Only items in your Personal Space can be submitted.");
+            {
+                throw new KeyNotFoundException("A selected View item was not found.");
+            }
+
             var preview = transfers.Preview(itemId, request.DestinationKind, request.FolderName, ct);
-            if (!preview.AlreadyShared) previews.Add(preview);
+            if (!preview.AlreadyShared)
+            {
+                previews.Add(preview);
+            }
         }
 
         if (previews.Count == 0)
+        {
             throw new InvalidOperationException("Every selected item is already in the Shared Library.");
+        }
+
         return BuildPreview(previews, request.DestinationKind, request.FolderName);
     }
 
     public async Task<ViewSharedContributionDto> SubmitAsync(
-        Guid actorProfileId,
+        RequestAuthority authority,
         ViewSharedContributionSubmitRequest request,
         CancellationToken ct = default)
-        => await SubmitCoreAsync(actorProfileId, request, requireSubmitPermission: true, ct);
+    {
+        var actorProfileId = await RequireActorAsync(authority, curator: false, ct);
+        return await SubmitCoreAsync(actorProfileId, request, requireSubmitPermission: true, ct);
+    }
 
     private async Task<ViewSharedContributionDto> SubmitCoreAsync(
         Guid actorProfileId,
@@ -65,19 +75,30 @@ public sealed class ViewSharedContributionService(
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.IdempotencyKey) || request.IdempotencyKey.Length > 100)
+        {
             throw new ArgumentException("An idempotency key of 1 to 100 characters is required.");
+        }
+
         var previewRequest = new ViewSharedContributionPreviewRequest(
             request.ItemIds, request.DestinationKind, request.FolderName);
-        var preview = requireSubmitPermission
-            ? await PreviewAsync(actorProfileId, previewRequest, ct)
-            : PreviewOwned(actorProfileId, previewRequest, ct);
+        if (requireSubmitPermission)
+        {
+            await RequireSubmitAsync(actorProfileId, ct);
+        }
+
+        var preview = PreviewOwned(actorProfileId, previewRequest, ct);
         if (!CryptographicOperations.FixedTimeEquals(
                 Encoding.UTF8.GetBytes(preview.PreviewRevision),
                 Encoding.UTF8.GetBytes(request.PreviewRevision ?? string.Empty)))
+        {
             throw new InvalidOperationException("The selected files changed after preview. Review the contribution again.");
+        }
 
         var existing = FindByIdempotency(actorProfileId, request.IdempotencyKey.Trim(), ct);
-        if (existing.HasValue) return await GetRequiredAsync(actorProfileId, existing.Value, false, ct);
+        if (existing.HasValue)
+        {
+            return await GetRequiredForProfileAsync(actorProfileId, existing.Value, false, ct);
+        }
 
         var contributionId = Guid.NewGuid();
         var contributorName = GetProfileName(actorProfileId, ct);
@@ -95,7 +116,9 @@ public sealed class ViewSharedContributionService(
                        AND c.status = 'pending';
                     """, new { itemId = itemPreview.ItemId, actorProfileId }, transaction, cancellationToken: token));
                 if (alreadyPending > 0)
+                {
                     throw new InvalidOperationException("A selected item already has a pending Shared Library contribution.");
+                }
             }
             connection.Execute(new CommandDefinition("""
                 INSERT INTO view_shared_contributions
@@ -126,50 +149,75 @@ public sealed class ViewSharedContributionService(
                             @position, @operation, @manifest, 'waiting', @now);
                     """, new
                 {
-                    id = Guid.NewGuid(), contributionId, itemId = itemPreview.ItemId, actorProfileId,
-                    contributorName, position = index, operation = itemPreview.Operation,
-                    manifest = JsonSerializer.Serialize(itemPreview, JsonOptions), now,
+                    id = Guid.NewGuid(),
+                    contributionId,
+                    itemId = itemPreview.ItemId,
+                    actorProfileId,
+                    contributorName,
+                    position = index,
+                    operation = itemPreview.Operation,
+                    manifest = JsonSerializer.Serialize(itemPreview, JsonOptions),
+                    now,
                 }, transaction, cancellationToken: token));
             }
             InsertEvent(connection, transaction, contributionId, actorProfileId, contributorName,
                 "submitted", $"{preview.Items.Count} item(s) submitted.", now, token);
             return true;
         }, ct);
-        return await GetRequiredAsync(actorProfileId, contributionId, false, ct);
+        return await GetRequiredForProfileAsync(actorProfileId, contributionId, false, ct);
     }
 
     public async Task<ViewSharedContributionDto> AddDirectAsync(
-        Guid actorProfileId, ViewSharedDirectAddRequest request, CancellationToken ct = default)
+        RequestAuthority authority, ViewSharedDirectAddRequest request, CancellationToken ct = default)
     {
+        var actorProfileId = await RequireActorAsync(authority, curator: true, ct);
         var policy = await policies.GetPolicyAsync(actorProfileId, ct);
         if (!policy.ViewEnabled || !policy.ReviewSharedLibraryContributions)
+        {
             throw new UnauthorizedAccessException("Shared Library curator access is required.");
+        }
+
         var preview = PreviewOwned(actorProfileId,
             new ViewSharedContributionPreviewRequest(request.ItemIds, request.DestinationKind, request.FolderName), ct);
         var key = string.IsNullOrWhiteSpace(request.IdempotencyKey) ? Guid.NewGuid().ToString("N") : request.IdempotencyKey.Trim();
         var pending = await SubmitCoreAsync(actorProfileId, new ViewSharedContributionSubmitRequest(
             request.ItemIds, request.DestinationKind, request.FolderName, request.Note,
             preview.PreviewRevision, key), requireSubmitPermission: false, ct);
-        if (pending.Status != "pending") return pending;
+        if (pending.Status != "pending")
+        {
+            return pending;
+        }
+
         await UpdateDecisionAsync(pending.Id, pending.Revision, "accepted", actorProfileId,
             GetProfileName(actorProfileId, ct), "Added directly by a Shared Library curator.",
             pending.DestinationKind, pending.DestinationLabel, ct);
-        await _queue.Writer.WriteAsync(pending.Id, ct);
-        return await GetRequiredAsync(actorProfileId, pending.Id, true, ct);
+        await queue.EnqueueAsync(pending.Id, ct);
+        return await GetRequiredForProfileAsync(actorProfileId, pending.Id, true, ct);
     }
 
     public async Task<ViewSharedContributionPageDto> ListAsync(
-        Guid actorProfileId, string mode, string? status, int offset, int limit,
+        RequestAuthority authority, string mode, string? status, int offset, int limit,
         CancellationToken ct = default)
     {
-        if (offset < 0 || limit is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(limit));
+        if (offset < 0 || limit is < 1 or > 100)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit));
+        }
+
         if (!string.Equals(mode, "mine", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(mode, "review", StringComparison.OrdinalIgnoreCase))
+        {
             throw new ArgumentException("Contribution mode must be mine or review.", nameof(mode));
-        var policy = await policies.GetPolicyAsync(actorProfileId, ct);
+        }
+
         var review = string.Equals(mode, "review", StringComparison.OrdinalIgnoreCase);
+        var actorProfileId = await RequireActorAsync(authority, curator: review, ct);
+        var policy = await policies.GetPolicyAsync(actorProfileId, ct);
         if (review && !policy.ReviewSharedLibraryContributions)
+        {
             throw new UnauthorizedAccessException("Shared Library curator access is required.");
+        }
+
         var normalizedStatus = NormalizeStatusFilter(status);
         using var connection = database.CreateConnection();
         var ids = connection.Query<Guid>(new CommandDefinition("""
@@ -181,16 +229,31 @@ public sealed class ViewSharedContributionService(
             """, new { review = review ? 1 : 0, actorProfileId, status = normalizedStatus, take = limit + 1, offset },
             cancellationToken: ct)).ToList();
         var hasMore = ids.Count > limit;
-        if (hasMore) ids.RemoveAt(ids.Count - 1);
+        if (hasMore)
+        {
+            ids.RemoveAt(ids.Count - 1);
+        }
+
         var rows = new List<ViewSharedContributionDto>(ids.Count);
-        foreach (var id in ids) rows.Add(Read(connection, id, ct)!);
+        foreach (var id in ids)
+        {
+            rows.Add(Read(connection, id, ct)!);
+        }
+
         return new(rows, offset, hasMore, policy.SubmitToSharedLibrary,
             policy.ReviewSharedLibraryContributions);
     }
 
     public async Task<ViewSharedContributionDto> GetRequiredAsync(
-        Guid actorProfileId, Guid contributionId, bool requireReview = false,
+        RequestAuthority authority, Guid contributionId, bool requireReview = false,
         CancellationToken ct = default)
+    {
+        var actorProfileId = await RequireActorAsync(authority, curator: requireReview, ct);
+        return await GetRequiredForProfileAsync(actorProfileId, contributionId, requireReview, ct);
+    }
+
+    private async Task<ViewSharedContributionDto> GetRequiredForProfileAsync(
+        Guid actorProfileId, Guid contributionId, bool requireReview, CancellationToken ct)
     {
         var policy = await policies.GetPolicyAsync(actorProfileId, ct);
         using var connection = database.CreateConnection();
@@ -198,70 +261,115 @@ public sealed class ViewSharedContributionService(
         var canReview = policy.ReviewSharedLibraryContributions;
         if ((requireReview && !canReview)
             || (!canReview && contribution.SubmittedByProfileId != actorProfileId))
-            throw new UnauthorizedAccessException("This contribution is unavailable.");
+        {
+            throw new KeyNotFoundException("This contribution is unavailable.");
+        }
+
         return contribution;
     }
 
     public async Task<ViewSharedContributionDto> CancelAsync(
-        Guid actorProfileId, Guid contributionId, int expectedRevision,
+        RequestAuthority authority, Guid contributionId, int expectedRevision,
         CancellationToken ct = default)
     {
-        var current = await GetRequiredAsync(actorProfileId, contributionId, false, ct);
+        var actorProfileId = await RequireActorAsync(authority, curator: false, ct);
+        var current = await GetRequiredForProfileAsync(actorProfileId, contributionId, false, ct);
         if (current.SubmittedByProfileId != actorProfileId)
+        {
             throw new UnauthorizedAccessException("Only the contributor can cancel this submission.");
-        if (current.Status != "pending") throw new InvalidOperationException("Only a pending contribution can be cancelled.");
+        }
+
+        if (current.Status != "pending")
+        {
+            throw new InvalidOperationException("Only a pending contribution can be cancelled.");
+        }
+
         await UpdateDecisionAsync(contributionId, expectedRevision, "cancelled", actorProfileId,
             current.SubmittedByName, null, null, null, ct);
-        return await GetRequiredAsync(actorProfileId, contributionId, false, ct);
+        return await GetRequiredForProfileAsync(actorProfileId, contributionId, false, ct);
     }
 
     public async Task<ViewSharedContributionDto> DecideAsync(
-        Guid actorProfileId, Guid contributionId, ViewSharedContributionDecisionRequest request,
+        RequestAuthority authority, Guid contributionId, ViewSharedContributionDecisionRequest request,
         CancellationToken ct = default)
     {
-        var current = await GetRequiredAsync(actorProfileId, contributionId, true, ct);
-        if (current.Status != "pending") throw new InvalidOperationException("This contribution is no longer pending.");
+        var actorProfileId = await RequireActorAsync(authority, curator: true, ct);
+        var current = await GetRequiredForProfileAsync(actorProfileId, contributionId, true, ct);
+        if (current.Status != "pending")
+        {
+            throw new InvalidOperationException("This contribution is no longer pending.");
+        }
+
         var decision = request.Decision.Trim().ToLowerInvariant();
         if (decision is not ("accepted" or "declined"))
+        {
             throw new ArgumentException("Decision must be accepted or declined.");
+        }
+
         if (decision == "accepted")
         {
             if (current.SubmittedByProfileId is not { } contributorId)
+            {
                 throw new InvalidOperationException("The original contributor is no longer available.");
+            }
+
             await RequireSubmitAsync(contributorId, ct);
             foreach (var contributionItem in current.Items)
             {
                 var asset = assets.Find(contributionItem.ItemId, ct);
                 if (asset?.OwnerProfileId != contributorId)
+                {
                     throw new InvalidOperationException("A submitted item changed ownership and must be submitted again.");
+                }
             }
         }
         var kind = (request.DestinationKind ?? current.DestinationKind).Trim().ToLowerInvariant();
         if (kind is not ("timeline" or "folder"))
+        {
             throw new ArgumentException("Destination must be timeline or folder.");
+        }
+
         var label = request.DestinationKind is null ? current.DestinationLabel : NullIfWhiteSpace(request.FolderName);
         if (kind == "folder" && string.IsNullOrWhiteSpace(label))
+        {
             throw new ArgumentException("A Shared folder name is required.");
-        if (kind == "timeline") label = null;
+        }
+
+        if (kind == "timeline")
+        {
+            label = null;
+        }
+
         var curatorName = GetProfileName(actorProfileId, ct);
         await UpdateDecisionAsync(contributionId, request.ExpectedRevision, decision, actorProfileId,
             curatorName, request.Reason, kind, label, ct);
-        if (decision == "accepted") await _queue.Writer.WriteAsync(contributionId, ct);
-        return await GetRequiredAsync(actorProfileId, contributionId, true, ct);
+        if (decision == "accepted")
+        {
+            await queue.EnqueueAsync(contributionId, ct);
+        }
+
+        return await GetRequiredForProfileAsync(actorProfileId, contributionId, true, ct);
     }
 
     public async Task<ViewSharedContributionDto> RetryAsync(
-        Guid actorProfileId, Guid contributionId, int expectedRevision,
+        RequestAuthority authority, Guid contributionId, int expectedRevision,
         CancellationToken ct = default)
     {
-        var current = await GetRequiredAsync(actorProfileId, contributionId, true, ct);
-        if (current.Status != "accepted") throw new InvalidOperationException("Only an accepted contribution can be retried.");
-        if (current.Revision != expectedRevision) throw new InvalidOperationException("This contribution changed. Reload it and try again.");
-        await _queue.Writer.WriteAsync(contributionId, ct);
-        return await GetRequiredAsync(actorProfileId, contributionId, true, ct);
-    }
+        var actorProfileId = await RequireActorAsync(authority, curator: true, ct);
+        var current = await GetRequiredForProfileAsync(actorProfileId, contributionId, true, ct);
+        if (current.Status != "accepted")
+        {
+            throw new InvalidOperationException("Only an accepted contribution can be retried.");
+        }
 
-    public IAsyncEnumerable<Guid> ReadQueueAsync(CancellationToken ct) => _queue.Reader.ReadAllAsync(ct);
+        if (current.Revision != expectedRevision)
+        {
+            throw new InvalidOperationException("This contribution changed. Reload it and try again.");
+        }
+
+        await queue.EnqueueAsync(contributionId, ct);
+        return await GetRequiredForProfileAsync(actorProfileId, contributionId, true, ct);
+    }
 
     public IReadOnlyList<Guid> GetRecoverableIds(CancellationToken ct = default)
     {
@@ -304,7 +412,37 @@ public sealed class ViewSharedContributionService(
     {
         var policy = await policies.GetPolicyAsync(profileId, ct);
         if (!policy.ViewEnabled || !policy.SubmitToSharedLibrary)
+        {
             throw new UnauthorizedAccessException("Permission to submit to the Shared Library is required.");
+        }
+    }
+
+    private async Task<Guid> RequireActorAsync(RequestAuthority authority, bool curator, CancellationToken ct)
+    {
+        if (!authority.HasHumanContext || authority.ActiveProfileId is not { } profileId
+            || curator && (authority.PrincipalKind != PrincipalKind.Human || !authority.IsEffectiveAdministrator))
+        {
+            throw new UnauthorizedAccessException("Trusted View authority is required.");
+        }
+
+        var requirement = new AuthorizationRequirement(
+            authority.HasApplicationContext ? ApplicationPermissionIds.ViewUpload : null,
+            AccountFeatureId.View, RequiresHumanContext: true, RequiresAdministrator: curator,
+            RequiresAdministratorSurfaceUnlock: curator);
+        if (!(await authorization.EvaluateAsync(authority, requirement, null, ct)).IsAllowed)
+        {
+            throw new UnauthorizedAccessException("Trusted View authority is required.");
+        }
+
+        var policy = await policies.GetPolicyAsync(profileId, ct);
+        if (!policy.ViewEnabled || (curator ? !policy.ReviewSharedLibraryContributions : !policy.SubmitToSharedLibrary))
+        {
+            throw new UnauthorizedAccessException(curator
+                ? "Shared Library curator access is required."
+                : "Permission to submit to the Shared Library is required.");
+        }
+
+        return profileId;
     }
 
     private async Task UpdateDecisionAsync(Guid id, int revision, string status, Guid actorId,
@@ -322,15 +460,31 @@ public sealed class ViewSharedContributionService(
                        destination_label = CASE WHEN @destinationKind IS NULL THEN destination_label ELSE @destinationLabel END,
                        updated_at = @now
                  WHERE id = @id AND status = 'pending' AND revision = @revision;
-                """, new { id, revision, status, now = DateTimeOffset.UtcNow, actorId, actorName,
-                    reason = NullIfWhiteSpace(reason), destinationKind, destinationLabel = NullIfWhiteSpace(destinationLabel) },
+                """, new
+            {
+                id,
+                revision,
+                status,
+                now = DateTimeOffset.UtcNow,
+                actorId,
+                actorName,
+                reason = NullIfWhiteSpace(reason),
+                destinationKind,
+                destinationLabel = NullIfWhiteSpace(destinationLabel)
+            },
                 transaction, cancellationToken: token));
             if (affected > 0)
+            {
                 InsertEvent(connection, transaction, id, actorId, actorName, status,
                     NullIfWhiteSpace(reason), DateTimeOffset.UtcNow, token);
+            }
+
             return affected;
         }, ct);
-        if (changed == 0) throw new InvalidOperationException("This contribution changed. Reload it and try again.");
+        if (changed == 0)
+        {
+            throw new InvalidOperationException("This contribution changed. Reload it and try again.");
+        }
     }
 
     private Task SetItemStateAsync(Guid id, string state, string? error, CancellationToken ct) =>
@@ -379,7 +533,11 @@ public sealed class ViewSharedContributionService(
                    decision_reason AS DecisionReason
               FROM view_shared_contributions WHERE id = @id;
             """, new { id }, cancellationToken: ct));
-        if (row is null) return null;
+        if (row is null)
+        {
+            return null;
+        }
+
         var items = connection.Query<ContributionItemRow>(new CommandDefinition("""
             SELECT sci.id AS Id, sci.item_id AS ItemId, COALESCE(li.title, li.primary_file_name) AS Title,
                    li.media_kind AS MediaKind, sci.operation AS Operation,
@@ -417,7 +575,11 @@ public sealed class ViewSharedContributionService(
     private static IReadOnlyList<Guid> NormalizeItems(IReadOnlyList<Guid>? values)
     {
         var result = values?.Where(value => value != Guid.Empty).Distinct().ToList() ?? [];
-        if (result.Count is < 1 or > 100) throw new ArgumentException("Select between 1 and 100 View items.");
+        if (result.Count is < 1 or > 100)
+        {
+            throw new ArgumentException("Select between 1 and 100 View items.");
+        }
+
         return result;
     }
 
@@ -425,7 +587,10 @@ public sealed class ViewSharedContributionService(
     {
         var normalized = NullIfWhiteSpace(value)?.ToLowerInvariant();
         if (normalized is not null && normalized is not ("pending" or "accepted" or "declined" or "cancelled"))
+        {
             throw new ArgumentException("Unsupported contribution status.");
+        }
+
         return normalized;
     }
 

@@ -1,15 +1,16 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
-using MediaEngine.Contracts.Items;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Canonical;
 using MediaEngine.Api.Services.Collections;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Items;
 using MediaEngine.Contracts.Matching;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -47,7 +48,9 @@ public static class ItemCanonicalEndpoints
             CancellationToken ct) =>
         {
             if (field is not ("genre" or "tag" or "tags" or "custom_tags"))
+            {
                 return ApiErrors.BadRequest("Suggestions are available only for genres and tags.");
+            }
 
             var page = PagedRequest.From(0, limit, defaultLimit: 100, maxLimit: 500);
             return Results.Ok(suggestions.GetValues(field, profileId, page.Limit, ct));
@@ -55,7 +58,7 @@ public static class ItemCanonicalEndpoints
         .WithName("GetItemEditorSuggestions")
         .WithSummary("Returns existing genre or profile-local tag values for editor autocomplete.")
         .Produces<IReadOnlyList<string>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead);
 
         group.MapPut("/{entityId:guid}/preferences", async (
             Guid entityId,
@@ -71,11 +74,15 @@ public static class ItemCanonicalEndpoints
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
+            {
                 return ApiErrors.BadRequest("At least one preference field is required.");
+            }
 
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
+            }
 
             var now = DateTimeOffset.UtcNow;
             var claims = new List<MetadataClaim>();
@@ -86,7 +93,9 @@ public static class ItemCanonicalEndpoints
             foreach (var (key, value) in request.Fields)
             {
                 if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+                {
                     continue;
+                }
 
                 var targetId = ResolveScopedTarget(context.AssetId, lineage, key);
                 claims.Add(new MetadataClaim
@@ -116,7 +125,9 @@ public static class ItemCanonicalEndpoints
             }
 
             if (updatedKeys.Count == 0)
+            {
                 return ApiErrors.BadRequest("No valid preference fields were provided.");
+            }
 
             await claimRepo.InsertBatchAsync(claims, ct);
             await canonicalRepo.UpsertBatchAsync(canonicals, ct);
@@ -163,7 +174,8 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemPreferencesResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
 
         group.MapPut("/{entityId:guid}/display-overrides", async (
             Guid entityId,
@@ -173,7 +185,9 @@ public static class ItemCanonicalEndpoints
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
+            {
                 return ApiErrors.BadRequest("At least one display override is required.");
+            }
 
             var unsupportedKeys = request.Fields.Keys
                 .Where(key => !AllowedDisplayOverrideKeys.Contains(key.Trim()))
@@ -181,25 +195,34 @@ public static class ItemCanonicalEndpoints
                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (unsupportedKeys.Count > 0)
+            {
                 return ApiErrors.BadRequest($"Unsupported display override field(s): {string.Join(", ", unsupportedKeys)}.");
+            }
 
             var displayOverrideState = await itemCanonicalData.LoadDisplayOverridesAsync(entityId, ct);
             if (!displayOverrideState.WorkExists)
+            {
                 return ApiErrors.NotFound($"No work found for {entityId}.");
+            }
 
             var current = displayOverrideState.Values;
             var updatedKeys = new List<string>();
             foreach (var (key, value) in request.Fields)
             {
                 if (string.IsNullOrWhiteSpace(key))
+                {
                     continue;
+                }
 
                 var normalizedKey = key.Trim();
                 var normalizedValue = (value ?? string.Empty).Trim();
                 if (string.IsNullOrWhiteSpace(normalizedValue))
                 {
                     if (current.Remove(normalizedKey))
+                    {
                         updatedKeys.Add(normalizedKey);
+                    }
+
                     continue;
                 }
 
@@ -208,10 +231,14 @@ public static class ItemCanonicalEndpoints
             }
 
             if (updatedKeys.Count == 0)
+            {
                 return ApiErrors.BadRequest("No valid display override fields were provided.");
+            }
 
             if (!await itemCanonicalData.SaveDisplayOverridesAsync(entityId, current, ct))
+            {
                 return ApiErrors.NotFound($"No work found for {entityId}.");
+            }
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -236,7 +263,8 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemDisplayOverridesResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
 
         group.MapPost("/{entityId:guid}/canonical-search", async (
             Guid entityId,
@@ -248,12 +276,16 @@ public static class ItemCanonicalEndpoints
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
+            }
 
             var mediaType = ResolveMediaType(request.MediaType, context.MediaType);
             var policy = ResolveTargetPolicy(mediaType, request.TargetKind, request.TargetFieldGroup);
             if (policy is null)
+            {
                 return ApiErrors.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{mediaType}'.");
+            }
 
             var draftFields = request.DraftFields
                 .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
@@ -261,7 +293,9 @@ public static class ItemCanonicalEndpoints
 
             var query = CanonicalCandidateBuilder.BuildCanonicalQuery(policy, draftFields, request.QueryOverride);
             if (string.IsNullOrWhiteSpace(query))
+            {
                 return ApiErrors.BadRequest("A search query or draft field values are required.");
+            }
 
             var missingRequired = policy.RequiredFieldKeys
                 .Where(key => !draftFields.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
@@ -345,7 +379,8 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemCanonicalSearchResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataMatch);
 
         group.MapPost("/{entityId:guid}/canonical-apply", async (
             Guid entityId,
@@ -367,11 +402,15 @@ public static class ItemCanonicalEndpoints
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
+            }
 
             var policy = ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup);
             if (policy is null)
+            {
                 return ApiErrors.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
+            }
 
             var now = DateTimeOffset.UtcNow;
             var selectedSuggested = request.AcceptedSuggestedKeys
@@ -383,7 +422,9 @@ public static class ItemCanonicalEndpoints
                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
             if (selectedFields.Count == 0 && request.BridgeIds.Count == 0 && request.QidFields.Count == 0)
+            {
                 return ApiErrors.BadRequest("No canonical data was selected to apply.");
+            }
 
             var claims = new List<MetadataClaim>();
             var canonicals = new List<CanonicalValue>();
@@ -392,7 +433,9 @@ public static class ItemCanonicalEndpoints
             foreach (var (key, value) in selectedFields.Concat(request.QidFields))
             {
                 if (string.IsNullOrWhiteSpace(value))
+                {
                     continue;
+                }
 
                 var targetId = ResolveScopedTarget(context.AssetId, lineage, key);
                 claims.Add(new MetadataClaim
@@ -420,9 +463,14 @@ public static class ItemCanonicalEndpoints
             }
 
             if (claims.Count > 0)
+            {
                 await claimRepo.InsertBatchAsync(claims, ct);
+            }
+
             if (canonicals.Count > 0)
+            {
                 await canonicalRepo.UpsertBatchAsync(canonicals, ct);
+            }
 
             var clearedIds = await candidateBuilder.ClearStaleIdsAsync(context.AssetId, lineage, policy, request, ct);
 
@@ -562,37 +610,53 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemCanonicalApplyResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataMatch);
 
         group.MapGet("/{entityId:guid}/editor-preferences/{profileId:guid}", async (
             Guid entityId,
             Guid profileId,
+            HttpContext httpContext,
             IProfileWorkPreferencesRepository preferences,
             CancellationToken ct) =>
         {
+            if (!IsAuthorizedProfile(httpContext, profileId))
+            {
+                return Results.Forbid();
+            }
+
             var current = await preferences.GetAsync(profileId, entityId, ct);
             return Results.Ok(ToEditorPreferencesResponse(current));
         })
         .WithName("GetItemEditorPreferences")
         .WithSummary("Returns profile-owned editor preferences and their optimistic-concurrency revision.")
         .Produces<ItemEditorPreferencesResponse>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.MetadataRead)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.MetadataRead, "Work", "entityId");
 
         group.MapPut("/{entityId:guid}/editor-preferences/{profileId:guid}", async (
             Guid entityId,
             Guid profileId,
             ItemEditorPreferencesRequest request,
+            HttpContext httpContext,
             IProfileWorkPreferencesRepository preferences,
             ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
+            if (!IsAuthorizedProfile(httpContext, profileId))
+            {
+                return Results.Forbid();
+            }
+
             var unsupportedKeys = request.DisplayOverrides.Keys
                 .Where(key => !AllowedDisplayOverrideKeys.Contains(key.Trim()))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (unsupportedKeys.Count > 0)
+            {
                 return ApiErrors.BadRequest($"Unsupported display override field(s): {string.Join(", ", unsupportedKeys)}.");
+            }
 
             var localTags = request.LocalTags
                 .Select(tag => tag.Trim())
@@ -600,7 +664,9 @@ public static class ItemCanonicalEndpoints
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (localTags.Count > 30 || localTags.Any(tag => tag.Length > 64))
+            {
                 return ApiErrors.BadRequest("Use at most 30 local tags, each no longer than 64 characters.");
+            }
 
             var result = await preferences.SaveAsync(new EditorPreferencesSaveCommand(
                 profileId,
@@ -610,17 +676,24 @@ public static class ItemCanonicalEndpoints
                 localTags), ct);
 
             if (!result.WorkExists)
+            {
                 return ApiErrors.NotFound($"No work found for {entityId}.");
+            }
+
             if (!result.ProfileExists)
+            {
                 return ApiErrors.NotFound($"No profile found for {profileId}.");
+            }
 
             var response = ToEditorPreferencesResponse(result.Preferences, result.DisplayOverrides);
             if (result.Conflict)
+            {
                 // Not a bare ad-hoc error: this returns the same typed ItemEditorPreferencesResponse
                 // body declared by .Produces<ItemEditorPreferencesResponse>(Status409Conflict) below,
                 // so it deliberately does not route through ApiErrors (which only emits a string
                 // "detail" problem+json body and would change this endpoint's documented 409 shape).
                 return Results.Json(response, statusCode: StatusCodes.Status409Conflict);
+            }
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -639,7 +712,8 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemEditorPreferencesResponse>(StatusCodes.Status409Conflict)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireProfileOperation(ApplicationPermissionIds.MetadataWrite)
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite, "Work", "entityId");
 
         group.MapPost("/{entityId:guid}/retail-match", async (
             Guid entityId,
@@ -663,22 +737,33 @@ public static class ItemCanonicalEndpoints
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
+            }
 
             if (string.IsNullOrWhiteSpace(request.ProviderName) || string.IsNullOrWhiteSpace(request.ProviderItemId))
+            {
                 return ApiErrors.BadRequest("Provider name and provider item ID are required.");
+            }
 
             if (!Guid.TryParse(request.ProviderId, out var providerId))
+            {
                 return ApiErrors.BadRequest("A valid provider ID is required for a retail replacement.");
+            }
 
             var policy = ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup);
             if (policy is null)
+            {
                 return ApiErrors.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
+            }
 
             var now = DateTimeOffset.UtcNow;
             var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
             if (lineage is null)
+            {
                 return ApiErrors.NotFound($"No work lineage found for {entityId}.");
+            }
+
             var allowedFieldKeys = policy.RequiredFieldKeys
                 .Concat(policy.SuggestedFieldKeys)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -699,7 +784,9 @@ public static class ItemCanonicalEndpoints
                 selectedBridgeIds,
                 ct);
             if (!string.IsNullOrWhiteSpace(parentConflict))
+            {
                 return ApiErrors.Conflict(parentConflict);
+            }
 
             var staleBridgeKeys = policy.BridgeIdKeys
                 .Where(key => !selectedBridgeIds.ContainsKey(key))
@@ -1021,7 +1108,9 @@ public static class ItemCanonicalEndpoints
                 ct);
 
             if (request.ReviewItemId is { } reviewItemId)
+            {
                 await reviewRepo.UpdateStatusAsync(reviewItemId, ReviewStatus.Resolved, "user", ct);
+            }
 
             const string enrichmentQueuedMessage = "Match confirmed. This file was queued for the full enrichment cycle. People, artwork, relationships, and file write-back will continue in the background.";
             return Results.Ok(new ItemCanonicalApplyResponseDto
@@ -1044,7 +1133,8 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemCanonicalApplyResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataMatch);
 
         group.MapPost("/{entityId:guid}/wikidata-match", async (
             Guid entityId,
@@ -1062,15 +1152,23 @@ public static class ItemCanonicalEndpoints
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
+            }
 
             var action = (request.Action ?? "replace").Trim().ToLowerInvariant();
             var policy = ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup);
             if (policy is null)
+            {
                 return ApiErrors.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
+            }
+
             var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
             if (lineage is null)
+            {
                 return ApiErrors.NotFound($"No work lineage found for {entityId}.");
+            }
+
             var workId = ResolvePolicyWorkTarget(lineage, policy, BridgeIdKeys.WikidataQid);
             var now = DateTimeOffset.UtcNow;
             var fieldsApplied = 0;
@@ -1087,7 +1185,9 @@ public static class ItemCanonicalEndpoints
             if (action == "replace")
             {
                 if (string.IsNullOrWhiteSpace(request.Qid))
+                {
                     return ApiErrors.BadRequest("QID is required when replacing a Wikidata match.");
+                }
 
                 var qid = request.Qid.Trim();
                 var allowedCandidateFieldKeys = policy.RequiredFieldKeys
@@ -1155,7 +1255,10 @@ public static class ItemCanonicalEndpoints
                     var hints = canonicals
                         .ToDictionary(c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
                     foreach (var (key, value) in acceptedCandidateFields)
+                    {
                         hints[key] = value;
+                    }
+
                     identityJobId = await pipeline.EnqueueAsync(new HarvestRequest
                     {
                         EntityId = context.AssetId,
@@ -1221,7 +1324,9 @@ public static class ItemCanonicalEndpoints
                 ct);
 
             if (request.ReviewItemId is { } reviewItemId)
+            {
                 await reviewRepo.UpdateStatusAsync(reviewItemId, ReviewStatus.Resolved, "user", ct);
+            }
 
             return Results.Ok(new ItemCanonicalApplyResponseDto
             {
@@ -1239,10 +1344,16 @@ public static class ItemCanonicalEndpoints
         .Produces<ItemCanonicalApplyResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataMatch);
 
         return app;
     }
+
+    private static bool IsAuthorizedProfile(HttpContext context, Guid requestedProfileId) =>
+        context.Items.TryGetValue(ProfileOperationAccessFilter.ActiveProfileItemKey, out var value)
+        && value is Guid activeProfileId
+        && activeProfileId == requestedProfileId;
 
     internal sealed record CanonicalTargetPolicy(
         string MediaType,
@@ -1434,7 +1545,9 @@ public static class ItemCanonicalEndpoints
     internal static Guid ResolveScopedTarget(Guid assetId, WorkLineage? lineage, string key)
     {
         if (lineage is null)
+        {
             return assetId;
+        }
 
         return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
             ? lineage.TargetForParentScope
@@ -1466,13 +1579,13 @@ public static class ItemCanonicalEndpoints
     private static ItemEditorPreferencesResponse ToEditorPreferencesResponse(
         ProfileWorkPreferences preferences,
         IReadOnlyDictionary<string, string>? displayOverrides = null) => new()
-    {
-        ProfileId = preferences.ProfileId,
-        WorkId = preferences.WorkId,
-        LocalTags = preferences.LocalTags,
-        Revision = preferences.Revision,
-        UpdatedAt = preferences.UpdatedAt,
-        DisplayOverrides = displayOverrides ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-    };
+        {
+            ProfileId = preferences.ProfileId,
+            WorkId = preferences.WorkId,
+            LocalTags = preferences.LocalTags,
+            Revision = preferences.Revision,
+            UpdatedAt = preferences.UpdatedAt,
+            DisplayOverrides = displayOverrides ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+        };
 
 }

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -13,7 +14,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -168,7 +168,9 @@ public sealed partial class RetailMatchWorker
     private async Task EnrichPeopleWithoutMediaMatchAsync(Guid entityId, CancellationToken ct)
     {
         if (_personEnrichment is null)
+        {
             return;
+        }
 
         try
         {
@@ -206,17 +208,23 @@ public sealed partial class RetailMatchWorker
 
         // Separate Music and TV jobs for group processing; everything else is per-item.
         var musicJobs = new List<IdentityJob>();
-        var tvJobs    = new List<IdentityJob>();
+        var tvJobs = new List<IdentityJob>();
         var otherJobs = new List<IdentityJob>();
 
         foreach (var job in jobs)
         {
             if (string.Equals(job.MediaType, "Music", StringComparison.OrdinalIgnoreCase))
+            {
                 musicJobs.Add(job);
+            }
             else if (string.Equals(job.MediaType, "TV", StringComparison.OrdinalIgnoreCase))
+            {
                 tvJobs.Add(job);
+            }
             else
+            {
                 otherJobs.Add(job);
+            }
         }
 
         var work = new List<Task>();

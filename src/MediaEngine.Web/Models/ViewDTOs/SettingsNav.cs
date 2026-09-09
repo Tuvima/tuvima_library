@@ -107,7 +107,7 @@ public sealed record SettingsRouteResolution(
 
 /// <summary>
 /// Explicit route map for the Settings shell.
-/// Keeps canonical slugs, aliases, grouping, and role visibility in one place.
+/// Keeps canonical slugs, grouping, and server-authorized navigation in one place.
 /// </summary>
 public static class SettingsNav
 {
@@ -159,7 +159,7 @@ public static class SettingsNav
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.DesktopOnly),
         new(SettingsSection.Network, "administration", "network", Icons.Material.Outlined.WifiTethering, "Network & Remote Access", true, null, [], "json+runtime", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
-        new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.Full),
         new(SettingsSection.Server, "administration", "backup-recovery", Icons.Material.Outlined.Backup, "Backup & Recovery", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
 
         new(SettingsSection.LocalAi, "advanced", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
@@ -246,10 +246,9 @@ public static class SettingsNav
             ],
             [SettingsSection.Access] =
             [
-                new("accounts", "Accounts & Profile Grants", Icons.Material.Outlined.ManageAccounts),
+                new("users", "Users", Icons.Material.Outlined.ManageAccounts),
+                new("applications", "Applications", Icons.Material.Outlined.Apps),
                 new("authentication", "Authentication", Icons.Material.Outlined.AdminPanelSettings),
-                new("api-keys", "Guest API Keys", Icons.Material.Outlined.Key),
-                new("session-policy", "Session Policy", Icons.Material.Outlined.Policy),
             ],
             [SettingsSection.Server] = [],
             [SettingsSection.Review] = [],
@@ -292,40 +291,37 @@ public static class SettingsNav
         SettingsSection.EnrichmentTester,
     ];
 
-    public static IEnumerable<SettingsGroupDef> FilteredGroups(string role)
-    {
-        var hasAdmin = IsAdminRole(role);
-        return AllGroups.Where(group => !group.AdminOnly || hasAdmin);
-    }
+    public static IEnumerable<SettingsGroupDef> FilteredGroups(bool administrationAllowed) =>
+        AllGroups.Where(group => !group.AdminOnly || administrationAllowed);
 
-    public static IEnumerable<SettingsTreeGroupDef> FilteredTreeGroups(string role)
+    public static IEnumerable<SettingsTreeGroupDef> FilteredTreeGroups(bool administrationAllowed)
     {
-        var hasAdmin = IsAdminRole(role);
+        var hasAdmin = administrationAllowed;
         return TreeGroups
             .Where(group => string.IsNullOrWhiteSpace(group.ParentKey))
             .Where(group => !group.AdminOnly || hasAdmin)
-            .Where(group => group.Sections.Any(section => IsVisible(section, role))
-                            || FilteredChildTreeGroups(group, role).Any());
+            .Where(group => group.Sections.Any(section => IsVisible(section, administrationAllowed))
+                            || FilteredChildTreeGroups(group, administrationAllowed).Any());
     }
 
-    public static IEnumerable<SettingsTreeGroupDef> FilteredChildTreeGroups(SettingsTreeGroupDef parent, string role)
+    public static IEnumerable<SettingsTreeGroupDef> FilteredChildTreeGroups(SettingsTreeGroupDef parent, bool administrationAllowed)
     {
-        var hasAdmin = IsAdminRole(role);
+        var hasAdmin = administrationAllowed;
         return TreeGroups
             .Where(group => string.Equals(group.ParentKey, parent.Key, StringComparison.OrdinalIgnoreCase))
             .Where(group => !group.AdminOnly || hasAdmin)
-            .Where(group => group.Sections.Any(section => IsVisible(section, role)));
+            .Where(group => group.Sections.Any(section => IsVisible(section, administrationAllowed)));
     }
 
-    public static IReadOnlyList<SettingsItemDef> FilteredTreeItems(SettingsTreeGroupDef group, string role) =>
+    public static IReadOnlyList<SettingsItemDef> FilteredTreeItems(SettingsTreeGroupDef group, bool administrationAllowed) =>
         group.Sections
             .Select(GetItem)
-            .Where(item => IsVisible(item.Value, role))
+            .Where(item => IsVisible(item.Value, administrationAllowed))
             .ToList();
 
-    public static IReadOnlyList<SettingsItemDef> FilteredItems(SettingsGroupDef group, string role)
+    public static IReadOnlyList<SettingsItemDef> FilteredItems(SettingsGroupDef group, bool administrationAllowed)
     {
-        var hasAdmin = IsAdminRole(role);
+        var hasAdmin = administrationAllowed;
         return AllItems
             .Where(item => string.Equals(item.GroupKey, group.Key, StringComparison.OrdinalIgnoreCase))
             .Where(item => !item.AdminOnly || hasAdmin)
@@ -360,7 +356,8 @@ public static class SettingsNav
             SettingsSection.Libraries => string.IsNullOrWhiteSpace(normalized) || normalized == "view" || Guid.TryParse(normalized, out _),
             SettingsSection.Providers => normalized is "" or "providers",
             SettingsSection.Network => normalized is "" or "overview",
-            SettingsSection.Delivery or SettingsSection.Access or SettingsSection.LocalAi or SettingsSection.Plugins =>
+            SettingsSection.Access => normalized is "" or "users" or "applications" or "authentication",
+            SettingsSection.Delivery or SettingsSection.LocalAi or SettingsSection.Plugins =>
                 string.IsNullOrWhiteSpace(normalized),
             _ => true,
         };
@@ -373,7 +370,7 @@ public static class SettingsNav
 
     public static SettingsSection GetDefaultSection(string groupKey) => _groupsByKey[groupKey].DefaultSection;
 
-    public static bool IsVisible(SettingsSection section, string role)
+    public static bool IsVisible(SettingsSection section, bool administrationAllowed)
     {
         var item = GetItem(section);
         if (_productionMode
@@ -387,27 +384,20 @@ public static class SettingsNav
             return false;
         }
 
-        if (IsAdministratorRole(role))
-        {
-            return true;
-        }
-
-        if (IsStandardUserRole(role))
-        {
-            return section is SettingsSection.Overview
-                or SettingsSection.Playback
-                or SettingsSection.Review;
-        }
-
-        return section is SettingsSection.Overview or SettingsSection.Playback;
+        return administrationAllowed || section is SettingsSection.Overview
+            or SettingsSection.Account or SettingsSection.Playback;
     }
 
-    public static SettingsSection FirstVisibleSection(string role) =>
-        AllItems.First(item => IsVisible(item.Value, role)).Value;
+    public static SettingsSection FirstVisibleSection(bool administrationAllowed) =>
+        AllItems.First(item => IsVisible(item.Value, administrationAllowed)).Value;
 
     public static string RouteFor(SettingsSection section)
     {
         var sectionRoute = SectionRouteFor(section);
+        if (section == SettingsSection.Access)
+        {
+            return $"{sectionRoute}/users";
+        }
         if (_landingSections.Contains(section))
         {
             return sectionRoute;
@@ -457,7 +447,7 @@ public static class SettingsNav
         return $"{SectionRouteFor(section)}/{subsection.Slug}";
     }
 
-    public static SettingsRouteResolution ResolveRoute(string? segment, string role)
+    public static SettingsRouteResolution ResolveRoute(string? segment, bool administrationAllowed)
     {
         if (string.IsNullOrWhiteSpace(segment))
         {
@@ -473,7 +463,7 @@ public static class SettingsNav
 
         if (_itemsBySlug.TryGetValue(normalized, out var canonicalItem))
         {
-            if (IsVisible(canonicalItem.Value, role))
+            if (IsVisible(canonicalItem.Value, administrationAllowed))
             {
                 return new SettingsRouteResolution(
                     canonicalItem.Value,
@@ -483,7 +473,7 @@ public static class SettingsNav
                     RequestedSectionAllowed: true);
             }
 
-            var fallback = FirstVisibleSection(role);
+            var fallback = FirstVisibleSection(administrationAllowed);
             return new SettingsRouteResolution(
                 fallback,
                 RouteFor(fallback),
@@ -494,7 +484,7 @@ public static class SettingsNav
 
         if (_itemsByAlias.TryGetValue(normalized, out var aliasedItem))
         {
-            if (IsVisible(aliasedItem.Value, role))
+            if (IsVisible(aliasedItem.Value, administrationAllowed))
             {
                 return new SettingsRouteResolution(
                     aliasedItem.Value,
@@ -504,7 +494,7 @@ public static class SettingsNav
                     RequestedSectionAllowed: true);
             }
 
-            var fallback = FirstVisibleSection(role);
+            var fallback = FirstVisibleSection(administrationAllowed);
             return new SettingsRouteResolution(
                 fallback,
                 RouteFor(fallback),
@@ -514,7 +504,7 @@ public static class SettingsNav
         }
 
         return new SettingsRouteResolution(
-            FirstVisibleSection(role),
+            FirstVisibleSection(administrationAllowed),
             "/not-found",
             IsCanonicalRoute: false,
             IsKnownRoute: false,
@@ -528,7 +518,7 @@ public static class SettingsNav
             return SettingsSection.Overview;
         }
 
-        var resolution = ResolveRoute(segment, "Administrator");
+        var resolution = ResolveRoute(segment, administrationAllowed: true);
         return resolution.IsKnownRoute ? resolution.Section : null;
     }
 
@@ -543,13 +533,5 @@ public static class SettingsNav
         var item = GetItem(section);
         return $"/settings/{item.Slug}";
     }
-
-    private static bool IsAdminRole(string role) => IsAdministratorRole(role);
-
-    private static bool IsAdministratorRole(string role) =>
-        string.Equals(role, "Administrator", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsStandardUserRole(string role) =>
-        string.Equals(role, "StandardUser", StringComparison.OrdinalIgnoreCase);
 
 }

@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using MediaEngine.Domain.Models;
-using MediaEngine.Domain.Services;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -109,13 +109,19 @@ public sealed class CollectionRuleEvaluator
         string? secondarySortField = null,
         string? secondarySortDirection = null)
     {
-        if (definition.Groups.Count == 0) return [];
+        if (definition.Groups.Count == 0)
+        {
+            return [];
+        }
 
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         int paramIdx = 0;
         var whereClause = BuildWhereClause(definition, cmd, ref paramIdx);
-        if (string.IsNullOrWhiteSpace(whereClause)) return [];
+        if (string.IsNullOrWhiteSpace(whereClause))
+        {
+            return [];
+        }
 
         var searchClause = string.Empty;
         if (!string.IsNullOrWhiteSpace(query))
@@ -154,12 +160,19 @@ public sealed class CollectionRuleEvaluator
     /// <summary>Returns the uncapped number of works matching the definition.</summary>
     public int Count(CollectionRuleDefinition definition, string? query = null)
     {
-        if (definition.Groups.Count == 0) return 0;
+        if (definition.Groups.Count == 0)
+        {
+            return 0;
+        }
+
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         var paramIdx = 0;
         var whereClause = BuildWhereClause(definition, cmd, ref paramIdx);
-        if (string.IsNullOrWhiteSpace(whereClause)) return 0;
+        if (string.IsNullOrWhiteSpace(whereClause))
+        {
+            return 0;
+        }
 
         var searchClause = string.Empty;
         if (!string.IsNullOrWhiteSpace(query))
@@ -189,7 +202,11 @@ public sealed class CollectionRuleEvaluator
             foreach (var condition in group.Conditions)
             {
                 var (sql, parameters) = TranslatePredicate(condition, ref paramIdx);
-                if (sql is null) continue;
+                if (sql is null)
+                {
+                    continue;
+                }
+
                 conditions.Add($"({sql})");
                 foreach (var (name, value) in parameters)
                 {
@@ -213,11 +230,16 @@ public sealed class CollectionRuleEvaluator
         }
 
         if (groupSql.Count == 0)
+        {
             return string.Empty;
+        }
 
         var expression = groupSql[0].Sql;
         for (var index = 1; index < groupSql.Count; index++)
+        {
             expression = $"({expression} {groupSql[index].Join} {groupSql[index].Sql})";
+        }
+
         return expression;
     }
 
@@ -274,7 +296,10 @@ public sealed class CollectionRuleEvaluator
     /// <summary>Parses the current versioned RuleJson definition.</summary>
     public static CollectionRuleDefinition ParseDefinition(string? ruleJson)
     {
-        if (string.IsNullOrWhiteSpace(ruleJson)) return new CollectionRuleDefinition();
+        if (string.IsNullOrWhiteSpace(ruleJson))
+        {
+            return new CollectionRuleDefinition();
+        }
 
         try
         {
@@ -293,7 +318,10 @@ public sealed class CollectionRuleEvaluator
                 MediaEngineJson.CaseInsensitive)
                 ?? new CollectionRuleDefinition();
             if (definition.Version != 1)
+            {
                 throw new FormatException($"Unsupported collection rule definition version '{definition.Version}'.");
+            }
+
             return definition;
         }
         catch (JsonException ex)
@@ -326,14 +354,19 @@ public sealed class CollectionRuleEvaluator
         {
             if (!StructuredDiscoveryFieldCatalog.TryGet(field, out var definition)
                 || definition.Source != DiscoveryFactSource.StructuredProvider)
+            {
                 return (null, parameters);
+            }
 
             var pField = $"@p{paramIdx++}";
             parameters.Add((pField, field));
             return (IsUnknownLookup(pField), parameters);
         }
 
-        if (effectiveValues.Length == 0) return (null, parameters);
+        if (effectiveValues.Length == 0)
+        {
+            return (null, parameters);
+        }
 
         // Direct work table fields
         if (field == "media_type")
@@ -566,11 +599,15 @@ public sealed class CollectionRuleEvaluator
         };
 
         if (secondaryKey is not null && !string.Equals(secondaryKey, primaryKey, StringComparison.OrdinalIgnoreCase))
+        {
             clauses.Add($"{ResolveSortExpression(secondaryKey)} {NormalizeSortDirection(secondarySortDirection)}");
+        }
 
         if (!string.Equals(primaryKey, "title", StringComparison.OrdinalIgnoreCase)
             && !string.Equals(secondaryKey, "title", StringComparison.OrdinalIgnoreCase))
+        {
             clauses.Add($"{CvForWork("'title'")} COLLATE NOCASE ASC");
+        }
 
         clauses.Add("w.id ASC");
         return $"ORDER BY {string.Join(", ", clauses)}";

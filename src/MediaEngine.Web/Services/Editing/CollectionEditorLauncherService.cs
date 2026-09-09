@@ -7,19 +7,21 @@ namespace MediaEngine.Web.Services.Editing;
 public sealed class CollectionEditorLauncherService
 {
     private readonly IDialogService _dialogService;
-    private readonly AdministratorElevationNavigationService? _elevation;
+    private readonly AdministratorSurfaceAccessService? _administratorAccess;
 
-    public CollectionEditorLauncherService(IDialogService dialogService, AdministratorElevationNavigationService? elevation = null)
+    public CollectionEditorLauncherService(IDialogService dialogService, AdministratorSurfaceAccessService? administratorAccess = null)
     {
         _dialogService = dialogService;
-        _elevation = elevation;
+        _administratorAccess = administratorAccess;
     }
 
     public CollectionEditorInlineSession BeginInline(CollectionEditorLaunchRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.EditingCollection is null)
+        {
             throw new InvalidOperationException("Inline collection editing requires an existing collection.");
+        }
 
         return new CollectionEditorInlineSession(request);
     }
@@ -30,11 +32,15 @@ public sealed class CollectionEditorLauncherService
         var isManualPlaylist = request.Mode == CollectionEditorMode.ManualPlaylist;
         var isSmartPlaylist = request.Mode == CollectionEditorMode.SmartPlaylist;
 
-        if (!isManualPlaylist && !isSmartPlaylist && _elevation is not null && !await _elevation.EnsureElevatedAsync())
+        if (!isManualPlaylist && !isSmartPlaylist && _administratorAccess is not null && !await _administratorAccess.EnsureUnlockedAsync())
+        {
             return false;
+        }
 
         if (request.EditingCollection is null && request.Mode == CollectionEditorMode.CuratedCollection)
+        {
             return await OpenGuidedSetupAsync(request);
+        }
 
         var isCollectionEditor = !isManualPlaylist && !isSmartPlaylist;
         var dialog = await _dialogService.ShowAsync<CollectionEditorShell>(
@@ -54,7 +60,9 @@ public sealed class CollectionEditorLauncherService
             });
 
         if (dialog is null)
+        {
             return false;
+        }
 
         var result = await dialog.Result;
         return result is not null && !result.Canceled;
@@ -79,7 +87,9 @@ public sealed class CollectionEditorLauncherService
             });
 
         if (dialog is null)
+        {
             return false;
+        }
 
         var result = await dialog.Result;
         return result is not null && !result.Canceled;

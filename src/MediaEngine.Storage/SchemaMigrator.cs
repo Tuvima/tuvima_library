@@ -359,6 +359,9 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_media_assets_file_path_root
                 ON media_assets(file_path_root COLLATE NOCASE);
 
+            CREATE INDEX IF NOT EXISTS idx_media_assets_content_hash
+                ON media_assets(content_hash);
+
             CREATE INDEX IF NOT EXISTS idx_media_assets_status
                 ON media_assets(status);
 
@@ -435,6 +438,53 @@ internal sealed class SchemaMigrator
             CREATE INDEX IF NOT EXISTS idx_review_queue_status_entity_ready
                 ON review_queue(status, entity_id, review_ready_at);
 
+            CREATE INDEX IF NOT EXISTS idx_review_queue_status
+                ON review_queue(status);
+
+            CREATE INDEX IF NOT EXISTS idx_review_queue_entity_id
+                ON review_queue(entity_id);
+
+            CREATE INDEX IF NOT EXISTS idx_ingestion_batches_status
+                ON ingestion_batches(status);
+
+            CREATE INDEX IF NOT EXISTS idx_ingestion_batch_artifacts_batch
+                ON ingestion_batch_artifacts(batch_id);
+
+            CREATE INDEX IF NOT EXISTS ix_local_items_owner_timeline
+                ON local_items(owner_profile_id, archived_at, trashed_at, COALESCE(captured_at, created_at) DESC, id DESC);
+
+            CREATE INDEX IF NOT EXISTS ix_local_items_space_timeline
+                ON local_items(personal_space_id, archived_at, trashed_at, COALESCE(captured_at, created_at) DESC, id DESC);
+
+            CREATE INDEX IF NOT EXISTS ix_local_items_library_favorite_timeline
+                ON local_items(library_id, favorite, archived_at, trashed_at, COALESCE(captured_at, created_at) DESC, id DESC);
+
+            CREATE INDEX IF NOT EXISTS ix_local_item_metadata_location
+                ON local_item_metadata(location_name, latitude, longitude, item_id)
+                WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+
+            CREATE INDEX IF NOT EXISTS ix_view_galleries_owner_order
+                ON view_galleries(owner_profile_id, sort_order, updated_at DESC, id);
+
+            CREATE INDEX IF NOT EXISTS ix_view_gallery_shares_profile
+                ON view_gallery_shares(profile_id, shared_at DESC, gallery_id);
+
+            CREATE INDEX IF NOT EXISTS ix_local_item_tags_tag
+                ON local_item_tags(tag, item_id);
+
+            CREATE INDEX IF NOT EXISTS ix_local_item_annotations_lookup
+                ON local_item_annotations(annotation_kind, annotation_value, item_id);
+
+            CREATE INDEX IF NOT EXISTS ix_collection_view_sources_collection
+                ON collection_view_sources(collection_id, position, id);
+
+            CREATE INDEX IF NOT EXISTS ix_collection_view_sources_owner
+                ON collection_view_sources(owner_profile_id, source_kind, collection_id, id);
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_collection_view_sources_gallery
+                ON collection_view_sources(collection_id, gallery_id)
+                WHERE source_kind = 'gallery';
+
             CREATE INDEX IF NOT EXISTS idx_system_activity_run_entity_action
                 ON system_activity(ingestion_run_id, entity_id, action_type, occurred_at);
 
@@ -461,7 +511,9 @@ internal sealed class SchemaMigrator
         while (reader.Read())
         {
             if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+            {
                 return;
+            }
         }
 
         using var alter = conn.CreateCommand();

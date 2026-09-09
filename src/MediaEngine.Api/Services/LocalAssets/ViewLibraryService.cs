@@ -1,13 +1,12 @@
-using System.Security.Cryptography;
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
-using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using SkiaSharp;
-using System.Text.RegularExpressions;
 
 namespace MediaEngine.Api.Services.LocalAssets;
 
@@ -19,7 +18,6 @@ namespace MediaEngine.Api.Services.LocalAssets;
 public sealed class ViewLibraryService(
     ILocalAssetRepository repository,
     IConfigurationLoader configuration,
-    ILibraryAccessEvaluator accessEvaluator,
     IViewPersonalSpaceRepository spaces,
     ViewStorageService storage,
     ILogger<ViewLibraryService> logger,
@@ -94,58 +92,15 @@ public sealed class ViewLibraryService(
         @"^(?<prefix>.*?)(?<seconds>\d{2})(?<kind>IMG|VID)$",
         RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    public bool CanAccess(
-        Guid libraryId,
-        Guid? profileId,
-        string? role,
-        LibraryAccessAction action)
-    {
-        var space = spaces.GetByLibraryAsync(libraryId).GetAwaiter().GetResult();
-        if (space is null)
-        {
-            return false;
-        }
-        return accessEvaluator.IsAllowed(
-            new LibraryAccessSubject(profileId ?? Guid.Empty, role ?? string.Empty),
-            new LibraryAccessPolicy
-            {
-                OwnerProfileId = space.OwnerProfileId,
-                Visibility = LibraryVisibility.Private,
-                AuthorizedProfileIds = new HashSet<Guid>(),
-            },
-            action);
-    }
-
-    public IReadOnlyList<ViewLibrarySummaryDto> GetLibraries(
-        Guid? profileId,
-        string? role,
-        CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        return spaces.GetAllAsync(ct).GetAwaiter().GetResult()
-            .Where(space => CanAccess(space.LibraryId, profileId, role, LibraryAccessAction.Read))
-            .Select(space =>
-            {
-                return new ViewLibrarySummaryDto(
-                    space.LibraryId,
-                    "Personal Space",
-                    LibraryPresentations.MixedGallery,
-                    LibraryVisibility.Private,
-                    Count(space.LibraryId, null, ct),
-                    Count(space.LibraryId, LocalAssetMediaKinds.Image, ct),
-                    Count(space.LibraryId, LocalAssetMediaKinds.Video, ct),
-                    Count(space.LibraryId, LocalAssetMediaKinds.Document, ct),
-                    Count(space.LibraryId, LocalAssetMediaKinds.Audio, ct));
-            })
-            .ToList();
-    }
-
     public async Task<LocalAssetScanResultDto?> ScanAsync(
         Guid libraryId,
         CancellationToken ct = default)
     {
         var space = await spaces.GetByLibraryAsync(libraryId, ct);
-        if (space is null) return null;
+        if (space is null)
+        {
+            return null;
+        }
 
         var filesSeen = 0;
         var itemsAdded = 0;
@@ -157,7 +112,11 @@ public sealed class ViewLibraryService(
         foreach (var source in (await spaces.GetSourcesAsync(space.Id, ct)).Where(source => source.Enabled))
         {
             var sourcePath = storage.GetSourcePath(space, source);
-            if (!Directory.Exists(sourcePath)) continue;
+            if (!Directory.Exists(sourcePath))
+            {
+                continue;
+            }
+
             IReadOnlyList<string> paths;
             try
             {
@@ -188,10 +147,17 @@ public sealed class ViewLibraryService(
                 try
                 {
                     var result = await IndexGroupAsync(space, source, group, ct);
-                    if (result.ItemAdded) itemsAdded++;
+                    if (result.ItemAdded)
+                    {
+                        itemsAdded++;
+                    }
+
                     filesAdded += result.FilesAdded;
                     sourcesAdded += result.SourcesAdded;
-                    if (!result.ItemAdded && result.SourcesAdded > 0) duplicates++;
+                    if (!result.ItemAdded && result.SourcesAdded > 0)
+                    {
+                        duplicates++;
+                    }
                 }
                 catch (Exception exception) when (
                     exception is IOException or UnauthorizedAccessException or InvalidDataException)
@@ -226,7 +192,10 @@ public sealed class ViewLibraryService(
         ct.ThrowIfCancellationRequested();
 
         var space = await spaces.GetByLibraryAsync(libraryId, ct);
-        if (space is null) return null;
+        if (space is null)
+        {
+            return null;
+        }
 
         var fullPath = Path.GetFullPath(path);
         var sourceCandidates = new List<(ViewSource Source, string Path)>();
@@ -234,14 +203,21 @@ public sealed class ViewLibraryService(
         {
             var root = storage.GetSourcePath(space, candidate);
             if (ViewStorageService.Contains(root, fullPath, candidate.IncludeSubdirectories))
+            {
                 sourceCandidates.Add((candidate, root));
+            }
         }
         var source = sourceCandidates.OrderByDescending(candidate => candidate.Path.Length)
             .Select(candidate => candidate.Source).FirstOrDefault();
         if (source is null)
+        {
             throw new InvalidOperationException("The local asset path is outside the View library's configured sources.");
+        }
+
         if (!File.Exists(fullPath))
+        {
             throw new FileNotFoundException("The local asset file does not exist.", fullPath);
+        }
 
         var uploaded = TryCreateCandidate(fullPath)
             ?? throw new InvalidDataException($"The file type '{Path.GetExtension(fullPath)}' is not supported by View.");
@@ -260,7 +236,9 @@ public sealed class ViewLibraryService(
                 uploaded.Path,
                 StringComparison.OrdinalIgnoreCase)));
         if (group is null)
+        {
             throw new InvalidDataException("The uploaded local asset could not be grouped for indexing.");
+        }
 
         return await IndexGroupAsync(space, source, group, ct);
     }
@@ -275,10 +253,16 @@ public sealed class ViewLibraryService(
         ArgumentNullException.ThrowIfNull(content);
         var settings = configuration.LoadLibraries();
         if (!settings.PersonalLibraryPolicy.AllowBrowserUpload)
+        {
             throw new InvalidOperationException("Browser upload is disabled by administrator policy.");
+        }
+
         var safeName = Path.GetFileName(fileName);
         if (string.IsNullOrWhiteSpace(safeName) || TryCreateCandidate(safeName) is null)
+        {
             throw new InvalidDataException("The uploaded file type is not supported by View.");
+        }
+
         var space = await storage.EnsurePersonalSpaceAsync(ownerProfileId, ct);
         var destination = await storage.EnsureManagedSourceAsync(
             space, "Browser uploads", ViewSourceType.BrowserUpload, "builtin:browser-uploads", ct);
@@ -318,7 +302,11 @@ public sealed class ViewLibraryService(
         }
         catch
         {
-            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            if (File.Exists(temporaryPath))
+            {
+                File.Delete(temporaryPath);
+            }
+
             throw;
         }
     }
@@ -388,11 +376,18 @@ public sealed class ViewLibraryService(
     {
         if (string.IsNullOrWhiteSpace(metadata.DeviceMake)
             && string.IsNullOrWhiteSpace(metadata.DeviceModel))
+        {
             return null;
+        }
+
         var clientId = $"metadata:{metadata.DeviceMake}:{metadata.DeviceModel}";
         var existing = (await spaces.GetDevicesAsync(space.Id, ct))
             .FirstOrDefault(candidate => string.Equals(candidate.ClientDeviceId, clientId, StringComparison.Ordinal));
-        if (existing is not null) return existing;
+        if (existing is not null)
+        {
+            return existing;
+        }
+
         var now = DateTimeOffset.UtcNow;
         return await spaces.UpsertDeviceAsync(new ViewDevice(
             Guid.Empty,
@@ -438,7 +433,9 @@ public sealed class ViewLibraryService(
                     .OrderBy(candidate => LivePhotoDistance(image, candidate))
                     .FirstOrDefault();
                 if (motion is null)
+                {
                     continue;
+                }
 
                 result.Add(new AssetGroup(image,
                 [
@@ -465,12 +462,19 @@ public sealed class ViewLibraryService(
                     .Concat(sidecars.Select(candidate => new AssetMember(candidate, LocalAssetFileRoles.Sidecar)))
                     .ToList();
                 result.Add(new AssetGroup(primary, assetMembers));
-                foreach (var candidate in raw.Concat(jpeg).Concat(sidecars)) consumed.Add(candidate);
+                foreach (var candidate in raw.Concat(jpeg).Concat(sidecars))
+                {
+                    consumed.Add(candidate);
+                }
             }
 
             foreach (var candidate in members.Where(candidate => !consumed.Contains(candidate)))
             {
-                if (candidate.Extension == ".xmp") continue;
+                if (candidate.Extension == ".xmp")
+                {
+                    continue;
+                }
+
                 result.Add(new AssetGroup(candidate,
                     [new AssetMember(candidate, LocalAssetFileRoles.Primary)]));
             }
@@ -482,13 +486,20 @@ public sealed class ViewLibraryService(
     private static string UniqueDestination(string directory, string fileName)
     {
         var candidate = Path.Combine(directory, fileName);
-        if (!File.Exists(candidate)) return candidate;
+        if (!File.Exists(candidate))
+        {
+            return candidate;
+        }
+
         var stem = Path.GetFileNameWithoutExtension(fileName);
         var extension = Path.GetExtension(fileName);
         for (var suffix = 2; ; suffix++)
         {
             candidate = Path.Combine(directory, $"{stem} ({suffix}){extension}");
-            if (!File.Exists(candidate)) return candidate;
+            if (!File.Exists(candidate))
+            {
+                return candidate;
+            }
         }
     }
 
@@ -507,7 +518,9 @@ public sealed class ViewLibraryService(
         var imageStem = Path.GetFileNameWithoutExtension(image.Path);
         var motionStem = Path.GetFileNameWithoutExtension(motion.Path);
         if (string.Equals(imageStem, motionStem, StringComparison.OrdinalIgnoreCase))
+        {
             return image.Extension is ".heic" or ".heif" || JpegExtensions.Contains(image.Extension);
+        }
 
         var imageMatch = TimedCompoundName.Match(imageStem);
         var motionMatch = TimedCompoundName.Match(motionStem);
@@ -524,7 +537,10 @@ public sealed class ViewLibraryService(
         var firstMatch = TimedCompoundName.Match(Path.GetFileNameWithoutExtension(first.Path));
         var secondMatch = TimedCompoundName.Match(Path.GetFileNameWithoutExtension(second.Path));
         if (!firstMatch.Success || !secondMatch.Success)
+        {
             return 0;
+        }
+
         return Math.Abs(int.Parse(firstMatch.Groups["seconds"].Value) - int.Parse(secondMatch.Groups["seconds"].Value));
     }
 

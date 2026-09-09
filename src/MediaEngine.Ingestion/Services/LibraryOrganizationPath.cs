@@ -15,10 +15,18 @@ public static class LibraryOrganizationPath
             var source = library.Sources.Where(source =>
                     PathSafety.IsContainedBy(Path.GetFullPath(candidate.Path), Path.GetFullPath(source.Path)))
                 .OrderByDescending(source => source.Path.Length).FirstOrDefault();
-            if (source is null) return Path.GetFileName(candidate.Path);
+            if (source is null)
+            {
+                return Path.GetFileName(candidate.Path);
+            }
+
             var root = source.Path;
             var staging = Path.Combine(root, ".data", "staging");
-            if (PathSafety.IsContainedBy(Path.GetFullPath(candidate.Path), Path.GetFullPath(staging))) root = staging;
+            if (PathSafety.IsContainedBy(Path.GetFullPath(candidate.Path), Path.GetFullPath(staging)))
+            {
+                root = staging;
+            }
+
             return Path.GetRelativePath(root, candidate.Path);
         }
 

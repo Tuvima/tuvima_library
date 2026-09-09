@@ -34,14 +34,14 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
 
     private static MediaAsset ToAsset(MediaAssetRow r) => new()
     {
-        Id           = r.Id,
-        EditionId    = r.EditionId,
-        ContentHash  = r.ContentHash,
+        Id = r.Id,
+        EditionId = r.EditionId,
+        ContentHash = r.ContentHash,
         FilePathRoot = r.FilePathRoot,
-        Status       = Enum.Parse<AssetStatus>(r.Status, ignoreCase: true),
-        LibraryId    = r.LibraryId,
-        IsOrphaned   = r.IsOrphaned != 0,
-        OrphanedAt   = string.IsNullOrEmpty(r.OrphanedAt)
+        Status = Enum.Parse<AssetStatus>(r.Status, ignoreCase: true),
+        LibraryId = r.LibraryId,
+        IsOrphaned = r.IsOrphaned != 0,
+        OrphanedAt = string.IsNullOrEmpty(r.OrphanedAt)
             ? null
             : DateTimeOffset.Parse(r.OrphanedAt, System.Globalization.CultureInfo.InvariantCulture),
     };
@@ -140,14 +140,14 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             """,
             new
             {
-                id           = asset.Id,
-                editionId    = asset.EditionId,
-                contentHash  = asset.ContentHash,
+                id = asset.Id,
+                editionId = asset.EditionId,
+                contentHash = asset.ContentHash,
                 filePathRoot = asset.FilePathRoot,
-                status       = asset.Status.ToString(),
-                libraryId    = asset.LibraryId,
-                isOrphaned   = asset.IsOrphaned ? 1 : 0,
-                orphanedAt   = asset.OrphanedAt?.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
+                status = asset.Status.ToString(),
+                libraryId = asset.LibraryId,
+                isOrphaned = asset.IsOrphaned ? 1 : 0,
+                orphanedAt = asset.OrphanedAt?.ToString("O", System.Globalization.CultureInfo.InvariantCulture),
             });
 
         // Step 2: changes() returns 1 if a row was inserted, 0 if IGNORE fired.
@@ -354,20 +354,27 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
         foreach (var r in rows)
         {
             if (!expectedHashesByMediaType.TryGetValue(r.MediaType, out var expected))
+            {
                 continue;
+            }
             // NULL hash means file has never been written back — treat as up-to-date
             // so newly ingested files are not immediately flagged as stale.
             if (r.Hash is null || string.Equals(r.Hash, expected, StringComparison.Ordinal))
+            {
                 continue;
+            }
 
             stale.Add(new StaleRetagAsset(
-                AssetId:      r.Id,
+                AssetId: r.Id,
                 FilePathRoot: r.FilePathRoot,
-                MediaType:    r.MediaType,
-                CurrentHash:  r.Hash,
-                Attempts:     r.Attempts));
+                MediaType: r.MediaType,
+                CurrentHash: r.Hash,
+                Attempts: r.Attempts));
 
-            if (stale.Count >= batchSize) break;
+            if (stale.Count >= batchSize)
+            {
+                break;
+            }
         }
 
         return Task.FromResult<IReadOnlyList<StaleRetagAsset>>(stale);
@@ -415,8 +422,8 @@ public sealed class MediaAssetRepository : IMediaAssetRepository
             new
             {
                 error = error ?? string.Empty,
-                next  = nextRetryAtEpochSeconds,
-                id    = assetId,
+                next = nextRetryAtEpochSeconds,
+                id = assetId,
             });
 
         return Task.CompletedTask;

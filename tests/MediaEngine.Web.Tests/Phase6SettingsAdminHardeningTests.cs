@@ -26,7 +26,7 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.DoesNotContain("Engine online", source, StringComparison.Ordinal);
         Assert.Contains("Engine state could not be loaded", source, StringComparison.Ordinal);
         Assert.Contains("ShouldDeferForRoleResolution", source, StringComparison.Ordinal);
-        Assert.Contains("SettingsNav.ResolveRoute(Section, _currentRole)", source, StringComparison.Ordinal);
+        Assert.Contains("SettingsNav.ResolveRoute(Section, CanManageAdministration)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -208,14 +208,13 @@ public sealed class Phase6SettingsAdminHardeningTests
     public void AccessSettings_SeparatesAccountsFromProfiles()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersAccessSettingsTab.razor");
-        var users = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersTab.razor");
-        var accounts = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\AccountsAccessTab.razor");
+        var users = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ManagedAccessUsers.razor");
 
-        Assert.Contains("<ApiKeysTab />", source, StringComparison.Ordinal);
+        Assert.Contains("<ManagedAccessApplications />", source, StringComparison.Ordinal);
         Assert.Contains("Authentication", source, StringComparison.Ordinal);
-        Assert.Contains("<AccountsAccessTab />", source, StringComparison.Ordinal);
-        Assert.Contains("Accounts & Profile Grants", accounts, StringComparison.Ordinal);
-        Assert.Contains("Invite a family member", accounts, StringComparison.Ordinal);
+        Assert.Contains("<ManagedAccessUsers />", source, StringComparison.Ordinal);
+        Assert.Contains("Manage profiles", users, StringComparison.Ordinal);
+        Assert.Contains("Invite user", users, StringComparison.Ordinal);
         Assert.DoesNotContain("external-logins", users, StringComparison.Ordinal);
         Assert.DoesNotContain("Owner Administrator\", \"library:read, ingest:write", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Access Rules", source, StringComparison.Ordinal);

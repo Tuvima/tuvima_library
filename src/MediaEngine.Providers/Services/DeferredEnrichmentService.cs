@@ -1,11 +1,11 @@
 using System.Text.Json;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -53,12 +53,12 @@ public sealed class DeferredEnrichmentService : BackgroundService, IDeferredEnri
         IEntityTimelineRepository timelineRepo,
         ILogger<DeferredEnrichmentService> logger)
     {
-        _repo         = repo         ?? throw new ArgumentNullException(nameof(repo));
-        _pipeline     = pipeline     ?? throw new ArgumentNullException(nameof(pipeline));
-        _jobRepo      = jobRepo      ?? throw new ArgumentNullException(nameof(jobRepo));
-        _config       = config       ?? throw new ArgumentNullException(nameof(config));
+        _repo = repo ?? throw new ArgumentNullException(nameof(repo));
+        _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
+        _jobRepo = jobRepo ?? throw new ArgumentNullException(nameof(jobRepo));
+        _config = config ?? throw new ArgumentNullException(nameof(config));
         _timelineRepo = timelineRepo ?? throw new ArgumentNullException(nameof(timelineRepo));
-        _logger       = logger       ?? throw new ArgumentNullException(nameof(logger));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     /// <inheritdoc/>
@@ -175,14 +175,20 @@ public sealed class DeferredEnrichmentService : BackgroundService, IDeferredEnri
     private async Task ProcessBatchAsync(HydrationSettings settings, CancellationToken ct)
     {
         var batch = await _repo.GetPendingAsync(settings.Pass2BatchSize, ct).ConfigureAwait(false);
-        if (batch.Count == 0) return;
+        if (batch.Count == 0)
+        {
+            return;
+        }
 
         _logger.LogInformation("Pass 2 batch: {Count} items", batch.Count);
         var processed = 0;
 
         foreach (var item in batch)
         {
-            if (ct.IsCancellationRequested) break;
+            if (ct.IsCancellationRequested)
+            {
+                break;
+            }
 
             // Pause if Pass 1 work arrived (ingestion takes priority).
             if (await _jobRepo.CountActiveAsync(ct).ConfigureAwait(false) > 0 && !_manualTrigger.IsSet)
@@ -234,7 +240,10 @@ public sealed class DeferredEnrichmentService : BackgroundService, IDeferredEnri
 
         foreach (var item in stale)
         {
-            if (ct.IsCancellationRequested) break;
+            if (ct.IsCancellationRequested)
+            {
+                break;
+            }
 
             await ProcessOneAsync(item, ct).ConfigureAwait(false);
 
@@ -270,12 +279,12 @@ public sealed class DeferredEnrichmentService : BackgroundService, IDeferredEnri
 
             var request = new HarvestRequest
             {
-                EntityId              = item.EntityId,
-                EntityType            = EntityType.MediaAsset,
-                MediaType             = item.MediaType,
-                Hints                 = hints,
-                PreResolvedQid        = item.WikidataQid,
-                Pass                  = HydrationPass.Universe,
+                EntityId = item.EntityId,
+                EntityType = EntityType.MediaAsset,
+                MediaType = item.MediaType,
+                Hints = hints,
+                PreResolvedQid = item.WikidataQid,
+                Pass = HydrationPass.Universe,
                 SuppressActivityEntry = true,
             };
 
@@ -287,13 +296,13 @@ public sealed class DeferredEnrichmentService : BackgroundService, IDeferredEnri
             {
                 await _timelineRepo.InsertEventAsync(new EntityEvent
                 {
-                    EntityId   = item.EntityId,
+                    EntityId = item.EntityId,
                     EntityType = "Work",
-                    EventType  = "stage2_refresh",
-                    Stage      = 2,
-                    Trigger    = "30_day_refresh",
+                    EventType = "stage2_refresh",
+                    Stage = 2,
+                    Trigger = "30_day_refresh",
                     ResolvedQid = item.WikidataQid,
-                    Detail     = $"Pass 2 refresh complete (QID: {item.WikidataQid ?? "none"})",
+                    Detail = $"Pass 2 refresh complete (QID: {item.WikidataQid ?? "none"})",
                 }, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -345,20 +354,34 @@ public sealed class DeferredEnrichmentService : BackgroundService, IDeferredEnri
                 ? s
                 : "0 2 * * *";
             var parts = cronExpr.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) return false;
+            if (parts.Length < 2)
+            {
+                return false;
+            }
 
             if (!int.TryParse(parts[0], out var minute) || !int.TryParse(parts[1], out var hour))
+            {
                 return false;
+            }
 
             var now = DateTime.Now;
 
             // Check if we're in the right hour and minute window (within 10 minutes).
-            if (now.Hour != hour) return false;
-            if (now.Minute < minute || now.Minute > minute + 9) return false;
+            if (now.Hour != hour)
+            {
+                return false;
+            }
+
+            if (now.Minute < minute || now.Minute > minute + 9)
+            {
+                return false;
+            }
 
             // Don't re-run if we already ran this hour today.
             if (_lastNightlyRun.Date == now.Date && _lastNightlyRun.Hour == now.Hour)
+            {
                 return false;
+            }
 
             return true;
         }
@@ -371,13 +394,17 @@ public sealed class DeferredEnrichmentService : BackgroundService, IDeferredEnri
     private static IReadOnlyDictionary<string, string> DeserializeHints(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
 
         try
         {
             var dict = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
             if (dict is null)
+            {
                 return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            }
 
             // Rebuild with case-insensitive comparer.
             return new Dictionary<string, string>(dict, StringComparer.OrdinalIgnoreCase);

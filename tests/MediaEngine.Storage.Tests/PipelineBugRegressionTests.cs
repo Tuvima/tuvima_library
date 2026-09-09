@@ -1,6 +1,6 @@
 using System.Text.Json;
-using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -36,7 +36,9 @@ public sealed class PipelineBugRegressionTests
         {
             using var doc = JsonDocument.Parse(File.ReadAllText(file));
             if (doc.RootElement.TryGetProperty("name", out var nameProp))
+            {
                 providerNames.Add(nameProp.GetString()!);
+            }
         }
 
         // Parse field_priorities.json and verify every referenced provider exists
@@ -49,7 +51,9 @@ public sealed class PipelineBugRegressionTests
         foreach (var field in overrides.EnumerateObject())
         {
             if (!field.Value.TryGetProperty("priority", out var priorityArr))
+            {
                 continue;
+            }
 
             foreach (var providerRef in priorityArr.EnumerateArray())
             {
@@ -337,7 +341,10 @@ public sealed class PipelineBugRegressionTests
         while (dir is not null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
         throw new InvalidOperationException("Could not find repository root (.git directory)");

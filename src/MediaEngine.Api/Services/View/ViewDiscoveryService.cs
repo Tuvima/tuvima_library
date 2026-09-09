@@ -39,7 +39,9 @@ public sealed class ViewDiscoveryService(
         Validate(request);
         var decision = await AuthorizeAsync(request.Scope, ct).ConfigureAwait(false);
         if (!decision.IsAllowed || decision.Scope is null)
+        {
             return new ViewPlacesResult(decision.Outcome);
+        }
 
         var page = repository.QueryPlaces(new ViewPlaceDiscoveryQuery(
             decision.Scope.LibraryIds,
@@ -79,7 +81,9 @@ public sealed class ViewDiscoveryService(
         Validate(request);
         var decision = await AuthorizeAsync(request.Scope, ct).ConfigureAwait(false);
         if (!decision.IsAllowed || decision.Scope is null)
+        {
             return new ViewPeopleResult(decision.Outcome);
+        }
 
         var page = repository.QueryPeople(new ViewPeopleDiscoveryQuery(
             decision.Scope.LibraryIds,
@@ -112,18 +116,23 @@ public sealed class ViewDiscoveryService(
             decision.Scope);
     }
 
-    private Task<ViewAccessDecision> AuthorizeAsync(ViewScopeRequest scope, CancellationToken ct) =>
-        authorization.AuthorizeAsync(
-            profileContext.Current,
+    private async Task<ViewAccessDecision> AuthorizeAsync(ViewScopeRequest scope, CancellationToken ct) =>
+        await authorization.AuthorizeAsync(
+            await profileContext.ResolveAuthorityAsync(ct).ConfigureAwait(false),
             new ViewResourceRequest(scope, ViewResourceKind.Search, null),
-            ct);
+            ct).ConfigureAwait(false);
 
     private static void Validate(ViewDiscoveryRequest request)
     {
         if (request.Limit is < 1 or > 100)
+        {
             throw new ArgumentOutOfRangeException(nameof(request), "Discovery limit must be between 1 and 100.");
+        }
+
         if (request.Search?.Length > 200)
+        {
             throw new ArgumentOutOfRangeException(nameof(request), "Search cannot exceed 200 characters.");
+        }
     }
 
     private static ViewDiscoveryCapabilityDto Capability(
@@ -156,7 +165,11 @@ public static class ViewDiscoveryCursorCodec
 {
     public static string? Encode(ViewDiscoveryCursor? cursor)
     {
-        if (cursor is null) return null;
+        if (cursor is null)
+        {
+            return null;
+        }
+
         var raw = string.Create(CultureInfo.InvariantCulture, $"{cursor.AssetCount}:{cursor.Key}");
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw))
             .TrimEnd('=').Replace('+', '-').Replace('/', '_');
@@ -164,7 +177,11 @@ public static class ViewDiscoveryCursorCodec
 
     public static ViewDiscoveryCursor? Decode(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
         try
         {
             var normalized = value.Replace('-', '+').Replace('_', '/');
@@ -175,7 +192,10 @@ public static class ViewDiscoveryCursorCodec
                 || !int.TryParse(raw[..separator], NumberStyles.None, CultureInfo.InvariantCulture, out var count)
                 || count < 1
                 || string.IsNullOrWhiteSpace(raw[(separator + 1)..]))
+            {
                 throw new FormatException();
+            }
+
             return new ViewDiscoveryCursor(count, raw[(separator + 1)..]);
         }
         catch (FormatException)

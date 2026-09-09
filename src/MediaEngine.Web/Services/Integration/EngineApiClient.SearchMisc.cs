@@ -3,16 +3,16 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
-using MediaEngine.Domain.Models;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -32,23 +32,23 @@ public sealed partial class EngineApiClient
             new Dictionary<string, string?> { ["q"] = query },
             ct: ct);
         return raw.Select(r => new SearchResultDto
-            {
-                WorkId         = r.WorkId,
-                CollectionId   = r.CollectionId,
-                Title          = r.Title,
-                Author         = r.Author,
-                MediaType      = r.MediaType,
-                CollectionDisplayName = r.CollectionDisplayName,
-                Series = r.Series,
-                SeriesPosition = r.SeriesPosition,
-                ShowName = r.ShowName,
-                SeasonNumber = r.SeasonNumber,
-                EpisodeNumber = r.EpisodeNumber,
-                CoverUrl = r.CoverUrl is null ? null : AbsoluteUrl(r.CoverUrl),
-                Year = r.Year,
-                Description = r.Description,
-                Rating = r.Rating,
-            }).ToList();
+        {
+            WorkId = r.WorkId,
+            CollectionId = r.CollectionId,
+            Title = r.Title,
+            Author = r.Author,
+            MediaType = r.MediaType,
+            CollectionDisplayName = r.CollectionDisplayName,
+            Series = r.Series,
+            SeriesPosition = r.SeriesPosition,
+            ShowName = r.ShowName,
+            SeasonNumber = r.SeasonNumber,
+            EpisodeNumber = r.EpisodeNumber,
+            CoverUrl = r.CoverUrl is null ? null : AbsoluteUrl(r.CoverUrl),
+            Year = r.Year,
+            Description = r.Description,
+            Rating = r.Rating,
+        }).ToList();
     }
 
     // -- Metadata search (/metadata/search) --------------------------------
@@ -123,7 +123,11 @@ public sealed partial class EngineApiClient
         try
         {
             var response = await _http.GetAsync($"/metadata/{entityId}/search-cache", ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             var wrapper = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(cancellationToken: ct);
             return wrapper.TryGetProperty("results_json", out var rj) ? rj.GetString() : null;
         }
@@ -219,20 +223,40 @@ public sealed partial class EngineApiClient
             foreach (var group in groups)
             {
                 if (group.CoverUrl is not null)
+                {
                     group.CoverUrl = AbsoluteUrl(group.CoverUrl);
+                }
+
                 if (group.BackgroundUrl is not null)
+                {
                     group.BackgroundUrl = AbsoluteUrl(group.BackgroundUrl);
+                }
+
                 if (group.BannerUrl is not null)
+                {
                     group.BannerUrl = AbsoluteUrl(group.BannerUrl);
+                }
+
                 if (group.HeroUrl is not null)
+                {
                     group.HeroUrl = AbsoluteUrl(group.HeroUrl);
+                }
+
                 if (group.LogoUrl is not null)
+                {
                     group.LogoUrl = AbsoluteUrl(group.LogoUrl);
+                }
 
                 if (group.ArtistPhotoUrl is not null)
+                {
                     group.ArtistPhotoUrl = AbsoluteUrl(group.ArtistPhotoUrl);
+                }
+
                 if (group.PersonPhotoUrl is not null)
+                {
                     group.PersonPhotoUrl = AbsoluteUrl(group.PersonPhotoUrl);
+                }
+
                 group.PreviewItems = group.PreviewItems
                     .Select(preview => preview with { ImageUrl = AbsoluteUrl(preview.ImageUrl) })
                     .ToList();
@@ -255,28 +279,55 @@ public sealed partial class EngineApiClient
         {
             var queryParts = new List<string>();
             if (!string.IsNullOrWhiteSpace(mediaType))
+            {
                 queryParts.Add($"mediaType={Uri.EscapeDataString(mediaType)}");
+            }
+
             if (!string.IsNullOrWhiteSpace(groupField))
+            {
                 queryParts.Add($"groupField={Uri.EscapeDataString(groupField)}");
+            }
+
             var url = "/collections/system-views" + (queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : "");
             var contracts = await _http.GetFromJsonAsync<List<ContentGroupDto>>(url, ct) ?? [];
             var groups = contracts.Select(ContentGroupViewModel.FromContract).ToList();
             foreach (var g in groups)
             {
                 if (g.CoverUrl is not null)
+                {
                     g.CoverUrl = AbsoluteUrl(g.CoverUrl);
+                }
+
                 if (g.BackgroundUrl is not null)
+                {
                     g.BackgroundUrl = AbsoluteUrl(g.BackgroundUrl);
+                }
+
                 if (g.BannerUrl is not null)
+                {
                     g.BannerUrl = AbsoluteUrl(g.BannerUrl);
+                }
+
                 if (g.HeroUrl is not null)
+                {
                     g.HeroUrl = AbsoluteUrl(g.HeroUrl);
+                }
+
                 if (g.LogoUrl is not null)
+                {
                     g.LogoUrl = AbsoluteUrl(g.LogoUrl);
+                }
+
                 if (g.ArtistPhotoUrl is not null)
+                {
                     g.ArtistPhotoUrl = AbsoluteUrl(g.ArtistPhotoUrl);
+                }
+
                 if (g.PersonPhotoUrl is not null)
+                {
                     g.PersonPhotoUrl = AbsoluteUrl(g.PersonPhotoUrl);
+                }
+
                 g.PreviewItems = g.PreviewItems
                     .Select(preview => preview with { ImageUrl = AbsoluteUrl(preview.ImageUrl) })
                     .ToList();
@@ -301,7 +352,9 @@ public sealed partial class EngineApiClient
             foreach (var item in items)
             {
                 if (item.CoverUrl is not null)
+                {
                     item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+                }
             }
 
             return items;
@@ -333,11 +386,19 @@ public sealed partial class EngineApiClient
             };
 
             if (!string.IsNullOrWhiteSpace(query))
+            {
                 parameters.Add($"q={Uri.EscapeDataString(query.Trim())}");
+            }
+
             if (collectionId.HasValue)
+            {
                 parameters.Add($"collectionId={collectionId.Value:D}");
+            }
+
             if (!string.IsNullOrWhiteSpace(mediaTypes))
+            {
                 parameters.Add($"mediaTypes={Uri.EscapeDataString(mediaTypes)}");
+            }
 
             var url = $"/collections/media-lookup?{string.Join("&", parameters)}";
             url = AppendCollectionProfileQuery(url, profileId);
@@ -345,7 +406,9 @@ public sealed partial class EngineApiClient
             foreach (var item in items)
             {
                 if (item.ArtworkUrl is not null)
+                {
                     item.ArtworkUrl = AbsoluteUrl(item.ArtworkUrl);
+                }
             }
 
             return items;
@@ -465,7 +528,11 @@ public sealed partial class EngineApiClient
                 Limit = limit,
             };
             var response = await _http.PostAsJsonAsync("/collections/preview", body, ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             var result = await response.Content.ReadFromJsonAsync<CollectionPreviewResponse>(cancellationToken: ct);
             return result is null ? null : new CollectionPreviewResult
             {
@@ -611,9 +678,14 @@ public sealed partial class EngineApiClient
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
             var root = document.RootElement;
             if (root.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
+            {
                 return SafeProblemText(detail.GetString(), 600, $"The Engine rejected the collection (HTTP {(int)response.StatusCode}).");
+            }
+
             if (root.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String)
+            {
                 return SafeProblemText(title.GetString(), 300, $"The Engine rejected the collection (HTTP {(int)response.StatusCode}).");
+            }
         }
         catch (Exception ex) when (ex is JsonException or IOException or InvalidOperationException)
         {

@@ -66,12 +66,12 @@ public sealed class HierarchyResolver
 
         return mediaType switch
         {
-            MediaType.Music                          => await ResolveMusicAsync(metadata, ct),
-            MediaType.TV                             => await ResolveTvAsync(metadata, ct),
-            MediaType.Comics                         => await ResolveComicsAsync(metadata, ct),
+            MediaType.Music => await ResolveMusicAsync(metadata, ct),
+            MediaType.TV => await ResolveTvAsync(metadata, ct),
+            MediaType.Comics => await ResolveComicsAsync(metadata, ct),
 
-            MediaType.Books or MediaType.Audiobooks  => await ResolveBookOrAudiobookAsync(mediaType, metadata, ct),
-            _                                        => await ResolveStandaloneAsync(mediaType, ct),
+            MediaType.Books or MediaType.Audiobooks => await ResolveBookOrAudiobookAsync(mediaType, metadata, ct),
+            _ => await ResolveStandaloneAsync(mediaType, ct),
         };
     }
 
@@ -81,17 +81,19 @@ public sealed class HierarchyResolver
         IReadOnlyDictionary<string, string> meta, CancellationToken ct)
     {
         var artist = Get(meta, "album_artist") ?? Get(meta, "artist");
-        var album  = Get(meta, "album");
-        var title  = Get(meta, "title");
-        var track  = OrdinalNormalizer.NormalizeDiscTrack(
+        var album = Get(meta, "album");
+        var title = Get(meta, "title");
+        var track = OrdinalNormalizer.NormalizeDiscTrack(
             Get(meta, MetadataFieldConstants.DiscNumber),
             Get(meta, MetadataFieldConstants.TrackNumber) ?? Get(meta, "track"));
 
         if (string.IsNullOrWhiteSpace(album))
+        {
             return await CreateStandaloneAsync(MediaType.Music, ct);
+        }
 
         var parentKey = MakeKey(artist, album);
-        var parentId  = await FindOrCreateParentAsync(MediaType.Music, parentKey, null, null, ct);
+        var parentId = await FindOrCreateParentAsync(MediaType.Music, parentKey, null, null, ct);
 
         return await FindOrCreateChildAsync(
             MediaType.Music,
@@ -105,23 +107,27 @@ public sealed class HierarchyResolver
     private async Task<ResolverResult> ResolveTvAsync(
         IReadOnlyDictionary<string, string> meta, CancellationToken ct)
     {
-        var show     = Get(meta, "show_name") ?? Get(meta, "series");
-        var season   = ParseInt(Get(meta, MetadataFieldConstants.SeasonNumber) ?? Get(meta, "season"));
-        var episode  = ParseInt(Get(meta, MetadataFieldConstants.EpisodeNumber) ?? Get(meta, "episode"));
-        var epTitle  = Get(meta, "episode_title") ?? Get(meta, "title");
+        var show = Get(meta, "show_name") ?? Get(meta, "series");
+        var season = ParseInt(Get(meta, MetadataFieldConstants.SeasonNumber) ?? Get(meta, "season"));
+        var episode = ParseInt(Get(meta, MetadataFieldConstants.EpisodeNumber) ?? Get(meta, "episode"));
+        var epTitle = Get(meta, "episode_title") ?? Get(meta, "title");
 
         if (string.IsNullOrWhiteSpace(show))
+        {
             return await CreateStandaloneAsync(MediaType.TV, ct);
+        }
 
         // Level 1: Show parent.
         var showKey = MakeKey(show);
-        var showId  = await FindOrCreateParentAsync(MediaType.TV, showKey, null, null, ct);
+        var showId = await FindOrCreateParentAsync(MediaType.TV, showKey, null, null, ct);
 
         // Level 2: Season parent (keyed by show_id + season_number, not parent_key).
         // When season is missing we treat the episode as a direct child of the show
         // — rare but defensible for miniseries / specials.
         if (season is null)
+        {
             return await FindOrCreateChildAsync(MediaType.TV, showId, episode, episode, epTitle, ct);
+        }
 
         var seasonKey = MakeKey(show, $"S{season:D2}");
         var seasonId = await _works.GetOrCreateParentAsync(
@@ -135,17 +141,19 @@ public sealed class HierarchyResolver
         IReadOnlyDictionary<string, string> meta, CancellationToken ct)
     {
         var series = Get(meta, "series");
-        var issue  = OrdinalNormalizer.Normalize(
+        var issue = OrdinalNormalizer.Normalize(
             Get(meta, MetadataFieldConstants.IssueNumber)
             ?? Get(meta, MetadataFieldConstants.SeriesPosition)
             ?? Get(meta, "issue"));
-        var title  = Get(meta, "title");
+        var title = Get(meta, "title");
 
         if (string.IsNullOrWhiteSpace(series))
+        {
             return await CreateStandaloneAsync(MediaType.Comics, ct);
+        }
 
         var parentKey = MakeKey(series);
-        var parentId  = await FindOrCreateParentAsync(MediaType.Comics, parentKey, null, null, ct);
+        var parentId = await FindOrCreateParentAsync(MediaType.Comics, parentKey, null, null, ct);
         return await FindOrCreateChildAsync(
             MediaType.Comics,
             parentId,
@@ -160,10 +168,10 @@ public sealed class HierarchyResolver
         IReadOnlyDictionary<string, string> meta,
         CancellationToken ct)
     {
-        var series   = Get(meta, "series");
-        var author   = Get(meta, "author") ?? Get(meta, "creator");
+        var series = Get(meta, "series");
+        var author = Get(meta, "author") ?? Get(meta, "creator");
         var position = OrdinalNormalizer.Normalize(Get(meta, MetadataFieldConstants.SeriesPosition) ?? Get(meta, "series_index"));
-        var title    = Get(meta, "title");
+        var title = Get(meta, "title");
 
         if (mediaType == MediaType.Audiobooks && string.IsNullOrWhiteSpace(series))
         {
@@ -179,10 +187,12 @@ public sealed class HierarchyResolver
         }
 
         if (string.IsNullOrWhiteSpace(series))
+        {
             return await CreateStandaloneAsync(mediaType, ct);
+        }
 
         var parentKey = MakeKey(NormalizePersonNameForKey(author), series);
-        var parentId  = await FindOrCreateParentAsync(mediaType, parentKey, null, null, ct);
+        var parentId = await FindOrCreateParentAsync(mediaType, parentKey, null, null, ct);
         return await FindOrCreateChildAsync(
             mediaType,
             parentId,
@@ -272,7 +282,10 @@ public sealed class HierarchyResolver
     private static string? Get(IReadOnlyDictionary<string, string> meta, string key)
     {
         if (meta.TryGetValue(key, out var v) && !string.IsNullOrWhiteSpace(v))
+        {
             return v;
+        }
+
         return null;
     }
 
@@ -294,14 +307,23 @@ public sealed class HierarchyResolver
 
     private static int? ParseInt(string? raw)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
 
         // Tolerate "01", "1", "1/12", "01 of 12" — take the leading integer.
         var sb = new StringBuilder();
         foreach (var ch in raw.Trim())
         {
-            if (char.IsDigit(ch)) sb.Append(ch);
-            else if (sb.Length > 0) break;
+            if (char.IsDigit(ch))
+            {
+                sb.Append(ch);
+            }
+            else if (sb.Length > 0)
+            {
+                break;
+            }
         }
         return sb.Length > 0 && int.TryParse(sb.ToString(), out var n) ? n : null;
     }
@@ -321,8 +343,16 @@ public sealed class HierarchyResolver
         bool first = true;
         foreach (var part in parts)
         {
-            if (string.IsNullOrWhiteSpace(part)) continue;
-            if (!first) sb.Append('|');
+            if (string.IsNullOrWhiteSpace(part))
+            {
+                continue;
+            }
+
+            if (!first)
+            {
+                sb.Append('|');
+            }
+
             sb.Append(Normalize(part));
             first = false;
         }
@@ -338,11 +368,18 @@ public sealed class HierarchyResolver
         foreach (var ch in decomposed)
         {
             var cat = CharUnicodeInfo.GetUnicodeCategory(ch);
-            if (cat == UnicodeCategory.NonSpacingMark) continue;
+            if (cat == UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
 
             if (char.IsWhiteSpace(ch))
             {
-                if (!prevSpace && sb.Length > 0) sb.Append(' ');
+                if (!prevSpace && sb.Length > 0)
+                {
+                    sb.Append(' ');
+                }
+
                 prevSpace = true;
             }
             else

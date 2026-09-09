@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -52,7 +52,7 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         ArgumentNullException.ThrowIfNull(personRepo);
         ArgumentNullException.ThrowIfNull(logger);
         _personRepo = personRepo;
-        _logger     = logger;
+        _logger = logger;
     }
 
     // ── IRecursiveIdentityService ─────────────────────────────────────────────
@@ -64,7 +64,9 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         CancellationToken ct = default)
     {
         if (persons.Count == 0)
+        {
             return Array.Empty<HarvestRequest>();
+        }
 
         var pendingRequests = new List<HarvestRequest>();
 
@@ -94,7 +96,9 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             {
                 var request = await ProcessPersonAsync(mediaAssetId, reference, ct).ConfigureAwait(false);
                 if (request is not null)
+                {
                     pendingRequests.Add(request);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -144,9 +148,9 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             {
                 person = await _personRepo.CreateAsync(new Person
                 {
-                    Name         = normalizedName,
-                    Roles        = [reference.Role],
-                    WikidataQid  = reference.WikidataQid,
+                    Name = normalizedName,
+                    Roles = [reference.Role],
+                    WikidataQid = reference.WikidataQid,
                 }, ct).ConfigureAwait(false);
 
                 _logger.LogDebug(
@@ -159,7 +163,10 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
             personLock.Release();
         }
 
-        if (person is null) return null;
+        if (person is null)
+        {
+            return null;
+        }
 
         // 2. Link person to the media asset (INSERT OR IGNORE — idempotent).
         await _personRepo.LinkToMediaAssetAsync(mediaAssetId, person.Id, reference.Role, ct)
@@ -179,10 +186,10 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
 
             var harvestRequest = new HarvestRequest
             {
-                EntityId   = person.Id,
+                EntityId = person.Id,
                 EntityType = EntityType.Person,
-                MediaType  = MediaType.Unknown,
-                Hints      = hints,
+                MediaType = MediaType.Unknown,
+                Hints = hints,
             };
 
             _logger.LogDebug(

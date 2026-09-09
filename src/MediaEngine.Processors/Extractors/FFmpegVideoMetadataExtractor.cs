@@ -42,14 +42,14 @@ public sealed class FFmpegVideoMetadataExtractor : IVideoMetadataExtractor
 
         return new VideoMetadata
         {
-            WidthPx           = probe.Width,
-            HeightPx          = probe.Height,
-            Duration          = probe.Duration,
-            VideoCodec        = probe.VideoCodec,
-            AudioLanguage     = probe.AudioLanguage,
-            AudioCodec        = probe.AudioCodec,
-            AudioChannels     = probe.Channels,
-            FrameRate         = probe.FrameRate,
+            WidthPx = probe.Width,
+            HeightPx = probe.Height,
+            Duration = probe.Duration,
+            VideoCodec = probe.VideoCodec,
+            AudioLanguage = probe.AudioLanguage,
+            AudioCodec = probe.AudioCodec,
+            AudioChannels = probe.Channels,
+            FrameRate = probe.FrameRate,
             SubtitleLanguages = probe.SubtitleLanguages,
         };
     }

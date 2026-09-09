@@ -1,5 +1,6 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Operations;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
@@ -21,7 +22,7 @@ public static class CapabilityEndpoints
         .WithName("GetAssetCapabilities")
         .WithSummary("List explicit capability readiness states for a media asset.")
         .Produces<IReadOnlyList<CapabilityStateDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         app.MapGet("/capabilities/summary", async (
             IEntityCapabilityStateRepository repository,
@@ -34,7 +35,7 @@ public static class CapabilityEndpoints
         .WithName("GetCapabilitySummary")
         .WithSummary("Return counts by capability/status.")
         .Produces<IReadOnlyDictionary<string, int>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         return app;
     }

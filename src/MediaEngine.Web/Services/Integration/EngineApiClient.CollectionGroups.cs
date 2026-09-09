@@ -64,9 +64,14 @@ public sealed partial class EngineApiClient
         {
             var url = $"/collections/system-view-detail?groupField={Uri.EscapeDataString(groupField)}&groupValue={Uri.EscapeDataString(groupValue)}";
             if (!string.IsNullOrWhiteSpace(mediaType))
+            {
                 url += $"&mediaType={Uri.EscapeDataString(mediaType)}";
+            }
+
             if (!string.IsNullOrWhiteSpace(artistName))
+            {
                 url += $"&artistName={Uri.EscapeDataString(artistName)}";
+            }
 
             var contract = await _http.GetFromJsonAsync<CollectionGroupDetailDto>(url, ct);
             var result = contract is null ? null : CollectionGroupDetailViewModel.FromContract(contract);

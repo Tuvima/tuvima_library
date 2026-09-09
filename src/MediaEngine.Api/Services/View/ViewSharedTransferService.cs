@@ -21,13 +21,22 @@ public sealed class ViewSharedTransferService(
     {
         var item = assets.Find(itemId, ct) ?? throw new KeyNotFoundException("The View item was not found.");
         var files = GetFiles(itemId, ct);
-        if (files.Count == 0) throw new InvalidOperationException("The item has no available original files.");
+        if (files.Count == 0)
+        {
+            throw new InvalidOperationException("The item has no available original files.");
+        }
+
         var kind = NormalizeDestinationKind(destinationKind);
-        if (kind == "folder") _ = SanitizeFolderName(folderName);
+        if (kind == "folder")
+        {
+            _ = SanitizeFolderName(folderName);
+        }
+
         var move = files.All(file => string.Equals(file.StorageMode, "managed", StringComparison.Ordinal));
         using var connection = database.CreateConnection();
         var promoted = connection.ExecuteScalar<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM view_shared_assets WHERE item_id = @itemId;", new { itemId }, cancellationToken: ct)) > 0;
+            "SELECT COUNT(*) FROM view_shared_assets WHERE item_id = @itemId OR origin_item_id = @itemId;",
+            new { itemId }, cancellationToken: ct)) > 0;
         return new ViewSharedTransferPreviewDto(itemId, move ? "move" : "copy", files.Count,
             files.Sum(file => file.ByteSize), DestinationRoot(item, kind, folderName), kind, move, promoted);
     }
@@ -39,14 +48,20 @@ public sealed class ViewSharedTransferService(
         await TransferGate.WaitAsync(ct);
         try
         {
-            var preview = Preview(itemId, destinationKind, folderName, ct);
             var existing = GetExistingTransfer(itemId, ct);
-            if (preview.AlreadyShared && existing?.State == "completed") return ToResult(itemId, existing);
+            if (existing?.State == "completed" && IsSharedLibraryAsset(itemId, ct))
+            {
+                return ToResult(itemId, existing);
+            }
+
+            var preview = Preview(itemId, destinationKind, folderName, ct);
 
             var item = assets.Find(itemId, ct)!;
             var files = GetFiles(itemId, ct);
             if (preview.AlreadyShared && existing?.State == "cleanup_pending")
+            {
                 return await FinishCleanupAsync(item, existing, ct);
+            }
 
             var transferId = existing?.Id ?? Guid.NewGuid();
             var now = DateTimeOffset.UtcNow;
@@ -84,24 +99,84 @@ public sealed class ViewSharedTransferService(
             {
                 await SetStateAsync(itemId, "transferring", null, ct);
                 foreach (var file in planned)
+                {
                     await EnsureVerifiedDestinationAsync(file, transferId, ct);
+                }
 
                 // Publish Shared Library ownership only after every group member is verified at its final path.
                 await WriteAsync((connection, transaction) =>
                 {
+                    var sharedLibraryId = connection.QuerySingle<Guid>(
+                        "SELECT library_id FROM view_shared_library WHERE singleton_key=1;", transaction: transaction);
+                    var sourceKey = preview.DestinationKind == "timeline"
+                        ? "shared:timeline"
+                        : "shared:folder:" + SanitizeFolderName(folderName).ToLowerInvariant();
+                    var sourceId = connection.QuerySingleOrDefault<Guid?>("""
+                        SELECT id FROM view_sources
+                         WHERE scope_kind='shared' AND library_id=@sharedLibraryId AND source_key=@sourceKey;
+                        """, new { sharedLibraryId, sourceKey }, transaction);
+                    if (sourceId is null)
+                    {
+                        sourceId = Guid.NewGuid();
+                        connection.Execute("""
+                            INSERT INTO view_sources
+                                (id,scope_kind,personal_space_id,library_id,source_type,name,source_key,
+                                 storage_mode,relative_path,external_path,include_subdirectories,enabled,
+                                 last_activity_at,created_at,updated_at)
+                            VALUES (@sourceId,'shared',NULL,@sharedLibraryId,'folder',@name,@sourceKey,
+                                    'managed',@relativePath,NULL,1,1,@now,@now,@now);
+                            """, new
+                        {
+                            sourceId,
+                            sharedLibraryId,
+                            sourceKey,
+                            name = preview.DestinationKind == "timeline" ? "Timeline" : SanitizeFolderName(folderName),
+                            relativePath = Path.GetRelativePath(storage.GetRootPath(),
+                                    preview.DestinationKind == "timeline"
+                                        ? Path.Combine(storage.GetSharedRoot(), "Timeline")
+                                        : preview.DestinationRoot)
+                                .Replace(Path.DirectorySeparatorChar, '/'),
+                            now,
+                        }, transaction);
+                    }
+
+                    var sharedItemId = connection.QuerySingleOrDefault<Guid?>(
+                        "SELECT item_id FROM view_shared_assets WHERE origin_item_id=@itemId;",
+                        new { itemId }, transaction) ?? Guid.NewGuid();
+                    connection.Execute("""
+                        INSERT OR IGNORE INTO local_items
+                            (id,scope_kind,personal_space_id,owner_profile_id,library_id,media_kind,title,
+                             primary_file_name,primary_mime_type,captured_at,created_at,updated_at,
+                             favorite,hidden,archived_at,trashed_at)
+                        SELECT @sharedItemId,'shared',NULL,NULL,@sharedLibraryId,media_kind,title,
+                               primary_file_name,primary_mime_type,captured_at,@now,@now,0,0,NULL,NULL
+                          FROM local_items WHERE id=@itemId;
+                        INSERT OR IGNORE INTO local_item_metadata
+                            (item_id,width,height,duration_seconds,page_count,device_make,device_model,
+                             latitude,longitude,location_name,document_text,metadata_json,updated_at)
+                        SELECT @sharedItemId,width,height,duration_seconds,page_count,device_make,device_model,
+                               latitude,longitude,location_name,document_text,metadata_json,@now
+                          FROM local_item_metadata WHERE item_id=@itemId;
+                        INSERT OR IGNORE INTO local_item_files(item_id,file_id,role,derivative_kind,position,added_at)
+                        SELECT @sharedItemId,file_id,role,derivative_kind,position,@now
+                          FROM local_item_files WHERE item_id=@itemId;
+                        INSERT OR IGNORE INTO local_item_tags(item_id,tag,added_at)
+                        SELECT @sharedItemId,tag,@now FROM local_item_tags WHERE item_id=@itemId;
+                        """, new { sharedItemId, sharedLibraryId, itemId, now }, transaction);
                     foreach (var file in planned)
                     {
                         connection.Execute("""
                             INSERT INTO local_file_sources
                                 (id, file_id, library_id, source_id, device_id, file_path, modified_at, indexed_at)
-                            VALUES (@id, @FileId, @LibraryId, NULL, NULL, @Destination,
+                            VALUES (@id, @FileId, @sharedLibraryId, @sourceId, NULL, @Destination,
                                     @ModifiedAt, @now)
                             ON CONFLICT(library_id, file_path) DO NOTHING;
                             """, new
                         {
                             id = Guid.NewGuid(),
                             file.FileId,
-                            item.LibraryId,
+                            sharedLibraryId,
+                            sourceId,
                             file.Destination,
                             file.ModifiedAt,
                             now,
@@ -109,13 +184,14 @@ public sealed class ViewSharedTransferService(
                     }
                     connection.Execute("""
                         INSERT INTO view_shared_assets
-                            (item_id, original_profile_id, destination_kind, destination_label,
+                            (item_id, origin_item_id, original_profile_id, destination_kind, destination_label,
                              promoted_by_profile_id, promoted_at)
-                        VALUES (@itemId, @OwnerProfileId, @kind, @label, @actorProfileId, @now)
+                        VALUES (@sharedItemId, @itemId, @OwnerProfileId, @kind, @label, @actorProfileId, @now)
                         ON CONFLICT(item_id) DO NOTHING;
                         """, new
                     {
                         itemId,
+                        sharedItemId,
                         item.OwnerProfileId,
                         kind = preview.DestinationKind,
                         label = preview.DestinationKind == "folder" ? SanitizeFolderName(folderName) : null,
@@ -138,8 +214,10 @@ public sealed class ViewSharedTransferService(
                 }, ct);
 
                 if (preview.Operation == "copy")
+                {
                     return new ViewSharedTransferResultDto(itemId, "completed", "copy", planned.Count,
                         planned.Select(file => file.Destination).ToList(), false);
+                }
 
                 return await FinishCleanupAsync(item, GetExistingTransfer(itemId, ct)!, ct);
             }
@@ -160,14 +238,18 @@ public sealed class ViewSharedTransferService(
     {
         var destinations = ParseDestinations(existing.Manifest);
         if (destinations.Count == 0)
+        {
             throw new InvalidOperationException("The Shared transfer has no recovery manifest.");
+        }
 
         var updated = new List<DestinationManifestFile>(destinations.Count);
         foreach (var file in destinations)
         {
             ct.ThrowIfCancellationRequested();
             if (!await IsVerifiedAsync(file.Destination, file.ContentHash, file.ByteSize, ct))
+            {
                 throw new InvalidDataException("A Shared destination no longer matches its verified transfer record.");
+            }
 
             var removed = file.SourceRemoved || !File.Exists(file.Source);
             if (!removed)
@@ -176,7 +258,10 @@ public sealed class ViewSharedTransferService(
                 {
                     // Revalidate immediately before deletion. Recovery never deletes a changed original.
                     if (!await IsVerifiedAsync(file.Source, file.ContentHash, file.ByteSize, ct))
+                    {
                         throw new InvalidDataException("A personal original changed while Shared cleanup was pending.");
+                    }
+
                     File.Delete(file.Source);
                     removed = !File.Exists(file.Source);
                 }
@@ -255,7 +340,8 @@ public sealed class ViewSharedTransferService(
     {
         using var connection = database.CreateConnection();
         return connection.ExecuteScalar<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM view_shared_assets WHERE item_id = @itemId;", new { itemId }, cancellationToken: ct)) > 0;
+            "SELECT COUNT(*) FROM view_shared_assets WHERE item_id=@itemId OR origin_item_id=@itemId;",
+            new { itemId }, cancellationToken: ct)) > 0;
     }
 
     private static ViewSharedTransferResultDto ToResult(Guid itemId, ExistingTransfer row)
@@ -276,7 +362,9 @@ public sealed class ViewSharedTransferService(
         if (recovered.Count == files.Count
             && recovered.All(value => files.Any(file => file.FileId == value.FileId))
             && recovered.All(value => ViewStorageService.Contains(storage.GetSharedRoot(), value.Destination)))
+        {
             return recovered;
+        }
 
         Directory.CreateDirectory(preview.DestinationRoot);
         var reserved = new HashSet<string>(PathComparer);
@@ -297,22 +385,39 @@ public sealed class ViewSharedTransferService(
     private async Task EnsureVerifiedDestinationAsync(
         DestinationManifestFile planned, Guid transferId, CancellationToken ct)
     {
-        if (await IsVerifiedAsync(planned.Destination, planned.ContentHash, planned.ByteSize, ct)) return;
+        if (await IsVerifiedAsync(planned.Destination, planned.ContentHash, planned.ByteSize, ct))
+        {
+            return;
+        }
+
         if (File.Exists(planned.Destination))
+        {
             throw new IOException("A different file now occupies the reserved Shared destination.");
+        }
+
         if (!await IsVerifiedAsync(planned.Source, planned.ContentHash, planned.ByteSize, ct))
+        {
             throw new InvalidDataException("A source file changed after it was indexed. Reconcile before trying again.");
+        }
 
         Directory.CreateDirectory(Path.GetDirectoryName(planned.Destination)!);
         var staging = planned.Destination + $".{transferId:N}.transferring";
-        if (File.Exists(staging)) File.Delete(staging);
+        if (File.Exists(staging))
+        {
+            File.Delete(staging);
+        }
+
         await CopyVerifiedAsync(planned, staging, ct);
         File.Move(staging, planned.Destination);
     }
 
     private string DestinationRoot(LocalAssetDto item, string kind, string? folderName)
     {
-        if (kind == "folder") return Path.Combine(storage.GetSharedRoot(), "Folders", SanitizeFolderName(folderName));
+        if (kind == "folder")
+        {
+            return Path.Combine(storage.GetSharedRoot(), "Folders", SanitizeFolderName(folderName));
+        }
+
         var date = (item.CapturedAt ?? item.CreatedAt).ToLocalTime();
         return Path.Combine(storage.GetSharedRoot(), "Timeline", date.Year.ToString("0000", CultureInfo.InvariantCulture),
             date.ToString("MM - MMM", CultureInfo.InvariantCulture));
@@ -330,7 +435,10 @@ public sealed class ViewSharedTransferService(
             _ => "FILE",
         };
         if (!string.Equals(file.Role, "primary", StringComparison.OrdinalIgnoreCase))
+        {
             suffix += $"-{file.Role.ToUpperInvariant()}";
+        }
+
         return date.ToString("MMM dd - HH.mm.ss", CultureInfo.InvariantCulture)
             + suffix + Path.GetExtension(file.FilePath).ToLowerInvariant();
     }
@@ -345,22 +453,36 @@ public sealed class ViewSharedTransferService(
     private static string SanitizeFolderName(string? value)
     {
         var name = value?.Trim();
-        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A Shared folder name is required.", nameof(value));
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("A Shared folder name is required.", nameof(value));
+        }
+
         if (name is "." or ".." || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
             throw new ArgumentException("The Shared folder name is invalid.", nameof(value));
+        }
+
         return name;
     }
 
     private static string UniqueDestination(string directory, string fileName, IReadOnlySet<string> reserved)
     {
         var path = Path.Combine(directory, fileName);
-        if (!File.Exists(path) && !reserved.Contains(path)) return path;
+        if (!File.Exists(path) && !reserved.Contains(path))
+        {
+            return path;
+        }
+
         var stem = Path.GetFileNameWithoutExtension(fileName);
         var extension = Path.GetExtension(fileName);
         for (var suffix = 2; ; suffix++)
         {
             path = Path.Combine(directory, $"{stem} ({suffix}){extension}");
-            if (!File.Exists(path) && !reserved.Contains(path)) return path;
+            if (!File.Exists(path) && !reserved.Contains(path))
+            {
+                return path;
+            }
         }
     }
 
@@ -370,7 +492,10 @@ public sealed class ViewSharedTransferService(
             81920, FileOptions.Asynchronous | FileOptions.SequentialScan))
         await using (var output = new FileStream(staging, FileMode.CreateNew, FileAccess.Write, FileShare.None,
             81920, FileOptions.Asynchronous | FileOptions.WriteThrough))
+        {
             await input.CopyToAsync(output, ct);
+        }
+
         if (!await IsVerifiedAsync(staging, file.ContentHash, file.ByteSize, ct))
         {
             File.Delete(staging);
@@ -393,7 +518,11 @@ public sealed class ViewSharedTransferService(
 
     private static IReadOnlyList<DestinationManifestFile> ParseDestinations(string? json)
     {
-        if (string.IsNullOrWhiteSpace(json)) return [];
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return [];
+        }
+
         try { return JsonSerializer.Deserialize<List<DestinationManifestFile>>(json, JsonOptions) ?? []; }
         catch (JsonException) { return []; }
     }

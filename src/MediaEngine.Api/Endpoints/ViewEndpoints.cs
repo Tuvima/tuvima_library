@@ -5,6 +5,7 @@ using MediaEngine.Api.Services.View;
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Identity.Contracts;
@@ -17,50 +18,95 @@ public static class ViewEndpoints
 {
     public static IEndpointRouteBuilder MapViewEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/view").WithTags("View").RequireAnyRole();
+        var group = app.MapGroup("/view").WithTags("View")
+            .RequireAuthorization(AuthPolicies.Authenticated);
 
         group.MapGet("/scopes", async (string? scope, Guid? scopeProfileId,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
-            IViewScopeResolver resolver, ViewStorageService storage, CancellationToken ct) =>
+            IViewScopeResolver resolver, IViewResourceAuthorizationService authorization,
+            ViewStorageService storage, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller)
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (!authority.IsAuthenticated)
             {
                 return Unauthenticated();
             }
 
-            var policy = await preferences.GetPolicyAsync(caller.ProfileId, ct);
-            if (policy.ViewEnabled) await storage.EnsurePersonalSpaceAsync(caller.ProfileId, ct);
-            var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
-            var result = await resolver.ResolveAsync(caller, requested, ct);
+            if (authority.ActiveProfileId is { } activeProfileId)
+            {
+                var featureAccess = await authorization.AuthorizeAsync(authority,
+                    new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Search, null), ct);
+                if (!featureAccess.IsAllowed)
+                {
+                    return Access(featureAccess.Outcome);
+                }
+
+                var policy = await preferences.GetPolicyAsync(activeProfileId, ct);
+                if (policy.ViewEnabled)
+                {
+                    await storage.EnsurePersonalSpaceAsync(activeProfileId, ct);
+                }
+            }
+            var requested = authority.ActiveProfileId is { } profileId
+                ? await GetScopeAsync(profileId, scope, scopeProfileId, preferences, ct)
+                : ParseScope(scope, scopeProfileId);
+            var access = await authorization.AuthorizeAsync(authority,
+                new ViewResourceRequest(requested, ViewResourceKind.Search, null,
+                    AllowStaleSelectionFallback: string.IsNullOrWhiteSpace(scope)), ct);
+            if (!access.IsAllowed)
+            {
+                return Access(access.Outcome);
+            }
+
+            var result = await resolver.ResolveAsync(authority, requested,
+                allowStaleSelectionFallback: string.IsNullOrWhiteSpace(scope), ct);
             return result is null ? Missing() : Results.Ok(ToContract(result));
         }).WithName("GetViewScopes").Produces<ViewScopeResolutionDto>();
 
         group.MapGet("/preferences", async (IViewRequestProfileContext identity,
-            IViewProfileRepository repository, CancellationToken ct) =>
-            identity.Current is not { } caller
-                ? Unauthenticated()
-                : Results.Ok(ToContract(await repository.GetPreferencesAsync(caller.ProfileId, ct))))
+            IViewProfileRepository repository, IViewResourceAuthorizationService authorization, CancellationToken ct) =>
+        {
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is not { } profileId)
+            {
+                return Unauthenticated();
+            }
+
+            var access = await authorization.AuthorizeAsync(authority,
+                new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Preference, null), ct);
+            return access.IsAllowed ? Results.Ok(ToContract(await repository.GetPreferencesAsync(profileId, ct)))
+                : Access(access.Outcome);
+        })
             .WithName("GetViewPreferences").Produces<ViewPreferencesDto>();
 
         group.MapPut("/preferences", async (ViewPreferencesRequest request,
             IViewRequestProfileContext identity, IViewProfileRepository repository,
-            IViewScopeResolver resolver, CancellationToken ct) =>
+            IViewScopeResolver resolver, IViewResourceAuthorizationService authorization, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller)
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is not { } profileId)
             {
                 return Unauthenticated();
             }
 
             try
             {
-                var resolution = await resolver.ResolveAsync(caller,
-                    ParseScope(request.Scope, request.ScopeProfileId), ct);
+                var access = await authorization.AuthorizeAsync(authority,
+                    new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Preference, null,
+                        ViewResourceAction.Manage), ct);
+                if (!access.IsAllowed)
+                {
+                    return Access(access.Outcome);
+                }
+
+                var resolution = await resolver.ResolveAsync(authority,
+                    ParseScope(request.Scope, request.ScopeProfileId), false, ct);
                 if (resolution is null)
                 {
                     return Missing();
                 }
 
-                var value = new ViewProfilePreferences(caller.ProfileId,
+                var value = new ViewProfilePreferences(profileId,
                     resolution.Scope.Kind,
                     PreferenceScopeProfileId(resolution.Scope.Kind, resolution.Scope.ProfileId),
                     request.TimelineDensity, DateTimeOffset.UtcNow);
@@ -74,20 +120,32 @@ public static class ViewEndpoints
             int? limit, string? cursor, string? q, string[]? kind,
             bool? favorite, bool? hidden, Guid? galleryId, string? lifecycle,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
+            IViewResourceAuthorizationService authorization,
             IViewQueryOrchestrator queries, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller)
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (!authority.IsAuthenticated)
             {
                 return Unauthenticated();
             }
 
             try
             {
-                var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
+                var preferenceAccess = await AuthorizeDefaultScopePreferenceAsync(
+                    authority, scope, authorization, ct);
+                if (preferenceAccess is not null)
+                {
+                    return Access(preferenceAccess.Outcome);
+                }
+
+                var requested = authority.ActiveProfileId is { } profileId
+                    ? await GetScopeAsync(profileId, scope, scopeProfileId, preferences, ct)
+                    : ParseScope(scope, scopeProfileId);
                 var result = await queries.QueryAsync(new ViewAssetQueryRequest(
                     requested, PagedRequest.From(0, limit, 120, 500).Limit, cursor, q, kind,
                     favorite == true, hidden == true, hidden == true, galleryId,
-                    ParseLifecycle(lifecycle)), ct);
+                    ParseLifecycle(lifecycle),
+                    AllowStaleSelectionFallback: string.IsNullOrWhiteSpace(scope)), ct);
                 return Access(result.Outcome, result.Page);
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
@@ -100,15 +158,35 @@ public static class ViewEndpoints
             IViewResourceAuthorizationService authorization, ViewFolderService folders,
             CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (!authority.IsAuthenticated)
+            {
+                return Unauthenticated();
+            }
+
             try
             {
-                var requested = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
-                var decision = await authorization.AuthorizeAsync(caller,
-                    new ViewResourceRequest(requested, ViewResourceKind.Search, null), ct);
-                if (!decision.IsAllowed || decision.Scope is null) return Access(decision.Outcome);
+                var preferenceAccess = await AuthorizeDefaultScopePreferenceAsync(
+                    authority, scope, authorization, ct);
+                if (preferenceAccess is not null)
+                {
+                    return Access(preferenceAccess.Outcome);
+                }
+
+                var requested = authority.ActiveProfileId is { } profileId
+                    ? await GetScopeAsync(profileId, scope, scopeProfileId, preferences, ct)
+                    : ParseScope(scope, scopeProfileId);
+                var decision = await authorization.AuthorizeAsync(authority,
+                    new ViewResourceRequest(requested, ViewResourceKind.Search, null,
+                        AllowStaleSelectionFallback: string.IsNullOrWhiteSpace(scope)), ct);
+                if (!decision.IsAllowed || decision.Scope is null)
+                {
+                    return Access(decision.Outcome);
+                }
+
                 var page = PagedRequest.From(offset, limit, 100, 200);
-                return Results.Ok(await folders.QueryAsync(caller.ProfileId, decision.Scope, sourceId, path,
+                return Results.Ok(await folders.QueryAsync(authority.ActiveProfileId ?? Guid.Empty,
+                    decision.Scope, sourceId, path,
                     recursive == true, q, page.Offset, page.Limit, ct));
             }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
@@ -120,14 +198,24 @@ public static class ViewEndpoints
             IViewResourceAuthorizationService authorization, ViewFolderService folders,
             CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is not { } profileId)
+            {
+                return Unauthenticated();
+            }
+
             try
             {
                 var requested = ParseScope(request.Scope, request.ScopeProfileId);
-                var decision = await authorization.AuthorizeAsync(caller,
-                    new ViewResourceRequest(requested, ViewResourceKind.Search, null), ct);
-                if (!decision.IsAllowed || decision.Scope is null) return Access(decision.Outcome);
-                await folders.SetPinAsync(caller.ProfileId, decision.Scope, request.SourceId,
+                var decision = await authorization.AuthorizeAsync(authority,
+                    new ViewResourceRequest(requested, ViewResourceKind.Folder, null,
+                        ViewResourceAction.Manage), ct);
+                if (!decision.IsAllowed || decision.Scope is null)
+                {
+                    return Access(decision.Outcome);
+                }
+
+                await folders.SetPinAsync(profileId, decision.Scope, request.SourceId,
                     request.RelativePath, request.Pinned, ct);
                 return Results.NoContent();
             }
@@ -141,15 +229,25 @@ public static class ViewEndpoints
             IViewResourceAuthorizationService authorization, ViewFolderService folders,
             CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is not { } profileId)
+            {
+                return Unauthenticated();
+            }
+
             try
             {
                 var requested = ParseScope(request.Scope, request.ScopeProfileId);
-                var decision = await authorization.AuthorizeAsync(caller,
-                    new ViewResourceRequest(requested, ViewResourceKind.Search, null), ct);
-                if (!decision.IsAllowed || decision.Scope is null) return Access(decision.Outcome);
-                await folders.SetTimelinePolicyAsync(caller.ProfileId,
-                    string.Equals(caller.Role, AppRoles.Administrator, StringComparison.OrdinalIgnoreCase),
+                var decision = await authorization.AuthorizeAsync(authority,
+                    new ViewResourceRequest(requested, ViewResourceKind.FolderPolicy, null,
+                        ViewResourceAction.Manage), ct);
+                if (!decision.IsAllowed || decision.Scope is null)
+                {
+                    return Access(decision.Outcome);
+                }
+
+                await folders.SetTimelinePolicyAsync(profileId,
+                    authority.IsEffectiveAdministrator,
                     decision.Scope, request.SourceId, request.RelativePath, request.IncludeInTimeline, ct);
                 return Results.NoContent();
             }
@@ -160,19 +258,24 @@ public static class ViewEndpoints
             .Produces<Microsoft.AspNetCore.Http.HttpResults.NoContent>(StatusCodes.Status204NoContent);
 
         group.MapPost("/uploads", async (IFormFile file,
-            IViewRequestProfileContext identity, IViewScopeResolver resolver,
+            IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
             ViewLibraryService service, ViewStorageService storage, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller)
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is not { } profileId)
             {
                 return Unauthenticated();
             }
 
-            await storage.EnsurePersonalSpaceAsync(caller.ProfileId, ct);
-            if (await resolver.ResolveAsync(caller, ViewScopeRequest.Mine, ct) is null)
+            var access = await authorization.AuthorizeAsync(authority,
+                new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Upload, null,
+                    ViewResourceAction.Contribute), ct);
+            if (!access.IsAllowed)
             {
-                return Missing();
+                return Access(access.Outcome);
             }
+
+            await storage.EnsurePersonalSpaceAsync(profileId, ct);
 
             if (file.Length <= 0)
             {
@@ -182,7 +285,7 @@ public static class ViewEndpoints
             try
             {
                 await using var input = file.OpenReadStream();
-                var result = await service.UploadAsync(caller.ProfileId, file.FileName, input, ct);
+                var result = await service.UploadAsync(profileId, file.FileName, input, ct);
                 return Results.Ok(new ViewUploadResponseDto(
                     result.ItemId, result.ItemAdded, result.FilesAdded, result.SourcesAdded));
             }
@@ -205,7 +308,7 @@ public static class ViewEndpoints
 
         group.MapGet("/items/{id:guid}/content", async (Guid id, string? role, string? scope, Guid? scopeProfileId,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
-            IViewResourceAuthorizationService authorization, ILocalAssetRepository assets,
+            IViewResourceAuthorizationService authorization, IViewResourceStore resources,
             CancellationToken ct) =>
         {
             var decision = await AuthorizeItemAsync(id, ViewResourceKind.Original, ViewResourceAction.Read,
@@ -217,8 +320,8 @@ public static class ViewEndpoints
 
             try
             {
-                var file = assets.ResolveContent(id,
-                    string.IsNullOrWhiteSpace(role) ? LocalAssetFileRoles.Primary : role, ct);
+                var file = decision.Scope is null ? null : await resources.ResolveContentAsync(id,
+                    string.IsNullOrWhiteSpace(role) ? LocalAssetFileRoles.Primary : role, decision.Scope, ct);
                 return file is null || !File.Exists(file.FilePath)
                     ? Missing() : Results.File(file.FilePath, file.MimeType, enableRangeProcessing: true);
             }
@@ -227,7 +330,7 @@ public static class ViewEndpoints
 
         group.MapGet("/items/{id:guid}/thumbnail", async (Guid id, string? scope, Guid? scopeProfileId,
             IViewRequestProfileContext identity, IViewProfileRepository preferences,
-            IViewResourceAuthorizationService authorization, ILocalAssetRepository assets,
+            IViewResourceAuthorizationService authorization, IViewResourceStore resources,
             ViewThumbnailService thumbnails,
             CancellationToken ct) =>
         {
@@ -238,8 +341,13 @@ public static class ViewEndpoints
                 return Access(decision.Outcome);
             }
 
-            var file = assets.ResolveContent(id, LocalAssetFileRoles.Primary, ct);
-            if (file is null || !File.Exists(file.FilePath)) return Missing();
+            var file = decision.Scope is null ? null : await resources.ResolveContentAsync(
+                id, LocalAssetFileRoles.Primary, decision.Scope, ct);
+            if (file is null || !File.Exists(file.FilePath))
+            {
+                return Missing();
+            }
+
             var thumbnail = await thumbnails.GetOrCreateAsync(id, file, ct);
             return thumbnail is null ? Results.NoContent() : Results.File(thumbnail, "image/jpeg");
         }).WithName("GetViewItemThumbnail").Produces(StatusCodes.Status200OK).RequireRateLimiting("streaming");
@@ -253,8 +361,13 @@ public static class ViewEndpoints
         group.MapPost("/shared/contributions/preview", async (ViewSharedContributionPreviewRequest request,
             IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
-            try { return Results.Ok(await contributions.PreviewAsync(caller.ProfileId, request, ct)); }
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is null)
+            {
+                return Unauthenticated();
+            }
+
+            try { return Results.Ok(await contributions.PreviewAsync(authority, request, ct)); }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
             catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
             catch (InvalidOperationException exception) { return ApiErrors.Unprocessable(exception.Message); }
@@ -264,8 +377,13 @@ public static class ViewEndpoints
         group.MapPost("/shared/contributions", async (ViewSharedContributionSubmitRequest request,
             IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
-            try { return Results.Ok(await contributions.SubmitAsync(caller.ProfileId, request, ct)); }
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is null)
+            {
+                return Unauthenticated();
+            }
+
+            try { return Results.Ok(await contributions.SubmitAsync(authority, request, ct)); }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
             catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
             catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
@@ -275,10 +393,18 @@ public static class ViewEndpoints
         group.MapGet("/shared/contributions", async (string? mode, string? status, int? offset, int? limit,
             IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is null)
+            {
+                return Unauthenticated();
+            }
+
             var page = PagedRequest.From(offset, limit, defaultLimit: 50, maxLimit: 100);
-            try { return Results.Ok(await contributions.ListAsync(caller.ProfileId, mode ?? "mine", status,
-                page.Offset, page.Limit, ct)); }
+            try
+            {
+                return Results.Ok(await contributions.ListAsync(authority, mode ?? "mine", status,
+                page.Offset, page.Limit, ct));
+            }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
             catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
         }).WithName("ListViewSharedContributions").Produces<ViewSharedContributionPageDto>();
@@ -286,8 +412,13 @@ public static class ViewEndpoints
         group.MapGet("/shared/contributions/{id:guid}", async (Guid id,
             IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
-            try { return Results.Ok(await contributions.GetRequiredAsync(caller.ProfileId, id, false, ct)); }
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is null)
+            {
+                return Unauthenticated();
+            }
+
+            try { return Results.Ok(await contributions.GetRequiredAsync(authority, id, false, ct)); }
             catch (UnauthorizedAccessException) { return Missing(); }
             catch (KeyNotFoundException) { return Missing(); }
         }).WithName("GetViewSharedContribution").Produces<ViewSharedContributionDto>();
@@ -296,8 +427,13 @@ public static class ViewEndpoints
             ViewSharedContributionRevisionRequest request, IViewRequestProfileContext identity,
             ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
-            try { return Results.Ok(await contributions.CancelAsync(caller.ProfileId, id, request.ExpectedRevision, ct)); }
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is null)
+            {
+                return Unauthenticated();
+            }
+
+            try { return Results.Ok(await contributions.CancelAsync(authority, id, request.ExpectedRevision, ct)); }
             catch (UnauthorizedAccessException) { return Missing(); }
             catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
             catch (KeyNotFoundException) { return Missing(); }
@@ -307,8 +443,13 @@ public static class ViewEndpoints
             ViewSharedContributionDecisionRequest request, IViewRequestProfileContext identity,
             ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
-            try { return Results.Ok(await contributions.DecideAsync(caller.ProfileId, id, request, ct)); }
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is null)
+            {
+                return Unauthenticated();
+            }
+
+            try { return Results.Ok(await contributions.DecideAsync(authority, id, request, ct)); }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
             catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
             catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
@@ -319,8 +460,13 @@ public static class ViewEndpoints
             ViewSharedContributionRevisionRequest request, IViewRequestProfileContext identity,
             ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
-            try { return Results.Ok(await contributions.RetryAsync(caller.ProfileId, id, request.ExpectedRevision, ct)); }
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is null)
+            {
+                return Unauthenticated();
+            }
+
+            try { return Results.Ok(await contributions.RetryAsync(authority, id, request.ExpectedRevision, ct)); }
             catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
             catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
             catch (KeyNotFoundException) { return Missing(); }
@@ -329,8 +475,13 @@ public static class ViewEndpoints
         group.MapPost("/shared/items/direct", async (ViewSharedDirectAddRequest request,
             IViewRequestProfileContext identity, ViewSharedContributionService contributions, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
-            try { return Results.Ok(await contributions.AddDirectAsync(caller.ProfileId, request, ct)); }
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is null)
+            {
+                return Unauthenticated();
+            }
+
+            try { return Results.Ok(await contributions.AddDirectAsync(authority, request, ct)); }
             catch (ArgumentException exception) { return ApiErrors.BadRequest(exception.Message); }
             catch (UnauthorizedAccessException exception) { return ApiErrors.Forbidden(exception.Message); }
             catch (InvalidOperationException exception) { return ApiErrors.Conflict(exception.Message); }
@@ -340,11 +491,24 @@ public static class ViewEndpoints
         MapGalleries(group);
 
         group.MapGet("/share-targets", async (IViewRequestProfileContext identity,
+            IViewResourceAuthorizationService authorization,
             IViewProfileRepository policies, IViewScopeStore scopes, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller) return Unauthenticated();
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is not { } profileId)
+            {
+                return Unauthenticated();
+            }
+
+            var access = await authorization.AuthorizeAsync(authority,
+                new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, null), ct);
+            if (!access.IsAllowed)
+            {
+                return Access(access.Outcome);
+            }
+
             var targets = await GetGalleryShareTargetsAsync(
-                caller.ProfileId, policies, scopes, ct).ConfigureAwait(false);
+                profileId, policies, scopes, ct).ConfigureAwait(false);
             return targets is null ? Missing() : Results.Ok(targets);
         }).WithName("GetViewGalleryShareTargets")
             .WithSummary("List enabled profiles eligible to receive an individual Gallery share.")
@@ -374,7 +538,7 @@ public static class ViewEndpoints
         .WithSummary("Review the persisted Personal Space sources and devices for one profile.")
         .Produces<ViewPersonalSpaceAdminReviewDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         group.MapPost("/admin/profiles/{profileId:guid}/sources", async (
             Guid profileId, CreateViewSourceRequest request, IProfileService profiles,
@@ -382,13 +546,25 @@ public static class ViewEndpoints
             ViewLibraryService viewLibrary, IViewProfileRepository policies, MediaEngine.Api.Services.Settings.ServerFolderBrowserService folders, CancellationToken ct) =>
         {
             if (await profiles.GetProfileAsync(profileId, ct) is null)
+            {
                 return ApiErrors.NotFound($"Profile '{profileId}' not found.");
+            }
+
             if (string.IsNullOrWhiteSpace(request.Name))
+            {
                 return ApiErrors.BadRequest("A source name is required.");
+            }
+
             if (!(await policies.GetPolicyAsync(profileId, ct)).ViewEnabled)
+            {
                 return ApiErrors.BadRequest("Enable View for this profile before adding a source.");
+            }
+
             if (request.StorageMode is not ("linked" or "managed"))
+            {
                 return ApiErrors.BadRequest("Choose managed or linked storage.");
+            }
+
             try
             {
                 if (!string.IsNullOrWhiteSpace(request.Path))
@@ -398,7 +574,10 @@ public static class ViewEndpoints
                         ManualPath = request.Path,
                         SelectionMode = MediaEngine.Contracts.Settings.ServerFolderSelectionModes.PersonalSpaceExisting,
                     });
-                    if (!validation.CanSelect) return ApiErrors.BadRequest(validation.Issues.First(x => x.Severity == "error").Message);
+                    if (!validation.CanSelect)
+                    {
+                        return ApiErrors.BadRequest(validation.Issues.First(x => x.Severity == "error").Message);
+                    }
                 }
                 var space = await storage.EnsurePersonalSpaceAsync(profileId, ct);
                 var source = string.Equals(request.StorageMode, "linked", StringComparison.OrdinalIgnoreCase)
@@ -409,7 +588,10 @@ public static class ViewEndpoints
                             $"managed:{Guid.NewGuid():N}", ct)
                         : await storage.ImportFolderAsync(space, request.Name, request.Path, ct);
                 if (source.IncludeInTimeline != request.IncludeInTimeline)
+                {
                     source = await storage.UpdateSourceAsync(space, source with { IncludeInTimeline = request.IncludeInTimeline }, ct);
+                }
+
                 await indexing.RefreshSourcesAsync(ct);
                 // The hosted worker owns reconciliation and its cancellation lifetime.
                 indexing.RequestReconcile(space.LibraryId);
@@ -420,7 +602,7 @@ public static class ViewEndpoints
             {
                 return ApiErrors.Unprocessable(exception.Message);
             }
-        }).WithName("CreateViewProfileSource").Produces<ViewSourceAdminDto>().RequireAdmin();
+        }).WithName("CreateViewProfileSource").Produces<ViewSourceAdminDto>().RequireEffectiveAdministrator();
 
         group.MapPut("/admin/profiles/{profileId:guid}/sources/{sourceId:guid}", async (
             Guid profileId, Guid sourceId, UpdateViewSourceRequest request,
@@ -430,29 +612,52 @@ public static class ViewEndpoints
             var space = await spaces.GetByOwnerAsync(profileId, ct);
             var source = space is null ? null : (await spaces.GetSourcesAsync(space.Id, ct))
                 .FirstOrDefault(candidate => candidate.Id == sourceId);
-            if (space is null || source is null) return Missing();
-            if (string.IsNullOrWhiteSpace(request.Name)) return ApiErrors.BadRequest("A source name is required.");
+            if (space is null || source is null)
+            {
+                return Missing();
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return ApiErrors.BadRequest("A source name is required.");
+            }
+
             source = await spaces.UpsertSourceAsync(source with
-                { Name = request.Name.Trim(), Enabled = request.Enabled, IncludeInTimeline = request.IncludeInTimeline }, ct);
+            { Name = request.Name.Trim(), Enabled = request.Enabled, IncludeInTimeline = request.IncludeInTimeline }, ct);
             await indexing.RefreshSourcesAsync(ct);
             return Results.Ok(ToAdminSource(space, source, storage));
-        }).WithName("UpdateViewProfileSource").Produces<ViewSourceAdminDto>().RequireAdmin();
+        }).WithName("UpdateViewProfileSource").Produces<ViewSourceAdminDto>().RequireEffectiveAdministrator();
 
         group.MapDelete("/admin/profiles/{profileId:guid}/sources/{sourceId:guid}", async (
             Guid profileId, Guid sourceId, IViewPersonalSpaceRepository spaces,
             ViewSourceIndexingHostedService indexing, CancellationToken ct) =>
         {
             var space = await spaces.GetByOwnerAsync(profileId, ct);
-            if (space is null) return Missing();
+            if (space is null)
+            {
+                return Missing();
+            }
+
             var source = (await spaces.GetSourcesAsync(space.Id, ct))
                 .FirstOrDefault(candidate => candidate.Id == sourceId);
-            if (source is null) return Missing();
+            if (source is null)
+            {
+                return Missing();
+            }
+
             if (string.Equals(source.SourceKey, "builtin:browser-uploads", StringComparison.OrdinalIgnoreCase))
+            {
                 return ApiErrors.Conflict("The built-in browser upload source cannot be detached.");
-            if (!await spaces.DeleteSourceAsync(space.Id, sourceId, ct)) return Missing();
+            }
+
+            if (!await spaces.DeleteSourceAsync(space.Id, sourceId, ct))
+            {
+                return Missing();
+            }
+
             await indexing.RefreshSourcesAsync(ct);
             return Results.NoContent();
-        }).WithName("DeleteViewProfileSource").Produces(StatusCodes.Status204NoContent).RequireAdmin();
+        }).WithName("DeleteViewProfileSource").Produces(StatusCodes.Status204NoContent).RequireEffectiveAdministrator();
 
         group.MapPost("/admin/profiles/{profileId:guid}/reconcile", async (
             Guid profileId, IViewPersonalSpaceRepository spaces,
@@ -462,7 +667,125 @@ public static class ViewEndpoints
             return space is null || await service.ScanAsync(space.LibraryId, ct) is not { } result
                 ? Missing()
                 : Results.Ok(result);
-        }).WithName("ReconcileViewPersonalSpace").Produces<LocalAssetScanResultDto>().RequireAdmin();
+        }).WithName("ReconcileViewPersonalSpace").Produces<LocalAssetScanResultDto>().RequireEffectiveAdministrator();
+
+        group.MapGet("/admin/shared/sources", async (
+            ViewSharedSourceService sources, ViewStorageService storage, CancellationToken ct) =>
+            Results.Ok((await sources.GetSourcesAsync(ct))
+                .Select(source => ToAdminSource(source, storage)).ToList()))
+        .WithName("GetViewSharedSources")
+        .WithSummary("Review sources owned by the server Shared Library.")
+        .Produces<IReadOnlyList<ViewSourceAdminDto>>()
+        .RequireEffectiveAdministrator();
+
+        group.MapPost("/admin/shared/sources", async (
+            CreateViewSourceRequest request, ViewSharedSourceService sources,
+            ViewStorageService storage, ViewSourceIndexingHostedService indexing,
+            MediaEngine.Api.Services.Settings.ServerFolderBrowserService folders,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return ApiErrors.BadRequest("A source name is required.");
+            }
+
+            if (request.StorageMode is not ("linked" or "managed"))
+            {
+                return ApiErrors.BadRequest("Choose managed or linked storage.");
+            }
+
+            try
+            {
+                if (!string.IsNullOrWhiteSpace(request.Path))
+                {
+                    var validation = folders.Validate(new MediaEngine.Contracts.Settings.ValidateServerFolderRequest
+                    {
+                        ManualPath = request.Path,
+                        SelectionMode = MediaEngine.Contracts.Settings.ServerFolderSelectionModes.PersonalSpaceExisting,
+                    });
+                    if (!validation.CanSelect)
+                    {
+                        return ApiErrors.BadRequest(validation.Issues.First(issue => issue.Severity == "error").Message);
+                    }
+                }
+                var source = await sources.CreateAsync(request, ct);
+                await indexing.RefreshSourcesAsync(ct);
+                indexing.RequestReconcile(source.LibraryId);
+                return Results.Ok(ToAdminSource(source, storage));
+            }
+            catch (Exception exception) when (exception is ArgumentException or InvalidOperationException
+                                               or IOException or UnauthorizedAccessException
+                                               or DirectoryNotFoundException or NotSupportedException
+                                               or MediaEngine.Api.Services.Settings.ServerFolderAccessException)
+            {
+                return ApiErrors.Unprocessable(exception.Message);
+            }
+        })
+        .WithName("CreateViewSharedSource")
+        .Produces<ViewSourceAdminDto>()
+        .RequireEffectiveAdministrator();
+
+        group.MapPut("/admin/shared/sources/{sourceId:guid}", async (
+            Guid sourceId, UpdateViewSourceRequest request, ViewSharedSourceService sources,
+            ViewStorageService storage, ViewSourceIndexingHostedService indexing,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+            {
+                return ApiErrors.BadRequest("A source name is required.");
+            }
+
+            var source = await sources.UpdateAsync(sourceId, request, ct);
+            if (source is null)
+            {
+                return Missing();
+            }
+
+            await indexing.RefreshSourcesAsync(ct);
+            return Results.Ok(ToAdminSource(source, storage));
+        })
+        .WithName("UpdateViewSharedSource")
+        .Produces<ViewSourceAdminDto>()
+        .RequireEffectiveAdministrator();
+
+        group.MapDelete("/admin/shared/sources/{sourceId:guid}", async (
+            Guid sourceId, ViewSharedSourceService sources,
+            ViewSourceIndexingHostedService indexing, CancellationToken ct) =>
+        {
+            var outcome = await sources.DeleteAsync(sourceId, ct);
+            if (outcome == ViewSharedSourceDeleteOutcome.NotFound)
+            {
+                return Missing();
+            }
+
+            if (outcome == ViewSharedSourceDeleteOutcome.Protected)
+            {
+                return ApiErrors.Conflict("Built-in Shared Library sources cannot be detached.");
+            }
+
+            if (outcome == ViewSharedSourceDeleteOutcome.HasIndexedFiles)
+            {
+                return ApiErrors.Conflict("Detach requires an empty Shared source; move or remove its indexed files first.");
+            }
+
+            await indexing.RefreshSourcesAsync(ct);
+            return Results.NoContent();
+        })
+        .WithName("DeleteViewSharedSource")
+        .Produces(StatusCodes.Status204NoContent)
+        .RequireEffectiveAdministrator();
+
+        group.MapPost("/admin/shared/reconcile", async (
+            IViewSharedLibraryRepository shared, ViewLibraryService service, CancellationToken ct) =>
+        {
+            var library = await shared.GetAsync(ct);
+            return await service.ScanAsync(library.LibraryId, ct) is { } result
+                ? Results.Ok(result)
+                : Missing();
+        })
+        .WithName("ReconcileViewSharedLibrary")
+        .Produces<LocalAssetScanResultDto>()
+        .RequireEffectiveAdministrator();
 
         return app;
     }
@@ -470,28 +793,47 @@ public static class ViewEndpoints
     private static void MapGalleries(RouteGroupBuilder group)
     {
         group.MapGet("/galleries", async (IViewRequestProfileContext identity,
+            IViewResourceAuthorizationService authorization,
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller)
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is not { } profileId)
             {
                 return Unauthenticated();
             }
 
+            var access = await authorization.AuthorizeAsync(authority,
+                new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, null), ct);
+            if (!access.IsAllowed)
+            {
+                return Access(access.Outcome);
+            }
+
             return Results.Ok(new ViewGalleryListResponse(
-                (await repository.GetOwnedAsync(caller.ProfileId, ct)).Select(ToContract).ToList(),
-                (await repository.GetSharedWithAsync(caller.ProfileId, ct)).Select(ToContract).ToList()));
+                (await repository.GetOwnedAsync(profileId, ct)).Select(ToContract).ToList(),
+                (await repository.GetSharedWithAsync(profileId, ct)).Select(ToContract).ToList()));
         }).WithName("GetViewGalleries").Produces<ViewGalleryListResponse>();
 
         group.MapPost("/galleries", async (ViewGalleryRequest request,
             IViewRequestProfileContext identity, IViewPersonalSpaceRepository spaces,
+            IViewResourceAuthorizationService authorization,
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller)
+            var authority = await identity.ResolveAuthorityAsync(ct);
+            if (authority.ActiveProfileId is not { } profileId)
             {
                 return Unauthenticated();
             }
 
-            var space = await spaces.GetByOwnerAsync(caller.ProfileId, ct);
+            var access = await authorization.AuthorizeAsync(authority,
+                new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, null,
+                    ViewResourceAction.Manage), ct);
+            if (!access.IsAllowed)
+            {
+                return Access(access.Outcome);
+            }
+
+            var space = await spaces.GetByOwnerAsync(profileId, ct);
             if (space is null)
             {
                 return Missing();
@@ -500,7 +842,7 @@ public static class ViewEndpoints
             try
             {
                 var gallery = await repository.CreateAsync(new CreateViewGalleryCommand(
-                    caller.ProfileId, space.Id, request.Name, request.Kind,
+                    profileId, space.Id, request.Name, request.Kind,
                     request.Description, request.SmartRuleJson, request.CoverItemId, request.SortOrder), ct);
                 return Results.Created($"/view/galleries/{gallery.Id:D}", ToContract(gallery));
             }
@@ -602,18 +944,29 @@ public static class ViewEndpoints
             IViewProfileRepository profiles, IViewScopeStore scopes,
             IViewGalleryRepository repository, CancellationToken ct) =>
         {
-            if (identity.Current is not { } caller)
+            if ((await identity.ResolveAuthorityAsync(ct)).ActiveProfileId is not { } profileId)
             {
                 return Unauthenticated();
             }
 
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Manage, identity, authorization, ct);
-            if (!decision.IsAllowed) return Access(decision.Outcome);
+            if (!decision.IsAllowed)
+            {
+                return Access(decision.Outcome);
+            }
+
             var targets = await GetGalleryShareTargetsAsync(
-                caller.ProfileId, profiles, scopes, ct).ConfigureAwait(false);
-            if (targets is null) return Missing();
-            if (!TryValidateGalleryShares(request.Shares, caller.ProfileId, targets, out var shares))
+                profileId, profiles, scopes, ct).ConfigureAwait(false);
+            if (targets is null)
+            {
+                return Missing();
+            }
+
+            if (!TryValidateGalleryShares(request.Shares, profileId, targets, out var shares))
+            {
                 return ApiErrors.BadRequest("One or more selected profiles cannot receive Gallery shares.");
+            }
+
             await repository.ReplaceSharesAsync(id,
                 shares, ct);
             return Results.NoContent();
@@ -632,7 +985,9 @@ public static class ViewEndpoints
     {
         var callerPolicy = await policies.GetPolicyAsync(callerProfileId, ct).ConfigureAwait(false);
         if (!callerPolicy.ViewEnabled || !callerPolicy.ShareGalleries)
+        {
             return null;
+        }
 
         return (await scopes.GetProfilesAsync(ct).ConfigureAwait(false))
             .Where(profile => profile.Policy.ProfileId != callerProfileId
@@ -656,7 +1011,9 @@ public static class ViewEndpoints
     {
         shares = [];
         if (requested is null)
+        {
             return false;
+        }
 
         var eligible = targets.Select(target => target.ProfileId).ToHashSet();
         if (requested.Any(share => share.ProfileId == Guid.Empty
@@ -700,25 +1057,52 @@ public static class ViewEndpoints
         IViewRequestProfileContext identity, IViewProfileRepository preferences,
         IViewResourceAuthorizationService authorization, CancellationToken ct)
     {
-        if (identity.Current is not { } caller)
+        var authority = await identity.ResolveAuthorityAsync(ct);
+        if (!authority.IsAuthenticated)
         {
             return ViewAccessDecision.Unauthenticated();
         }
 
-        var selected = await GetScopeAsync(caller.ProfileId, scope, scopeProfileId, preferences, ct);
-        return await authorization.AuthorizeAsync(caller, new ViewResourceRequest(selected, kind, id, action), ct);
+        var preferenceAccess = await AuthorizeDefaultScopePreferenceAsync(
+            authority, scope, authorization, ct);
+        if (preferenceAccess is not null)
+        {
+            return preferenceAccess;
+        }
+
+        var selected = authority.ActiveProfileId is { } profileId
+            ? await GetScopeAsync(profileId, scope, scopeProfileId, preferences, ct)
+            : ParseScope(scope, scopeProfileId);
+        return await authorization.AuthorizeAsync(authority, new ViewResourceRequest(
+            selected, kind, id, action, string.IsNullOrWhiteSpace(scope)), ct);
     }
 
-    private static Task<ViewAccessDecision> GalleryAccessAsync(Guid id, ViewResourceAction action,
+    private static async Task<ViewAccessDecision> GalleryAccessAsync(Guid id, ViewResourceAction action,
         IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization, CancellationToken ct) =>
-        authorization.AuthorizeAsync(identity.Current,
+        await authorization.AuthorizeAsync(await identity.ResolveAuthorityAsync(ct),
             new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Gallery, id, action), ct);
 
-    private static Task<ViewAccessDecision> AuthorizeOwnedItemAsync(Guid id,
+    private static async Task<ViewAccessDecision> AuthorizeOwnedItemAsync(Guid id,
         IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization, CancellationToken ct) =>
-        authorization.AuthorizeAsync(identity.Current,
+        await authorization.AuthorizeAsync(await identity.ResolveAuthorityAsync(ct),
             new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Asset, id,
                 ViewResourceAction.Contribute), ct);
+
+    private static async Task<ViewAccessDecision?> AuthorizeDefaultScopePreferenceAsync(
+        RequestAuthority authority,
+        string? scope,
+        IViewResourceAuthorizationService authorization,
+        CancellationToken ct)
+    {
+        if (authority.ActiveProfileId is null || !string.IsNullOrWhiteSpace(scope))
+        {
+            return null;
+        }
+
+        var decision = await authorization.AuthorizeAsync(authority,
+            new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Preference, null), ct);
+        return decision.IsAllowed ? null : decision;
+    }
 
     private static async Task<ViewScopeRequest> GetScopeAsync(Guid profileId, string? scope,
         Guid? scopeProfileId, IViewProfileRepository repository, CancellationToken ct)
@@ -757,6 +1141,7 @@ public static class ViewEndpoints
     {
         ViewAccessOutcome.Allowed when value is not null => Results.Ok(value),
         ViewAccessOutcome.Unauthenticated => Unauthenticated(),
+        ViewAccessOutcome.Forbidden => ApiErrors.Forbidden("View access is not permitted."),
         _ => Missing(),
     };
 
@@ -837,8 +1222,24 @@ public static class ViewEndpoints
         source.Enabled,
         source.LastActivityAt,
         source.CreatedAt,
-        source.UpdatedAt,
-        source.IncludeInTimeline);
+            source.UpdatedAt,
+            source.IncludeInTimeline);
+
+    private static ViewSourceAdminDto ToAdminSource(
+        ViewSharedSource source,
+        ViewStorageService storage) =>
+        new(
+            source.Id,
+            source.SourceType.ToString().ToLowerInvariant(),
+            source.Name,
+            source.StorageMode.ToString().ToLowerInvariant(),
+            storage.GetSharedSourcePath(source),
+            source.IncludeSubdirectories,
+            source.Enabled,
+            source.LastActivityAt,
+            source.CreatedAt,
+            source.UpdatedAt,
+            source.IncludeInTimeline);
 
     private static string SourceTypeValue(ViewSourceType value) => value switch
     {

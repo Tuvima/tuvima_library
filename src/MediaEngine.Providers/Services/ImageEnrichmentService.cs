@@ -1,6 +1,6 @@
 using System.Globalization;
-using System.Security.Cryptography;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
@@ -115,22 +115,22 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ArgumentNullException.ThrowIfNull(fuzzy);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _assetRepo           = assetRepo;
-        _mediaAssetRepo      = mediaAssetRepo;
-        _portraitRepo        = portraitRepo;
-        _canonicalRepo       = canonicalRepo;
-        _workRepo            = workRepo;
-        _entityRepo          = entityRepo;
-        _personRepo          = personRepo;
-        _providerConfigRepo  = providerConfigRepo;
-        _configLoader        = configLoader;
-        _imageCache          = imageCache;
-        _assetPaths          = assetPaths;
-        _assetExportService  = assetExportService;
-        _httpFactory          = httpFactory;
-        _fuzzy               = fuzzy;
+        _assetRepo = assetRepo;
+        _mediaAssetRepo = mediaAssetRepo;
+        _portraitRepo = portraitRepo;
+        _canonicalRepo = canonicalRepo;
+        _workRepo = workRepo;
+        _entityRepo = entityRepo;
+        _personRepo = personRepo;
+        _providerConfigRepo = providerConfigRepo;
+        _configLoader = configLoader;
+        _imageCache = imageCache;
+        _assetPaths = assetPaths;
+        _assetExportService = assetExportService;
+        _httpFactory = httpFactory;
+        _fuzzy = fuzzy;
         _imageDownloadCoordinator = imageDownloadCoordinator ?? ImageDownloadCoordinator.Shared;
-        _logger              = logger;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -348,7 +348,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         if (IsMovieType(mediaTypeStr))
         {
             if (string.IsNullOrWhiteSpace(tmdbId))
+            {
                 return (null, "Movies");
+            }
 
             url = $"{FanartBaseUrl}/movies/{tmdbId}?api_key={apiKey}";
             resolvedMediaType = "Movies";
@@ -468,7 +470,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var imageNodes = ResolveImageNodes(json, jsonFields);
         if (imageNodes.Count == 0)
+        {
             return ImageAssetProcessingResult.Empty;
+        }
 
         var aggregate = ImageAssetProcessingResult.Empty;
         foreach (var seasonGroup in imageNodes
@@ -515,7 +519,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var imageNodes = ResolveImageNodes(json, jsonFields);
         if (imageNodes.Count == 0)
+        {
             return ImageAssetProcessingResult.Empty;
+        }
 
         var seasonCache = new Dictionary<int, Guid?>();
         var aggregate = ImageAssetProcessingResult.Empty;
@@ -593,7 +599,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             .ToList();
 
         if (rankedImages.Count == 0)
+        {
             return ImageAssetProcessingResult.Empty;
+        }
 
         var existingVariants = (await _assetRepo.GetByEntityAsync(ownerEntityId.ToString(), assetType.ToString(), ct)).ToList();
         var currentPreferredId = existingVariants.FirstOrDefault(asset => asset.IsPreferred)?.Id;
@@ -606,7 +614,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         {
             var imageUrl = imageNode?["url"]?.GetValue<string>();
             if (string.IsNullOrWhiteSpace(imageUrl))
+            {
                 continue;
+            }
 
             await using var downloadLease = await _imageDownloadCoordinator
                 .AcquireAsync(imageUrl, ct)
@@ -621,9 +631,13 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             {
                 var localIndex = existingVariants.FindIndex(asset => asset.Id == durableVariant.Id);
                 if (localIndex >= 0)
+                {
                     existingVariants[localIndex] = durableVariant;
+                }
                 else
+                {
                     existingVariants.Add(durableVariant);
+                }
             }
 
             var existing = existingVariants.FirstOrDefault(asset =>
@@ -634,14 +648,18 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 && File.Exists(existing.LocalImagePath))
             {
                 if (updatePreferred && preferredVariant is null && !existing.IsUserOverride)
+                {
                     preferredVariant = existing;
+                }
 
                 continue;
             }
 
             var bytes = await GetCachedOrDownloadImageBytesAsync(imageUrl, ct);
             if (bytes is null || bytes.Length == 0)
+            {
                 continue;
+            }
 
             var variant = existing ?? new EntityAsset
             {
@@ -675,13 +693,20 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             await _assetRepo.UpsertAsync(variant, ct);
             var existingIndex = existingVariants.FindIndex(asset => asset.Id == variant.Id);
             if (existingIndex >= 0)
+            {
                 existingVariants[existingIndex] = variant;
+            }
             else
+            {
                 existingVariants.Add(variant);
+            }
+
             storedCount++;
 
             if (updatePreferred && preferredVariant is null)
+            {
                 preferredVariant = variant;
+            }
 
             _logger.LogInformation(
                 "[IMAGE-ENRICH] Downloaded {AssetType} variant for {WorkQid} ({Bytes} bytes)",
@@ -707,17 +732,21 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             .FirstOrDefault();
 
         if (preferredVariant is null)
+        {
             return new ImageAssetProcessingResult(null, storedCount, UpdatedPreferredCount: 0);
+        }
 
         var preferredChanged = currentPreferredId != preferredVariant.Id;
         await _assetRepo.SetPreferredAsync(preferredVariant.Id, ct);
         await UpsertPreferredArtworkCanonicalAsync(ownerEntityId, preferredVariant, ct);
         if (_assetExportService is not null)
+        {
             await _assetExportService.ReconcileArtworkAsync(
                 preferredVariant.EntityId,
                 preferredVariant.EntityType,
                 preferredVariant.AssetTypeValue,
                 ct);
+        }
 
         return new ImageAssetProcessingResult(
             preferredVariant.LocalImagePath,
@@ -741,13 +770,17 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private static string InferVariantExtension(AssetType assetType, string imageUrl)
     {
         if (assetType is AssetType.Logo)
+        {
             return ".png";
+        }
 
         if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri))
         {
             var extension = Path.GetExtension(imageUri.AbsolutePath);
             if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+            {
                 return ".png";
+            }
         }
 
         return ".jpg";
@@ -759,7 +792,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         {
             var extension = Path.GetExtension(imageUri.AbsolutePath);
             if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+            {
                 return ".png";
+            }
         }
 
         return ".jpg";
@@ -779,7 +814,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var apiKey = fanartConfig?.HttpClient?.ApiKey;
         if (!string.IsNullOrWhiteSpace(apiKey))
+        {
             return apiKey;
+        }
 
         apiKey = await _providerConfigRepo.GetDecryptedValueAsync(
             WellKnownProviders.FanartTv.ToString(),
@@ -798,7 +835,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         {
             asset = await _mediaAssetRepo.FindFirstByWorkIdAsync(entityId, ct);
             if (asset is not null)
+            {
                 lineage = await _workRepo.GetLineageByAssetAsync(asset.Id, ct);
+            }
         }
 
         var mediaFilePath = asset?.FilePathRoot;
@@ -850,19 +889,25 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         string? mediaTypeStr)
     {
         if (IsMovieType(mediaTypeStr))
+        {
             return string.IsNullOrWhiteSpace(tmdbId)
                 ? null
                 : new FanartRequest("Movies", "tmdb_movie_id", tmdbId.Trim(), $"{FanartBaseUrl}/movies/{tmdbId.Trim()}");
+        }
 
         if (IsTvType(mediaTypeStr))
+        {
             return string.IsNullOrWhiteSpace(tvdbId)
                 ? null
                 : new FanartRequest("TV", BridgeIdKeys.TvdbId, tvdbId.Trim(), $"{FanartBaseUrl}/tv/{tvdbId.Trim()}");
+        }
 
         if (IsMusicType(mediaTypeStr))
         {
             if (!string.IsNullOrWhiteSpace(musicBrainzArtistId))
+            {
                 return new FanartRequest("Music", "musicbrainz_artist_id", musicBrainzArtistId.Trim(), $"{FanartBaseUrl}/music/{musicBrainzArtistId.Trim()}");
+            }
 
             return string.IsNullOrWhiteSpace(musicBrainzReleaseGroupId)
                 ? null
@@ -870,13 +915,19 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         }
 
         if (!string.IsNullOrWhiteSpace(tvdbId))
+        {
             return new FanartRequest("TV", BridgeIdKeys.TvdbId, tvdbId.Trim(), $"{FanartBaseUrl}/tv/{tvdbId.Trim()}");
+        }
 
         if (!string.IsNullOrWhiteSpace(tmdbId))
+        {
             return new FanartRequest("Movies", "tmdb_movie_id", tmdbId.Trim(), $"{FanartBaseUrl}/movies/{tmdbId.Trim()}");
+        }
 
         if (!string.IsNullOrWhiteSpace(musicBrainzArtistId))
+        {
             return new FanartRequest("Music", "musicbrainz_artist_id", musicBrainzArtistId.Trim(), $"{FanartBaseUrl}/music/{musicBrainzArtistId.Trim()}");
+        }
 
         return string.IsNullOrWhiteSpace(musicBrainzReleaseGroupId)
             ? null
@@ -891,17 +942,35 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         string? musicBrainzReleaseGroupId)
     {
         if (IsMovieType(mediaTypeStr))
+        {
             return "Movies";
+        }
+
         if (IsTvType(mediaTypeStr))
+        {
             return "TV";
+        }
+
         if (IsMusicType(mediaTypeStr))
+        {
             return "Music";
+        }
+
         if (!string.IsNullOrWhiteSpace(tvdbId))
+        {
             return "TV";
+        }
+
         if (!string.IsNullOrWhiteSpace(tmdbId))
+        {
             return "Movies";
+        }
+
         if (!string.IsNullOrWhiteSpace(musicBrainzArtistId) || !string.IsNullOrWhiteSpace(musicBrainzReleaseGroupId))
+        {
             return "Music";
+        }
+
         return null;
     }
 
@@ -914,7 +983,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var url = $"{request.Endpoint}?api_key={Uri.EscapeDataString(apiKey)}";
         if (!string.IsNullOrWhiteSpace(clientKey))
+        {
             url += $"&client_key={Uri.EscapeDataString(clientKey)}";
+        }
+
         try
         {
             using var client = _httpFactory.CreateClient(
@@ -926,7 +998,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             {
                 var redactedUrl = url.Replace(apiKey, "***", StringComparison.Ordinal);
                 if (!string.IsNullOrWhiteSpace(clientKey))
+                {
                     redactedUrl = redactedUrl.Replace(clientKey, "***", StringComparison.Ordinal);
+                }
+
                 _logger.LogWarning(
                     "[IMAGE-ENRICH] Fanart.tv returned {Status} for {Url}",
                     response.StatusCode,
@@ -1010,7 +1085,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         foreach (var entity in entities)
         {
             if (string.IsNullOrEmpty(entity.Label))
+            {
                 continue;
+            }
 
             var bestMatch = charArts
                 .Select(art => new
@@ -1023,9 +1100,14 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 .FirstOrDefault();
 
             if (bestMatch is null)
+            {
                 continue;
+            }
+
             if (!linkLookup.TryGetValue(entity.Id, out var personId))
+            {
                 continue;
+            }
 
             await UpsertDownloadedCharacterPortraitAsync(personId, entity.Id, bestMatch.Art.Url, "fanart_tv", ct);
             matchedEntityIds.Add(entity.Id);
@@ -1072,7 +1154,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             .Select(n => new
             {
                 Name = n!["name"]?.GetValue<string>() ?? string.Empty,
-                Url  = n!["url"]?.GetValue<string>() ?? string.Empty,
+                Url = n!["url"]?.GetValue<string>() ?? string.Empty,
             })
             .Where(a => !string.IsNullOrEmpty(a.Name) && !string.IsNullOrEmpty(a.Url))
             .ToList() ?? [];
@@ -1081,33 +1163,42 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         var matched = 0;
         foreach (var entity in entities)
         {
-            if (string.IsNullOrEmpty(entity.Label)) continue;
+            if (string.IsNullOrEmpty(entity.Label))
+            {
+                continue;
+            }
 
             // Find best-matching character art for this entity
             var bestMatch = charArts
                 .Select(art => new
                 {
-                    Art   = art,
+                    Art = art,
                     Score = _fuzzy.ComputeTokenSetRatio(entity.Label, art.Name),
                 })
                 .Where(m => m.Score >= CharacterMatchThreshold)
                 .OrderByDescending(m => m.Score)
                 .FirstOrDefault();
 
-            if (bestMatch is null) continue;
+            if (bestMatch is null)
+            {
+                continue;
+            }
 
             // Need a performer link to create a CharacterPortrait
-            if (!linkLookup.TryGetValue(entity.Id, out var personId)) continue;
+            if (!linkLookup.TryGetValue(entity.Id, out var personId))
+            {
+                continue;
+            }
 
             var portrait = new CharacterPortrait
             {
-                Id                = Guid.NewGuid(),
-                PersonId          = personId,
+                Id = Guid.NewGuid(),
+                PersonId = personId,
                 FictionalEntityId = entity.Id,
-                ImageUrl          = bestMatch.Art.Url,
-                SourceProvider    = "fanart_tv",
-                IsDefault         = true,
-                CreatedAt         = DateTimeOffset.UtcNow,
+                ImageUrl = bestMatch.Art.Url,
+                SourceProvider = "fanart_tv",
+                IsDefault = true,
+                CreatedAt = DateTimeOffset.UtcNow,
             };
 
             // Download portrait image
@@ -1307,7 +1398,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         foreach (var jsonField in jsonFields)
         {
             if (json[jsonField] is JsonArray directArray && directArray.Count > 0)
+            {
                 results.AddRange(directArray.Where(node => node is not null).Select(node => node!));
+            }
         }
 
         if (json["albums"] is JsonObject albums)
@@ -1317,7 +1410,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 foreach (var jsonField in jsonFields)
                 {
                     if (albumNode?[jsonField] is JsonArray nestedArray && nestedArray.Count > 0)
+                    {
                         results.AddRange(nestedArray.Where(node => node is not null).Select(node => node!));
+                    }
                 }
             }
         }
@@ -1328,7 +1423,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 foreach (var jsonField in jsonFields)
                 {
                     if (albumNode?[jsonField] is JsonArray nestedArray && nestedArray.Count > 0)
+                    {
                         results.AddRange(nestedArray.Where(node => node is not null).Select(node => node!));
+                    }
                 }
             }
         }
@@ -1344,13 +1441,19 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         value = 0;
 
         if (node is not JsonValue jsonValue)
+        {
             return false;
+        }
 
         if (jsonValue.TryGetValue<int>(out value))
+        {
             return true;
+        }
 
         if (jsonValue.TryGetValue<string>(out var text))
+        {
             return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value);
+        }
 
         return false;
     }
@@ -1363,7 +1466,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         foreach (var key in keys)
         {
             if (canonicals.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return value;
+            }
         }
 
         return null;
@@ -1384,7 +1489,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private static bool IsAllowedArtworkLanguage(JsonNode? imageNode, AssetType assetType)
     {
         if (assetType is not AssetType.Logo)
+        {
             return true;
+        }
 
         return IsPreferredArtworkLanguage(imageNode?["lang"]?.GetValue<string>());
     }
@@ -1398,7 +1505,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var language = imageNode?["lang"]?.GetValue<string>();
         if (string.Equals(language, "en", StringComparison.OrdinalIgnoreCase))
+        {
             return 2;
+        }
 
         return IsPreferredArtworkLanguage(language) ? 1 : 0;
     }
@@ -1408,7 +1517,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         foreach (var key in keys)
         {
             if (TryGetInt(imageNode?[key], out ordinal))
+            {
                 return true;
+            }
         }
 
         ordinal = 0;
@@ -1418,7 +1529,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private static void AddStoredCount(Dictionary<string, int> counts, AssetType assetType, int count)
     {
         if (count <= 0)
+        {
             return;
+        }
 
         var key = assetType.ToString();
         counts[key] = counts.TryGetValue(key, out var existing) ? existing + count : count;
@@ -1469,11 +1582,20 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     {
         var diagnostics = new List<string> { $"status={status}" };
         if (!string.IsNullOrWhiteSpace(skippedReason))
+        {
             diagnostics.Add($"reason={skippedReason}");
+        }
+
         if (httpStatusCode.HasValue)
+        {
             diagnostics.Add($"http={httpStatusCode.Value}");
+        }
+
         if (!string.IsNullOrWhiteSpace(message))
+        {
             diagnostics.Add(message);
+        }
+
         return diagnostics;
     }
 
@@ -1517,7 +1639,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         }
 
         if (values.Count > 0)
+        {
             await _canonicalRepo.UpsertBatchAsync(values, ct);
+        }
     }
 
     private static void AddDiagnostic(
@@ -1528,7 +1652,9 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         DateTimeOffset now)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return;
+        }
 
         values.Add(new CanonicalValue
         {

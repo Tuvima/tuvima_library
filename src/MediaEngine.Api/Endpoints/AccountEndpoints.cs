@@ -1,16 +1,12 @@
-using System.Net.Mail;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Authentication;
-using MediaEngine.Contracts.Profiles;
+using MediaEngine.Domain.Authorization;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Identity.Contracts;
-using Microsoft.AspNetCore.Identity;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -18,218 +14,376 @@ public static class AccountEndpoints
 {
     public static IEndpointRouteBuilder MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/accounts").WithTags("Accounts").RequireAuthorization(AuthPolicies.Authenticated);
+        var access = app.MapGroup("/access").WithTags("Access");
+        MapSelfService(access);
+        MapAdministratorUnlock(access);
+        MapManagedAccounts(access);
+        MapManagedProfiles(access);
+        return app;
+    }
 
-        group.MapGet("/me", async (ClaimsPrincipal user, IAccountRepository accounts, CancellationToken ct) =>
+    private static void MapSelfService(RouteGroupBuilder access)
+    {
+        var self = access.MapGroup("/self-service").RequireHumanSelfService();
+        self.MapGet("/", async (HttpContext http, IRequestAuthorityResolver resolver,
+            ISelfServiceAuthorizationService decisions, IAccountRepository accounts,
+            IProfileRepository profiles, CancellationToken ct) =>
         {
-            var accountId = RequiredAccountId(user);
-            var account = await accounts.GetByIdAsync(accountId, ct).ConfigureAwait(false);
-            return account is null ? ApiErrors.NotFound("Account not found.") : Results.Ok(await ToResponseAsync(account, accounts, ct).ConfigureAwait(false));
-        }).Produces<AccountResponse>();
+            var authority = await RequireSelfAsync(http, resolver, decisions, ct);
+            var account = await accounts.GetByIdAsync(authority.AccountId!.Value, ct)
+                ?? throw new UnauthorizedAccessException();
+            var grants = await MapGrants(account.Id, accounts, profiles, ct);
+            var defaultId = grants.FirstOrDefault(grant => grant.IsDefault && grant.IsEnabled)?.ProfileId
+                ?? authority.ActiveProfileId!.Value;
+            return Results.Ok(new AccountSelfServiceResponse(account.Id, account.Email, account.IsLocalOnly,
+                authority.ActiveProfileId.GetValueOrDefault(), defaultId, grants,
+                account.IsLocalOnly ? ["profile_pin"] : ["password", "passkey", "external"]));
+        }).Produces<AccountSelfServiceResponse>();
 
-        group.MapGet("/me/external-logins", async (ClaimsPrincipal user, IAccountExternalLoginService logins, CancellationToken ct) =>
-            Results.Ok((await logins.GetByAccountAsync(RequiredAccountId(user), ct).ConfigureAwait(false)).Select(ProfileContractMapper.ToResponse).ToList()))
-            .Produces<List<AccountExternalLoginDto>>();
+        self.MapGet("/external-logins", async (HttpContext http, IRequestAuthorityResolver resolver,
+            ISelfServiceAuthorizationService decisions, IAccountExternalLoginService externalLogins,
+            CancellationToken ct) =>
+        {
+            var authority = await RequireSelfAsync(http, resolver, decisions, ct);
+            var values = await externalLogins.GetByAccountAsync(authority.AccountId!.Value, ct);
+            return Results.Ok(values.Select(ProfileContractMapper.ToResponse).ToList());
+        }).Produces<IReadOnlyList<AccountExternalLoginDto>>();
 
-        group.MapPost("/me/external-logins", async (ClaimsPrincipal user, LinkAccountExternalLoginRequest request, IAccountExternalLoginService logins, CancellationToken ct) =>
+        self.MapDelete("/external-logins/{loginId:guid}", async (Guid loginId, HttpContext http,
+            IRequestAuthorityResolver resolver, ISelfServiceAuthorizationService decisions,
+            IAccountSignInMethodRepository signInMethods, IAuthorizationAuditWriter audit,
+            AuthenticationPolicyMutationGate mutationGate,
+            AuthenticationProviderConfigurationService providerConfiguration,
+            IAccountRepository accounts, IIdentityRepository identities,
+            IAccountExternalLoginService externalLogins,
+            Microsoft.AspNetCore.Identity.UserManager<Account> users,
+            TimeProvider clock, CancellationToken ct) =>
+        {
+            var authority = await RequireSelfAsync(http, resolver, decisions, ct);
+            var accountId = authority.AccountId!.Value;
+            using var mutation = await mutationGate.EnterAsync(ct).ConfigureAwait(false);
+            var linked = await externalLogins.GetByAccountAsync(accountId, ct).ConfigureAwait(false);
+            if (!linked.Any(login => login.Id == loginId))
+            {
+                return ApiErrors.NotFound("External login not found.");
+            }
+
+            if (!await AuthenticationEndpoints.HasUsableAccountSignInAsync(
+                    providerConfiguration.LoadWithSecrets(), accountId, accounts, identities,
+                    externalLogins, users, excludedExternalLoginId: loginId, ct: ct).ConfigureAwait(false))
+            {
+                return ApiErrors.Conflict("Add another enabled sign-in method before removing this external login.");
+            }
+
+            var result = await signInMethods.RemoveExternalLoginAsync(accountId, loginId, ct);
+            if (result == SignInMethodRemovalResult.NotFound)
+            {
+                return ApiErrors.NotFound("External login not found.");
+            }
+
+            if (result == SignInMethodRemovalResult.LastSignInMethod)
+            {
+                return ApiErrors.Conflict("Add another sign-in method before removing this external login.");
+            }
+
+            await WriteAuditAsync(audit, clock, authority, "account.external_login_unlinked", loginId, ct);
+            return Results.NoContent();
+        }).Produces(StatusCodes.Status204NoContent);
+    }
+
+    private static void MapAdministratorUnlock(RouteGroupBuilder access)
+    {
+        access.MapGet("/admin-unlock", async (HttpContext http, IRequestAuthorityResolver resolver,
+            IGrantAdminUnlockService unlocks, CancellationToken ct) =>
+        {
+            var authority = await resolver.ResolveAsync(http, ct);
+            return Results.Ok(ToUnlock(await unlocks.GetStateAsync(authority, ct)));
+        }).RequireEffectiveAdministrator(false).Produces<GrantAdminUnlockResponse>();
+
+        access.MapPost("/admin-unlock", async (GrantAdminUnlockRequest request, HttpContext http,
+            IRequestAuthorityResolver resolver, IGrantAdminUnlockService unlocks, CancellationToken ct) =>
         {
             try
             {
-                return Results.Ok(ProfileContractMapper.ToResponse(await logins.LinkAsync(RequiredAccountId(user), request.Provider, request.Issuer, request.Subject, request.Email, request.DisplayName, ct).ConfigureAwait(false)));
+                var authority = await resolver.ResolveAsync(http, ct);
+                return Results.Ok(ToUnlock(await unlocks.UnlockAsync(authority, request.Pin, ct)));
             }
-            catch (ArgumentException ex) { return ApiErrors.BadRequest(ex.Message); }
+            catch (UnauthorizedAccessException) { return Results.Unauthorized(); }
             catch (InvalidOperationException ex) { return ApiErrors.Conflict(ex.Message); }
-        }).Produces<AccountExternalLoginDto>();
+        }).RequireEffectiveAdministrator(false).RequireRateLimiting("authentication")
+          .Produces<GrantAdminUnlockResponse>();
 
-        group.MapDelete("/me/external-logins/{loginId:guid}", async (
-            Guid loginId,
-            ClaimsPrincipal user,
-            IAccountExternalLoginService logins,
-            IIdentityRepository identities,
-            IAccountRepository accounts,
-            UserManager<Account> users,
-            CancellationToken ct) =>
+        access.MapDelete("/admin-unlock", async (HttpContext http, IRequestAuthorityResolver resolver,
+            IGrantAdminUnlockService unlocks, CancellationToken ct) =>
         {
-            var accountId = RequiredAccountId(user);
-            var existing = await logins.GetByAccountAsync(accountId, ct).ConfigureAwait(false);
-            var owned = existing.Any(login => login.Id == loginId);
-            if (!owned) return ApiErrors.NotFound("External login not found.");
+            var authority = await resolver.ResolveAsync(http, ct);
+            await unlocks.LockAsync(authority, ct);
+            return Results.NoContent();
+        }).RequireEffectiveAdministrator(false).WithName("ExitAdministratorSurface")
+          .Produces(StatusCodes.Status204NoContent);
+    }
 
-            var hasPassword = await identities.GetAccountCredentialAsync(
-                accountId,
-                AccountCredentialKind.Password,
-                ct).ConfigureAwait(false) is not null;
-            var account = await accounts.GetByIdAsync(accountId, ct).ConfigureAwait(false);
-            var hasPasskey = account is not null
-                && (await users.GetPasskeysAsync(account).ConfigureAwait(false)).Count > 0;
-            if (existing.Count == 1 && !hasPassword && !hasPasskey)
-                return ApiErrors.Conflict("Add another sign-in method before removing this provider.");
-
-            return await logins.UnlinkAsync(loginId, ct).ConfigureAwait(false) ? Results.NoContent() : ApiErrors.NotFound("External login not found.");
-        }).WithName("UnlinkAccountExternalLogin").Produces(StatusCodes.Status204NoContent);
-
-        group.MapGet("/", async (IAccountRepository accounts, CancellationToken ct) =>
+    private static void MapManagedAccounts(RouteGroupBuilder access)
+    {
+        var group = access.MapGroup("/accounts");
+        group.MapGet("/", async (IAccountRepository accounts, IIdentityRepository identities,
+            IProfileRepository profiles, IConfigurationLoader configuration, CancellationToken ct) =>
         {
-            var all = await accounts.GetAllAsync(ct).ConfigureAwait(false);
-            var result = new List<AccountResponse>(all.Count);
-            foreach (var account in all) result.Add(await ToResponseAsync(account, accounts, ct).ConfigureAwait(false));
-            return Results.Ok(result);
-        }).RequireAuthorization(AuthPolicies.Administrator).Produces<List<AccountResponse>>();
-
-        group.MapPost("/", async (CreateAccountRequest request, IAccountRepository accounts, IProfileRepository profiles, CancellationToken ct) =>
-        {
-            if (request.ProfileIds.Count == 0) return ApiErrors.BadRequest("At least one profile grant is required.");
-            foreach (var profileId in request.ProfileIds.Distinct())
-                if (await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false) is null) return ApiErrors.BadRequest($"Profile '{profileId}' does not exist.");
-            var localOnly = string.IsNullOrWhiteSpace(request.Email);
-            if (!localOnly) return ApiErrors.BadRequest("Remote accounts must be created with an invitation.");
-            if (request.ProfileIds.Distinct().Count() != 1) return ApiErrors.BadRequest("Local-only access must belong to exactly one profile.");
-            if (await accounts.GetLocalOnlyAccountIdForProfileAsync(request.ProfileIds[0], ct).ConfigureAwait(false) is not null) return ApiErrors.Conflict("That profile already has local-only access.");
-            var now = DateTimeOffset.UtcNow;
-            var account = new Account
+            var values = new List<AccountAccessResponse>();
+            foreach (var account in await accounts.GetAllAsync(ct))
             {
-                Id = Guid.NewGuid(),
-                IsLocalOnly = true,
-                IsEnabled = true,
-                CreatedAt = now,
-                UpdatedAt = now,
-            };
-            await accounts.InsertAsync(account, ct).ConfigureAwait(false);
-            var defaultId = request.DefaultProfileId is { } requested && request.ProfileIds.Contains(requested) ? requested : request.ProfileIds[0];
-            foreach (var profileId in request.ProfileIds.Distinct())
-            {
-                await accounts.GrantProfileAsync(new AccountProfileGrant
-                {
-                    AccountId = account.Id,
-                    ProfileId = profileId,
-                    IsDefault = profileId == defaultId,
-                    GrantedAt = now,
-                }, ct).ConfigureAwait(false);
+                values.Add(await MapAccount(account, accounts, identities, profiles, configuration, ct));
             }
 
-            return Results.Ok(await ToResponseAsync(account, accounts, ct).ConfigureAwait(false));
-        }).RequireAuthorization(AuthPolicies.Administrator).Produces<AccountResponse>();
+            return Results.Ok(values);
+        }).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersRead)
+          .Produces<IReadOnlyList<AccountAccessResponse>>();
 
-        group.MapPut("/{accountId:guid}/profiles/{profileId:guid}", async (Guid accountId, Guid profileId, SetAccountProfileGrantRequest request, IAccountRepository accounts, IProfileRepository profiles, CancellationToken ct) =>
+        group.MapGet("/{accountId:guid}", async (Guid accountId, IAccountRepository accounts,
+            IIdentityRepository identities, IProfileRepository profiles,
+            IConfigurationLoader configuration, CancellationToken ct) =>
         {
-            var account = await accounts.GetByIdAsync(accountId, ct).ConfigureAwait(false);
-            if (account is null) return ApiErrors.NotFound("Account not found.");
-            if (await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false) is null) return ApiErrors.NotFound("Profile not found.");
-            await accounts.GrantProfileAsync(new AccountProfileGrant
+            var account = await accounts.GetByIdAsync(accountId, ct);
+            return account is null ? ApiErrors.NotFound("Account not found.")
+                : Results.Ok(await MapAccount(account, accounts, identities, profiles, configuration, ct));
+        }).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersRead)
+          .Produces<AccountAccessResponse>();
+
+        group.MapPost("/", async (CreateManagedAccountRequest request, HttpContext http,
+            IRequestAuthorityResolver resolver, IAccountAccessMutationService mutations,
+            IAccountRepository accounts, IIdentityRepository identities, IProfileRepository profiles,
+            IConfigurationLoader configuration,
+            CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            var command = new CreateAccountAccessCommand(request.Email, request.IsLocalOnly,
+                request.IsAdministrator, request.ProfileId,
+                request.NewProfile is null ? null : new NewAccountProfileCommand(
+                    request.NewProfile.DisplayName, request.NewProfile.AvatarColor),
+                request.FeatureIds.Select(id => new AccountFeatureId(id)).ToHashSet(),
+                request.LibraryIds.ToHashSet());
+            var account = await mutations.CreateAsync(await resolver.ResolveAsync(http, ct), command, ct);
+            return Results.Created($"/access/accounts/{account.Id:D}",
+                await MapAccount(account, accounts, identities, profiles, configuration, ct));
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .Produces<AccountAccessResponse>(StatusCodes.Status201Created);
+
+        group.MapPut("/{accountId:guid}", async (Guid accountId, UpdateManagedAccountRequest request,
+            HttpContext http, IRequestAuthorityResolver resolver, IAccountAccessMutationService mutations,
+            IAccountRepository accounts, IIdentityRepository identities, IProfileRepository profiles,
+            IConfigurationLoader configuration,
+            CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            var value = await mutations.UpdateAsync(await resolver.ResolveAsync(http, ct), accountId,
+                new UpdateAccountAccessCommand(request.Email, request.IsLocalOnly,
+                    request.IsEnabled, request.IsAdministrator), ct);
+            return Results.Ok(await MapAccount(value, accounts, identities, profiles, configuration, ct));
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .Produces<AccountAccessResponse>();
+
+        group.MapDelete("/{accountId:guid}", async (Guid accountId, HttpContext http,
+            IRequestAuthorityResolver resolver, IAccountAccessMutationService mutations,
+            CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            await mutations.DeleteAsync(await resolver.ResolveAsync(http, ct), accountId, ct);
+            return Results.NoContent();
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .Produces(StatusCodes.Status204NoContent);
+
+        group.MapPut("/{accountId:guid}/access", async (Guid accountId,
+            ReplaceAccountAccessRequest request, HttpContext http, IRequestAuthorityResolver resolver,
+            IAccountAccessMutationService mutations, CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            await mutations.ReplaceAccessAsync(await resolver.ResolveAsync(http, ct), accountId,
+                request.FeatureIds.Select(id => new AccountFeatureId(id)).ToHashSet(),
+                request.LibraryIds.ToHashSet(), ct);
+            return Results.NoContent();
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .WithName("ReplaceAccountAccess").Produces(StatusCodes.Status204NoContent);
+
+        group.MapPut("/{accountId:guid}/grants/{profileId:guid}", async (Guid accountId,
+            Guid profileId, SetAccountProfileGrantAccessRequest request, HttpContext http,
+            IRequestAuthorityResolver resolver, IAccountAccessMutationService mutations,
+            CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            await mutations.UpsertGrantAsync(await resolver.ResolveAsync(http, ct), new AccountProfileGrant
             {
                 AccountId = accountId,
                 ProfileId = profileId,
                 IsDefault = request.IsDefault,
-                GrantedAt = DateTimeOffset.UtcNow,
-            }, ct).ConfigureAwait(false);
-            return Results.Ok(await ToResponseAsync(account, accounts, ct).ConfigureAwait(false));
-        }).RequireAuthorization(AuthPolicies.Administrator).Produces<AccountResponse>();
-
-        group.MapDelete("/{accountId:guid}/profiles/{profileId:guid}", async (Guid accountId, Guid profileId, IAccountRepository accounts, IIdentityRepository identities, CancellationToken ct) =>
-        {
-            var account = await accounts.GetByIdAsync(accountId, ct).ConfigureAwait(false);
-            if (account is null) return ApiErrors.NotFound("Account not found.");
-            var profileIds = await accounts.GetProfileIdsAsync(accountId, ct).ConfigureAwait(false);
-            if (!profileIds.Contains(profileId)) return ApiErrors.NotFound("Profile grant not found.");
-            if (profileIds.Count <= 1) return ApiErrors.Conflict("An enabled account must retain at least one profile grant.");
-            var wasDefault = await accounts.GetDefaultProfileIdAsync(accountId, ct).ConfigureAwait(false) == profileId;
-            await accounts.RevokeProfileAsync(accountId, profileId, ct).ConfigureAwait(false);
-            if (wasDefault)
-            {
-                var replacement = profileIds.First(id => id != profileId);
-                await accounts.GrantProfileAsync(new AccountProfileGrant
-                {
-                    AccountId = accountId,
-                    ProfileId = replacement,
-                    IsDefault = true,
-                    GrantedAt = DateTimeOffset.UtcNow,
-                }, ct).ConfigureAwait(false);
-            }
-            await identities.RevokeAccountSessionsAsync(accountId, DateTimeOffset.UtcNow, "profile_grant_changed", null, ct).ConfigureAwait(false);
-            return Results.Ok(await ToResponseAsync(account, accounts, ct).ConfigureAwait(false));
-        }).RequireAuthorization(AuthPolicies.Administrator).Produces<AccountResponse>();
-
-        group.MapPost("/invitations", async (CreateAccountInvitationRequest request, IAccountRepository accounts, IProfileRepository profiles, CancellationToken ct) =>
-        {
-            if (request.ProfileIds.Count == 0) return ApiErrors.BadRequest("At least one profile grant is required.");
-            string normalized;
-            try
-            {
-                normalized = new MailAddress(request.Email.Trim()).Address.ToUpperInvariant();
-            }
-            catch (FormatException)
-            {
-                return ApiErrors.BadRequest("Enter a valid email address.");
-            }
-
-            if (await accounts.GetByNormalizedEmailAsync(normalized, ct).ConfigureAwait(false) is not null) return ApiErrors.Conflict("An account with that email already exists.");
-            foreach (var id in request.ProfileIds.Distinct())
-            {
-                if (await profiles.GetByIdAsync(id, ct).ConfigureAwait(false) is null)
-                    return ApiErrors.BadRequest($"Profile '{id}' does not exist.");
-            }
-
-            var now = DateTimeOffset.UtcNow;
-            var account = new Account
-            {
-                Id = Guid.NewGuid(),
-                Email = request.Email.Trim(),
-                NormalizedEmail = normalized,
                 IsEnabled = true,
-                CreatedAt = now,
-                UpdatedAt = now,
-            };
-            await accounts.InsertAsync(account, ct).ConfigureAwait(false);
+                AdminEnabled = request.AdminEnabled,
+                AuthorizationVersion = 1,
+            }, ct);
+            return Results.NoContent();
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .WithName("SetAccountProfileGrant").Produces(StatusCodes.Status204NoContent);
 
-            var defaultId = request.DefaultProfileId is { } selected && request.ProfileIds.Contains(selected)
-                ? selected
-                : request.ProfileIds[0];
-            foreach (var id in request.ProfileIds.Distinct())
+        group.MapDelete("/{accountId:guid}/grants/{profileId:guid}", async (Guid accountId,
+            Guid profileId, HttpContext http, IRequestAuthorityResolver resolver,
+            IAccountAccessMutationService mutations, CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            await mutations.RevokeGrantAsync(await resolver.ResolveAsync(http, ct), accountId, profileId, ct);
+            return Results.NoContent();
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .WithName("RevokeAccountProfileGrant").Produces(StatusCodes.Status204NoContent);
+
+        group.MapPut("/{accountId:guid}/grants/{profileId:guid}/admin-protection", async (
+            Guid accountId, Guid profileId, SetGrantAdminProtectionRequest request, HttpContext http,
+            IRequestAuthorityResolver resolver, IAccountAccessMutationService mutations,
+            CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            if (!Enum.TryParse<AdminUnlockMode>(request.UnlockMode, true, out var mode) || !Enum.IsDefined(mode))
             {
-                await accounts.GrantProfileAsync(new AccountProfileGrant
-                {
-                    AccountId = account.Id,
-                    ProfileId = id,
-                    IsDefault = id == defaultId,
-                    GrantedAt = now,
-                }, ct).ConfigureAwait(false);
+                return ApiErrors.BadRequest("Unknown unlock mode.");
             }
 
-            var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
-                .Replace('+', '-')
-                .Replace('/', '_')
-                .TrimEnd('=');
-            var expires = now.AddDays(7);
-            var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
-            await accounts.InsertInvitationAsync(new AccountInvitation
-            {
-                Id = Guid.NewGuid(),
-                AccountId = account.Id,
-                TokenHash = hash,
-                CreatedAt = now,
-                ExpiresAt = expires,
-            }, ct).ConfigureAwait(false);
-            return Results.Ok(new AccountInvitationResponse(account.Id, token, expires));
-        }).RequireAuthorization(AuthPolicies.Administrator).Produces<AccountInvitationResponse>();
+            await mutations.SetAdminProtectionAsync(await resolver.ResolveAsync(http, ct), accountId,
+                profileId, new GrantAdminProtectionCommand(
+                    request.Enabled, request.Pin, mode, request.UnlockMinutes), ct);
+            return Results.NoContent();
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .WithName("SetAccountProfileAdminProtection").Produces(StatusCodes.Status204NoContent);
 
-        return app;
+        access.MapPost("/invitations", async (CreateAccountInvitationRequest request, HttpContext http,
+            IRequestAuthorityResolver resolver, IAccountAccessMutationService mutations,
+            CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            var issued = await mutations.IssueInvitationAsync(await resolver.ResolveAsync(http, ct),
+                new IssueAccountInvitationCommand(request.Email, request.ProfileIds,
+                    request.DefaultProfileId), ct);
+            return Results.Ok(new AccountInvitationResponse(
+                issued.AccountId, issued.PlaintextToken, issued.ExpiresAt));
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .Produces<AccountInvitationResponse>();
     }
 
-    private static async Task<AccountResponse> ToResponseAsync(
-        Account account,
-        IAccountRepository accounts,
-        CancellationToken ct) => new()
+    private static void MapManagedProfiles(RouteGroupBuilder access)
+    {
+        access.MapGet("/libraries", (IConfigurationLoader configuration) =>
         {
-            Id = account.Id,
-            Email = account.Email,
-            IsLocalOnly = account.IsLocalOnly,
-            IsEnabled = account.IsEnabled,
-            ProfileIds = await accounts.GetProfileIdsAsync(account.Id, ct).ConfigureAwait(false),
-            DefaultProfileId = await accounts.GetDefaultProfileIdAsync(account.Id, ct).ConfigureAwait(false),
-        };
+            var values = configuration.LoadLibraries().Libraries
+                .Where(library => library.Kind == LibraryKinds.Catalogued &&
+                    Guid.TryParse(library.Id, out _))
+                .Select(library => new AccessLibraryOptionDto(Guid.Parse(library.Id),
+                    library.Name, library.Category, library.Area))
+                .ToList();
+            return Results.Ok(values);
+        }).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersRead)
+          .Produces<IReadOnlyList<AccessLibraryOptionDto>>();
 
-    private static Guid RequiredAccountId(ClaimsPrincipal user) =>
-        Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.AccountId), out var id)
-            ? id
-            : throw new UnauthorizedAccessException("Account identity is unavailable.");
+        var profiles = access.MapGroup("/profiles");
+        profiles.MapGet("/", async (IProfileRepository repository, CancellationToken ct) =>
+            Results.Ok((await repository.GetAllAsync(ct)).Select(MapProfile).ToList()))
+            .RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersRead)
+            .Produces<IReadOnlyList<ManagedProfileResponse>>();
+
+        profiles.MapPost("/", async (CreateManagedProfileRequest request, HttpContext http,
+            IRequestAuthorityResolver resolver, IAccountAccessMutationService mutations,
+            CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            var profile = await mutations.CreateProfileAsync(await resolver.ResolveAsync(http, ct),
+                new CreateManagedProfileCommand(request.AccountId, request.DisplayName,
+                    request.AvatarColor, request.IsDefault), ct);
+            return Results.Created($"/access/profiles/{profile.Id:D}", MapProfile(profile));
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .Produces<ManagedProfileResponse>(StatusCodes.Status201Created);
+
+        profiles.MapPut("/{profileId:guid}", async (Guid profileId,
+            UpdateManagedProfileRequest request, HttpContext http, IRequestAuthorityResolver resolver,
+            IAccountAccessMutationService mutations, CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            var profile = await mutations.UpdateProfileAsync(await resolver.ResolveAsync(http, ct),
+                profileId, new UpdateManagedProfileCommand(request.DisplayName, request.AvatarColor), ct);
+            return Results.Ok(MapProfile(profile));
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .Produces<ManagedProfileResponse>();
+
+        profiles.MapDelete("/{profileId:guid}", async (Guid profileId, HttpContext http,
+            IRequestAuthorityResolver resolver, IAccountAccessMutationService mutations,
+            CancellationToken ct) => await ExecuteAsync(async () =>
+        {
+            await mutations.DeleteProfileAsync(await resolver.ResolveAsync(http, ct), profileId, ct);
+            return Results.NoContent();
+        })).RequireAdministratorOrApplication(ApplicationPermissionIds.IdentityUsersWrite)
+           .Produces(StatusCodes.Status204NoContent);
+    }
+
+    private static async Task<IResult> ExecuteAsync(Func<Task<IResult>> operation)
+    {
+        try { return await operation(); }
+        catch (ArgumentException ex) { return ApiErrors.BadRequest(ex.Message); }
+        catch (KeyNotFoundException ex) { return ApiErrors.NotFound(ex.Message); }
+        catch (InvalidOperationException ex) { return ApiErrors.Conflict(ex.Message); }
+        catch (UnauthorizedAccessException ex) { return ApiErrors.Forbidden(ex.Message); }
+    }
+
+    private static GrantAdminUnlockResponse ToUnlock(GrantAdminUnlockState value) =>
+        new(value.IsUnlocked, value.ExpiresAt, value.ProtectionVersion);
+
+    private static async ValueTask<RequestAuthority> RequireSelfAsync(HttpContext http,
+        IRequestAuthorityResolver resolver, ISelfServiceAuthorizationService decisions, CancellationToken ct)
+    {
+        var authority = await resolver.ResolveAsync(http, ct);
+        if (authority.AccountId is not { } accountId ||
+            !(await decisions.EvaluateAccountAsync(authority, accountId, ct)).IsAllowed)
+        {
+            throw new UnauthorizedAccessException();
+        }
+
+        return authority;
+    }
+
+    private static async Task<AccountAccessResponse> MapAccount(Account account,
+        IAccountRepository accounts, IIdentityRepository identities, IProfileRepository profiles,
+        IConfigurationLoader configuration, CancellationToken ct)
+    {
+        var libraryNames = configuration.LoadLibraries().Libraries
+            .Where(library => library.Kind == LibraryKinds.Catalogued && Guid.TryParse(library.Id, out _))
+            .ToDictionary(library => Guid.Parse(library.Id), library => library.Name);
+        var sessions = await identities.GetSessionsAsync(account.Id, ct);
+        var lastActiveAt = sessions.Count == 0 ? (DateTimeOffset?)null : sessions.Max(session => session.LastSeenAt);
+        return new AccountAccessResponse(account.Id, account.Email, account.IsLocalOnly,
+            account.IsEnabled, account.IsAdministrator, account.AuthorizationVersion,
+            (await accounts.GetFeatureGrantsAsync(account.Id, ct))
+                .Select(feature => new AccountFeatureGrantDto(feature.Value, true)).ToList(),
+            (await accounts.GetLibraryGrantsAsync(account.Id, ct))
+                .Select(id => new AccountLibraryGrantDto(
+                    id, libraryNames.GetValueOrDefault(id, "Unavailable library"), true)).ToList(),
+            await MapGrants(account.Id, accounts, profiles, ct), account.CreatedAt, account.UpdatedAt,
+            lastActiveAt);
+    }
+
+    private static async Task<IReadOnlyList<AccountProfileGrantDto>> MapGrants(Guid accountId,
+        IAccountRepository accounts, IProfileRepository profiles, CancellationToken ct)
+    {
+        var result = new List<AccountProfileGrantDto>();
+        foreach (var grant in await accounts.GetGrantsAsync(accountId, ct))
+        {
+            var profile = await profiles.GetByIdAsync(grant.ProfileId, ct);
+            if (profile is null)
+            {
+                continue;
+            }
+
+            var protection = await accounts.GetAdminProtectionAsync(accountId, grant.ProfileId, ct);
+            result.Add(new AccountProfileGrantDto(accountId, grant.ProfileId, profile.DisplayName,
+                profile.AvatarImagePath, grant.IsDefault, grant.IsEnabled, grant.AdminEnabled,
+                new GrantAdminProtectionDto(protection?.IsEnabled == true,
+                    protection?.UnlockMode ?? AdminUnlockMode.FixedDuration.ToString(),
+                    protection?.UnlockMinutes, protection?.ProtectionVersion ?? 0,
+                    protection?.LockedUntil > DateTimeOffset.UtcNow, protection?.LockedUntil),
+                grant.AuthorizationVersion, grant.GrantedAt));
+        }
+        return result;
+    }
+
+    private static ManagedProfileResponse MapProfile(MediaEngine.Domain.Aggregates.Profile profile) =>
+        new(profile.Id, profile.DisplayName, profile.AvatarColor, profile.AvatarImagePath,
+            profile.CreatedAt);
+
+    private static ValueTask WriteAuditAsync(IAuthorizationAuditWriter audit, TimeProvider clock,
+        RequestAuthority authority, string eventType, Guid loginId, CancellationToken ct) =>
+        audit.WriteAsync(new AuthorizationAuditEvent(eventType, clock.GetUtcNow(), authority.AccountId,
+            authority.ActiveProfileId, authority.ApplicationId, "external_login", loginId.ToString("D"),
+            new Dictionary<string, string?> { ["changed"] = "true" }), ct);
 }

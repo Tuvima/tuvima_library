@@ -334,11 +334,17 @@ public sealed record PlayerHeartbeatDto
 {
     public Guid? ProfileId { get; init; }
     public Guid? SessionId { get; init; }
+    /// <summary>
+    /// Optional monotonic sequence for idempotent telemetry updates within the
+    /// server-issued player session. It does not participate in authorization.
+    /// </summary>
+    public long? Sequence { get; init; }
     public string? DeviceId { get; init; }
     public string? Client { get; init; }
     public Guid? QueueItemId { get; init; }
     public Guid? AssetId { get; init; }
     public bool IsPlaying { get; init; }
+    public bool HasPlaybackEnded { get; init; }
     public double PositionSeconds { get; init; }
     public double? DurationSeconds { get; init; }
     public double? ProgressPct { get; init; }

@@ -97,12 +97,19 @@ public static class LocalAssetSmartRuleSqlCompiler
         {
             const string expression = "date(li.captured_at)";
             const string known = "li.captured_at IS NOT NULL";
-            if (condition.Op is "known" or "unknown") return KnownUnknown(condition.Op, known);
+            if (condition.Op is "known" or "unknown")
+            {
+                return KnownUnknown(condition.Op, known);
+            }
+
             var values = condition.GetEffectiveValues()
                 .Select(value => DateOnly.Parse(value, CultureInfo.InvariantCulture).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
                 .ToArray();
             if (condition.Op == "between")
+            {
                 return $"({known} AND {expression} BETWEEN {Add(values[0])} AND {Add(values[1])})";
+            }
+
             var op = SqlComparison(condition.Op);
             return $"({known} AND {expression} {op} {Add(values[0])})";
         }
@@ -110,11 +117,18 @@ public static class LocalAssetSmartRuleSqlCompiler
         private string Numeric(CollectionRulePredicate condition, string expression)
         {
             var known = $"{expression} IS NOT NULL";
-            if (condition.Op is "known" or "unknown") return KnownUnknown(condition.Op, known);
+            if (condition.Op is "known" or "unknown")
+            {
+                return KnownUnknown(condition.Op, known);
+            }
+
             var values = condition.GetEffectiveValues()
                 .Select(value => double.Parse(value, NumberStyles.Float, CultureInfo.InvariantCulture)).ToArray();
             if (condition.Op == "between")
+            {
                 return $"({known} AND {expression} BETWEEN {Add(values[0])} AND {Add(values[1])})";
+            }
+
             return $"({known} AND {expression} {SqlComparison(condition.Op)} {Add(values[0])})";
         }
 
@@ -136,7 +150,11 @@ public static class LocalAssetSmartRuleSqlCompiler
             const string relation = "SELECT 1 FROM local_item_files lif JOIN local_file_sources lfs ON lfs.file_id = lif.file_id AND lfs.library_id = li.library_id JOIN view_devices vd ON vd.id = lfs.device_id WHERE lif.item_id = li.id";
             string Match(string value, bool contains)
             {
-                if (Guid.TryParse(value, out var id)) return $"vd.id = {AddGuid(id)}";
+                if (Guid.TryParse(value, out var id))
+                {
+                    return $"vd.id = {AddGuid(id)}";
+                }
+
                 var parameter = Add(value.Trim().ToLowerInvariant());
                 return contains
                     ? $"(instr(lower(vd.name), {parameter}) > 0 OR instr(lower(COALESCE(vd.make, '')), {parameter}) > 0 OR instr(lower(COALESCE(vd.model, '')), {parameter}) > 0)"
@@ -150,7 +168,11 @@ public static class LocalAssetSmartRuleSqlCompiler
             const string relation = "SELECT 1 FROM local_item_files lif JOIN local_file_sources lfs ON lfs.file_id = lif.file_id AND lfs.library_id = li.library_id JOIN view_sources vs ON vs.id = lfs.source_id WHERE lif.item_id = li.id";
             string Match(string value, bool contains)
             {
-                if (Guid.TryParse(value, out var id)) return $"vs.id = {AddGuid(id)}";
+                if (Guid.TryParse(value, out var id))
+                {
+                    return $"vs.id = {AddGuid(id)}";
+                }
+
                 var parameter = Add(value.Trim().ToLowerInvariant());
                 return contains
                     ? $"(instr(lower(vs.name), {parameter}) > 0 OR instr(lower(COALESCE(vs.source_key, '')), {parameter}) > 0)"
@@ -164,7 +186,11 @@ public static class LocalAssetSmartRuleSqlCompiler
             const string known = "li.owner_profile_id IS NOT NULL";
             string Match(string value, bool contains)
             {
-                if (Guid.TryParse(value, out var id)) return $"li.owner_profile_id = {AddGuid(id)}";
+                if (Guid.TryParse(value, out var id))
+                {
+                    return $"li.owner_profile_id = {AddGuid(id)}";
+                }
+
                 var parameter = Add(value.Trim().ToLowerInvariant());
                 var comparison = contains
                     ? $"instr(lower(p.display_name), {parameter}) > 0"
@@ -177,8 +203,16 @@ public static class LocalAssetSmartRuleSqlCompiler
         private string Boolean(CollectionRulePredicate condition, string expression)
         {
             const string known = "1 = 1";
-            if (condition.Op == "known") return known;
-            if (condition.Op == "unknown") return "0 = 1";
+            if (condition.Op == "known")
+            {
+                return known;
+            }
+
+            if (condition.Op == "unknown")
+            {
+                return "0 = 1";
+            }
+
             var expected = bool.Parse(condition.GetEffectiveValues()[0]) ? 1 : 0;
             var match = $"{expression} = {Add(expected)}";
             return condition.Op == "neq" ? $"({known} AND NOT ({match}))" : match;
@@ -212,7 +246,11 @@ public static class LocalAssetSmartRuleSqlCompiler
             Func<string, bool, string> match)
         {
             var known = $"EXISTS ({relation})";
-            if (condition.Op is "known" or "unknown") return KnownUnknown(condition.Op, known);
+            if (condition.Op is "known" or "unknown")
+            {
+                return KnownUnknown(condition.Op, known);
+            }
+
             var matches = condition.GetEffectiveValues().Select(value => match(value, condition.Op == "contains"));
             var anyMatch = $"EXISTS ({relation} AND ({string.Join(" OR ", matches)}))";
             return condition.Op == "neq" ? $"({known} AND NOT ({anyMatch}))" : anyMatch;
@@ -224,7 +262,11 @@ public static class LocalAssetSmartRuleSqlCompiler
         private string ApplyTextOperation(CollectionRulePredicate condition, string known,
             Func<string, bool, string> match)
         {
-            if (condition.Op is "known" or "unknown") return KnownUnknown(condition.Op, known);
+            if (condition.Op is "known" or "unknown")
+            {
+                return KnownUnknown(condition.Op, known);
+            }
+
             var matches = condition.GetEffectiveValues().Select(value => match(value, condition.Op == "contains"));
             var anyMatch = $"({string.Join(" OR ", matches)})";
             return condition.Op == "neq" ? $"({known} AND NOT {anyMatch})" : anyMatch;

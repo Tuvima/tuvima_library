@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
@@ -9,6 +8,7 @@ using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -16,6 +16,7 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Storage.Contracts;
+using Microsoft.AspNetCore.Mvc;
 using SkiaSharp;
 
 namespace MediaEngine.Api.Endpoints;
@@ -38,25 +39,31 @@ public static class ProfileEndpoints
     {
         var group = app.MapGroup("/profiles").WithTags("Profiles");
 
+        group.MapPut("/{id:guid}/experience", UpdateExperienceAsync)
+            .WithName("UpdateProfileExperience")
+            .WithSummary("Updates the active profile's name, avatar color, and navigation preferences.")
+            .Produces(StatusCodes.Status204NoContent)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .RequireActiveProfile();
+
         group.MapGet("/", async (
-            ClaimsPrincipal user,
+            HttpContext http,
+            IRequestAuthorityResolver resolver,
             IProfileService svc,
             IAccountRepository accounts,
             CancellationToken ct) =>
         {
+            var authority = await resolver.ResolveAsync(http, ct);
             var profiles = await svc.GetAllProfilesAsync(ct);
-            if (Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.AccountId), out var accountId))
-            {
-                var allowed = (await accounts.GetProfileIdsAsync(accountId, ct)).ToHashSet();
-                profiles = profiles.Where(profile => allowed.Contains(profile.Id)).ToList();
-            }
+            var allowed = (await accounts.GetProfileIdsAsync(authority.AccountId!.Value, ct)).ToHashSet();
+            profiles = profiles.Where(profile => allowed.Contains(profile.Id)).ToList();
             var dtos = profiles.Select(ProfileContractMapper.ToResponse).ToList();
             return Results.Ok(dtos);
         })
         .WithName("ListProfiles")
         .WithSummary("List all user profiles.")
         .Produces<List<ProfileResponseDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireHumanSelfService();
 
         group.MapGet("/{id:guid}", async (
             Guid id,
@@ -72,12 +79,12 @@ public static class ProfileEndpoints
         .WithSummary("Get a single profile by ID.")
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireActiveProfile();
 
         group.MapGet("/{id:guid}/taste", async (
             Guid id,
             IProfileService svc,
-            ITasteProfiler tasteProfiler,
+            [FromServices] ITasteProfiler tasteProfiler,
             CancellationToken ct) =>
         {
             var profile = await svc.GetProfileAsync(id, ct);
@@ -93,7 +100,7 @@ public static class ProfileEndpoints
         .WithSummary("Get the computed taste profile for a user profile.")
         .Produces<TasteProfileBuildResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireActiveProfile();
 
         group.MapGet("/{id:guid}/overview", async (
             Guid id,
@@ -112,7 +119,7 @@ public static class ProfileEndpoints
         .WithSummary("Get user-facing profile details, history, statistics, and taste signals.")
         .Produces<ProfileOverviewResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireActiveProfile();
 
         group.MapGet("/{id:guid}/settings/playback", async (
             Guid id,
@@ -133,7 +140,7 @@ public static class ProfileEndpoints
         .WithSummary("Get user playback and reading settings for a profile.")
         .Produces<UserPlaybackSettingsDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireActiveProfile();
 
         group.MapGet("/{id:guid}/settings/view", async (
             Guid id,
@@ -213,7 +220,7 @@ public static class ProfileEndpoints
         .Produces<UserPlaybackSettingsDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireActiveProfile();
 
         group.MapGet("/{id:guid}/sequence-preferences/missing-items", async (
             Guid id,
@@ -245,7 +252,7 @@ public static class ProfileEndpoints
         .Produces<SeriesMissingItemPreferenceDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireActiveProfile();
 
         group.MapPut("/{id:guid}/sequence-preferences/missing-items", async (
             Guid id,
@@ -280,7 +287,7 @@ public static class ProfileEndpoints
         .Produces<SeriesMissingItemPreferenceDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireActiveProfile();
 
         group.MapDelete("/{id:guid}/sequence-preferences/missing-items", async (
             Guid id,
@@ -312,7 +319,7 @@ public static class ProfileEndpoints
         .Produces<SeriesMissingItemPreferenceDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireActiveProfile();
 
         group.MapGet("/{id:guid}/avatar", async (
             Guid id,
@@ -337,7 +344,7 @@ public static class ProfileEndpoints
         .WithSummary("Serves a profile avatar image.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireGrantedProfileIdentity();
 
         group.MapPost("/{id:guid}/avatar", UploadProfileAvatarAsync)
         .WithName("UploadProfileAvatar")
@@ -346,7 +353,7 @@ public static class ProfileEndpoints
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireActiveProfile();
 
         group.MapDelete("/{id:guid}/avatar", async (
             Guid id,
@@ -378,115 +385,7 @@ public static class ProfileEndpoints
         .WithSummary("Removes the uploaded avatar image for a profile.")
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
-
-        group.MapPost("/", async (
-            CreateProfileRequest request,
-            ClaimsPrincipal user,
-            IProfileService svc,
-            IAccountRepository accounts,
-            CancellationToken ct) =>
-        {
-            if (string.IsNullOrWhiteSpace(request.DisplayName))
-            {
-                return ApiErrors.BadRequest("display_name must not be empty.");
-            }
-
-            if (!Enum.TryParse<ProfileRole>(request.Role, ignoreCase: true, out var role))
-            {
-                return ApiErrors.BadRequest(
-                    $"Invalid role '{request.Role}'. Must be one of: {string.Join(", ", AppRoles.All)}.");
-            }
-
-            var profile = await svc.CreateProfileAsync(
-                request.DisplayName, role, request.AvatarColor, ct);
-
-            var now = DateTimeOffset.UtcNow;
-            var localAccount = new Account
-            {
-                Id = Guid.NewGuid(), IsLocalOnly = true, IsEnabled = true,
-                CreatedAt = now, UpdatedAt = now,
-            };
-            await accounts.InsertAsync(localAccount, ct);
-            await accounts.GrantProfileAsync(new AccountProfileGrant
-            {
-                AccountId = localAccount.Id, ProfileId = profile.Id, IsDefault = true, GrantedAt = now,
-            }, ct);
-            if (Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.AccountId), out var creatorAccountId))
-            {
-                await accounts.GrantProfileAsync(new AccountProfileGrant
-                {
-                    AccountId = creatorAccountId, ProfileId = profile.Id, IsDefault = false, GrantedAt = now,
-                }, ct);
-            }
-
-            return Results.Ok(ProfileContractMapper.ToResponse(profile));
-        })
-        .WithName("CreateProfile")
-        .WithSummary("Create a new user profile.")
-        .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
-
-        group.MapMethods("/{id:guid}", ["PUT"], async (
-            Guid id,
-            UpdateProfileRequest request,
-            IProfileService svc,
-            CancellationToken ct) =>
-        {
-            if (string.IsNullOrWhiteSpace(request.DisplayName))
-            {
-                return ApiErrors.BadRequest("display_name must not be empty.");
-            }
-
-            var existing = await svc.GetProfileAsync(id, ct);
-            if (existing is null)
-            {
-                return ApiErrors.NotFound($"Profile '{id}' not found.");
-            }
-
-            if (!Enum.TryParse<ProfileRole>(request.Role, ignoreCase: true, out var role))
-            {
-                return ApiErrors.BadRequest(
-                    $"Invalid role '{request.Role}'. Must be one of: {string.Join(", ", AppRoles.All)}.");
-            }
-
-            existing.DisplayName = request.DisplayName.Trim();
-            existing.AvatarColor = string.IsNullOrWhiteSpace(request.AvatarColor)
-                ? existing.AvatarColor
-                : request.AvatarColor.Trim();
-            existing.Role = role;
-            existing.NavigationConfig = request.NavigationConfig;
-
-            var updated = await svc.UpdateProfileAsync(existing, ct);
-            return updated
-                ? Results.Ok(ProfileContractMapper.ToResponse(existing))
-                : ApiErrors.BadRequest(
-                    "Cannot demote the seed Owner or the last Administrator profile.");
-        })
-        .WithName("UpdateProfile")
-        .WithSummary("Update an existing profile's display name, avatar color, and role.")
-        .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
-
-        group.MapDelete("/{id:guid}", async (
-            Guid id,
-            IProfileService svc,
-            CancellationToken ct) =>
-        {
-            var deleted = await svc.DeleteProfileAsync(id, ct);
-            return deleted
-                ? Results.NoContent()
-                : ApiErrors.BadRequest(
-                    "Cannot delete this profile. It may be the seed profile or the last Administrator.");
-        })
-        .WithName("DeleteProfile")
-        .WithSummary("Delete a profile. Cannot delete the seed Owner profile or the last Administrator.")
-        .Produces(StatusCodes.Status204NoContent)
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireActiveProfile();
 
         return app;
     }
@@ -496,13 +395,77 @@ public static class ProfileEndpoints
         string mediaType,
         string containerKey,
         ProfileSequencePreference? preference) => new()
+        {
+            ProfileId = profileId,
+            MediaType = preference?.MediaType ?? mediaType.Trim().ToLowerInvariant(),
+            ContainerKey = preference?.ContainerKey ?? containerKey.Trim().ToLowerInvariant(),
+            ShowMissing = preference?.ShowMissing,
+            UpdatedAt = preference?.UpdatedAt,
+        };
+
+    private static RouteHandlerBuilder RequireActiveProfile(this RouteHandlerBuilder builder) =>
+        builder.RequireHumanSelfService()
+            .AddEndpointFilter(async (context, next) =>
+            {
+                if (!Guid.TryParse(
+                        context.HttpContext.Request.RouteValues["id"]?.ToString(),
+                        out var profileId))
+                {
+                    return ApiErrors.NotFound("Profile not found.");
+                }
+
+                return await IsActiveProfileAuthorizedAsync(context.HttpContext, profileId)
+                    ? await next(context)
+                    : ApiErrors.NotFound("Profile not found.");
+            })
+            .WithMetadata(new AuthorityRequirementMetadata("active_profile_resource"));
+
+    private static RouteHandlerBuilder RequireGrantedProfileIdentity(this RouteHandlerBuilder builder) =>
+        builder.RequireHumanSelfService()
+            .AddEndpointFilter(async (context, next) =>
+            {
+                if (!Guid.TryParse(
+                        context.HttpContext.Request.RouteValues["id"]?.ToString(),
+                        out var profileId))
+                {
+                    return ApiErrors.NotFound("Profile not found.");
+                }
+
+                return await IsGrantedProfileIdentityAuthorizedAsync(context.HttpContext, profileId)
+                    ? await next(context)
+                    : ApiErrors.NotFound("Profile not found.");
+            })
+            .WithMetadata(new AuthorityRequirementMetadata("granted_profile_identity"));
+
+    internal static async ValueTask<bool> IsActiveProfileAuthorizedAsync(
+        HttpContext context,
+        Guid profileId)
     {
-        ProfileId = profileId,
-        MediaType = preference?.MediaType ?? mediaType.Trim().ToLowerInvariant(),
-        ContainerKey = preference?.ContainerKey ?? containerKey.Trim().ToLowerInvariant(),
-        ShowMissing = preference?.ShowMissing,
-        UpdatedAt = preference?.UpdatedAt,
-    };
+        var resolver = context.RequestServices.GetRequiredService<IRequestAuthorityResolver>();
+        var decisions = context.RequestServices.GetRequiredService<ISelfServiceAuthorizationService>();
+        var authority = await resolver.ResolveAsync(context, context.RequestAborted);
+        return (await decisions.EvaluateProfileAsync(
+            authority,
+            profileId,
+            context.RequestAborted)).IsAllowed;
+    }
+
+    internal static async ValueTask<bool> IsGrantedProfileIdentityAuthorizedAsync(
+        HttpContext context,
+        Guid profileId)
+    {
+        var resolver = context.RequestServices.GetRequiredService<IRequestAuthorityResolver>();
+        var authority = await resolver.ResolveAsync(context, context.RequestAborted);
+        if (authority.PrincipalKind != PrincipalKind.Human ||
+            !authority.AccountEnabled || !authority.GrantEnabled ||
+            authority.AccountId is not { } accountId)
+        {
+            return false;
+        }
+
+        var accounts = context.RequestServices.GetRequiredService<IAccountRepository>();
+        return await accounts.HasProfileAccessAsync(accountId, profileId, context.RequestAborted);
+    }
 
     internal static async Task<IResult> UploadProfileAvatarAsync(
         Guid id,
@@ -676,6 +639,47 @@ public static class ProfileEndpoints
         using var data = image.Encode(GetAvatarEncodeFormat(extension), 92);
         await using var output = File.Create(targetPath);
         data.SaveTo(output);
+    }
+
+    internal static async Task<IResult> UpdateExperienceAsync(Guid id, UpdateProfileExperienceRequest request,
+        IProfileService profiles, CancellationToken ct)
+    {
+        var name = request.DisplayName?.Trim();
+        var color = request.AvatarColor?.Trim();
+        if (string.IsNullOrEmpty(name) || name.Length > 50 || color is null || color.Length != 7
+            || color[0] != '#' || color[1..].Any(character => !Uri.IsHexDigit(character)))
+        {
+            return ApiErrors.BadRequest("Use a name of 1–50 characters and an avatar color in #RRGGBB format.");
+        }
+
+        if (request.NavigationConfig is { } navigation)
+        {
+            if (System.Text.Encoding.UTF8.GetByteCount(navigation) > 65_536)
+            {
+                return ApiErrors.BadRequest("Navigation preferences are too large.");
+            }
+
+            try
+            {
+                using var parsed = System.Text.Json.JsonDocument.Parse(navigation);
+                if (parsed.RootElement.ValueKind != System.Text.Json.JsonValueKind.Object)
+                {
+                    return ApiErrors.BadRequest("Navigation preferences must be a JSON object.");
+                }
+            }
+            catch (System.Text.Json.JsonException) { return ApiErrors.BadRequest("Navigation preferences must be valid JSON."); }
+        }
+        var profile = await profiles.GetProfileAsync(id, ct);
+        if (profile is null)
+        {
+            return ApiErrors.NotFound("Profile not found.");
+        }
+
+        profile.DisplayName = name;
+        profile.AvatarColor = color.ToUpperInvariant();
+        profile.NavigationConfig = request.NavigationConfig;
+        return await profiles.UpdateProfileAsync(profile, ct)
+            ? Results.NoContent() : ApiErrors.Conflict("Profile preferences could not be saved. Refresh and try again.");
     }
 
     private static SKEncodedImageFormat GetAvatarEncodeFormat(string extension) =>

@@ -3,7 +3,6 @@ namespace MediaEngine.Domain.Entities;
 public enum ProfileCredentialKind
 {
     ProfilePin = 0,
-    AdministratorPin = 1,
 }
 
 /// <summary>A versioned first-party credential belonging to one local profile.</summary>

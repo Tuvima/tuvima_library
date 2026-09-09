@@ -1,10 +1,10 @@
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Services;
 using Microsoft.Extensions.Logging;
@@ -198,7 +198,9 @@ public sealed class CoverArtWorker
         foreach (var assetType in affectedTypes)
         {
             if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase) && replacement is not null)
+            {
                 continue;
+            }
 
             var survivors = await _entityAssetRepo.GetByEntityAsync(ownerEntityId.ToString(), assetType, ct);
             var survivor = survivors.FirstOrDefault(asset => asset.IsPreferred)
@@ -211,17 +213,24 @@ public sealed class CoverArtWorker
                     ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(ownerEntityId, survivor, DateTimeOffset.UtcNow),
                     ct);
                 if (_assetExportService is not null)
+                {
                     await _assetExportService.ReconcileArtworkAsync(survivor.EntityId, survivor.EntityType, survivor.AssetTypeValue, ct);
+                }
+
                 continue;
             }
 
             await ClearArtworkDisplayCanonicalsAsync(ownerEntityId, assetType, ct);
             if (_assetExportService is not null)
+            {
                 await _assetExportService.ClearArtworkExportAsync(ownerEntityId.ToString(), "Work", assetType, ct);
+            }
         }
 
         if (replacement is null && affectedTypes.All(type => !string.Equals(type, "CoverArt", StringComparison.OrdinalIgnoreCase)))
+        {
             await ClearArtworkDisplayCanonicalsAsync(ownerEntityId, "CoverArt", ct);
+        }
 
         // The artwork state always changes for a supported retail replacement:
         // it either points at the new managed cover or is explicitly cleared.
@@ -356,7 +365,10 @@ public sealed class CoverArtWorker
                     InferCoverSource(coverSourceCanonicals, coverUrl)),
                 ct);
             if (existingVariant is not null && _assetExportService is not null)
+            {
                 await _assetExportService.ReconcileArtworkAsync(existingVariant.EntityId, existingVariant.EntityType, existingVariant.AssetTypeValue, ct);
+            }
+
             await PublishCoverHarvestedAsync(ownerEntityId, ct).ConfigureAwait(false);
 
             var titleForSkip = canonicals
@@ -466,7 +478,10 @@ public sealed class CoverArtWorker
                 coverSource),
             ct);
         if (coverVariant is not null && _assetExportService is not null)
+        {
             await _assetExportService.ReconcileArtworkAsync(coverVariant.EntityId, coverVariant.EntityType, coverVariant.AssetTypeValue, ct);
+        }
+
         await PublishCoverHarvestedAsync(ownerEntityId, ct).ConfigureAwait(false);
 
         {
@@ -487,7 +502,9 @@ public sealed class CoverArtWorker
     private Task PublishCoverHarvestedAsync(Guid entityId, CancellationToken ct)
     {
         if (_eventPublisher is null)
+        {
             return Task.CompletedTask;
+        }
 
         return _eventPublisher.PublishAsync(
             SignalREvents.MetadataHarvested,
@@ -547,7 +564,9 @@ public sealed class CoverArtWorker
         {
             var url = FindCoverUrl(candidate.Canonicals);
             if (string.IsNullOrWhiteSpace(url))
+            {
                 continue;
+            }
 
             if (candidate.EntityId != entityId)
             {
@@ -595,10 +614,14 @@ public sealed class CoverArtWorker
         var existing = canonicals.FirstOrDefault(c =>
             string.Equals(c.Key, MetadataFieldConstants.CoverSource, StringComparison.OrdinalIgnoreCase))?.Value;
         if (!string.IsNullOrWhiteSpace(existing))
+        {
             return existing;
+        }
 
         if (!string.IsNullOrWhiteSpace(coverUrl) && coverUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+        {
             return "provider";
+        }
 
         return "existing";
     }
@@ -608,7 +631,9 @@ public sealed class CoverArtWorker
     private static Guid ResolveCoverOwnerEntityId(Guid entityId, WorkLineage? lineage)
     {
         if (lineage is null)
+        {
             return entityId;
+        }
 
         return lineage.MediaType switch
         {
@@ -630,7 +655,9 @@ public sealed class CoverArtWorker
     {
         var staleEntityIds = new HashSet<Guid>();
         if (entityId != ownerEntityId)
+        {
             staleEntityIds.Add(entityId);
+        }
 
         // Parent-owned artwork (albums, shows, and movies) must also clear a
         // stale child-work cover. Self-owned artwork (books, audiobooks, and
@@ -704,7 +731,9 @@ public sealed class CoverArtWorker
             try
             {
                 if (File.Exists(fullPath))
+                {
                     File.Delete(fullPath);
+                }
             }
             catch (IOException ex)
             {
@@ -720,7 +749,9 @@ public sealed class CoverArtWorker
     private async Task ClearArtworkDisplayCanonicalsAsync(Guid entityId, string assetType, CancellationToken ct)
     {
         foreach (var key in GetArtworkDisplayCanonicalKeys(assetType))
+        {
             await _canonicalRepo.DeleteByKeyAsync(entityId, key, ct);
+        }
     }
 
     private static IReadOnlyList<string> GetArtworkDisplayCanonicalKeys(string assetType)
@@ -736,7 +767,9 @@ public sealed class CoverArtWorker
             _ => null,
         };
         if (prefix is null)
+        {
             return [];
+        }
 
         var keys = new List<string>
         {
@@ -783,7 +816,9 @@ public sealed class CoverArtWorker
         CancellationToken ct)
     {
         if (_entityAssetRepo is null)
+        {
             return null;
+        }
 
         var existing = (await _entityAssetRepo.GetByEntityAsync(entityId.ToString(), "CoverArt", ct))
             .FirstOrDefault(asset =>
@@ -793,11 +828,11 @@ public sealed class CoverArtWorker
 
         var variant = existing ?? new EntityAsset
         {
-            Id             = variantId,
-            EntityId       = entityId.ToString(),
-            EntityType     = "Work",
+            Id = variantId,
+            EntityId = entityId.ToString(),
+            EntityType = "Work",
             AssetTypeValue = "CoverArt",
-            CreatedAt      = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
             AssetClassValue = "Artwork",
             StorageLocationValue = "Central",
             OwnerScope = "Work",
@@ -820,7 +855,9 @@ public sealed class CoverArtWorker
     private async Task<EntityAsset?> FindExistingCoverVariantAsync(Guid entityId, string? providerUrl, CancellationToken ct)
     {
         if (_entityAssetRepo is null || string.IsNullOrWhiteSpace(providerUrl))
+        {
             return null;
+        }
 
         return (await _entityAssetRepo.GetByEntityAsync(entityId.ToString(), "CoverArt", ct))
             .FirstOrDefault(asset =>
@@ -830,7 +867,9 @@ public sealed class CoverArtWorker
     private static string InferImageExtension(string? sourceUrl, string assetType)
     {
         if (string.Equals(assetType, "Logo", StringComparison.OrdinalIgnoreCase))
+        {
             return ".png";
+        }
 
         return MediaMimeTypes.InferImageExtension(sourceUrl) ?? ".jpg";
     }

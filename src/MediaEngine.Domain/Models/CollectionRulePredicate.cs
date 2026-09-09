@@ -56,8 +56,8 @@ public sealed class CollectionRuleDefinition
     public static CollectionRuleDefinition SingleGroup(
         IEnumerable<CollectionRulePredicate> conditions,
         string matchMode = "all") => new()
-    {
-        Groups =
+        {
+            Groups =
         [
             new CollectionRuleGroup
             {
@@ -65,5 +65,5 @@ public sealed class CollectionRuleDefinition
                 Conditions = conditions.ToList(),
             },
         ],
-    };
+        };
 }

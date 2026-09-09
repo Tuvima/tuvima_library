@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -24,6 +22,8 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 

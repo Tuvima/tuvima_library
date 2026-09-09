@@ -10,6 +10,7 @@
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
+@inject DashboardSessionAccessor Session
 @inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
@@ -379,7 +380,7 @@
     private string? _loadedPeopleQueryKey;
 
     private bool CanManageCuratedCollections =>
-        string.Equals(_activeProfile?.Role, "Administrator", StringComparison.OrdinalIgnoreCase);
+        Session.HasAction("access.manage");
 
     private IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups =>
         CollectionsSectionConfiguration.BuildNavigation(

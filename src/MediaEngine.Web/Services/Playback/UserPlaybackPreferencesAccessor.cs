@@ -16,7 +16,9 @@ public sealed class UserPlaybackPreferencesAccessor : IUserPlaybackPreferencesAc
     public async Task<UserPlaybackSettingsDto?> GetAsync(CancellationToken ct = default)
     {
         if (_cached is not null)
+        {
             return _cached;
+        }
 
         _cached = await _orchestrator.GetPlaybackSettingsAsync(ct);
         return _cached;

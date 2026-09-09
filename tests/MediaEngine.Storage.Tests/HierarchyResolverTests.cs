@@ -30,7 +30,7 @@ public sealed class HierarchyResolverTests : IDisposable
         _db.InitializeSchema();
         _db.RunStartupChecks();
 
-        _works    = new WorkRepository(_db);
+        _works = new WorkRepository(_db);
         _resolver = new HierarchyResolver(_works);
     }
 
@@ -66,8 +66,8 @@ public sealed class HierarchyResolverTests : IDisposable
     [Fact]
     public async Task Music_DifferentAlbums_GetDifferentParents()
     {
-        var a = await _resolver.ResolveAsync(MediaType.Music, Track("Radiohead", "OK Computer",   "Karma Police", 6));
-        var b = await _resolver.ResolveAsync(MediaType.Music, Track("Radiohead", "Kid A",         "Idioteque",    8));
+        var a = await _resolver.ResolveAsync(MediaType.Music, Track("Radiohead", "OK Computer", "Karma Police", 6));
+        var b = await _resolver.ResolveAsync(MediaType.Music, Track("Radiohead", "Kid A", "Idioteque", 8));
 
         Assert.NotEqual(a.ParentWorkId, b.ParentWorkId);
     }
@@ -171,7 +171,7 @@ public sealed class HierarchyResolverTests : IDisposable
     [Fact]
     public async Task Music_SameTrackTwice_IsIdempotent()
     {
-        var first  = await _resolver.ResolveAsync(MediaType.Music, Track("Radiohead", "OK Computer", "Karma Police", 6));
+        var first = await _resolver.ResolveAsync(MediaType.Music, Track("Radiohead", "OK Computer", "Karma Police", 6));
         var second = await _resolver.ResolveAsync(MediaType.Music, Track("Radiohead", "OK Computer", "Karma Police", 6));
 
         Assert.Equal(first.WorkId, second.WorkId);
@@ -205,7 +205,7 @@ public sealed class HierarchyResolverTests : IDisposable
     {
         // Note: only true diacritics (combining marks) are normalised away.
         // Ligatures like æ are distinct letters and remain as-is.
-        var a = await _resolver.ResolveAsync(MediaType.Music, Track("Beyoncé", "Renaissance", "Cuff It",    3));
+        var a = await _resolver.ResolveAsync(MediaType.Music, Track("Beyoncé", "Renaissance", "Cuff It", 3));
         var b = await _resolver.ResolveAsync(MediaType.Music, Track("Beyonce", "Renaissance", "Break My Soul", 6));
 
         Assert.Equal(a.ParentWorkId, b.ParentWorkId);
@@ -216,7 +216,7 @@ public sealed class HierarchyResolverTests : IDisposable
     {
         var loose = await _resolver.ResolveAsync(MediaType.Music, new Dictionary<string, string>
         {
-            ["title"]  = "Untitled Demo",
+            ["title"] = "Untitled Demo",
             ["artist"] = "Some Artist",
         });
 
@@ -249,8 +249,8 @@ public sealed class HierarchyResolverTests : IDisposable
     [Fact]
     public async Task TV_TwoShowsWithSeasonOne_StayDistinct()
     {
-        var bb = await _resolver.ResolveAsync(MediaType.TV, Episode("Breaking Bad",       1, 1, "Pilot"));
-        var bc = await _resolver.ResolveAsync(MediaType.TV, Episode("Better Call Saul",   1, 1, "Uno"));
+        var bb = await _resolver.ResolveAsync(MediaType.TV, Episode("Breaking Bad", 1, 1, "Pilot"));
+        var bc = await _resolver.ResolveAsync(MediaType.TV, Episode("Better Call Saul", 1, 1, "Uno"));
 
         Assert.NotEqual(bb.ParentWorkId, bc.ParentWorkId);
     }
@@ -273,15 +273,15 @@ public sealed class HierarchyResolverTests : IDisposable
     {
         var i1 = await _resolver.ResolveAsync(MediaType.Comics, new Dictionary<string, string>
         {
-            ["series"]       = "Saga",
+            ["series"] = "Saga",
             ["issue_number"] = "1",
-            ["title"]        = "Chapter One",
+            ["title"] = "Chapter One",
         });
         var i2 = await _resolver.ResolveAsync(MediaType.Comics, new Dictionary<string, string>
         {
-            ["series"]       = "Saga",
+            ["series"] = "Saga",
             ["issue_number"] = "2",
-            ["title"]        = "Chapter Two",
+            ["title"] = "Chapter Two",
         });
 
         Assert.NotNull(i1.ParentWorkId);
@@ -323,16 +323,16 @@ public sealed class HierarchyResolverTests : IDisposable
     {
         var first = await _resolver.ResolveAsync(MediaType.Books, new Dictionary<string, string>
         {
-            ["title"]           = "Foundation",
-            ["author"]          = "Isaac Asimov",
-            ["series"]          = "Foundation",
+            ["title"] = "Foundation",
+            ["author"] = "Isaac Asimov",
+            ["series"] = "Foundation",
             ["series_position"] = "1",
         });
         var second = await _resolver.ResolveAsync(MediaType.Books, new Dictionary<string, string>
         {
-            ["title"]           = "Foundation and Empire",
-            ["author"]          = "Asimov, Isaac",
-            ["series"]          = "Foundation",
+            ["title"] = "Foundation and Empire",
+            ["author"] = "Asimov, Isaac",
+            ["series"] = "Foundation",
             ["series_position"] = "2",
         });
 
@@ -386,15 +386,15 @@ public sealed class HierarchyResolverTests : IDisposable
     {
         var a = await _resolver.ResolveAsync(MediaType.Movies, new Dictionary<string, string>
         {
-            ["title"]    = "Inception",
+            ["title"] = "Inception",
             ["director"] = "Christopher Nolan",
-            ["year"]     = "2010",
+            ["year"] = "2010",
         });
         var b = await _resolver.ResolveAsync(MediaType.Movies, new Dictionary<string, string>
         {
-            ["title"]    = "Inception",
+            ["title"] = "Inception",
             ["director"] = "Christopher Nolan",
-            ["year"]     = "2010",
+            ["year"] = "2010",
         });
 
         // Two different files of the same movie create two different
@@ -465,14 +465,16 @@ public sealed class HierarchyResolverTests : IDisposable
     {
         var metadata = new Dictionary<string, string>
         {
-            ["artist"]       = artist,
-            ["album"]        = album,
-            ["title"]        = title,
+            ["artist"] = artist,
+            ["album"] = album,
+            ["title"] = title,
             ["track_number"] = trackNum.ToString(),
         };
 
         if (discNumber.HasValue)
+        {
             metadata["disc_number"] = discNumber.Value.ToString();
+        }
 
         return metadata;
     }
@@ -483,21 +485,21 @@ public sealed class HierarchyResolverTests : IDisposable
         string title,
         int part,
         int partCount) => new()
-    {
-        ["author"] = author,
-        ["book_title"] = bookTitle,
-        ["album"] = bookTitle,
-        ["title"] = title,
-        ["audiobook_part_number"] = part.ToString(),
-        ["audiobook_part_count"] = partCount.ToString(),
-    };
+        {
+            ["author"] = author,
+            ["book_title"] = bookTitle,
+            ["album"] = bookTitle,
+            ["title"] = title,
+            ["audiobook_part_number"] = part.ToString(),
+            ["audiobook_part_count"] = partCount.ToString(),
+        };
 
     private static Dictionary<string, string> Episode(string show, int season, int episode, string title) => new()
     {
-        ["show_name"]      = show,
-        ["season_number"]  = season.ToString(),
+        ["show_name"] = show,
+        ["season_number"] = season.ToString(),
         ["episode_number"] = episode.ToString(),
-        ["episode_title"]  = title,
+        ["episode_title"] = title,
     };
 
     private async Task<Guid> InsertOwnedWorkWithCanonicalsAsync(

@@ -3,7 +3,7 @@ namespace MediaEngine.Api.Security;
 /// <summary>
 /// Validates user-submitted filesystem paths to prevent directory traversal attacks.
 ///
-/// This is a secondary defence — <see cref="RoleAuthorizationFilter"/> ensures only
+/// This is a secondary defence — <see cref="AuthorityEndpointExtensions"/> ensures only
 /// Administrators can call folder-related endpoints in the first place.  This class
 /// adds an extra layer of path-level validation as defence-in-depth.
 /// </summary>
@@ -22,11 +22,15 @@ public static class PathValidator
     public static string? Validate(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
+        {
             return "Path must not be empty.";
+        }
 
         // Reject path traversal sequences — check both separator styles for portability.
         if (path.Contains("..\\") || path.Contains("../") || path.EndsWith(".."))
+        {
             return "Path must not contain '..' traversal segments.";
+        }
 
         // Reject known system paths.
         var comparison = OperatingSystem.IsWindows()
@@ -36,7 +40,9 @@ public static class PathValidator
         foreach (var prefix in ForbiddenPrefixes)
         {
             if (path.StartsWith(prefix, comparison))
+            {
                 return $"Path must not target a system directory ({prefix}).";
+            }
         }
 
         return null; // safe

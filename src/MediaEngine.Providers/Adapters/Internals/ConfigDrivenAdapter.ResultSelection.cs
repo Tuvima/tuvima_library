@@ -6,16 +6,16 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Models;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Adapters;
 
@@ -29,11 +29,15 @@ public sealed partial class ConfigDrivenAdapter
     {
         // If no results_path, treat the whole response as the result.
         if (string.IsNullOrEmpty(strategy.ResultsPath))
+        {
             return json;
+        }
 
         var resultsNode = JsonPathEvaluator.Evaluate(json, strategy.ResultsPath);
         if (resultsNode is not JsonArray arr || arr.Count == 0)
+        {
             return null;
+        }
 
         // Title + author validation: applies to ALL strategies (lookup and search).
         // Prevents wrong books from being accepted — e.g. study guides by different
@@ -45,10 +49,14 @@ public sealed partial class ConfigDrivenAdapter
         var comicIssueResult = await TrySelectComicIssueResultAsync(arr, request, ct)
             .ConfigureAwait(false);
         if (comicIssueResult is not null)
+        {
             return comicIssueResult;
+        }
 
         if (strategy.CandidateSelection is not null)
+        {
             return TrySelectConfiguredCandidate(arr, strategy, request);
+        }
 
         if (!string.IsNullOrWhiteSpace(request.Title))
         {
@@ -56,7 +64,7 @@ public sealed partial class ConfigDrivenAdapter
             // word-overlap scoring isn't penalised by filename-derived suffixes.
             var cleanedQueryTitle = CleanTitleForSearch(request.Title) ?? request.Title;
 
-            var titlePaths  = new[] { "trackName", "collectionName", "title", "name", "issue", "series.name", "series", "volumeName" };
+            var titlePaths = new[] { "trackName", "collectionName", "title", "name", "issue", "series.name", "series", "volumeName" };
             var authorPaths = new[] { "artistName", "author", "authors", "creator" };
 
             var applyDerivativeGuard = request.MediaType is MediaType.Books or MediaType.Audiobooks;
@@ -67,7 +75,10 @@ public sealed partial class ConfigDrivenAdapter
             var scored = new List<(JsonNode Node, double TitleScore, double AuthorScore, bool Derivative)>();
             foreach (var node in arr)
             {
-                if (node is null) continue;
+                if (node is null)
+                {
+                    continue;
+                }
 
                 // Try all title paths and keep the best score. Comic providers
                 // may expose both issue-level and series-level names, and the
@@ -77,9 +88,17 @@ public sealed partial class ConfigDrivenAdapter
                 foreach (var tp in titlePaths)
                 {
                     var val = JsonPathEvaluator.Evaluate(node, tp);
-                    if (val is null) continue;
+                    if (val is null)
+                    {
+                        continue;
+                    }
+
                     var s = JsonPathEvaluator.GetStringValue(val);
-                    if (string.IsNullOrWhiteSpace(s)) continue;
+                    if (string.IsNullOrWhiteSpace(s))
+                    {
+                        continue;
+                    }
+
                     var score = ComputeWordOverlap(cleanedQueryTitle, s);
                     if (score > bestTitleScore)
                     {
@@ -89,9 +108,12 @@ public sealed partial class ConfigDrivenAdapter
                 }
                 var nodeAuthor = ExtractFirstString(node, authorPaths);
 
-                if (string.IsNullOrWhiteSpace(bestNodeTitle)) continue;
+                if (string.IsNullOrWhiteSpace(bestNodeTitle))
+                {
+                    continue;
+                }
 
-                var titleScore  = bestTitleScore;
+                var titleScore = bestTitleScore;
                 var authorScore = !string.IsNullOrWhiteSpace(request.Author) && !string.IsNullOrWhiteSpace(nodeAuthor)
                     ? ComputeWordOverlap(request.Author, nodeAuthor)
                     : 0.0;
@@ -120,14 +142,20 @@ public sealed partial class ConfigDrivenAdapter
             // Tier 1: prefer results where both author AND title match.
             var selectable = scored.Where(s => !s.Derivative).ToList();
             if (applyDerivativeGuard && !sourceLooksDerivative && selectable.Count == 0)
+            {
                 return null;
+            }
 
             if (selectable.Count == 0)
+            {
                 selectable = scored;
+            }
 
             var authorMatched = selectable.Where(s => s.AuthorScore >= 0.50).ToList();
             if (authorMatched.Count > 0)
+            {
                 return authorMatched.OrderByDescending(s => s.TitleScore).First().Node;
+            }
 
             // Tier 2: no author match — fall back to title match (>= 0.40).
             // F1 >= 0.40 means at least moderate word overlap between query and candidate.
@@ -149,13 +177,17 @@ public sealed partial class ConfigDrivenAdapter
     {
         if (!string.Equals(Name, "comicvine", StringComparison.OrdinalIgnoreCase)
             || request.MediaType != MediaType.Comics)
+        {
             return null;
+        }
 
         var fileSeries = request.Series
             ?? request.Hints?.GetValueOrDefault(MetadataFieldConstants.Series);
         var fileIssue = GetComicIssueHint(request);
         if (string.IsNullOrWhiteSpace(fileSeries) || string.IsNullOrWhiteSpace(fileIssue))
+        {
             return null;
+        }
 
         var cleanedQueryTitle = !string.IsNullOrWhiteSpace(request.Title)
             ? CleanTitleForSearch(request.Title) ?? request.Title
@@ -170,7 +202,9 @@ public sealed partial class ConfigDrivenAdapter
         foreach (var node in arr)
         {
             if (node is null)
+            {
                 continue;
+            }
 
             var candidateSeries = ExtractFirstString(node,
                 ["volume.name", "series.name", "series", "volumeName", "volume"]);
@@ -204,11 +238,15 @@ public sealed partial class ConfigDrivenAdapter
                 BaseScore = baseRunScopedCandidate.BaseScore + 0.35
             };
             if (!matching.Any(candidate => SameComicVineIssue(candidate.Node, runScopedCandidate.Node)))
+            {
                 matching.Add(runScopedCandidate);
+            }
         }
 
         if (matching.Count == 0)
+        {
             return null;
+        }
 
         if (matching.Count > 1)
         {
@@ -281,19 +319,25 @@ public sealed partial class ConfigDrivenAdapter
         CancellationToken ct)
     {
         if (!requestedIssueNumber.HasValue)
+        {
             return null;
+        }
 
         try
         {
             var volumes = await TrySelectComicVineVolumesAsync(fileSeries, requestedYear, requestedIssueNumber, request, ct)
                 .ConfigureAwait(false);
             if (volumes.Count == 0)
+            {
                 return null;
+            }
 
             var baseUrl = ResolveBaseUrl(request);
             var apiKey = _config.HttpClient?.ApiKey;
             if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+            {
                 return null;
+            }
 
             foreach (var volume in volumes)
             {
@@ -302,7 +346,9 @@ public sealed partial class ConfigDrivenAdapter
                 var issueJson = await FetchComicVineJsonAsync(issueUrl, ct).ConfigureAwait(false);
                 var issues = issueJson?["results"]?.AsArray();
                 if (issues is null)
+                {
                     continue;
+                }
 
                 var issue = issues
                     .Where(candidate => candidate is not null)
@@ -315,7 +361,9 @@ public sealed partial class ConfigDrivenAdapter
                             && string.Equals(candidateVolumeId, volumeId, StringComparison.OrdinalIgnoreCase);
                     });
                 if (issue is not null)
+                {
                     return issue;
+                }
             }
 
             return null;
@@ -359,31 +407,43 @@ public sealed partial class ConfigDrivenAdapter
         var baseUrl = ResolveBaseUrl(request);
         var apiKey = _config.HttpClient?.ApiKey;
         if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
+        {
             return [];
+        }
 
         var url = $"{baseUrl.TrimEnd('/')}/search/?api_key={Uri.EscapeDataString(apiKey)}&query={Uri.EscapeDataString(fileSeries)}&resources=volume&limit=25&format=json";
         var json = await FetchComicVineJsonAsync(url, ct).ConfigureAwait(false);
         var volumes = json?["results"]?.AsArray();
         if (volumes is null)
+        {
             return [];
+        }
 
         var scored = new List<ComicVineVolumeSearchCandidate>();
         foreach (var volume in volumes)
         {
             if (volume is null)
+            {
                 continue;
+            }
 
             var name = ExtractFirstString(volume, ["name", "title"]);
             if (string.IsNullOrWhiteSpace(name) || !AreEquivalentComicText(fileSeries, name))
+            {
                 continue;
+            }
 
             var volumeId = ExtractFirstString(volume, ["id"]);
             if (string.IsNullOrWhiteSpace(volumeId))
+            {
                 continue;
+            }
 
             var issueCount = TryParseLeadingInt(ExtractFirstString(volume, ["count_of_issues", "issue_count"]));
             if (requestedIssueNumber.HasValue && issueCount.HasValue && issueCount.Value < requestedIssueNumber.Value)
+            {
                 continue;
+            }
 
             var startYear = TryExtractYear(ExtractFirstString(volume, ["start_year", "year"]));
             var publisher = ExtractFirstString(volume, ["publisher.name", "publisher"]);
@@ -419,7 +479,9 @@ public sealed partial class ConfigDrivenAdapter
         var leftId = ExtractFirstString(left, ["id"]);
         var rightId = ExtractFirstString(right, ["id"]);
         if (!string.IsNullOrWhiteSpace(leftId) && !string.IsNullOrWhiteSpace(rightId))
+        {
             return string.Equals(leftId, rightId, StringComparison.OrdinalIgnoreCase);
+        }
 
         var leftVolume = ExtractFirstString(left, ["volume.id", "volumeId"]);
         var rightVolume = ExtractFirstString(right, ["volume.id", "volumeId"]);
@@ -448,15 +510,21 @@ public sealed partial class ConfigDrivenAdapter
         foreach (var result in results)
         {
             if (result is null)
+            {
                 continue;
+            }
 
             if (selection.RequireNestedSelection
                 && (strategy.ReleaseSelection is null
                     || ApplyReleaseSelection(result, strategy.ReleaseSelection, request) is null))
+            {
                 continue;
+            }
 
             if (!PassesRequestFilters(result, selection.RequestFilters, request))
+            {
                 continue;
+            }
 
             var candidateTitle = ExtractFirstString(result, selection.TitlePaths.ToArray());
             var titleScore = !string.IsNullOrWhiteSpace(requestedTitle)
@@ -465,7 +533,9 @@ public sealed partial class ConfigDrivenAdapter
                     : 0;
             if (!string.IsNullOrWhiteSpace(requestedTitle)
                 && titleScore < selection.MinimumTitleScore)
+            {
                 continue;
+            }
 
             var candidateCreator = ExtractFirstString(result, selection.CreatorPaths.ToArray());
             var creatorScore = !string.IsNullOrWhiteSpace(requestedCreator)
@@ -500,7 +570,10 @@ public sealed partial class ConfigDrivenAdapter
             if (string.IsNullOrWhiteSpace(requested))
             {
                 if (filter.Required)
+                {
                     return false;
+                }
+
                 continue;
             }
 
@@ -510,7 +583,9 @@ public sealed partial class ConfigDrivenAdapter
                 .Cast<string>()
                 .ToList();
             if (values.Count == 0 || !values.Any(value => RequestFilterMatches(requested, value, filter)))
+            {
                 return false;
+            }
         }
 
         return true;
@@ -537,7 +612,9 @@ public sealed partial class ConfigDrivenAdapter
     private static bool IsStrongAlbumMatch(string? requestedAlbum, string? candidateAlbum)
     {
         if (string.IsNullOrWhiteSpace(requestedAlbum) || string.IsNullOrWhiteSpace(candidateAlbum))
+        {
             return false;
+        }
 
         return MusicAlbumIdentity.IsSameTrackList(requestedAlbum, candidateAlbum);
     }
@@ -577,7 +654,9 @@ public sealed partial class ConfigDrivenAdapter
     private static string ExtractLeadingDigits(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         var match = Regex.Match(value.Trim(), @"^\D*0*(\d+)");
         return match.Success ? match.Groups[1].Value : string.Empty;
@@ -586,7 +665,9 @@ public sealed partial class ConfigDrivenAdapter
     private static int? TryExtractYear(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var match = Regex.Match(value, @"(?<!\d)(19|20)\d{2}(?!\d)");
         return match.Success && int.TryParse(match.Value, out var year) ? year : null;
@@ -600,7 +681,9 @@ public sealed partial class ConfigDrivenAdapter
     private static double ScoreYearProximity(int? requestedYear, int? candidateYear)
     {
         if (!requestedYear.HasValue || !candidateYear.HasValue)
+        {
             return 0;
+        }
 
         var delta = Math.Abs(requestedYear.Value - candidateYear.Value);
         return delta switch
@@ -615,10 +698,14 @@ public sealed partial class ConfigDrivenAdapter
     private static double ScoreVolumeStartYearProximity(int? requestedYear, int? volumeStartYear)
     {
         if (!volumeStartYear.HasValue)
+        {
             return 0;
+        }
 
         if (!requestedYear.HasValue)
+        {
             return volumeStartYear.Value >= 2000 ? 0.03 : 0;
+        }
 
         var delta = Math.Abs(requestedYear.Value - volumeStartYear.Value);
         return delta switch
@@ -634,13 +721,19 @@ public sealed partial class ConfigDrivenAdapter
     private static double ScoreVolumeIssueCount(int? requestedIssueNumber, int? volumeIssueCount)
     {
         if (!volumeIssueCount.HasValue)
+        {
             return 0;
+        }
 
         if (requestedIssueNumber.HasValue && volumeIssueCount.Value < requestedIssueNumber.Value)
+        {
             return -0.50;
+        }
 
         if (volumeIssueCount.Value <= 1)
+        {
             return -0.05;
+        }
 
         return Math.Min(0.10, Math.Log10(volumeIssueCount.Value) * 0.05);
     }
@@ -648,7 +741,9 @@ public sealed partial class ConfigDrivenAdapter
     private static double ScoreLikelyOriginalComicRun(int? volumeIssueCount)
     {
         if (!volumeIssueCount.HasValue || volumeIssueCount.Value <= 0)
+        {
             return 0;
+        }
 
         return Math.Min(0.18, Math.Log10(volumeIssueCount.Value) * 0.09);
     }
@@ -657,7 +752,9 @@ public sealed partial class ConfigDrivenAdapter
     {
         var requestedPublisher = request.Hints?.GetValueOrDefault(MetadataFieldConstants.PublisherField);
         if (string.IsNullOrWhiteSpace(requestedPublisher) || string.IsNullOrWhiteSpace(publisher))
+        {
             return 0;
+        }
 
         return ComputeWordOverlap(requestedPublisher, publisher) >= 0.75 ? 0.12 : -0.03;
     }
@@ -665,7 +762,9 @@ public sealed partial class ConfigDrivenAdapter
     private static bool LooksNonEnglishDescription(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return false;
+        }
 
         var normalized = $" {StripDiacritics(value).ToLowerInvariant()} ";
         var markers = new[]
@@ -688,7 +787,10 @@ public sealed partial class ConfigDrivenAdapter
             if (val is not null)
             {
                 var s = JsonPathEvaluator.GetStringValue(val);
-                if (!string.IsNullOrWhiteSpace(s)) return s;
+                if (!string.IsNullOrWhiteSpace(s))
+                {
+                    return s;
+                }
             }
         }
         return null;
@@ -712,12 +814,19 @@ public sealed partial class ConfigDrivenAdapter
             .Where(w => w.Length >= 2)
             .ToHashSet();
 
-        if (qWords.Count == 0 || cWords.Count == 0) return 0.0;
+        if (qWords.Count == 0 || cWords.Count == 0)
+        {
+            return 0.0;
+        }
 
-        var coverage  = (double)qWords.Count(w => cWords.Contains(w)) / qWords.Count;
+        var coverage = (double)qWords.Count(w => cWords.Contains(w)) / qWords.Count;
         var precision = (double)cWords.Count(w => qWords.Contains(w)) / cWords.Count;
 
-        if (coverage + precision == 0) return 0.0;
+        if (coverage + precision == 0)
+        {
+            return 0.0;
+        }
+
         return 2 * coverage * precision / (coverage + precision);
     }
 
@@ -732,7 +841,9 @@ public sealed partial class ConfigDrivenAdapter
         foreach (var c in normalized)
         {
             if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+            {
                 sb.Append(c);
+            }
         }
         return sb.ToString().Normalize(NormalizationForm.FormC);
     }

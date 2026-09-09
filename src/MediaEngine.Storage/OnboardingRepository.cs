@@ -58,7 +58,10 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
                 SELECT state FROM onboarding_workflows
                 WHERE workflow_version = @version;
                 """, new { version = CurrentVersion }, transaction);
-            if (state == "complete") return false;
+            if (state == "complete")
+            {
+                return false;
+            }
 
             connection.Execute("""
                 INSERT INTO onboarding_sessions
@@ -87,7 +90,10 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
             LIMIT 1;
             """, new { version = CurrentVersion, tokenHash });
         if (row is null || !DateTimeOffset.TryParse(row.ExpiresAt, out var expiresAt) || expiresAt <= now)
+        {
             return false;
+        }
+
         await database.ExecuteWriteAsync((write, transaction, _) =>
         {
             write.Execute("UPDATE onboarding_sessions SET last_used_at = @now WHERE id = @id;",
@@ -137,7 +143,11 @@ public sealed class OnboardingRepository(IDatabaseConnection database)
                     (step_key IN ('providers','media-locations') AND status NOT IN ('passed','deferred'))
                   );
                 """, new { version = CurrentVersion }, transaction);
-            if (blocking > 0) return false;
+            if (blocking > 0)
+            {
+                return false;
+            }
+
             connection.Execute("""
                 UPDATE onboarding_steps SET status = 'passed', detail = 'Setup readiness accepted.',
                     completed_at = @now, updated_at = @now

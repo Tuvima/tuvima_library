@@ -1,10 +1,10 @@
 using System.Text.Json;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Storage;
 
@@ -37,12 +37,12 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented       = true,
+        WriteIndented = true,
         AllowTrailingCommas = true,
         ReadCommentHandling = JsonCommentHandling.Skip,
     };
 
-    private readonly string  _configDir;
+    private readonly string _configDir;
     private readonly object _reloadLock = new();
     private readonly Dictionary<string, object> _lastKnownGood = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Timer> _reloadTimers = new(StringComparer.OrdinalIgnoreCase);
@@ -55,16 +55,16 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
 
     // ── File names ────────────────────────────────────────────────────────────
 
-    private const string CoreFileName        = "core.json";
-    private const string ScoringFileName     = "scoring.json";
+    private const string CoreFileName = "core.json";
+    private const string ScoringFileName = "scoring.json";
     private const string MaintenanceFileName = "maintenance.json";
-    private const string HydrationFileName   = "hydration.json";
-    private const string MediaTypesFileName       = "media_types.json";
-    private const string DisambiguationFileName   = "disambiguation.json";
-    private const string TranscodingFileName      = "transcoding.json";
-    private const string NetworkFileName          = "network.json";
-    private const string FieldPrioritiesFileName  = "field_priorities.json";
-    private const string PipelinesFileName        = "pipelines.json";
+    private const string HydrationFileName = "hydration.json";
+    private const string MediaTypesFileName = "media_types.json";
+    private const string DisambiguationFileName = "disambiguation.json";
+    private const string TranscodingFileName = "transcoding.json";
+    private const string NetworkFileName = "network.json";
+    private const string FieldPrioritiesFileName = "field_priorities.json";
+    private const string PipelinesFileName = "pipelines.json";
 
     // ── Constructor ───────────────────────────────────────────────────────────
 
@@ -87,7 +87,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     public void StartWatching()
     {
         if (_watcher is not null || !Directory.Exists(_configDir))
+        {
             return;
+        }
 
         _watcher = new FileSystemWatcher(_configDir, "*.json")
         {
@@ -175,7 +177,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
 
     // ── UI Palette ───────────────────────────────────────────────────────────
 
-    private const string UiSubdir      = "ui";
+    private const string UiSubdir = "ui";
     private const string PaletteFileName = "palette.json";
 
     /// <inheritdoc/>
@@ -224,7 +226,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     {
         var pipelines = LoadFile<Dictionary<string, MediaTypePipeline>>(PipelinesFileName);
         if (pipelines is not null && pipelines.Count > 0)
+        {
             return new PipelineConfiguration { Pipelines = new Dictionary<string, MediaTypePipeline>(pipelines, StringComparer.OrdinalIgnoreCase) };
+        }
 
         return new PipelineConfiguration();
     }
@@ -255,7 +259,10 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         var config = LoadFile<ProviderConfiguration>(Path.Combine(ProvidersSubdir, $"{name}.json"));
         if (config is not null)
+        {
             ApplySecrets(config, name);
+        }
+
         return config;
     }
 
@@ -272,7 +279,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     {
         var dir = Path.Combine(_configDir, ProvidersSubdir);
         if (!Directory.Exists(dir))
+        {
             return [];
+        }
 
         var results = new List<ProviderConfiguration>();
         foreach (var file in Directory.EnumerateFiles(dir, "*.json"))
@@ -280,7 +289,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             var relativePath = Path.Combine(ProvidersSubdir, Path.GetFileName(file));
             var config = LoadFile<ProviderConfiguration>(relativePath);
             if (config is null)
+            {
                 continue;
+            }
 
             ApplySecrets(config, Path.GetFileNameWithoutExtension(file));
             results.Add(config);
@@ -298,7 +309,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     {
         var secretsPath = Path.Combine(_configDir, "secrets", $"{providerName}.json");
         if (!File.Exists(secretsPath))
+        {
             return;
+        }
 
         try
         {
@@ -307,7 +320,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             var root = doc.RootElement;
 
             if (root.ValueKind != JsonValueKind.Object)
+            {
                 return;
+            }
 
             // Ensure HttpClient exists if secrets reference it
             if (config.HttpClient is null)
@@ -319,21 +334,37 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
                     || root.TryGetProperty("password", out _);
 
                 if (hasHttpField)
+                {
                     config.HttpClient = new HttpClientConfig();
+                }
             }
 
             if (config.HttpClient is not null)
             {
                 if (root.TryGetProperty("api_key", out var apiKey) && apiKey.ValueKind == JsonValueKind.String)
+                {
                     config.HttpClient.ApiKey = apiKey.GetString();
+                }
+
                 if (root.TryGetProperty("client_key", out var clientKey) && clientKey.ValueKind == JsonValueKind.String)
+                {
                     config.HttpClient.ClientKey = clientKey.GetString();
+                }
+
                 if (root.TryGetProperty("access_token", out var accessToken) && accessToken.ValueKind == JsonValueKind.String)
+                {
                     config.HttpClient.AccessToken = accessToken.GetString();
+                }
+
                 if (root.TryGetProperty("username", out var user) && user.ValueKind == JsonValueKind.String)
+                {
                     config.HttpClient.Username = user.GetString();
+                }
+
                 if (root.TryGetProperty("password", out var pass) && pass.ValueKind == JsonValueKind.String)
+                {
                     config.HttpClient.Password = pass.GetString();
+                }
             }
         }
         catch
@@ -374,7 +405,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     /// </summary>
     private T? LoadFile<T>(string relativePath) where T : class
     {
-        var fullPath   = Path.Combine(_configDir, relativePath);
+        var fullPath = Path.Combine(_configDir, relativePath);
         var backupPath = fullPath + ".bak";
         var schemaName = ResolveSchemaName(relativePath);
 
@@ -387,7 +418,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         }
 
         if (!File.Exists(fullPath))
+        {
             return null;
+        }
 
         // Attempt 2 — backup file; restore primary on success
         result = TryDeserializeFile<T>(backupPath, relativePath, out var backupErrors);
@@ -400,7 +433,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         }
 
         if (TryGetLastKnownGood<T>(relativePath, out var cached))
+        {
             return cached;
+        }
 
         var errors = primaryErrors.Count > 0 ? primaryErrors : backupErrors;
         throw new ConfigValidationException(fullPath, schemaName, errors);
@@ -413,16 +448,20 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     /// </summary>
     private void SaveFile<T>(string relativePath, T config) where T : class
     {
-        var fullPath   = Path.Combine(_configDir, relativePath);
+        var fullPath = Path.Combine(_configDir, relativePath);
         var backupPath = fullPath + ".bak";
         var validationErrors = JsonConfigValidator.Validate(config, relativePath);
         if (validationErrors.Count > 0)
+        {
             throw new ConfigValidationException(fullPath, ResolveSchemaName(relativePath), validationErrors);
+        }
 
         // Ensure parent directory exists
         var dir = Path.GetDirectoryName(fullPath);
         if (dir is not null && !Directory.Exists(dir))
+        {
             Directory.CreateDirectory(dir);
+        }
 
         // Rotate current to backup
         if (File.Exists(fullPath))
@@ -442,7 +481,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         finally
         {
             if (File.Exists(temporaryPath))
+            {
                 File.Delete(temporaryPath);
+            }
         }
     }
 
@@ -451,7 +492,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     {
         errors = [];
         if (!File.Exists(path))
+        {
             return null;
+        }
 
         try
         {
@@ -504,7 +547,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     private void OnConfigFileChanged(object sender, FileSystemEventArgs args)
     {
         if (_disposed || !args.FullPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+        {
             return;
+        }
 
         var relativePath = NormalizeRelativePath(Path.GetRelativePath(_configDir, args.FullPath));
         if (relativePath.StartsWith("schemas/", StringComparison.OrdinalIgnoreCase)
@@ -565,7 +610,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         var fullPath = Path.Combine(_configDir, relativePath);
         var result = TryDeserializeFile<T>(fullPath, relativePath, out var errors);
         if (result is null)
+        {
             throw new ConfigValidationException(fullPath, ResolveSchemaName(relativePath), errors);
+        }
 
         RememberLastKnownGood(relativePath, result);
         return result;
@@ -578,7 +625,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     {
         var normalized = NormalizeRelativePath(relativePath);
         if (normalized.StartsWith("providers/", StringComparison.OrdinalIgnoreCase))
+        {
             return "providers/provider.schema.json";
+        }
 
         return normalized switch
         {
@@ -651,9 +700,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             {
                 ["description"] = new() { Priority = ["wikidata_reconciliation", "apple_api", "tmdb"], Note = "Prefer rich Wikipedia descriptions from the reconciliation provider, then fall back to enabled retail descriptions" },
                 ["short_description"] = new() { Priority = ["wikidata_reconciliation", "tmdb", "apple_api"], Note = "Prefer Wikidata entity descriptions for hero summaries; full Wikipedia extracts stay in description" },
-                ["biography"]   = new() { Priority = ["wikidata_reconciliation"], Note = "Rich Wikipedia bios for persons" },
-                ["cover"]       = new() { Priority = ["apple_api", "tmdb", "musicbrainz"], Note = "Enabled retail providers have high-res commercial art" },
-                ["rating"]      = new() { Priority = ["apple_api", "tmdb"], Note = "Wikidata does not carry ratings" },
+                ["biography"] = new() { Priority = ["wikidata_reconciliation"], Note = "Rich Wikipedia bios for persons" },
+                ["cover"] = new() { Priority = ["apple_api", "tmdb", "musicbrainz"], Note = "Enabled retail providers have high-res commercial art" },
+                ["rating"] = new() { Priority = ["apple_api", "tmdb"], Note = "Wikidata does not carry ratings" },
             }
         });
         SaveMediaTypes(new MediaTypeConfiguration());
@@ -661,55 +710,59 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         // Default providers for a newly initialized configuration directory.
         SaveProvider(new ProviderConfiguration
         {
-            Name    = "local_filesystem",
+            Name = "local_filesystem",
             Enabled = true,
-            Weight  = 1.0,
-            Domain  = ProviderDomain.Universal,
+            Weight = 1.0,
+            Domain = ProviderDomain.Universal,
         });
 
         SaveProvider(new ProviderConfiguration
         {
-            Name           = "apple_api",
-            Enabled        = true,
-            Weight         = 0.7,
-            Domain         = ProviderDomain.Universal,
+            Name = "apple_api",
+            Enabled = true,
+            Weight = 0.7,
+            Domain = ProviderDomain.Universal,
             CapabilityTags = ["cover", "description", "rating"],
-            FieldWeights   = new() { ["cover"] = 0.85, ["description"] = 0.85, ["rating"] = 0.7 },
-            Endpoints      = new() { ["api"] = "https://itunes.apple.com" },
-            ThrottleMs     = 300,
+            FieldWeights = new() { ["cover"] = 0.85, ["description"] = 0.85, ["rating"] = 0.7 },
+            Endpoints = new() { ["api"] = "https://itunes.apple.com" },
+            ThrottleMs = 300,
         });
 
         SaveProvider(new ProviderConfiguration
         {
-            Name           = "open_library",
-            Enabled        = false,
-            Weight         = 0.7,
-            Domain         = ProviderDomain.Ebook,
+            Name = "open_library",
+            Enabled = false,
+            Weight = 0.7,
+            Domain = ProviderDomain.Ebook,
             CapabilityTags = ["title", "author", "cover", "isbn", "year", "series"],
-            FieldWeights   = new()
+            FieldWeights = new()
             {
-                ["title"] = 0.75, ["author"] = 0.8, ["cover"] = 0.7,
-                ["isbn"] = 0.9, ["year"] = 0.85, ["series"] = 0.9,
+                ["title"] = 0.75,
+                ["author"] = 0.8,
+                ["cover"] = 0.7,
+                ["isbn"] = 0.9,
+                ["year"] = 0.85,
+                ["series"] = 0.9,
             },
-            Endpoints      = new() { ["open_library"] = "https://openlibrary.org" },
-            ThrottleMs     = 500,
+            Endpoints = new() { ["open_library"] = "https://openlibrary.org" },
+            ThrottleMs = 500,
         });
 
 
         SaveProvider(new ProviderConfiguration
         {
-            Name           = "wikidata",
-            Enabled        = true,
-            Weight         = 0.7,
-            Domain         = ProviderDomain.Universal,
+            Name = "wikidata",
+            Enabled = true,
+            Weight = 0.7,
+            Domain = ProviderDomain.Universal,
             CapabilityTags = ["series", "franchise", "person_id"],
-            FieldWeights   = new() { ["series"] = 1.0, ["franchise"] = 1.0, ["person_id"] = 1.0 },
-            Endpoints      = new()
+            FieldWeights = new() { ["series"] = 1.0, ["franchise"] = 1.0, ["person_id"] = 1.0 },
+            Endpoints = new()
             {
-                ["wikidata_api"]   = "https://www.wikidata.org/w/api.php",
+                ["wikidata_api"] = "https://www.wikidata.org/w/api.php",
                 ["wikidata_sparql"] = "https://query.wikidata.org/sparql",
             },
-            ThrottleMs     = 1100,
+            ThrottleMs = 1100,
         });
 
         // Default UI configuration
@@ -722,19 +775,19 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         });
         SaveConfig("ui/devices", "mobile", new UIDeviceProfile
         {
-            DeviceClass     = "mobile",
-            DisplayName     = "Mobile",
-            ContentPadding  = "pa-2",
+            DeviceClass = "mobile",
+            DisplayName = "Mobile",
+            ContentPadding = "pa-2",
             ContentMaxWidth = "Full",
-            Constraints     = new UIDeviceConstraints
+            Constraints = new UIDeviceConstraints
             {
                 FeaturesDisabled = ["view_toggle"],
                 MinTouchTargetPx = 48,
             },
             Shell = new UIShellSettings
             {
-                AppBarStyle     = "compact",
-                LogoVariant     = "icon",
+                AppBarStyle = "compact",
+                LogoVariant = "icon",
                 IntentDockItems = ["Home", "Read", "Watch", "Listen", "View", "Collections"],
                 IntentDockStyle = "normal",
             },
@@ -742,46 +795,46 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             {
                 Home = new UIHomePageSettings
                 {
-                    CollectionHeroLayout       = "stacked",
+                    CollectionHeroLayout = "stacked",
                     ProgressCardsLayout = "stacked",
-                    BentoColumns        = 1,
+                    BentoColumns = 1,
                     PendingFilesDisplay = "badge",
                 },
                 Preferences = new UIPreferencesPageSettings
                 {
-                    TabBarLayout     = "vertical",
+                    TabBarLayout = "vertical",
                     GeneralTabLayout = "stacked",
                     ColorSwatchCount = 4,
                 },
                 ServerSettings = new UIServerSettingsPageSettings
                 {
-                    TabBarLayout     = "vertical-accordion",
+                    TabBarLayout = "vertical-accordion",
                     TabContentLayout = "stacked-card",
                 },
             },
         });
         SaveConfig("ui/devices", "television", new UIDeviceProfile
         {
-            DeviceClass     = "television",
-            DisplayName     = "Television",
-            ContentPadding  = "pa-6",
+            DeviceClass = "television",
+            DisplayName = "Television",
+            ContentPadding = "pa-6",
             ContentMaxWidth = "Full",
-            BorderRadius    = 40,
-            Constraints     = new UIDeviceConstraints
+            BorderRadius = 40,
+            Constraints = new UIDeviceConstraints
             {
                 FeaturesDisabled = [
                     "command_palette", "search_button", "theme_toggle",
                     "avatar_menu", "pending_files_alert", "view_toggle",
                     "profile_section", "color_picker",
                 ],
-                PagesDisabled  = ["server_settings"],
+                PagesDisabled = ["server_settings"],
                 AllowTextInput = false,
                 MinTouchTargetPx = 64,
             },
             Shell = new UIShellSettings
             {
-                AppBarStyle     = "oversized",
-                LogoVariant     = "wordmark-large",
+                AppBarStyle = "oversized",
+                LogoVariant = "wordmark-large",
                 IntentDockItems = ["Collections", "Watch", "Read", "Listen"],
                 IntentDockStyle = "oversized",
             },
@@ -789,15 +842,15 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             {
                 Home = new UIHomePageSettings
                 {
-                    CollectionHeroLayout       = "two-column-oversized",
+                    CollectionHeroLayout = "two-column-oversized",
                     ProgressCardsLayout = "row-oversized",
-                    BentoColumns        = 2,
-                    BentoTileStyle      = "large",
+                    BentoColumns = 2,
+                    BentoTileStyle = "large",
                     PendingFilesDisplay = "hidden",
                 },
                 Preferences = new UIPreferencesPageSettings
                 {
-                    TabBarLayout     = "focus-nav",
+                    TabBarLayout = "focus-nav",
                     GeneralTabLayout = "theme-only",
                     ColorSwatchCount = 0,
                 },
@@ -806,26 +859,26 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         });
         SaveConfig("ui/devices", "automotive", new UIDeviceProfile
         {
-            DeviceClass     = "automotive",
-            DisplayName     = "Automotive",
-            DarkMode        = true,
+            DeviceClass = "automotive",
+            DisplayName = "Automotive",
+            DarkMode = true,
             ContentMaxWidth = "Full",
-            Constraints     = new UIDeviceConstraints
+            Constraints = new UIDeviceConstraints
             {
                 FeaturesDisabled = [
                     "command_palette", "search_button", "theme_toggle",
                     "avatar_menu", "pending_files_alert", "view_toggle",
                     "profile_section", "color_picker", "server_settings",
                 ],
-                PagesDisabled    = ["server_settings"],
-                AllowTextInput   = false,
+                PagesDisabled = ["server_settings"],
+                AllowTextInput = false,
                 MinTouchTargetPx = 80,
-                ForceDarkMode    = true,
+                ForceDarkMode = true,
             },
             Shell = new UIShellSettings
             {
-                AppBarStyle     = "minimal",
-                LogoVariant     = "icon-large",
+                AppBarStyle = "minimal",
+                LogoVariant = "icon-large",
                 IntentDockItems = ["Collections", "Listen"],
                 IntentDockStyle = "oversized",
             },
@@ -833,16 +886,16 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             {
                 Home = new UIHomePageSettings
                 {
-                    CollectionHeroEnabled      = false,
-                    CollectionHeroLayout       = "hidden",
+                    CollectionHeroEnabled = false,
+                    CollectionHeroLayout = "hidden",
                     ProgressCardsLayout = "single",
-                    BentoColumns        = 1,
-                    BentoTileStyle      = "audio-only",
+                    BentoColumns = 1,
+                    BentoTileStyle = "audio-only",
                     PendingFilesDisplay = "hidden",
                 },
                 Preferences = new UIPreferencesPageSettings
                 {
-                    TabBarLayout     = "single",
+                    TabBarLayout = "single",
                     GeneralTabLayout = "theme-only",
                     ColorSwatchCount = 0,
                 },
@@ -866,7 +919,9 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
     public void Dispose()
     {
         if (_disposed)
+        {
             return;
+        }
 
         _disposed = true;
         if (_watcher is not null)
@@ -881,7 +936,10 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
         lock (_reloadLock)
         {
             foreach (var timer in _reloadTimers.Values)
+            {
                 timer.Dispose();
+            }
+
             _reloadTimers.Clear();
         }
     }

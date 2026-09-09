@@ -22,10 +22,15 @@ public static class MediaTileArtworkUrl
     {
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(smallUrl))
+        {
             parts.Add($"{smallUrl} 320w");
+        }
+
         if (!string.IsNullOrWhiteSpace(mediumUrl)
             && !string.Equals(smallUrl, mediumUrl, StringComparison.OrdinalIgnoreCase))
+        {
             parts.Add($"{mediumUrl} 960w");
+        }
 
         return parts.Count == 0 ? null : string.Join(", ", parts);
     }

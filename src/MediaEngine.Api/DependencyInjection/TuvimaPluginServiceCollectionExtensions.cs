@@ -21,8 +21,10 @@ public static class TuvimaPluginServiceCollectionExtensions
         services.AddSingleton<PluginUniverseLoreService>();
         services.AddSingleton<PluginJobStateService>();
         services.AddSingleton<PluginScheduledSegmentService>();
-        services.AddSingleton<IPluginToolRuntime, PluginToolRuntime>();
-        services.AddSingleton<IPluginAiClient, PluginAiClient>();
+        services.AddSingleton<PluginToolRuntime>();
+        services.AddSingleton<PluginAiClient>();
+        services.AddSingleton<IPluginPermissionGate, PluginPermissionGate>();
+        services.AddSingleton<IPluginExecutionContextFactory, PluginExecutionContextFactory>();
         services.AddSingleton<PluginSegmentDetectionService>();
         return services;
     }

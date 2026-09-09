@@ -73,16 +73,16 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
                  @selectedText, @color, @noteText, @createdAt);
             """, new
         {
-            id           = highlight.Id,
-            userId       = highlight.UserId,
-            assetId      = highlight.AssetId,
+            id = highlight.Id,
+            userId = highlight.UserId,
+            assetId = highlight.AssetId,
             chapterIndex = highlight.ChapterIndex,
-            startOffset  = highlight.StartOffset,
-            endOffset    = highlight.EndOffset,
+            startOffset = highlight.StartOffset,
+            endOffset = highlight.EndOffset,
             selectedText = highlight.SelectedText,
-            color        = highlight.Color,
-            noteText     = highlight.NoteText,
-            createdAt    = highlight.CreatedAt.ToString("O"),
+            color = highlight.Color,
+            noteText = highlight.NoteText,
+            createdAt = highlight.CreatedAt.ToString("O"),
         });
 
         return Task.CompletedTask;
@@ -119,29 +119,29 @@ public sealed class ReaderHighlightRepository : IReaderHighlightRepository
 
     private sealed class HighlightRow
     {
-        public Guid    Id           { get; set; }
-        public string  UserId       { get; set; } = string.Empty;
-        public Guid    AssetId      { get; set; }
-        public int     ChapterIndex { get; set; }
-        public int     StartOffset  { get; set; }
-        public int     EndOffset    { get; set; }
-        public string  SelectedText { get; set; } = string.Empty;
-        public string  Color        { get; set; } = string.Empty;
-        public string? NoteText     { get; set; }
-        public string  CreatedAt    { get; set; } = string.Empty;
+        public Guid Id { get; set; }
+        public string UserId { get; set; } = string.Empty;
+        public Guid AssetId { get; set; }
+        public int ChapterIndex { get; set; }
+        public int StartOffset { get; set; }
+        public int EndOffset { get; set; }
+        public string SelectedText { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+        public string? NoteText { get; set; }
+        public string CreatedAt { get; set; } = string.Empty;
     }
 
     private static ReaderHighlight MapRow(HighlightRow r) => new()
     {
-        Id           = r.Id,
-        UserId       = r.UserId,
-        AssetId      = r.AssetId,
+        Id = r.Id,
+        UserId = r.UserId,
+        AssetId = r.AssetId,
         ChapterIndex = r.ChapterIndex,
-        StartOffset  = r.StartOffset,
-        EndOffset    = r.EndOffset,
+        StartOffset = r.StartOffset,
+        EndOffset = r.EndOffset,
         SelectedText = r.SelectedText,
-        Color        = r.Color,
-        NoteText     = r.NoteText,
-        CreatedAt    = DateTime.Parse(r.CreatedAt),
+        Color = r.Color,
+        NoteText = r.NoteText,
+        CreatedAt = DateTime.Parse(r.CreatedAt),
     };
 }

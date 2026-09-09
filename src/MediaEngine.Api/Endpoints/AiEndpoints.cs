@@ -1,12 +1,13 @@
 using MediaEngine.AI.Configuration;
 using MediaEngine.AI.Infrastructure;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services;
 using MediaEngine.Contracts.Ai;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Api.Services;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -40,7 +41,7 @@ internal static class AiEndpoints
         .WithName("GetAiStatus")
         .WithSummary("Returns overall AI subsystem health status.")
         .Produces<AiHealthStatusDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiStatusRead);
 
         // ── GET /ai/models ───────────────────────────────────────────────────
         group.MapGet("/models", (
@@ -60,7 +61,7 @@ internal static class AiEndpoints
         .WithName("GetAiModelStatuses")
         .WithSummary("Returns download and lifecycle status for all AI model roles.")
         .Produces<IReadOnlyList<AiModelStatusDto>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiStatusRead);
 
         // ── POST /ai/models/{role}/download ──────────────────────────────────
         group.MapPost("/models/{role}/download", async (
@@ -70,7 +71,9 @@ internal static class AiEndpoints
             CancellationToken ct) =>
         {
             if (!TryParseModelRole(role, out var modelRole))
+            {
                 return UnknownRoleProblem(role);
+            }
 
             try
             {
@@ -87,7 +90,7 @@ internal static class AiEndpoints
         .WithSummary("Starts downloading the model for the specified role. Returns 202 Accepted immediately; progress is reported via SignalR.")
         .Produces(StatusCodes.Status202Accepted)
         .Produces(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiManage);
 
         // ── DELETE /ai/models/{role}/download ────────────────────────────────
         group.MapDelete("/models/{role}/download", async (
@@ -97,7 +100,9 @@ internal static class AiEndpoints
             CancellationToken ct) =>
         {
             if (!TryParseModelRole(role, out var modelRole))
+            {
                 return UnknownRoleProblem(role);
+            }
 
             try
             {
@@ -114,7 +119,7 @@ internal static class AiEndpoints
         .WithSummary("Cancels an in-progress model download for the specified role.")
         .Produces<AiDownloadCancelledResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiManage);
 
         // ── POST /ai/models/{role}/load ──────────────────────────────────────
         group.MapPost("/models/{role}/load", async (
@@ -124,7 +129,9 @@ internal static class AiEndpoints
             CancellationToken ct) =>
         {
             if (!TryParseModelRole(role, out var modelRole))
+            {
                 return UnknownRoleProblem(role);
+            }
 
             try
             {
@@ -141,7 +148,7 @@ internal static class AiEndpoints
         .WithSummary("Loads the model for the specified role into memory. Unloads any currently loaded model first.")
         .Produces<AiModelLoadedResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiManage);
 
         // ── POST /ai/models/{role}/unload ────────────────────────────────────
         group.MapPost("/models/{role}/unload", async (
@@ -151,13 +158,17 @@ internal static class AiEndpoints
             CancellationToken ct) =>
         {
             if (!TryParseModelRole(role, out var modelRole))
+            {
                 return UnknownRoleProblem(role);
+            }
 
             try
             {
                 // Only unload if the requested role is currently loaded.
                 if (lifecycle.CurrentlyLoadedRole == modelRole)
+                {
                     await lifecycle.UnloadCurrentAsync(ct);
+                }
 
                 return Results.Ok(new AiModelUnloadedResponse(true, ToRoleKey(modelRole)));
             }
@@ -171,7 +182,7 @@ internal static class AiEndpoints
         .WithSummary("Unloads the model for the specified role from memory, freeing resources.")
         .Produces<AiModelUnloadedResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiManage);
 
         // ── GET /ai/config ───────────────────────────────────────────────────
         group.MapGet("/config", (
@@ -182,7 +193,7 @@ internal static class AiEndpoints
         .WithName("GetAiConfig")
         .WithSummary("Returns the current AI configuration (config/ai.json).")
         .Produces<AiConfigDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiManage);
 
         // ── PUT /ai/config ───────────────────────────────────────────────────
         group.MapPut("/config", (
@@ -192,16 +203,18 @@ internal static class AiEndpoints
             var settings = AiContractMapper.ToSettings(request);
             var errors = configurationStore.Save(settings);
             if (errors.Count > 0)
+            {
                 return Results.ValidationProblem(errors
                     .GroupBy(error => error.Path)
                     .ToDictionary(group => group.Key, group => group.Select(error => error.Message).ToArray()));
+            }
 
             return Results.Ok(new AiSettingsSavedResponse(true));
         })
         .WithName("SaveAiConfig")
         .WithSummary("Saves updated AI configuration to config/ai.json.")
         .Produces<AiSettingsSavedResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiManage);
 
         // ── GET /ai/profile ──────────────────────────────────────────────────
         group.MapGet("/profile", (HardwareBenchmarkService benchmark) =>
@@ -211,7 +224,7 @@ internal static class AiEndpoints
         .WithName("GetAiHardwareProfile")
         .WithSummary("Returns the cached hardware profile and performance tier.")
         .Produces<HardwareProfileDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiStatusRead);
 
         // ── POST /ai/benchmark ───────────────────────────────────────────────
         group.MapPost("/benchmark", async (
@@ -224,7 +237,7 @@ internal static class AiEndpoints
         .WithName("RunAiHardwareBenchmark")
         .WithSummary("Re-runs the hardware benchmark and returns the updated profile.")
         .Produces<HardwareProfileDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiManage);
 
         group.MapDelete("/benchmark", async (
             HardwareBenchmarkService benchmark,
@@ -237,7 +250,7 @@ internal static class AiEndpoints
         .WithName("InvalidateAiHardwareBenchmark")
         .WithSummary("Invalidates the machine-local hardware benchmark.")
         .Produces<HardwareProfileDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiManage);
 
         // ── GET /ai/resources ────────────────────────────────────────────────
         group.MapGet("/resources", (ResourceMonitorService monitor) =>
@@ -255,7 +268,7 @@ internal static class AiEndpoints
         .WithName("GetAiResourceSnapshot")
         .WithSummary("Returns current system resource usage (RAM, CPU pressure, transcoding status).")
         .Produces<ResourceSnapshotDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.AiStatusRead);
 
         // ── GET /ai/enrichment/progress ──────────────────────────────────────
         group.MapGet("/enrichment/progress", async (
@@ -263,10 +276,10 @@ internal static class AiEndpoints
             CancellationToken ct) =>
         {
             // Items that have a description but not yet themes → pending enrichment.
-            var pending   = await canonicals.GetEntitiesNeedingEnrichmentAsync("description", "themes", 10000, ct);
+            var pending = await canonicals.GetEntitiesNeedingEnrichmentAsync("description", "themes", 10000, ct);
             // Items that already have themes → completed enrichment.
             var completed = await canonicals.GetEntitiesNeedingEnrichmentAsync("themes", "__nonexistent__", 10000, ct);
-            int pendingCount   = pending.Count;
+            int pendingCount = pending.Count;
             int completedCount = completed.Count;
             return Results.Ok(new EnrichmentProgressDto
             {
@@ -278,7 +291,7 @@ internal static class AiEndpoints
         .WithName("GetAiEnrichmentProgress")
         .WithSummary("Returns pending and completed AI enrichment counts.")
         .Produces<EnrichmentProgressDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         return group;
     }
@@ -316,7 +329,9 @@ internal static class AiEndpoints
     private static string? TryGetUriHost(string? url)
     {
         if (string.IsNullOrWhiteSpace(url))
+        {
             return null;
+        }
 
         return Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : null;
     }
@@ -408,24 +423,86 @@ internal static class AiEndpoints
     private static IReadOnlyList<string> FormatCapabilities(AiModelCapabilities? capabilities)
     {
         if (capabilities is null)
+        {
             return [];
+        }
 
         var values = new List<string>();
-        if (capabilities.TextInput) values.Add("text input");
-        if (capabilities.AudioInput) values.Add("audio input");
-        if (capabilities.ImageInput) values.Add("image input");
-        if (capabilities.TextOutput) values.Add("text output");
-        if (capabilities.StructuredJson) values.Add("structured JSON");
-        if (capabilities.Gbnf) values.Add("GBNF");
-        if (capabilities.TimestampSegments) values.Add("segment timestamps");
-        if (capabilities.WordTimestamps) values.Add("word timestamps");
-        if (capabilities.SyncGrade) values.Add("sync-grade");
-        if (capabilities.Multilingual) values.Add("multilingual");
-        if (capabilities.Cjk) values.Add("CJK");
-        if (capabilities.ExperimentalMultimodal) values.Add("experimental multimodal");
-        if (capabilities.EmbeddingOutput) values.Add("embeddings");
-        if (capabilities.FunctionCalling) values.Add("function calling");
-        if (capabilities.ToolCalling) values.Add("tool calling");
+        if (capabilities.TextInput)
+        {
+            values.Add("text input");
+        }
+
+        if (capabilities.AudioInput)
+        {
+            values.Add("audio input");
+        }
+
+        if (capabilities.ImageInput)
+        {
+            values.Add("image input");
+        }
+
+        if (capabilities.TextOutput)
+        {
+            values.Add("text output");
+        }
+
+        if (capabilities.StructuredJson)
+        {
+            values.Add("structured JSON");
+        }
+
+        if (capabilities.Gbnf)
+        {
+            values.Add("GBNF");
+        }
+
+        if (capabilities.TimestampSegments)
+        {
+            values.Add("segment timestamps");
+        }
+
+        if (capabilities.WordTimestamps)
+        {
+            values.Add("word timestamps");
+        }
+
+        if (capabilities.SyncGrade)
+        {
+            values.Add("sync-grade");
+        }
+
+        if (capabilities.Multilingual)
+        {
+            values.Add("multilingual");
+        }
+
+        if (capabilities.Cjk)
+        {
+            values.Add("CJK");
+        }
+
+        if (capabilities.ExperimentalMultimodal)
+        {
+            values.Add("experimental multimodal");
+        }
+
+        if (capabilities.EmbeddingOutput)
+        {
+            values.Add("embeddings");
+        }
+
+        if (capabilities.FunctionCalling)
+        {
+            values.Add("function calling");
+        }
+
+        if (capabilities.ToolCalling)
+        {
+            values.Add("tool calling");
+        }
+
         return values;
     }
 

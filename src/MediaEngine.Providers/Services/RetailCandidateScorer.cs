@@ -102,7 +102,9 @@ public sealed class RetailCandidateScorer
             foreach (var reason in autoAcceptCapReasons.Where(r => !string.IsNullOrWhiteSpace(r)))
             {
                 if (!rejectionReasons.Contains(reason, StringComparer.Ordinal))
+                {
                     rejectionReasons.Add(reason);
+                }
             }
 
             if (outcome == "AutoAccepted")
@@ -123,7 +125,9 @@ public sealed class RetailCandidateScorer
             foreach (var reason in qualityRejectionReasons)
             {
                 if (!rejectionReasons.Contains(reason, StringComparer.Ordinal))
+                {
                     rejectionReasons.Add(reason);
+                }
             }
 
             outcome = "Rejected";
@@ -134,7 +138,9 @@ public sealed class RetailCandidateScorer
         if (coverWouldRescueWeakText)
         {
             if (!rejectionReasons.Contains("cover_cannot_rescue_weak_text", StringComparer.Ordinal))
+            {
                 rejectionReasons.Add("cover_cannot_rescue_weak_text");
+            }
 
             outcome = "Rejected";
             thresholdPath = "cover_rescue_rejected";
@@ -179,12 +185,16 @@ public sealed class RetailCandidateScorer
         };
 
         if (structuralBonus != 0.0)
+        {
             breakdown["structural_bonus"] = structuralBonus;
+        }
 
         if (extraEvidence is not null)
         {
             foreach (var pair in extraEvidence)
+            {
                 breakdown[pair.Key] = pair.Value;
+            }
         }
 
         return JsonSerializer.Serialize(breakdown);
@@ -200,15 +210,21 @@ public sealed class RetailCandidateScorer
     public static bool IsBetterCandidate(string candidateOutcome, double candidateScore, int candidateRank, string? currentOutcome, double currentScore, int currentRank)
     {
         if (currentOutcome is null)
+        {
             return true;
+        }
 
         var candidateOutcomeRank = GetOutcomeRank(candidateOutcome);
         var currentOutcomeRank = GetOutcomeRank(currentOutcome);
         if (candidateOutcomeRank != currentOutcomeRank)
+        {
             return candidateOutcomeRank > currentOutcomeRank;
+        }
 
         if (Math.Abs(candidateScore - currentScore) > 0.0001)
+        {
             return candidateScore > currentScore;
+        }
 
         return candidateRank < currentRank;
     }

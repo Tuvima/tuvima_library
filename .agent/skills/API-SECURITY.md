@@ -1,91 +1,13 @@
-# Skill: API Security & Authentication
+# Access authority
 
-> **Mirrors:** `CLAUDE.md` §3.3 (Security) — keep both in sync per `.agent/SYNC-MAP.md`
+Updated 2026-09-09. Mirrors CLAUDE.md section 3.3. See docs/architecture/security.md and the Access execution status for the implementation and acceptance gates.
 
-> Last updated: 2026-03-01
+Accounts own feature/library grants and administrator eligibility. Profiles own experience, restrictions, history, and Personal Spaces. Effective administration requires the enabled account and exact active grant with AdminEnabled; optional administrator PIN protection is grant-specific. No Curator/Consumer/StandardUser role or localhost/seed-owner fallback authorizes requests.
 
----
+Applications own registered service permissions; credentials are hashed, independently revocable, and shown once. Native clients intersect live account, profile, Application, device, token, and consent. Unavailable service permissions stay unavailable with a reason.
 
-## Purpose
+Use TuvimaAuthentication, IRequestAuthorityResolver, and IAuthorizationEvaluator. Require operation policy plus resource checks on each endpoint. Filter authorized concrete assets before counts, grouping, representative artwork, and pagination. Personal writes require the exact active profile. View private, explicit administrator inspection, Shared Library, and resource-specific Gallery scopes remain separate.
 
-This skill covers the Engine's security model — API key middleware, secret management, CORS, and SignalR authentication.
+Dashboard navigation and actions use Engine-projected authority. Metadata editing, Review, and administrator configuration require effective administration and any configured surface unlock; personal settings remain available without that unlock. Use the shared PIN gate and editor unlock prompt.
 
----
-
-## Key files
-
-| File | Role |
-|------|------|
-| `src/MediaEngine.Api/Middleware/ApiKeyMiddleware.cs` | Request authentication (validate-if-present model) |
-| `src/MediaEngine.Api/Services/ApiKeyService.cs` | Key generation (256-bit random) and SHA-256 hashing |
-| `src/MediaEngine.Api/Services/DataProtectionSecretStore.cs` | Provider secret encryption at rest |
-| `src/MediaEngine.Api/Services/FolderHealthService.cs` | Background health probe (broadcasts paths via SignalR) |
-| `src/MediaEngine.Api/Realtime/Intercom.cs` | SignalR collection (server-to-client only) |
-| `src/MediaEngine.Api/Services/SignalREventPublisher.cs` | Broadcasts events to all connected clients |
-| `src/MediaEngine.Api/Endpoints/AdminEndpoints.cs` | API key CRUD + provider config management |
-| `src/MediaEngine.Storage/ApiKeyRepository.cs` | Key hash storage (plaintext never stored) |
-| `src/MediaEngine.Storage/ProviderConfigurationRepository.cs` | Encrypted secret storage |
-
----
-
-## Current authentication model
-
-```
-Request arrives
-  ├── X-Api-Key header absent → PASSES THROUGH (no identity)
-  ├── X-Api-Key header present + empty → 401
-  ├── X-Api-Key header present + invalid hash → 401
-  └── X-Api-Key header present + valid hash → PASSES THROUGH (with ApiKeyId/Label in HttpContext.Items)
-```
-
-**There is no mandatory authentication and no role-based authorization on any endpoint.**
-
----
-
-## Middleware pipeline order
-
-```
-1. CORS ("BlazorWasm" policy — localhost ports only)
-2. ApiKeyMiddleware (validate-if-present)
-3. [Dev only] Swagger UI
-4. Endpoint routing (all Map*Endpoints calls)
-```
-
-**Missing:** `UseAuthentication()`, `UseAuthorization()`, `UseRateLimiter()`, `UseHttpsRedirection()`.
-
----
-
-## To implement mandatory authentication
-
-1. Change `ApiKeyMiddleware` to reject requests without `X-Api-Key` header (return 401).
-2. Exempt specific routes that must remain public: `GET /system/status`, Swagger (dev only).
-3. Add the `X-Api-Key` header as a security scheme in the Swagger definition so it can be tested.
-4. Decide whether the Dashboard (same machine) should use a key or be exempted by origin.
-
-## To implement role-based authorization
-
-1. Associate each API key with a `ProfileRole` (Administrator, Curator, Consumer) at creation time.
-2. In the middleware, after validating the key, load the associated role and set it as a claim.
-3. Add `[RequireRole(...)]` or equivalent endpoint filters to admin, settings, and metadata endpoints.
-4. Decide whether unauthenticated (no-header) requests are treated as the local Owner or blocked.
-
-## To implement rate limiting
-
-1. Register `AddRateLimiter()` in `Program.cs`.
-2. Apply policies to sensitive endpoints: key generation, streaming, ingestion triggers.
-3. Consider per-key rate limits for external integrations.
-
----
-
-## Known gaps
-
-1. **No mandatory authentication** — all endpoints accessible without a key.
-2. **No role-based authorization** — roles exist but are never checked.
-3. **No rate limiting** — no throttling on any endpoint.
-4. **Arbitrary path traversal** — `/settings/test-path` and `/settings/folders` accept any filesystem path.
-5. **SignalR collection is unauthenticated** — any client can connect and receive all events.
-6. **No HTTPS enforcement** — keys could be transmitted in cleartext.
-7. **No key expiration** — keys are valid forever.
-8. **Unsalted key hashes** — SHA-256 without salt (acceptable for 256-bit random keys).
-9. **Broadcast events are unscoped** — all clients receive all events regardless of role.
-
+Protect originals. Obsolete pre-beta identity/configuration state fails fast; do not recreate legacy role schemas or compatibility key conversion. Run actual mapped-endpoint, revocation, cross-resource, and privacy regression tests before accepting a cutover.

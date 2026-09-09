@@ -2,9 +2,10 @@ using System.Security.Claims;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
-using MediaEngine.Contracts.Authentication;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -17,7 +18,8 @@ public static class PlayerEndpoints
     public static IEndpointRouteBuilder MapPlayerEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/player")
-            .WithTags("Player");
+            .WithTags("Player")
+            .AddEndpointFilter(new PlayerResourceFailureFilter());
 
         group.MapGet("/capabilities", (PlayerService player) =>
             Results.Ok(player.GetCapabilities()))
@@ -202,12 +204,18 @@ public static class PlayerEndpoints
             PlayerService player,
             CancellationToken ct) =>
         {
+            if (!HasValidTelemetryNumbers(request))
+            {
+                return ApiErrors.BadRequest("Playback heartbeat numeric values must be finite and non-negative.");
+            }
+
             var state = await player.HeartbeatAsync(Bind(user, request), ct);
             return Results.Ok(state);
         })
         .WithName("PostPlayerHeartbeat")
         .WithSummary("Update active player timing and persist exact resume progress.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireClientScope(ClientApiScopes.ProgressWrite);
 
         group.MapPost("/session/takeover", async (
@@ -247,6 +255,7 @@ public static class PlayerEndpoints
             return Results.Ok(history);
         })
         .WithName("GetAudiobookListenHistory")
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.ProgressRead, "work", "workId")
         .WithSummary("Return recent qualified audiobook listen checkpoints for resume recovery.")
         .Produces<IReadOnlyList<AudiobookListenHistoryItemDto>>(StatusCodes.Status200OK)
         .RequireClientScope(ClientApiScopes.ProgressRead);
@@ -263,6 +272,7 @@ public static class PlayerEndpoints
             return Results.Ok(bookmarks);
         })
         .WithName("GetAudiobookBookmarks")
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.ProgressRead, "work", "workId")
         .WithSummary("Return saved audiobook playback bookmarks for a work.")
         .Produces<IReadOnlyList<AudiobookBookmarkDto>>(StatusCodes.Status200OK)
         .RequireClientScope(ClientApiScopes.ProgressRead);
@@ -280,8 +290,8 @@ public static class PlayerEndpoints
                 return ApiErrors.BadRequest("An asset id is required for an audiobook bookmark.");
             }
 
-                var identity = Bind(user, profileId, null, null);
-                var bookmark = await player.CreateAudiobookBookmarkAsync(identity.ProfileId, workId, request, ct);
+            var identity = Bind(user, profileId, null, null);
+            var bookmark = await player.CreateAudiobookBookmarkAsync(identity.ProfileId, workId, request, ct);
             return Results.Created($"/player/audiobooks/{workId:D}/bookmarks/{bookmark.Id:D}", bookmark);
         })
         .WithName("CreateAudiobookBookmark")
@@ -311,12 +321,20 @@ public static class PlayerEndpoints
             Guid workId,
             Guid? assetId,
             AudiobookChapterNamingService naming,
+            PlayerCatalogueScope scope,
             CancellationToken ct) =>
         {
+            if (assetId.HasValue)
+            {
+                await scope.RequireAssetAsync(assetId.Value, ct, workId);
+            }
+
+            var allowed = await scope.AssetIdsAsync(ct);
             var overrides = await naming.GetOverridesAsync(workId, assetId, ct);
-            return Results.Ok(overrides);
+            return Results.Ok(overrides.Where(item => allowed.Contains(item.AssetId)).ToList());
         })
         .WithName("GetAudiobookChapterTitleOverrides")
+        .RequireCatalogueEntityAccess(ApplicationPermissionIds.LibraryRead, "work", "workId")
         .WithSummary("Return display-only audiobook chapter title overrides.")
         .Produces<IReadOnlyList<AudiobookChapterTitleOverrideDto>>(StatusCodes.Status200OK)
         .RequireClientScope(ClientApiScopes.LibraryRead);
@@ -346,7 +364,7 @@ public static class PlayerEndpoints
         .Produces<AudiobookChapterTitleOverrideDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireClientScope(ClientApiScopes.ProgressWrite);
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite);
 
         group.MapDelete("/audiobooks/{workId:guid}/chapter-overrides/{assetId:guid}/{chapterIndex:int}", async (
             Guid workId,
@@ -364,7 +382,7 @@ public static class PlayerEndpoints
         .WithSummary("Delete one display-only audiobook chapter title override.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireClientScope(ClientApiScopes.ProgressWrite);
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite);
 
         return app;
     }
@@ -397,6 +415,17 @@ public static class PlayerEndpoints
         var identity = Bind(user, request.ProfileId, request.DeviceId, request.Client);
         return request with { ProfileId = identity.ProfileId, DeviceId = identity.DeviceId, Client = identity.Client };
     }
+
+    private static bool HasValidTelemetryNumbers(PlayerHeartbeatDto request) =>
+        double.IsFinite(request.PositionSeconds) && request.PositionSeconds >= 0 &&
+        (!request.DurationSeconds.HasValue ||
+            double.IsFinite(request.DurationSeconds.Value) && request.DurationSeconds.Value >= 0) &&
+        (!request.ProgressPct.HasValue ||
+            double.IsFinite(request.ProgressPct.Value) && request.ProgressPct.Value >= 0) &&
+        (!request.Volume.HasValue || double.IsFinite(request.Volume.Value)) &&
+        (!request.PlaybackRate.HasValue ||
+            double.IsFinite(request.PlaybackRate.Value) && request.PlaybackRate.Value > 0) &&
+        request.Sequence is not < 0;
 
     private static PlayerSessionTakeoverRequestDto Bind(ClaimsPrincipal user, PlayerSessionTakeoverRequestDto request)
     {

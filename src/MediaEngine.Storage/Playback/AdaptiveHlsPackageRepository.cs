@@ -48,7 +48,10 @@ public sealed class AdaptiveHlsPackageRepository(IDatabaseConnection database)
         CancellationToken ct = default)
     {
         var existing = await FindAsync(assetId, sourceHash, profileKey, ct).ConfigureAwait(false);
-        if (existing is not null) return existing;
+        if (existing is not null)
+        {
+            return existing;
+        }
 
         var id = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture);

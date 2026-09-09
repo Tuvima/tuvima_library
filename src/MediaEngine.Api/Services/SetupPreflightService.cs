@@ -92,7 +92,10 @@ public sealed class SetupPreflightService(
             }
             finally
             {
-                if (File.Exists(probe)) File.Delete(probe);
+                if (File.Exists(probe))
+                {
+                    File.Delete(probe);
+                }
             }
             var free = GetFreeSpace(path);
             var passed = readable && (!requireWrite || writable);
@@ -125,7 +128,10 @@ public sealed class SetupPreflightService(
             }
             finally
             {
-                if (File.Exists(probe)) File.Delete(probe);
+                if (File.Exists(probe))
+                {
+                    File.Delete(probe);
+                }
             }
 
             var passed = readable && writable;

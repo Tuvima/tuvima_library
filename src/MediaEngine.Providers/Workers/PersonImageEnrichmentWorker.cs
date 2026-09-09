@@ -76,11 +76,15 @@ public sealed class PersonImageEnrichmentWorker
         ct.ThrowIfCancellationRequested();
 
         if (!IsEligibleMediaPerson(role, mediaType))
+        {
             return;
+        }
 
         var person = await _personRepo.FindByIdAsync(personId, ct).ConfigureAwait(false);
         if (person is null)
+        {
             return;
+        }
 
         if (string.IsNullOrWhiteSpace(person.WikidataQid)
             && !tmdbPersonId.HasValue
@@ -98,10 +102,14 @@ public sealed class PersonImageEnrichmentWorker
 
         var resolvedTmdbPersonId = tmdbPersonId;
         if (!resolvedTmdbPersonId.HasValue && !string.IsNullOrWhiteSpace(person.WikidataQid))
+        {
             resolvedTmdbPersonId = await ResolveTmdbPersonIdAsync(person.WikidataQid, apiKey, ct).ConfigureAwait(false);
+        }
 
         if (!resolvedTmdbPersonId.HasValue && string.IsNullOrWhiteSpace(tmdbProfileUrl))
+        {
             return;
+        }
 
         var imageBaseUrl = await ResolveImageBaseUrlAsync(apiKey, ct).ConfigureAwait(false);
         var candidates = resolvedTmdbPersonId.HasValue
@@ -118,7 +126,9 @@ public sealed class PersonImageEnrichmentWorker
             ? BuildTmdbImageUrl(imageBaseUrl, "original", selected.FilePath)
             : NormalizeTmdbProfileUrl(tmdbProfileUrl);
         if (string.IsNullOrWhiteSpace(imageUrl))
+        {
             return;
+        }
 
         await using var downloadLease = await _imageDownloadCoordinator
             .AcquireAsync(imageUrl, ct)
@@ -135,18 +145,24 @@ public sealed class PersonImageEnrichmentWorker
         }
 
         if (selected is not null && !ShouldReplaceCurrentHeadshot(person, existingAssets, selected))
+        {
             return;
+        }
 
         byte[]? bytes = null;
         var sourceCachedPath = _imageCache is null
             ? null
             : await _imageCache.FindBySourceUrlAsync(imageUrl, ct).ConfigureAwait(false);
         if (!string.IsNullOrWhiteSpace(sourceCachedPath) && File.Exists(sourceCachedPath))
+        {
             bytes = await File.ReadAllBytesAsync(sourceCachedPath, ct).ConfigureAwait(false);
+        }
 
         bytes ??= await DownloadImageAsync(imageUrl, ct).ConfigureAwait(false);
         if (bytes is null || bytes.Length == 0)
+        {
             return;
+        }
 
         var asset = new EntityAsset
         {
@@ -177,10 +193,14 @@ public sealed class PersonImageEnrichmentWorker
             if (!string.IsNullOrWhiteSpace(contentCachedPath) && File.Exists(contentCachedPath))
             {
                 if (!string.Equals(contentCachedPath, asset.LocalImagePath, StringComparison.OrdinalIgnoreCase))
+                {
                     File.Copy(contentCachedPath, asset.LocalImagePath, overwrite: true);
+                }
             }
             else
+            {
                 await BoundedHttpContent.WriteFileAtomicallyAsync(asset.LocalImagePath, bytes, ct).ConfigureAwait(false);
+            }
         }
 
         ArtworkVariantHelper.StampMetadataAndRenditions(asset, _assetPaths);
@@ -227,7 +247,9 @@ public sealed class PersonImageEnrichmentWorker
     {
         var config = _configLoader.LoadProvider(TmdbProviderName);
         if (!string.IsNullOrWhiteSpace(config?.HttpClient?.ApiKey))
+        {
             return config.HttpClient.ApiKey;
+        }
 
         var stored = await _providerConfigRepo.GetDecryptedValueAsync(
             WellKnownProviders.Tmdb.ToString(),
@@ -297,11 +319,15 @@ public sealed class PersonImageEnrichmentWorker
             using var client = _httpFactory.CreateClient("headshot_download");
             using var response = await client.GetAsync(imageUrl, ct).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
+            {
                 return null;
+            }
 
             var contentType = response.Content.Headers.ContentType?.MediaType;
             if (contentType is not null && !contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+            {
                 return null;
+            }
 
             return await BoundedHttpContent.ReadImageAsync(response.Content, ct).ConfigureAwait(false);
         }
@@ -326,7 +352,9 @@ public sealed class PersonImageEnrichmentWorker
     {
         var preferred = existingAssets.FirstOrDefault(asset => asset.IsPreferred);
         if (preferred?.IsUserOverride == true)
+        {
             return false;
+        }
 
         if (preferred is not null
             && string.Equals(preferred.SourceProvider, TmdbProviderName, StringComparison.OrdinalIgnoreCase)
@@ -342,11 +370,15 @@ public sealed class PersonImageEnrichmentWorker
         }
 
         if (string.IsNullOrWhiteSpace(person.LocalHeadshotPath) || !File.Exists(person.LocalHeadshotPath))
+        {
             return true;
+        }
 
         var currentSize = TryMeasureImage(person.LocalHeadshotPath);
         if (currentSize is null)
+        {
             return true;
+        }
 
         var currentPixels = currentSize.Value.Width * currentSize.Value.Height;
         var candidatePixels = candidateWidth * candidateHeight;
@@ -371,7 +403,9 @@ public sealed class PersonImageEnrichmentWorker
         try
         {
             if (File.Exists(path))
+            {
                 File.Delete(path);
+            }
         }
         catch
         {
@@ -382,10 +416,14 @@ public sealed class PersonImageEnrichmentWorker
     private static bool IsEligibleMediaPerson(string? role, MediaType mediaType)
     {
         if (mediaType is not (MediaType.Movies or MediaType.TV))
+        {
             return false;
+        }
 
         if (string.IsNullOrWhiteSpace(role))
+        {
             return true;
+        }
 
         var normalized = role.Trim();
         return normalized.Contains("actor", StringComparison.OrdinalIgnoreCase)
@@ -401,10 +439,14 @@ public sealed class PersonImageEnrichmentWorker
     private static bool IsUsableProfile(TmdbProfileImage image)
     {
         if (string.IsNullOrWhiteSpace(image.FilePath))
+        {
             return false;
+        }
 
         if (image.Width < MinimumProfileWidth || image.Height < MinimumProfileHeight)
+        {
             return false;
+        }
 
         var ratio = image.Width / (double)image.Height;
         return ratio is >= 0.45d and <= 0.90d;
@@ -416,10 +458,14 @@ public sealed class PersonImageEnrichmentWorker
     private static string? NormalizeTmdbProfileUrl(string? profileUrl)
     {
         if (string.IsNullOrWhiteSpace(profileUrl))
+        {
             return null;
+        }
 
         if (Uri.TryCreate(profileUrl, UriKind.Absolute, out _))
+        {
             return profileUrl;
+        }
 
         return BuildTmdbImageUrl(TmdbImageBaseUrl, "original", profileUrl);
     }
@@ -430,7 +476,9 @@ public sealed class PersonImageEnrichmentWorker
         {
             var extension = Path.GetExtension(uri.AbsolutePath);
             if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+            {
                 return ".png";
+            }
         }
 
         return ".jpg";

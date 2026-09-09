@@ -100,7 +100,9 @@ public abstract class PipelineStageHostedService<TWorker> : BackgroundService
                     var worker = scope.ServiceProvider.GetRequiredService<TWorker>();
                     processed = await PollAsync(worker, pollToken);
                     if (processed > 0 && DownstreamSignal is { } downstreamSignal)
+                    {
                         _signal.Signal(downstreamSignal);
+                    }
                 }
 
                 // Back off when idle.

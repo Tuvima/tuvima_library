@@ -49,7 +49,9 @@ public static class ActivityEntryPresentation
     public static string GetRelativeTime(this ActivityEntryResponse entry)
     {
         if (!DateTimeOffset.TryParse(entry.OccurredAt, out var timestamp))
+        {
             return "just now";
+        }
 
         var elapsed = DateTimeOffset.UtcNow - timestamp;
         return elapsed.TotalMinutes switch

@@ -29,12 +29,18 @@ public sealed class LibraryReorganizationService(
     {
         ArgumentNullException.ThrowIfNull(request);
         if (request.Items is null)
+        {
             throw new ArgumentException("The reorganization candidate list is required.", nameof(request));
+        }
+
         ct.ThrowIfCancellationRequested();
         RemoveExpiredPlans(DateTimeOffset.UtcNow);
 
         var library = FindLibrary(libraryId);
-        if (library is null) return null;
+        if (library is null)
+        {
+            return null;
+        }
 
         var policies = CreatePolicies(library);
         var byId = policies.ToDictionary(policy => policy.SourceId, StringComparer.OrdinalIgnoreCase);
@@ -44,7 +50,10 @@ public sealed class LibraryReorganizationService(
         {
             ct.ThrowIfCancellationRequested();
             if (item.SourceId == Guid.Empty || item.DestinationSourceId == Guid.Empty)
+            {
                 throw new ArgumentException("Source and destination IDs must be non-empty GUIDs.", nameof(request));
+            }
+
             ArgumentException.ThrowIfNullOrWhiteSpace(item.CurrentPath);
 
             var sourceId = item.SourceId.ToString("D");
@@ -127,10 +136,14 @@ public sealed class LibraryReorganizationService(
             throw new InvalidOperationException("The reorganization preview expired; create a new plan.");
         }
         if (!string.Equals(pending.Plan.Fingerprint, request.Fingerprint, StringComparison.Ordinal))
+        {
             throw new InvalidOperationException("The confirmed fingerprint does not match the previewed plan.");
+        }
 
         if (!_plans.TryRemove(request.PlanId, out pending))
+        {
             return null;
+        }
 
         var confirmed = pending.Plan.Confirm(request.Fingerprint, DateTimeOffset.UtcNow);
         var result = executor.Execute(
@@ -169,7 +182,9 @@ public sealed class LibraryReorganizationService(
     private void RemoveExpiredPlans(DateTimeOffset now)
     {
         foreach (var pair in _plans.Where(pair => pair.Value.ExpiresAt <= now))
+        {
             _plans.TryRemove(pair.Key, out _);
+        }
     }
 
     private static ReorganizationPlanDto ToDto(

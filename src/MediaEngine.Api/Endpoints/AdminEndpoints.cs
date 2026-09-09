@@ -1,200 +1,20 @@
 using MediaEngine.Api.Http;
-using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
-using MediaEngine.Api.Services;
 using MediaEngine.Domain.Contracts;
-using ApiKeyDto = MediaEngine.Contracts.Admin.ApiKeyDto;
-using CreateApiKeyRequest = MediaEngine.Contracts.Admin.CreateApiKeyRequest;
-using CreateApiKeyResponse = MediaEngine.Contracts.Admin.CreateApiKeyResponse;
 using ProviderConfigDto = MediaEngine.Contracts.Admin.ProviderConfigDto;
-using RevokeAllKeysResponse = MediaEngine.Contracts.Admin.RevokeAllKeysResponse;
 using UpsertProviderConfigRequest = MediaEngine.Contracts.Admin.UpsertProviderConfigRequest;
 
 namespace MediaEngine.Api.Endpoints;
 
-/// <summary>
-/// Administration endpoints for API key management and provider configuration.
-/// All routes are grouped under /admin.
-///
-/// Access: Administrator only (all endpoints).
-///
-/// API key endpoints:
-///   GET    /admin/api-keys           — list all keys (id, label, role, created_at only)
-///   POST   /admin/api-keys           — generate a new key (plaintext shown ONCE)
-///   DELETE /admin/api-keys/{id}      — revoke a single key
-///   DELETE /admin/api-keys           — revoke ALL keys
-///
-/// Provider configuration endpoints:
-///   GET    /admin/provider-configs/{providerId}             — list configs (secrets masked)
-///   PUT    /admin/provider-configs/{providerId}/{configKey} — set a config value
-///   DELETE /admin/provider-configs/{providerId}/{configKey} — remove a config entry
-/// </summary>
 public static class AdminEndpoints
 {
     public static IEndpointRouteBuilder MapAdminEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/admin").WithTags("Admin");
-
-        // ── API Key Management ─────────────────────────────────────────────────
-
-        group.MapGet("/api-keys", async (
-            IApiKeyRepository repo,
-            CancellationToken ct) =>
-        {
-            var keys = await repo.GetAllAsync(ct);
-            var dtos = keys.Select(key => new ApiKeyDto
-            {
-                Id = key.Id,
-                Label = key.Label,
-                Role = key.Role,
-                CreatedAt = key.CreatedAt,
-            }).ToList();
-            return Results.Ok(dtos);
-        })
-        .WithName("ListApiKeys")
-        .WithSummary("List all issued API keys. Key values are never included.")
-        .Produces<List<ApiKeyDto>>(StatusCodes.Status200OK)
-        .RequireAdmin();
-
-        group.MapPost("/api-keys", async (
-            CreateApiKeyRequest request,
-            ApiKeyService svc,
-            IApiKeyLookupCache apiKeyCache,
-            CancellationToken ct) =>
-        {
-            if (string.IsNullOrWhiteSpace(request.Label))
-                return ApiErrors.BadRequest("label must not be empty.");
-
-            var role = request.Role ?? "Administrator";
-            var (key, plaintext) = await svc.GenerateAsync(request.Label, role, ct);
-
-            // Discard any cached lookups so a re-created key with the same hash
-            // (edge case, but cheap to guard against) is picked up immediately
-            // rather than serving a stale cached "not found" from before creation.
-            apiKeyCache.InvalidateAll();
-
-            // The plaintext is returned exactly once in this response.
-            // SECURITY: do not log, cache, or re-send the 'key' field.
-            return Results.Ok(new CreateApiKeyResponse
-            {
-                Id        = key.Id,
-                Label     = key.Label,
-                Role      = key.Role,
-                Key       = plaintext,
-                CreatedAt = key.CreatedAt,
-            });
-        })
-        .WithName("CreateApiKey")
-        .WithSummary("Generate a new API key. The key value is shown only in this response.")
-        .Produces<CreateApiKeyResponse>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin()
-        .RequireRateLimiting("key_generation");
-
-        group.MapDelete("/api-keys/{id:guid}", async (
-            Guid id,
-            IApiKeyRepository repo,
-            IApiKeyLookupCache apiKeyCache,
-            CancellationToken ct) =>
-        {
-            var deleted = await repo.DeleteAsync(id, ct);
-
-            // Revoked keys must stop authenticating immediately, not after the
-            // cache's 30-second TTL expires.
-            if (deleted)
-                apiKeyCache.InvalidateAll();
-
-            return deleted
-                ? Results.NoContent()
-                : ApiErrors.NotFound($"API key '{id}' not found.");
-        })
-        .WithName("RevokeApiKey")
-        .WithSummary("Revoke an API key. Existing sessions using this key will immediately receive 401.")
-        .Produces(StatusCodes.Status204NoContent)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
-
-        // Revoke ALL keys — no route parameter distinguishes this from single revoke.
-        group.MapDelete("/api-keys", async (
-            IApiKeyRepository repo,
-            IApiKeyLookupCache apiKeyCache,
-            CancellationToken ct) =>
-        {
-            var count = await repo.DeleteAllAsync(ct);
-
-            // Revoked keys must stop authenticating immediately, not after the
-            // cache's 30-second TTL expires.
-            apiKeyCache.InvalidateAll();
-
-            return Results.Ok(new RevokeAllKeysResponse { RevokedCount = count });
-        })
-        .WithName("RevokeAllApiKeys")
-        .WithSummary("Revoke ALL issued API keys. Returns the count of revoked keys.")
-        .Produces<RevokeAllKeysResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
-
-        // ── Provider Configuration ─────────────────────────────────────────────
-
-        group.MapGet("/provider-configs/{providerId}", async (
-            string providerId,
-            IProviderConfigurationRepository configRepo,
-            CancellationToken ct) =>
-        {
-            var configs = await configRepo.GetAllMaskedAsync(providerId, ct);
-            var dtos = configs.Select(config => new ProviderConfigDto
-            {
-                ProviderId = config.ProviderId,
-                Key = config.Key,
-                Value = config.Value,
-                IsSecret = config.IsSecret,
-            }).ToList();
-            return Results.Ok(dtos);
-        })
-        .WithName("ListProviderConfigs")
-        .WithSummary("List configuration entries for a provider. Secret values are masked as '********'.")
-        .Produces<List<ProviderConfigDto>>(StatusCodes.Status200OK)
-        .RequireAdmin();
-
-        group.MapMethods("/provider-configs/{providerId}/{configKey}", ["PUT"], async (
-            string providerId,
-            string configKey,
-            UpsertProviderConfigRequest request,
-            IProviderConfigurationRepository configRepo,
-            CancellationToken ct) =>
-        {
-            if (string.IsNullOrWhiteSpace(request.Value))
-                return ApiErrors.BadRequest("value must not be empty.");
-
-            // Guard: reject the masked sentinel — the caller must provide the real value.
-            if (request.Value == "********")
-                return ApiErrors.BadRequest(
-                    "Cannot store '********'. Provide the actual plaintext value.");
-
-            await configRepo.UpsertAsync(
-                providerId, configKey, request.Value, request.IsSecret, ct);
-
-            return Results.NoContent();
-        })
-        .WithName("UpsertProviderConfig")
-        .WithSummary("Set a provider configuration value. Secret values are encrypted before storage.")
-        .Produces(StatusCodes.Status204NoContent)
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
-
-        group.MapDelete("/provider-configs/{providerId}/{configKey}", async (
-            string providerId,
-            string configKey,
-            IProviderConfigurationRepository configRepo,
-            CancellationToken ct) =>
-        {
-            await configRepo.DeleteAsync(providerId, configKey, ct);
-            return Results.NoContent();
-        })
-        .WithName("DeleteProviderConfig")
-        .WithSummary("Remove a provider configuration entry.")
-        .Produces(StatusCodes.Status204NoContent)
-        .RequireAdmin();
-
+        var group = app.MapGroup("/admin/provider-configs").WithTags("Admin").RequireEffectiveAdministrator();
+        group.MapGet("/{providerId}", async (string providerId, IProviderConfigurationRepository repository, CancellationToken ct) => Results.Ok((await repository.GetAllMaskedAsync(providerId, ct)).Select(x => new ProviderConfigDto { ProviderId = x.ProviderId, Key = x.Key, Value = x.Value, IsSecret = x.IsSecret }).ToList())).Produces<List<ProviderConfigDto>>();
+        group.MapMethods("/{providerId}/{configKey}", ["PUT"], async (string providerId, string configKey, UpsertProviderConfigRequest request, IProviderConfigurationRepository repository, CancellationToken ct) =>
+        { if (string.IsNullOrWhiteSpace(request.Value) || request.Value == "********") { return ApiErrors.BadRequest("Provide the actual non-empty value."); } await repository.UpsertAsync(providerId, configKey, request.Value, request.IsSecret, ct); return Results.NoContent(); }).WithName("UpsertProviderSecretConfiguration").Produces(StatusCodes.Status204NoContent);
+        group.MapDelete("/{providerId}/{configKey}", async (string providerId, string configKey, IProviderConfigurationRepository repository, CancellationToken ct) => { await repository.DeleteAsync(providerId, configKey, ct); return Results.NoContent(); }).WithName("DeleteProviderSecretConfiguration").Produces(StatusCodes.Status204NoContent);
         return app;
     }
 }

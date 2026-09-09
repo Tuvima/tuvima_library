@@ -99,45 +99,45 @@ public static class AiModelCatalogDefaults
     private static AiModelCatalogEntry Text(
         string name, string tier, string file, string downloadUrl, string sourceUrl,
         string checksum, int sizeMb, int memoryMb, string quantization, int contextLength) => new()
-    {
-        DisplayName = name,
-        Family = "Qwen3",
-        Provider = "Qwen",
-        License = "Apache-2.0",
-        Runtime = "LLamaSharp/GGUF",
-        Status = "supported",
-        SelectionTier = tier,
-        IntendedRoles = ["text"],
-        File = file,
-        DownloadUrl = downloadUrl,
-        SourceUrl = sourceUrl,
-        Sha256 = checksum,
-        SizeMB = sizeMb,
-        MemoryEnvelopeMB = memoryMb,
-        Quantization = quantization,
-        ContextLength = contextLength,
-        MaxContextLength = contextLength,
-        Capabilities = new AiModelCapabilities
         {
-            TextInput = true,
-            TextOutput = true,
-            StructuredJson = true,
-            Gbnf = true,
-            Multilingual = true,
-            Cjk = true,
-        },
-        Compatibility = ReadyCompatibility("LLamaSharp"),
-        Readiness = Ready(),
-        Validation = new AiModelValidationProfile
-        {
-            BenchmarkSuite = tier == "advanced" ? "text_enrichment" : "text_ingestion",
-            MinJsonValidityRate = 0.99,
-            MinTaskPassRate = 0.92,
-            MaxHallucinationRate = 0.02,
-        },
-        SelectionRationale = $"Supported {tier} resource profile.",
-        IntegrationNotes = "Executed through the single-resident LLamaSharp runtime.",
-    };
+            DisplayName = name,
+            Family = "Qwen3",
+            Provider = "Qwen",
+            License = "Apache-2.0",
+            Runtime = "LLamaSharp/GGUF",
+            Status = "supported",
+            SelectionTier = tier,
+            IntendedRoles = ["text"],
+            File = file,
+            DownloadUrl = downloadUrl,
+            SourceUrl = sourceUrl,
+            Sha256 = checksum,
+            SizeMB = sizeMb,
+            MemoryEnvelopeMB = memoryMb,
+            Quantization = quantization,
+            ContextLength = contextLength,
+            MaxContextLength = contextLength,
+            Capabilities = new AiModelCapabilities
+            {
+                TextInput = true,
+                TextOutput = true,
+                StructuredJson = true,
+                Gbnf = true,
+                Multilingual = true,
+                Cjk = true,
+            },
+            Compatibility = ReadyCompatibility("LLamaSharp"),
+            Readiness = Ready(),
+            Validation = new AiModelValidationProfile
+            {
+                BenchmarkSuite = tier == "advanced" ? "text_enrichment" : "text_ingestion",
+                MinJsonValidityRate = 0.99,
+                MinTaskPassRate = 0.92,
+                MaxHallucinationRate = 0.02,
+            },
+            SelectionRationale = $"Supported {tier} resource profile.",
+            IntegrationNotes = "Executed through the single-resident LLamaSharp runtime.",
+        };
 
     private static AiModelCompatibility ReadyCompatibility(string backend) => new()
     {

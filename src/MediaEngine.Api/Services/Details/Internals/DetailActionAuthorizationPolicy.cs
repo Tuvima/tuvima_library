@@ -1,7 +1,5 @@
-using MediaEngine.Domain;
-using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
@@ -21,32 +19,38 @@ internal readonly record struct DetailActionAuthorizationContext(bool CanManageM
 internal static class DetailActionAuthorizationPolicy
 {
     public static async Task<DetailActionAuthorizationContext> ResolveAsync(
-        string? callerRole,
-        Guid? profileId,
-        IProfileRepository? profiles,
+        RequestAuthority authority,
+        IAccountAccessDecisionService accounts,
+        IAuthorizationEvaluator evaluator,
         CancellationToken ct)
     {
-        var callerCanManage = IsManager(callerRole);
-        if (!callerCanManage)
+        if (authority.PrincipalKind == PrincipalKind.Human)
+        {
+            return new((await accounts.EvaluateAdministratorAsync(
+                authority, requireSurfaceUnlock: true, ct).ConfigureAwait(false)).IsAllowed);
+        }
+
+        if (authority.PrincipalKind is not (PrincipalKind.DelegatedUserClient or PrincipalKind.ServiceApplication))
+        {
             return new(false);
+        }
 
-        // API clients without a profile still use the authenticated API role.
-        if (!profileId.HasValue)
+        var application = await evaluator.EvaluateAsync(
+            authority,
+            new AuthorizationRequirement(ApplicationPermission: ApplicationPermissionIds.MetadataWrite),
+            resource: null,
+            ct).ConfigureAwait(false);
+        if (!application.IsAllowed)
+        {
+            return new(false);
+        }
+
+        if (authority.PrincipalKind == PrincipalKind.ServiceApplication)
+        {
             return new(true);
+        }
 
-        // A requested but missing profile fails closed. This prevents a
-        // privileged dashboard connection from leaking management actions
-        // into a Consumer profile or an invalid profile context.
-        var profile = profiles is null
-            ? null
-            : await profiles.GetByIdAsync(profileId.Value, ct).ConfigureAwait(false);
-        return new(profile is not null && IsManager(profile));
+        return new((await accounts.EvaluateAdministratorAsync(
+            authority, requireSurfaceUnlock: true, ct).ConfigureAwait(false)).IsAllowed);
     }
-
-    private static bool IsManager(string? role) =>
-        string.Equals(role, AppRoles.Administrator, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(role, AppRoles.StandardUser, StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsManager(Profile profile) =>
-        profile.Role is ProfileRole.Administrator or ProfileRole.StandardUser;
 }

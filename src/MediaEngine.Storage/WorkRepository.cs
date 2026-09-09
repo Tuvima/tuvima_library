@@ -57,7 +57,9 @@ public sealed class WorkRepository : IWorkRepository
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(parentKey))
+        {
             return Task.FromResult<Guid?>(null);
+        }
 
         using var conn = _db.CreateConnection();
         const string sql = """
@@ -133,7 +135,9 @@ public sealed class WorkRepository : IWorkRepository
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(title))
+        {
             return Task.FromResult<Guid?>(null);
+        }
 
         using var conn = _db.CreateConnection();
 
@@ -170,7 +174,9 @@ public sealed class WorkRepository : IWorkRepository
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(scheme) || string.IsNullOrWhiteSpace(value))
+        {
             return Task.FromResult<Guid?>(null);
+        }
 
         using var conn = _db.CreateConnection();
 
@@ -204,11 +210,15 @@ public sealed class WorkRepository : IWorkRepository
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(title) || candidateMediaTypes.Count == 0)
+        {
             return Task.FromResult<ConfirmedSiblingWorkQid?>(null);
+        }
 
         var normalizedTitle = NormalizeIdentityText(title, stripEditionMarkers: true);
         if (normalizedTitle.Length == 0)
+        {
             return Task.FromResult<ConfirmedSiblingWorkQid?>(null);
+        }
 
         var normalizedCreator = NormalizeCreatorVariants(creator);
 
@@ -273,7 +283,9 @@ public sealed class WorkRepository : IWorkRepository
             """, parameters).AsList();
 
         if (excludeWorkId.HasValue)
+        {
             rows.RemoveAll(row => row.WorkId == excludeWorkId.Value);
+        }
 
         var titleMatches = rows
             .Where(row => !string.IsNullOrWhiteSpace(row.WikidataQid)
@@ -282,7 +294,9 @@ public sealed class WorkRepository : IWorkRepository
             .ToList();
 
         if (titleMatches.Count == 0)
+        {
             return Task.FromResult<ConfirmedSiblingWorkQid?>(null);
+        }
 
         if (normalizedCreator.Count > 0)
         {
@@ -301,7 +315,9 @@ public sealed class WorkRepository : IWorkRepository
             .ToList();
 
         if (qidGroups.Count != 1)
+        {
             return Task.FromResult<ConfirmedSiblingWorkQid?>(null);
+        }
 
         var match = qidGroups[0]
             .OrderBy(row => row.MediaType, StringComparer.OrdinalIgnoreCase)
@@ -341,11 +357,11 @@ public sealed class WorkRepository : IWorkRepository
                 (@id, NULL, @mediaType, 'parent', @parentId,
                  @ordinal, 0, @parentKey, 'pending');
             """;
-        cmd.Parameters.AddWithValue("@id",         GuidSql.ToBlob(workId));
-        cmd.Parameters.AddWithValue("@mediaType",  mediaType.ToString());
-        cmd.Parameters.AddWithValue("@parentId",   grandparentWorkId.HasValue ? GuidSql.ToBlob(grandparentWorkId.Value) : DBNull.Value);
-        cmd.Parameters.AddWithValue("@ordinal",    (object?)ordinal ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@parentKey",  parentKey);
+        cmd.Parameters.AddWithValue("@id", GuidSql.ToBlob(workId));
+        cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
+        cmd.Parameters.AddWithValue("@parentId", grandparentWorkId.HasValue ? GuidSql.ToBlob(grandparentWorkId.Value) : DBNull.Value);
+        cmd.Parameters.AddWithValue("@ordinal", (object?)ordinal ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@parentKey", parentKey);
         cmd.ExecuteNonQuery();
 
         _logger?.LogDebug(
@@ -366,7 +382,9 @@ public sealed class WorkRepository : IWorkRepository
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(parentKey))
+        {
             throw new ArgumentException("Parent key is required.", nameof(parentKey));
+        }
 
         var resolved = await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -484,10 +502,10 @@ public sealed class WorkRepository : IWorkRepository
                 (@id, NULL, @mediaType, 'child', @parentId,
                  @ordinal, 0, 'pending');
             """;
-        cmd.Parameters.AddWithValue("@id",        GuidSql.ToBlob(workId));
+        cmd.Parameters.AddWithValue("@id", GuidSql.ToBlob(workId));
         cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
-        cmd.Parameters.AddWithValue("@parentId",  GuidSql.ToBlob(parentWorkId));
-        cmd.Parameters.AddWithValue("@ordinal",   (object?)ordinal ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@parentId", GuidSql.ToBlob(parentWorkId));
+        cmd.Parameters.AddWithValue("@ordinal", (object?)ordinal ?? DBNull.Value);
         cmd.ExecuteNonQuery();
 
         return Task.FromResult(workId);
@@ -604,7 +622,9 @@ public sealed class WorkRepository : IWorkRepository
     {
         ct.ThrowIfCancellationRequested();
         if (!ordinalSort.HasValue)
+        {
             return Task.CompletedTask;
+        }
 
         using var conn = _db.CreateConnection();
         conn.Execute(
@@ -630,7 +650,7 @@ public sealed class WorkRepository : IWorkRepository
             VALUES
                 (@id, NULL, @mediaType, 'standalone', 0, 'pending');
             """;
-        cmd.Parameters.AddWithValue("@id",        GuidSql.ToBlob(workId));
+        cmd.Parameters.AddWithValue("@id", GuidSql.ToBlob(workId));
         cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
         cmd.ExecuteNonQuery();
 
@@ -664,11 +684,11 @@ public sealed class WorkRepository : IWorkRepository
                  @ordinal, 1, @ids, 'pending',
                  'Unowned');
             """;
-        cmd.Parameters.AddWithValue("@id",        GuidSql.ToBlob(workId));
+        cmd.Parameters.AddWithValue("@id", GuidSql.ToBlob(workId));
         cmd.Parameters.AddWithValue("@mediaType", mediaType.ToString());
-        cmd.Parameters.AddWithValue("@parentId",  GuidSql.ToBlob(parentWorkId));
-        cmd.Parameters.AddWithValue("@ordinal",   (object?)ordinal ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@ids",       (object?)idsJson ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@parentId", GuidSql.ToBlob(parentWorkId));
+        cmd.Parameters.AddWithValue("@ordinal", (object?)ordinal ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@ids", (object?)idsJson ?? DBNull.Value);
         cmd.ExecuteNonQuery();
 
         return Task.FromResult(workId);
@@ -695,7 +715,9 @@ public sealed class WorkRepository : IWorkRepository
         var rows = cmd.ExecuteNonQuery();
 
         if (rows > 0)
+        {
             _logger?.LogInformation("Promoted catalog Work {WorkId} to owned child", workId);
+        }
 
         return Task.CompletedTask;
     }
@@ -707,7 +729,10 @@ public sealed class WorkRepository : IWorkRepository
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        if (identifiers.Count == 0) return Task.CompletedTask;
+        if (identifiers.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
 
         // Read existing blob, merge new keys (no overwrite), write back.
         // Done in a single transaction to avoid lost-update races between
@@ -746,7 +771,9 @@ public sealed class WorkRepository : IWorkRepository
                 foreach (var kv in identifiers)
                 {
                     if (!merged.ContainsKey(kv.Key))
+                    {
                         merged[kv.Key] = kv.Value;
+                    }
                 }
             }
 
@@ -760,7 +787,7 @@ public sealed class WorkRepository : IWorkRepository
                     SET    external_identifiers = @json
                     WHERE  id                   = @id;
                     """;
-                write.Parameters.AddWithValue("@id",   GuidSql.ToBlob(workId));
+                write.Parameters.AddWithValue("@id", GuidSql.ToBlob(workId));
                 write.Parameters.AddWithValue("@json", newJson);
                 write.ExecuteNonQuery();
             }
@@ -800,7 +827,9 @@ public sealed class WorkRepository : IWorkRepository
         using var conn = _db.CreateConnection();
         var row = conn.QueryFirstOrDefault<LineageRow>(sql, new { assetId });
         if (row is null)
+        {
             return Task.FromResult<WorkLineage?>(null);
+        }
 
         var workKind = Enum.TryParse<WorkKind>(
             row.WorkKind, ignoreCase: true, out var wk)
@@ -812,35 +841,35 @@ public sealed class WorkRepository : IWorkRepository
             : MediaType.Unknown;
 
         var lineage = new WorkLineage(
-            AssetId:          row.AssetId,
-            EditionId:        row.EditionId,
-            WorkId:           row.WorkId,
-            ParentWorkId:     row.ParentWorkId,
+            AssetId: row.AssetId,
+            EditionId: row.EditionId,
+            WorkId: row.WorkId,
+            ParentWorkId: row.ParentWorkId,
             RootParentWorkId: row.RootParentWorkId,
-            WorkKind:         workKind,
-            MediaType:        mediaType);
+            WorkKind: workKind,
+            MediaType: mediaType);
 
         return Task.FromResult<WorkLineage?>(lineage);
     }
 
     private sealed class LineageRow
     {
-        public Guid AssetId            { get; set; }
-        public Guid EditionId          { get; set; }
-        public Guid WorkId             { get; set; }
-        public Guid? ParentWorkId      { get; set; }
-        public Guid RootParentWorkId   { get; set; }
-        public string WorkKind         { get; set; } = string.Empty;
-        public string MediaType        { get; set; } = string.Empty;
+        public Guid AssetId { get; set; }
+        public Guid EditionId { get; set; }
+        public Guid WorkId { get; set; }
+        public Guid? ParentWorkId { get; set; }
+        public Guid RootParentWorkId { get; set; }
+        public string WorkKind { get; set; } = string.Empty;
+        public string MediaType { get; set; } = string.Empty;
     }
 
     private sealed class SiblingQidRow
     {
-        public Guid WorkId         { get; set; }
-        public string MediaType    { get; set; } = string.Empty;
+        public Guid WorkId { get; set; }
+        public string MediaType { get; set; } = string.Empty;
         public string? WikidataQid { get; set; }
-        public string? Title       { get; set; }
-        public string? Creator     { get; set; }
+        public string? Title { get; set; }
+        public string? Creator { get; set; }
     }
 
     private static HashSet<string> NormalizeCreatorVariants(string? value)
@@ -848,7 +877,9 @@ public sealed class WorkRepository : IWorkRepository
         var variants = new HashSet<string>(StringComparer.Ordinal);
         var normalized = NormalizeIdentityText(value, stripEditionMarkers: false);
         if (normalized.Length > 0)
+        {
             variants.Add(normalized);
+        }
 
         if (!string.IsNullOrWhiteSpace(value) && value.Contains(',', StringComparison.Ordinal))
         {
@@ -857,7 +888,9 @@ public sealed class WorkRepository : IWorkRepository
             {
                 var inverted = NormalizeIdentityText($"{parts[1]} {parts[0]}", stripEditionMarkers: false);
                 if (inverted.Length > 0)
+                {
                     variants.Add(inverted);
+                }
             }
         }
 
@@ -867,7 +900,9 @@ public sealed class WorkRepository : IWorkRepository
     private static string NormalizeIdentityText(string? value, bool stripEditionMarkers)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         var repaired = TextEncodingRepair.RepairMojibake(value).Trim();
         if (stripEditionMarkers)
@@ -888,7 +923,9 @@ public sealed class WorkRepository : IWorkRepository
         {
             var category = CharUnicodeInfo.GetUnicodeCategory(c);
             if (category == UnicodeCategory.NonSpacingMark)
+            {
                 continue;
+            }
 
             if (char.IsLetterOrDigit(c))
             {

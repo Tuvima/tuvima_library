@@ -75,52 +75,86 @@ public static class JsonConfigValidator
         }
 
         if (settings.Local.Port is < 1 or > 65535)
+        {
             errors.Add("local.port must be between 1 and 65535.");
+        }
+
         if (!Allowed(settings.Local.BindMode, NetworkBindModes.Automatic, NetworkBindModes.SpecificInterface))
+        {
             errors.Add("local.bind_mode must be automatic or specific-interface.");
+        }
+
         if (settings.Local.BindMode == NetworkBindModes.SpecificInterface
             && string.IsNullOrWhiteSpace(settings.Local.InterfaceId))
+        {
             errors.Add("local.interface_id is required when bind_mode is specific-interface.");
+        }
 
         var serverName = settings.Local.PreferredServerName?.Trim() ?? string.Empty;
         if (serverName.Length is < 1 or > 63
             || serverName.StartsWith('-')
             || serverName.EndsWith('-')
             || serverName.Any(character => !char.IsLetterOrDigit(character) && character != '-'))
+        {
             errors.Add("local.preferred_server_name must be a 1-63 character DNS label containing only letters, numbers, and hyphens.");
+        }
 
         if (!Allowed(settings.Remote.ConnectionMode,
                 NetworkConnectionModes.LocalOnly,
                 NetworkConnectionModes.Tailscale,
                 NetworkConnectionModes.DirectOnly,
                 NetworkConnectionModes.Custom))
+        {
             errors.Add("remote.connection_mode is unsupported.");
+        }
+
         if (settings.Remote.Enabled && settings.Remote.ConnectionMode == NetworkConnectionModes.LocalOnly)
+        {
             errors.Add("remote.connection_mode must select tailscale, custom, or direct-only when remote access is enabled.");
+        }
+
         if (settings.Remote.ExternalPort is < 1 or > 65535)
+        {
             errors.Add("remote.external_port must be between 1 and 65535 when provided.");
+        }
+
         if (settings.Remote.TlsTerminationPort is < 1 or > 65535)
+        {
             errors.Add("remote.tls_termination_port must be between 1 and 65535 when provided.");
+        }
+
         if (settings.Remote.ConnectionMode is NetworkConnectionModes.Custom or NetworkConnectionModes.DirectOnly
             && (!Uri.TryCreate(settings.Remote.PublicHostname, UriKind.Absolute, out var publicUri)
                 || publicUri.Scheme != Uri.UriSchemeHttps))
+        {
             errors.Add("remote.public_hostname must be an absolute HTTPS URL for custom and direct-only modes.");
+        }
+
         if (settings.Remote.AutomaticRouterConfiguration
             && settings.Remote.ConnectionMode != NetworkConnectionModes.DirectOnly)
+        {
             errors.Add("remote.automatic_router_configuration is available only in direct-only mode.");
+        }
+
         if (settings.Remote.AutomaticRouterConfiguration && settings.Remote.TlsTerminationPort is null)
+        {
             errors.Add("remote.tls_termination_port is required for automatic router configuration so the Dashboard is never mapped directly.");
+        }
 
         foreach (var proxy in settings.Remote.TrustedProxies)
         {
             if (!System.Net.IPAddress.TryParse(proxy, out _))
+            {
                 errors.Add($"remote.trusted_proxies contains an invalid IP address: '{proxy}'.");
+            }
         }
 
         foreach (var network in settings.Remote.TrustedProxyNetworks)
         {
             if (!System.Net.IPNetwork.TryParse(network, out _))
+            {
                 errors.Add($"remote.trusted_proxy_networks contains an invalid CIDR network: '{network}'.");
+            }
         }
 
         if (!Allowed(settings.Streaming.RemoteQuality,
@@ -129,11 +163,19 @@ public static class JsonConfigValidator
                 RemoteStreamingQualities.Hd1080,
                 RemoteStreamingQualities.Hd720,
                 RemoteStreamingQualities.DataSaver))
+        {
             errors.Add("streaming.remote_quality is unsupported.");
+        }
+
         if (settings.Streaming.ReservedUploadMbps is < 0 or > 10_000)
+        {
             errors.Add("streaming.reserved_upload_mbps must be between 0 and 10000.");
+        }
+
         if (!Allowed(settings.Streaming.ConcurrentRemoteStreams, RemoteStreamConcurrencyModes.Automatic))
+        {
             errors.Add("streaming.concurrent_remote_streams must be automatic.");
+        }
     }
 
     private static void ValidateCore(CoreConfiguration core, List<string> errors)
@@ -275,14 +317,21 @@ public static class JsonConfigValidator
             var viewLocation = config.StorageLocations.FirstOrDefault(candidate =>
                 string.Equals(candidate.Id, config.ViewStorage.StorageLocationId, StringComparison.OrdinalIgnoreCase));
             if (viewLocation is null)
+            {
                 errors.Add("view_storage.storage_location_id must reference a configured storage location.");
+            }
             else if (!viewLocation.AllowWrite)
+            {
                 errors.Add("view_storage.storage_location_id must reference a writable storage location.");
+            }
+
             if (!string.IsNullOrWhiteSpace(config.ViewStorage.RelativeRoot)
                 && (Path.IsPathRooted(config.ViewStorage.RelativeRoot)
                     || config.ViewStorage.RelativeRoot.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                         .Any(segment => segment == "..")))
+            {
                 errors.Add("view_storage.relative_root must be a contained relative path.");
+            }
         }
 
         for (var left = 0; left < storageLocationPaths.Count; left++)
@@ -784,10 +833,14 @@ public static class JsonConfigValidator
         List<string> errors)
     {
         if (onboarding is null)
+        {
             return;
+        }
 
         if (!Allowed(onboarding.Classification, "built_in", "recommended", "optional"))
+        {
             errors.Add("onboarding.classification is unsupported.");
+        }
 
         if (onboarding.Intro is not null)
         {
@@ -801,9 +854,14 @@ public static class JsonConfigValidator
             AddRequired(errors, credential.Key, "onboarding.credentials[].key");
             AddRequired(errors, credential.Label, "onboarding.credentials[].label");
             if (!credentialKeys.Add(credential.Key))
+            {
                 errors.Add("onboarding.credentials[].key values must be unique.");
+            }
+
             if (!Allowed(credential.Ownership, "user_supplied", "application_managed"))
+            {
                 errors.Add($"onboarding.credentials['{credential.Key}'].ownership is unsupported.");
+            }
 
             var purpose = string.IsNullOrWhiteSpace(credential.Purpose)
                 ? credential.Key.ToLowerInvariant() switch
@@ -813,7 +871,9 @@ public static class JsonConfigValidator
                 }
                 : credential.Purpose;
             if (!Allowed(purpose, "api_key", "client_key", "username", "password", "access_token", "other"))
+            {
                 errors.Add($"onboarding.credentials['{credential.Key}'].purpose is unsupported.");
+            }
         }
 
         var stepIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -822,14 +882,19 @@ public static class JsonConfigValidator
             AddRequired(errors, step.Id, "onboarding.steps[].id");
             AddRequired(errors, step.Title, "onboarding.steps[].title");
             if (!stepIds.Add(step.Id))
+            {
                 errors.Add("onboarding.steps[].id values must be unique.");
+            }
+
             if (step.Action is not null
                 && !Allowed(step.Action.Kind, "external_link", "credential_entry", "credential_probe", "information"))
             {
                 errors.Add($"onboarding.steps['{step.Id}'].action.kind is unsupported.");
             }
             foreach (var key in step.CredentialKeys.Where(key => !credentialKeys.Contains(key)))
+            {
                 errors.Add($"onboarding.steps['{step.Id}'].credential_keys references unknown credential '{key}'.");
+            }
         }
 
         foreach (var item in onboarding.Troubleshooting)

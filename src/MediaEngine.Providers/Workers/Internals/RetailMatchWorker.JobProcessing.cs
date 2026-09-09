@@ -2,19 +2,19 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Jobs;
+using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -46,7 +46,9 @@ public sealed partial class RetailMatchWorker
         foreach (var claim in acceptedClaims)
         {
             if (!allowed.Contains(claim.Key) || string.IsNullOrWhiteSpace(claim.Value))
+            {
                 continue;
+            }
 
             merged[claim.Key] = TextEncodingRepair.RepairMojibake(claim.Value.Trim());
         }
@@ -67,7 +69,9 @@ public sealed partial class RetailMatchWorker
     {
         var ids = entityIds.Where(id => id != Guid.Empty).Distinct().ToList();
         if (ids.Count == 0)
+        {
             return new Dictionary<Guid, Dictionary<string, string>>();
+        }
 
         var canonicalBatch = await _canonicalRepo.GetByEntitiesAsync(ids, ct).ConfigureAwait(false);
         var arrayBatch = _arrayRepo is null
@@ -100,7 +104,9 @@ public sealed partial class RetailMatchWorker
         foreach (var c in canonicals)
         {
             if (!string.IsNullOrWhiteSpace(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
+            {
                 hints.TryAdd(c.Key, TextEncodingRepair.RepairMojibake(c.Value));
+            }
         }
 
         if (arrays is not null)
@@ -108,7 +114,9 @@ public sealed partial class RetailMatchWorker
             foreach (var (key, entries) in arrays)
             {
                 if (hints.ContainsKey(key))
+                {
                     continue;
+                }
 
                 var values = entries
                     .OrderBy(entry => entry.Ordinal)
@@ -117,7 +125,9 @@ public sealed partial class RetailMatchWorker
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
                 if (values.Count > 0)
+                {
                     hints.TryAdd(key, JoinHintValues(key, values));
+                }
             }
         }
 
@@ -127,7 +137,9 @@ public sealed partial class RetailMatchWorker
             .GroupBy(claim => claim.ClaimKey, StringComparer.OrdinalIgnoreCase))
         {
             if (hints.ContainsKey(group.Key))
+            {
                 continue;
+            }
 
             var values = group
                 .OrderByDescending(claim => claim.IsUserLocked)
@@ -137,14 +149,18 @@ public sealed partial class RetailMatchWorker
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (values.Count > 0)
+            {
                 hints.TryAdd(group.Key, JoinHintValues(group.Key, values));
+            }
         }
     }
 
     private static string JoinHintValues(string key, IReadOnlyList<string> values)
     {
         if (values.Count == 1 || !IsMultiValueCreatorHint(key))
+        {
             return values[0];
+        }
 
         return string.Join(" and ", values);
     }
@@ -163,7 +179,9 @@ public sealed partial class RetailMatchWorker
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailSearching, ct: ct);
 
         if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType))
+        {
             mediaType = MediaType.Unknown;
+        }
 
         // Look up the asset's work lineage once. Used by the router below to
         // write provider bridge IDs to the correct Work — track-level IDs
@@ -281,7 +299,10 @@ public sealed partial class RetailMatchWorker
             var provider = _providers.FirstOrDefault(p =>
                 string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
 
-            if (provider is null) continue;
+            if (provider is null)
+            {
+                continue;
+            }
 
             try
             {
@@ -329,7 +350,10 @@ public sealed partial class RetailMatchWorker
                 };
 
                 var claims = await provider.FetchAsync(lookupRequest, ct);
-                if (claims.Count == 0) continue;
+                if (claims.Count == 0)
+                {
+                    continue;
+                }
 
                 // Extract candidate metadata from claims
                 var candidateTitle = claims
@@ -411,7 +435,9 @@ public sealed partial class RetailMatchWorker
                     acceptedIdentity = true;
                 }
                 if (decision.Outcome == "AutoAccepted")
+                {
                     acceptedProviders.Add(provider.Name);
+                }
 
                 // Track best candidate
                 if (IsBetterCandidate(candidate, bestCandidate))
@@ -433,7 +459,9 @@ public sealed partial class RetailMatchWorker
                 {
                     if (!isFallbackIdentityAttempt
                         && IsEnrichmentPurpose(pipelineEntry.Purpose))
+                    {
                         acceptedEnrichmentProviders.Add(provider.Name);
+                    }
 
                     // Phase 3c: pass lineage so parent-scope claims mirror
                     // onto the parent Work (book series → series Work,
@@ -455,7 +483,9 @@ public sealed partial class RetailMatchWorker
                         }).ToList();
 
                     if (bridgeEntries.Count > 0)
+                    {
                         await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct);
+                    }
 
                     // Phase 3b: also write provider bridge IDs to the appropriate
                     // Work's external_identifiers JSON. Track-level IDs land on
@@ -489,7 +519,9 @@ public sealed partial class RetailMatchWorker
                     if (strategy == ProviderStrategy.Sequential)
                     {
                         foreach (var c in claims.Where(c => BridgeIdHelper.IsBridgeId(c.Key)))
+                        {
                             sequentialBridgeIds.TryAdd(c.Key, c.Value);
+                        }
                     }
                 }
 
@@ -533,7 +565,9 @@ public sealed partial class RetailMatchWorker
 
                 // Waterfall: stop after first accepted candidate
                 if (strategy == ProviderStrategy.Waterfall && decision.Outcome == "AutoAccepted")
+                {
                     break;
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -568,7 +602,9 @@ public sealed partial class RetailMatchWorker
 
         // Persist ALL candidates (winners and losers)
         if (allCandidates.Count > 0)
+        {
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
+        }
 
         bestCandidate = SelectIdentityCandidateWhenConfigured(allCandidates, bestCandidate, pipeline);
         bestScore = bestCandidate?.ScoreTotal ?? 0.0;
@@ -597,8 +633,10 @@ public sealed partial class RetailMatchWorker
                     job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct)
                     .ConfigureAwait(false);
                 if (_coverArtWorker is not null)
+                {
                     await _coverArtWorker.DownloadAndPersistAsync(job.EntityId, wikidataQid: null, ct)
                         .ConfigureAwait(false);
+                }
             }
             catch (Exception orgEx) when (orgEx is not OperationCanceledException)
             {
@@ -673,7 +711,9 @@ public sealed partial class RetailMatchWorker
     private static Guid ResolveBridgeIdEntityId(WorkLineage? lineage, Guid assetId, string key)
     {
         if (lineage is null)
+        {
             return assetId;
+        }
 
         return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
             ? lineage.TargetForParentScope
@@ -698,7 +738,9 @@ public sealed partial class RetailMatchWorker
         ], ct).ConfigureAwait(false);
 
         if (_arrayRepo is null)
+        {
             return;
+        }
 
         var entries = enrichmentProviders
             .OrderBy(provider => provider, StringComparer.OrdinalIgnoreCase)

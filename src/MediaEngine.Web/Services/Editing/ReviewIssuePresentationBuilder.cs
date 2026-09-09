@@ -95,12 +95,17 @@ public static class ReviewIssuePresentationBuilder
         foreach (var key in PreferredFactKeys)
         {
             if (key == "title" || !item.DetectedFacts.TryGetValue(key, out var value))
+            {
                 continue;
+            }
+
             Add(facts, Label(key), FormatValue(key, value));
         }
 
         foreach (var identifier in item.BridgeIdentifiers.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+        {
             Add(facts, Label(identifier.Key), identifier.Value);
+        }
 
         Add(facts, "Confidence", item.ConfidenceScore is { } score ? $"{score:P0}" : null);
         return facts.DistinctBy(fact => (fact.Label, fact.Value)).Take(12).ToList();
@@ -140,7 +145,9 @@ public static class ReviewIssuePresentationBuilder
     private static void Add(List<ReviewKnownFact> facts, string label, string? value)
     {
         if (!string.IsNullOrWhiteSpace(value))
+        {
             facts.Add(new ReviewKnownFact(label, value.Trim()));
+        }
     }
 
     private static string Label(string key) => key.ToLowerInvariant() switch
@@ -169,7 +176,10 @@ public static class ReviewIssuePresentationBuilder
     private static string FormatValue(string key, string value)
     {
         if (!double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var numeric))
+        {
             return value;
+        }
+
         var seconds = key.ToLowerInvariant() switch
         {
             "duration" when numeric > 10_000 => numeric / 1000d,
@@ -177,7 +187,10 @@ public static class ReviewIssuePresentationBuilder
             _ => 0,
         };
         if (seconds <= 0)
+        {
             return value;
+        }
+
         var duration = TimeSpan.FromSeconds(seconds);
         return duration.TotalHours >= 1
             ? duration.ToString(@"h\:mm\:ss", System.Globalization.CultureInfo.InvariantCulture)

@@ -1,10 +1,10 @@
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Web.Services.Configuration;
 using MediaEngine.Web.Services.Integration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Authentication.OAuth;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Web.Tests;
 

@@ -14,7 +14,8 @@ public sealed class ServerFolderBrowserServiceTests
         using var fixture = new Fixture();
         var result = fixture.Service.Validate(new ValidateServerFolderRequest
         {
-            StorageLocationId = "media", RelativePath = "NewView/profiles",
+            StorageLocationId = "media",
+            RelativePath = "NewView/profiles",
             SelectionMode = ServerFolderSelectionModes.PersonalSpaceManaged,
         });
         Assert.True(result.CanSelect);
@@ -23,7 +24,8 @@ public sealed class ServerFolderBrowserServiceTests
         Assert.False(Directory.Exists(Path.Combine(fixture.AllowedRoot, "NewView")));
         Assert.False(fixture.Service.Validate(new ValidateServerFolderRequest
         {
-            StorageLocationId = "media", RelativePath = "NewView",
+            StorageLocationId = "media",
+            RelativePath = "NewView",
             SelectionMode = ServerFolderSelectionModes.ManagedLibrary,
         }).CanSelect);
     }
@@ -164,7 +166,10 @@ public sealed class ServerFolderBrowserServiceTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
+
         return directory?.FullName ?? throw new DirectoryNotFoundException("Repository root was not found.");
     }
 

@@ -62,11 +62,15 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         {
             var first = entries.OrderBy(entry => entry.Ordinal).FirstOrDefault();
             if (first is null)
+            {
                 continue;
+            }
 
             lookup.TryAdd(key, first.Value);
             if (!string.IsNullOrWhiteSpace(first.ValueQid))
+            {
                 lookup.TryAdd($"{key}{MetadataFieldConstants.CompanionQidSuffix}", first.ValueQid);
+            }
         }
 
         // Priority 1: fictional_universe (P1434) — broadest
@@ -184,7 +188,9 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         }
 
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return false;
+        }
 
         // Grab the human-readable label
         if (lookup.TryGetValue(claimKey, out var labelValue) && !string.IsNullOrWhiteSpace(labelValue))
@@ -194,7 +200,9 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
             label = raw.Contains("::") ? raw.Split("::", 2)[^1].Trim() : raw;
             // If the label is a bare QID (e.g. "Q3041974"), prefer the ::suffix we stripped earlier
             if (label.Length > 1 && label[0] is 'Q' && char.IsDigit(label[1]))
+            {
                 label = qid; // Fallback — will be resolved from qid_label cache
+            }
         }
         else
         {
@@ -209,7 +217,11 @@ public sealed class NarrativeRootResolver : INarrativeRootResolver
         if (lookup.TryGetValue($"{claimKey}_qid", out var val) && !string.IsNullOrWhiteSpace(val))
         {
             var qid = val.Contains('/') ? val.Split('/')[^1] : val;
-            if (qid.Contains("::")) qid = qid.Split("::", 2)[0];
+            if (qid.Contains("::"))
+            {
+                qid = qid.Split("::", 2)[0];
+            }
+
             return qid;
         }
 

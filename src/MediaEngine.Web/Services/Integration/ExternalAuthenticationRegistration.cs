@@ -4,9 +4,10 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using MediaEngine.Contracts.Authentication;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Web.Services.Configuration;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication.OAuth;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -94,6 +95,7 @@ public static partial class ExternalAuthenticationRegistration
 
                 var issued = await IssueTuvimaSessionAsync(
                     context.HttpContext,
+                    ExternalPurpose(context.Properties),
                     provider,
                     issuer,
                     subject,
@@ -165,6 +167,7 @@ public static partial class ExternalAuthenticationRegistration
 
                 var issued = await IssueTuvimaSessionAsync(
                     context.HttpContext,
+                    ExternalPurpose(context.Properties),
                     provider,
                     provider.Issuer,
                     subject,
@@ -186,6 +189,7 @@ public static partial class ExternalAuthenticationRegistration
 
     private static async Task<AuthSessionResponse?> IssueTuvimaSessionAsync(
         HttpContext context,
+        string purpose,
         ExternalAuthProviderSettings provider,
         string issuer,
         string subject,
@@ -207,22 +211,70 @@ public static partial class ExternalAuthenticationRegistration
             });
         }
 
-        var identity=context.RequestServices.GetRequiredService<DashboardIdentityClient>();
-        var request=new ExternalSessionRequest
+        var identity = context.RequestServices.GetRequiredService<DashboardIdentityClient>();
+        var authPolicy = context.RequestServices.GetRequiredService<DashboardConfigurationReader>().LoadCore().Auth;
+        var transaction = await identity.BeginExternalIdentityTransactionAsync(new BeginExternalIdentityTransactionRequest
+        {
+            Purpose = purpose,
+            Provider = provider.Id,
+            Issuer = NormalizeIssuer(issuer),
+            Subject = subject.Trim(),
+            Email = email,
+            DisplayName = displayName,
+        }, context.RequestAborted).ConfigureAwait(false);
+        if (transaction is null)
+        {
+            return null;
+        }
+
+        if (purpose == ExternalIdentityTransactionPurposes.Link)
+        {
+            var linked = await identity.LinkExternalLoginAsync(
+                new LinkAccountExternalLoginRequest { TransactionTicket = transaction.Ticket },
+                context.RequestAborted).ConfigureAwait(false);
+            if (linked is null)
             {
-                Provider = provider.Id,
-                Issuer = NormalizeIssuer(issuer),
-                Subject = subject.Trim(),
-                DeviceId = deviceId!,
-                DeviceName = context.Request.Headers.UserAgent.ToString(),
-                Client = $"Tuvima Dashboard {protocol}",
+                return null;
+            }
+
+            var session = context.RequestServices.GetRequiredService<DashboardSessionAccessor>();
+            if (string.IsNullOrWhiteSpace(session.SessionToken))
+            {
+                return null;
+            }
+
+            var current = await identity.ValidateAsync(session.SessionToken, context.RequestAborted).ConfigureAwait(false);
+            return current is null ? null : new AuthSessionResponse
+            {
+                SessionId = current.SessionId,
+                SessionToken = session.SessionToken,
+                AccountId = current.AccountId,
+                ActiveProfileId = current.ActiveProfileId,
+                DisplayName = current.DisplayName,
+                Authority = current.Authority,
+                AuthenticationMethod = current.AuthenticationMethod,
+                ExpiresAt = current.ExpiresAt,
             };
-        var issued=await identity.CreateExternalSessionAsync(request,context.RequestAborted).ConfigureAwait(false);
-        if(issued is not null)return issued;
-        if(context.User.Identity?.IsAuthenticated!=true)return null;
-        var linked=await identity.LinkExternalLoginAsync(new LinkAccountExternalLoginRequest{Provider=provider.Id,Issuer=NormalizeIssuer(issuer),Subject=subject.Trim(),Email=email,DisplayName=displayName},context.RequestAborted).ConfigureAwait(false);
-        return linked is null?null:await identity.CreateExternalSessionAsync(request,context.RequestAborted).ConfigureAwait(false);
+        }
+
+        var request = new ExternalSessionRequest
+        {
+            TransactionTicket = transaction.Ticket,
+            DeviceId = deviceId!,
+            DeviceName = context.Request.Headers.UserAgent.ToString(),
+            Client = $"Tuvima Dashboard {protocol}",
+            OriginalClientIsLocal = DashboardAuthenticationEndpoints.IsLocalClient(context, authPolicy),
+            OriginalClientIsHttps = context.Request.IsHttps,
+        };
+        var issued = await identity.CreateExternalSessionAsync(request, context.RequestAborted).ConfigureAwait(false);
+        return issued;
     }
+
+    private static string ExternalPurpose(AuthenticationProperties? properties) =>
+        properties?.Items.TryGetValue("tuvima:external-purpose", out var purpose) == true
+            && purpose == ExternalIdentityTransactionPurposes.Link
+                ? ExternalIdentityTransactionPurposes.Link
+                : ExternalIdentityTransactionPurposes.SignIn;
 
     private static void Validate(ExternalAuthProviderSettings provider, HashSet<string> ids)
     {

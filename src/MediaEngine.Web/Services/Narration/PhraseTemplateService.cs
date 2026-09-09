@@ -21,7 +21,9 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
     {
         var slotKey = slot.ToString();
         if (!_templates.TryGetValue(slotKey, out var pool) || pool.Length == 0)
+        {
             return new DisplayPhrase(string.Empty);
+        }
 
         // Build substitution dictionary from context
         var vars = BuildVars(context);
@@ -52,13 +54,17 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
             }
 
             if (candidates.Length == 0)
+            {
                 return new DisplayPhrase(string.Empty);
+            }
         }
 
         // Deterministic selection: same entity gets same phrase for the day
         var seed = DateTime.UtcNow.DayOfYear;
         if (context.EntityId.HasValue)
+        {
             seed += Math.Abs(context.EntityId.Value.GetHashCode());
+        }
 
         var index = Math.Abs(seed) % candidates.Length;
         var template = candidates[index];
@@ -95,7 +101,9 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
         {
             var key = match.Groups[1].Value;
             if (!vars.TryGetValue(key, out var val) || string.IsNullOrEmpty(val))
+            {
                 return false;
+            }
         }
         return true;
     }
@@ -118,7 +126,9 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
     {
         var configPath = Path.Combine(contentRoot, "config", "narration", "phrases.json");
         if (!File.Exists(configPath))
+        {
             return null;
+        }
 
         try
         {
@@ -126,7 +136,9 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
             var doc = JsonSerializer.Deserialize<JsonElement>(json);
 
             if (!doc.TryGetProperty("slots", out var slots))
+            {
                 return null;
+            }
 
             var result = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
             foreach (var prop in slots.EnumerateObject())
@@ -138,7 +150,9 @@ public sealed partial class PhraseTemplateService : IPhraseTemplateService
                     .ToArray();
 
                 if (phrases.Length > 0)
+                {
                     result[prop.Name] = phrases;
+                }
             }
 
             return result.Count > 0 ? result : null;

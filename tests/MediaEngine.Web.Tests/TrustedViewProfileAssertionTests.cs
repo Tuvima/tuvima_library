@@ -8,7 +8,7 @@ public sealed class TrustedViewProfileAssertionTests
     private static readonly Guid ProfileId = Guid.Parse("11111111-2222-3333-4444-555555555555");
 
     [Fact]
-    public async Task Handler_SignsFinalViewRequestUsingDocumentedCanonicalFormat()
+    public async Task Handler_RemovesObsoleteProfileAssertionHeaders()
     {
         var accessor = new ActiveProfileAccessor();
         accessor.SetProfile(ProfileId);
@@ -27,15 +27,13 @@ public sealed class TrustedViewProfileAssertionTests
 
         Assert.NotNull(capture.Request);
         Assert.Equal("test-api-key", Header(capture.Request, "X-Api-Key"));
-        Assert.Equal(ProfileId.ToString("D"), Header(capture.Request, ViewProfileAssertionHandler.ProfileHeader));
-        Assert.Equal("1750000000", Header(capture.Request, ViewProfileAssertionHandler.TimestampHeader));
-        Assert.Equal(
-            "tNfYND8CNiJF3X8YoBWg_FwJu_O-pDIEoIHMG1LFnKY",
-            Header(capture.Request, ViewProfileAssertionHandler.SignatureHeader));
+        Assert.Null(Header(capture.Request, ViewProfileAssertionHandler.ProfileHeader));
+        Assert.Null(Header(capture.Request, ViewProfileAssertionHandler.TimestampHeader));
+        Assert.Null(Header(capture.Request, ViewProfileAssertionHandler.SignatureHeader));
     }
 
     [Fact]
-    public async Task Handler_AddsProfileOnly_WhenLocalEngineHasNoApiKey()
+    public async Task Handler_DoesNotAddProfileWhenEngineHasNoApiKey()
     {
         var accessor = new ActiveProfileAccessor();
         accessor.SetProfile(ProfileId);
@@ -48,7 +46,7 @@ public sealed class TrustedViewProfileAssertionTests
 
         await client.GetAsync("/view/scopes");
 
-        Assert.Equal(ProfileId.ToString("D"), Header(capture.Request!, ViewProfileAssertionHandler.ProfileHeader));
+        Assert.Null(Header(capture.Request!, ViewProfileAssertionHandler.ProfileHeader));
         Assert.Null(Header(capture.Request!, ViewProfileAssertionHandler.TimestampHeader));
         Assert.Null(Header(capture.Request!, ViewProfileAssertionHandler.SignatureHeader));
     }
@@ -60,11 +58,12 @@ public sealed class TrustedViewProfileAssertionTests
     [InlineData("/view/libraries", true, false)]
     [InlineData("/collections/catalog", true, false)]
     [InlineData("/collections-preview", true, true)]
-    public async Task Handler_OnlyAssertsViewRequestsWhenProfileIsAvailable(
+    public async Task Handler_NeverAssertsBrowserSelectedProfiles(
         string path,
         bool setProfile,
         bool expectAssertionMissing)
     {
+        _ = expectAssertionMissing;
         var accessor = new ActiveProfileAccessor();
         if (setProfile)
         {
@@ -79,9 +78,7 @@ public sealed class TrustedViewProfileAssertionTests
 
         await client.GetAsync(path);
 
-        Assert.Equal(
-            expectAssertionMissing,
-            !capture.Request!.Headers.Contains(ViewProfileAssertionHandler.SignatureHeader));
+        Assert.False(capture.Request!.Headers.Contains(ViewProfileAssertionHandler.SignatureHeader));
     }
 
     [Fact]

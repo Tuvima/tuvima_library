@@ -6,10 +6,12 @@ using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Operations;
 using MediaEngine.Contracts.System;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;
+using Microsoft.AspNetCore.Mvc;
 using SystemStatusResponse = MediaEngine.Contracts.System.SystemStatusResponse;
 
 namespace MediaEngine.Api.Endpoints;
@@ -27,9 +29,7 @@ public static class SystemEndpoints
     public static IEndpointRouteBuilder MapSystemEndpoints(this IEndpointRouteBuilder app)
     {
         // No auth required — allows external apps to verify the URL is reachable.
-        // The X-Api-Key middleware validates the key if one is supplied, returning
-        // 401 for invalid keys; absent keys pass through to this endpoint.
-        app.MapGet("/system/status", (IConfigurationLoader configLoader) =>
+        app.MapGet("/system/status", ([FromServices] IConfigurationLoader configLoader) =>
         {
             var core = configLoader.LoadCore();
             return Results.Ok(new SystemStatusResponse
@@ -52,7 +52,7 @@ public static class SystemEndpoints
         .WithName("GetStartupReadiness")
         .WithSummary("Reports database, configuration, storage, model, provider, and worker readiness.")
         .Produces<StartupReadinessResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.SystemStatusRead);
 
         app.MapGet("/system/activity-status", async (
             IMediaOperationRepository operations,
@@ -74,7 +74,7 @@ public static class SystemEndpoints
         .WithName("GetSystemActivityStatus")
         .WithSummary("Returns sanitized active Engine operations for the Dashboard activity indicator.")
         .Produces<List<SystemActivityOperationDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireHumanOrApplicationPermission(ApplicationPermissionIds.SystemActivityRead);
 
         app.MapGet("/system/watcher-status", (IFileWatcher watcher) =>
             Results.Ok(new FileWatcherStatusResponse(
@@ -91,7 +91,7 @@ public static class SystemEndpoints
         .WithName("GetWatcherStatus")
         .WithSummary("Returns file watcher diagnostic status.")
         .Produces<FileWatcherStatusResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionStatusRead);
 
         app.MapPost("/maintenance/sweep-orphan-assets", (
             AssetStoreCleanupService cleanupService,
@@ -104,7 +104,7 @@ public static class SystemEndpoints
         .WithName("SweepOrphanAssets")
         .WithSummary("Scans .data/assets for managed files not referenced by the database and removes them.")
         .Produces<AssetStoreSweepResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.StorageConfigWrite);
 
         app.MapGet("/system/backups", (DatabaseBackupService backups) =>
             Results.Ok(backups.List()))
@@ -112,7 +112,7 @@ public static class SystemEndpoints
         .WithName("ListBackups")
         .WithSummary("Lists server-side database and configuration backup archives.")
         .Produces<IReadOnlyList<BackupArchiveDto>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.BackupRead);
 
         app.MapPost("/system/backups", async (
             DatabaseBackupService backups,
@@ -128,7 +128,7 @@ public static class SystemEndpoints
         .WithName("CreateBackup")
         .WithSummary("Creates a consistent SQLite and non-secret configuration backup.")
         .Produces<BackupArchiveDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.BackupRun);
 
         app.MapGet("/system/backups/{fileName}", (string fileName, DatabaseBackupService backups) =>
         {
@@ -152,7 +152,7 @@ public static class SystemEndpoints
         .Produces(StatusCodes.Status200OK, contentType: "application/zip")
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.BackupRead);
 
         app.MapPost("/system/backups/validate", (ScheduleRestoreRequest request, DatabaseBackupService backups) =>
         {
@@ -183,7 +183,7 @@ public static class SystemEndpoints
         .Produces<RestoreValidationResultDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.BackupRead);
 
         app.MapPost("/system/backups/restore", (ScheduleRestoreRequest request, DatabaseBackupService backups) =>
         {
@@ -214,7 +214,7 @@ public static class SystemEndpoints
         .Produces<ScheduleRestoreResultDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.BackupRestore);
 
         return app;
     }

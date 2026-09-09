@@ -259,7 +259,9 @@ public sealed class TestHarnessGuardrailTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "MediaEngine.slnx")))
+        {
             dir = dir.Parent;
+        }
 
         return dir?.FullName ?? throw new InvalidOperationException("Could not locate repository root.");
     }

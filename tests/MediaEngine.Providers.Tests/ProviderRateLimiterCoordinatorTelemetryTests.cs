@@ -1,5 +1,5 @@
-using MediaEngine.Providers.Services;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Providers.Services;
 
 namespace MediaEngine.Providers.Tests;
 
@@ -146,7 +146,9 @@ public sealed class ProviderRateLimiterCoordinatorTelemetryTests
         {
             last = coordinator.GetSnapshots().SingleOrDefault();
             if (last is not null && predicate(last))
+            {
                 return last;
+            }
 
             await Task.Delay(10);
         }

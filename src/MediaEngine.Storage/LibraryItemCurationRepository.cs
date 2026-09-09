@@ -38,8 +38,10 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
     {
         ct.ThrowIfCancellationRequested();
         if (workIds.Count == 0)
+        {
             return Task.FromResult<IReadOnlyDictionary<Guid, LibraryItemTarget>>(
                 new Dictionary<Guid, LibraryItemTarget>());
+        }
 
         using var connection = db.CreateConnection();
         var rows = connection.Query<LibraryItemTarget>(new CommandDefinition(
@@ -63,7 +65,9 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
     {
         ct.ThrowIfCancellationRequested();
         if (claims.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         return db.ExecuteWriteAsync((connection, transaction, innerCt) =>
         {
@@ -130,8 +134,10 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
     {
         ct.ThrowIfCancellationRequested();
         if (workIds.Count == 0)
+        {
             return Task.FromResult<IReadOnlyDictionary<Guid, LibraryItemRemovalTarget>>(
                 new Dictionary<Guid, LibraryItemRemovalTarget>());
+        }
 
         using var connection = db.CreateConnection();
         var parameters = new { workIds = ToBlobArray(workIds) };
@@ -254,7 +260,9 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
     {
         ct.ThrowIfCancellationRequested();
         if (workIds.Count == 0)
+        {
             return Task.FromResult(0);
+        }
 
         var parameters = new { workIds = ToBlobArray(workIds), now = now.ToString("O") };
         return db.ExecuteWriteAsync((connection, transaction, innerCt) =>
@@ -412,7 +420,9 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                 {
                     innerCt.ThrowIfCancellationRequested();
                     if (string.IsNullOrWhiteSpace(value))
+                    {
                         continue;
+                    }
 
                     var parameters = new
                     {
@@ -682,33 +692,53 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         if (value.Contains("fail", StringComparison.OrdinalIgnoreCase)
             || value.Contains("reject", StringComparison.OrdinalIgnoreCase)
             || value.Contains("error", StringComparison.OrdinalIgnoreCase))
+        {
             return "error";
+        }
+
         if (value.Contains("artwork", StringComparison.OrdinalIgnoreCase)
             || value.Contains("cover", StringComparison.OrdinalIgnoreCase)
             || value.Contains("hero", StringComparison.OrdinalIgnoreCase))
+        {
             return "artwork";
+        }
+
         if (value.Contains("match", StringComparison.OrdinalIgnoreCase)
             || value.Contains("identity", StringComparison.OrdinalIgnoreCase)
             || value.Contains("narrative", StringComparison.OrdinalIgnoreCase))
+        {
             return "match";
+        }
+
         if (value.Contains("review", StringComparison.OrdinalIgnoreCase)
             || value.Contains("recover", StringComparison.OrdinalIgnoreCase))
+        {
             return "review";
+        }
+
         if (value.Contains("file", StringComparison.OrdinalIgnoreCase)
             || value.Contains("ingest", StringComparison.OrdinalIgnoreCase)
             || value.Contains("path", StringComparison.OrdinalIgnoreCase)
             || value.Contains("hash", StringComparison.OrdinalIgnoreCase))
+        {
             return "file";
+        }
+
         if (value.Contains("manual", StringComparison.OrdinalIgnoreCase)
             || value.Contains("note", StringComparison.OrdinalIgnoreCase))
+        {
             return "manual";
+        }
+
         return "metadata";
     }
 
     private static string? BuildHistoryContext(HistoryRow row)
     {
         if (row.ContextDepth <= 0)
+        {
             return null;
+        }
 
         var title = string.IsNullOrWhiteSpace(row.ContextTitle) ? null : row.ContextTitle.Trim();
         if (string.Equals(row.ContextMediaType, "Music", StringComparison.OrdinalIgnoreCase))
@@ -731,23 +761,36 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
     {
         string? formatted;
         if (string.Equals(eventType, "NarrativeRootResolved", StringComparison.OrdinalIgnoreCase))
+        {
             formatted = "Connected this episode to its TV show using the library's identified series metadata.";
+        }
         else if (string.Equals(eventType, "PathUpdated", StringComparison.OrdinalIgnoreCase))
+        {
             formatted = "The library refreshed the stored file location.";
+        }
         else if (string.Equals(eventType, "FileScored", StringComparison.OrdinalIgnoreCase))
+        {
             formatted = "The file was checked for metadata completeness and media quality.";
+        }
         else
+        {
             formatted = detail;
+        }
 
         if (string.IsNullOrWhiteSpace(context))
+        {
             return formatted;
+        }
+
         return string.IsNullOrWhiteSpace(formatted) ? context : $"{context} — {formatted}";
     }
 
     private static string HumanizeActionType(string actionType)
     {
         if (string.IsNullOrWhiteSpace(actionType))
+        {
             return "Library activity";
+        }
 
         var spaced = actionType.Replace('_', ' ').Replace('-', ' ');
         spaced = Regex.Replace(spaced, "(?<=[a-z0-9])(?=[A-Z])", " ");

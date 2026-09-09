@@ -22,7 +22,9 @@ public sealed class CoverArtHashService : ICoverArtHashService
     public Task<ulong?> ComputeHashAsync(byte[] imageBytes, CancellationToken ct = default)
     {
         if (imageBytes is null || imageBytes.Length < 100) // Too small to be a real image
+        {
             return Task.FromResult<ulong?>(null);
+        }
 
         try
         {
@@ -61,7 +63,9 @@ public sealed class CoverArtHashService : ICoverArtHashService
             for (int i = 0; i < 64; i++)
             {
                 if (pixels[i] >= mean)
+                {
                     hash |= (1UL << i);
+                }
             }
 
             return Task.FromResult<ulong?>(hash);

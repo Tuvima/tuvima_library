@@ -1,12 +1,12 @@
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
-using MediaEngine.Contracts.Realtime;
 
 namespace MediaEngine.Api.Services;
 
@@ -31,12 +31,12 @@ namespace MediaEngine.Api.Services;
 /// </summary>
 public sealed class RetagSweepWorker : BackgroundService
 {
-    private readonly IMediaAssetRepository    _assetRepo;
-    private readonly IWriteBackService        _writeBackService;
-    private readonly IReviewQueueRepository   _reviewRepo;
-    private readonly IConfigurationLoader     _configLoader;
-    private readonly IEventPublisher          _eventPublisher;
-    private readonly WritebackConfigState     _hashState;
+    private readonly IMediaAssetRepository _assetRepo;
+    private readonly IWriteBackService _writeBackService;
+    private readonly IReviewQueueRepository _reviewRepo;
+    private readonly IConfigurationLoader _configLoader;
+    private readonly IEventPublisher _eventPublisher;
+    private readonly WritebackConfigState _hashState;
     private readonly ILogger<RetagSweepWorker> _logger;
 
     /// <summary>Cron expression fallback when <c>maintenance.json</c> is missing or unparseable.</summary>
@@ -46,12 +46,12 @@ public sealed class RetagSweepWorker : BackgroundService
     private readonly SemaphoreSlim _wakeSignal = new(0, 1);
 
     public RetagSweepWorker(
-        IMediaAssetRepository     assetRepo,
-        IWriteBackService         writeBackService,
-        IReviewQueueRepository    reviewRepo,
-        IConfigurationLoader      configLoader,
-        IEventPublisher           eventPublisher,
-        WritebackConfigState      hashState,
+        IMediaAssetRepository assetRepo,
+        IWriteBackService writeBackService,
+        IReviewQueueRepository reviewRepo,
+        IConfigurationLoader configLoader,
+        IEventPublisher eventPublisher,
+        WritebackConfigState hashState,
         ILogger<RetagSweepWorker> logger)
     {
         ArgumentNullException.ThrowIfNull(assetRepo);
@@ -62,13 +62,13 @@ public sealed class RetagSweepWorker : BackgroundService
         ArgumentNullException.ThrowIfNull(hashState);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _assetRepo        = assetRepo;
+        _assetRepo = assetRepo;
         _writeBackService = writeBackService;
-        _reviewRepo       = reviewRepo;
-        _configLoader     = configLoader;
-        _eventPublisher   = eventPublisher;
-        _hashState        = hashState;
-        _logger           = logger;
+        _reviewRepo = reviewRepo;
+        _configLoader = configLoader;
+        _eventPublisher = eventPublisher;
+        _hashState = hashState;
+        _logger = logger;
 
         _hashState.PendingApplied += OnPendingApplied;
     }
@@ -104,9 +104,9 @@ public sealed class RetagSweepWorker : BackgroundService
             var cronDelay = CronScheduler.UntilNext(schedule, TimeSpan.FromHours(24));
             _logger.LogInformation("Next retag sweep at {NextRun}", DateTimeOffset.Now.Add(cronDelay));
 
-            var waitTask   = _wakeSignal.WaitAsync(stoppingToken);
-            var cronTask   = Task.Delay(cronDelay, stoppingToken);
-            var finished   = await Task.WhenAny(waitTask, cronTask);
+            var waitTask = _wakeSignal.WaitAsync(stoppingToken);
+            var cronTask = Task.Delay(cronDelay, stoppingToken);
+            var finished = await Task.WhenAny(waitTask, cronTask);
             if (finished == waitTask)
             {
                 _logger.LogInformation("RetagSweepWorker: woken by Apply signal");
@@ -274,13 +274,13 @@ public sealed class RetagSweepWorker : BackgroundService
     {
         var entry = new ReviewQueueEntry
         {
-            Id         = Guid.NewGuid(),
-            EntityId   = stale.AssetId,
+            Id = Guid.NewGuid(),
+            EntityId = stale.AssetId,
             EntityType = "MediaAsset",
-            Trigger    = ReviewTrigger.WritebackFailed,
-            Status     = ReviewStatus.Pending,
-            Detail     = $"Re-tag failed ({outcome}): {error}",
-            CreatedAt  = DateTimeOffset.UtcNow,
+            Trigger = ReviewTrigger.WritebackFailed,
+            Status = ReviewStatus.Pending,
+            Detail = $"Re-tag failed ({outcome}): {error}",
+            CreatedAt = DateTimeOffset.UtcNow,
             ReviewReadyAt = DateTimeOffset.UtcNow,
             AutomationCompletedAt = DateTimeOffset.UtcNow,
         };
@@ -302,12 +302,19 @@ public sealed class RetagSweepWorker : BackgroundService
     /// </summary>
     private static long ComputeNextRetryEpoch(RetagSweepSettings settings)
     {
-        if (!TimeSpan.TryParse(settings.OffHoursStart, out var start)) start = new TimeSpan(2, 0, 0);
-        if (!TimeSpan.TryParse(settings.OffHoursEnd,   out var end))   end   = new TimeSpan(6, 0, 0);
+        if (!TimeSpan.TryParse(settings.OffHoursStart, out var start))
+        {
+            start = new TimeSpan(2, 0, 0);
+        }
+
+        if (!TimeSpan.TryParse(settings.OffHoursEnd, out var end))
+        {
+            end = new TimeSpan(6, 0, 0);
+        }
 
         var now = DateTime.Now;
         var todayStart = now.Date + start;
-        var todayEnd   = now.Date + end;
+        var todayEnd = now.Date + end;
 
         if (now >= todayStart && now <= todayEnd)
         {

@@ -109,10 +109,15 @@ public sealed class CollectionPersonalMediaClient(
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
             if (document.RootElement.TryGetProperty("detail", out var detail)
                 && detail.ValueKind == JsonValueKind.String)
+            {
                 return detail.GetString() ?? $"The Engine rejected the request ({(int)response.StatusCode}).";
+            }
+
             if (document.RootElement.TryGetProperty("error", out var error)
                 && error.ValueKind == JsonValueKind.String)
+            {
                 return error.GetString() ?? $"The Engine rejected the request ({(int)response.StatusCode}).";
+            }
         }
         catch (JsonException)
         {

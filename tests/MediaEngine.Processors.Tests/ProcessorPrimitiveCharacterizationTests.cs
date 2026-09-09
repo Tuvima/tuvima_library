@@ -112,7 +112,9 @@ public sealed class ProcessorPrimitiveCharacterizationTests
              directory = directory.Parent)
         {
             if (File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            {
                 return directory.FullName;
+            }
         }
 
         throw new DirectoryNotFoundException("Could not locate the repository root.");

@@ -39,18 +39,26 @@ public static class PlaceholderTitleDetector
     public static bool IsPlaceholder(string? title)
     {
         if (string.IsNullOrWhiteSpace(title))
+        {
             return true;
+        }
 
         var trimmed = title.Trim();
 
         if (trimmed.Length <= 1)
+        {
             return true;
+        }
 
         if (ExactMatches.Contains(trimmed))
+        {
             return true;
+        }
 
         if (TrackPattern.IsMatch(trimmed))
+        {
             return true;
+        }
 
         return false;
     }
@@ -63,7 +71,10 @@ public static class PlaceholderTitleDetector
     /// </summary>
     public static bool HasBridgeId(IReadOnlyDictionary<string, string> hints)
     {
-        if (hints is null) return false;
+        if (hints is null)
+        {
+            return false;
+        }
 
         string[] keys =
         {
@@ -76,7 +87,9 @@ public static class PlaceholderTitleDetector
         foreach (var key in keys)
         {
             if (hints.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return true;
+            }
         }
 
         return false;

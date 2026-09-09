@@ -92,8 +92,8 @@ public enum LocalAssetLifecycleState
 
 public sealed record LocalAssetRegistration(
     Guid LibraryId,
-    Guid PersonalSpaceId,
-    Guid OwnerProfileId,
+    Guid? PersonalSpaceId,
+    Guid? OwnerProfileId,
     string MediaKind,
     string? Title,
     DateTimeOffset? CapturedAt,
@@ -110,7 +110,14 @@ public sealed record LocalAssetRegistration(
     string? DocumentText = null,
     string? MetadataJson = null,
     IReadOnlyCollection<string>? Tags = null,
-    Guid? ExistingItemId = null);
+    Guid? ExistingItemId = null,
+    string ScopeKind = LocalAssetScopeKinds.Personal);
+
+public static class LocalAssetScopeKinds
+{
+    public const string Personal = "personal";
+    public const string Shared = "shared";
+}
 
 public sealed record LocalAssetFileRegistration(
     string FilePath,
@@ -134,7 +141,7 @@ public sealed record LocalAssetContentLocation(
     Guid ItemId,
     Guid FileId,
     Guid LibraryId,
-    Guid OwnerProfileId,
+    Guid? OwnerProfileId,
     Guid? SourceId,
     Guid? DeviceId,
     string FilePath,

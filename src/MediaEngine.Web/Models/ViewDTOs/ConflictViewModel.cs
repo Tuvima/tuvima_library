@@ -8,7 +8,7 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// Spec: Phase B – Conflict Surfacing (B-05).
 /// </summary>
 public sealed record ConflictViewModel(
-    [property: JsonPropertyName("entity_id")]      Guid EntityId,
-    [property: JsonPropertyName("key")]            string Key,
-    [property: JsonPropertyName("value")]          string Value,
+    [property: JsonPropertyName("entity_id")] Guid EntityId,
+    [property: JsonPropertyName("key")] string Key,
+    [property: JsonPropertyName("value")] string Value,
     [property: JsonPropertyName("last_scored_at")] DateTimeOffset LastScoredAt);

@@ -1,5 +1,5 @@
-using Microsoft.Extensions.Logging;
 using MediaEngine.Ingestion.Contracts;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Ingestion;
 
@@ -43,7 +43,11 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
 
     private static void SetAppleText(TagLib.Mpeg4.AppleTag appleTag, string fourCc, string value)
     {
-        if (string.IsNullOrEmpty(value)) return;
+        if (string.IsNullOrEmpty(value))
+        {
+            return;
+        }
+
         var box = TagLib.ByteVector.FromString(fourCc, TagLib.StringType.Latin1);
         appleTag.SetText(box, value);
     }
@@ -59,7 +63,11 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
     /// <inheritdoc/>
     public bool CanHandle(string filePath)
     {
-        if (string.IsNullOrWhiteSpace(filePath)) return false;
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return false;
+        }
+
         return SupportedExtensions.Contains(Path.GetExtension(filePath));
     }
 
@@ -82,7 +90,9 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
         using (var probe = CreateTagFileOrSkip(filePath))
         {
             if (probe is null)
+            {
                 return Task.CompletedTask;
+            }
         }
 
         WithBackup(
@@ -96,22 +106,34 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
             }
 
             if (tags.TryGetValue("title", out var title))
+            {
                 file.Tag.Title = title;
+            }
 
             if (tags.TryGetValue("director", out var director))
+            {
                 file.Tag.Performers = [director];
+            }
 
             if (tags.TryGetValue("author", out var author) && file.Tag.Performers.Length == 0)
+            {
                 file.Tag.Performers = [author];
+            }
 
             if (tags.TryGetValue("genre", out var genre))
+            {
                 file.Tag.Genres = [genre];
+            }
 
             if (tags.TryGetValue("description", out var desc))
+            {
                 file.Tag.Comment = desc;
+            }
 
             if (tags.TryGetValue("year", out var yearStr) && uint.TryParse(yearStr, out var year))
+            {
                 file.Tag.Year = year;
+            }
 
             // MP4-specific TV atoms and custom identifiers via the iTunes AppleTag.
             // Matroska files only get the standard Tag fields above; rich custom
@@ -120,17 +142,27 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
             if (appleTag is not null)
             {
                 if (tags.TryGetValue("show_name", out var showName))
+                {
                     SetAppleText(appleTag, "tvsh", showName);
+                }
+
                 if (tags.TryGetValue("episode_title", out var episodeTitle))
+                {
                     SetAppleText(appleTag, "tven", episodeTitle);
+                }
+
                 if (tags.TryGetValue("network", out var network))
+                {
                     SetAppleText(appleTag, "tvnn", network);
+                }
 
                 // Custom identifier atoms (reverse-DNS) — round-trippable on re-ingest.
                 foreach (var key in CustomIdKeys)
                 {
                     if (tags.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+                    {
                         appleTag.SetDashBox("com.tuvima", key, value);
+                    }
                 }
             }
 
@@ -146,7 +178,9 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
 
             var backupPath = filePath + BackupSuffix;
             if (File.Exists(backupPath))
+            {
                 File.Delete(backupPath);
+            }
 
             _logger.LogInformation("VideoTagger: wrote {Count} tags to {Path}",
                 tags.Count, filePath);
@@ -168,13 +202,17 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
         ct.ThrowIfCancellationRequested();
 
         if (!File.Exists(filePath) || imageData.Length == 0)
+        {
             return Task.CompletedTask;
+        }
 
         try
         {
             using var file = CreateTagFileOrSkip(filePath);
             if (file is null)
+            {
                 return Task.CompletedTask;
+            }
 
             file.Tag.Pictures =
             [

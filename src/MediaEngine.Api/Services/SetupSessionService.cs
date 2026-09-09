@@ -7,8 +7,9 @@ using MediaEngine.Storage;
 namespace MediaEngine.Api.Services;
 
 /// <summary>
-/// Issues a short-lived browser session while a new server has no administrator.
-/// Setup sessions stop authorizing requests as soon as the first administrator exists.
+/// Issues a short-lived browser session before the first account is created.
+/// Account creation permanently closes unauthenticated setup; later credential or
+/// grant changes use authenticated recovery and never reopen this entry point.
 /// </summary>
 public sealed class SetupSessionService(
     OnboardingRepository repository,
@@ -24,13 +25,17 @@ public sealed class SetupSessionService(
         try
         {
             if (await identity.IsAdministratorConfiguredAsync(ct).ConfigureAwait(false))
+            {
                 return null;
+            }
 
             var plaintextSession = Token(32);
             var sessionHash = Convert.ToHexStringLower(Hash(plaintextSession));
             var expires = timeProvider.GetUtcNow().AddHours(12);
             if (!await repository.TryBeginAsync(sessionHash, Guid.NewGuid(), expires, ct).ConfigureAwait(false))
+            {
                 return null;
+            }
 
             return new SetupStartResponse(
                 plaintextSession,
@@ -58,16 +63,16 @@ public sealed class SetupSessionService(
 
     public async Task<SetupStatusDto> GetStatusAsync(CancellationToken ct)
     {
-        var administrator = await identity.IsAdministratorConfiguredAsync(ct).ConfigureAwait(false);
+        var bootstrapCompleted = await identity.IsAdministratorConfiguredAsync(ct).ConfigureAwait(false);
         var workflow = repository.Get();
         return new SetupStatusDto(
             workflow.WorkflowVersion,
             workflow.State,
             workflow.CurrentStep,
             workflow.Revision,
-            !administrator && workflow.State != "complete",
-            administrator && workflow.State != "complete",
-            administrator,
+            !bootstrapCompleted && workflow.State != "complete",
+            bootstrapCompleted && workflow.State != "complete",
+            bootstrapCompleted,
             workflow.Steps.Select(step => new SetupStepStatusDto(
                 step.Key, step.Status, step.Detail, step.RepairTarget, step.CompletedAt)).ToList());
     }

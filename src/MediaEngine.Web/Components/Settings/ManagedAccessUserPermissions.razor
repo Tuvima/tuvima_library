@@ -1,0 +1,41 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Authentication
+
+<section class="access-user-permissions">
+    <MudText Typo="Typo.subtitle1">Media access</MudText>
+    @foreach (var feature in Features)
+    {
+        <AppSwitchRow Value="@FeatureIds.Contains(feature.Id)" ValueChanged="@((bool value) => FeatureChanged.InvokeAsync((feature.Id, value)))" Label="@feature.Label" Description="@feature.Description" />
+    }
+</section>
+<section class="access-user-permissions">
+    <MudText Typo="Typo.subtitle1">Catalogued libraries</MudText>
+    @if (Libraries.Count == 0) { <small>No catalogued libraries are configured.</small> }
+    else
+    {
+        <div class="access-user-permissions__libraries">
+            @foreach (var library in Libraries)
+            {
+                <AppCheckbox Value="@LibraryIds.Contains(library.Id)" ValueChanged="@((bool value) => LibraryChanged.InvokeAsync((library.Id, value)))" Label="@library.DisplayName" />
+            }
+        </div>
+    }
+</section>
+
+@code {
+    internal static readonly IReadOnlyList<FeatureOption> Features =
+    [
+        new("read", "Read", "Books and comics"),
+        new("watch", "Watch", "Movies and TV shows"),
+        new("listen", "Listen", "Music and audiobooks"),
+        new("view", "View", "Shared content and the active profile's Personal Space"),
+    ];
+
+    [Parameter, EditorRequired] public IReadOnlySet<string> FeatureIds { get; set; } = new HashSet<string>();
+    [Parameter, EditorRequired] public IReadOnlySet<Guid> LibraryIds { get; set; } = new HashSet<Guid>();
+    [Parameter, EditorRequired] public IReadOnlyList<AccessLibraryOptionDto> Libraries { get; set; } = [];
+    [Parameter] public EventCallback<(string Id, bool Value)> FeatureChanged { get; set; }
+    [Parameter] public EventCallback<(Guid Id, bool Value)> LibraryChanged { get; set; }
+
+    internal sealed record FeatureOption(string Id, string Label, string Description);
+}

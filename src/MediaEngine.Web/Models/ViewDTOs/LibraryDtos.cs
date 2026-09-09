@@ -201,24 +201,36 @@ public sealed class LibraryItemViewModel
     private LibraryStatus ComputeLibraryStatus()
     {
         if (string.Equals(Status, "WaitingForProvider", StringComparison.OrdinalIgnoreCase))
+        {
             return LibraryStatus.WaitingForProvider;
+        }
 
         if (string.Equals(Status, "Rejected", StringComparison.OrdinalIgnoreCase))
+        {
             return LibraryStatus.Quarantined;
+        }
 
         if (NeedsReview())
+        {
             return LibraryStatus.NeedsReview;
+        }
 
         if (string.Equals(Status, "RetailMatched", StringComparison.OrdinalIgnoreCase))
+        {
             return LibraryStatus.RetailMatched;
+        }
 
         if (string.Equals(Status, "Provisional", StringComparison.OrdinalIgnoreCase)
             || string.Equals(Status, "AwaitingStage2", StringComparison.OrdinalIgnoreCase)
             || string.Equals(LibraryVisibility, "hidden", StringComparison.OrdinalIgnoreCase))
+        {
             return LibraryStatus.Provisional;
+        }
 
         if (HasValidWikidataQid() || IsReadyForLibrary || HasUserLocks)
+        {
             return LibraryStatus.Verified;
+        }
 
         return LibraryStatus.Provisional;
     }
@@ -226,16 +238,29 @@ public sealed class LibraryItemViewModel
     private string? ComputeResolutionSummary()
     {
         if (!HasValidWikidataQid())
+        {
             return null;
+        }
 
         if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("ISBN", StringComparison.OrdinalIgnoreCase))
+        {
             return $"ISBN -> {WikidataQid}";
+        }
+
         if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("TMDB", StringComparison.OrdinalIgnoreCase))
+        {
             return $"TMDB -> {WikidataQid}";
+        }
+
         if (!string.IsNullOrEmpty(RetailMatchDetail) && RetailMatchDetail.Contains("ASIN", StringComparison.OrdinalIgnoreCase))
+        {
             return $"ASIN -> {WikidataQid}";
+        }
+
         if (HasRetailMatch())
+        {
             return $"{RetailMatch} -> {WikidataQid}";
+        }
 
         return $"Title search -> {WikidataQid}";
     }
@@ -253,32 +278,56 @@ public sealed class LibraryItemViewModel
                     var parts = new List<string>();
 
                     if (fn.Contains("2160P") || fn.Contains("4K") || fn.Contains("UHD"))
+                    {
                         parts.Add("4K");
+                    }
                     else if (fn.Contains("1080P") || fn.Contains("1080I"))
+                    {
                         parts.Add("1080p");
+                    }
                     else if (fn.Contains("720P"))
+                    {
                         parts.Add("720p");
+                    }
                     else if (fn.Contains("480P") || fn.Contains("SD"))
+                    {
                         parts.Add("SD");
+                    }
 
                     if (fn.Contains("REMUX"))
+                    {
                         parts.Add("REMUX");
+                    }
                     else if (fn.Contains("BLURAY") || fn.Contains("BLU-RAY"))
+                    {
                         parts.Add("Blu-ray");
+                    }
                     else if (fn.Contains("WEBDL") || fn.Contains("WEB-DL"))
+                    {
                         parts.Add("WEB-DL");
+                    }
                     else if (fn.Contains("WEBRIP") || fn.Contains("WEB-RIP"))
+                    {
                         parts.Add("WEBRip");
+                    }
                     else if (fn.Contains("HDTV"))
+                    {
                         parts.Add("HDTV");
+                    }
 
                     if (fn.Contains("HEVC") || fn.Contains("X265") || fn.Contains("H265") || fn.Contains("H.265"))
+                    {
                         parts.Add("HEVC");
+                    }
                     else if (fn.Contains("X264") || fn.Contains("H264") || fn.Contains("H.264") || fn.Contains("AVC"))
+                    {
                         parts.Add("H.264");
+                    }
 
                     if (parts.Count > 0)
+                    {
                         return string.Join(" ", parts);
+                    }
                 }
                 return null;
 
@@ -352,10 +401,14 @@ public sealed class LibraryItemViewModel
     private LibraryPipelineStage ComputeRetailStage()
     {
         if (IsRetailFailure())
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Failed, Label = "Retail: No match" };
+        }
 
         if (IsRetailReview())
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Warning, Label = "Retail: Needs review" };
+        }
 
         if (HasRetailMatch())
         {
@@ -367,7 +420,9 @@ public sealed class LibraryItemViewModel
 
         if (string.Equals(Status, "WaitingForProvider", StringComparison.OrdinalIgnoreCase)
             || string.Equals(PipelineStep, "Retail", StringComparison.OrdinalIgnoreCase))
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Running, Label = "Retail: In progress" };
+        }
 
         return new LibraryPipelineStage { State = LibraryStageState.Pending, Label = "Retail: Pending" };
     }
@@ -375,19 +430,27 @@ public sealed class LibraryItemViewModel
     private LibraryPipelineStage ComputeWikidataStage()
     {
         if (HasValidWikidataQid())
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Completed, Label = $"Wikidata: {WikidataQid}" };
+        }
 
         if (IsQidNoMatch())
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Warning, Label = "Wikidata: No match" };
+        }
 
         if (IsWikidataReview())
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Warning, Label = "Wikidata: Needs review" };
+        }
 
         if (HasRetailMatch()
             && (string.Equals(PipelineStep, "Wikidata", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(PipelineStep, "Enrichment", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(PipelineStep, "Complete", StringComparison.OrdinalIgnoreCase)))
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Running, Label = "Wikidata: Resolving" };
+        }
 
         return new LibraryPipelineStage { State = LibraryStageState.Pending, Label = "Wikidata: Pending" };
     }
@@ -403,13 +466,17 @@ public sealed class LibraryItemViewModel
         }
 
         if (string.Equals(ArtworkState, "missing", StringComparison.OrdinalIgnoreCase))
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Warning, Label = "Enrichment: No artwork found" };
+        }
 
         if (HasRetailMatch()
             || HasValidWikidataQid()
             || string.Equals(PipelineStep, "Enrichment", StringComparison.OrdinalIgnoreCase)
             || string.Equals(PipelineStep, "Complete", StringComparison.OrdinalIgnoreCase))
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Running, Label = "Enrichment: Pending artwork" };
+        }
 
         return new LibraryPipelineStage { State = LibraryStageState.Pending, Label = "Enrichment: Pending" };
     }
@@ -426,11 +493,15 @@ public sealed class LibraryItemViewModel
         }
 
         if (wikidata.State == LibraryStageState.Completed)
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Completed, Label = wikidata.Label };
+        }
 
         if (retail.State == LibraryStageState.Completed
             && (wikidata.State == LibraryStageState.Pending || wikidata.State == LibraryStageState.Running))
+        {
             return new LibraryPipelineStage { State = LibraryStageState.Running, Label = "Retail matched -> awaiting Wikidata" };
+        }
 
         if (retail.State == LibraryStageState.Warning || wikidata.State == LibraryStageState.Warning)
         {
@@ -489,16 +560,24 @@ public sealed class LibraryItemViewModel
     private string ComputeReadinessLabel()
     {
         if (NeedsReview())
+        {
             return "Needs review";
+        }
 
         if (string.Equals(ArtworkState, "pending", StringComparison.OrdinalIgnoreCase))
+        {
             return "Pending artwork";
+        }
 
         if (IsReadyForLibrary && string.Equals(LibraryVisibility, "visible", StringComparison.OrdinalIgnoreCase))
+        {
             return "Ready";
+        }
 
         if (string.Equals(LibraryVisibility, "hidden", StringComparison.OrdinalIgnoreCase))
+        {
             return "Hidden";
+        }
 
         return "Pending";
     }

@@ -1,21 +1,25 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Domain.Authorization;
 
 namespace MediaEngine.Contracts.Authentication;
 
 public static class ClientApiScopes
 {
-    public const string LibraryRead = "library.read";
-    public const string ArtworkRead = "artwork.read";
-    public const string ProgressRead = "progress.read";
-    public const string ProgressWrite = "progress.write";
-    public const string QueueRead = "queue.read";
-    public const string QueueWrite = "queue.write";
-    public const string PlaybackRead = "playback.read";
-    public const string PlaybackWrite = "playback.write";
-    public const string DownloadsRead = "downloads.read";
-    public const string DownloadsWrite = "downloads.write";
+    public static readonly string LibraryRead = ApplicationPermissionIds.LibraryRead.Value;
+    public static readonly string ArtworkRead = ApplicationPermissionIds.ArtworkRead.Value;
+    public static readonly string ProgressRead = ApplicationPermissionIds.ProgressRead.Value;
+    public static readonly string ProgressWrite = ApplicationPermissionIds.ProgressWrite.Value;
+    public static readonly string QueueRead = ApplicationPermissionIds.QueueRead.Value;
+    public static readonly string QueueWrite = ApplicationPermissionIds.QueueWrite.Value;
+    public static readonly string PlaybackRead = ApplicationPermissionIds.PlaybackRead.Value;
+    public static readonly string PlaybackWrite = ApplicationPermissionIds.PlaybackWrite.Value;
+    public static readonly string DownloadsRead = ApplicationPermissionIds.DownloadsRead.Value;
+    public static readonly string DownloadsWrite = ApplicationPermissionIds.DownloadsWrite.Value;
 
-    public static readonly IReadOnlyList<string> Consumer =
+    public static readonly IReadOnlyList<string> Consumer = Array.AsReadOnly(
+        ApplicationPermissionIds.NativeClient.Select(id => id.Value).ToArray());
+
+    public static readonly IReadOnlyList<string> Default = Array.AsReadOnly<string>(
     [
         LibraryRead,
         ArtworkRead,
@@ -25,21 +29,7 @@ public static class ClientApiScopes
         QueueWrite,
         PlaybackRead,
         PlaybackWrite,
-        DownloadsRead,
-        DownloadsWrite,
-    ];
-
-    public static readonly IReadOnlyList<string> Default =
-    [
-        LibraryRead,
-        ArtworkRead,
-        ProgressRead,
-        ProgressWrite,
-        QueueRead,
-        QueueWrite,
-        PlaybackRead,
-        PlaybackWrite,
-    ];
+    ]);
 }
 
 public sealed class DeviceAuthorizationRequest

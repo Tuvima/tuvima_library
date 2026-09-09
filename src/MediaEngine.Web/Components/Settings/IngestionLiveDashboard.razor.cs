@@ -1,8 +1,8 @@
 using System.Globalization;
-using Microsoft.AspNetCore.Components;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Formatting;
 using MediaEngine.Web.Services.Integration;
+using Microsoft.AspNetCore.Components;
 using MudBlazor;
 
 namespace MediaEngine.Web.Components.Settings;
@@ -85,7 +85,9 @@ public partial class IngestionLiveDashboard
             EffectiveProviderActivity,
             SelectionSignature);
         if (string.Equals(_lastRenderSignature, signature, StringComparison.Ordinal))
+        {
             return false;
+        }
 
         _lastRenderSignature = signature;
         return true;
@@ -253,15 +255,30 @@ public partial class IngestionLiveDashboard
     {
         var mediaType = job.MediaType ?? string.Empty;
         if (mediaType.Contains("Music", StringComparison.OrdinalIgnoreCase) || mediaType.Contains("Album", StringComparison.OrdinalIgnoreCase))
+        {
             return Icons.Material.Outlined.Album;
+        }
+
         if (mediaType.Contains("Audiobook", StringComparison.OrdinalIgnoreCase))
+        {
             return Icons.Material.Outlined.Headphones;
+        }
+
         if (mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase) || mediaType.Contains("Episode", StringComparison.OrdinalIgnoreCase))
+        {
             return Icons.Material.Outlined.LiveTv;
+        }
+
         if (mediaType.Contains("Movie", StringComparison.OrdinalIgnoreCase))
+        {
             return Icons.Material.Outlined.Movie;
+        }
+
         if (mediaType.Contains("Comic", StringComparison.OrdinalIgnoreCase))
+        {
             return Icons.Material.Outlined.AutoStories;
+        }
+
         return Icons.Material.Outlined.MenuBook;
     }
 
@@ -297,7 +314,10 @@ public partial class IngestionLiveDashboard
         if (pageState == LibraryUpdatePageState.Running)
         {
             if (remainingFiles > 0)
+            {
                 return $"{DisplayFormat.FormatCount(remainingFiles)} still in pipeline";
+            }
+
             return "waiting for latest worker status";
         }
 
@@ -320,13 +340,25 @@ public partial class IngestionLiveDashboard
     private static string StageVisualState(IngestionDashboardStage stage)
     {
         if (stage.IsStale)
+        {
             return "stale";
+        }
+
         if (IsStageComplete(stage))
+        {
             return "complete";
+        }
+
         if (stage.StatusKey == "Ingestion_StatusActive" || stage.ActiveCount > 0)
+        {
             return "active";
+        }
+
         if (stage.Percent > 0)
+        {
             return "pending";
+        }
+
         return "idle";
     }
 
@@ -369,15 +401,30 @@ public partial class IngestionLiveDashboard
     {
         var label = DisplayStageLabel(stage);
         if (stage.IsStale)
+        {
             return $"{label} has not sent a fresh update recently.";
+        }
+
         if (IsStageComplete(stage))
+        {
             return $"{label} is complete for this batch.";
+        }
+
         if (stage.StatusKey == "Ingestion_StatusActive" || stage.ActiveCount > 0)
+        {
             return $"{label} is running now.";
+        }
+
         if (stage.QueuedCount > 0)
+        {
             return $"{DisplayFormat.FormatCount(stage.QueuedCount)} items are waiting for {label}.";
+        }
+
         if (stage.Percent > 0)
+        {
             return $"{label} has started but is not finished.";
+        }
+
         return $"{label} has not started yet.";
     }
 
@@ -385,7 +432,10 @@ public partial class IngestionLiveDashboard
     {
         var artifact = StageArtifactChip(stage);
         if (!string.IsNullOrWhiteSpace(artifact))
+        {
             return artifact;
+        }
+
         return StageCountLine(stage);
     }
 
@@ -550,7 +600,10 @@ public partial class IngestionLiveDashboard
         count = Math.Max(0, count);
         total = Math.Max(0, total);
         if (total > 0)
+        {
             count = Math.Clamp(count, 0, total);
+        }
+
         var percent = total > 0 ? count * 100d / total : 0;
         var status = percent >= 99.5
             ? "Ingestion_StatusComplete"
@@ -602,9 +655,11 @@ public partial class IngestionLiveDashboard
     private static string StageCountLine(IngestionDashboardStage stage)
     {
         if (stage.Total <= 0)
+        {
             return stage.Count > 0
                 ? $"{DisplayFormat.FormatCount(stage.Count)} files"
                 : "Waiting for files";
+        }
 
         return $"{DisplayFormat.FormatCount(stage.Count)} / {DisplayFormat.FormatCount(stage.Total)} files";
     }
@@ -697,69 +752,165 @@ public partial class IngestionLiveDashboard
     {
         var label = detail.Label.ToLowerInvariant();
         if (label.Contains("match"))
+        {
             return "Files matched to a retail catalog result.";
+        }
+
         if (label.Contains("metadata"))
+        {
             return "Metadata fields collected from providers.";
+        }
+
         if (label.Contains("cover art"))
+        {
             return "Covers or posters saved for the matched media.";
+        }
+
         if (label.Contains("media qid") || label.Contains("media / work qid") || label.Contains("files with media"))
+        {
             return "Files or works that have a direct Wikidata ID.";
+        }
+
         if (label.Contains("related-only qid"))
+        {
             return "Extra Wikidata IDs found for people, series, universes, or story details.";
+        }
+
         if (label.Contains("relevant qid"))
+        {
             return "Unique Wikidata IDs connected to this batch, including files, people, series, and story details.";
+        }
+
         if (label.Contains("related qid"))
+        {
             return "Extra Wikidata IDs found for people, series, universes, or story details.";
+        }
+
         if (label.Contains("unresolved"))
+        {
             return "Items Tuvima could not confidently finish.";
+        }
+
         if (label.Contains("failed"))
+        {
             return "Items where the worker stopped with an error.";
+        }
+
         if (label.Contains("book"))
+        {
             return "Book files counted in this stage.";
+        }
+
         if (label.Contains("movie"))
+        {
             return "Movie files counted in this stage.";
+        }
+
         if (label.Equals("tv", StringComparison.OrdinalIgnoreCase) || label.Contains("season"))
+        {
             return "TV files or episode artwork counted in this stage.";
+        }
+
         if (label.Contains("music") || label.Contains("album"))
+        {
             return "Music files or album artwork counted in this stage.";
+        }
+
         if (label.Contains("comic"))
+        {
             return "Comic files counted in this stage.";
+        }
+
         if (label.Contains("audiobook"))
+        {
             return "Audiobook files counted in this stage.";
+        }
+
         if (label.Contains("unidentified"))
+        {
             return "Files whose media type could not be identified.";
+        }
+
         if (label.Contains("skipped") || label.Contains("duplicate"))
+        {
             return "Files skipped because they were duplicates or should not be processed.";
+        }
+
         if (label.Contains("cast"))
+        {
             return "Actors and voice actors linked to the files.";
+        }
+
         if (label.Contains("director"))
+        {
             return "Directors linked to the files.";
+        }
+
         if (label.Contains("author"))
+        {
             return "Authors linked to the files.";
+        }
+
         if (label.Contains("narrator"))
+        {
             return "Narrators linked to the files.";
+        }
+
         if (label.Contains("artist"))
+        {
             return "Music artists linked to the files.";
+        }
+
         if (label.Contains("creator") || label.Contains("crew"))
+        {
             return "Other creators and crew linked to the files.";
+        }
+
         if (label.Contains("enriched"))
+        {
             return "People with extra profile data such as biography or images.";
+        }
+
         if (label.Equals("links", StringComparison.OrdinalIgnoreCase))
+        {
             return "Relationship links created between works, collections, people, or story entities.";
+        }
+
         if (label.Contains("linked files"))
+        {
             return "Files connected to a series, universe, or relationship graph.";
+        }
+
         if (label.Contains("series"))
+        {
             return "Series or shelf groups found for this batch.";
+        }
+
         if (label.Contains("universe detail"))
+        {
             return "Universe roots, characters, locations, or organizations found.";
+        }
+
         if (label.Contains("adaptation"))
+        {
             return "Story or adaptation links found between works.";
+        }
+
         if (label.Contains("headshot"))
+        {
             return "Person images saved or linked.";
+        }
+
         if (label.Contains("backdrop"))
+        {
             return "Backdrop images saved.";
+        }
+
         if (label.Contains("logo"))
+        {
             return "Logo artwork saved.";
+        }
+
         return $"{detail.Label} count for this stage.";
     }
 
@@ -770,7 +921,10 @@ public partial class IngestionLiveDashboard
     {
         var value = details.FirstOrDefault(detail => detail.Label.Equals(label, StringComparison.OrdinalIgnoreCase))?.Value;
         if (string.IsNullOrWhiteSpace(value))
+        {
             return 0;
+        }
+
         return int.TryParse(value, NumberStyles.AllowThousands, CultureInfo.CurrentCulture, out var parsed)
             ? Math.Max(0, parsed)
             : 0;
@@ -785,7 +939,9 @@ public partial class IngestionLiveDashboard
         {
             var count = DetailCount(details, label);
             if (count > 0)
+            {
                 return count;
+            }
         }
 
         return 0;
@@ -794,9 +950,15 @@ public partial class IngestionLiveDashboard
     private static int DetailTerminalSort(string label)
     {
         if (label.Contains("failed", StringComparison.OrdinalIgnoreCase))
+        {
             return 2;
+        }
+
         if (label.Contains("unresolved", StringComparison.OrdinalIgnoreCase))
+        {
             return 1;
+        }
+
         return 0;
     }
 
@@ -820,7 +982,10 @@ public partial class IngestionLiveDashboard
     private static string BatchTitle(IngestionOperationsBatchDto batch)
     {
         if (batch.BatchId != Guid.Empty)
+        {
             return $"Update {batch.BatchId.ToString("N")[..6]}";
+        }
+
         return "Update";
     }
 
@@ -963,16 +1128,28 @@ public partial class IngestionLiveDashboard
     {
         var value = status ?? string.Empty;
         if (value.Contains("complete", StringComparison.OrdinalIgnoreCase))
+        {
             return "success";
+        }
+
         if (value.Contains("run", StringComparison.OrdinalIgnoreCase) || value.Contains("active", StringComparison.OrdinalIgnoreCase))
+        {
             return "info";
+        }
+
         if (value.Contains("fail", StringComparison.OrdinalIgnoreCase))
+        {
             return "danger";
+        }
+
         if (value.Contains("review", StringComparison.OrdinalIgnoreCase)
             || value.Contains("partial", StringComparison.OrdinalIgnoreCase)
             || value.Contains("abandon", StringComparison.OrdinalIgnoreCase)
             || value.Contains("interrupt", StringComparison.OrdinalIgnoreCase))
+        {
             return "warning";
+        }
+
         return "neutral";
     }
 
@@ -980,11 +1157,20 @@ public partial class IngestionLiveDashboard
     {
         var elapsed = DateTimeOffset.UtcNow - value.ToUniversalTime();
         if (elapsed.TotalSeconds < 60)
+        {
             return "just now";
+        }
+
         if (elapsed.TotalMinutes < 60)
+        {
             return $"{(int)elapsed.TotalMinutes}m ago";
+        }
+
         if (elapsed.TotalHours < 24)
+        {
             return $"{(int)elapsed.TotalHours}h ago";
+        }
+
         return value.ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
     }
 
@@ -1076,11 +1262,20 @@ public partial class IngestionLiveDashboard
     private static string ProviderActivityTone(IngestionProviderActivityDto provider)
     {
         if (ProviderHasVisibleError(provider))
+        {
             return "warning";
+        }
+
         if (provider.WaitingRequests > 0)
+        {
             return "warning";
+        }
+
         if (provider.ActiveRequests > 0 || provider.RequestsLastMinute > 0 || provider.MaxActiveLastMinute > 0)
+        {
             return "info";
+        }
+
         return "success";
     }
 

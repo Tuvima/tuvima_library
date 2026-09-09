@@ -1,0 +1,348 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Authentication
+@using MediaEngine.Web.Services.Integration
+@implements IAsyncDisposable
+@inject DashboardIdentityClient Identity
+
+<section class="access-form-section application-webhooks">
+    <div class="application-webhooks__heading">
+        <div>
+            <MudText Typo="Typo.subtitle1">Webhooks</MudText>
+            <small>Send signed application events to a receiver you control.</small>
+        </div>
+        <AppButton Label="Add webhook" Size="AppControlSize.Compact" Disabled="@(_loading || _busy || _editing)" OnClick="NewWebhook" />
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <AppAlert Severity="Severity.Error">@_error</AppAlert>
+    }
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" aria-label="Loading webhooks" />
+    }
+    else if (_webhooks.Count == 0 && !_editing)
+    {
+        <small>No webhooks configured.</small>
+    }
+
+    @foreach (var webhook in _webhooks)
+    {
+        <article class="application-webhook" @key="webhook.Id">
+            <div class="application-webhook__summary">
+                <div>
+                    <strong>@webhook.Url</strong>
+                    <small>@string.Join(", ", webhook.EventTypes)</small>
+                </div>
+                <AppChip Text="@(webhook.IsEnabled ? "Enabled" : "Disabled")" Tone="@(webhook.IsEnabled ? AppUiTone.Success : AppUiTone.Neutral)" />
+            </div>
+            <div class="application-webhook__status">
+                <strong>Delivery status</strong>
+                <span>@webhook.LastStatus</span>
+                <small>Last attempt @(webhook.LastAttemptAt?.ToLocalTime().ToString("g") ?? "never") · Last success @(webhook.LastSuccessAt?.ToLocalTime().ToString("g") ?? "never")</small>
+            </div>
+            <div class="application-webhook__actions">
+                <AppButton Label="Edit" Size="AppControlSize.Compact" Disabled="@(_loading || _busy || _editing)" OnClick="@(() => EditWebhook(webhook))" />
+                <AppButton Label="Rotate signing secret" Size="AppControlSize.Compact" Disabled="@(_loading || _busy || _editing)" OnClick="@(() => RotateSecret(webhook))" />
+                <AppButton Label="Delete" Size="AppControlSize.Compact" Tone="AppUiTone.Error" Disabled="@(_loading || _busy || _editing)" OnClick="@(() => DeleteWebhook(webhook))" />
+            </div>
+        </article>
+    }
+
+    @if (_editing)
+    {
+        <div class="application-webhook-editor">
+            <MudText Typo="Typo.subtitle2">@(_editingId.HasValue ? "Edit webhook" : "New webhook")</MudText>
+            <AppTextField @bind-Value="_url" Label="Destination URL" HelpText="Use HTTPS. Credentials, query parameters, fragments, loopback addresses, host-local metadata addresses, and link-local addresses are blocked." FullWidth="true" Disabled="@(_loading || _busy)" />
+            <div class="application-webhook-events" role="group" aria-label="Webhook event types">
+                <strong>Event types</strong>
+                @foreach (var eventType in _eventTypes)
+                {
+                    <AppCheckbox Value="@_selectedEventTypes.Contains(eventType)" ValueChanged="@((bool value) => ToggleEventType(eventType, value))" Label="@eventType" Disabled="@(_busy || (_selectedEventTypes.Count >= MaxEventTypes && !_selectedEventTypes.Contains(eventType)))" />
+                }
+            </div>
+            <AppSwitchRow @bind-Value="_allowLocalNetwork" Disabled="@_busy" Label="Allow private LAN receiver" Description="Allows HTTP only for private network destinations. Host, loopback, link-local, and metadata addresses remain blocked." />
+            <AppSwitchRow @bind-Value="_enabled" Disabled="@_busy" Label="Webhook enabled" Description="Disabled webhooks keep their configuration but do not receive events." />
+            <div class="application-webhook__actions">
+                <AppButton Label="Cancel" Disabled="@_busy" OnClick="@(() => CancelEdit())" />
+                <AppButton Label="Save webhook" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(_loading || _busy || string.IsNullOrWhiteSpace(_url) || _selectedEventTypes.Count == 0)" OnClick="SaveWebhook" />
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_signingSecret))
+    {
+        <AppAlert Severity="Severity.Success" Class="application-webhook-secret">
+            <strong>Copy this signing secret now. It will not be shown again.</strong>
+            <code>@_signingSecret</code>
+        </AppAlert>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ApplicationResponse Application { get; set; } = default!;
+
+    private const int MaxEventTypes = 32;
+    private readonly CancellationTokenSource _lifetime = new();
+    private List<ApplicationWebhookResponse> _webhooks = [];
+    private List<string> _eventTypes = [];
+    private HashSet<string> _selectedEventTypes = new(StringComparer.Ordinal);
+    private Guid _loadedApplicationId;
+    private long _contextGeneration;
+    private Guid? _editingId;
+    private long? _expectedVersion;
+    private bool _loading;
+    private bool _busy;
+    private bool _editing;
+    private bool _enabled = true;
+    private bool _allowLocalNetwork;
+    private bool _disposed;
+    private string _url = string.Empty;
+    private string _error = string.Empty;
+    private string? _signingSecret;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_disposed || _loadedApplicationId == Application.Id)
+            return;
+
+        _contextGeneration++;
+        var generation = _contextGeneration;
+        var applicationId = Application.Id;
+        _loadedApplicationId = applicationId;
+        _busy = false;
+        ClearSecret();
+        CancelEdit();
+        _webhooks = [];
+        _eventTypes = [];
+        _loading = true;
+        _error = string.Empty;
+        try
+        {
+            var webhooks = Identity.GetApplicationWebhooksAsync(applicationId, _lifetime.Token);
+            var eventTypes = Identity.GetApplicationWebhookEventTypesAsync(applicationId, _lifetime.Token);
+            await Task.WhenAll(webhooks, eventTypes);
+            if (!IsCurrent(generation, applicationId))
+                return;
+            _webhooks = webhooks.Result;
+            _eventTypes = eventTypes.Result;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+            if (IsCurrent(generation, applicationId))
+                _error = "Webhooks could not be loaded. Try reopening the application.";
+        }
+        finally
+        {
+            if (IsCurrent(generation, applicationId))
+                _loading = false;
+        }
+    }
+
+    private void NewWebhook()
+    {
+        ClearSecret();
+        _error = string.Empty;
+        _editing = true;
+        _editingId = null;
+        _expectedVersion = null;
+        _url = string.Empty;
+        _enabled = true;
+        _allowLocalNetwork = false;
+        _selectedEventTypes = new(StringComparer.Ordinal);
+    }
+
+    private void EditWebhook(ApplicationWebhookResponse webhook)
+    {
+        ClearSecret();
+        _error = string.Empty;
+        _editing = true;
+        _editingId = webhook.Id;
+        _expectedVersion = webhook.Version;
+        _url = webhook.Url;
+        _enabled = webhook.IsEnabled;
+        _allowLocalNetwork = webhook.AllowLocalNetwork;
+        _selectedEventTypes = webhook.EventTypes.ToHashSet(StringComparer.Ordinal);
+    }
+
+    private async Task SaveWebhook()
+    {
+        if (!BeginOperation(out var generation, out var applicationId))
+            return;
+        try
+        {
+            var request = new SaveApplicationWebhookRequest(
+                _url.Trim(),
+                _selectedEventTypes.Order(StringComparer.Ordinal).ToArray(),
+                _allowLocalNetwork,
+                _enabled,
+                _expectedVersion);
+            var result = _editingId is { } webhookId
+                ? await Identity.UpdateApplicationWebhookResultAsync(applicationId, webhookId, request, _lifetime.Token)
+                : await Identity.CreateApplicationWebhookResultAsync(applicationId, request, _lifetime.Token);
+            if (!IsCurrent(generation, applicationId))
+                return;
+            if (!result.Succeeded || result.Value is null)
+            {
+                _error = FailureMessage(result.Failure);
+                return;
+            }
+
+            ReplaceWebhook(result.Value.Webhook);
+            _signingSecret = result.Value.SigningSecret;
+            CancelEdit(clearSecret: false);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+            if (IsCurrent(generation, applicationId))
+                _error = "The webhook could not be saved. Try again.";
+        }
+        finally
+        {
+            if (IsCurrent(generation, applicationId))
+                _busy = false;
+        }
+    }
+
+    private async Task RotateSecret(ApplicationWebhookResponse webhook)
+    {
+        if (!BeginOperation(out var generation, out var applicationId))
+            return;
+        try
+        {
+            var result = await Identity.RotateApplicationWebhookSecretResultAsync(applicationId, webhook.Id, _lifetime.Token);
+            if (!IsCurrent(generation, applicationId))
+                return;
+            if (!result.Succeeded || result.Value is null)
+            {
+                _error = FailureMessage(result.Failure);
+                return;
+            }
+            ReplaceWebhook(result.Value.Webhook);
+            _signingSecret = result.Value.SigningSecret;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+            if (IsCurrent(generation, applicationId))
+                _error = "The signing secret could not be rotated. Try again.";
+        }
+        finally
+        {
+            if (IsCurrent(generation, applicationId))
+                _busy = false;
+        }
+    }
+
+    private async Task DeleteWebhook(ApplicationWebhookResponse webhook)
+    {
+        if (!BeginOperation(out var generation, out var applicationId))
+            return;
+        try
+        {
+            var result = await Identity.DeleteApplicationWebhookResultAsync(applicationId, webhook.Id, _lifetime.Token);
+            if (!IsCurrent(generation, applicationId))
+                return;
+            if (!result.Succeeded)
+            {
+                _error = FailureMessage(result.Failure);
+                return;
+            }
+            _webhooks.RemoveAll(value => value.Id == webhook.Id);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+        }
+        catch
+        {
+            if (IsCurrent(generation, applicationId))
+                _error = "The webhook could not be deleted. Try again.";
+        }
+        finally
+        {
+            if (IsCurrent(generation, applicationId))
+                _busy = false;
+        }
+    }
+
+    private bool BeginOperation(out long generation, out Guid applicationId)
+    {
+        generation = _contextGeneration;
+        applicationId = Application.Id;
+        if (_disposed || _loading || _busy)
+            return false;
+        ClearSecret();
+        _error = string.Empty;
+        _busy = true;
+        return true;
+    }
+
+    private bool IsCurrent(long generation, Guid applicationId) =>
+        !_disposed && generation == _contextGeneration && applicationId == Application.Id;
+
+    private void ToggleEventType(string eventType, bool selected)
+    {
+        if (selected)
+        {
+            if (_selectedEventTypes.Count < MaxEventTypes)
+                _selectedEventTypes.Add(eventType);
+        }
+        else
+            _selectedEventTypes.Remove(eventType);
+    }
+
+    private void ReplaceWebhook(ApplicationWebhookResponse webhook)
+    {
+        var index = _webhooks.FindIndex(value => value.Id == webhook.Id);
+        if (index < 0)
+            _webhooks.Add(webhook);
+        else
+            _webhooks[index] = webhook;
+    }
+
+    private void CancelEdit(bool clearSecret = true)
+    {
+        _editing = false;
+        _editingId = null;
+        _expectedVersion = null;
+        _url = string.Empty;
+        _selectedEventTypes.Clear();
+        if (clearSecret)
+            ClearSecret();
+    }
+
+    private void ClearSecret() => _signingSecret = null;
+
+    private static string FailureMessage(DashboardAccessMutationFailure failure) => failure switch
+    {
+        DashboardAccessMutationFailure.Validation => "Check the destination and selected event types.",
+        DashboardAccessMutationFailure.Conflict => "This webhook changed. Reopen it and try again.",
+        DashboardAccessMutationFailure.Forbidden => "You no longer have permission for this change.",
+        DashboardAccessMutationFailure.Unauthorized => "Your session has expired.",
+        DashboardAccessMutationFailure.NotFound => "This webhook or application no longer exists.",
+        DashboardAccessMutationFailure.Transient => "The Engine is unavailable. Try again.",
+        _ => "The webhook could not be saved. Try again.",
+    };
+
+    public ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return ValueTask.CompletedTask;
+        _disposed = true;
+        _contextGeneration++;
+        ClearSecret();
+        _webhooks = [];
+        _eventTypes = [];
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

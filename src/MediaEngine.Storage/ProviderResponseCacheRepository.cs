@@ -36,7 +36,9 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
             """, new { cacheKey, now = DateTimeOffset.UtcNow.ToString("O") });
 
         if (row == default)
+        {
             return Task.FromResult<CachedResponse?>(null);
+        }
 
         return Task.FromResult<CachedResponse?>(new CachedResponse(row.ResponseJson, row.Etag));
     }
@@ -55,7 +57,7 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
         ArgumentException.ThrowIfNullOrWhiteSpace(providerId);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseJson);
 
-        var now       = DateTimeOffset.UtcNow;
+        var now = DateTimeOffset.UtcNow;
         var expiresAt = now.AddHours(ttlHours);
 
         using var conn = _db.CreateConnection();
@@ -149,7 +151,9 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
             """, new { now = DateTimeOffset.UtcNow.ToString("O") });
 
         if (row is null)
+        {
             return Task.FromResult(new CacheStats(0, 0, null));
+        }
 
         return Task.FromResult(new CacheStats(row.Total, row.Active, row.OldestFetchedAt));
     }
@@ -158,8 +162,8 @@ public sealed class ProviderResponseCacheRepository : IProviderResponseCacheRepo
 
     private sealed class StatsRow
     {
-        public int     Total          { get; set; }
-        public int     Active         { get; set; }
+        public int Total { get; set; }
+        public int Active { get; set; }
         public string? OldestFetchedAt { get; set; }
     }
 }

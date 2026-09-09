@@ -1,25 +1,30 @@
 @namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Authentication
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Components.Cinematic
+@using MediaEngine.Web.Models.ViewDTOs
+@inject DashboardIdentityClient Identity
+@inject DashboardSessionAccessor Session
+@inject NavigationManager Nav
 
 <div class="tl-page users-access-settings">
+    <SurfaceNavigationBar Items="@Sections" ActiveKey="@ActiveSection" ActiveKeyChanged="Navigate" AriaLabel="Access sections" />
     <section class="users-access-settings__section"
              data-access-section="@ActiveSection"
              aria-label="@ActiveSectionLabel">
         @switch (ActiveSection)
         {
-            case "accounts":
-                <AccountsAccessTab />
+            case "users":
+                <ManagedAccessUsers />
+                break;
+            case "applications":
+                <ManagedAccessApplications />
                 break;
             case "authentication":
                 <SecurityTab Section="authentication" />
                 break;
-            case "api-keys":
-                <ApiKeysTab />
-                break;
-            case "session-policy":
-                <SecurityTab Section="session-policy" />
-                break;
             default:
-                <UsersTab />
+                <ManagedAccessUsers />
                 break;
         }
     </section>
@@ -30,19 +35,30 @@
 
     private string ActiveSection => Subsection.ToLowerInvariant() switch
     {
-        "accounts" => "accounts",
+        "users" => "users",
+        "applications" => "applications",
         "authentication" => "authentication",
-        "api-keys" => "api-keys",
-        "session-policy" => "session-policy",
-        _ => "overview",
+        _ => "users",
     };
 
     private string ActiveSectionLabel => ActiveSection switch
     {
-        "accounts" => "Accounts and profile grants",
+        "users" => "Users",
+        "applications" => "Applications",
         "authentication" => "Authentication",
-        "api-keys" => "Guest API Keys",
-        "session-policy" => "Session Policy",
-        _ => "Users and Access overview",
+        _ => "Users",
     };
+
+    private static readonly IReadOnlyList<SurfaceTabItem> Sections =
+    [
+        new("users", "Users", Icons.Material.Outlined.Group),
+        new("applications", "Applications", Icons.Material.Outlined.Apps),
+        new("authentication", "Authentication", Icons.Material.Outlined.Security),
+    ];
+
+    private Task Navigate(string section)
+    {
+        Nav.NavigateTo($"/settings/access/{section}");
+        return Task.CompletedTask;
+    }
 }

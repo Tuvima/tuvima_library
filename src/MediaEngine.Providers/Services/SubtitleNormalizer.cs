@@ -14,7 +14,9 @@ public static class SubtitleNormalizer
     public static string NormalizeToWebVtt(string content, string sourceFormat)
     {
         if (string.IsNullOrWhiteSpace(content))
+        {
             return "WEBVTT\n\n";
+        }
 
         if (sourceFormat.Equals("vtt", StringComparison.OrdinalIgnoreCase)
             || content.TrimStart().StartsWith("WEBVTT", StringComparison.OrdinalIgnoreCase))
@@ -37,24 +39,35 @@ public static class SubtitleNormalizer
         {
             var lines = block.Split('\n').Select(l => l.TrimEnd()).Where(l => l.Length > 0).ToList();
             if (lines.Count == 0)
+            {
                 continue;
+            }
 
             if (int.TryParse(lines[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+            {
                 lines.RemoveAt(0);
+            }
 
             if (lines.Count == 0)
+            {
                 continue;
+            }
 
             var timing = SrtTimingPattern.Match(lines[0]);
             if (!timing.Success)
+            {
                 continue;
+            }
 
             var timingLine = SrtTimingPattern.Replace(lines[0], m =>
                 $"{m.Groups["start"].Value.Replace(',', '.')} --> {m.Groups["end"].Value.Replace(',', '.')}{m.Groups["settings"].Value}");
 
             sb.AppendLine(timingLine);
             for (var i = 1; i < lines.Count; i++)
+            {
                 sb.AppendLine(WebUtility.HtmlDecode(lines[i]));
+            }
+
             sb.AppendLine();
         }
 
@@ -78,7 +91,9 @@ public static class SubtitleNormalizer
             }
 
             if (!line.StartsWith("Dialogue:", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             var payload = line["Dialogue:".Length..].Trim();
             var fields = SplitAssDialogue(payload, Math.Max(format.Count, 10));
@@ -86,22 +101,31 @@ public static class SubtitleNormalizer
             var endIndex = format.IndexOf("end");
             var textIndex = format.IndexOf("text");
             if (startIndex < 0 || endIndex < 0 || textIndex < 0 || fields.Count <= Math.Max(startIndex, Math.Max(endIndex, textIndex)))
+            {
                 continue;
+            }
 
             if (!TryFormatAssTimestamp(fields[startIndex], out var start)
                 || !TryFormatAssTimestamp(fields[endIndex], out var end))
+            {
                 continue;
+            }
 
             var text = Regex.Replace(fields[textIndex], @"\{[^}]*\}", string.Empty)
                 .Replace(@"\N", "\n", StringComparison.Ordinal)
                 .Replace(@"\n", "\n", StringComparison.Ordinal)
                 .Trim();
             if (text.Length == 0)
+            {
                 continue;
+            }
 
             sb.AppendLine($"{start} --> {end}");
             foreach (var textLine in text.Split('\n'))
+            {
                 sb.AppendLine(WebUtility.HtmlDecode(textLine));
+            }
+
             sb.AppendLine();
         }
 
@@ -116,7 +140,9 @@ public static class SubtitleNormalizer
         for (var i = 0; i < payload.Length && fields.Count < maxSplits; i++)
         {
             if (payload[i] != ',')
+            {
                 continue;
+            }
 
             fields.Add(payload[start..i].Trim());
             start = i + 1;
@@ -146,7 +172,9 @@ public static class SubtitleNormalizer
 
         var fraction = secondParts.Length > 1 ? secondParts[1] : "0";
         if (!int.TryParse(fraction.PadRight(3, '0')[..3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var milliseconds))
+        {
             return false;
+        }
 
         formatted = $"{hours:00}:{minutes:00}:{seconds:00}.{milliseconds:000}";
         return true;

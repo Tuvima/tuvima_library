@@ -1,6 +1,6 @@
+using MediaEngine.Api.Endpoints;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Storage;
-using MediaEngine.Api.Endpoints;
 namespace MediaEngine.Api.Services.Details.Internals;
 
 internal sealed partial class DetailCompositionOrchestrator

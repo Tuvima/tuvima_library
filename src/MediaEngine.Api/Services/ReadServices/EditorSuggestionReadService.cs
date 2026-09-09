@@ -50,7 +50,9 @@ public sealed class EditorSuggestionReadService
     private static IEnumerable<string> ReadTags(System.Data.IDbConnection connection, Guid? profileId, CancellationToken ct)
     {
         if (!profileId.HasValue)
+        {
             return [];
+        }
 
         return connection.Query<string?>(new CommandDefinition(
                 """
@@ -68,7 +70,10 @@ public sealed class EditorSuggestionReadService
     private static IEnumerable<string> ParseJsonArray(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return [];
+        }
+
         try
         {
             return JsonSerializer.Deserialize<List<string>>(json) ?? [];

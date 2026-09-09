@@ -1,12 +1,12 @@
 using System.Diagnostics;
 using System.Text.Json;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Services;
@@ -33,21 +33,21 @@ namespace MediaEngine.Api.Services;
 /// </summary>
 public sealed partial class LibraryReconciliationService : BackgroundService, IReconciliationService
 {
-    private readonly IMediaAssetRepository       _assetRepo;
-    private readonly IMetadataClaimRepository     _claimRepo;
-    private readonly ICanonicalValueRepository    _canonicalRepo;
-    private readonly ISystemActivityRepository    _activityRepo;
-    private readonly IPersonRepository            _personRepo;
-    private readonly IReviewQueueRepository       _reviewRepo;
-    private readonly ICollectionRepository              _collectionRepo;
-    private readonly IEventPublisher              _publisher;
+    private readonly IMediaAssetRepository _assetRepo;
+    private readonly IMetadataClaimRepository _claimRepo;
+    private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly ISystemActivityRepository _activityRepo;
+    private readonly IPersonRepository _personRepo;
+    private readonly IReviewQueueRepository _reviewRepo;
+    private readonly ICollectionRepository _collectionRepo;
+    private readonly IEventPublisher _publisher;
     private readonly WorkHierarchyMaintenanceService _hierarchyMaintenance;
     private readonly IWorkIdentityReconciliationService _workIdentityReconciliation;
-    private readonly CollectionBackfillService    _collectionBackfill;
-    private readonly IConfigurationLoader         _configLoader;
-    private readonly AssetPathService             _assetPaths;
-    private readonly IDatabaseConnection          _db;
-    private readonly ILibraryFolderResolver       _libraryFolderResolver;
+    private readonly CollectionBackfillService _collectionBackfill;
+    private readonly IConfigurationLoader _configLoader;
+    private readonly AssetPathService _assetPaths;
+    private readonly IDatabaseConnection _db;
+    private readonly ILibraryFolderResolver _libraryFolderResolver;
     private readonly ILogger<LibraryReconciliationService> _logger;
 
     /// <summary>Category root folder names that should never be deleted.</summary>
@@ -60,39 +60,39 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     };
 
     public LibraryReconciliationService(
-        IMediaAssetRepository       assetRepo,
-        IMetadataClaimRepository    claimRepo,
-        ICanonicalValueRepository   canonicalRepo,
-        ISystemActivityRepository   activityRepo,
-        IPersonRepository           personRepo,
-        IReviewQueueRepository      reviewRepo,
-        ICollectionRepository              collectionRepo,
-        IEventPublisher             publisher,
+        IMediaAssetRepository assetRepo,
+        IMetadataClaimRepository claimRepo,
+        ICanonicalValueRepository canonicalRepo,
+        ISystemActivityRepository activityRepo,
+        IPersonRepository personRepo,
+        IReviewQueueRepository reviewRepo,
+        ICollectionRepository collectionRepo,
+        IEventPublisher publisher,
         WorkHierarchyMaintenanceService hierarchyMaintenance,
         IWorkIdentityReconciliationService workIdentityReconciliation,
-        CollectionBackfillService   collectionBackfill,
-        IConfigurationLoader        configLoader,
-        AssetPathService            assetPaths,
-        IDatabaseConnection         db,
-        ILibraryFolderResolver      libraryFolderResolver,
+        CollectionBackfillService collectionBackfill,
+        IConfigurationLoader configLoader,
+        AssetPathService assetPaths,
+        IDatabaseConnection db,
+        ILibraryFolderResolver libraryFolderResolver,
         ILogger<LibraryReconciliationService> logger)
     {
-        _assetRepo     = assetRepo;
-        _claimRepo     = claimRepo;
+        _assetRepo = assetRepo;
+        _claimRepo = claimRepo;
         _canonicalRepo = canonicalRepo;
-        _activityRepo  = activityRepo;
-        _personRepo    = personRepo;
-        _reviewRepo    = reviewRepo;
-        _collectionRepo       = collectionRepo;
-        _publisher     = publisher;
+        _activityRepo = activityRepo;
+        _personRepo = personRepo;
+        _reviewRepo = reviewRepo;
+        _collectionRepo = collectionRepo;
+        _publisher = publisher;
         _hierarchyMaintenance = hierarchyMaintenance;
         _workIdentityReconciliation = workIdentityReconciliation;
         _collectionBackfill = collectionBackfill;
-        _configLoader  = configLoader;
-        _assetPaths    = assetPaths;
-        _db            = db;
+        _configLoader = configLoader;
+        _assetPaths = assetPaths;
+        _db = db;
         _libraryFolderResolver = libraryFolderResolver;
-        _logger        = logger;
+        _logger = logger;
     }
 
     // ── IReconciliationService ────────────────────────────────────────────
@@ -127,7 +127,11 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                 if (intervalHours > 0)
                 {
                     var schedule = maintenance.Schedules.GetValueOrDefault("library_reconciliation", DefaultSchedule);
-                    if (string.IsNullOrWhiteSpace(schedule)) schedule = DefaultSchedule;
+                    if (string.IsNullOrWhiteSpace(schedule))
+                    {
+                        schedule = DefaultSchedule;
+                    }
+
                     var delay = CronScheduler.UntilNext(schedule, TimeSpan.FromHours(24));
                     await Task.Delay(delay, stoppingToken);
                     await ReconcileAsync(stoppingToken);
@@ -156,9 +160,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     /// </summary>
     public async Task<ReconciliationResult> ReconcileAsync(CancellationToken ct = default)
     {
-        var sw        = Stopwatch.StartNew();
+        var sw = Stopwatch.StartNew();
         var startedAt = DateTimeOffset.UtcNow;
-        var assets    = await _assetRepo.ListByStatusAsync(AssetStatus.Normal, ct);
+        var assets = await _assetRepo.ListByStatusAsync(AssetStatus.Normal, ct);
         int missingCount = 0;
 
         // Collect missing-file details for the completion summary.
@@ -169,7 +173,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             ct.ThrowIfCancellationRequested();
 
             if (File.Exists(asset.FilePathRoot))
+            {
                 continue;
+            }
 
             var configuredSource = _libraryFolderResolver.ResolveSourceForPath(asset.FilePathRoot);
             if (configuredSource is not null && !IsConfiguredSourceAvailable(configuredSource.Source.Path))
@@ -213,8 +219,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             missingFiles.Add(new
             {
                 entity_id = asset.Id.ToString(),
-                filename  = Path.GetFileName(asset.FilePathRoot),
-                action    = "Records and artifacts deleted",
+                filename = Path.GetFileName(asset.FilePathRoot),
+                action = "Records and artifacts deleted",
             });
 
             // Still log a per-file entry so the entity ID is recorded in the activity log
@@ -222,9 +228,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             await _activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = SystemActionType.ReconciliationMissing,
-                EntityId   = asset.Id,
+                EntityId = asset.Id,
                 EntityType = "MediaAsset",
-                Detail     = $"Missing file detected: {Path.GetFileName(asset.FilePathRoot)}",
+                Detail = $"Missing file detected: {Path.GetFileName(asset.FilePathRoot)}",
             }, ct);
 
             missingCount++;
@@ -269,9 +275,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         // ── Folder Maintenance Passes ───────────────────────────────────────
 
         var core = _configLoader.LoadCore();
-        int foldersCleanedCount    = 0;
-        int orphanPeopleCount      = 0;
-        int staleSidecarsCount     = 0;
+        int foldersCleanedCount = 0;
+        int orphanPeopleCount = 0;
+        int staleSidecarsCount = 0;
 
         if (!string.IsNullOrWhiteSpace(core.LibraryRoot) && Directory.Exists(core.LibraryRoot))
         {
@@ -289,7 +295,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
             // Re-run empty folder pruning after people cleanup may have emptied folders.
             if (orphanPeopleCount > 0)
+            {
                 foldersCleanedCount += await PruneEmptyFoldersAsync(core.LibraryRoot, ct);
+            }
         }
 
         sw.Stop();
@@ -302,17 +310,25 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         {
             var subItems = new List<object>();
             if (foldersCleanedCount > 0)
+            {
                 subItems.Add(new { label = "Empty folders pruned", count = foldersCleanedCount });
+            }
+
             if (orphanPeopleCount > 0)
+            {
                 subItems.Add(new { label = "Orphaned people folders removed", count = orphanPeopleCount });
+            }
+
             if (staleSidecarsCount > 0)
+            {
                 subItems.Add(new { label = "Stale root sidecars cleaned", count = staleSidecarsCount });
+            }
 
             await _activityRepo.LogAsync(new SystemActivityEntry
             {
-                ActionType  = SystemActionType.FolderCleaned,
-                EntityType  = "System",
-                Detail      = $"Cleaned {totalFolderOps} folder(s)",
+                ActionType = SystemActionType.FolderCleaned,
+                EntityType = "System",
+                Detail = $"Cleaned {totalFolderOps} folder(s)",
                 ChangesJson = JsonSerializer.Serialize(new { items = subItems }),
             }, ct);
         }
@@ -320,22 +336,22 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         // Log completion with full details so the Dashboard can show a single grouped entry.
         await _activityRepo.LogAsync(new SystemActivityEntry
         {
-            ActionType  = SystemActionType.ReconciliationCompleted,
-            EntityType  = "System",
-            Detail      = $"Reconciliation complete — scanned {assets.Count}, {missingCount} missing, {audiobookAuthorsAligned} audiobook author identities aligned, {hierarchyPruned} hierarchy rows pruned, {foldersCleanedCount} empty folders cleaned, {orphanPeopleCount} orphan people removed, {staleSidecarsCount} stale root sidecars cleaned",
+            ActionType = SystemActionType.ReconciliationCompleted,
+            EntityType = "System",
+            Detail = $"Reconciliation complete — scanned {assets.Count}, {missingCount} missing, {audiobookAuthorsAligned} audiobook author identities aligned, {hierarchyPruned} hierarchy rows pruned, {foldersCleanedCount} empty folders cleaned, {orphanPeopleCount} orphan people removed, {staleSidecarsCount} stale root sidecars cleaned",
             ChangesJson = JsonSerializer.Serialize(new
             {
-                total_scanned        = assets.Count,
-                missing_count        = missingCount,
-                hierarchy_pruned     = hierarchyPruned,
+                total_scanned = assets.Count,
+                missing_count = missingCount,
+                hierarchy_pruned = hierarchyPruned,
                 duplicate_read_works_merged = duplicateReadWorksMerged,
                 audiobook_authors_aligned = audiobookAuthorsAligned,
-                folders_cleaned      = foldersCleanedCount,
-                orphan_people        = orphanPeopleCount,
-                stale_root_sidecars  = staleSidecarsCount,
-                elapsed_ms           = sw.ElapsedMilliseconds,
-                started_at           = startedAt.ToString("O"),
-                missing_files        = missingFiles,
+                folders_cleaned = foldersCleanedCount,
+                orphan_people = orphanPeopleCount,
+                stale_root_sidecars = staleSidecarsCount,
+                elapsed_ms = sw.ElapsedMilliseconds,
+                started_at = startedAt.ToString("O"),
+                missing_files = missingFiles,
             }),
         }, ct);
 
@@ -385,7 +401,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     internal static bool IsConfiguredSourceAvailable(string sourcePath)
     {
         if (string.IsNullOrWhiteSpace(sourcePath))
+        {
             return false;
+        }
 
         try
         {
@@ -422,7 +440,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
             {
                 var folderName = Path.GetFileName(dir);
                 if (ProtectedFolders.Contains(folderName))
+                {
                     continue;
+                }
             }
 
             try
@@ -459,7 +479,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         int cleaned = 0;
 
         if (!Directory.Exists(_assetPaths.PeopleRoot))
+        {
             return 0;
+        }
 
         foreach (var subDir in Directory.GetDirectories(_assetPaths.PeopleRoot))
         {
@@ -467,7 +489,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
             var folderName = Path.GetFileName(subDir);
             if (!Guid.TryParse(folderName, out var personId))
+            {
                 continue;
+            }
 
             var person = await _personRepo.FindByIdAsync(personId, ct);
             if (person is null)
@@ -518,11 +542,15 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                 var folderName = Path.GetFileName(categoryDir);
                 // Skip hidden folders owned by the engine.
                 if (string.IsNullOrEmpty(folderName) || folderName.StartsWith(".", StringComparison.Ordinal))
+                {
                     continue;
+                }
 
                 var staleXml = Path.Combine(categoryDir, "library.xml");
                 if (!File.Exists(staleXml))
+                {
                     continue;
+                }
 
                 SafeDeleteFile(staleXml);
                 cleaned++;
@@ -542,7 +570,13 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
     private void SafeDeleteFile(string path)
     {
-        try { if (File.Exists(path)) File.Delete(path); }
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
         catch (IOException ex)
         {
             _logger.LogDebug(ex, "Best-effort reconciliation cleanup could not delete file {Path}", path);
@@ -554,7 +588,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         try
         {
             if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any())
+            {
                 Directory.Delete(path);
+            }
         }
         catch (IOException ex)
         {
@@ -567,7 +603,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         try
         {
             if (Directory.Exists(path))
+            {
                 Directory.Delete(path, recursive: true);
+            }
         }
         catch (IOException ex)
         {

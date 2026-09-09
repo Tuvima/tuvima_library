@@ -51,7 +51,9 @@ internal sealed class ArtworkScopeService(
     {
         var slotTypes = GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
         if (scope.ArtworkOwnerEntityId is null || slotTypes.Count == 0)
+        {
             return new ArtworkEditorEnvelope(scope.FieldEntityId, []);
+        }
 
         var assets = await entityAssetRepo.GetByEntityAsync(scope.ArtworkOwnerEntityId.Value.ToString(), null, ct);
         var canonicals = await canonicalRepo.GetByEntityAsync(scope.ArtworkOwnerEntityId.Value, ct);
@@ -193,11 +195,17 @@ internal sealed class ArtworkScopeService(
         var lineage = await workRepo.GetLineageByAssetAsync(representativeAssetId.Value, ct);
         var qidCandidateIds = new List<Guid>();
         if (lineage is not null && MetadataEndpoints.NormalizeEditorMediaType(scope.MediaType) == "TV")
+        {
             AddCanonicalSource(qidCandidateIds, lineage.TargetForParentScope);
+        }
+
         AddCanonicalSource(qidCandidateIds, scope.ArtworkOwnerEntityId);
         AddCanonicalSource(qidCandidateIds, scope.FieldEntityId);
         if (lineage is not null)
+        {
             AddCanonicalSource(qidCandidateIds, lineage.TargetForSelfScope);
+        }
+
         AddCanonicalSource(qidCandidateIds, representativeAssetId.Value);
 
         var canonicalLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -290,13 +298,20 @@ internal sealed class ArtworkScopeService(
     public static string? NormalizeWikidataQid(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var qid = value.Trim();
         if (qid.Contains('/'))
+        {
             qid = qid.Split('/')[^1];
+        }
+
         if (qid.Contains("::", StringComparison.Ordinal))
+        {
             qid = qid.Split("::", 2, StringSplitOptions.None)[0].Trim();
+        }
 
         return qid.Length > 1 && qid[0] is 'Q' && qid.Skip(1).All(char.IsDigit)
             ? qid
@@ -364,7 +379,9 @@ internal sealed class ArtworkScopeService(
         string? contentType)
     {
         if (scope.ArtworkOwnerEntityId is null || string.IsNullOrWhiteSpace(scope.ArtworkOwnerEntityKind))
+        {
             return null;
+        }
 
         return assetPathService.GetCentralAssetPath(
             scope.ArtworkOwnerEntityKind!,
@@ -415,7 +432,9 @@ internal sealed class ArtworkScopeService(
     public static bool IsArtworkUploadAllowed(string? contentType, string normalizedAssetType)
     {
         if (string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase))
+        {
             return string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase);
+        }
 
         return contentType is not null && (string.Equals(contentType, "image/jpeg", StringComparison.OrdinalIgnoreCase)
             || string.Equals(contentType, "image/jpg", StringComparison.OrdinalIgnoreCase)
@@ -425,7 +444,9 @@ internal sealed class ArtworkScopeService(
     public static void AddCanonicalSource(List<Guid> sources, Guid? sourceId)
     {
         if (!sourceId.HasValue || sourceId == Guid.Empty || sources.Contains(sourceId.Value))
+        {
             return;
+        }
 
         sources.Add(sourceId.Value);
     }

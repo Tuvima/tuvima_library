@@ -2,10 +2,11 @@ using System.Security.Claims;
 using System.Text.Json;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
-using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.Networking;
-using MediaEngine.Contracts.Playback;
+using MediaEngine.Api.Services.Playback;
 using MediaEngine.Contracts.Authentication;
+using MediaEngine.Contracts.Playback;
+using MediaEngine.Domain.Authorization;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -60,12 +61,17 @@ public static class PlaybackEndpoints
             {
                 var device = await authorization.GetDeviceAsync(pairedDeviceId, ct);
                 if (device is not null)
+                {
                     capabilities = JsonSerializer.Deserialize<ClientCapabilitiesDto>(device.CapabilitiesJson);
+                }
             }
             var trustedClient = user.FindFirstValue(TuvimaClaimTypes.ClientId) ?? client;
             var manifest = await playback.BuildManifestAsync(assetId, trustedClient, profileId, ct, connection, capabilities, deviceId);
             if (manifest?.DirectStreamUrl is { } streamUrl)
+            {
                 manifest = manifest with { DirectStreamUrl = "/api/v1" + streamUrl };
+            }
+
             return manifest is null
                 ? ApiErrors.NotFound($"Asset '{assetId}' not found.")
                 : Results.Ok(manifest);
@@ -74,7 +80,8 @@ public static class PlaybackEndpoints
         .WithSummary("Return the centralized playback manifest for an asset and client profile.")
         .Produces<PlaybackManifestDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireClientScope(ClientApiScopes.PlaybackRead);
+        .RequireClientScope(ClientApiScopes.PlaybackRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.PlaybackRead);
 
         group.MapPost("/{assetId:guid}/encode", async (
             Guid assetId,
@@ -84,7 +91,9 @@ public static class PlaybackEndpoints
             CancellationToken ct) =>
         {
             if (!TryGetNativeOwner(user, out var profileId, out var deviceId))
+            {
                 return ApiErrors.Forbidden("A paired profile and device are required for offline downloads.");
+            }
 
             var job = await playback.QueueEncodeAsync(
                 assetId,
@@ -101,7 +110,8 @@ public static class PlaybackEndpoints
         .Produces<EncodeJobDto>(StatusCodes.Status202Accepted)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireClientScope(ClientApiScopes.DownloadsWrite);
+        .RequireClientScope(ClientApiScopes.DownloadsWrite)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.DownloadsWrite);
 
         group.MapGet("/encode/jobs", async (
             ClaimsPrincipal user,
@@ -109,7 +119,9 @@ public static class PlaybackEndpoints
             CancellationToken ct) =>
         {
             if (!TryGetNativeOwner(user, out var profileId, out var deviceId))
+            {
                 return ApiErrors.Forbidden("A paired profile and device are required for offline downloads.");
+            }
 
             var jobs = await playback.ListEncodeJobsAsync(
                 profileId,
@@ -130,7 +142,9 @@ public static class PlaybackEndpoints
             CancellationToken ct) =>
         {
             if (!TryGetNativeOwner(user, out var profileId, out var deviceId))
+            {
                 return ApiErrors.Forbidden("A paired profile and device are required for offline downloads.");
+            }
 
             var cancelled = await playback.CancelEncodeJobAsync(
                 jobId,
@@ -168,7 +182,9 @@ public static class PlaybackEndpoints
             CancellationToken ct) =>
         {
             if (!TryGetNativeOwner(user, out var profileId, out var deviceId))
+            {
                 return ApiErrors.Forbidden("A paired profile and device are required for offline downloads.");
+            }
 
             var variant = await playback.GetOfflineVariantFileAsync(assetId, variantId, profileId, deviceId, ct);
             if (variant is null)
@@ -193,6 +209,7 @@ public static class PlaybackEndpoints
         .Produces(StatusCodes.Status206PartialContent)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireClientScope(ClientApiScopes.DownloadsRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.DownloadsRead)
         .RequireRateLimiting("streaming");
 
         return app;

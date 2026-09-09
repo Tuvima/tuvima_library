@@ -1,11 +1,12 @@
+using Dapper;
 using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Api.Services.View;
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.PersonalMedia;
-using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -22,22 +23,22 @@ public sealed class ViewSharedTransferServiceTests
         var original = fixture.WriteManaged("keeper.jpg", [11, 12, 13]);
         var indexed = await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, original);
         Assert.NotNull(indexed);
-        var preview = await fixture.Contributions.PreviewAsync(fixture.ProfileId,
+        var preview = await fixture.Contributions.PreviewAsync(fixture.Authority,
             new ViewSharedContributionPreviewRequest([indexed!.ItemId]));
         var request = new ViewSharedContributionSubmitRequest([indexed.ItemId], "timeline", null,
             "Worth keeping", preview.PreviewRevision, "stable-request");
 
-        var pending = await fixture.Contributions.SubmitAsync(fixture.ProfileId, request);
-        var repeated = await fixture.Contributions.SubmitAsync(fixture.ProfileId, request);
+        var pending = await fixture.Contributions.SubmitAsync(fixture.Authority, request);
+        var repeated = await fixture.Contributions.SubmitAsync(fixture.Authority, request);
 
         Assert.Equal(pending.Id, repeated.Id);
         Assert.Equal("pending", pending.Status);
         Assert.True(File.Exists(original));
 
-        await fixture.Contributions.DecideAsync(fixture.ProfileId, pending.Id,
+        await fixture.Contributions.DecideAsync(fixture.Authority, pending.Id,
             new ViewSharedContributionDecisionRequest("accepted", pending.Revision));
         await fixture.Contributions.ProcessAsync(pending.Id);
-        var accepted = await fixture.Contributions.GetRequiredAsync(fixture.ProfileId, pending.Id, true);
+        var accepted = await fixture.Contributions.GetRequiredAsync(fixture.Authority, pending.Id, true);
 
         Assert.Equal("accepted", accepted.Status);
         Assert.Equal("completed", Assert.Single(accepted.Items).ExecutionState);
@@ -56,13 +57,108 @@ public sealed class ViewSharedTransferServiceTests
         var original = fixture.WriteManaged("direct.jpg", [31, 32]);
         var indexed = await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, original);
 
-        var accepted = await fixture.Contributions.AddDirectAsync(fixture.ProfileId,
+        var accepted = await fixture.Contributions.AddDirectAsync(fixture.Authority,
             new ViewSharedDirectAddRequest([indexed!.ItemId], IdempotencyKey: "direct-request"));
 
         Assert.Equal("accepted", accepted.Status);
         Assert.True(File.Exists(original));
         await fixture.Contributions.ProcessAsync(accepted.Id);
         Assert.False(File.Exists(original));
+    }
+
+    [Fact]
+    public async Task CuratorPolicyCannotReplaceEffectiveAccountAdministratorAuthority()
+    {
+        using var fixture = new Fixture();
+        await fixture.Policies.SavePolicyAsync(new ViewProfilePolicy(
+            fixture.ProfileId, true, true, false, true, true, null));
+        var original = fixture.WriteManaged("denied-direct.jpg", [41, 42]);
+        var indexed = await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, original);
+        var nonAdministrator = fixture.Authority with { AccountIsAdministrator = false };
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Contributions.AddDirectAsync(
+            nonAdministrator, new ViewSharedDirectAddRequest([indexed!.ItemId])));
+        Assert.True(File.Exists(original));
+    }
+
+    [Fact]
+    public async Task CuratorActionRequiresAdministratorSurfaceUnlock()
+    {
+        using var fixture = new Fixture();
+        await fixture.Policies.SavePolicyAsync(new ViewProfilePolicy(
+            fixture.ProfileId, true, true, false, true, true, null));
+        var original = fixture.WriteManaged("unlock-direct.jpg", [61, 62]);
+        var indexed = await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, original);
+
+        await fixture.Contributions.AddDirectAsync(fixture.Authority,
+            new ViewSharedDirectAddRequest([indexed!.ItemId]));
+
+        Assert.True(fixture.Authorization.LastRequirement!.RequiresAdministrator);
+        Assert.True(fixture.Authorization.LastRequirement.RequiresAdministratorSurfaceUnlock);
+    }
+
+    [Fact]
+    public async Task ContributionCannotProbeAnotherProfilesItem()
+    {
+        using var fixture = new Fixture();
+        await fixture.Policies.SavePolicyAsync(new ViewProfilePolicy(
+            fixture.ProfileId, true, true, true, true, true, null));
+        var original = fixture.WriteManaged("private-item.jpg", [71, 72]);
+        var indexed = await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, original);
+        var otherProfileId = Guid.NewGuid();
+        await fixture.InsertProfileAsync(new Profile
+        {
+            Id = otherProfileId,
+            DisplayName = "Other profile",
+            Role = ProfileRole.StandardUser,
+        });
+        await fixture.Policies.SavePolicyAsync(new ViewProfilePolicy(
+            otherProfileId, true, true, true, false, false, null));
+        var otherAuthority = fixture.Authority with { ActiveProfileId = otherProfileId };
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => fixture.Contributions.PreviewAsync(
+            otherAuthority, new ViewSharedContributionPreviewRequest([indexed!.ItemId])));
+        Assert.True(File.Exists(original));
+    }
+
+    [Fact]
+    public async Task DisabledAccountCannotSubmitDespiteProfilePolicy()
+    {
+        using var fixture = new Fixture();
+        await fixture.Policies.SavePolicyAsync(new ViewProfilePolicy(
+            fixture.ProfileId, true, true, true, true, true, null));
+        var original = fixture.WriteManaged("disabled-submit.jpg", [51, 52]);
+        var indexed = await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, original);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Contributions.PreviewAsync(
+            fixture.Authority with { AccountEnabled = false },
+            new ViewSharedContributionPreviewRequest([indexed!.ItemId])));
+        Assert.True(File.Exists(original));
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task DisabledGrantOrDelegatedApplicationCannotSubmit(
+        bool grantEnabled,
+        bool applicationEnabled)
+    {
+        using var fixture = new Fixture();
+        await fixture.Policies.SavePolicyAsync(new ViewProfilePolicy(
+            fixture.ProfileId, true, true, true, true, true, null));
+        var original = fixture.WriteManaged("disabled-binding.jpg", [53, 54]);
+        var indexed = await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, original);
+        var authority = fixture.Authority with
+        {
+            PrincipalKind = applicationEnabled ? PrincipalKind.Human : PrincipalKind.DelegatedUserClient,
+            GrantEnabled = grantEnabled,
+            ApplicationId = applicationEnabled ? null : Guid.NewGuid(),
+            ApplicationEnabled = applicationEnabled,
+        };
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => fixture.Contributions.PreviewAsync(
+            authority, new ViewSharedContributionPreviewRequest([indexed!.ItemId])));
+        Assert.True(File.Exists(original));
     }
 
     [Fact]
@@ -73,12 +169,12 @@ public sealed class ViewSharedTransferServiceTests
             fixture.ProfileId, true, true, true, true, true, null));
         var original = fixture.WriteManaged("declined.jpg", [21, 22]);
         var indexed = await fixture.Library.IndexPathAsync(fixture.Space.LibraryId, original);
-        var preview = await fixture.Contributions.PreviewAsync(fixture.ProfileId,
+        var preview = await fixture.Contributions.PreviewAsync(fixture.Authority,
             new ViewSharedContributionPreviewRequest([indexed!.ItemId]));
-        var pending = await fixture.Contributions.SubmitAsync(fixture.ProfileId,
+        var pending = await fixture.Contributions.SubmitAsync(fixture.Authority,
             new([indexed.ItemId], "timeline", null, null, preview.PreviewRevision, "decline-request"));
 
-        var declined = await fixture.Contributions.DecideAsync(fixture.ProfileId, pending.Id,
+        var declined = await fixture.Contributions.DecideAsync(fixture.Authority, pending.Id,
             new("declined", pending.Revision, "Not for the shared collection"));
 
         Assert.Equal("declined", declined.Status);
@@ -106,17 +202,24 @@ public sealed class ViewSharedTransferServiceTests
         Assert.Equal([1, 2, 3, 4, 5], await File.ReadAllBytesAsync(destination));
         Assert.Equal(result.DestinationPaths, repeated.DestinationPaths);
 
+        var sharedLibraryId = fixture.SharedLibraryId();
+        var sharedSourceId = fixture.SharedSourceId("shared:timeline");
         var root = await fixture.Folders.QueryAsync(
             fixture.ProfileId,
-            new ResolvedViewScope(ViewScopeKind.Shared, null, new HashSet<Guid> { fixture.Space.LibraryId }),
+            new ResolvedViewScope(ViewScopeKind.Shared, null, new HashSet<Guid> { sharedLibraryId }),
             null, null, false, null, 0, 100);
-        Assert.Contains(root.Sources, source => source.SourceId == ViewFolderService.SharedLibrarySourceId);
+        Assert.Contains(root.Sources, source => source.SourceId == sharedSourceId);
         var shared = await fixture.Folders.QueryAsync(
             fixture.ProfileId,
-            new ResolvedViewScope(ViewScopeKind.Shared, null, new HashSet<Guid> { fixture.Space.LibraryId }),
-            ViewFolderService.SharedLibrarySourceId, null, false, null, 0, 100);
-        Assert.Equal("Shared Library", Assert.Single(shared.Breadcrumbs).Label);
-        Assert.Contains(shared.Folders, folder => folder.Name == "Timeline");
+            new ResolvedViewScope(ViewScopeKind.Shared, null, new HashSet<Guid> { sharedLibraryId }),
+            sharedSourceId, null, true, null, 0, 100);
+        Assert.Equal("Timeline", Assert.Single(shared.Breadcrumbs).Label);
+        var sharedItem = Assert.Single(shared.Items);
+        Assert.Equal("shared", sharedItem.ScopeKind);
+        Assert.Null(sharedItem.OwnerProfileId);
+        Assert.Null(sharedItem.PersonalSpaceId);
+        Assert.NotEqual(indexed.ItemId, sharedItem.Id);
+        Assert.Equal(indexed.ItemId, fixture.OriginItemId(sharedItem.Id));
     }
 
     [Fact]
@@ -137,7 +240,15 @@ public sealed class ViewSharedTransferServiceTests
         Assert.Equal("copy", preview.Operation);
         Assert.Equal("completed", result.State);
         Assert.True(File.Exists(original));
-        Assert.Equal([8, 9, 10], await File.ReadAllBytesAsync(Assert.Single(result.DestinationPaths)));
+        var destination = Assert.Single(result.DestinationPaths);
+        Assert.Equal([8, 9, 10], await File.ReadAllBytesAsync(destination));
+        var sharedId = fixture.SharedItemId(indexed.ItemId);
+        var resolved = await fixture.ResolveSharedContentAsync(sharedId);
+        Assert.NotNull(resolved);
+        Assert.Equal(destination, resolved!.FilePath);
+        Assert.NotEqual(original, resolved.FilePath);
+        Assert.Null(resolved.OwnerProfileId);
+        Assert.Equal(fixture.FileIdForPath(original), fixture.FileIdForPath(destination));
     }
 
     [Fact]
@@ -201,33 +312,90 @@ public sealed class ViewSharedTransferServiceTests
             _assets = new LocalAssetRepository(_database);
             Profiles = new ProfileRepository(_database);
             ProfileId = Guid.NewGuid();
-            Profiles.InsertAsync(new Profile
+            ProfileTestData.InsertAsync(_database, new Profile
             {
                 Id = ProfileId,
                 DisplayName = "Shared curator",
                 Role = ProfileRole.Administrator,
             }).GetAwaiter().GetResult();
-            Storage = new ViewStorageService(_configuration, _spaces);
+            Authority = new RequestAuthority(PrincipalKind.Human, true, Guid.NewGuid(), ProfileId,
+                AccountEnabled: true, GrantEnabled: true,
+                AccountIsAdministrator: true, GrantAdminEnabled: true);
+            Storage = new ViewStorageService(_configuration, _spaces, new ViewSharedLibraryRepository(_database));
             Space = Storage.EnsurePersonalSpaceAsync(ProfileId).GetAwaiter().GetResult();
-            Library = new ViewLibraryService(_assets, _configuration, new LibraryAccessEvaluator(),
-                _spaces, Storage, NullLogger<ViewLibraryService>.Instance);
+            Library = new ViewLibraryService(_assets, _configuration, _spaces, Storage,
+                NullLogger<ViewLibraryService>.Instance);
             Transfers = new ViewSharedTransferService(_database, _assets, Storage);
             Policies = new ViewProfileRepository(_database);
-            Contributions = new ViewSharedContributionService(_database, _assets, Policies, Transfers);
+            Authorization = new TestAllowAuthorizationEvaluator();
+            Contributions = new ViewSharedContributionService(_database, _assets, Policies, Transfers,
+                Authorization, new ViewSharedContributionQueue());
             Folders = new ViewFolderService(_database, _spaces, Profiles, _assets, Storage);
         }
 
         public string Root { get; }
         public Guid ProfileId { get; }
+        public RequestAuthority Authority { get; }
         public ViewPersonalSpace Space { get; }
         public ViewPersonalSpaceRepository Sources => _spaces;
         public ProfileRepository Profiles { get; }
+
+        public Task InsertProfileAsync(Profile profile) => ProfileTestData.InsertAsync(_database, profile);
         public ViewStorageService Storage { get; }
         public ViewLibraryService Library { get; }
         public ViewSharedTransferService Transfers { get; }
+        public TestAllowAuthorizationEvaluator Authorization { get; }
         public ViewProfileRepository Policies { get; }
         public ViewSharedContributionService Contributions { get; }
         public ViewFolderService Folders { get; }
+
+        public Guid SharedLibraryId()
+        {
+            using var connection = _database.CreateConnection();
+            return connection.QuerySingle<Guid>(
+                "SELECT library_id FROM view_shared_library WHERE singleton_key=1;");
+        }
+
+        public Guid SharedSourceId(string sourceKey)
+        {
+            using var connection = _database.CreateConnection();
+            return connection.QuerySingle<Guid>(
+                "SELECT id FROM view_sources WHERE scope_kind='shared' AND source_key=@sourceKey;",
+                new { sourceKey });
+        }
+
+        public Guid? OriginItemId(Guid sharedItemId)
+        {
+            using var connection = _database.CreateConnection();
+            return connection.QuerySingle<Guid?>(
+                "SELECT origin_item_id FROM view_shared_assets WHERE item_id=@sharedItemId;",
+                new { sharedItemId });
+        }
+
+        public Guid SharedItemId(Guid originItemId)
+        {
+            using var connection = _database.CreateConnection();
+            return connection.QuerySingle<Guid>(
+                "SELECT item_id FROM view_shared_assets WHERE origin_item_id=@originItemId;",
+                new { originItemId });
+        }
+
+        public Guid FileIdForPath(string path)
+        {
+            using var connection = _database.CreateConnection();
+            return connection.QuerySingle<Guid>(
+                "SELECT file_id FROM local_file_sources WHERE file_path=@path;",
+                new { path = Path.GetFullPath(path) });
+        }
+
+        public Task<MediaEngine.Storage.Contracts.LocalAssetContentLocation?> ResolveSharedContentAsync(Guid itemId)
+        {
+            var resources = new ViewResourcePersistenceService(
+                _assets, new ViewGalleryRepository(_database), _spaces, _database);
+            return resources.ResolveContentAsync(itemId, MediaEngine.Storage.Contracts.LocalAssetFileRoles.Primary,
+                new ResolvedViewScope(ViewScopeKind.Shared, null,
+                    new HashSet<Guid> { SharedLibraryId() }));
+        }
 
         public string WriteManaged(string name, byte[] bytes)
         {
@@ -244,7 +412,10 @@ public sealed class ViewSharedTransferServiceTests
             _configuration.Dispose();
             _database.Dispose();
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            if (Directory.Exists(Root)) Directory.Delete(Root, recursive: true);
+            if (Directory.Exists(Root))
+            {
+                Directory.Delete(Root, recursive: true);
+            }
         }
     }
 }

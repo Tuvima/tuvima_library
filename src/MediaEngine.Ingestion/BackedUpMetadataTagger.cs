@@ -67,7 +67,9 @@ public abstract class BackedUpMetadataTagger
         try
         {
             if (shouldCreateBackup?.Invoke() ?? true)
+            {
                 File.Copy(filePath, backupPath, overwrite: true);
+            }
 
             mutate();
         }
@@ -94,7 +96,9 @@ public abstract class BackedUpMetadataTagger
         try
         {
             if (shouldCreateBackup?.Invoke() ?? true)
+            {
                 File.Copy(filePath, backupPath, overwrite: true);
+            }
 
             await mutate().ConfigureAwait(false);
         }
@@ -120,7 +124,9 @@ public abstract class BackedUpMetadataTagger
         try
         {
             if (File.Exists(sourceBackupPath))
+            {
                 File.Copy(sourceBackupPath, destinationOriginalPath, overwrite: true);
+            }
         }
         catch (Exception restoreEx)
         {

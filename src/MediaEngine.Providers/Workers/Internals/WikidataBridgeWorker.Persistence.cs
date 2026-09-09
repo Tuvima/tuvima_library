@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -11,7 +12,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
 
@@ -80,7 +80,9 @@ public sealed partial class WikidataBridgeWorker
         Guid entityId, string qid, string mediaTypeStr, CancellationToken ct)
     {
         if (!Enum.TryParse<MediaType>(mediaTypeStr, true, out var mediaType))
+        {
             mediaType = MediaType.Unknown;
+        }
 
         var reconAdapter = _providers
             .OfType<ReconciliationAdapter>()
@@ -105,13 +107,13 @@ public sealed partial class WikidataBridgeWorker
             var fullClaims = await reconAdapter.FetchAsync(
                 new ProviderLookupRequest
                 {
-                    EntityId       = entityId,
-                    EntityType     = EntityType.MediaAsset,
-                    MediaType      = mediaType,
-                    Title          = titleHint,
+                    EntityId = entityId,
+                    EntityType = EntityType.MediaAsset,
+                    MediaType = mediaType,
+                    Title = titleHint,
                     PreResolvedQid = qid,
-                    FileLanguage   = languageHint,
-                    HydrationPass  = HydrationPass.Universe,
+                    FileLanguage = languageHint,
+                    HydrationPass = HydrationPass.Universe,
                 }, ct);
 
             WorkLineage? lineage = null;
@@ -150,7 +152,9 @@ public sealed partial class WikidataBridgeWorker
     private async Task<MediaOperation?> EnsureBridgeOperationAsync(IdentityJob job, string stage, CancellationToken ct)
     {
         if (_operationTracker is null)
+        {
             return null;
+        }
 
         try
         {
@@ -186,7 +190,9 @@ public sealed partial class WikidataBridgeWorker
         object? detail = null)
     {
         if (_operationTracker is null || operation is null)
+        {
             return;
+        }
 
         try
         {
@@ -237,7 +243,9 @@ public sealed partial class WikidataBridgeWorker
         }
 
         if (_capabilityStates is not null)
+        {
             await _capabilityStates.MarkNoResultAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, reason, ct).ConfigureAwait(false);
+        }
     }
 
     private async Task MarkBridgeBlockedAsync(MediaOperation? operation, IdentityJob job, string reason, CancellationToken ct)
@@ -252,7 +260,9 @@ public sealed partial class WikidataBridgeWorker
         }
 
         if (_capabilityStates is not null)
+        {
             await _capabilityStates.MarkBlockedAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, reason, ct).ConfigureAwait(false);
+        }
     }
 
     private async Task MarkBridgeFailedAsync(MediaOperation? operation, IdentityJob job, Exception exception, bool terminal, CancellationToken ct)
@@ -273,6 +283,7 @@ public sealed partial class WikidataBridgeWorker
         }
 
         if (_capabilityStates is not null)
+        {
             await _capabilityStates.MarkFailedForOutcomeAsync(
                     job.EntityId,
                     CapabilityId.IdentityWikidataBridge,
@@ -282,12 +293,15 @@ public sealed partial class WikidataBridgeWorker
                     category,
                     ct)
                 .ConfigureAwait(false);
+        }
     }
 
     private async Task MarkBridgeCapabilityQueuedAsync(IdentityJob job, MediaOperation? operation, CancellationToken ct)
     {
         if (_capabilityStates is null)
+        {
             return;
+        }
 
         await _capabilityStates.EnsureAsync(new EntityCapabilityState
         {
@@ -303,13 +317,17 @@ public sealed partial class WikidataBridgeWorker
         }, ct).ConfigureAwait(false);
 
         if (operation is not null)
+        {
             await _capabilityStates.MarkQueuedAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, operation.Id, ct).ConfigureAwait(false);
+        }
     }
 
     private async Task MarkBridgeCapabilityRunningAsync(IdentityJob job, MediaOperation? operation, CancellationToken ct)
     {
         if (_capabilityStates is not null && operation is not null)
+        {
             await _capabilityStates.MarkRunningAsync(job.EntityId, CapabilityId.IdentityWikidataBridge, null, operation.Id, ct).ConfigureAwait(false);
+        }
     }
     // -------------------------------------------------------------------------
     // Batch gate (D4) — computed before every poll cycle
@@ -333,7 +351,9 @@ public sealed partial class WikidataBridgeWorker
         var gate = GetExecutionSnapshot().Core.Pipeline.BatchGate;
 
         if (!gate.Enabled)
+        {
             return [];
+        }
 
         // Collect distinct run IDs from the current Stage 2 ready pool by
         // temporarily leasing a small probe batch and immediately releasing any
@@ -353,7 +373,9 @@ public sealed partial class WikidataBridgeWorker
             .ToList();
 
         if (runningBatches.Count == 0)
+        {
             return [];
+        }
 
         var timeoutCutoff = DateTimeOffset.UtcNow.AddSeconds(-gate.TimeoutSeconds);
 
@@ -365,7 +387,9 @@ public sealed partial class WikidataBridgeWorker
             .ToList();
 
         if (candidateRunIds.Count == 0)
+        {
             return [];
+        }
 
         // Ask the job repo which of these candidate runs still have Stage 1 pending jobs.
         var pendingCounts = await _jobRepo.GetPendingStage1CountsByRunAsync(candidateRunIds, ct);
@@ -411,7 +435,11 @@ public sealed partial class WikidataBridgeWorker
         IReadOnlyList<ProviderClaim> claims,
         CancellationToken ct)
     {
-        if (lineage is null) return;
+        if (lineage is null)
+        {
+            return;
+        }
+
         try
         {
 
@@ -420,20 +448,26 @@ public sealed partial class WikidataBridgeWorker
             // partitions them by ClaimScope.
             var ids = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             if (!string.IsNullOrWhiteSpace(resolvedQid))
+            {
                 ids[BridgeIdKeys.WikidataQid] = resolvedQid;
+            }
 
             foreach (var claim in claims)
             {
                 if (string.IsNullOrWhiteSpace(claim.Key) ||
                     string.IsNullOrWhiteSpace(claim.Value))
+                {
                     continue;
+                }
 
                 // Only route well-known external identifier keys; everything
                 // else (title, year, genre, etc.) is handled by the existing
                 // canonical-value persistence path.
                 if (BridgeIdKeys.All.Contains(claim.Key)
                     && IsBridgeIdCompatibleWithMediaType(claim.Key, mediaType))
+                {
                     ids.TryAdd(claim.Key, claim.Value);
+                }
             }
 
             if (ids.Count > 0)
@@ -441,12 +475,16 @@ public sealed partial class WikidataBridgeWorker
                 var (forParent, forSelf) = _claimRouter.SplitBridgeIds(lineage, ids);
 
                 if (forParent.Count > 0)
+                {
                     await _workRepo.WriteExternalIdentifiersAsync(
                         lineage.TargetForParentScope, forParent, ct);
+                }
 
                 if (forSelf.Count > 0)
+                {
                     await _workRepo.WriteExternalIdentifiersAsync(
                         lineage.TargetForSelfScope, forSelf, ct);
+                }
             }
 
             // Catalog upsert: if Wikidata returned a child manifest, create
@@ -464,9 +502,11 @@ public sealed partial class WikidataBridgeWorker
                         lineage.TargetForParentScope, mediaType, childJson, ct);
 
                     if (inserted > 0)
+                    {
                         _logger.LogInformation(
                             "Wikidata: catalog upsert added {Count} {MediaType} children under parent Work {ParentWorkId}",
                             inserted, mediaType, lineage.TargetForParentScope);
+                    }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -492,7 +532,9 @@ public sealed partial class WikidataBridgeWorker
         }
 
         if (string.Equals(key, BridgeIdKeys.TmdbEpisodeId, StringComparison.OrdinalIgnoreCase))
+        {
             return mediaType == MediaType.TV;
+        }
 
         return true;
     }
@@ -500,7 +542,9 @@ public sealed partial class WikidataBridgeWorker
     private static Guid ResolveBridgeIdEntityId(WorkLineage? lineage, Guid assetId, string key)
     {
         if (lineage is null)
+        {
             return assetId;
+        }
 
         return ClaimScopeCatalog.IsParentScoped(key, lineage.MediaType)
             ? lineage.TargetForParentScope
@@ -510,7 +554,9 @@ public sealed partial class WikidataBridgeWorker
     private async Task RunPostIdentityPersonPassAsync(Guid entityId, string qid, CancellationToken ct)
     {
         if (_personEnrichment is null)
+        {
             return;
+        }
 
         try
         {
@@ -580,21 +626,21 @@ public sealed partial class WikidataBridgeWorker
             int? EpisodeNumber,
             string? IssueNumber)
         {
-            this.Job           = Job;
-            this.MediaType     = MediaType;
-            this.BridgeIds     = BridgeIds;
-            this.BridgeDict    = BridgeDict;
+            this.Job = Job;
+            this.MediaType = MediaType;
+            this.BridgeIds = BridgeIds;
+            this.BridgeDict = BridgeDict;
             this.WikidataProps = WikidataProps;
-            this.TitleHint     = TitleHint;
-            this.AuthorHint    = AuthorHint;
-            this.YearHint      = YearHint;
-            this.AlbumHint     = AlbumHint;
-            this.ArtistHint    = ArtistHint;
-            this.SeriesHint    = SeriesHint;
-            this.LanguageHint  = LanguageHint;
-            this.SeasonNumber  = SeasonNumber;
+            this.TitleHint = TitleHint;
+            this.AuthorHint = AuthorHint;
+            this.YearHint = YearHint;
+            this.AlbumHint = AlbumHint;
+            this.ArtistHint = ArtistHint;
+            this.SeriesHint = SeriesHint;
+            this.LanguageHint = LanguageHint;
+            this.SeasonNumber = SeasonNumber;
             this.EpisodeNumber = EpisodeNumber;
-            this.IssueNumber   = IssueNumber;
+            this.IssueNumber = IssueNumber;
         }
     }
 

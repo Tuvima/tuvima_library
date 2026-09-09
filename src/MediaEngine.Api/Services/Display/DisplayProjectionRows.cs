@@ -35,6 +35,7 @@ public interface IDisplayArtworkRow
 public sealed class DisplayWorkRow : IDisplayArtworkRow
 {
     public Guid WorkId { get; set; }
+    public string? LibraryId { get; set; }
     public Guid? CollectionId { get; set; }
     public string MediaType { get; set; } = string.Empty;
     public string? WorkKind { get; set; }
@@ -148,6 +149,8 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
 public sealed class DisplayJourneyRow : IDisplayArtworkRow
 {
     public Guid AssetId { get; set; }
+    public string? LibraryId { get; set; }
+    public Guid ProfileId { get; set; }
     public Guid WorkId { get; set; }
     public Guid RootWorkId { get; set; }
     public Guid? CollectionId { get; set; }

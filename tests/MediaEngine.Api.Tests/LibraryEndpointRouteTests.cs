@@ -34,7 +34,10 @@ public sealed class LibraryEndpointRouteTests
         var serviceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\LibraryWorkFeedReadService.cs"));
 
         Assert.Contains("ILibraryWorkFeedReadService workFeedReadService", source, StringComparison.Ordinal);
-        Assert.Contains("workFeedReadService.GetWorksAsync(page, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("workFeedReadService.GetWorksAsync(page, ct, allowedWorkIds)", source, StringComparison.Ordinal);
+        Assert.Contains("display.LoadWorksAsync(ct)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".RequireAdminOrStandardUser()", source, StringComparison.Ordinal);
+        Assert.DoesNotContain(".RequireAnyRole()", source, StringComparison.Ordinal);
         Assert.Contains("HomeVisibilitySql.VisibleWorkPredicate(\"w.id\", \"w.curator_state\", \"w.is_catalog_only\")", serviceSource, StringComparison.Ordinal);
         Assert.Contains("HomeVisibilitySql.VisibleAssetPathPredicate(\"ad.file_path_root\")", serviceSource, StringComparison.Ordinal);
         Assert.Contains("w.collection_id AS collection_id", serviceSource, StringComparison.Ordinal);

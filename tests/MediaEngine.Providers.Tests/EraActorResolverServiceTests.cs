@@ -85,12 +85,16 @@ public sealed class EraActorResolverServiceTests : IDisposable
         InsertPerson(conn, tx, "P-historic", "Historic Actor", "historic", createdAt);
         InsertPerson(conn, tx, "P-current", "Current Actor", "current", createdAt);
         for (var index = 1; index < characterQids.Count; index++)
+        {
             InsertPerson(conn, tx, $"P-{index}", $"Actor {index}", index.ToString(), createdAt);
+        }
 
         InsertEdge(conn, tx, "P-historic", characterQids[0], "2000", "2009", createdAt.AddMinutes(-2));
         InsertEdge(conn, tx, "P-current", characterQids[0], "2010", null, createdAt.AddMinutes(-1));
         for (var index = 1; index < characterQids.Count; index++)
+        {
             InsertEdge(conn, tx, $"P-{index}", characterQids[index], null, null, createdAt);
+        }
 
         tx.Commit();
     }
@@ -107,13 +111,13 @@ public sealed class EraActorResolverServiceTests : IDisposable
             INSERT INTO persons (id, name, wikidata_qid, headshot_url, created_at)
             VALUES (@Id, @Name, @Qid, @HeadshotUrl, @CreatedAt);
             """, new
-            {
-                Id = GuidSql.ToBlob(Guid.NewGuid()),
-                Name = name,
-                Qid = qid,
-                HeadshotUrl = $"https://example.test/{imageKey}.jpg",
-                CreatedAt = createdAt.ToString("O"),
-            }, tx);
+        {
+            Id = GuidSql.ToBlob(Guid.NewGuid()),
+            Name = name,
+            Qid = qid,
+            HeadshotUrl = $"https://example.test/{imageKey}.jpg",
+            CreatedAt = createdAt.ToString("O"),
+        }, tx);
     }
 
     private static void InsertEdge(
@@ -133,15 +137,15 @@ public sealed class EraActorResolverServiceTests : IDisposable
                 (@Id, @SubjectQid, @RelationshipType, @ObjectQid,
                  1.0, @DiscoveredAt, @StartTime, @EndTime);
             """, new
-            {
-                Id = GuidSql.ToBlob(Guid.NewGuid()),
-                SubjectQid = actorQid,
-                RelationshipType = RelationshipType.Performer,
-                ObjectQid = characterQid,
-                DiscoveredAt = discoveredAt.ToString("O"),
-                StartTime = startTime,
-                EndTime = endTime,
-            }, tx);
+        {
+            Id = GuidSql.ToBlob(Guid.NewGuid()),
+            SubjectQid = actorQid,
+            RelationshipType = RelationshipType.Performer,
+            ObjectQid = characterQid,
+            DiscoveredAt = discoveredAt.ToString("O"),
+            StartTime = startTime,
+            EndTime = endTime,
+        }, tx);
     }
 
     private static void TryDelete(string path)

@@ -45,7 +45,10 @@ public static class ProviderCapabilityPresentation
     {
         foreach (var capability in All.Where(item => item.Id is not ProviderCapabilityId.Identity and not ProviderCapabilityId.Other))
         {
-            if (capability.FieldKeys.Contains(field)) return capability.Id;
+            if (capability.FieldKeys.Contains(field))
+            {
+                return capability.Id;
+            }
         }
         return ProviderCapabilityId.Metadata;
     }

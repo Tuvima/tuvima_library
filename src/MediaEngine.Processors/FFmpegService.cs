@@ -22,9 +22,9 @@ public sealed class FFmpegService : IFFmpegService
 {
     private readonly ILogger<FFmpegService> _logger;
 
-    public string? FfmpegPath  { get; }
+    public string? FfmpegPath { get; }
     public string? FfprobePath { get; }
-    public bool    IsAvailable => FfmpegPath is not null && FfprobePath is not null;
+    public bool IsAvailable => FfmpegPath is not null && FfprobePath is not null;
 
     public HardwareCapabilities HardwareCapabilities { get; }
 
@@ -35,7 +35,7 @@ public sealed class FFmpegService : IFFmpegService
         var settings = config.LoadTranscoding();
 
         // ── Binary resolution ────────────────────────────────────────────────
-        FfmpegPath  = ResolveBinary("ffmpeg",  settings.FfmpegBinaryPath);
+        FfmpegPath = ResolveBinary("ffmpeg", settings.FfmpegBinaryPath);
         FfprobePath = ResolveBinary("ffprobe", settings.FfprobeBinaryPath);
 
         if (IsAvailable)
@@ -60,12 +60,18 @@ public sealed class FFmpegService : IFFmpegService
 
     public async Task<MediaProbeResult?> ProbeAsync(string filePath, CancellationToken ct = default)
     {
-        if (!IsAvailable || !File.Exists(filePath)) return null;
+        if (!IsAvailable || !File.Exists(filePath))
+        {
+            return null;
+        }
 
         // ffprobe -v quiet -print_format json -show_format -show_streams -show_chapters
         var args = $"-v quiet -print_format json -show_format -show_streams -show_chapters \"{filePath}\"";
         var (exit, stdout, _) = await RunProcessAsync(FfprobePath!, args, ct).ConfigureAwait(false);
-        if (exit != 0 || string.IsNullOrWhiteSpace(stdout)) return null;
+        if (exit != 0 || string.IsNullOrWhiteSpace(stdout))
+        {
+            return null;
+        }
 
         return ParseProbeJson(stdout, filePath);
     }
@@ -74,7 +80,9 @@ public sealed class FFmpegService : IFFmpegService
         string arguments, CancellationToken ct = default)
     {
         if (!IsAvailable)
+        {
             throw new InvalidOperationException("FFmpeg is not available. Check tools/ffmpeg/ or system PATH.");
+        }
 
         return await RunProcessAsync(FfmpegPath!, arguments, ct).ConfigureAwait(false);
     }
@@ -83,7 +91,9 @@ public sealed class FFmpegService : IFFmpegService
         IReadOnlyList<string> arguments, CancellationToken ct = default)
     {
         if (!IsAvailable)
+        {
             throw new InvalidOperationException("FFmpeg is not available. Check tools/ffmpeg/ or system PATH.");
+        }
 
         return await RunProcessAsync(FfmpegPath!, arguments, ct).ConfigureAwait(false);
     }
@@ -95,7 +105,9 @@ public sealed class FFmpegService : IFFmpegService
         // 1. An explicit deployment path is authoritative. Do not silently
         // hide a stale container/NAS configuration by falling back elsewhere.
         if (!string.IsNullOrWhiteSpace(configuredPath))
+        {
             return File.Exists(configuredPath) ? Path.GetFullPath(configuredPath) : null;
+        }
 
         // 2. tools/ffmpeg/ relative to app base directory
         var appBase = AppContext.BaseDirectory;
@@ -103,10 +115,18 @@ public sealed class FFmpegService : IFFmpegService
         var dir = new DirectoryInfo(appBase);
         for (int depth = 0; depth < 6; depth++)
         {
-            if (dir is null) break;
+            if (dir is null)
+            {
+                break;
+            }
+
             var candidate = Path.Combine(dir.FullName, "tools", "ffmpeg",
                 OperatingSystem.IsWindows() ? $"{name}.exe" : name);
-            if (File.Exists(candidate)) return candidate;
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+
             dir = dir.Parent;
         }
 
@@ -134,23 +154,27 @@ public sealed class FFmpegService : IFFmpegService
             var psi = new ProcessStartInfo(FfmpegPath!, "-hide_banner -encoders")
             {
                 RedirectStandardOutput = true,
-                RedirectStandardError  = true,
-                UseShellExecute        = false,
-                CreateNoWindow         = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
             };
             using var p = Process.Start(psi);
-            if (p is null) return new HardwareCapabilities();
+            if (p is null)
+            {
+                return new HardwareCapabilities();
+            }
+
             var output = p.StandardOutput.ReadToEnd();
             p.WaitForExit(10_000);
             var muxers = QueryCapabilityOutput("-hide_banner -muxers");
 
-            bool hasNvenc     = ListsCapability(output, "h264_nvenc");
-            bool hasQsv       = ListsCapability(output, "h264_qsv");
-            bool hasVaapi     = ListsCapability(output, "h264_vaapi");
-            bool hasLibx264   = ListsCapability(output, "libx264");
-            bool hasAac       = ListsCapability(output, "aac");
-            bool hasWebVtt    = ListsCapability(output, "webvtt");
-            bool hasHls       = ListsCapability(muxers, "hls");
+            bool hasNvenc = ListsCapability(output, "h264_nvenc");
+            bool hasQsv = ListsCapability(output, "h264_qsv");
+            bool hasVaapi = ListsCapability(output, "h264_vaapi");
+            bool hasLibx264 = ListsCapability(output, "libx264");
+            bool hasAac = ListsCapability(output, "aac");
+            bool hasWebVtt = ListsCapability(output, "webvtt");
+            bool hasHls = ListsCapability(muxers, "hls");
 
             hasNvenc = hasNvenc && ProbeEncoder("h264_nvenc");
             hasQsv = hasQsv && ProbeEncoder("h264_qsv");
@@ -158,24 +182,24 @@ public sealed class FFmpegService : IFFmpegService
 
             // If mode is "auto", pick best; if mode is explicit, honour it.
             bool softwareOnly = mode is "none" or "cpu";
-            bool useNvenc  = !softwareOnly && hasNvenc && (mode is "auto" or "nvenc");
-            bool useQsv    = !softwareOnly && hasQsv && (mode is "auto" or "quicksync") && !useNvenc;
-            bool useVaapi  = !softwareOnly && hasVaapi && (mode is "auto" or "vaapi") && !useNvenc && !useQsv;
+            bool useNvenc = !softwareOnly && hasNvenc && (mode is "auto" or "nvenc");
+            bool useQsv = !softwareOnly && hasQsv && (mode is "auto" or "quicksync") && !useNvenc;
+            bool useVaapi = !softwareOnly && hasVaapi && (mode is "auto" or "vaapi") && !useNvenc && !useQsv;
 
-            string encoder    = useNvenc ? "h264_nvenc" : useQsv ? "h264_qsv" : useVaapi ? "h264_vaapi" : "libx264";
+            string encoder = useNvenc ? "h264_nvenc" : useQsv ? "h264_qsv" : useVaapi ? "h264_vaapi" : "libx264";
             string? accelName = useNvenc ? "NVIDIA NVENC" : useQsv ? "Intel Quick Sync" : useVaapi ? "VAAPI" : null;
 
             return new HardwareCapabilities
             {
-                HasNvenc            = hasNvenc,
-                HasQuickSync        = hasQsv,
-                HasVaapi            = hasVaapi,
-                PreferredEncoder    = encoder,
+                HasNvenc = hasNvenc,
+                HasQuickSync = hasQsv,
+                HasVaapi = hasVaapi,
+                PreferredEncoder = encoder,
                 DetectedAccelerator = accelName,
-                HasHlsMuxer         = hasHls,
-                HasH264Encoder      = hasLibx264 || hasNvenc || hasQsv || hasVaapi,
-                HasAacEncoder       = hasAac,
-                HasWebVttEncoder    = hasWebVtt,
+                HasHlsMuxer = hasHls,
+                HasH264Encoder = hasLibx264 || hasNvenc || hasQsv || hasVaapi,
+                HasAacEncoder = hasAac,
+                HasWebVttEncoder = hasWebVtt,
             };
         }
         catch (Exception ex)
@@ -191,9 +215,9 @@ public sealed class FFmpegService : IFFmpegService
         var psi = new ProcessStartInfo(binary, arguments)
         {
             RedirectStandardOutput = true,
-            RedirectStandardError  = true,
-            UseShellExecute        = false,
-            CreateNoWindow         = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
         };
 
         using var process = new Process { StartInfo = psi };
@@ -223,7 +247,10 @@ public sealed class FFmpegService : IFFmpegService
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-        foreach (var argument in arguments) psi.ArgumentList.Add(argument);
+        foreach (var argument in arguments)
+        {
+            psi.ArgumentList.Add(argument);
+        }
 
         using var process = new Process { StartInfo = psi };
         process.Start();
@@ -237,7 +264,10 @@ public sealed class FFmpegService : IFFmpegService
         {
             try
             {
-                if (!process.HasExited) process.Kill(entireProcessTree: true);
+                if (!process.HasExited)
+                {
+                    process.Kill(entireProcessTree: true);
+                }
             }
             catch (InvalidOperationException)
             {
@@ -252,29 +282,43 @@ public sealed class FFmpegService : IFFmpegService
     {
         try
         {
-            using var doc  = JsonDocument.Parse(json);
-            var root       = doc.RootElement;
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
 
             // ── Format (container-level metadata) ────────────────────────────
-            var format     = root.TryGetProperty("format", out var f) ? f : (JsonElement?)null;
-            var tags       = format?.TryGetProperty("tags", out var t) == true ? t : (JsonElement?)null;
+            var format = root.TryGetProperty("format", out var f) ? f : (JsonElement?)null;
+            var tags = format?.TryGetProperty("tags", out var t) == true ? t : (JsonElement?)null;
 
             double durationSec = 0;
             if (format?.TryGetProperty("duration", out var durEl) == true &&
                 double.TryParse(durEl.GetString(), System.Globalization.NumberStyles.Float,
                     System.Globalization.CultureInfo.InvariantCulture, out var d))
+            {
                 durationSec = d;
+            }
 
             long fileSize = 0;
             if (format?.TryGetProperty("size", out var sizeEl) == true &&
                 long.TryParse(sizeEl.GetString(), out var s))
+            {
                 fileSize = s;
+            }
 
             string? Tag(string key)
             {
-                if (tags is null) return null;
+                if (tags is null)
+                {
+                    return null;
+                }
+
                 foreach (var kv in new[] { key, key.ToUpperInvariant(), key.ToLowerInvariant() })
-                    if (tags.Value.TryGetProperty(kv, out var v)) return v.GetString();
+                {
+                    if (tags.Value.TryGetProperty(kv, out var v))
+                    {
+                        return v.GetString();
+                    }
+                }
+
                 return null;
             }
 
@@ -290,14 +334,14 @@ public sealed class FFmpegService : IFFmpegService
             // ── Streams ───────────────────────────────────────────────────────
             string? audioCodec = null;
             string? audioLanguage = null;
-            int?    bitrate    = null;
-            int?    sampleRate = null;
-            int?    channels   = null;
+            int? bitrate = null;
+            int? sampleRate = null;
+            int? channels = null;
             string? videoCodec = null;
-            int?    width      = null;
-            int?    height     = null;
-            double? frameRate  = null;
-            bool    hasCover   = false;
+            int? width = null;
+            int? height = null;
+            double? frameRate = null;
+            bool hasCover = false;
             var subtitleLanguages = new List<string>();
 
             if (root.TryGetProperty("streams", out var streams))
@@ -316,12 +360,20 @@ public sealed class FFmpegService : IFFmpegService
                         }
                         if (stream.TryGetProperty("bit_rate", out var br) &&
                             int.TryParse(br.GetString(), out var brv))
+                        {
                             bitrate = brv / 1000;
+                        }
+
                         if (stream.TryGetProperty("sample_rate", out var sr) &&
                             int.TryParse(sr.GetString(), out var srv))
+                        {
                             sampleRate = srv;
+                        }
+
                         if (stream.TryGetProperty("channels", out var ch))
+                        {
                             channels = ch.GetInt32();
+                        }
                     }
                     else if (codecType == "video")
                     {
@@ -336,8 +388,16 @@ public sealed class FFmpegService : IFFmpegService
                         else if (videoCodec is null)
                         {
                             videoCodec = codecName;
-                            if (stream.TryGetProperty("width", out var w))  width  = w.GetInt32();
-                            if (stream.TryGetProperty("height", out var h)) height = h.GetInt32();
+                            if (stream.TryGetProperty("width", out var w))
+                            {
+                                width = w.GetInt32();
+                            }
+
+                            if (stream.TryGetProperty("height", out var h))
+                            {
+                                height = h.GetInt32();
+                            }
+
                             if (stream.TryGetProperty("r_frame_rate", out var fr))
                             {
                                 var frs = fr.GetString() ?? "0/1";
@@ -345,7 +405,9 @@ public sealed class FFmpegService : IFFmpegService
                                 if (parts.Length == 2 &&
                                     double.TryParse(parts[0], out var num) &&
                                     double.TryParse(parts[1], out var den) && den != 0)
+                                {
                                     frameRate = Math.Round(num / den, 3);
+                                }
                             }
                         }
                     }
@@ -405,37 +467,37 @@ public sealed class FFmpegService : IFFmpegService
 
             return new MediaProbeResult
             {
-                Duration       = TimeSpan.FromSeconds(durationSec),
-                FileSizeBytes  = fileSize > 0 ? fileSize : new FileInfo(filePath).Length,
-                Title          = Tag("title"),
-                Artist         = Tag("artist"),
-                Album          = Tag("album"),
-                AlbumArtist    = Tag("album_artist"),
-                Genre          = Tag("genre"),
-                Date           = Tag("date"),
-                Comment        = Tag("comment"),
-                Narrator       = Tag("narrator") ?? Tag("composer"),
-                Publisher      = Tag("publisher"),
-                Description    = Tag("description") ?? Tag("comment"),
-                CapturedAt     = capturedAt,
-                DeviceMake     = Tag("com.apple.quicktime.make") ?? Tag("make"),
-                DeviceModel    = Tag("com.apple.quicktime.model") ?? Tag("model"),
-                Latitude       = latitude,
-                Longitude      = longitude,
+                Duration = TimeSpan.FromSeconds(durationSec),
+                FileSizeBytes = fileSize > 0 ? fileSize : new FileInfo(filePath).Length,
+                Title = Tag("title"),
+                Artist = Tag("artist"),
+                Album = Tag("album"),
+                AlbumArtist = Tag("album_artist"),
+                Genre = Tag("genre"),
+                Date = Tag("date"),
+                Comment = Tag("comment"),
+                Narrator = Tag("narrator") ?? Tag("composer"),
+                Publisher = Tag("publisher"),
+                Description = Tag("description") ?? Tag("comment"),
+                CapturedAt = capturedAt,
+                DeviceMake = Tag("com.apple.quicktime.make") ?? Tag("make"),
+                DeviceModel = Tag("com.apple.quicktime.model") ?? Tag("model"),
+                Latitude = latitude,
+                Longitude = longitude,
                 ContentIdentifier = Tag("com.apple.quicktime.content.identifier"),
-                IsLivePhoto    = string.Equals(Tag("com.apple.quicktime.live-photo.auto"), "1", StringComparison.OrdinalIgnoreCase),
-                AudioLanguage  = audioLanguage,
-                AudioCodec     = audioCodec,
-                AudioBitrate   = bitrate,
-                SampleRate     = sampleRate,
-                Channels       = channels,
-                VideoCodec     = videoCodec,
-                Width          = width,
-                Height         = height,
-                FrameRate      = frameRate,
+                IsLivePhoto = string.Equals(Tag("com.apple.quicktime.live-photo.auto"), "1", StringComparison.OrdinalIgnoreCase),
+                AudioLanguage = audioLanguage,
+                AudioCodec = audioCodec,
+                AudioBitrate = bitrate,
+                SampleRate = sampleRate,
+                Channels = channels,
+                VideoCodec = videoCodec,
+                Width = width,
+                Height = height,
+                FrameRate = frameRate,
                 HasEmbeddedCover = hasCover,
-                ChapterCount   = chapterCount,
-                Chapters       = parsedChapters,
+                ChapterCount = chapterCount,
+                Chapters = parsedChapters,
                 SubtitleLanguages = subtitleLanguages
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList(),
@@ -457,7 +519,11 @@ public sealed class FFmpegService : IFFmpegService
             CreateNoWindow = true,
         };
         using var process = Process.Start(psi);
-        if (process is null) return string.Empty;
+        if (process is null)
+        {
+            return string.Empty;
+        }
+
         var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit(10_000);
         return output;
@@ -484,7 +550,11 @@ public sealed class FFmpegService : IFFmpegService
             }
 
             using var process = Process.Start(psi);
-            if (process is null) return false;
+            if (process is null)
+            {
+                return false;
+            }
+
             _ = process.StandardOutput.ReadToEnd();
             _ = process.StandardError.ReadToEnd();
             return process.WaitForExit(10_000) && process.ExitCode == 0;
@@ -503,7 +573,9 @@ public sealed class FFmpegService : IFFmpegService
             {
                 var raw = value.GetString();
                 if (!string.IsNullOrWhiteSpace(raw))
+                {
                     return raw;
+                }
             }
         }
 
@@ -551,7 +623,9 @@ public sealed class FFmpegService : IFFmpegService
     private static (double? Latitude, double? Longitude) ParseIso6709(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return (null, null);
+        }
 
         var match = System.Text.RegularExpressions.Regex.Match(
             value,

@@ -10,7 +10,7 @@ public sealed class PersonalStatusRepositoryTests : IDisposable
     private readonly DatabaseConnection db;
     private readonly Guid profile = Guid.NewGuid();
     public PersonalStatusRepositoryTests() { DapperConfiguration.Configure(); db = new(path); db.InitializeSchema(); }
-    public void Dispose() { using (var conn = db.CreateConnection()) Microsoft.Data.Sqlite.SqliteConnection.ClearPool(conn); db.Dispose(); File.Delete(path); }
+    public void Dispose() { using (var conn = db.CreateConnection()) { Microsoft.Data.Sqlite.SqliteConnection.ClearPool(conn); } db.Dispose(); File.Delete(path); }
     private (Guid work, Guid asset) Add(MediaType media, Guid? parent = null)
     {
         var work = Guid.NewGuid(); var edition = Guid.NewGuid(); var asset = Guid.NewGuid();
@@ -60,6 +60,43 @@ public sealed class PersonalStatusRepositoryTests : IDisposable
         var playing = (await store.GetAsync(profile, asset))!; playing.ProgressPct = 5; await store.SaveAsync(playing);
         await Assert.ThrowsAsync<StateRevisionConflictException>(() => repo.UndoAsync(profile, id));
         Assert.Equal(5, (await store.GetAsync(profile, asset))!.ProgressPct);
+    }
+
+    [Fact]
+    public async Task ScopeFiltersCountsAndWrites_AndRevocationBlocksReplayUndoAndHistory()
+    {
+        var (show, allowed) = Add(MediaType.TV);
+        var (_, denied) = Add(MediaType.TV, show);
+        var repository = new PersonalStatusRepository(db);
+        var store = new UserStateRepository(db);
+        var target = new PersonalStatusTarget(show, MediaType.TV) { AuthorizedAssetIds = new HashSet<Guid> { allowed } };
+        var before = await repository.ReadAsync(profile, target);
+        Assert.Equal(1, before.OwnedCount);
+        var command = Guid.NewGuid();
+        var result = await repository.ExecuteAsync(profile, target, PersonalStatusCommand.Complete, command, before.Revision);
+        Assert.Equal(1, result.AffectedCount);
+        Assert.Equal(100, (await store.GetAsync(profile, allowed))!.ProgressPct);
+        Assert.Null(await store.GetAsync(profile, denied));
+        var revoked = target with { AuthorizedAssetIds = new HashSet<Guid>() };
+        Assert.Equal(0, (await repository.ReadAsync(profile, revoked)).OwnedCount);
+        Assert.Empty(await repository.HistoryAsync(profile, revoked));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repository.ExecuteAsync(profile, revoked, PersonalStatusCommand.Complete, command, before.Revision));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repository.UndoAsync(profile, command, default, revoked.AuthorizedAssetIds));
+        Assert.Equal(100, (await store.GetAsync(profile, allowed))!.ProgressPct);
+        await repository.UndoAsync(profile, command, default, target.AuthorizedAssetIds);
+        Assert.Equal(0, (await store.GetAsync(profile, allowed))!.ProgressPct);
+    }
+
+    [Fact]
+    public async Task RecentFiltersBeforeLimit()
+    {
+        var (_, allowed) = Add(MediaType.TV);
+        var (_, denied) = Add(MediaType.TV);
+        var store = new UserStateRepository(db);
+        await store.SaveAsync(new UserState { UserId = profile, AssetId = allowed, ProgressPct = 20, LastAccessed = DateTimeOffset.UtcNow.AddMinutes(-1) });
+        await store.SaveAsync(new UserState { UserId = profile, AssetId = denied, ProgressPct = 40, LastAccessed = DateTimeOffset.UtcNow });
+        Assert.Equal(allowed, Assert.Single(await store.GetRecentAuthorizedAsync(profile, new HashSet<Guid> { allowed }, 1)).AssetId);
+        Assert.Empty(await store.GetRecentAuthorizedAsync(profile, new HashSet<Guid>(), 1));
     }
     [Theory]
     [InlineData(MediaType.Books)]

@@ -3,12 +3,48 @@ using System.Net.Http.Json;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Playback;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.JSInterop;
 
 namespace MediaEngine.Web.Tests;
 
 public sealed class PlaybackSessionControllerTests
 {
+    [Fact]
+    public async Task HeartbeatsUseServerSessionMonotonicSequenceAndExplicitEndFact()
+    {
+        var profileId = Guid.NewGuid();
+        var serverSessionId = Guid.NewGuid();
+        var handler = new TelemetryHeartbeatHandler(profileId, serverSessionId);
+        var apiClient = new EngineApiClient(
+            new HttpClient(handler) { BaseAddress = new Uri("http://engine.test") },
+            NullLogger<EngineApiClient>.Instance);
+        using var profiles = new ActiveProfileSessionService(new NullJsRuntime(), apiClient);
+        await using var orchestrator = new UIOrchestratorService(
+            apiClient, new UniverseStateContainer(), profiles, new ConfigurationManager(),
+            NullLogger<UIOrchestratorService>.Instance);
+        var service = new PlaybackSessionController(orchestrator, apiClient);
+        service.RestoreState(new ListenPlaybackSnapshot
+        {
+            Queue = [CreateAudiobookItem("Telemetry", "/stream/telemetry")],
+            CurrentIndex = 0,
+            CurrentTimeSeconds = 20,
+            DurationSeconds = 60,
+            IsPlaying = true,
+        });
+
+        await service.ReportHeartbeatAsync(force: true);
+        await service.ReportHeartbeatAsync(force: true);
+        await service.CompleteCurrentAsync();
+
+        Assert.Equal([1, 2, 3], handler.Heartbeats.Select(value => value.Sequence));
+        Assert.Null(handler.Heartbeats[0].SessionId);
+        Assert.All(handler.Heartbeats.Skip(1), value => Assert.Equal(serverSessionId, value.SessionId));
+        Assert.False(handler.Heartbeats[0].HasPlaybackEnded);
+        Assert.True(handler.Heartbeats[^1].HasPlaybackEnded);
+    }
+
     [Fact]
     public async Task PendingTransportCommands_CoalesceStateAndKeepDistinctUserActions()
     {
@@ -577,6 +613,55 @@ public sealed class PlaybackSessionControllerTests
                 Content = JsonContent.Create(payload),
             });
         }
+    }
+
+    private sealed class TelemetryHeartbeatHandler(Guid profileId, Guid sessionId) : HttpMessageHandler
+    {
+        public List<PlayerHeartbeatDto> Heartbeats { get; } = [];
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.RequestUri?.AbsolutePath == "/profiles")
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new[]
+                    {
+                        new
+                        {
+                            id = profileId,
+                            display_name = "Viewer",
+                            avatar_color = "#000000",
+                            role = "RestrictedProfile",
+                            created_at = DateTimeOffset.UtcNow,
+                        },
+                    }),
+                };
+            }
+            if (request.RequestUri?.AbsolutePath == "/api/v1/player/heartbeat")
+            {
+                Heartbeats.Add((await request.Content!.ReadFromJsonAsync<PlayerHeartbeatDto>(cancellationToken))!);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = JsonContent.Create(new PlayerStateDto
+                    {
+                        SessionId = sessionId,
+                        ProfileId = profileId,
+                        Experience = PlayerExperienceModes.Audiobook,
+                        PlaybackRate = 1,
+                    }),
+                };
+            }
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        }
+    }
+
+    private sealed class NullJsRuntime : IJSRuntime
+    {
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) =>
+            ValueTask.FromResult(default(TValue)!);
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) =>
+            ValueTask.FromResult(default(TValue)!);
     }
 
     private sealed class BlockingManifestHandler : HttpMessageHandler

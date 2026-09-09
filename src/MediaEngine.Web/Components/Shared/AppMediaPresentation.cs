@@ -12,14 +12,45 @@ public static class AppMediaPresentation
         }
 
         var value = mediaType.ToLowerInvariant();
-        if (value.Contains("m4b") || value.Contains("audiobook")) return "Audiobook";
-        if (value.Contains("book") || value.Contains("epub")) return "Book";
-        if (value.Contains("movie")) return "Movie";
-        if (value.Contains("tv")) return "TV";
-        if (value.Contains("music") || value.Contains("album")) return "Music";
-        if (value.Contains("audio")) return "Audio";
-        if (value.Contains("comic") || value.Contains("cbz") || value.Contains("cbr")) return "Comic";
-        if (value.Contains("video") || value.Contains("mkv") || value.Contains("mp4")) return "Video";
+        if (value.Contains("m4b") || value.Contains("audiobook"))
+        {
+            return "Audiobook";
+        }
+
+        if (value.Contains("book") || value.Contains("epub"))
+        {
+            return "Book";
+        }
+
+        if (value.Contains("movie"))
+        {
+            return "Movie";
+        }
+
+        if (value.Contains("tv"))
+        {
+            return "TV";
+        }
+
+        if (value.Contains("music") || value.Contains("album"))
+        {
+            return "Music";
+        }
+
+        if (value.Contains("audio"))
+        {
+            return "Audio";
+        }
+
+        if (value.Contains("comic") || value.Contains("cbz") || value.Contains("cbr"))
+        {
+            return "Comic";
+        }
+
+        if (value.Contains("video") || value.Contains("mkv") || value.Contains("mp4"))
+        {
+            return "Video";
+        }
 
         return mediaType;
     }

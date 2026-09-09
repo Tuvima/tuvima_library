@@ -34,7 +34,11 @@ public sealed class ViewWorkspaceService(IEngineApiClient api)
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
-        if (_initialized) return;
+        if (_initialized)
+        {
+            return;
+        }
+
         var preferencesTask = api.GetViewPreferencesAsync(ct);
         var scopesTask = api.GetViewScopesAsync(ct: ct);
         await Task.WhenAll(preferencesTask, scopesTask);
@@ -47,7 +51,11 @@ public sealed class ViewWorkspaceService(IEngineApiClient api)
     {
         profileId = kind == ViewScopeKind.Profile ? profileId : null;
         var saved = await api.UpdateViewPreferencesAsync(kind, profileId, Density, ct);
-        if (saved is null) return false;
+        if (saved is null)
+        {
+            return false;
+        }
+
         Preferences = saved;
         Scopes = await api.GetViewScopesAsync(kind, profileId, ct);
         return Scopes is not null;
@@ -56,14 +64,22 @@ public sealed class ViewWorkspaceService(IEngineApiClient api)
     public async Task<bool> SetDensityAsync(ViewTimelineDensity density, CancellationToken ct = default)
     {
         var saved = await api.UpdateViewPreferencesAsync(ScopeKind, ScopeProfileId, density, ct);
-        if (saved is null) return false;
+        if (saved is null)
+        {
+            return false;
+        }
+
         Preferences = saved;
         return true;
     }
 
     public async Task LoadGalleriesAsync(bool force = false, CancellationToken ct = default)
     {
-        if (_galleriesLoaded && !force) return;
+        if (_galleriesLoaded && !force)
+        {
+            return;
+        }
+
         var result = await api.GetViewGalleriesAsync(ct);
         OwnedGalleries = result?.Owned.OrderBy(gallery => gallery.SortOrder).ThenBy(gallery => gallery.Name).ToList() ?? [];
         SharedGalleries = result?.SharedWithYou.OrderBy(gallery => gallery.Name).ToList() ?? [];

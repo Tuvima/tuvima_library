@@ -21,17 +21,23 @@ public sealed class DuplicateResolver : IDuplicateResolver
         if (existingByPath is not null)
         {
             if (!File.Exists(existingByPath.FilePathRoot))
+            {
                 return new DuplicateResolution(DuplicateResolutionKind.OrphanedExisting, existingByPath);
+            }
 
             return new DuplicateResolution(DuplicateResolutionKind.SamePathRedetected, existingByPath);
         }
 
         var existing = await _assetRepo.FindByHashAsync(contentHash, ct).ConfigureAwait(false);
         if (existing is null)
+        {
             return new DuplicateResolution(DuplicateResolutionKind.NewAsset, null);
+        }
 
         if (!File.Exists(existing.FilePathRoot))
+        {
             return new DuplicateResolution(DuplicateResolutionKind.OrphanedExisting, existing);
+        }
 
         var samePath = string.Equals(
             Path.GetFullPath(candidate.Path),

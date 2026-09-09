@@ -86,7 +86,10 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
             if (connection.ExecuteScalar<long>(new CommandDefinition(
                 "SELECT COUNT(*) FROM view_storage_labels WHERE label = @label COLLATE NOCASE;",
                 new { label }, transaction, cancellationToken: token)) > 0)
+            {
                 label += "-" + ownerProfileId.ToString("N");
+            }
+
             connection.Execute(new CommandDefinition(
                 "INSERT INTO view_storage_labels (personal_space_id, label) VALUES (@id, @label);",
                 new { id, label }, transaction, cancellationToken: token));
@@ -109,7 +112,7 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
                               WHERE source_id = view_sources.id),
                             CASE WHEN source_type = 'browser_upload' THEN 1 ELSE 0 END) AS IncludeInTimeline,
                    created_at AS CreatedAt, updated_at AS UpdatedAt
-              FROM view_sources WHERE personal_space_id = @personalSpaceId
+              FROM view_sources WHERE scope_kind='personal' AND personal_space_id = @personalSpaceId
              ORDER BY name COLLATE NOCASE, id;
             """, new { personalSpaceId }, cancellationToken: ct));
         return Task.FromResult<IReadOnlyList<ViewSource>>(rows.Select(Map).ToList());
@@ -122,23 +125,29 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
         ArgumentException.ThrowIfNullOrWhiteSpace(source.Name);
         if (source.StorageMode == ViewSourceStorageMode.Managed
             && (string.IsNullOrWhiteSpace(source.RelativePath) || !string.IsNullOrWhiteSpace(source.ExternalPath)))
+        {
             throw new ArgumentException("A managed View source requires only a relative path.", nameof(source));
+        }
+
         if (source.StorageMode == ViewSourceStorageMode.Linked
             && (string.IsNullOrWhiteSpace(source.ExternalPath) || !string.IsNullOrWhiteSpace(source.RelativePath)))
+        {
             throw new ArgumentException("A linked View source requires only an external path.", nameof(source));
+        }
+
         return database.ExecuteWriteAsync((connection, transaction, token) =>
         {
             token.ThrowIfCancellationRequested();
-            RequireSpace(connection, transaction, source.PersonalSpaceId, token);
+            var libraryId = RequireSpace(connection, transaction, source.PersonalSpaceId, token);
             var id = source.Id == Guid.Empty ? Guid.NewGuid() : source.Id;
             var now = DateTimeOffset.UtcNow;
             var createdAt = source.CreatedAt == default ? now : source.CreatedAt;
             var changed = connection.Execute(new CommandDefinition("""
                 INSERT INTO view_sources
-                    (id, personal_space_id, source_type, name, source_key, storage_mode,
+                    (id, scope_kind, personal_space_id, library_id, source_type, name, source_key, storage_mode,
                      relative_path, external_path, include_subdirectories, enabled,
                      last_activity_at, created_at, updated_at)
-                VALUES (@id, @PersonalSpaceId, @SourceType, @Name, @SourceKey, @StorageMode,
+                VALUES (@id, 'personal', @PersonalSpaceId, @libraryId, @SourceType, @Name, @SourceKey, @StorageMode,
                         @RelativePath, @ExternalPath, @IncludeSubdirectories, @Enabled,
                         @LastActivityAt, @createdAt, @now)
                 ON CONFLICT(id) DO UPDATE SET
@@ -148,10 +157,13 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
                     include_subdirectories = excluded.include_subdirectories, enabled = excluded.enabled,
                     last_activity_at = excluded.last_activity_at,
                     updated_at = excluded.updated_at
-                WHERE view_sources.personal_space_id = excluded.personal_space_id;
+                WHERE view_sources.scope_kind='personal'
+                  AND view_sources.personal_space_id = excluded.personal_space_id
+                  AND view_sources.library_id = excluded.library_id;
                 """, new
             {
                 id,
+                libraryId,
                 source.PersonalSpaceId,
                 SourceType = ToStorage(source.SourceType),
                 Name = source.Name.Trim(),
@@ -166,7 +178,10 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
                 now,
             }, transaction, cancellationToken: token));
             if (changed == 0)
+            {
                 throw new InvalidOperationException("A source identity cannot move between Personal Spaces.");
+            }
+
             connection.Execute(new CommandDefinition("""
                 INSERT INTO view_source_policies (source_id, include_in_timeline, updated_at)
                 VALUES (@id, @IncludeInTimeline, @now)
@@ -253,7 +268,10 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
                 now,
             }, transaction, cancellationToken: token));
             if (changed == 0)
+            {
                 throw new InvalidOperationException("A device identity cannot move between Personal Spaces.");
+            }
+
             return device with
             {
                 Id = id,
@@ -279,18 +297,20 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
         return Task.FromResult(row is null ? null : Map(row));
     }
 
-    private static void RequireSpace(
+    private static Guid RequireSpace(
         System.Data.IDbConnection connection,
         System.Data.IDbTransaction transaction,
         Guid personalSpaceId,
         CancellationToken ct)
     {
-        if (connection.ExecuteScalar<long>(new CommandDefinition(
-                "SELECT COUNT(1) FROM view_personal_spaces WHERE id = @personalSpaceId;",
-                new { personalSpaceId }, transaction, cancellationToken: ct)) == 0)
+        var libraryId = connection.QuerySingleOrDefault<Guid?>(new CommandDefinition(
+                "SELECT library_id FROM view_personal_spaces WHERE id = @personalSpaceId;",
+                new { personalSpaceId }, transaction, cancellationToken: ct));
+        if (libraryId is null)
         {
             throw new InvalidOperationException($"Personal Space '{personalSpaceId:D}' does not exist.");
         }
+        return libraryId.Value;
     }
 
     private static ViewPersonalSpace Map(SpaceRow row) => new(
@@ -309,17 +329,23 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
 
     private static string ToStorage(ViewSourceType value) => value switch
     {
-        ViewSourceType.Folder => "folder", ViewSourceType.BrowserUpload => "browser_upload",
-        ViewSourceType.DeviceImport => "device_import", ViewSourceType.MobileBackup => "mobile_backup",
-        ViewSourceType.Network => "network", ViewSourceType.Other => "other",
+        ViewSourceType.Folder => "folder",
+        ViewSourceType.BrowserUpload => "browser_upload",
+        ViewSourceType.DeviceImport => "device_import",
+        ViewSourceType.MobileBackup => "mobile_backup",
+        ViewSourceType.Network => "network",
+        ViewSourceType.Other => "other",
         _ => throw new ArgumentOutOfRangeException(nameof(value)),
     };
 
     private static ViewSourceType ParseSourceType(string value) => value switch
     {
-        "folder" => ViewSourceType.Folder, "browser_upload" => ViewSourceType.BrowserUpload,
-        "device_import" => ViewSourceType.DeviceImport, "mobile_backup" => ViewSourceType.MobileBackup,
-        "network" => ViewSourceType.Network, "other" => ViewSourceType.Other,
+        "folder" => ViewSourceType.Folder,
+        "browser_upload" => ViewSourceType.BrowserUpload,
+        "device_import" => ViewSourceType.DeviceImport,
+        "mobile_backup" => ViewSourceType.MobileBackup,
+        "network" => ViewSourceType.Network,
+        "other" => ViewSourceType.Other,
         _ => throw new InvalidOperationException($"Unsupported stored source type '{value}'."),
     };
 
@@ -339,15 +365,20 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
 
     private static string ToStorage(ViewDeviceBackupState value) => value switch
     {
-        ViewDeviceBackupState.Unknown => "unknown", ViewDeviceBackupState.Idle => "idle",
-        ViewDeviceBackupState.BackingUp => "backing_up", ViewDeviceBackupState.Complete => "complete",
-        ViewDeviceBackupState.Error => "error", _ => throw new ArgumentOutOfRangeException(nameof(value)),
+        ViewDeviceBackupState.Unknown => "unknown",
+        ViewDeviceBackupState.Idle => "idle",
+        ViewDeviceBackupState.BackingUp => "backing_up",
+        ViewDeviceBackupState.Complete => "complete",
+        ViewDeviceBackupState.Error => "error",
+        _ => throw new ArgumentOutOfRangeException(nameof(value)),
     };
 
     private static ViewDeviceBackupState ParseBackupState(string value) => value switch
     {
-        "unknown" => ViewDeviceBackupState.Unknown, "idle" => ViewDeviceBackupState.Idle,
-        "backing_up" => ViewDeviceBackupState.BackingUp, "complete" => ViewDeviceBackupState.Complete,
+        "unknown" => ViewDeviceBackupState.Unknown,
+        "idle" => ViewDeviceBackupState.Idle,
+        "backing_up" => ViewDeviceBackupState.BackingUp,
+        "complete" => ViewDeviceBackupState.Complete,
         "error" => ViewDeviceBackupState.Error,
         _ => throw new InvalidOperationException($"Unsupported stored backup state '{value}'."),
     };
@@ -358,30 +389,43 @@ public sealed class ViewPersonalSpaceRepository(IDatabaseConnection database) : 
     private static string? NullIfWhiteSpace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static void ValidateId(Guid value, string parameterName)
     {
-        if (value == Guid.Empty) throw new ArgumentException("ID is required.", parameterName);
+        if (value == Guid.Empty)
+        {
+            throw new ArgumentException("ID is required.", parameterName);
+        }
     }
 
     private sealed class SpaceRow
     {
         public string StorageLabel { get; init; } = "";
-        public Guid Id { get; init; } public Guid OwnerProfileId { get; init; } public Guid LibraryId { get; init; }
+        public Guid Id { get; init; }
+        public Guid OwnerProfileId { get; init; }
+        public Guid LibraryId { get; init; }
         public string CreatedAt { get; init; } = string.Empty; public string UpdatedAt { get; init; } = string.Empty;
     }
     private sealed class SourceRow
     {
-        public Guid Id { get; init; } public Guid PersonalSpaceId { get; init; }
+        public Guid Id { get; init; }
+        public Guid PersonalSpaceId { get; init; }
         public string SourceType { get; init; } = string.Empty; public string Name { get; init; } = string.Empty;
-        public string? SourceKey { get; init; } public string? LastActivityAt { get; init; }
+        public string? SourceKey { get; init; }
+        public string? LastActivityAt { get; init; }
         public string StorageMode { get; init; } = "managed"; public string? RelativePath { get; init; }
-        public string? ExternalPath { get; init; } public bool IncludeSubdirectories { get; init; }
-        public bool Enabled { get; init; } public bool IncludeInTimeline { get; init; }
+        public string? ExternalPath { get; init; }
+        public bool IncludeSubdirectories { get; init; }
+        public bool Enabled { get; init; }
+        public bool IncludeInTimeline { get; init; }
         public string CreatedAt { get; init; } = string.Empty; public string UpdatedAt { get; init; } = string.Empty;
     }
     private sealed class DeviceRow
     {
-        public Guid Id { get; init; } public Guid PersonalSpaceId { get; init; } public Guid? SourceId { get; init; }
+        public Guid Id { get; init; }
+        public Guid PersonalSpaceId { get; init; }
+        public Guid? SourceId { get; init; }
         public string ClientDeviceId { get; init; } = string.Empty; public string Name { get; init; } = string.Empty;
-        public string? Make { get; init; } public string? Model { get; init; } public string? LastBackupAt { get; init; }
+        public string? Make { get; init; }
+        public string? Model { get; init; }
+        public string? LastBackupAt { get; init; }
         public string BackupState { get; init; } = string.Empty; public string CreatedAt { get; init; } = string.Empty;
         public string UpdatedAt { get; init; } = string.Empty;
     }

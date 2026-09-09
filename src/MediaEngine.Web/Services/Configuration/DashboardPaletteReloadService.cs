@@ -27,7 +27,9 @@ public sealed class DashboardPaletteReloadService : IHostedService, IDisposable
     {
         var directory = Path.GetDirectoryName(_palettePath);
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
             return Task.CompletedTask;
+        }
 
         _watcher = new FileSystemWatcher(directory, Path.GetFileName(_palettePath))
         {

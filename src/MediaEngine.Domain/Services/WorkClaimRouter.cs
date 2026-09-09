@@ -56,18 +56,24 @@ public sealed class WorkClaimRouter
         ArgumentNullException.ThrowIfNull(bridgeIds);
 
         var forParent = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var forSelf   = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var forSelf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var (key, value) in bridgeIds)
         {
             if (string.IsNullOrWhiteSpace(value))
+            {
                 continue;
+            }
 
             var scope = ClaimScopeCatalog.GetScope(key, lineage.MediaType);
             if (scope == ClaimScope.Parent)
+            {
                 forParent[key] = value;
+            }
             else
+            {
                 forSelf[key] = value;
+            }
         }
 
         return (forParent, forSelf);
@@ -91,10 +97,10 @@ public sealed class WorkClaimRouter
         ArgumentNullException.ThrowIfNull(claims);
 
         var forParent = new List<MetadataClaim>(claims.Count);
-        var forSelf   = new List<MetadataClaim>(claims.Count);
+        var forSelf = new List<MetadataClaim>(claims.Count);
 
         var parentTarget = lineage.TargetForParentScope;
-        var selfTarget   = lineage.TargetForSelfScope;
+        var selfTarget = lineage.TargetForSelfScope;
 
         foreach (var claim in claims)
         {
@@ -109,24 +115,28 @@ public sealed class WorkClaimRouter
             };
             var rerouted = new MetadataClaim
             {
-                Id           = claim.Id,
-                EntityId     = target,
-                ProviderId   = claim.ProviderId,
+                Id = claim.Id,
+                EntityId = target,
+                ProviderId = claim.ProviderId,
                 DecisionSourceProviderId = claim.DecisionSourceProviderId,
                 ObservationSetId = claim.ObservationSetId,
-                ClaimKey     = claim.ClaimKey,
-                ClaimValue   = claim.ClaimValue,
-                Confidence   = claim.Confidence,
-                ClaimedAt    = claim.ClaimedAt,
+                ClaimKey = claim.ClaimKey,
+                ClaimValue = claim.ClaimValue,
+                Confidence = claim.Confidence,
+                ClaimedAt = claim.ClaimedAt,
                 IsUserLocked = claim.IsUserLocked,
-                IsCurrent    = claim.IsCurrent,
+                IsCurrent = claim.IsCurrent,
                 SupersededAt = claim.SupersededAt,
             };
 
             if (scope == ClaimScope.Parent)
+            {
                 forParent.Add(rerouted);
+            }
             else
+            {
                 forSelf.Add(rerouted);
+            }
         }
 
         return (forParent, forSelf);

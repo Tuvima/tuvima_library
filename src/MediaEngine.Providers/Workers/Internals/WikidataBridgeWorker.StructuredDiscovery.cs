@@ -17,7 +17,9 @@ public sealed partial class WikidataBridgeWorker
         CancellationToken ct)
     {
         if (_capabilityStates is null)
+        {
             return;
+        }
 
         foreach (var field in StructuredDiscoveryFieldCatalog.Fields
             .Where(field => field.Source == DiscoveryFactSource.StructuredProvider && field.IsApplicable(mediaType)))

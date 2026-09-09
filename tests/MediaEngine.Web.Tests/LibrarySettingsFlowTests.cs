@@ -69,7 +69,10 @@ public sealed class LibrarySettingsFlowTests : AsyncBunitContext
         cut.WaitForElement(".libraries-table__row");
         cut.WaitForAssertion(() => Assert.Equal(1, _pathChecks));
         foreach (var scope in new[] { "listen", "read", "watch", "view", "all" })
+        {
             cut.Render(parameters => parameters.Add(x => x.Scope, scope));
+        }
+
         Assert.Equal(1, _loads);
         Assert.Equal(1, _pathChecks);
         Assert.Contains("/settings/libraries/view", cut.Markup);

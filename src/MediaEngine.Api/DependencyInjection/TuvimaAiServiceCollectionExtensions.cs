@@ -20,7 +20,9 @@ public static class TuvimaAiServiceCollectionExtensions
                 "config/ai.json is required and must contain valid AI settings.");
         var modelsDirectory = Environment.GetEnvironmentVariable("TUVIMA_MODELS_DIR");
         if (!string.IsNullOrEmpty(modelsDirectory))
+        {
             settings.ModelsDirectory = modelsDirectory;
+        }
 
         AiSettingsValidator.ValidateAndThrow(settings);
         var gpuDetector = new GpuBackendDetector(NullLogger<GpuBackendDetector>.Instance);

@@ -155,13 +155,13 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
             """,
             new
             {
-                id               = entry.Id,
-                entityId         = entry.EntityId,
-                idType           = entry.IdType,
-                idValue          = entry.IdValue,
+                id = entry.Id,
+                entityId = entry.EntityId,
+                idType = entry.IdType,
+                idValue = entry.IdValue,
                 wikidataProperty = entry.WikidataProperty,
-                providerId       = entry.ProviderId,
-                createdAt        = entry.CreatedAt.ToString("O"),
+                providerId = entry.ProviderId,
+                createdAt = entry.CreatedAt.ToString("O"),
             });
 
         return Task.CompletedTask;
@@ -172,7 +172,9 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
     {
         ArgumentNullException.ThrowIfNull(entries);
         if (entries.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -190,13 +192,13 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
                     """,
                     new
                     {
-                        id               = entry.Id,
-                        entityId         = entry.EntityId,
-                        idType           = entry.IdType,
-                        idValue          = entry.IdValue,
+                        id = entry.Id,
+                        entityId = entry.EntityId,
+                        idType = entry.IdType,
+                        idValue = entry.IdValue,
                         wikidataProperty = entry.WikidataProperty,
-                        providerId       = entry.ProviderId,
-                        createdAt        = entry.CreatedAt.ToString("O"),
+                        providerId = entry.ProviderId,
+                        createdAt = entry.CreatedAt.ToString("O"),
                     },
                     transaction: tx);
             }
@@ -222,24 +224,24 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
 
     private static BridgeIdEntry MapRow(BridgeIdRow row) => new()
     {
-        Id               = row.Id,
-        EntityId         = row.EntityId,
-        IdType           = row.IdType,
-        IdValue          = row.IdValue,
+        Id = row.Id,
+        EntityId = row.EntityId,
+        IdType = row.IdType,
+        IdValue = row.IdValue,
         WikidataProperty = row.WikidataProperty,
-        ProviderId       = row.ProviderId,
-        CreatedAt        = DateTimeOffset.TryParse(row.CreatedAt, out var dt) ? dt : DateTimeOffset.UtcNow,
+        ProviderId = row.ProviderId,
+        CreatedAt = DateTimeOffset.TryParse(row.CreatedAt, out var dt) ? dt : DateTimeOffset.UtcNow,
     };
 
     /// <summary>Internal DTO for raw Dapper mapping (all fields as strings for SQLite compatibility).</summary>
     private sealed class BridgeIdRow
     {
-        public Guid    Id               { get; set; }
-        public Guid    EntityId         { get; set; }
-        public string  IdType           { get; set; } = "";
-        public string  IdValue          { get; set; } = "";
+        public Guid Id { get; set; }
+        public Guid EntityId { get; set; }
+        public string IdType { get; set; } = "";
+        public string IdValue { get; set; } = "";
         public string? WikidataProperty { get; set; }
-        public string? ProviderId       { get; set; }
-        public string  CreatedAt        { get; set; } = "";
+        public string? ProviderId { get; set; }
+        public string CreatedAt { get; set; } = "";
     }
 }

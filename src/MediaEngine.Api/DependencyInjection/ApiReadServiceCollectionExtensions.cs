@@ -1,5 +1,5 @@
-using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Api.Services.Collections;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Application.Services;
 
 namespace MediaEngine.Api.DependencyInjection;
@@ -10,7 +10,8 @@ public static class ApiReadServiceCollectionExtensions
     {
         services.AddSingleton<IActivityBatchReadService, ActivityBatchReadService>();
         services.AddSingleton<IIngestionPresentationReadService, IngestionPresentationReadService>();
-        services.AddSingleton<IJourneyReadService, JourneyReadService>();
+        services.AddSingleton<JourneyReadService>();
+        services.AddSingleton<IJourneyReadService>(sp => sp.GetRequiredService<JourneyReadService>());
         services.AddSingleton<IIngestionBatchReadService, IngestionBatchReadService>();
         services.AddSingleton<IPersonAliasReadService, PersonAliasReadService>();
         services.AddSingleton<IPersonPresenceReadService, PersonPresenceReadService>();
@@ -26,10 +27,10 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<IMetadataClaimHistoryReadService, MetadataClaimHistoryReadService>();
         services.AddSingleton<ICollectionBrowseReadService, CollectionBrowseReadService>();
         services.AddSingleton<ICollectionSearchReadService, CollectionSearchReadService>();
-        services.AddSingleton<IUniversalSearchReadService, UniversalSearchReadService>();
+        services.AddScoped<IUniversalSearchReadService, UniversalSearchReadService>();
         services.AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>();
         services.AddSingleton<CollectionCatalogReadService>();
-        services.AddSingleton<CollectionPersonalMediaService>();
+        services.AddScoped<CollectionPersonalMediaService>();
         services.AddSingleton<IReviewQueueReadService, ReviewQueueReadService>();
         services.AddSingleton<EditorSuggestionReadService>();
         services.AddSingleton<PersonEditorReadService>();

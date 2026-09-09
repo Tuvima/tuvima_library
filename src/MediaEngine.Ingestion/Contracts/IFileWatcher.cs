@@ -82,6 +82,8 @@ public interface IFileWatcher : IDisposable
     {
         var firstPath = paths.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
         if (!string.IsNullOrWhiteSpace(firstPath))
+        {
             UpdateDirectory(firstPath, includeSubdirectories);
+        }
     }
 }

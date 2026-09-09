@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using MediaEngine.Domain;
 using MediaEngine.Web.Components.LibraryItems;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -17,11 +17,11 @@ public static class LibraryHelpers
         var p = PaletteProvider.Current.Status;
         return status switch
         {
-            LibraryStatus.Verified    => p.Verified,
+            LibraryStatus.Verified => p.Verified,
             LibraryStatus.Provisional => p.Provisional,
             LibraryStatus.NeedsReview => p.NeedsReview,
             LibraryStatus.Quarantined => p.Quarantined,
-            _                       => p.Default,
+            _ => p.Default,
         };
     }
 
@@ -52,10 +52,10 @@ public static class LibraryHelpers
         return state switch
         {
             LibraryStageState.Completed => p.Completed,
-            LibraryStageState.Warning   => p.Warning,
-            LibraryStageState.Failed    => p.Failed,
-            LibraryStageState.Pending   => p.Pending,
-            _                         => p.Pending,
+            LibraryStageState.Warning => p.Warning,
+            LibraryStageState.Failed => p.Failed,
+            LibraryStageState.Pending => p.Pending,
+            _ => p.Pending,
         };
     }
 
@@ -66,9 +66,9 @@ public static class LibraryHelpers
         return state switch
         {
             LibraryStageState.Completed => $"0 0 8px {HexToRgba(p.Completed, 0.3)}",
-            LibraryStageState.Warning   => $"0 0 8px {HexToRgba(p.Warning, 0.3)}",
-            LibraryStageState.Failed    => $"0 0 8px {HexToRgba(p.Failed, 0.3)}",
-            _                         => "none",
+            LibraryStageState.Warning => $"0 0 8px {HexToRgba(p.Warning, 0.3)}",
+            LibraryStageState.Failed => $"0 0 8px {HexToRgba(p.Failed, 0.3)}",
+            _ => "none",
         };
     }
 
@@ -83,11 +83,22 @@ public static class LibraryHelpers
     /// <summary>Converts hex color to rgba string. Returns fallback for non-hex input.</summary>
     public static string HexToRgba(string hex, double alpha)
     {
-        if (string.IsNullOrEmpty(hex)) return $"rgba(255,255,255,{alpha})";
+        if (string.IsNullOrEmpty(hex))
+        {
+            return $"rgba(255,255,255,{alpha})";
+        }
         // Already an rgba value  -  just return it
-        if (hex.StartsWith("rgba", StringComparison.OrdinalIgnoreCase)) return hex;
+        if (hex.StartsWith("rgba", StringComparison.OrdinalIgnoreCase))
+        {
+            return hex;
+        }
+
         hex = hex.TrimStart('#');
-        if (hex.Length < 6) return $"rgba(255,255,255,{alpha})";
+        if (hex.Length < 6)
+        {
+            return $"rgba(255,255,255,{alpha})";
+        }
+
         try
         {
             var r = Convert.ToInt32(hex[..2], 16);
@@ -104,7 +115,11 @@ public static class LibraryHelpers
     /// <summary>Formats file size in human-readable form.</summary>
     public static string FormatFileSize(long? bytes)
     {
-        if (bytes is null or 0) return " - ";
+        if (bytes is null or 0)
+        {
+            return " - ";
+        }
+
         return bytes.Value switch
         {
             < 1024 => $"{bytes} B",
@@ -120,7 +135,9 @@ public static class LibraryHelpers
         foreach (var candidate in candidates)
         {
             if (TryParseDurationSeconds(candidate, out var seconds))
+            {
                 return seconds;
+            }
         }
 
         return null;
@@ -141,7 +158,9 @@ public static class LibraryHelpers
         }
 
         if (TryParseDurationSeconds(fallback, out var parsedFallback))
+        {
             return FormatDuration(parsedFallback);
+        }
 
         return "0:00";
     }
@@ -150,7 +169,9 @@ public static class LibraryHelpers
     public static string FormatRating(string? rating)
     {
         if (string.IsNullOrWhiteSpace(rating))
+        {
             return "-";
+        }
 
         if (int.TryParse(rating, NumberStyles.Integer, CultureInfo.InvariantCulture, out var wholeStars))
         {
@@ -171,7 +192,9 @@ public static class LibraryHelpers
     {
         seconds = 0;
         if (string.IsNullOrWhiteSpace(value))
+        {
             return false;
+        }
 
         var trimmed = value.Trim();
 
@@ -185,7 +208,9 @@ public static class LibraryHelpers
                 for (var index = parts.Length - 1; index >= 0; index--)
                 {
                     if (!long.TryParse(parts[index], NumberStyles.Integer, CultureInfo.InvariantCulture, out var segment))
+                    {
                         return false;
+                    }
 
                     total += segment * multiplier;
                     multiplier *= 60;
@@ -203,10 +228,14 @@ public static class LibraryHelpers
         }
 
         if (!double.TryParse(trimmed, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric) || numeric < 0)
+        {
             return false;
+        }
 
         if (numeric >= 10000 && Math.Abs(numeric % 1000d) < 0.0001d)
+        {
             numeric /= 1000d;
+        }
 
         seconds = Math.Max(0, (long)Math.Round(numeric, MidpointRounding.AwayFromZero));
         return true;
@@ -245,21 +274,21 @@ public static class LibraryHelpers
     /// </summary>
     public static string HumanizeReviewTrigger(string? trigger) => trigger switch
     {
-        "RetailMatchFailed"      => "No provider could find a match for this file. You can try searching manually.",
-        "WikidataBridgeFailed"   => "This item couldn't be linked to a known entry on Wikidata.",
-        "LowConfidence"          => "The match confidence is too low to confirm automatically. Please review the suggested matches.",
-        "MultipleQidMatches"     => "Multiple possible matches were found. Please pick the correct one.",
-        "RetailMatchAmbiguous"   => "A possible match was found but it's not certain. Please verify.",
-        "AmbiguousMediaType"     => "The file type is ambiguous  -  it could be music or an audiobook.",
-        "MissingQid"             => "A retail match was found but it hasn't been linked to Wikidata yet.",
-        "StagedUnidentifiable"   => "This file couldn't be identified. Check the filename and embedded metadata.",
-        "PlaceholderTitle"       => "The title appears to be a placeholder (e.g. 'Unknown'). Please provide the real title.",
-        "ArtworkUnconfirmed"     => "Cover art was found via text search and may not be accurate.",
-        "LanguageMismatch"       => "This file's language doesn't match your library's configured language.",
-        "UserReport"             => "You flagged this item for review.",
-        "RootWatchFolder"        => "This file was placed in the root watch folder  -  its media type couldn't be determined.",
-        "UserFixMatch"           => "You requested to fix the match for this item.",
-        "WritebackFailed"        => "Re-tagging this file failed. It may be locked, corrupt, or unwritable.",
+        "RetailMatchFailed" => "No provider could find a match for this file. You can try searching manually.",
+        "WikidataBridgeFailed" => "This item couldn't be linked to a known entry on Wikidata.",
+        "LowConfidence" => "The match confidence is too low to confirm automatically. Please review the suggested matches.",
+        "MultipleQidMatches" => "Multiple possible matches were found. Please pick the correct one.",
+        "RetailMatchAmbiguous" => "A possible match was found but it's not certain. Please verify.",
+        "AmbiguousMediaType" => "The file type is ambiguous  -  it could be music or an audiobook.",
+        "MissingQid" => "A retail match was found but it hasn't been linked to Wikidata yet.",
+        "StagedUnidentifiable" => "This file couldn't be identified. Check the filename and embedded metadata.",
+        "PlaceholderTitle" => "The title appears to be a placeholder (e.g. 'Unknown'). Please provide the real title.",
+        "ArtworkUnconfirmed" => "Cover art was found via text search and may not be accurate.",
+        "LanguageMismatch" => "This file's language doesn't match your library's configured language.",
+        "UserReport" => "You flagged this item for review.",
+        "RootWatchFolder" => "This file was placed in the root watch folder  -  its media type couldn't be determined.",
+        "UserFixMatch" => "You requested to fix the match for this item.",
+        "WritebackFailed" => "Re-tagging this file failed. It may be locked, corrupt, or unwritable.",
         _ => "This item needs your attention.",
     };
 
@@ -320,7 +349,10 @@ public static class LibraryHelpers
     /// </remarks>
     public static (string Label, string Url)? BuildProviderUrl(string key, string value, string? mediaType = null)
     {
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
 
         return key.ToLowerInvariant() switch
         {
@@ -345,53 +377,53 @@ public static class LibraryHelpers
     /// <summary>Formats a claim key (snake_case field name) into a human-readable label.</summary>
     public static string FormatClaimKey(string key) => key.ToLowerInvariant() switch
     {
-        "title"                     => "Title",
-        "original_title"            => "Original Title",
-        "author"                    => "Author",
-        "director"                  => "Director",
-        "artist"                    => "Artist",
-        "narrator"                  => "Narrator",
-        "year"                      => "Year",
-        "genre"                     => "Genre",
-        "series"                    => "Series",
-        "series_position"           => "Series #",
-        "description"               => "Description",
-        "cover_url"                 => "Cover Art",
-        "isbn"                      => "ISBN",
-        "isbn_13"                   => "ISBN-13",
-        "isbn_10"                   => "ISBN-10",
-        "asin"                      => "ASIN",
-        "tmdb_id"                   => "TMDB ID",
-        "imdb_id"                   => "IMDb ID",
-        "musicbrainz_id"            => "MusicBrainz ID",
-        "open_library_id"           => "Open Library ID",
-        "apple_books_id"            => "Apple Books ID",
-        "apple_music_id"            => "Apple Music ID",
+        "title" => "Title",
+        "original_title" => "Original Title",
+        "author" => "Author",
+        "director" => "Director",
+        "artist" => "Artist",
+        "narrator" => "Narrator",
+        "year" => "Year",
+        "genre" => "Genre",
+        "series" => "Series",
+        "series_position" => "Series #",
+        "description" => "Description",
+        "cover_url" => "Cover Art",
+        "isbn" => "ISBN",
+        "isbn_13" => "ISBN-13",
+        "isbn_10" => "ISBN-10",
+        "asin" => "ASIN",
+        "tmdb_id" => "TMDB ID",
+        "imdb_id" => "IMDb ID",
+        "musicbrainz_id" => "MusicBrainz ID",
+        "open_library_id" => "Open Library ID",
+        "apple_books_id" => "Apple Books ID",
+        "apple_music_id" => "Apple Music ID",
         "apple_music_collection_id" => "Apple Album ID",
-        "apple_artist_id"           => "Apple Artist ID",
-        "comic_vine_id"             => "Comic Vine ID",
-        "wikidata_qid"              => "Wikidata QID",
-        "show_name"                 => "Show Name",
-        "episode_title"             => "Episode Title",
-        "season_number"             => "Season",
-        "episode_number"            => "Episode",
-        "track_number"              => "Track #",
-        "album"                     => "Album",
-        "composer"                  => "Composer",
-        "rating"                    => "Rating",
-        "runtime"                   => "Runtime",
-        "duration"                  => "Duration",
-        "publisher"                 => "Publisher",
-        "language"                  => "Language",
-        "page_count"                => "Pages",
-        "barcode"                   => "Barcode",
-        "store_date"                => "Store Date",
-        "explicit"                  => "Explicit",
-        "media_type"                => "Media Type",
-        "illustrator"               => "Illustrator",
-        "screenwriter"              => "Screenwriter",
-        "cast_member"               => "Actor",
-        _                           => string.Join(' ', key.Split('_').Select(w =>
+        "apple_artist_id" => "Apple Artist ID",
+        "comic_vine_id" => "Comic Vine ID",
+        "wikidata_qid" => "Wikidata QID",
+        "show_name" => "Show Name",
+        "episode_title" => "Episode Title",
+        "season_number" => "Season",
+        "episode_number" => "Episode",
+        "track_number" => "Track #",
+        "album" => "Album",
+        "composer" => "Composer",
+        "rating" => "Rating",
+        "runtime" => "Runtime",
+        "duration" => "Duration",
+        "publisher" => "Publisher",
+        "language" => "Language",
+        "page_count" => "Pages",
+        "barcode" => "Barcode",
+        "store_date" => "Store Date",
+        "explicit" => "Explicit",
+        "media_type" => "Media Type",
+        "illustrator" => "Illustrator",
+        "screenwriter" => "Screenwriter",
+        "cast_member" => "Actor",
+        _ => string.Join(' ', key.Split('_').Select(w =>
                                            w.Length > 0 ? char.ToUpperInvariant(w[0]) + w[1..] : w)),
     };
 
@@ -400,12 +432,36 @@ public static class LibraryHelpers
     {
         var p = PaletteProvider.Current.MediaType;
         var t = (mediaType ?? "").ToLowerInvariant();
-        if (t.Contains("movie") || t.Contains("video")) return p.Movie;
-        if (t.Contains("book") && !t.Contains("audio")) return p.Book;
-        if (t.Contains("audiobook")) return p.Audiobook;
-        if (t == "tv") return p.TV;
-        if (t.Contains("music")) return p.Music;
-        if (t.Contains("comic")) return p.Comic;
+        if (t.Contains("movie") || t.Contains("video"))
+        {
+            return p.Movie;
+        }
+
+        if (t.Contains("book") && !t.Contains("audio"))
+        {
+            return p.Book;
+        }
+
+        if (t.Contains("audiobook"))
+        {
+            return p.Audiobook;
+        }
+
+        if (t == "tv")
+        {
+            return p.TV;
+        }
+
+        if (t.Contains("music"))
+        {
+            return p.Music;
+        }
+
+        if (t.Contains("comic"))
+        {
+            return p.Comic;
+        }
+
         return p.Unknown;
     }
 }

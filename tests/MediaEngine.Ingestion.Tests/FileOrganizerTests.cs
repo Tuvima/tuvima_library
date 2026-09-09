@@ -53,14 +53,17 @@ public class FileOrganizerTests
     {
         var candidate = new IngestionCandidate
         {
-            Path              = filePath,
-            EventType         = FileEventType.Created,
-            DetectedAt        = DateTimeOffset.UtcNow,
-            ReadyAt           = DateTimeOffset.UtcNow,
+            Path = filePath,
+            EventType = FileEventType.Created,
+            DetectedAt = DateTimeOffset.UtcNow,
+            ReadyAt = DateTimeOffset.UtcNow,
             DetectedMediaType = mediaType,
         };
         if (meta is not null)
+        {
             candidate.Metadata = meta;
+        }
+
         return candidate;
     }
 
@@ -73,15 +76,15 @@ public class FileOrganizerTests
     {
         // Arrange
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{Author}/{Title} ({Edition}){Ext}";
+        var template = "{Category}/{Author}/{Title} ({Edition}){Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\Abaddon's Gate.epub",
             MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["title"]   = "Abaddon's Gate",
-                ["author"]  = "James S.A. Corey",
+                ["title"] = "Abaddon's Gate",
+                ["author"] = "James S.A. Corey",
                 ["edition"] = "Paperback",
             });
 
@@ -111,7 +114,7 @@ public class FileOrganizerTests
     public void CalculatePath_MoviesCategory_ReturnsMoviesNotVideos()
     {
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{Title} - {Qid}/{Title}{Ext}";
+        var template = "{Category}/{Title} - {Qid}/{Title}{Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\dune-part-two.mkv",
@@ -131,7 +134,7 @@ public class FileOrganizerTests
     public void CalculatePath_TvCategory_ReturnsTvNotTvShows()
     {
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{Title} - {Qid}/{Title}{Ext}";
+        var template = "{Category}/{Title} - {Qid}/{Title}{Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\s01e01.mkv",
@@ -200,7 +203,7 @@ public class FileOrganizerTests
     {
         // When no QID is in metadata, {Qid} resolves to "Q0" (not empty)
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{Title} - {Qid}/{Title}{Ext}";
+        var template = "{Category}/{Title} - {Qid}/{Title}{Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\dune.epub",
@@ -221,14 +224,14 @@ public class FileOrganizerTests
     {
         // When a QID is present, it appears verbatim after the hyphen-dash
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{Title} - {Qid}/{Title}{Ext}";
+        var template = "{Category}/{Title} - {Qid}/{Title}{Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\dune.epub",
             MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["title"]        = "Dune",
+                ["title"] = "Dune",
                 ["wikidata_qid"] = "Q190159",
             });
 
@@ -248,7 +251,7 @@ public class FileOrganizerTests
         // the title-QID folder and the filename.
         // {Format} resolves to DetectedMediaType.ToString() → "Books"
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{Title} - {Qid}/{Format}/{Title}{Ext}";
+        var template = "{Category}/{Title} - {Qid}/{Format}/{Title}{Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\dune.epub",
@@ -271,15 +274,15 @@ public class FileOrganizerTests
     {
         // The default template: {Category}/{CollectionName} ({Year})/{Format}/{CollectionName} ({Edition}){Ext}
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{CollectionName} ({Year})/{Format}/{CollectionName} ({Edition}){Ext}";
+        var template = "{Category}/{CollectionName} ({Year})/{Format}/{CollectionName} ({Edition}){Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\sample.epub",
             MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["title"]   = "Sample Book",
-                ["year"]    = "2024",
+                ["title"] = "Sample Book",
+                ["year"] = "2024",
                 ["edition"] = "Hardcover",
             });
 
@@ -299,14 +302,14 @@ public class FileOrganizerTests
     {
         // {Edition} is empty → " ()" group should be collapsed entirely, not left as " ()"
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{Author}/{Title} ({Edition}){Ext}";
+        var template = "{Category}/{Author}/{Title} ({Edition}){Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\book.epub",
             MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["title"]  = "My Book",
+                ["title"] = "My Book",
                 ["author"] = "Some Author",
                 // no "edition" key
             });
@@ -322,14 +325,14 @@ public class FileOrganizerTests
     public void CalculatePath_EpubCandidate_ProducesCorrectCategory()
     {
         var organizer = CreateOrganizer();
-        var template  = "{Category}/{Author}/{Title}{Ext}";
+        var template = "{Category}/{Author}/{Title}{Ext}";
 
         var candidate = BuildCandidate(
             @"C:\watch\dune.epub",
             MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["title"]  = "Dune",
+                ["title"] = "Dune",
                 ["author"] = "Frank Herbert",
             });
 
@@ -345,8 +348,8 @@ public class FileOrganizerTests
         // Simulate what IngestionEngine does:
         //   destPath = Path.Combine(libraryRoot, relative)
         // The result must be a path to a FILE, not a DIRECTORY.
-        var organizer   = CreateOrganizer();
-        var template    = "{Category}/{Author}/{Title} ({Edition}){Ext}";
+        var organizer = CreateOrganizer();
+        var template = "{Category}/{Author}/{Title} ({Edition}){Ext}";
         var libraryRoot = @"C:\Users\shaya\Downloads\books\library";
 
         var candidate = BuildCandidate(
@@ -354,8 +357,8 @@ public class FileOrganizerTests
             MediaType.Books,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["title"]   = "Abaddon's Gate",
-                ["author"]  = "James S.A. Corey",
+                ["title"] = "Abaddon's Gate",
+                ["author"] = "James S.A. Corey",
                 ["edition"] = "Paperback",
             });
 

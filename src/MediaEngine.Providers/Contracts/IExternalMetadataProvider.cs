@@ -1,6 +1,6 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Models;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Providers.Contracts;
 

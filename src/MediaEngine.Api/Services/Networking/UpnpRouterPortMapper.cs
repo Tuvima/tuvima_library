@@ -47,7 +47,9 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
     {
         var service = await DiscoverServiceAsync(ct);
         if (service is null)
+        {
             return new RouterMappingResult(RouterMappingState.ProtocolUnavailable, Method, "UPnP was not available on this router.", ReasonCode: "discovery-unavailable");
+        }
 
         try
         {
@@ -75,7 +77,10 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or InvalidOperationException)
         {
             if (ex is OperationCanceledException && ct.IsCancellationRequested)
+            {
                 throw;
+            }
+
             _logger.LogDebug(ex, "UPnP mapping request failed");
             return new RouterMappingResult(RouterMappingState.Failed, Method, "Tuvima could not configure your router automatically.", ReasonCode: "transport-error");
         }
@@ -91,7 +96,10 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
                 try
                 {
                     if (!await IsSafeLanUriAsync(location, ct))
+                    {
                         continue;
+                    }
+
                     var xml = await _http.GetStringAsync(location, ct);
                     var document = XDocument.Parse(xml, LoadOptions.None);
                     var serviceElement = document.Descendants()
@@ -99,15 +107,23 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
                             && element.Elements().Any(child => child.Name.LocalName == "serviceType"
                                 && SearchTargets.Contains(child.Value.Trim(), StringComparer.OrdinalIgnoreCase)));
                     if (serviceElement is null)
+                    {
                         continue;
+                    }
 
                     var serviceType = serviceElement.Elements().First(child => child.Name.LocalName == "serviceType").Value.Trim();
                     var controlUrl = serviceElement.Elements().FirstOrDefault(child => child.Name.LocalName == "controlURL")?.Value.Trim();
                     if (string.IsNullOrWhiteSpace(controlUrl))
+                    {
                         continue;
+                    }
+
                     var controlUri = new Uri(location, controlUrl);
                     if (!await IsSafeLanUriAsync(controlUri, ct))
+                    {
                         continue;
+                    }
+
                     return new UpnpService(serviceType, controlUri);
                 }
                 catch (Exception ex) when (ex is HttpRequestException or SocketException or System.Xml.XmlException or InvalidOperationException)
@@ -133,7 +149,10 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
         request.Content = new StringContent(body, Encoding.UTF8, "text/xml");
         using var response = await _http.SendAsync(request, ct);
         if (!response.IsSuccessStatusCode)
+        {
             return null;
+        }
+
         var xml = XDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         return xml.Descendants().FirstOrDefault(element => element.Name.LocalName == "NewExternalIPAddress")?.Value.Trim();
     }
@@ -161,7 +180,10 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
     private static async Task<bool> IsSafeLanUriAsync(Uri uri, CancellationToken ct)
     {
         if (uri.Scheme != Uri.UriSchemeHttp)
+        {
             return false;
+        }
+
         var addresses = await Dns.GetHostAddressesAsync(uri.Host, ct);
         return addresses.Length > 0 && addresses.All(IsPrivateOrLocal);
     }
@@ -169,9 +191,15 @@ public sealed class UpnpRouterPortMapper : IRouterPortMapper
     private static bool IsPrivateOrLocal(IPAddress address)
     {
         if (IPAddress.IsLoopback(address) || address.IsIPv6LinkLocal || address.IsIPv6SiteLocal)
+        {
             return true;
+        }
+
         if (address.AddressFamily != AddressFamily.InterNetwork)
+        {
             return false;
+        }
+
         var bytes = address.GetAddressBytes();
         return bytes[0] == 10
             || bytes[0] == 127

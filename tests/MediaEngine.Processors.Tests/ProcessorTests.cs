@@ -1,13 +1,13 @@
-using MediaEngine.Domain.Enums;
+using System.IO.Compression;
+using System.Reflection;
+using System.Text;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
 using MediaEngine.Processors.Processors;
-using System.IO.Compression;
-using System.Reflection;
-using System.Text;
 
 namespace MediaEngine.Processors.Tests;
 
@@ -356,7 +356,9 @@ public class ComicProcessorTests
 
         var page = archive.CreateEntry("page_001.jpg", CompressionLevel.NoCompression);
         using (var pageStream = page.Open())
+        {
             pageStream.Write(cover);
+        }
 
         var info = archive.CreateEntry("ComicInfo.xml", CompressionLevel.Fastest);
         using var writer = new StreamWriter(info.Open(), Encoding.UTF8);
@@ -379,7 +381,9 @@ public class ComicProcessorTests
 
         var page = archive.CreateEntry("page_001.jpg", CompressionLevel.NoCompression);
         using (var pageStream = page.Open())
+        {
             pageStream.Write(cover);
+        }
 
         var info = archive.CreateEntry("ComicInfo.xml", CompressionLevel.Fastest);
         using var writer = new StreamWriter(info.Open(), Encoding.UTF8);
@@ -400,7 +404,10 @@ public class ComicProcessorTests
             try
             {
                 if (Directory.Exists(dir))
+                {
                     Directory.Delete(dir, recursive: true);
+                }
+
                 return;
             }
             catch (IOException) when (attempt < 4)

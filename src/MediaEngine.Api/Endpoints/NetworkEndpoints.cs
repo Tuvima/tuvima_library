@@ -2,6 +2,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Networking;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Configuration;
@@ -13,14 +14,14 @@ public static class NetworkEndpoints
     public static IEndpointRouteBuilder MapNetworkEndpoints(this IEndpointRouteBuilder app)
     {
         var settings = app.MapGroup("/settings/network")
-            .WithTags("Network & Remote Access")
-            .RequireAdmin();
+            .WithTags("Network & Remote Access");
 
         settings.MapGet("", (IConfigurationLoader configuration) =>
             Results.Ok(NetworkContractMapper.ToContract(configuration.LoadNetwork())))
             .WithName("GetNetworkSettings")
             .WithSummary("Return desired local, remote, and network-streaming settings.")
-            .Produces<NetworkSettingsDto>();
+            .Produces<NetworkSettingsDto>()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkStatusRead);
 
         settings.MapPut("", async (
             NetworkSettingsDto request,
@@ -60,16 +61,17 @@ public static class NetworkEndpoints
         .WithSummary("Save desired network settings that do not move the active listener.")
         .Produces<NetworkSettingsDto>()
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status409Conflict);
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkConfigWrite);
 
         var network = app.MapGroup("/network")
-            .WithTags("Network & Remote Access")
-            .RequireAdmin();
+            .WithTags("Network & Remote Access");
 
         network.MapGet("/status", (NetworkStatusService status) => Results.Ok(status.GetStatus()))
             .WithName("GetNetworkRuntimeStatus")
             .WithSummary("Return observed connectivity state without mixing it into configuration.")
-            .Produces<NetworkRuntimeStatusDto>();
+            .Produces<NetworkRuntimeStatusDto>()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkStatusRead);
 
         network.MapGet("/readiness", async (
             IConfigurationLoader configuration,
@@ -78,30 +80,35 @@ public static class NetworkEndpoints
             Results.Ok(await readiness.EvaluateAsync(configuration.LoadNetwork().Remote, ct).ConfigureAwait(false)))
             .WithName("GetRemoteAccessReadiness")
             .WithSummary("Verify authentication and a secure remote path before remote access can be enabled.")
-            .Produces<RemoteAccessReadinessDto>();
+            .Produces<RemoteAccessReadinessDto>()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkStatusRead);
 
         network.MapPost("/tests/local", async (INetworkDiagnosticsService diagnostics, CancellationToken ct) =>
             Results.Ok(await diagnostics.TestLocalAsync(ct)))
             .WithName("TestLocalNetworkConnection")
-            .Produces<NetworkTestResultDto>();
+            .Produces<NetworkTestResultDto>()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkConfigWrite);
 
         network.MapPost("/tests/remote", async (INetworkDiagnosticsService diagnostics, CancellationToken ct) =>
             Results.Ok(await diagnostics.TestRemoteAsync(ct)))
             .WithName("TestRemoteNetworkConnection")
-            .Produces<NetworkTestResultDto>();
+            .Produces<NetworkTestResultDto>()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkConfigWrite);
 
         network.MapPost("/bandwidth-test", async (INetworkDiagnosticsService diagnostics, CancellationToken ct) =>
             Results.Ok(await diagnostics.TestBandwidthAsync(ct)))
             .WithName("TestNetworkUploadBandwidth")
             .WithSummary("Run an intentional upload measurement when an external measurement target is configured.")
-            .Produces<NetworkBandwidthStatusDto>();
+            .Produces<NetworkBandwidthStatusDto>()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkConfigWrite);
 
         network.MapPost("/port-change/check", async (
             PortAvailabilityRequest request,
             INetworkDiagnosticsService diagnostics,
             CancellationToken ct) => Results.Ok(await diagnostics.CheckPortAvailabilityAsync(request.Port, ct)))
             .WithName("CheckNetworkPortAvailability")
-            .Produces<PortAvailabilityResultDto>();
+            .Produces<PortAvailabilityResultDto>()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkConfigWrite);
 
         network.MapPost("/port-change/apply", async (
             PortAvailabilityRequest request,
@@ -112,7 +119,9 @@ public static class NetworkEndpoints
         {
             var availability = await diagnostics.CheckPortAvailabilityAsync(request.Port, ct);
             if (!availability.Available)
+            {
                 return ApiErrors.Conflict(availability.Message);
+            }
 
             var current = configuration.LoadNetwork();
             current.Local.Port = request.Port;
@@ -121,7 +130,10 @@ public static class NetworkEndpoints
                 configuration.SaveNetwork(current);
                 if (current.Remote.AutomaticRouterConfiguration
                     && current.Remote.ConnectionMode == NetworkConnectionModes.DirectOnly)
+                {
                     await routerMappings.EnsureMappingAsync(ct);
+                }
+
                 return Results.Ok(new PortAvailabilityResultDto
                 {
                     Port = request.Port,
@@ -138,7 +150,8 @@ public static class NetworkEndpoints
         .WithName("ApplyNetworkPortChange")
         .Produces<PortAvailabilityResultDto>()
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status409Conflict);
+        .ProducesProblem(StatusCodes.Status409Conflict)
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkConfigWrite);
 
         network.MapPost("/router/renew", async (
             RouterPortMappingCoordinator routerMappings,
@@ -150,7 +163,8 @@ public static class NetworkEndpoints
         })
         .WithName("RenewNetworkRouterMapping")
         .WithSummary("Renew or recreate the Tuvima-owned router mapping now.")
-        .Produces<NetworkRuntimeStatusDto>();
+        .Produces<NetworkRuntimeStatusDto>()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkConfigWrite);
 
         network.MapPost("/reset", (IConfigurationLoader configuration) =>
         {
@@ -160,7 +174,8 @@ public static class NetworkEndpoints
         })
         .WithName("ResetNetworkSettings")
         .WithSummary("Reset only network settings to local-first, remote-disabled defaults.")
-        .Produces<NetworkSettingsDto>();
+        .Produces<NetworkSettingsDto>()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.NetworkConfigWrite);
 
         return app;
     }

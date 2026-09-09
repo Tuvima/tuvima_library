@@ -11,20 +11,26 @@ public static class LrcParser
     public static IReadOnlyList<LrcLine> Parse(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
+        {
             return [];
+        }
 
         var lines = new List<LrcLine>();
         foreach (var rawLine in content.Replace("\r\n", "\n").Split('\n'))
         {
             var matches = TimestampPattern.Matches(rawLine);
             if (matches.Count == 0)
+            {
                 continue;
+            }
 
             var text = TimestampPattern.Replace(rawLine, string.Empty).Trim();
             foreach (Match match in matches)
             {
                 if (TryParseTimestamp(match, out var seconds))
+                {
                     lines.Add(new LrcLine(seconds, text));
+                }
             }
         }
 
@@ -35,7 +41,9 @@ public static class LrcParser
     {
         var parsed = Parse(content);
         if (parsed.Count == 0)
+        {
             return content.Replace("\r\n", "\n").Trim() + "\n";
+        }
 
         var sb = new StringBuilder();
         foreach (var line in parsed)
@@ -57,13 +65,17 @@ public static class LrcParser
     public static LrcLine? GetActiveLine(IReadOnlyList<LrcLine> lines, double playbackSeconds)
     {
         if (lines.Count == 0)
+        {
             return null;
+        }
 
         LrcLine? active = null;
         foreach (var line in lines)
         {
             if (line.StartSeconds > playbackSeconds)
+            {
                 break;
+            }
 
             active = line;
         }

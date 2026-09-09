@@ -1,7 +1,7 @@
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain;
 using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.Extensions.Caching.Memory;
-using MediaEngine.Contracts.Settings;
 using MudBlazor;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -112,7 +112,10 @@ public sealed class ProviderCatalogueService
             return cached;
         }
 
-        if (_catalogue is not null) return _catalogue;
+        if (_catalogue is not null)
+        {
+            return _catalogue;
+        }
 
         await _loadLock.WaitAsync(ct);
         try
@@ -123,7 +126,11 @@ public sealed class ProviderCatalogueService
                 return cached;
             }
 
-            if (_catalogue is not null) return _catalogue;
+            if (_catalogue is not null)
+            {
+                return _catalogue;
+            }
+
             _catalogue = await _api.GetProviderCatalogueAsync(ct);
             _cache.Set(
                 CatalogueCacheKey,
@@ -145,7 +152,11 @@ public sealed class ProviderCatalogueService
     /// <summary>Returns the entry for a provider by config name (e.g. "apple_api"), or null if not found.</summary>
     public ProviderCatalogueDto? GetByName(string providerName)
     {
-        if (_catalogue is null) return null;
+        if (_catalogue is null)
+        {
+            return null;
+        }
+
         return _catalogue.FirstOrDefault(p =>
             string.Equals(p.Name, providerName, StringComparison.OrdinalIgnoreCase));
     }
@@ -153,7 +164,11 @@ public sealed class ProviderCatalogueService
     /// <summary>Returns the entry for a provider by GUID string, or null if not found.</summary>
     public ProviderCatalogueDto? GetById(string providerId)
     {
-        if (_catalogue is null) return null;
+        if (_catalogue is null)
+        {
+            return null;
+        }
+
         return _catalogue.FirstOrDefault(p =>
             string.Equals(p.ProviderId, providerId, StringComparison.OrdinalIgnoreCase));
     }
@@ -167,7 +182,11 @@ public sealed class ProviderCatalogueService
     public string GetAccentColor(string providerName)
     {
         var entry = FindEntry(providerName);
-        if (!string.IsNullOrWhiteSpace(entry?.AccentColor)) return entry.AccentColor;
+        if (!string.IsNullOrWhiteSpace(entry?.AccentColor))
+        {
+            return entry.AccentColor;
+        }
+
         return GetFallback(providerName).Color;
     }
 
@@ -178,7 +197,11 @@ public sealed class ProviderCatalogueService
     public string GetDisplayName(string providerName)
     {
         var entry = FindEntry(providerName);
-        if (!string.IsNullOrWhiteSpace(entry?.DisplayName)) return entry.DisplayName;
+        if (!string.IsNullOrWhiteSpace(entry?.DisplayName))
+        {
+            return entry.DisplayName;
+        }
+
         return GetFallback(providerName).DisplayName;
     }
 
@@ -209,7 +232,9 @@ public sealed class ProviderCatalogueService
     public static string FormatProviderLabel(string? provider)
     {
         if (string.IsNullOrWhiteSpace(provider))
+        {
             return "-";
+        }
 
         var normalized = provider.Trim().Replace('_', ' ').Replace('-', ' ').ToLowerInvariant();
         var compact = normalized.Replace(" ", "", StringComparison.Ordinal);
@@ -228,10 +253,14 @@ public sealed class ProviderCatalogueService
     public static string FormatSourceName(string? source)
     {
         if (string.IsNullOrWhiteSpace(source))
+        {
             return "Unknown";
+        }
 
         if (Guid.TryParse(source, out var providerId))
+        {
             return FormatProviderName(providerId);
+        }
 
         return source.ToLowerInvariant() switch
         {
@@ -283,7 +312,9 @@ public sealed class ProviderCatalogueService
         string? providerName = null)
     {
         if (_catalogue is null || identifiers.Count == 0)
+        {
             return [];
+        }
 
         var links = new List<ProviderExternalUrl>();
         foreach (var provider in _catalogue)
@@ -332,10 +363,15 @@ public sealed class ProviderCatalogueService
     public IReadOnlyList<string> GetSearchChips(string providerName, string? mediaType = null)
     {
         var entry = GetByName(providerName);
-        if (entry is null) return [];
+        if (entry is null)
+        {
+            return [];
+        }
 
         if (mediaType is not null && entry.SearchChips.TryGetValue(mediaType, out var chips))
+        {
             return chips;
+        }
 
         // Return union of all chips when media type not specified
         return entry.SearchChips.Values.SelectMany(c => c).Distinct().ToList();
@@ -345,10 +381,15 @@ public sealed class ProviderCatalogueService
     public IReadOnlyList<string> GetRankingChips(string providerName, string? mediaType = null)
     {
         var entry = GetByName(providerName);
-        if (entry is null) return [];
+        if (entry is null)
+        {
+            return [];
+        }
 
         if (mediaType is not null && entry.RankingChips.TryGetValue(mediaType, out var chips))
+        {
             return chips;
+        }
 
         return entry.RankingChips.Values.SelectMany(c => c).Distinct().ToList();
     }
@@ -364,7 +405,11 @@ public sealed class ProviderCatalogueService
 
     private static string ResolveMediaTypePath(string? mediaType)
     {
-        if (string.IsNullOrWhiteSpace(mediaType)) return "movie";
+        if (string.IsNullOrWhiteSpace(mediaType))
+        {
+            return "movie";
+        }
+
         return mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase) ? "tv" : "movie";
     }
 
@@ -400,7 +445,11 @@ public sealed class ProviderCatalogueService
 
     private ProviderCatalogueDto? FindEntry(string providerName)
     {
-        if (_catalogue is null) return null;
+        if (_catalogue is null)
+        {
+            return null;
+        }
+
         return _catalogue.FirstOrDefault(provider =>
             string.Equals(provider.Name, providerName, StringComparison.OrdinalIgnoreCase)
             || string.Equals(provider.DisplayName, providerName, StringComparison.OrdinalIgnoreCase)
@@ -410,7 +459,9 @@ public sealed class ProviderCatalogueService
     private static ProviderFallback GetFallback(string providerName)
     {
         if (ProviderFallbacks.TryGetValue(providerName, out var fallback))
+        {
             return fallback;
+        }
 
         var normalized = new string(providerName
             .Where(char.IsLetterOrDigit)

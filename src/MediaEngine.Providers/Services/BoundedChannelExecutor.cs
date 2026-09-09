@@ -59,7 +59,9 @@ internal sealed class BoundedChannelExecutor<T>
     public Task ExecuteAsync(CancellationToken ct)
     {
         if (Interlocked.Exchange(ref _executionStarted, 1) != 0)
+        {
             throw new InvalidOperationException("The bounded channel executor can only be started once.");
+        }
 
         var consumers = new Task[_consumerCount];
         for (var index = 0; index < consumers.Length; index++)

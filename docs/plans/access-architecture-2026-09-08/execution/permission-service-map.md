@@ -1,4 +1,11 @@
-# P00 permission-to-service map
+# Permission-to-service map
+
+## Integration update — 2026-09-09
+
+The baseline table below is historical. Implemented capability changes: `library.changes.read` and `events.subscribe` now have the durable scoped event service (final producer/edge acceptance remains open); `playback.sessions.read`, `playback.history.read`, and all four `analytics.*.read` IDs have distinct scoped durable read services. `playback.sessions.control`, `system.metrics.read`, `system.audit.read`, `system.logs.read`, `identity.sessions.read`, and `ai.infer` remain unavailable with reasons. P08 enforces host-bound capabilities; P09 exposes the bounded Fandom Lore operation only while its plugin/service is available.
+
+Native supported consent adds `library.changes.read` and `events.subscribe` explicitly. The existing eight default playback scopes stay unchanged; existing device consent is not silently expanded. Source-owned DTO/wire shapes remain under the contract snapshot gate.
+
 
 Status: source-derived inventory at tentative SHA `1b75af4e76ad4b4afc9ce23769877566f6ec10e2`. `Existing` means a backing route/service exists, not that it already enforces this permission correctly. `Unavailable` is the required P01 registry state until the named packet supplies a tested service. The registry must preserve every ID below.
 

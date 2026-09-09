@@ -3,8 +3,8 @@ using Dapper;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Services.Collections;
-using MediaEngine.Contracts.Collections;
 using MediaEngine.Api.Services.Display;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
@@ -31,7 +31,8 @@ public sealed class CollectionCatalogReadService(
 {
     public async Task<List<ManagedCollectionDto>> GetManagedAsync(
         Profile? activeProfile,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlySet<Guid>? allowedWorkIds = null)
     {
         var collections = (await collectionRepo.GetManagedCollectionsAsync(ct).ConfigureAwait(false))
             .Where(collection => collection.IsEnabled
@@ -55,9 +56,17 @@ public sealed class CollectionCatalogReadService(
                 continue;
             }
 
-            var count = collection.Resolution == CollectionResolution.Query
-                ? (await GetCollectionWorkIdsAsync(collection, ct).ConfigureAwait(false)).Count
-                : GetManagedCollectionItemCount(collection, materializedCounts, []);
+            var collectionWorkIds = allowedWorkIds is null
+                ? []
+                : (await GetCollectionWorkIdsAsync(collection, ct).ConfigureAwait(false))
+                    .Where(allowedWorkIds.Contains)
+                    .Distinct()
+                    .ToList();
+            var count = allowedWorkIds is not null
+                ? collectionWorkIds.Count
+                : collection.Resolution == CollectionResolution.Query
+                    ? (await GetCollectionWorkIdsAsync(collection, ct).ConfigureAwait(false)).Count
+                    : GetManagedCollectionItemCount(collection, materializedCounts, []);
             results.Add(ManagedCollectionMapper.FromDomain(collection, count, activeProfile));
         }
 
@@ -77,7 +86,8 @@ public sealed class CollectionCatalogReadService(
 
     public async Task<List<CollectionManagementCatalogDto>> GetCatalogAsync(
         Profile? activeProfile,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlySet<Guid>? allowedWorkIds = null)
     {
         var collections = await GetAccessibleCollectionsAsync(activeProfile, ct).ConfigureAwait(false);
         var candidates = new List<CollectionManagementCatalogCandidate>();
@@ -95,6 +105,11 @@ public sealed class CollectionCatalogReadService(
             var classification = ClassifyCollectionForCatalog(collection);
             var sourceWorkIds = await GetCollectionCatalogSourceWorkIdsAsync(collection, collections, ct).ConfigureAwait(false);
             var workIds = await GetOwnedCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct).ConfigureAwait(false);
+            if (allowedWorkIds is not null)
+            {
+                workIds = workIds.Where(allowedWorkIds.Contains).ToList();
+            }
+
             var itemCount = workIds.Count;
             var mediaCounts = await GetCollectionMediaCountsAsync(workIds, ct).ConfigureAwait(false);
             var hasKnownSeriesManifest = await HasKnownSeriesManifestAsync(collection, ct).ConfigureAwait(false);
@@ -181,9 +196,10 @@ public sealed class CollectionCatalogReadService(
     public async Task<CollectionManagementCatalogDto?> GetSummaryAsync(
         Guid collectionId,
         Profile? activeProfile,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlySet<Guid>? allowedWorkIds = null)
     {
-        var catalog = await GetCatalogAsync(activeProfile, ct).ConfigureAwait(false);
+        var catalog = await GetCatalogAsync(activeProfile, ct, allowedWorkIds).ConfigureAwait(false);
         return catalog.FirstOrDefault(collection => collection.Id == collectionId);
     }
 
@@ -191,7 +207,8 @@ public sealed class CollectionCatalogReadService(
         Guid collectionId,
         Profile? activeProfile,
         int limit,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        IReadOnlySet<Guid>? allowedWorkIds = null)
     {
         var collection = await collectionRepo.GetByIdAsync(collectionId, ct).ConfigureAwait(false);
         if (collection is null)
@@ -210,6 +227,7 @@ public sealed class CollectionCatalogReadService(
         {
             var workIds = (await GetAggregatedCollectionWorkIdsAsync(collectionId, activeProfile, ct).ConfigureAwait(false))
                 .Distinct()
+                .Where(workId => allowedWorkIds is null || allowedWorkIds.Contains(workId))
                 .Take(take)
                 .ToList();
             dtos = await ResolveCollectionWorkIdsToItemsAsync(
@@ -220,13 +238,24 @@ public sealed class CollectionCatalogReadService(
         }
         else if (collection.Resolution == CollectionResolution.Materialized)
         {
-            var items = await collectionRepo.GetCollectionItemsAsync(collectionId, take, ct).ConfigureAwait(false);
+            var items = await collectionRepo.GetCollectionItemsAsync(
+                collectionId,
+                allowedWorkIds is null ? take : 5000,
+                ct).ConfigureAwait(false);
+            if (allowedWorkIds is not null)
+            {
+                items = items
+                    .Where(item => allowedWorkIds.Contains(item.WorkId))
+                    .Take(take)
+                    .ToList();
+            }
             dtos = await mediaLookupReadService.ResolveItemsAsync(collectionId, items, ct).ConfigureAwait(false);
         }
         else
         {
             var workIds = (await GetCollectionWorkIdsAsync(collection, ct).ConfigureAwait(false))
                 .Distinct()
+                .Where(workId => allowedWorkIds is null || allowedWorkIds.Contains(workId))
                 .Take(take)
                 .ToList();
             dtos = await ResolveCollectionWorkIdsToItemsAsync(

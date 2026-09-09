@@ -43,18 +43,18 @@ public sealed class UniverseGraphBatchRepositoryTests : IDisposable
                         (id, name, wikidata_qid, headshot_url, created_at)
                     VALUES (@PersonId, @PersonName, @PersonQid, @HeadshotUrl, @CreatedAt);
                     """, new
-                    {
-                        Id = GuidSql.ToBlob(entityIds[index]),
-                        Qid = qids[index],
-                        Label = $"Character {index}",
-                        CreatedAt = createdAt,
-                        WorkQid = $"W{index}",
-                        WorkLabel = $"Work {index}",
-                        PersonId = GuidSql.ToBlob(personIds[index]),
-                        PersonName = $"Actor {index}",
-                        PersonQid = $"P{index}",
-                        HeadshotUrl = $"https://example.test/{index}.jpg",
-                    }, tx);
+                {
+                    Id = GuidSql.ToBlob(entityIds[index]),
+                    Qid = qids[index],
+                    Label = $"Character {index}",
+                    CreatedAt = createdAt,
+                    WorkQid = $"W{index}",
+                    WorkLabel = $"Work {index}",
+                    PersonId = GuidSql.ToBlob(personIds[index]),
+                    PersonName = $"Actor {index}",
+                    PersonQid = $"P{index}",
+                    HeadshotUrl = $"https://example.test/{index}.jpg",
+                }, tx);
             }
 
             conn.Execute("""
@@ -100,7 +100,9 @@ public sealed class UniverseGraphBatchRepositoryTests : IDisposable
             Edge("Q700", $"Q{LargeGraphSize}", "sibling"),
         };
         foreach (var edge in internalEdges)
+        {
             await repository.CreateAsync(edge);
+        }
 
         await repository.CreateAsync(Edge("Q1", "Q999999", "located_in"));
         await repository.CreateAsync(Edge("P1", "Q700", "performer"));

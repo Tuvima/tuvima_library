@@ -1,8 +1,8 @@
 using Dapper;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
-using Microsoft.Data.Sqlite;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Storage;
 
@@ -97,13 +97,17 @@ public sealed class UISettingsCacheRepository
             // Cache global settings
             var global = configLoader.LoadConfig<UIGlobalSettings>("ui", "global");
             if (global is not null)
+            {
                 UpsertInTransaction(conn, transaction, "global",
                     System.Text.Json.JsonSerializer.Serialize(global));
+            }
 
             var libraryPreferences = configLoader.LoadConfig<LibraryPreferencesSettings>("ui", "library-preferences");
             if (libraryPreferences is not null)
+            {
                 UpsertInTransaction(conn, transaction, "library-preferences",
                     System.Text.Json.JsonSerializer.Serialize(libraryPreferences));
+            }
 
             // Cache device profiles
             string[] deviceClasses = ["web", "mobile", "television", "automotive"];
@@ -111,8 +115,10 @@ public sealed class UISettingsCacheRepository
             {
                 var device = configLoader.LoadConfig<UIDeviceProfile>("ui/devices", dc);
                 if (device is not null)
+                {
                     UpsertInTransaction(conn, transaction, $"device:{dc}",
                         System.Text.Json.JsonSerializer.Serialize(device));
+                }
             }
 
         }, ct);
@@ -129,7 +135,7 @@ public sealed class UISettingsCacheRepository
             ON CONFLICT(scope)
             DO UPDATE SET settings = excluded.settings, cached_at = excluded.cached_at;
             """;
-        cmd.Parameters.AddWithValue("@scope",    scope);
+        cmd.Parameters.AddWithValue("@scope", scope);
         cmd.Parameters.AddWithValue("@settings", settingsJson);
         cmd.ExecuteNonQuery();
     }

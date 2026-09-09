@@ -651,14 +651,14 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         string libraryId,
         string sourceId,
         string path) => new()
-    {
-        Id = libraryId,
-        Name = "Personal Space",
-        Kind = LibraryKinds.Personal,
-        Area = LibraryAreas.View,
-        Presentation = LibraryPresentations.MixedGallery,
-        MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
-        Sources =
+        {
+            Id = libraryId,
+            Name = "Personal Space",
+            Kind = LibraryKinds.Personal,
+            Area = LibraryAreas.View,
+            Presentation = LibraryPresentations.MixedGallery,
+            MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
+            Sources =
         [
             new LibrarySourceConfig
             {
@@ -670,13 +670,13 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
                 ParticipatesInOrganization = true,
             },
         ],
-        PrimaryDestinationSourceId = sourceId,
-        OwnerProfileId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-        Visibility = LibraryVisibility.Private,
-        AcceptedIntakeModes = [LibraryIntakeModes.BrowserUpload],
-        DuplicatePolicy = LibraryDuplicatePolicies.SkipExact,
-        OrganizationPolicy = new() { Mode = LibraryOrganizationModes.CaptureYearMonth },
-    };
+            PrimaryDestinationSourceId = sourceId,
+            OwnerProfileId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            Visibility = LibraryVisibility.Private,
+            AcceptedIntakeModes = [LibraryIntakeModes.BrowserUpload],
+            DuplicatePolicy = LibraryDuplicatePolicies.SkipExact,
+            OrganizationPolicy = new() { Mode = LibraryOrganizationModes.CaptureYearMonth },
+        };
 
     private sealed class TempConfig : IDisposable
     {

@@ -1,6 +1,5 @@
 using System.Net.Sockets;
 using System.Text.Json;
-using MediaEngine.Contracts.Admin;
 using MediaEngine.Contracts.Ai;
 using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Contracts.Maintenance;
@@ -60,6 +59,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     private readonly ActiveProfileSessionService _activeProfileSession;
     private readonly IConfiguration _config;
     private readonly DashboardIdentityClient? _identityClient;
+    private readonly DashboardSessionAccessor? _dashboardSession;
     private readonly ILogger<UIOrchestratorService> _logger;
 
     private HubConnection? _hubConnection;
@@ -71,12 +71,14 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         ActiveProfileSessionService activeProfileSession,
         IConfiguration config,
         ILogger<UIOrchestratorService> logger,
-        DashboardIdentityClient? identityClient = null)
+        DashboardIdentityClient? identityClient = null,
+        DashboardSessionAccessor? dashboardSession = null)
     {
         _api = api;
         _state = state;
         _activeProfileSession = activeProfileSession;
         _identityClient = identityClient;
+        _dashboardSession = dashboardSession;
         _config = config;
         _logger = logger;
     }
@@ -152,6 +154,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<AuthSettingsDto?> GetAuthSettingsAsync(CancellationToken ct = default)
         => _api.GetAuthSettingsAsync(ct);
 
+    public Task<AuthSettingsDto?> UpdateAuthSettingsAsync(UpdateAuthSettingsRequest request, CancellationToken ct = default)
+        => _api.UpdateAuthSettingsAsync(request, ct);
+    public Task<AuthSettingsDto?> UpdateExternalAuthProviderAsync(string providerId, UpdateExternalAuthProviderRequest request, CancellationToken ct = default)
+        => _api.UpdateExternalAuthProviderAsync(providerId, request, ct);
+    public Task<bool> DeleteExternalAuthProviderAsync(string providerId, CancellationToken ct = default)
+        => _api.DeleteExternalAuthProviderAsync(providerId, ct);
+
     // -- Ingestion -------------------------------------------------------------
 
     /// <summary>Triggers a dry-run scan and invalidates the collection cache on success.</summary>
@@ -178,24 +187,6 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         string query,
         CancellationToken ct = default)
         => _api.SearchWorksAsync(query, ct);
-
-    // -- API Key Management ----------------------------------------------------
-
-    /// <summary>Lists all issued Guest API Keys (id, label, created_at only).</summary>
-    public Task<List<ApiKeyDto>> GetApiKeysAsync(CancellationToken ct = default)
-        => _api.GetApiKeysAsync(ct);
-
-    /// <summary>Generates a new Guest API Key. The returned plaintext is shown exactly once.</summary>
-    public Task<CreateApiKeyResponse?> CreateApiKeyAsync(string label, CancellationToken ct = default)
-        => _api.CreateApiKeyAsync(label, ct);
-
-    /// <summary>Revokes a Guest API Key. Any session using the key receives 401 immediately.</summary>
-    public Task<bool> RevokeApiKeyAsync(Guid id, CancellationToken ct = default)
-        => _api.RevokeApiKeyAsync(id, ct);
-
-    /// <summary>Revokes all Guest API Keys in a single batch call. Returns count of revoked keys.</summary>
-    public Task<int> RevokeAllApiKeysAsync(CancellationToken ct = default)
-        => _api.RevokeAllApiKeysAsync(ct);
 
     // -- Profile Management ------------------------------------------------------
 
@@ -224,29 +215,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         OnProfileChanged?.Invoke();
         return outcome;
     }
-    /// <summary>Creates a new user profile. Returns true on success.</summary>
-    public async Task<bool> CreateProfileAsync(
-        string displayName, string avatarColor, string role,
-        string? navigationConfig = null,
-        CancellationToken ct = default)
-    {
-        var result = await _api.CreateProfileAsync(displayName, avatarColor, role, navigationConfig, ct);
-        if (result is not null)
-        {
-            _activeProfileSession.UpsertProfile(result);
-            OnProfileChanged?.Invoke();
-        }
-
-        return result is not null;
-    }
-
     /// <summary>Updates an existing user profile and notifies the layout to refresh.</summary>
     public async Task<bool> UpdateProfileAsync(
-        Guid id, string displayName, string avatarColor, string role,
+        Guid id, string displayName, string avatarColor,
         string? navigationConfig = null,
         CancellationToken ct = default)
     {
-        var ok = await _api.UpdateProfileAsync(id, displayName, avatarColor, role, navigationConfig, ct);
+        var ok = await _api.UpdateProfileAsync(id, displayName, avatarColor, navigationConfig, ct);
         if (ok)
         {
             await _activeProfileSession.RefreshProfilesAsync(ct);
@@ -360,19 +335,6 @@ public sealed class UIOrchestratorService : IAsyncDisposable
 
     public Task<IReadOnlyList<PluginJobSnapshot>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default) =>
         _api.RunPluginSegmentDetectionJobsAsync(ct);
-    /// <summary>Deletes a user profile. Cannot delete the seed Owner profile or the last Administrator.</summary>
-    public async Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
-    {
-        var deleted = await _api.DeleteProfileAsync(id, ct);
-        if (deleted)
-        {
-            await _activeProfileSession.RefreshProfilesAsync(ct);
-            OnProfileChanged?.Invoke();
-        }
-
-        return deleted;
-    }
-
     // -- Metadata Claims ---------------------------------------------------------
 
     /// <summary>Returns claim history for a given entity (Work or Edition).</summary>
@@ -689,7 +651,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         {
             var activeProfile = _activeProfileSession.CurrentProfile
                 ?? await _activeProfileSession.GetActiveProfileAsync(ct);
-            if (activeProfile is null || !SettingsNav.IsVisible(SettingsSection.Review, activeProfile.Role))
+            if (activeProfile is null || _dashboardSession?.HasNavigation("settings.administration") != true)
             {
                 _reviewCount = 0;
                 OnReviewCountChanged?.Invoke();

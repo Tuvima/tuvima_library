@@ -77,7 +77,9 @@ public sealed class AssetPathService
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(assetType);
         if (variantId == Guid.Empty)
+        {
             throw new ArgumentException("Variant id is required.", nameof(variantId));
+        }
 
         return Path.Combine(
             ArtworkRoot,
@@ -116,7 +118,9 @@ public sealed class AssetPathService
     public string GetPersonRoot(Guid personId)
     {
         if (personId == Guid.Empty)
+        {
             throw new ArgumentException("Person id is required.", nameof(personId));
+        }
 
         return Path.Combine(PeopleRoot, personId.ToString("D"));
     }
@@ -127,7 +131,9 @@ public sealed class AssetPathService
     public string GetCharacterPortraitPath(Guid personId, Guid fictionalEntityId, string extension = ".jpg")
     {
         if (fictionalEntityId == Guid.Empty)
+        {
             throw new ArgumentException("Fictional entity id is required.", nameof(fictionalEntityId));
+        }
 
         return Path.Combine(
             GetPersonRoot(personId),
@@ -150,7 +156,10 @@ public sealed class AssetPathService
     public string GetCentralTextTrackPath(Guid assetId, string kind, string provider, string language, string extension)
     {
         if (assetId == Guid.Empty)
+        {
             throw new ArgumentException("Asset id is required.", nameof(assetId));
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(kind);
         ArgumentException.ThrowIfNullOrWhiteSpace(provider);
         ArgumentException.ThrowIfNullOrWhiteSpace(language);
@@ -170,7 +179,9 @@ public sealed class AssetPathService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ownerPath);
         if (Directory.Exists(ownerPath))
+        {
             return BuildFolderArtworkExportPath(ownerPath, assetType, extension, variantId);
+        }
 
         return BuildArtworkExportPath(ownerPath, assetType, extension, variantId);
     }
@@ -179,7 +190,9 @@ public sealed class AssetPathService
     {
         var directory = Path.GetDirectoryName(filePath);
         if (!string.IsNullOrWhiteSpace(directory))
+        {
             Directory.CreateDirectory(directory);
+        }
     }
 
     private static string BuildArtworkExportPath(string mediaFilePath, string assetType, string extension, Guid? variantId = null)
@@ -187,7 +200,9 @@ public sealed class AssetPathService
         var normalizedExtension = NormalizeExtension(extension);
 
         if (variantId.HasValue && variantId.Value != Guid.Empty)
+        {
             return GetMediaFileArtworkVariantPath(mediaFilePath, assetType, variantId.Value, normalizedExtension);
+        }
 
         return assetType switch
         {
@@ -250,21 +265,29 @@ public sealed class AssetPathService
     public static MediaFileArtScope GetMediaFileArtScope(string mediaFilePath)
     {
         if (string.IsNullOrWhiteSpace(mediaFilePath))
+        {
             return MediaFileArtScope.Dedicated;
+        }
 
         var dir = Path.GetDirectoryName(mediaFilePath);
         if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+        {
             return MediaFileArtScope.Dedicated;
+        }
 
         try
         {
             foreach (var file in Directory.EnumerateFiles(dir))
             {
                 if (string.Equals(file, mediaFilePath, StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
 
                 if (IsMediaExtension(Path.GetExtension(file)))
+                {
                     return MediaFileArtScope.Shared;
+                }
             }
         }
         catch
@@ -297,11 +320,19 @@ public sealed class AssetPathService
         string extension)
     {
         if (string.IsNullOrWhiteSpace(mediaFilePath))
+        {
             throw new ArgumentException("Media file path is required.", nameof(mediaFilePath));
+        }
+
         if (variantId == Guid.Empty)
+        {
             throw new ArgumentException("Variant id is required.", nameof(variantId));
+        }
+
         if (string.IsNullOrWhiteSpace(extension))
+        {
             throw new ArgumentException("File extension is required.", nameof(extension));
+        }
 
         var artKind = assetType.Trim() switch
         {
@@ -323,11 +354,19 @@ public sealed class AssetPathService
         string extension)
     {
         if (string.IsNullOrWhiteSpace(folderPath))
+        {
             throw new ArgumentException("Folder path is required.", nameof(folderPath));
+        }
+
         if (variantId == Guid.Empty)
+        {
             throw new ArgumentException("Variant id is required.", nameof(variantId));
+        }
+
         if (string.IsNullOrWhiteSpace(extension))
+        {
             throw new ArgumentException("File extension is required.", nameof(extension));
+        }
 
         var artKind = assetType.Trim() switch
         {
@@ -345,11 +384,15 @@ public sealed class AssetPathService
     private static string BuildSiblingPath(string mediaFilePath, string artKind, string extension)
     {
         if (string.IsNullOrWhiteSpace(mediaFilePath))
+        {
             throw new ArgumentException("Media file path is required.", nameof(mediaFilePath));
+        }
 
         var dir = Path.GetDirectoryName(mediaFilePath) ?? ".";
         if (GetMediaFileArtScope(mediaFilePath) == MediaFileArtScope.Dedicated)
+        {
             return Path.Combine(dir, artKind + extension);
+        }
 
         var basename = Path.GetFileNameWithoutExtension(mediaFilePath);
         return Path.Combine(dir, $"{basename}-{artKind}{extension}");
@@ -358,7 +401,9 @@ public sealed class AssetPathService
     private static bool IsMediaExtension(string extension)
     {
         if (string.IsNullOrEmpty(extension))
+        {
             return false;
+        }
 
         return extension.ToLowerInvariant() switch
         {
@@ -392,7 +437,9 @@ public sealed class AssetPathService
     private static string NormalizeExtension(string extension)
     {
         if (string.IsNullOrWhiteSpace(extension))
+        {
             throw new ArgumentException("File extension is required.", nameof(extension));
+        }
 
         return extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
     }

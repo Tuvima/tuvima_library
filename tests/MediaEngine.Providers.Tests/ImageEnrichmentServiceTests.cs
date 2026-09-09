@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using Dapper;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -10,7 +11,6 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using StorageHttpClientConfig = MediaEngine.Domain.Configuration.HttpClientConfig;
 using StorageProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
@@ -216,7 +216,9 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             }
 
             if (string.Equals(url, sharedImageUrl, StringComparison.OrdinalIgnoreCase))
+            {
                 Interlocked.Increment(ref imageRequestCount);
+            }
 
             return ImageResponse([1, 2, 3, 4]);
         });

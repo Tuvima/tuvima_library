@@ -33,12 +33,12 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
             """,
             new
             {
-                OccurredAt     = entry.OccurredAt.ToString("O"),
+                OccurredAt = entry.OccurredAt.ToString("O"),
                 entry.ActionType,
                 entry.CollectionName,
-                EntityId       = entry.EntityId,
+                EntityId = entry.EntityId,
                 entry.EntityType,
-                ProfileId      = entry.ProfileId,
+                ProfileId = entry.ProfileId,
                 entry.ChangesJson,
                 entry.Detail,
                 IngestionRunId = entry.IngestionRunId,
@@ -131,7 +131,9 @@ public sealed class SystemActivityRepository : ISystemActivityRepository
         CancellationToken ct = default)
     {
         if (actionTypes.Count == 0)
+        {
             return GetRecentAsync(limit, ct);
+        }
 
         using var conn = _db.CreateConnection();
 

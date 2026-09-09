@@ -84,10 +84,16 @@ public sealed class AiSettings
                 ? HardwareProfile.AvailableRamMb
                 : GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / (1024 * 1024);
             if (availableRam < 8192)
+            {
                 return AiResourceProfileNames.Essential;
+            }
+
             if (string.Equals(ResourceProfile, AiResourceProfileNames.Advanced, StringComparison.OrdinalIgnoreCase)
                 && !HardwareProfile.AdvancedEligible)
+            {
                 return AiResourceProfileNames.Standard;
+            }
+
             return AiResourceProfileNames.IsSupported(ResourceProfile)
                 ? ResourceProfile.ToLowerInvariant()
                 : AiResourceProfileNames.Standard;
@@ -219,11 +225,11 @@ public sealed class AiModelDefinitions
     /// <summary>Get the definition for a given role.</summary>
     public AiModelDefinition GetByRole(Domain.Enums.AiModelRole role) => role switch
     {
-        Domain.Enums.AiModelRole.TextFast    => TextFast,
+        Domain.Enums.AiModelRole.TextFast => TextFast,
         Domain.Enums.AiModelRole.TextQuality => TextQuality,
         Domain.Enums.AiModelRole.TextScholar => TextScholar,
-        Domain.Enums.AiModelRole.Audio       => Audio,
-        Domain.Enums.AiModelRole.TextCjk     => TextCjk,
+        Domain.Enums.AiModelRole.Audio => Audio,
+        Domain.Enums.AiModelRole.TextCjk => TextCjk,
         _ => throw new ArgumentOutOfRangeException(nameof(role)),
     };
 

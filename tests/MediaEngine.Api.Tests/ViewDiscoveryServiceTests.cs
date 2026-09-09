@@ -8,7 +8,7 @@ namespace MediaEngine.Api.Tests;
 public sealed class ViewDiscoveryServiceTests
 {
     [Fact]
-    public async Task UnauthorizedProfileScopeFallsBackWithoutSendingPrivateLibraryToStorage()
+    public async Task UnauthorizedExplicitProfileScopeReturnsNotFoundWithoutQueryingStorage()
     {
         var caller = State(access: true, include: true);
         var included = State(access: false, include: true);
@@ -19,11 +19,8 @@ public sealed class ViewDiscoveryServiceTests
         var result = await service.GetPlacesAsync(new ViewDiscoveryRequest(
             ViewScopeRequest.ForProfile(privateProfile.Policy.ProfileId), 50));
 
-        Assert.Equal(ViewAccessOutcome.Allowed, result.Outcome);
-        Assert.True(result.Scope!.WasFallback);
-        Assert.Equal(ViewScopeKind.Mine, result.Scope.Kind);
-        Assert.Equal([caller.PersonalSpace!.LibraryId], repository.PlaceQuery!.AuthorizedLibraryIds);
-        Assert.False(repository.PlaceQuery.IncludeSharedLibraryAssets);
+        Assert.Equal(ViewAccessOutcome.NotFound, result.Outcome);
+        Assert.Null(repository.PlaceQuery);
     }
 
     [Fact]
@@ -88,16 +85,11 @@ public sealed class ViewDiscoveryServiceTests
         params ViewScopeStoreEntry[] profiles)
     {
         var http = new DefaultHttpContext();
-        if (caller is not null)
-        {
-            HttpViewRequestProfileContext.SetTrustedProfile(
-                http,
-                new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
-        }
-        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
+        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http },
+            caller is null ? TestViewAuthorityResolver.Anonymous : TestViewAuthorityResolver.Human(caller.Policy.ProfileId));
         var authorization = new ViewResourceAuthorizationService(
             new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(profiles)),
-            new UnusedResourceStore());
+            new UnusedResourceStore(), new TestAllowAuthorizationEvaluator());
         return new ViewDiscoveryService(context, authorization, repository);
     }
 

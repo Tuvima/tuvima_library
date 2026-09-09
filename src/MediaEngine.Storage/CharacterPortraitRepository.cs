@@ -123,15 +123,15 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
             """,
             new
             {
-                Id                = portrait.Id,
-                PersonId          = portrait.PersonId,
+                Id = portrait.Id,
+                PersonId = portrait.PersonId,
                 FictionalEntityId = portrait.FictionalEntityId,
                 portrait.ImageUrl,
                 portrait.LocalImagePath,
                 portrait.SourceProvider,
-                IsDefault         = portrait.IsDefault ? 1 : 0,
-                CreatedAt         = portrait.CreatedAt,
-                UpdatedAt         = portrait.UpdatedAt,
+                IsDefault = portrait.IsDefault ? 1 : 0,
+                CreatedAt = portrait.CreatedAt,
+                UpdatedAt = portrait.UpdatedAt,
             });
 
         return Task.CompletedTask;
@@ -153,7 +153,9 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
                 """, new { portraitId }, transaction);
 
             if (fictionalEntityId is null)
+            {
                 return;
+            }
 
             // Clear default on all portraits for this character.
             conn.Execute("""
@@ -184,7 +186,9 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
 
         var ids = fictionalEntityIds.Distinct().ToList();
         if (ids.Count == 0)
+        {
             return Task.FromResult<IReadOnlyList<CharacterPortrait>>(Array.Empty<CharacterPortrait>());
+        }
 
         using var conn = _db.CreateConnection();
         var results = conn.Query<CharacterPortrait>($"""

@@ -10,6 +10,25 @@ public sealed class EngineApiClientViewPolicyTests
 {
     private static readonly Guid ProfileId = Guid.Parse("b5028d65-b179-4bed-a3b6-2e6011b90d31");
 
+    [Theory]
+    [InlineData(HttpStatusCode.NoContent, true)]
+    [InlineData(HttpStatusCode.Forbidden, false)]
+    public async Task ProfileExperienceUsesCurrentRouteWithoutRoleAndHonorsDenial(HttpStatusCode status, bool expected)
+    {
+        using var http = CreateHttpClient(async request =>
+        {
+            Assert.Equal(HttpMethod.Put, request.Method);
+            Assert.Equal($"/profiles/{ProfileId:D}/experience", request.RequestUri!.AbsolutePath);
+            using var body = System.Text.Json.JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            Assert.Equal("Profile name", body.RootElement.GetProperty("display_name").GetString());
+            Assert.Equal("{}", body.RootElement.GetProperty("navigation_config").GetString());
+            Assert.False(body.RootElement.TryGetProperty("role", out _));
+            return new HttpResponseMessage(status);
+        });
+        var client = new EngineApiClient(http, NullLogger<EngineApiClient>.Instance);
+        Assert.Equal(expected, await client.UpdateProfileAsync(ProfileId, "Profile name", "#123456", "{}"));
+    }
+
     [Fact]
     public async Task UpdateViewProfilePolicyAsync_PreservesIndependentSharedDecisions()
     {

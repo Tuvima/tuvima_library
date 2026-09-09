@@ -1,7 +1,7 @@
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -78,15 +78,21 @@ public sealed class LoreDeltaService : ILoreDeltaService
                 using var doc = JsonDocument.Parse(json);
 
                 if (!doc.RootElement.TryGetProperty("entities", out var entities))
+                {
                     continue;
+                }
 
                 foreach (var entity in batch)
                 {
                     if (!entities.TryGetProperty(entity.WikidataQid, out var entityJson))
+                    {
                         continue;
+                    }
 
                     if (!entityJson.TryGetProperty("lastrevid", out var revElement))
+                    {
                         continue;
+                    }
 
                     var currentRevision = revElement.GetInt64();
                     var cachedRevision = entity.WikidataRevisionId!.Value;

@@ -3,9 +3,11 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Identity.Contracts;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Providers;
@@ -44,6 +46,8 @@ using SettingsCatalogEntryResponse = MediaEngine.Contracts.Settings.SettingsCata
 using SettingsSavedResponse = MediaEngine.Contracts.Settings.SettingsSavedResponse;
 using TestPathRequest = MediaEngine.Contracts.Settings.TestPathRequest;
 using TestPathResponse = MediaEngine.Contracts.Settings.PathTestResultDto;
+using UpdateAuthSettingsRequest = MediaEngine.Contracts.Settings.UpdateAuthSettingsRequest;
+using UpdateExternalAuthProviderRequest = MediaEngine.Contracts.Settings.UpdateExternalAuthProviderRequest;
 using UpdateLibrariesRequest = MediaEngine.Contracts.Settings.UpdateLibrariesRequest;
 using UpdateOrganizationTemplateRequest = MediaEngine.Contracts.Settings.UpdateOrganizationTemplateRequest;
 using UpdateProviderRequest = MediaEngine.Contracts.Settings.UpdateProviderRequest;
@@ -101,37 +105,182 @@ public static class SettingsEndpoints
         var grp = app.MapGroup("/settings").WithTags("Settings");
         grp.MapLibraryMutations();
 
-        grp.MapGet("/security/auth", (IConfigurationLoader configLoader) =>
+        grp.MapGet("/security/auth", (AuthenticationProviderConfigurationService providerConfiguration) =>
         {
-            var auth = configLoader.LoadCore().Auth;
-            return Results.Ok(new AuthSettingsDto
-            {
-                Mode = auth.Mode,
-                LocalhostBypass = auth.LocalhostBypass,
-                RequireHttpsRemote = auth.RequireHttpsRemote,
-                PasswordReset = new MediaEngine.Contracts.Settings.PasswordResetDeliveryDto
-                {
-                    Mode=auth.PasswordReset.Mode,PublicBaseUrl=auth.PasswordReset.PublicBaseUrl,SmtpHost=auth.PasswordReset.SmtpHost,SmtpPort=auth.PasswordReset.SmtpPort,FromAddress=auth.PasswordReset.FromAddress,
-                    Configured=auth.PasswordReset.Mode.Equals("Smtp",StringComparison.OrdinalIgnoreCase)&&!string.IsNullOrWhiteSpace(auth.PasswordReset.SmtpHost)&&!string.IsNullOrWhiteSpace(auth.PasswordReset.FromAddress)&&!string.IsNullOrWhiteSpace(auth.PasswordReset.PublicBaseUrl),
-                },
-                ExternalProviders = auth.ExternalProviders.Select(provider => new MediaEngine.Contracts.Settings.ExternalAuthProviderDto
-                {
-                    Id = provider.Id,
-                    Kind = provider.Kind,
-                    Enabled = provider.Enabled,
-                    DisplayName = provider.DisplayName,
-                    Issuer = provider.Issuer,
-                    Authority = provider.Authority,
-                    ClientId = provider.ClientId,
-                    Scopes = provider.Scopes,
-                    CallbackPath = $"/signin-tuvima-{provider.Id}",
-                }).ToList(),
-            });
+            var auth = providerConfiguration.LoadWithSecrets();
+            return Results.Ok(ToAuthSettingsDto(auth, restartRequired: false));
         })
         .WithName("GetAuthSettings")
         .WithSummary("Returns user sign-in and external provider configuration without secrets.")
         .Produces<AuthSettingsDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
+
+        grp.MapPut("/security/auth", async (UpdateAuthSettingsRequest request,
+            IConfigurationLoader configLoader,
+            IAccountRepository accounts,
+            IIdentityRepository identities,
+            IAccountExternalLoginService externalLogins,
+            Microsoft.AspNetCore.Identity.UserManager<MediaEngine.Domain.Entities.Account> users,
+            AuthenticationProviderConfigurationService providerConfiguration,
+            AuthenticationPolicyMutationGate mutationGate,
+            CancellationToken ct) =>
+        {
+            using var mutation = await mutationGate.EnterAsync(ct).ConfigureAwait(false);
+            if (request.Mode is not ("Local" or "DisabledLocalOnly" or "Optional" or "Required"))
+            {
+                return ApiErrors.BadRequest("Authentication mode is invalid.");
+            }
+
+            if (request.InvitationLifetimeHours is < 1 or > 720)
+            {
+                return ApiErrors.BadRequest("Invitation lifetime must be between 1 and 720 hours.");
+            }
+
+            if (request.SessionLifetimeHours is < 1 or > 8760)
+            {
+                return ApiErrors.BadRequest("Session lifetime must be between 1 and 8760 hours.");
+            }
+
+            if (request.MaximumActiveSessions is < 1 or > 100)
+            {
+                return ApiErrors.BadRequest("Maximum active sessions must be between 1 and 100.");
+            }
+
+            if (request.TrustedLocalNetworks.Count > 32 || request.TrustedLocalNetworks.Any(value =>
+                    !System.Net.IPNetwork.TryParse(value, out _)))
+            {
+                return ApiErrors.BadRequest("Trusted local networks must contain at most 32 valid CIDR ranges.");
+            }
+
+            if (!request.PasswordSignInEnabled && !request.PasskeySignInEnabled &&
+                !request.ExternalSignInEnabled && !request.AllowLocalOnlyAccounts)
+            {
+                return ApiErrors.BadRequest("At least one account sign-in method must remain enabled.");
+            }
+
+            var core = configLoader.LoadCore();
+            var auth = core.Auth;
+            auth.Mode = request.Mode;
+            auth.LocalhostBypass = request.LocalhostBypass;
+            auth.RequireHttpsRemote = request.RequireHttpsRemote;
+            auth.PasswordSignInEnabled = request.PasswordSignInEnabled;
+            auth.PasskeySignInEnabled = request.PasskeySignInEnabled;
+            auth.ExternalSignInEnabled = request.ExternalSignInEnabled;
+            auth.AllowRemoteSignIn = request.AllowRemoteSignIn;
+            auth.AllowLocalOnlyAccounts = request.AllowLocalOnlyAccounts;
+            auth.TrustedLocalNetworks = request.TrustedLocalNetworks
+                .Select(value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            auth.InvitationLifetimeHours = request.InvitationLifetimeHours;
+            auth.SessionLifetimeHours = request.SessionLifetimeHours;
+            auth.MaximumActiveSessions = request.MaximumActiveSessions;
+            var prospective = providerConfiguration.LoadWithSecrets();
+            prospective.Mode = auth.Mode;
+            prospective.LocalhostBypass = auth.LocalhostBypass;
+            prospective.RequireHttpsRemote = auth.RequireHttpsRemote;
+            prospective.PasswordSignInEnabled = auth.PasswordSignInEnabled;
+            prospective.PasskeySignInEnabled = auth.PasskeySignInEnabled;
+            prospective.ExternalSignInEnabled = auth.ExternalSignInEnabled;
+            prospective.AllowRemoteSignIn = auth.AllowRemoteSignIn;
+            prospective.AllowLocalOnlyAccounts = auth.AllowLocalOnlyAccounts;
+            prospective.TrustedLocalNetworks = auth.TrustedLocalNetworks;
+            prospective.InvitationLifetimeHours = auth.InvitationLifetimeHours;
+            prospective.SessionLifetimeHours = auth.SessionLifetimeHours;
+            prospective.MaximumActiveSessions = auth.MaximumActiveSessions;
+            if (!await HasUsableAdministratorSignInAsync(
+                    prospective, accounts, identities, externalLogins, users, ct).ConfigureAwait(false))
+            {
+                return ApiErrors.Conflict("The policy must leave at least one enabled administrator with a usable sign-in method.");
+            }
+
+            configLoader.SaveCore(core);
+            return Results.Ok(ToAuthSettingsDto(prospective, restartRequired: true));
+        })
+        .WithName("UpdateAuthSettings")
+        .Produces<AuthSettingsDto>()
+        .RequireEffectiveAdministrator();
+
+        grp.MapPut("/security/auth/providers/{providerId}", async (
+            string providerId,
+            UpdateExternalAuthProviderRequest request,
+            IConfigurationLoader configLoader,
+            AuthenticationProviderConfigurationService providerConfiguration,
+            AuthenticationPolicyMutationGate mutationGate,
+            IAccountRepository accounts,
+            IIdentityRepository identities,
+            IAccountExternalLoginService externalLogins,
+            Microsoft.AspNetCore.Identity.UserManager<MediaEngine.Domain.Entities.Account> users,
+            CancellationToken ct) =>
+        {
+            var error = ValidateExternalProvider(providerId, request);
+            if (error is not null)
+            {
+                return ApiErrors.BadRequest(error);
+            }
+
+            using var mutation = await mutationGate.EnterAsync(ct).ConfigureAwait(false);
+            var core = configLoader.LoadCore();
+            var authWithSecrets = providerConfiguration.LoadWithSecrets();
+            var provider = ToExternalProvider(providerId, request);
+            var previous = authWithSecrets.ExternalProviders.FirstOrDefault(candidate =>
+                candidate.Id.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            provider.ClientSecret = request.ClearClientSecret
+                ? string.Empty
+                : request.ClientSecret?.Trim() ?? previous?.ClientSecret ?? string.Empty;
+            authWithSecrets.ExternalProviders.RemoveAll(candidate =>
+                candidate.Id.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            authWithSecrets.ExternalProviders.Add(provider);
+            if (!await HasUsableAdministratorSignInAsync(
+                    authWithSecrets, accounts, identities, externalLogins, users, ct).ConfigureAwait(false))
+            {
+                return ApiErrors.Conflict("The provider change would remove the last usable administrator sign-in method.");
+            }
+
+            core.Auth.ExternalProviders.RemoveAll(candidate =>
+                candidate.Id.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            core.Auth.ExternalProviders.Add(provider);
+            configLoader.SaveCore(core);
+            await providerConfiguration.UpdateSecretAsync(
+                providerId, request.ClientSecret, request.ClearClientSecret, ct).ConfigureAwait(false);
+            return Results.Ok(ToAuthSettingsDto(providerConfiguration.LoadWithSecrets(), restartRequired: true));
+        }).WithName("UpdateExternalAuthProvider")
+          .Produces<AuthSettingsDto>()
+          .RequireEffectiveAdministrator();
+
+        grp.MapDelete("/security/auth/providers/{providerId}", async (
+            string providerId,
+            IConfigurationLoader configLoader,
+            AuthenticationProviderConfigurationService providerConfiguration,
+            AuthenticationPolicyMutationGate mutationGate,
+            IAccountRepository accounts,
+            IIdentityRepository identities,
+            IAccountExternalLoginService externalLogins,
+            Microsoft.AspNetCore.Identity.UserManager<MediaEngine.Domain.Entities.Account> users,
+            CancellationToken ct) =>
+        {
+            using var mutation = await mutationGate.EnterAsync(ct).ConfigureAwait(false);
+            var core = configLoader.LoadCore();
+            var authWithSecrets = providerConfiguration.LoadWithSecrets();
+            var removed = authWithSecrets.ExternalProviders.RemoveAll(candidate =>
+                candidate.Id.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            if (removed == 0)
+            {
+                return ApiErrors.NotFound("Authentication provider not found.");
+            }
+
+            if (!await HasUsableAdministratorSignInAsync(
+                    authWithSecrets, accounts, identities, externalLogins, users, ct).ConfigureAwait(false))
+            {
+                return ApiErrors.Conflict("The provider change would remove the last usable administrator sign-in method.");
+            }
+
+            core.Auth.ExternalProviders.RemoveAll(candidate =>
+                candidate.Id.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+            configLoader.SaveCore(core);
+            await providerConfiguration.RemoveSecretAsync(providerId, ct).ConfigureAwait(false);
+            return Results.NoContent();
+        }).WithName("DeleteExternalAuthProvider")
+          .Produces(StatusCodes.Status204NoContent)
+          .RequireEffectiveAdministrator();
 
         grp.MapGet("/transcoding", (IConfigurationLoader configLoader) =>
         {
@@ -140,7 +289,7 @@ public static class SettingsEndpoints
         .WithName("GetTranscodingSettings")
         .WithSummary("Returns playback encode, FFmpeg, and offline variant policy.")
         .Produces<ContractTranscodingSettings>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         grp.MapPut("/transcoding", (
             ContractTranscodingSettings request,
@@ -190,7 +339,7 @@ public static class SettingsEndpoints
         .WithName("UpdateTranscodingSettings")
         .WithSummary("Saves playback encode, FFmpeg, and offline variant policy.")
         .Produces<ContractTranscodingSettings>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         // ── GET/PUT /settings/libraries ───────────────────────────────────────
         grp.MapGet("/libraries", (IConfigurationLoader configLoader) =>
@@ -200,7 +349,7 @@ public static class SettingsEndpoints
         .WithName("GetLibraries")
         .WithSummary("Returns schema 6 catalogued libraries, the single View root, and approved storage.")
         .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.StorageStatusRead);
 
         grp.MapPut("/libraries", async (UpdateLibrariesRequest request, IConfigurationLoader configLoader, MediaEngine.Api.Services.LocalAssets.ViewStorageService viewStorage, IProfileRepository profiles, IViewProfileRepository viewProfiles, MediaEngine.Api.Services.Settings.ServerFolderBrowserService folders, MediaEngine.Ingestion.Contracts.IFileOrganizer organizer, CancellationToken ct) =>
         {
@@ -226,11 +375,20 @@ public static class SettingsEndpoints
                 }
 
                 var sourceError = ValidateLibrarySources(config, folders, organizer);
-                if (sourceError is not null) return ApiErrors.BadRequest(sourceError);
+                if (sourceError is not null)
+                {
+                    return ApiErrors.BadRequest(sourceError);
+                }
+
                 configLoader.SaveLibraries(config);
                 foreach (var profile in await profiles.GetAllAsync(ct))
+                {
                     if ((await viewProfiles.GetPolicyAsync(profile.Id, ct)).ViewEnabled)
+                    {
                         await viewStorage.EnsurePersonalSpaceAsync(profile.Id, ct);
+                    }
+                }
+
                 return Results.Ok(SettingsContractMapper.ToContract(config));
             }
             finally { LibraryMutationEndpoints.WriteGate.Release(); }
@@ -239,7 +397,7 @@ public static class SettingsEndpoints
         .WithSummary("Replaces schema 6 catalogued libraries, the single View root, and approved storage.")
         .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.StorageConfigWrite);
 
         // ── POST /settings/test-path ────────────────────────────────────────────
 
@@ -291,7 +449,7 @@ public static class SettingsEndpoints
         .WithName("TestPath")
         .WithSummary("Probes a directory path for existence, read access, and write access.")
         .Produces<TestPathResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.StorageConfigWrite);
 
         // ── GET /settings/providers/health ────────────────────────────────────────
         // Must be mapped BEFORE /providers/{name} so the literal "health" segment
@@ -316,7 +474,7 @@ public static class SettingsEndpoints
         .WithName("GetProviderHealth")
         .WithSummary("Returns health status for all tracked providers.")
         .Produces<IEnumerable<ProviderHealthStatusResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersStatusRead);
 
         // ── PUT /settings/providers/{name} ───────────────────────────────────────
 
@@ -343,7 +501,7 @@ public static class SettingsEndpoints
         .WithSummary("Toggles a provider's enabled state and saves to the manifest.")
         .Produces<ProviderStatusResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigWrite);
 
         // ── GET /settings/providers ─────────────────────────────────────────────
 
@@ -378,7 +536,7 @@ public static class SettingsEndpoints
         .WithName("GetProviderStatus")
         .WithSummary("Returns enabled/reachability status for all registered metadata providers.")
         .Produces<ProviderStatusResponse[]>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigRead);
 
         // ── GET /settings/organization-template ───────────────────────────────────
 
@@ -404,7 +562,7 @@ public static class SettingsEndpoints
         .WithName("GetOrganizationTemplate")
         .WithSummary("Returns the current file organization templates (default + per-media-type) and a sample preview.")
         .Produces<OrganizationTemplateResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.StorageStatusRead);
 
         // ── PUT /settings/organization-template ───────────────────────────────────
 
@@ -453,7 +611,7 @@ public static class SettingsEndpoints
         .WithSummary("Validates file organization templates and returns a sample preview without saving.")
         .Produces<OrganizationTemplateResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.StorageConfigWrite);
 
         grp.MapPut("/organization-template", (
             UpdateOrganizationTemplateRequest request,
@@ -509,7 +667,7 @@ public static class SettingsEndpoints
         .WithSummary("Validates and saves file organization templates (default + per-media-type).")
         .Produces<OrganizationTemplateResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.StorageConfigWrite);
 
         // ── Provider credential onboarding ────────────────────────────────────
 
@@ -524,7 +682,7 @@ public static class SettingsEndpoints
         .WithName("TestProviderCredentials")
         .WithSummary("Validates provider credential format and performs a non-mutating authentication check.")
         .Produces<ProviderCredentialOperationResultDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigWrite);
 
         grp.MapPut("/providers/{name}/credentials", async (
             string name,
@@ -537,7 +695,7 @@ public static class SettingsEndpoints
         .WithName("SaveProviderCredentials")
         .WithSummary("Verifies and atomically saves or rotates a provider credential set.")
         .Produces<ProviderCredentialOperationResultDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigWrite);
 
         grp.MapDelete("/providers/{name}/credentials", (
             string name,
@@ -548,7 +706,7 @@ public static class SettingsEndpoints
         .WithName("RemoveProviderCredentials")
         .WithSummary("Removes every stored credential for a provider.")
         .Produces<ProviderCredentialOperationResultDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigWrite);
 
         // ── POST /settings/providers/{name}/test ────────────────────────────────
         // Tests a provider by sending a real request with a known title and
@@ -669,7 +827,7 @@ public static class SettingsEndpoints
         .WithSummary("Tests a provider with a sample title and returns success/failure and available fields.")
         .Produces<ProviderTestResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigWrite);
 
         // ── POST /settings/providers/{name}/sample ──────────────────────────────
         // Fetches sample claims from a provider for a given title.
@@ -752,7 +910,7 @@ public static class SettingsEndpoints
         .WithSummary("Fetches sample claims from a provider for a given title, for the property picker UI.")
         .Produces<ProviderSampleResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigWrite);
 
         // ── PUT /settings/providers/{name}/config ───────────────────────────────
         // Saves the full provider configuration (endpoints, weights, throttle, etc.)
@@ -854,7 +1012,7 @@ public static class SettingsEndpoints
         .WithSummary("Saves full provider configuration including endpoints, weights, throttle, and capabilities.")
         .Produces<ProviderStatusResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigWrite);
 
         // ── DELETE /settings/providers/{name} ───────────────────────────────────
         // Deletes a provider config file. Wikidata and local_filesystem cannot be deleted.
@@ -895,7 +1053,7 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status403Forbidden)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigWrite);
 
         // ── GET /settings/hydration ──────────────────────────────────────────
         grp.MapGet("/hydration", (IConfigurationLoader configLoader) =>
@@ -906,7 +1064,7 @@ public static class SettingsEndpoints
         .WithName("GetHydrationSettings")
         .WithSummary("Load hydration pipeline configuration.")
         .Produces<HydrationSettingsDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         // ── PUT /settings/hydration ──────────────────────────────────────────
         grp.MapPut("/hydration", (
@@ -919,7 +1077,7 @@ public static class SettingsEndpoints
         .WithName("SaveHydrationSettings")
         .WithSummary("Save hydration pipeline configuration.")
         .Produces<SettingsSavedResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         // ── GET /settings/pipelines ──────────────────────────────────────
         grp.MapGet("/pipelines", (IConfigurationLoader configLoader) =>
@@ -930,7 +1088,7 @@ public static class SettingsEndpoints
         .WithName("GetPipelines")
         .WithDescription("Current pipeline configuration per media type")
         .Produces<ContractPipelineConfiguration>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         grp.MapGet("/pipelines/defaults", (IConfigurationLoader configLoader) =>
         {
@@ -948,7 +1106,7 @@ public static class SettingsEndpoints
         .WithName("GetDefaultPipelines")
         .WithSummary("Returns shipped provider-order defaults for each media type.")
         .Produces<ContractPipelineConfiguration>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         // ── PUT /settings/pipelines ──────────────────────────────────────
         grp.MapPut("/pipelines", (
@@ -961,7 +1119,7 @@ public static class SettingsEndpoints
         .WithName("SavePipelines")
         .WithDescription("Save pipeline configuration")
         .Produces<SettingsSavedResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         // ── GET /settings/media-types ──────────────────────────────────────────
         grp.MapGet("/media-types", (IConfigurationLoader configLoader) =>
@@ -973,7 +1131,7 @@ public static class SettingsEndpoints
         .WithName("GetMediaTypes")
         .WithSummary("Load media type definitions including icons, extensions, and category folders.")
         .Produces<MediaTypeConfigurationDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireHumanSelfService();
 
         // ── PUT /settings/media-types ──────────────────────────────────────────
         grp.MapPut("/media-types", (
@@ -1008,7 +1166,7 @@ public static class SettingsEndpoints
         .WithSummary("Save media type definitions including custom types.")
         .Produces<SettingsSavedResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         // ── POST /settings/media-types/add ────────────────────────────────────
         grp.MapPost("/media-types/add", (
@@ -1043,7 +1201,7 @@ public static class SettingsEndpoints
         .WithSummary("Add a custom media type definition.")
         .Produces<MediaTypeConfigurationDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         // ── DELETE /settings/media-types/{key} ────────────────────────────────
         grp.MapDelete("/media-types/{key}", (
@@ -1074,7 +1232,7 @@ public static class SettingsEndpoints
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         // ── Provider Icon Upload ──────────────────────────────────────────────
 
@@ -1128,7 +1286,7 @@ public static class SettingsEndpoints
         .Produces<ProviderIconPathResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .DisableAntiforgery()
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersConfigWrite);
 
         grp.MapGet("/providers/{name}/icon", (
             string name,
@@ -1164,7 +1322,7 @@ public static class SettingsEndpoints
         .WithSummary("Serve the uploaded icon for a provider.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ProvidersStatusRead);
 
         // ── GET /settings/server-general ──────────────────────────────────────
 
@@ -1187,7 +1345,7 @@ public static class SettingsEndpoints
         .WithName("GetServerGeneral")
         .WithSummary("Returns server identity and regional settings.")
         .Produces<ServerGeneralResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireEffectiveAdministrator();
 
         // ── PUT /settings/server-general ──────────────────────────────────────
 
@@ -1219,7 +1377,7 @@ public static class SettingsEndpoints
         .WithSummary("Saves server identity and regional settings.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         grp.MapGet("/catalog", () => Results.Ok(new[]
         {
@@ -1281,7 +1439,7 @@ public static class SettingsEndpoints
         .WithName("GetSettingsCatalog")
         .WithSummary("Returns the canonical settings source-of-truth catalog.")
         .Produces<SettingsCatalogEntryResponse[]>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireEffectiveAdministrator();
 
         return app;
     }
@@ -1437,15 +1595,22 @@ public static class SettingsEndpoints
             {
                 if (library.OrganizationPolicy.Mode == LibraryOrganizationModes.Custom
                     && organizer.ValidateTemplate(library.OrganizationPolicy.CustomTemplate ?? "", out var templateError) is null)
+                {
                     return $"{library.Name}: {templateError}";
+                }
+
                 foreach (var source in library.Sources)
                 {
                     var validation = folders.Validate(new MediaEngine.Contracts.Settings.ValidateServerFolderRequest
                     {
-                        ManualPath = source.Path, CurrentSourceId = source.Id,
+                        ManualPath = source.Path,
+                        CurrentSourceId = source.Id,
                         SelectionMode = source.IsManaged ? MediaEngine.Contracts.Settings.ServerFolderSelectionModes.ManagedLibrary : MediaEngine.Contracts.Settings.ServerFolderSelectionModes.ExistingLibrary,
                     }, config);
-                    if (!validation.CanSelect) return validation.Issues.First(issue => issue.Severity == "error").Message;
+                    if (!validation.CanSelect)
+                    {
+                        return validation.Issues.First(issue => issue.Severity == "error").Message;
+                    }
                 }
             }
             var rootValidation = folders.Validate(new MediaEngine.Contracts.Settings.ValidateServerFolderRequest
@@ -1473,7 +1638,10 @@ public static class SettingsEndpoints
             var after = Root(proposed);
             if (!string.Equals(before, after, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal)
                 && Directory.Exists(before) && Directory.EnumerateFileSystemEntries(before).Any())
+            {
                 return "The current View root contains Personal Space folders. Changing roots would leave those files behind. Keep the current root; relocation is not available.";
+            }
+
             return null;
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
@@ -1485,24 +1653,269 @@ public static class SettingsEndpoints
     internal static string? ValidateViewStorage(LibrariesConfiguration config)
     {
         if (!string.Equals(config.SchemaVersion, "6.0", StringComparison.Ordinal))
+        {
             return "libraries.json must use schema_version 6.0.";
+        }
+
         if (config.Libraries.Any(library =>
                 string.Equals(library.Kind, LibraryKinds.Personal, StringComparison.OrdinalIgnoreCase)))
+        {
             return "Personal Spaces are profile-owned and must not be configured as libraries.";
+        }
+
         var storage = config.StorageLocations.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, config.ViewStorage.StorageLocationId, StringComparison.OrdinalIgnoreCase));
-        if (storage is null) return "View storage must reference a configured storage location.";
-        if (!storage.AllowWrite) return "View storage must reference a writable storage location.";
+        if (storage is null)
+        {
+            return "View storage must reference a configured storage location.";
+        }
+
+        if (!storage.AllowWrite)
+        {
+            return "View storage must reference a writable storage location.";
+        }
+
         var relative = config.ViewStorage.RelativeRoot?.Trim();
         if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative))
+        {
             return "View storage relative_root must be a non-empty relative path.";
+        }
+
         var resolved = Path.GetFullPath(Path.Combine(Path.GetFullPath(storage.Path), relative));
         var parent = Path.GetRelativePath(Path.GetFullPath(storage.Path), resolved);
         if (parent == ".." || parent.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal)
                            || Path.IsPathRooted(parent))
+        {
             return "View storage relative_root must remain within its storage location.";
+        }
+
         return null;
     }
+
+    internal static AuthSettingsDto ToAuthSettingsDto(AuthSettings auth, bool restartRequired)
+    {
+        var canonicalOriginReady = AuthenticationEndpoints.IsCanonicalOriginReady(auth);
+        var smtpConfigured = auth.PasswordReset.Mode.Equals("Smtp", StringComparison.OrdinalIgnoreCase)
+            && !string.IsNullOrWhiteSpace(auth.PasswordReset.SmtpHost)
+            && auth.PasswordReset.SmtpPort is > 0 and <= 65535
+            && !string.IsNullOrWhiteSpace(auth.PasswordReset.FromAddress);
+        var recoveryReady = smtpConfigured && canonicalOriginReady;
+        return new AuthSettingsDto
+        {
+            Mode = auth.Mode,
+            LocalhostBypass = auth.LocalhostBypass,
+            RequireHttpsRemote = auth.RequireHttpsRemote,
+            PasswordSignInEnabled = auth.PasswordSignInEnabled,
+            PasskeySignInEnabled = auth.PasskeySignInEnabled,
+            ExternalSignInEnabled = auth.ExternalSignInEnabled,
+            AllowRemoteSignIn = auth.AllowRemoteSignIn,
+            AllowLocalOnlyAccounts = auth.AllowLocalOnlyAccounts,
+            TrustedLocalNetworks = auth.TrustedLocalNetworks,
+            InvitationLifetimeHours = auth.InvitationLifetimeHours,
+            SessionLifetimeHours = auth.SessionLifetimeHours,
+            MaximumActiveSessions = auth.MaximumActiveSessions,
+            CanonicalOriginReady = canonicalOriginReady,
+            PasskeyReady = auth.PasskeySignInEnabled
+                && !auth.Mode.Equals("DisabledLocalOnly", StringComparison.OrdinalIgnoreCase)
+                && canonicalOriginReady,
+            RecoveryDeliveryReady = recoveryReady,
+            RestartRequired = restartRequired,
+            PasswordReset = new MediaEngine.Contracts.Settings.PasswordResetDeliveryDto
+            {
+                Mode = auth.PasswordReset.Mode,
+                PublicBaseUrl = auth.PasswordReset.PublicBaseUrl,
+                SmtpHost = auth.PasswordReset.SmtpHost,
+                SmtpPort = auth.PasswordReset.SmtpPort,
+                FromAddress = auth.PasswordReset.FromAddress,
+                Configured = smtpConfigured,
+                Ready = recoveryReady,
+            },
+            ExternalProviders = auth.ExternalProviders.Select(provider =>
+            {
+                var configured = !string.IsNullOrWhiteSpace(provider.Id)
+                    && !string.IsNullOrWhiteSpace(provider.ClientId)
+                    && (provider.Kind.Equals(ExternalAuthProviderKinds.OpenIdConnect, StringComparison.OrdinalIgnoreCase)
+                        ? Uri.TryCreate(provider.Authority, UriKind.Absolute, out var authority)
+                          && authority.Scheme == Uri.UriSchemeHttps
+                        : !string.IsNullOrWhiteSpace(provider.ClientSecret)
+                          && Uri.TryCreate(provider.Issuer, UriKind.Absolute, out var issuer)
+                          && issuer.Scheme == Uri.UriSchemeHttps
+                          && Uri.TryCreate(provider.AuthorizationEndpoint, UriKind.Absolute, out var authorization)
+                          && authorization.Scheme == Uri.UriSchemeHttps
+                          && Uri.TryCreate(provider.TokenEndpoint, UriKind.Absolute, out var token)
+                          && token.Scheme == Uri.UriSchemeHttps
+                          && Uri.TryCreate(provider.UserInformationEndpoint, UriKind.Absolute, out var userInfo)
+                          && userInfo.Scheme == Uri.UriSchemeHttps);
+                return new MediaEngine.Contracts.Settings.ExternalAuthProviderDto
+                {
+                    Id = provider.Id,
+                    Kind = provider.Kind,
+                    Enabled = provider.Enabled,
+                    DisplayName = provider.DisplayName,
+                    Issuer = provider.Issuer,
+                    Authority = provider.Authority,
+                    ClientId = provider.ClientId,
+                    Scopes = provider.Scopes,
+                    UsePkce = provider.UsePkce,
+                    AuthorizationEndpoint = provider.AuthorizationEndpoint,
+                    TokenEndpoint = provider.TokenEndpoint,
+                    UserInformationEndpoint = provider.UserInformationEndpoint,
+                    IdClaim = provider.IdClaim,
+                    NameClaim = provider.NameClaim,
+                    EmailClaim = provider.EmailClaim,
+                    CallbackPath = $"/signin-tuvima-{provider.Id}",
+                    Configured = configured,
+                    Ready = AuthenticationEndpoints.IsExternalSignInEnabled(auth)
+                        && provider.Enabled && configured && canonicalOriginReady,
+                    RestartRequired = restartRequired,
+                };
+            }).ToList(),
+        };
+    }
+
+    internal static async Task<bool> HasUsableAdministratorSignInAsync(
+        AuthSettings policy,
+        IAccountRepository accounts,
+        IIdentityRepository identities,
+        IAccountExternalLoginService externalLogins,
+        Microsoft.AspNetCore.Identity.UserManager<MediaEngine.Domain.Entities.Account> users,
+        CancellationToken ct)
+    {
+        foreach (var account in (await accounts.GetAllAsync(ct).ConfigureAwait(false))
+                     .Where(account => account.IsEnabled && account.IsAdministrator))
+        {
+            var grants = (await accounts.GetGrantsAsync(account.Id, ct).ConfigureAwait(false))
+                .Where(grant => grant.IsEnabled && grant.AdminEnabled)
+                .ToArray();
+            if (grants.Length == 0)
+            {
+                continue;
+            }
+
+            if (account.IsLocalOnly)
+            {
+                if (!policy.AllowLocalOnlyAccounts)
+                {
+                    continue;
+                }
+
+                foreach (var grant in grants)
+                {
+                    if (await accounts.GetLocalOnlyAccountIdForProfileAsync(grant.ProfileId, ct)
+                            .ConfigureAwait(false) == account.Id)
+                    {
+                        return true;
+                    }
+                }
+                continue;
+            }
+
+            var localOnlyMode = policy.Mode.Equals("DisabledLocalOnly", StringComparison.OrdinalIgnoreCase);
+            if (!localOnlyMode && policy.PasswordSignInEnabled &&
+                await identities.GetAccountCredentialAsync(
+                    account.Id,
+                    MediaEngine.Domain.Entities.AccountCredentialKind.Password,
+                    ct).ConfigureAwait(false) is not null)
+            {
+                return true;
+            }
+
+            if (!localOnlyMode && policy.PasskeySignInEnabled &&
+                AuthenticationEndpoints.IsCanonicalOriginReady(policy) &&
+                (await users.GetPasskeysAsync(account).ConfigureAwait(false)).Count > 0)
+            {
+                return true;
+            }
+
+            if (policy.Mode is "Optional" or "Required" && policy.ExternalSignInEnabled)
+            {
+                var linked = await externalLogins.GetByAccountAsync(account.Id, ct).ConfigureAwait(false);
+                if (linked.Any(login => AuthenticationEndpoints.IsConfiguredProvider(
+                        policy, login.Provider, login.Issuer)))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static string? ValidateExternalProvider(string providerId, UpdateExternalAuthProviderRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(providerId) || providerId.Length > 64 ||
+            providerId.Any(character => !char.IsAsciiLetterOrDigit(character) && character is not '-' and not '_'))
+        {
+            return "Provider id must contain only letters, numbers, hyphens, and underscores.";
+        }
+
+        if (request.Kind is not (ExternalAuthProviderKinds.OpenIdConnect or ExternalAuthProviderKinds.OAuth))
+        {
+            return "Provider kind must be oidc or oauth.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.DisplayName) || string.IsNullOrWhiteSpace(request.ClientId))
+        {
+            return "Provider display name and client id are required.";
+        }
+
+        if (request.ClientSecret is { Length: > 4096 } || request.ClientSecret is not null && string.IsNullOrWhiteSpace(request.ClientSecret))
+        {
+            return "Client secret is invalid.";
+        }
+
+        if (request.ClientSecret is not null && request.ClearClientSecret)
+        {
+            return "Choose either a replacement client secret or clear the existing secret.";
+        }
+
+        if (request.Scopes is null || request.Scopes.Count is 0 or > 20 || request.Scopes.Any(scope => string.IsNullOrWhiteSpace(scope) || scope.Length > 100))
+        {
+            return "Provider scopes must contain between one and twenty valid values.";
+        }
+
+        if (request.Kind == ExternalAuthProviderKinds.OpenIdConnect)
+        {
+            if (!IsHttps(request.Authority))
+            {
+                return "OIDC authority must be an absolute HTTPS URL.";
+            }
+
+            if (!request.Scopes.Contains("openid", StringComparer.Ordinal))
+            {
+                return "OIDC providers must request the openid scope.";
+            }
+        }
+        else if (!IsHttps(request.Issuer) || !IsHttps(request.AuthorizationEndpoint) ||
+                 !IsHttps(request.TokenEndpoint) || !IsHttps(request.UserInformationEndpoint))
+        {
+            return "OAuth issuer, authorization, token, and user information endpoints must use HTTPS.";
+        }
+        return null;
+    }
+
+    private static ExternalAuthProviderSettings ToExternalProvider(
+        string providerId,
+        UpdateExternalAuthProviderRequest request) => new()
+        {
+            Id = providerId.Trim(),
+            Kind = request.Kind,
+            Enabled = request.Enabled,
+            DisplayName = request.DisplayName.Trim(),
+            Issuer = (request.Issuer ?? string.Empty).Trim(),
+            Authority = (request.Authority ?? string.Empty).Trim(),
+            ClientId = request.ClientId.Trim(),
+            Scopes = request.Scopes.Select(scope => scope.Trim()).Distinct(StringComparer.Ordinal).ToList(),
+            UsePkce = request.UsePkce,
+            AuthorizationEndpoint = (request.AuthorizationEndpoint ?? string.Empty).Trim(),
+            TokenEndpoint = (request.TokenEndpoint ?? string.Empty).Trim(),
+            UserInformationEndpoint = (request.UserInformationEndpoint ?? string.Empty).Trim(),
+            IdClaim = (request.IdClaim ?? "id").Trim(),
+            NameClaim = (request.NameClaim ?? "name").Trim(),
+            EmailClaim = (request.EmailClaim ?? "email").Trim(),
+        };
+
+    private static bool IsHttps(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
 
     private static string ResolveMetadataLanguage(CoreConfiguration core) =>
         string.IsNullOrWhiteSpace(core.Language.Metadata) ? "en" : core.Language.Metadata.Trim();

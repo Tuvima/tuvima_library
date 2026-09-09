@@ -2,16 +2,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 
@@ -76,13 +76,13 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(fuzzy);
 
-        _config        = config;
-        _httpFactory   = httpFactory;
-        _logger        = logger;
-        _fuzzy         = fuzzy;
+        _config = config;
+        _httpFactory = httpFactory;
+        _logger = logger;
+        _fuzzy = fuzzy;
         _responseCache = responseCache;
-        _configLoader  = configLoader;
-        _reconciler    = reconciler;
+        _configLoader = configLoader;
+        _reconciler = reconciler;
         _commonsImageResolver = commonsImageResolver ?? new CommonsImageResolver(
             config,
             httpFactory,
@@ -138,7 +138,9 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
         CancellationToken ct = default)
     {
         if (!CanHandle(request.EntityType))
+        {
             return [];
+        }
 
         try
         {
@@ -172,7 +174,9 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.Title))
+        {
             return [];
+        }
 
         try
         {
@@ -187,7 +191,9 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
                 Name, request.Title, request.MediaType, candidates.Count);
 
             if (candidates.Count == 0)
+            {
                 return [];
+            }
 
             // Optionally filter by media type using P31, with title/author/ISBN hints
             // for composite scoring (boosts candidates with matching metadata).
@@ -225,7 +231,7 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
             if (request.MediaType == MediaType.Audiobooks)
             {
                 var editionResults = new List<SearchResultItem>();
-                var workResults    = new List<SearchResultItem>();
+                var workResults = new List<SearchResultItem>();
 
                 foreach (var c in candidates.Take(limit))
                 {
@@ -240,28 +246,39 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
                             // Build a rich description with audiobook-specific details.
                             var parts = new List<string>();
                             if (!string.IsNullOrEmpty(ed.Narrator))
+                            {
                                 parts.Add($"Narrated by {ed.Narrator}");
+                            }
+
                             if (IsDisplayableSearchMetadata(ed.Duration))
+                            {
                                 parts.Add($"Duration: {ed.Duration}");
+                            }
+
                             if (!string.IsNullOrEmpty(ed.Publisher))
+                            {
                                 parts.Add($"Publisher: {ed.Publisher}");
+                            }
+
                             if (!string.IsNullOrEmpty(c.Description))
+                            {
                                 parts.Add(c.Description);
+                            }
 
                             var editionDesc = parts.Count > 0
                                 ? string.Join(" · ", parts)
                                 : c.Description;
 
                             editionResults.Add(new SearchResultItem(
-                                Title:          c.Name,
-                                Author:         null,
-                                Description:    editionDesc,
-                                Year:           null,
-                                ThumbnailUrl:   null,
+                                Title: c.Name,
+                                Author: null,
+                                Description: editionDesc,
+                                Year: null,
+                                ThumbnailUrl: null,
                                 ProviderItemId: ed.EditionQid ?? c.Id,
-                                Confidence:     c.Score / 100.0,
-                                ProviderName:   Name,
-                                ResultType:     "audiobook_edition",
+                                Confidence: c.Score / 100.0,
+                                ProviderName: Name,
+                                ResultType: "audiobook_edition",
                                 ExtraFields: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                                 {
                                     ["canonical_kind"] = "Audiobook edition",
@@ -276,15 +293,15 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
 
                     // Always include the work as a fallback.
                     workResults.Add(new SearchResultItem(
-                        Title:          c.Name,
-                        Author:         null,
-                        Description:    c.Description,
-                        Year:           null,
-                        ThumbnailUrl:   null,
+                        Title: c.Name,
+                        Author: null,
+                        Description: c.Description,
+                        Year: null,
+                        ThumbnailUrl: null,
                         ProviderItemId: c.Id,
-                        Confidence:     c.Score / 100.0,
-                        ProviderName:   Name,
-                        ResultType:     "work",
+                        Confidence: c.Score / 100.0,
+                        ProviderName: Name,
+                        ResultType: "work",
                         ExtraFields: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                         {
                             ["canonical_kind"] = "Work",
@@ -299,14 +316,14 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
             return candidates
                 .Take(limit)
                 .Select(c => new SearchResultItem(
-                    Title:          c.Name,
-                    Author:         null,
-                    Description:    c.Description,
-                    Year:           null,
-                    ThumbnailUrl:   null,
+                    Title: c.Name,
+                    Author: null,
+                    Description: c.Description,
+                    Year: null,
+                    ThumbnailUrl: null,
                     ProviderItemId: c.Id,
-                    Confidence:     c.Score / 100.0,
-                    ProviderName:   Name))
+                    Confidence: c.Score / 100.0,
+                    ProviderName: Name))
                 .ToList();
         }
         catch (OperationCanceledException)

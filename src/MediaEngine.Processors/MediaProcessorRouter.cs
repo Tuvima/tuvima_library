@@ -85,7 +85,9 @@ public sealed class MediaProcessorRouter : IProcessorRouter, IDisposable
         var extension = Path.GetExtension(filePath);
         var extensionMatch = sorted.FirstOrDefault(processor => ExtensionMatches(processor, extension));
         if (extensionMatch is not null)
+        {
             return extensionMatch;
+        }
 
         // Walk from highest to lowest priority.
         // Skip the last entry (generic fallback, int.MinValue) during the
@@ -101,7 +103,9 @@ public sealed class MediaProcessorRouter : IProcessorRouter, IDisposable
             }
 
             if (processor.CanProcess(filePath))
+            {
                 return processor;
+            }
         }
 
         return fallback;
@@ -145,7 +149,11 @@ public sealed class MediaProcessorRouter : IProcessorRouter, IDisposable
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
         _semaphore.Dispose();
     }
@@ -161,16 +169,20 @@ public sealed class MediaProcessorRouter : IProcessorRouter, IDisposable
     {
         // Fast path: no lock needed if already sorted and not dirty.
         if (!_dirty && _sorted is not null)
+        {
             return _sorted;
+        }
 
         lock (_processors)
         {
             if (!_dirty && _sorted is not null)
+            {
                 return _sorted;
+            }
 
             // Sort descending by Priority so highest-priority processors are tried first.
             _sorted = [.. _processors.OrderByDescending(p => p.Priority)];
-            _dirty  = false;
+            _dirty = false;
             return _sorted;
         }
     }

@@ -1,0 +1,6 @@
+{
+  "minimumLinePercent": 13.0,
+  "minimumBranchPercent": 7.0,
+  "targetLinePercent": 70.0,
+  "targetBranchPercent": 60.0
+}

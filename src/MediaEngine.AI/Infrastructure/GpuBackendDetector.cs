@@ -58,19 +58,23 @@ public sealed class GpuBackendDetector
             {
                 // Check if the Vulkan GPU is Intel integrated — iGPUs should not be used for AI.
                 bool isIntelIntegrated = vulkanGpu is not null && (
-                    vulkanGpu.Contains("Intel",       StringComparison.OrdinalIgnoreCase) ||
-                    vulkanGpu.Contains("UHD",         StringComparison.OrdinalIgnoreCase) ||
-                    vulkanGpu.Contains("Iris",        StringComparison.OrdinalIgnoreCase) ||
+                    vulkanGpu.Contains("Intel", StringComparison.OrdinalIgnoreCase) ||
+                    vulkanGpu.Contains("UHD", StringComparison.OrdinalIgnoreCase) ||
+                    vulkanGpu.Contains("Iris", StringComparison.OrdinalIgnoreCase) ||
                     vulkanGpu.Contains("HD Graphics", StringComparison.OrdinalIgnoreCase));
 
                 HasDedicatedGpu = !isIntelIntegrated;
 
                 if (isIntelIntegrated)
+                {
                     _logger.LogInformation(
                         "GPU detected via Vulkan: {GpuName} (integrated — will use CPU for AI inference)",
                         vulkanGpu);
+                }
                 else
+                {
                     _logger.LogInformation("GPU detected via Vulkan: {GpuName} (dedicated)", vulkanGpu);
+                }
 
                 return ("vulkan", vulkanGpu);
             }
@@ -92,20 +96,28 @@ public sealed class GpuBackendDetector
     public bool IsIntegratedGpuOnly()
     {
         // If CUDA is available, it's a dedicated NVIDIA GPU.
-        if (TryDetectCuda(out _)) return false;
+        if (TryDetectCuda(out _))
+        {
+            return false;
+        }
 
         // Check nvidia-smi — if it works, dedicated NVIDIA present.
-        if (QueryNvidiaSmi() is not null) return false;
+        if (QueryNvidiaSmi() is not null)
+        {
+            return false;
+        }
 
         // If only Vulkan detected, check if it's Intel integrated.
         if (TryDetectVulkan(out var name))
         {
             if (name is not null && (
-                name.Contains("Intel",       StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("UHD",         StringComparison.OrdinalIgnoreCase) ||
-                name.Contains("Iris",        StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("Intel", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("UHD", StringComparison.OrdinalIgnoreCase) ||
+                name.Contains("Iris", StringComparison.OrdinalIgnoreCase) ||
                 name.Contains("HD Graphics", StringComparison.OrdinalIgnoreCase)))
+            {
                 return true;
+            }
 
             // Non-Intel Vulkan GPU — treat as dedicated.
             return false;
@@ -131,7 +143,11 @@ public sealed class GpuBackendDetector
                 CreateNoWindow = true,
             };
             using var proc = System.Diagnostics.Process.Start(psi);
-            if (proc is null) return null;
+            if (proc is null)
+            {
+                return null;
+            }
+
             var output = proc.StandardOutput.ReadToEnd().Trim();
             proc.WaitForExit(5000);
             return string.IsNullOrWhiteSpace(output) ? null : output.Split('\n')[0].Trim();

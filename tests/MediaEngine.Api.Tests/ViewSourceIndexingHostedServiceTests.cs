@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Contracts.LocalAssets;
-using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Storage;
@@ -32,7 +32,7 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
             StorageLocations = [StorageRoot()],
             ViewStorage = new ViewStorageConfig { StorageLocationId = "view-tests", RelativeRoot = "managed" },
         });
-        _storage = new ViewStorageService(_configuration, _spaces);
+        _storage = new ViewStorageService(_configuration, _spaces, new ViewSharedLibraryRepository(_database));
     }
 
     [Fact]
@@ -180,7 +180,7 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
     private void AddSource(Guid libraryId, string path, bool includeSubdirectories)
     {
         var profileId = Guid.NewGuid();
-        new ProfileRepository(_database).InsertAsync(new Profile
+        ProfileTestData.InsertAsync(_database, new Profile
         {
             Id = profileId,
             DisplayName = profileId.ToString("N"),
@@ -199,7 +199,11 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
         var timeout = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(3);
         while (!condition())
         {
-            if (DateTimeOffset.UtcNow >= timeout) throw new TimeoutException("Expected asynchronous condition was not reached.");
+            if (DateTimeOffset.UtcNow >= timeout)
+            {
+                throw new TimeoutException("Expected asynchronous condition was not reached.");
+            }
+
             await Task.Delay(20);
         }
     }
@@ -209,7 +213,10 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
         _configuration.Dispose();
         _database.Dispose();
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+        if (Directory.Exists(_root))
+        {
+            Directory.Delete(_root, recursive: true);
+        }
     }
 
     private sealed class FakeWatcherFactory : IViewSourceWatcherFactory
@@ -253,7 +260,11 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
         {
             Scans.Enqueue(libraryId);
             ScanStarted.TrySetResult();
-            if (blockScan) await _scanRelease.Task.WaitAsync(ct);
+            if (blockScan)
+            {
+                await _scanRelease.Task.WaitAsync(ct);
+            }
+
             return new LocalAssetScanResultDto(libraryId, 0, 0, 0, 0, 0, 0);
         }
 
@@ -264,7 +275,10 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
         {
             AttemptedPaths.Enqueue(path);
             if (failFirstDispatch && Interlocked.Exchange(ref _failed, 1) == 0)
+            {
                 throw new IOException("Simulated partial write race.");
+            }
+
             SuccessfulDispatches.Enqueue((libraryId, Path.GetFullPath(path)));
             FirstSuccessfulDispatch.TrySetResult();
             return Task.FromResult<LocalAssetUpsertResult?>(

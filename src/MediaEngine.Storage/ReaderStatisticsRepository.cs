@@ -57,15 +57,15 @@ public sealed class ReaderStatisticsRepository : IReaderStatisticsRepository
                 last_session_at         = @lastSessionAt;
             """, new
         {
-            id                   = stats.Id,
-            userId               = stats.UserId,
-            assetId              = stats.AssetId,
-            chaptersRead         = stats.ChaptersRead,
+            id = stats.Id,
+            userId = stats.UserId,
+            assetId = stats.AssetId,
+            chaptersRead = stats.ChaptersRead,
             totalReadingTimeSecs = stats.TotalReadingTimeSecs,
-            wordsRead            = stats.WordsRead,
-            sessionsCount        = stats.SessionsCount,
-            avgWordsPerMinute    = stats.AvgWordsPerMinute,
-            lastSessionAt        = stats.LastSessionAt.HasValue
+            wordsRead = stats.WordsRead,
+            sessionsCount = stats.SessionsCount,
+            avgWordsPerMinute = stats.AvgWordsPerMinute,
+            lastSessionAt = stats.LastSessionAt.HasValue
                                        ? (object)stats.LastSessionAt.Value.ToString("O")
                                        : null,
         });
@@ -79,27 +79,27 @@ public sealed class ReaderStatisticsRepository : IReaderStatisticsRepository
 
     private sealed class StatsRow
     {
-        public Guid    Id                   { get; set; }
-        public string  UserId               { get; set; } = string.Empty;
-        public Guid    AssetId              { get; set; }
-        public int     ChaptersRead         { get; set; }
-        public long    TotalReadingTimeSecs { get; set; }
-        public long    WordsRead            { get; set; }
-        public int     SessionsCount        { get; set; }
-        public double  AvgWordsPerMinute    { get; set; }
-        public string? LastSessionAt        { get; set; }
+        public Guid Id { get; set; }
+        public string UserId { get; set; } = string.Empty;
+        public Guid AssetId { get; set; }
+        public int ChaptersRead { get; set; }
+        public long TotalReadingTimeSecs { get; set; }
+        public long WordsRead { get; set; }
+        public int SessionsCount { get; set; }
+        public double AvgWordsPerMinute { get; set; }
+        public string? LastSessionAt { get; set; }
     }
 
     private static ReaderStatistics MapRow(StatsRow r) => new()
     {
-        Id                   = r.Id,
-        UserId               = r.UserId,
-        AssetId              = r.AssetId,
-        ChaptersRead         = r.ChaptersRead,
+        Id = r.Id,
+        UserId = r.UserId,
+        AssetId = r.AssetId,
+        ChaptersRead = r.ChaptersRead,
         TotalReadingTimeSecs = r.TotalReadingTimeSecs,
-        WordsRead            = r.WordsRead,
-        SessionsCount        = r.SessionsCount,
-        AvgWordsPerMinute    = r.AvgWordsPerMinute,
-        LastSessionAt        = r.LastSessionAt is null ? null : DateTime.Parse(r.LastSessionAt),
+        WordsRead = r.WordsRead,
+        SessionsCount = r.SessionsCount,
+        AvgWordsPerMinute = r.AvgWordsPerMinute,
+        LastSessionAt = r.LastSessionAt is null ? null : DateTime.Parse(r.LastSessionAt),
     };
 }

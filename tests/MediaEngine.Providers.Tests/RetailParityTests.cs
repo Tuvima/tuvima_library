@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -6,9 +7,8 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Services;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
-using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 using Xunit.Abstractions;
+using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
 namespace MediaEngine.Providers.Tests;
 
@@ -348,10 +348,10 @@ public sealed class RetailParityTests
         _output.WriteLine($"[{fixtureLabel}] manual={manualScore.CompositeScore:F4} pipeline={pipelineScore.CompositeScore:F4}");
 
         Assert.Equal(manualScore.CompositeScore, pipelineScore.CompositeScore);
-        Assert.Equal(manualScore.TitleScore,    pipelineScore.TitleScore);
-        Assert.Equal(manualScore.AuthorScore,   pipelineScore.AuthorScore);
-        Assert.Equal(manualScore.YearScore,     pipelineScore.YearScore);
-        Assert.Equal(manualScore.FormatScore,   pipelineScore.FormatScore);
+        Assert.Equal(manualScore.TitleScore, pipelineScore.TitleScore);
+        Assert.Equal(manualScore.AuthorScore, pipelineScore.AuthorScore);
+        Assert.Equal(manualScore.YearScore, pipelineScore.YearScore);
+        Assert.Equal(manualScore.FormatScore, pipelineScore.FormatScore);
     }
 
     // ── Stubs ─────────────────────────────────────────────────────────────────

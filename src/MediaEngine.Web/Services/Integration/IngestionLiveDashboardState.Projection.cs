@@ -1,6 +1,6 @@
 using System.Globalization;
-using MediaEngine.Domain.Services;
 using MediaEngine.Contracts.Realtime;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Formatting;
 using MudBlazor;
@@ -84,9 +84,13 @@ public sealed partial class IngestionLiveDashboardState
     {
         var index = jobs.FindIndex(job => job.JobId == liveJob.JobId);
         if (index >= 0)
+        {
             jobs[index] = liveJob;
+        }
         else
+        {
             jobs.Insert(0, liveJob);
+        }
     }
 
     private static IngestionOperationsJobDto? BuildLiveItemJob(
@@ -95,13 +99,17 @@ public sealed partial class IngestionLiveDashboardState
     {
         var items = FreshIngestionItemProgress(stateContainer).ToList();
         if (items.Count == 0)
+        {
             return null;
+        }
 
         var activeItems = items
             .Where(item => !IsFileIngestionTerminal(item.Event))
             .ToList();
         if (activeItems.Count == 0)
+        {
             return null;
+        }
 
         var latest = activeItems
             .OrderByDescending(item => item.ReceivedAt)
@@ -195,18 +203,24 @@ public sealed partial class IngestionLiveDashboardState
     private static IngestionCurrentActivityDto? BuildLiveItemActivity(UniverseStateContainer? stateContainer)
     {
         if (stateContainer is null)
+        {
             return null;
+        }
 
         var items = FreshIngestionItemProgress(stateContainer).ToList();
         if (items.Count == 0)
+        {
             return null;
+        }
 
         var activeItems = items
             .Where(item => !IsFileIngestionTerminal(item.Event))
             .OrderByDescending(item => item.ReceivedAt)
             .ToList();
         if (activeItems.Count == 0)
+        {
             return null;
+        }
 
         var latest = activeItems[0];
         var batch = stateContainer.BatchProgress is { IsComplete: false } liveBatch
@@ -341,7 +355,10 @@ public sealed partial class IngestionLiveDashboardState
         var batchQueued = Math.Max(0, batch.FilesQueued);
         activity.ActiveCount = Math.Max(activity.ActiveCount, batchActive);
         if (batchQueued > 0 || batchActive > 0)
+        {
             activity.QueuedCount = batchQueued;
+        }
+
         activity.LastUpdatedTime = DateTimeOffset.UtcNow;
         return activity;
     }
@@ -555,7 +572,9 @@ public sealed partial class IngestionLiveDashboardState
     public static string FriendlyStageName(string? stage)
     {
         if (string.IsNullOrWhiteSpace(stage))
+        {
             return "Queued";
+        }
 
         return stage.Trim().ToLowerInvariant() switch
         {
@@ -590,7 +609,9 @@ public sealed partial class IngestionLiveDashboardState
     public static string FriendlyStatusName(string? status)
     {
         if (string.IsNullOrWhiteSpace(status))
+        {
             return "Unknown";
+        }
 
         return status.Trim().ToLowerInvariant() switch
         {
@@ -609,17 +630,35 @@ public sealed partial class IngestionLiveDashboardState
     {
         var value = status ?? string.Empty;
         if (IsStatus(value, "running", "leased"))
+        {
             return "info";
+        }
+
         if (IsStatus(value, "succeeded"))
+        {
             return "success";
+        }
+
         if (IsStatus(value, "retry_waiting", "failed_retryable", "interrupted"))
+        {
             return "warning";
+        }
+
         if (IsStatus(value, "blocked", "failed_terminal", "dead_lettered"))
+        {
             return "danger";
+        }
+
         if (IsStatus(value, "stale"))
+        {
             return "stale";
+        }
+
         if (IsStatus(value, "no_result", "not_applicable", "skipped", "cancelled"))
+        {
             return "muted";
+        }
+
         return "neutral";
     }
 
@@ -807,15 +846,30 @@ public sealed partial class IngestionLiveDashboardState
     private static string ResolveNumberedStageStatusKey(IngestionStageProgressDto stage)
     {
         if (IsCompleteStageLabel(stage.StatusLabel))
+        {
             return "Ingestion_StatusComplete";
+        }
+
         if (stage.ActiveCount > 0)
+        {
             return "Ingestion_StatusActive";
+        }
+
         if (stage.IsStale)
+        {
             return "Ingestion_StatusPending";
+        }
+
         if (stage.PercentComplete >= 100)
+        {
             return "Ingestion_StatusComplete";
+        }
+
         if (stage.QueuedCount > 0 || stage.CompletedFiles > 0)
+        {
             return "Ingestion_StatusPending";
+        }
+
         return "Ingestion_StatusIdle";
     }
 
@@ -839,9 +893,13 @@ public sealed partial class IngestionLiveDashboardState
 
         var hasActiveStage = pipelineStages.Any(stage => stage.StatusKey == "Ingestion_StatusActive");
         if (!hasActiveStage && metrics.TotalFiles > 0 && metrics.ProcessedFiles >= metrics.TotalFiles)
+        {
             percent = 100;
+        }
         else if (hasActiveStage && percent >= 100)
+        {
             percent = 99;
+        }
 
         var activeStage = stages.FirstOrDefault(stage => stage.StatusKey == "Ingestion_StatusActive")
             ?? stages.FirstOrDefault(stage => !stage.HideCount && stage.Percent < 100)
@@ -900,16 +958,22 @@ public sealed partial class IngestionLiveDashboardState
 
         var totalFiles = Math.Max(0, metrics.TotalFiles);
         if (totalFiles == 0)
+        {
             totalFiles = Math.Max(0, latestBatch?.TotalFiles ?? snapshot?.Summary.TotalItems ?? 0);
+        }
 
         var processedFiles = ResolveFileProcessingCount(snapshot, activeJobs, latestBatch, metrics, totalFiles);
 
         if (totalFiles > 0)
+        {
             processedFiles = Math.Clamp(processedFiles, 0, totalFiles);
+        }
 
         var matchedItems = Count(snapshot, "matched", snapshot?.Summary.RegisteredItems ?? latestBatch?.RegisteredCount ?? 0);
         if (matchedItems == 0)
+        {
             matchedItems = Math.Max(0, latestBatch?.RegisteredCount ?? 0);
+        }
 
         var reviewItems = pendingReviews.Count > 0
             ? pendingReviews.Count
@@ -921,9 +985,15 @@ public sealed partial class IngestionLiveDashboardState
             : Math.Max(0, reviewItems - expectedReviewItems);
         var activeItems = currentActivities.Sum(activity => Math.Max(0, activity.ActiveCount));
         if (activeItems == 0)
+        {
             activeItems = activeJobs.Count(job => IsActiveJob(job));
+        }
+
         if (totalFiles > 0)
+        {
             activeItems = Math.Clamp(activeItems, 0, totalFiles);
+        }
+
         var queuedItems = ResolveQueuedPipelineCount(currentActivities, activeJobs, metrics, totalFiles, activeItems);
 
         var addedOrUpdatedCount = latestBatch is not null
@@ -998,7 +1068,9 @@ public sealed partial class IngestionLiveDashboardState
     public static string ResolveActiveStage(IReadOnlyList<IngestionOperationsJobDto> activeJobs)
     {
         if (activeJobs.Count == 0)
+        {
             return string.Empty;
+        }
 
         var stage = activeJobs
             .Select(job => StringHelpers.FirstNonBlankOr("", job.CurrentStage, job.JobType))
@@ -1006,15 +1078,30 @@ public sealed partial class IngestionLiveDashboardState
             ?.ToLowerInvariant() ?? string.Empty;
 
         if (stage.Contains("scan") || stage.Contains("queue") || stage.Contains("detect") || stage.Contains("parse"))
+        {
             return "scanning";
+        }
+
         if (stage.Contains("bridge") || stage.Contains("qid") || stage.Contains("wikidata") || stage.Contains("canonical"))
+        {
             return "wikidata";
+        }
+
         if (stage.Contains("identify") || stage.Contains("hash") || stage.Contains("fingerprint") || stage.Contains("match") || stage.Contains("retail"))
+        {
             return "retail";
+        }
+
         if (stage.Contains("enrich") || stage.Contains("hydrate") || stage.Contains("metadata") || stage.Contains("universe"))
+        {
             return "enrichment";
+        }
+
         if (stage.Contains("register") || stage.Contains("organize") || stage.Contains("review") || stage.Contains("complete"))
+        {
             return "enrichment";
+        }
+
         return "retail";
     }
 
@@ -1075,11 +1162,15 @@ public sealed partial class IngestionLiveDashboardState
     {
         var terminal = ResolveTerminalPipelineCount(snapshot, totalFiles);
         if (terminal > 0)
+        {
             return terminal;
+        }
 
         var enriched = Count(snapshot, "enriched");
         if (enriched > 0)
+        {
             return ClampFileCount(enriched, totalFiles);
+        }
 
         var hasCurrentPipelineStages = snapshot?.PipelineStages.Any(stage =>
             stage.Key.Equals("matched", StringComparison.OrdinalIgnoreCase)
@@ -1089,7 +1180,9 @@ public sealed partial class IngestionLiveDashboardState
             || stage.Key.Equals("enriched", StringComparison.OrdinalIgnoreCase)) == true;
 
         if (hasCurrentPipelineStages)
+        {
             return 0;
+        }
 
         return ClampFileCount(snapshot?.Summary.RegisteredItems ?? 0, totalFiles);
     }
@@ -1108,7 +1201,9 @@ public sealed partial class IngestionLiveDashboardState
         IReadOnlyList<LiveIngestionItemProgress> items)
     {
         if (batch?.FilesTotal > 0)
+        {
             return batch.FilesTotal;
+        }
 
         var batchId = items.FirstOrDefault()?.Event.BatchId;
         var snapshotTotal = batchId is { } id
@@ -1124,7 +1219,9 @@ public sealed partial class IngestionLiveDashboardState
         int total)
     {
         if (items.Count == 0)
+        {
             return 0;
+        }
 
         var normalizedTotal = Math.Max(1, total);
         var progressUnits = items
@@ -1173,10 +1270,14 @@ public sealed partial class IngestionLiveDashboardState
     {
         var operationIds = Operations.Select(operation => operation.Id).ToHashSet();
         foreach (var id in _operationDetails.Keys.Where(id => !operationIds.Contains(id)).ToList())
+        {
             _operationDetails.Remove(id);
+        }
 
         if (ExpandedOperationId is { } expandedId && !operationIds.Contains(expandedId))
+        {
             ExpandedOperationId = null;
+        }
 
         var entityIds = Operations
             .Select(operation => operation.EntityId)
@@ -1184,7 +1285,9 @@ public sealed partial class IngestionLiveDashboardState
             .Select(id => id!.Value)
             .ToHashSet();
         foreach (var id in _capabilitiesByEntity.Keys.Where(id => !entityIds.Contains(id)).ToList())
+        {
             _capabilitiesByEntity.Remove(id);
+        }
     }
 
     private static int CountStatuses(IReadOnlyDictionary<string, int> summary, params string[] statuses) =>
@@ -1245,7 +1348,9 @@ public sealed partial class IngestionLiveDashboardState
     private static int ResolveTerminalPipelineCount(IngestionOperationsSnapshotDto? snapshot, int totalFiles)
     {
         if (snapshot is null)
+        {
             return 0;
+        }
 
         var hasIdentityPipelineStages = snapshot.PipelineStages.Any(stage =>
             stage.Key.Equals("matched", StringComparison.OrdinalIgnoreCase)
@@ -1256,7 +1361,9 @@ public sealed partial class IngestionLiveDashboardState
         var enrichedTotal = Total(snapshot, "enriched", 0);
         var readyForLibrary = Count(snapshot, "enriched");
         if (readyForLibrary == 0 && enrichedTotal == 0 && !hasIdentityPipelineStages)
+        {
             readyForLibrary = Count(snapshot, "registered", snapshot.Summary.RegisteredItems);
+        }
 
         var wikidataTerminal = Count(snapshot, "wikidata_review");
         var needsReview = Math.Max(Count(snapshot, "needs_review"), snapshot.Summary.ItemsNeedingReview);
@@ -1266,7 +1373,9 @@ public sealed partial class IngestionLiveDashboardState
         var terminalCount = readyForLibrary + wikidataTerminal + needsReview + duplicate + skipped + failed;
         var retailTerminal = Count(snapshot, "matched") + Count(snapshot, "retail_review") + duplicate + skipped + failed;
         if (HasTerminalRecentBatch(snapshot) && retailTerminal > terminalCount)
+        {
             terminalCount = retailTerminal;
+        }
 
         return totalFiles > 0
             ? Math.Clamp(terminalCount, 0, totalFiles)
@@ -1294,14 +1403,20 @@ public sealed partial class IngestionLiveDashboardState
     {
         var parsed = Count(snapshot, "parsed");
         if (parsed > 0)
+        {
             return ClampFileCount(parsed, totalFiles);
+        }
 
         if (latestBatch?.ProcessedFiles > 0)
+        {
             return ClampFileCount(latestBatch.ProcessedFiles, totalFiles);
+        }
 
         var detected = Count(snapshot, "detected");
         if (detected > 0)
+        {
             return ClampFileCount(detected, totalFiles);
+        }
 
         var terminalFileOutcomes =
             Count(snapshot, "registered", snapshot?.Summary.RegisteredItems ?? 0)
@@ -1310,11 +1425,15 @@ public sealed partial class IngestionLiveDashboardState
             + Count(snapshot, "skipped")
             + Count(snapshot, "failed");
         if (terminalFileOutcomes > 0)
+        {
             return ClampFileCount(terminalFileOutcomes, totalFiles);
+        }
 
         var activeJobProcessed = activeJobs.Sum(job => Math.Max(0, job.ProcessedCount));
         if (activeJobProcessed > 0)
+        {
             return ClampFileCount(activeJobProcessed, totalFiles);
+        }
 
         return ClampFileCount(metrics.ProcessedFiles, totalFiles);
     }
@@ -1330,15 +1449,22 @@ public sealed partial class IngestionLiveDashboardState
             .Where(activity => activity.TotalCount <= 0 || activity.ProcessedCount < activity.TotalCount)
             .Sum(activity => Math.Max(0, activity.QueuedCount));
         if (queuedFromActivities > 0)
+        {
             return ClampQueuedCount(queuedFromActivities, totalFiles, activeItems);
+        }
+
         if (currentActivities.Any(IsActiveActivity))
+        {
             return 0;
+        }
 
         var queuedFromJobs = activeJobs
             .Where(IsActiveJob)
             .Sum(job => Math.Max(0, job.TotalCount - job.ProcessedCount));
         if (queuedFromJobs > 0)
+        {
             return ClampQueuedCount(queuedFromJobs, totalFiles, activeItems);
+        }
 
         return ClampQueuedCount(
             Math.Max(0, totalFiles - Math.Max(0, metrics.ProcessedFiles) - activeItems),
@@ -1358,7 +1484,9 @@ public sealed partial class IngestionLiveDashboardState
     {
         var normalized = Math.Max(0, count);
         if (totalFiles <= 0)
+        {
             return normalized;
+        }
 
         var remainingCapacity = Math.Max(0, totalFiles - Math.Max(0, activeItems));
         return Math.Min(normalized, remainingCapacity);
@@ -1390,19 +1518,29 @@ public sealed partial class IngestionLiveDashboardState
         DateTimeOffset now)
     {
         if (!string.IsNullOrWhiteSpace(error))
+        {
             return LibraryUpdatePageState.StatusUnavailable;
+        }
 
         if (isRunning)
+        {
             return LibraryUpdatePageState.Running;
+        }
 
         if (latestBatch is not null && IsFailedBatchStatus(latestBatch.Status))
+        {
             return LibraryUpdatePageState.Failed;
+        }
 
         if (latestBatch is not null && IsInterruptedBatchStatus(latestBatch.Status))
+        {
             return LibraryUpdatePageState.Interrupted;
+        }
 
         if (lastCompletedAt is not null && now - lastCompletedAt.Value.ToUniversalTime() <= TimeSpan.FromSeconds(60))
+        {
             return LibraryUpdatePageState.Complete;
+        }
 
         return snapshot is null || !hasPriorRun
             ? LibraryUpdatePageState.NoPriorRun
@@ -1429,7 +1567,9 @@ public sealed partial class IngestionLiveDashboardState
         int totalFiles)
     {
         if (pageState == LibraryUpdatePageState.Complete)
+        {
             return 100;
+        }
 
         var calculatedPercent = totalFiles > 0
             ? Math.Clamp(processedFiles * 100d / totalFiles, 0, 100)
@@ -1550,11 +1690,16 @@ public sealed partial class IngestionLiveDashboardState
             currentActivities.FirstOrDefault(activity => activity.PercentComplete < 100)?.Message);
 
         if (string.IsNullOrWhiteSpace(value))
+        {
             return activeJobs.Count > 0 ? 1 : 4;
+        }
 
         var normalized = value.ToLowerInvariant();
         if (normalized.Contains("save") || normalized.Contains("register") || normalized.Contains("organize") || normalized.Contains("write"))
+        {
             return 4;
+        }
+
         if (normalized.Contains("artwork") || normalized.Contains("cover") || normalized.Contains("metadata")
             || normalized.Contains("hydrate") || normalized.Contains("enrich") || normalized.Contains("universe")
             || normalized.Contains("series") || normalized.Contains("relationship") || normalized.Contains("people")
@@ -1570,7 +1715,9 @@ public sealed partial class IngestionLiveDashboardState
         }
 
         if (normalized.Contains("read") || normalized.Contains("parse") || normalized.Contains("hash") || normalized.Contains("process"))
+        {
             return 1;
+        }
 
         return normalized.Contains("scan") || normalized.Contains("detect") || normalized.Contains("queue")
             ? 0
@@ -1583,7 +1730,9 @@ public sealed partial class IngestionLiveDashboardState
         int activeStep)
     {
         if (currentActivities.Count == 0)
+        {
             return null;
+        }
 
         var activeStageKey = ResolveActiveStage(activeJobs);
         var expectedStageKey = activeStep switch
@@ -1621,7 +1770,9 @@ public sealed partial class IngestionLiveDashboardState
     private static bool IsFreshQueuedActivity(DateTimeOffset? updatedAt)
     {
         if (!updatedAt.HasValue)
+        {
             return true;
+        }
 
         return DateTimeOffset.UtcNow - updatedAt.Value.ToUniversalTime() <= LiveUniverseProgressFreshness;
     }
@@ -1635,7 +1786,9 @@ public sealed partial class IngestionLiveDashboardState
             ResolveSpecificActivityStep(primaryActivity),
             activeJobs.Select(job => job.CurrentStage).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)));
         if (!string.IsNullOrWhiteSpace(explicitStep))
+        {
             return ToFriendlyStepLabel(explicitStep);
+        }
 
         return activeStep switch
         {
@@ -1651,7 +1804,9 @@ public sealed partial class IngestionLiveDashboardState
     private static string ResolveSpecificActivityStep(IngestionCurrentActivityDto? activity)
     {
         if (activity is null)
+        {
             return string.Empty;
+        }
 
         var detail = activity.Detail ?? string.Empty;
         if (detail.Contains("enhancer", StringComparison.OrdinalIgnoreCase)
@@ -1676,7 +1831,9 @@ public sealed partial class IngestionLiveDashboardState
     private static bool LooksLikeProvider(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return false;
+        }
 
         var trimmed = value.Trim();
         return !trimmed.Equals("Watch folders", StringComparison.OrdinalIgnoreCase)
@@ -1720,10 +1877,14 @@ public sealed partial class IngestionLiveDashboardState
         DateTimeOffset now)
     {
         if (pageState == LibraryUpdatePageState.Running)
+        {
             return BuildRunningPipelineSummary(activeItems, queuedItems, reviewItems);
+        }
 
         if (pageState == LibraryUpdatePageState.Idle)
+        {
             return $"{processedFiles.ToString("N0", CultureInfo.CurrentCulture)} files finished - {matchedItems.ToString("N0", CultureInfo.CurrentCulture)} matched - {reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review";
+        }
 
         return pageState switch
         {
@@ -1741,11 +1902,19 @@ public sealed partial class IngestionLiveDashboardState
     {
         var parts = new List<string>(3);
         if (activeItems > 0)
+        {
             parts.Add($"{activeItems.ToString("N0", CultureInfo.CurrentCulture)} active");
+        }
+
         if (queuedItems > 0)
+        {
             parts.Add($"{queuedItems.ToString("N0", CultureInfo.CurrentCulture)} still in pipeline");
+        }
+
         if (reviewItems > 0)
+        {
             parts.Add($"{reviewItems.ToString("N0", CultureInfo.CurrentCulture)} need review");
+        }
 
         return parts.Count > 0
             ? string.Join(" - ", parts)
@@ -1785,10 +1954,14 @@ public sealed partial class IngestionLiveDashboardState
         DateTimeOffset now)
     {
         if (pageState == LibraryUpdatePageState.Running && totalFiles > 0 && processedFiles >= totalFiles)
+        {
             return "Metadata, artwork, people, and relationships are still being processed.";
+        }
 
         if ((pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete or LibraryUpdatePageState.Interrupted) && totalFiles > 0)
+        {
             return $"{processedFiles.ToString("N0", CultureInfo.CurrentCulture)} of {totalFiles.ToString("N0", CultureInfo.CurrentCulture)} files checked";
+        }
 
         return pageState switch
         {
@@ -1905,7 +2078,9 @@ public sealed partial class IngestionLiveDashboardState
         int reviewItems)
     {
         if (reviewItems <= 0)
+        {
             return [];
+        }
 
         var uncertain = SumReasonCounts(reasons, "low_confidence");
         var unmatched = SumReasonCounts(reasons, "unmatched");
@@ -1923,7 +2098,9 @@ public sealed partial class IngestionLiveDashboardState
         AddReason(rows, providerFailures, "provider failures");
 
         if (rows.Count == 0)
+        {
             AddReason(rows, reviewItems, "items awaiting review");
+        }
 
         return rows;
     }
@@ -1936,7 +2113,9 @@ public sealed partial class IngestionLiveDashboardState
     private static void AddReason(List<LibraryUpdateAttentionReasonViewModel> rows, int count, string label)
     {
         if (count > 0)
+        {
             rows.Add(new LibraryUpdateAttentionReasonViewModel(count, label));
+        }
     }
 
     private static IReadOnlyList<LibraryUpdateEnrichmentStatViewModel> BuildEnrichmentStats(
@@ -2014,13 +2193,25 @@ public sealed partial class IngestionLiveDashboardState
     {
         var value = StringHelpers.FirstNonBlankOr("", activity.StageKey, activity.Message).ToLowerInvariant();
         if (value.Contains("art") || value.Contains("cover"))
+        {
             return "artwork";
+        }
+
         if (value.Contains("people") || value.Contains("cast"))
+        {
             return "people";
+        }
+
         if (value.Contains("relationship") || value.Contains("series") || value.Contains("universe"))
+        {
             return "relationships";
+        }
+
         if (value.Contains("description"))
+        {
             return "descriptions";
+        }
+
         return "metadata";
     }
 
@@ -2072,7 +2263,9 @@ public sealed partial class IngestionLiveDashboardState
             .ToList();
 
         if (activityItems.Count > 0)
+        {
             return activityItems;
+        }
 
         return currentActivities
             .SelectMany(activity => activity.CurrentBatch?.CompletedPreview ?? [])
@@ -2191,12 +2384,16 @@ public sealed partial class IngestionLiveDashboardState
     private static string? ExtractTitleFromDetail(string? detail)
     {
         if (string.IsNullOrWhiteSpace(detail))
+        {
             return null;
+        }
 
         var trimmed = detail.Trim();
         var quoted = trimmed.Split('"', StringSplitOptions.RemoveEmptyEntries);
         if (quoted.Length >= 2)
+        {
             return quoted[1];
+        }
 
         return trimmed.Contains(':', StringComparison.Ordinal)
             ? trimmed[(trimmed.LastIndexOf(':') + 1)..].Trim()
@@ -2211,7 +2408,9 @@ public sealed partial class IngestionLiveDashboardState
             activity.GetRichData()?.EntityId,
             activity.GetReviewData()?.EntityId);
         if (!Guid.TryParse(id, out var entityId))
+        {
             return null;
+        }
 
         var entityType = StringHelpers.FirstNonBlankOr("", activity.EntityType, "work").ToLowerInvariant() switch
         {
@@ -2246,7 +2445,9 @@ public sealed partial class IngestionLiveDashboardState
         }
 
         if (normalized.Contains("enhancer", StringComparison.OrdinalIgnoreCase))
+        {
             return "Enriching artwork, people, and relationships";
+        }
 
         if (normalized.Contains("people", StringComparison.OrdinalIgnoreCase)
             || normalized.Contains("cast", StringComparison.OrdinalIgnoreCase))
@@ -2284,7 +2485,9 @@ public sealed partial class IngestionLiveDashboardState
         }
 
         if (normalized.Contains("scan", StringComparison.OrdinalIgnoreCase))
+        {
             return "Scanning library folders";
+        }
 
         if (normalized.Contains("read", StringComparison.OrdinalIgnoreCase)
             || normalized.Contains("parse", StringComparison.OrdinalIgnoreCase)
@@ -2311,12 +2514,16 @@ public sealed partial class IngestionLiveDashboardState
     private static string CleanDisplayTitle(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         var trimmed = value.Trim();
         var fileName = Path.GetFileName(trimmed);
         if (!string.IsNullOrWhiteSpace(fileName))
+        {
             trimmed = fileName;
+        }
 
         foreach (var mediaExtension in KnownMediaExtensions)
         {

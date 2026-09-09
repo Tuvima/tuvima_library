@@ -1,9 +1,9 @@
-using MediaEngine.Web.Models.ViewDTOs;
+using System.Net;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Configuration;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.HttpOverrides;
-using System.Net;
 
 namespace MediaEngine.Web.Tests;
 

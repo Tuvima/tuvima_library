@@ -3,17 +3,17 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
-using MediaEngine.Domain.Models;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -150,27 +150,27 @@ public sealed partial class EngineApiClient
             () => [],
             ct: ct);
         return shelves.Select(shelf => new ContributorShelfDto
+        {
+            Key = shelf.Key,
+            PersonId = shelf.PersonId,
+            PersonName = shelf.PersonName,
+            HeadshotUrl = string.IsNullOrWhiteSpace(shelf.HeadshotUrl) ? null : AbsoluteUrl(shelf.HeadshotUrl),
+            Role = shelf.Role,
+            Lane = shelf.Lane,
+            ShelfType = shelf.ShelfType,
+            Title = shelf.Title,
+            OwnedCount = shelf.OwnedCount,
+            EarliestYear = shelf.EarliestYear,
+            LatestYear = shelf.LatestYear,
+            Items = shelf.Items.Select(item => new ContributorShelfItemDto
             {
-                Key = shelf.Key,
-                PersonId = shelf.PersonId,
-                PersonName = shelf.PersonName,
-                HeadshotUrl = string.IsNullOrWhiteSpace(shelf.HeadshotUrl) ? null : AbsoluteUrl(shelf.HeadshotUrl),
-                Role = shelf.Role,
-                Lane = shelf.Lane,
-                ShelfType = shelf.ShelfType,
-                Title = shelf.Title,
-                OwnedCount = shelf.OwnedCount,
-                EarliestYear = shelf.EarliestYear,
-                LatestYear = shelf.LatestYear,
-                Items = shelf.Items.Select(item => new ContributorShelfItemDto
-                {
-                    WorkId = item.WorkId,
-                    Title = item.Title,
-                    MediaType = item.MediaType,
-                    CoverUrl = string.IsNullOrWhiteSpace(item.CoverUrl) ? null : AbsoluteUrl(item.CoverUrl),
-                    Year = item.Year,
-                }).ToList(),
-            }).ToList();
+                WorkId = item.WorkId,
+                Title = item.Title,
+                MediaType = item.MediaType,
+                CoverUrl = string.IsNullOrWhiteSpace(item.CoverUrl) ? null : AbsoluteUrl(item.CoverUrl),
+                Year = item.Year,
+            }).ToList(),
+        }).ToList();
     }
 
 }

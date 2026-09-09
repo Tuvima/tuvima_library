@@ -1,8 +1,7 @@
+using System.Buffers;
 using System.Text.RegularExpressions;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-
-using System.Buffers;
 
 namespace MediaEngine.Intelligence.Services;
 
@@ -16,11 +15,11 @@ namespace MediaEngine.Intelligence.Services;
 public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
 {
     // ── Composite scoring weights ────────────────────────────────────────────
-    private const double TitleWeight  = 0.45;
+    private const double TitleWeight = 0.45;
     private const double AuthorWeight = 0.25;
-    private const double YearWeight   = 0.10;
+    private const double YearWeight = 0.10;
     private const double FormatWeight = 0.05;
-    private const double CoverWeight  = 0.15;
+    private const double CoverWeight = 0.15;
 
     // ── Verdict thresholds ───────────────────────────────────────────────────
     private const double ExactThreshold = 0.95;
@@ -30,7 +29,10 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     public double ComputeTokenSetRatio(string a, string b)
     {
         if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+        {
             return 0.0;
+        }
+
         return NativeTokenSetRatio(a.Trim(), b.Trim());
     }
 
@@ -38,7 +40,10 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     public double ComputePartialRatio(string a, string b)
     {
         if (string.IsNullOrWhiteSpace(a) || string.IsNullOrWhiteSpace(b))
+        {
             return 0.0;
+        }
+
         return NativePartialRatio(a.Trim(), b.Trim());
     }
 
@@ -48,27 +53,27 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
         ArgumentNullException.ThrowIfNull(local);
         ArgumentNullException.ThrowIfNull(candidate);
 
-        var titleScore  = ComputeTitleScore(local.Title, candidate.Title);
+        var titleScore = ComputeTitleScore(local.Title, candidate.Title);
         var authorScore = ScoreOptionalField(local.Author, candidate.Author);
-        var yearScore   = ScoreYear(local.Year, candidate.Year);
+        var yearScore = ScoreYear(local.Year, candidate.Year);
         var formatScore = ScoreFormat(local.MediaType, candidate.MediaType);
-        var coverScore  = candidate.CoverSimilarity; // -1.0 if not available
+        var coverScore = candidate.CoverSimilarity; // -1.0 if not available
 
         var compositeScore = ComputeComposite(titleScore, authorScore, yearScore, formatScore, coverScore);
 
         return new FieldMatchResult
         {
-            TitleScore     = titleScore,
-            AuthorScore    = authorScore,
-            YearScore      = yearScore,
-            FormatScore    = formatScore,
+            TitleScore = titleScore,
+            AuthorScore = authorScore,
+            YearScore = yearScore,
+            FormatScore = formatScore,
             CompositeScore = compositeScore,
-            TitleVerdict   = ToVerdict(titleScore),
-            AuthorVerdict  = ToVerdict(authorScore),
-            YearVerdict    = ToVerdict(yearScore),
-            FormatVerdict  = ToVerdict(formatScore),
-            CoverScore     = coverScore,
-            CoverVerdict   = ToVerdict(coverScore),
+            TitleVerdict = ToVerdict(titleScore),
+            AuthorVerdict = ToVerdict(authorScore),
+            YearVerdict = ToVerdict(yearScore),
+            FormatVerdict = ToVerdict(formatScore),
+            CoverScore = coverScore,
+            CoverVerdict = ToVerdict(coverScore),
         };
     }
 
@@ -82,12 +87,14 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     private static double ComputeTitleScore(string localTitle, string candidateTitle)
     {
         if (string.IsNullOrWhiteSpace(localTitle) || string.IsNullOrWhiteSpace(candidateTitle))
+        {
             return 0.0;
+        }
 
-        var localNums     = ExtractNumbers(localTitle);
+        var localNums = ExtractNumbers(localTitle);
         var candidateNums = ExtractNumbers(candidateTitle);
 
-        var localBase     = NumbersRegex().Replace(localTitle, "").Trim();
+        var localBase = NumbersRegex().Replace(localTitle, "").Trim();
         var candidateBase = NumbersRegex().Replace(candidateTitle, "").Trim();
 
         double baseScore = NativeTokenSetRatio(
@@ -109,7 +116,9 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     private static double ScoreOptionalField(string? localValue, string? candidateValue)
     {
         if (string.IsNullOrWhiteSpace(localValue) || string.IsNullOrWhiteSpace(candidateValue))
+        {
             return -1.0; // Not available
+        }
 
         return NativeTokenSetRatio(localValue.Trim(), candidateValue.Trim());
     }
@@ -119,11 +128,15 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     private static double ScoreYear(string? localYear, string? candidateYear)
     {
         if (string.IsNullOrWhiteSpace(localYear) || string.IsNullOrWhiteSpace(candidateYear))
+        {
             return -1.0;
+        }
 
         if (!int.TryParse(localYear.Trim(), out var ly) ||
             !int.TryParse(candidateYear.Trim(), out var cy))
+        {
             return -1.0;
+        }
 
         int diff = Math.Abs(ly - cy);
         return diff switch
@@ -139,16 +152,28 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     private static double ScoreFormat(string? localType, string? candidateType)
     {
         if (string.IsNullOrWhiteSpace(localType) || string.IsNullOrWhiteSpace(candidateType))
+        {
             return -1.0;
+        }
 
         var l = localType.Trim().ToUpperInvariant();
         var c = candidateType.Trim().ToUpperInvariant();
 
-        if (l == c) return 1.0;
+        if (l == c)
+        {
+            return 1.0;
+        }
 
         // Related formats get partial credit
-        if (IsBookFamily(l) && IsBookFamily(c)) return 0.5;
-        if (IsVideoFamily(l) && IsVideoFamily(c)) return 0.3;
+        if (IsBookFamily(l) && IsBookFamily(c))
+        {
+            return 0.5;
+        }
+
+        if (IsVideoFamily(l) && IsVideoFamily(c))
+        {
+            return 0.3;
+        }
 
         return 0.0;
     }
@@ -165,34 +190,34 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
         double titleScore, double authorScore, double yearScore, double formatScore, double coverScore)
     {
         double weightSum = 0.0;
-        double scoreSum  = 0.0;
+        double scoreSum = 0.0;
 
         // Title is always present (required field)
         weightSum += TitleWeight;
-        scoreSum  += TitleWeight * titleScore;
+        scoreSum += TitleWeight * titleScore;
 
         if (authorScore >= 0.0)
         {
             weightSum += AuthorWeight;
-            scoreSum  += AuthorWeight * authorScore;
+            scoreSum += AuthorWeight * authorScore;
         }
 
         if (yearScore >= 0.0)
         {
             weightSum += YearWeight;
-            scoreSum  += YearWeight * yearScore;
+            scoreSum += YearWeight * yearScore;
         }
 
         if (formatScore >= 0.0)
         {
             weightSum += FormatWeight;
-            scoreSum  += FormatWeight * formatScore;
+            scoreSum += FormatWeight * formatScore;
         }
 
         if (coverScore >= 0.0)
         {
             weightSum += CoverWeight;
-            scoreSum  += CoverWeight * coverScore;
+            scoreSum += CoverWeight * coverScore;
         }
 
         return weightSum > 0 ? scoreSum / weightSum : 0.0;
@@ -202,10 +227,10 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
 
     private static FieldMatchVerdict ToVerdict(double score) => score switch
     {
-        < 0               => FieldMatchVerdict.NotAvailable,
+        < 0 => FieldMatchVerdict.NotAvailable,
         >= ExactThreshold => FieldMatchVerdict.Exact,
         >= CloseThreshold => FieldMatchVerdict.Close,
-        _                 => FieldMatchVerdict.Mismatch,
+        _ => FieldMatchVerdict.Mismatch,
     };
 
     // ── Number extraction ────────────────────────────────────────────────────
@@ -233,7 +258,9 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
         var tokensB = Tokenize(b);
 
         if (tokensA.Count == 0 || tokensB.Count == 0)
+        {
             return 0.0;
+        }
 
         // Intersection and remainders
         var intersection = tokensA.Intersect(tokensB, StringComparer.OrdinalIgnoreCase)
@@ -246,7 +273,7 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
                                 .OrderBy(t => t, StringComparer.OrdinalIgnoreCase)
                                 .ToList();
 
-        var sorted  = string.Join(" ", intersection);
+        var sorted = string.Join(" ", intersection);
         var sortedA = string.Join(" ", intersection.Concat(remainderA));
         var sortedB = string.Join(" ", intersection.Concat(remainderB));
 
@@ -266,11 +293,14 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     /// </summary>
     private static double NativePartialRatio(string a, string b)
     {
-        if (a.Length == 0 || b.Length == 0) return 0.0;
+        if (a.Length == 0 || b.Length == 0)
+        {
+            return 0.0;
+        }
 
         // Ensure 'shorter' is the shorter string
         var shorter = a.Length <= b.Length ? a : b;
-        var longer  = a.Length > b.Length  ? a : b;
+        var longer = a.Length > b.Length ? a : b;
 
         double bestRatio = 0.0;
         for (int i = 0; i <= longer.Length - shorter.Length; i++)
@@ -278,8 +308,14 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
             var substring = longer.Substring(i, shorter.Length);
             var ratio = LevenshteinRatio(shorter, substring);
             if (ratio > bestRatio)
+            {
                 bestRatio = ratio;
-            if (bestRatio >= 1.0) break; // Perfect match found — no need to continue
+            }
+
+            if (bestRatio >= 1.0)
+            {
+                break; // Perfect match found — no need to continue
+            }
         }
         return bestRatio;
     }
@@ -290,15 +326,22 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
     /// </summary>
     private static double LevenshteinRatio(string a, string b)
     {
-        if (a.Length == 0 && b.Length == 0) return 1.0;
-        if (a.Length == 0 || b.Length == 0) return 0.0;
+        if (a.Length == 0 && b.Length == 0)
+        {
+            return 1.0;
+        }
+
+        if (a.Length == 0 || b.Length == 0)
+        {
+            return 0.0;
+        }
 
         const int maxComparableLength = 512;
         var aLower = (a.Length > maxComparableLength ? a[..maxComparableLength] : a).ToLowerInvariant();
         var bLower = (b.Length > maxComparableLength ? b[..maxComparableLength] : b).ToLowerInvariant();
 
         int distance = LevenshteinDistance(aLower, bLower);
-        int maxLen   = Math.Max(aLower.Length, bLower.Length);
+        int maxLen = Math.Max(aLower.Length, bLower.Length);
         return 1.0 - (double)distance / maxLen;
     }
 
@@ -320,7 +363,9 @@ public sealed partial class FuzzyMatchingService : IFuzzyMatchingService
         try
         {
             for (var j = 0; j <= b.Length; j++)
+            {
                 previous[j] = j;
+            }
 
             for (var i = 1; i <= a.Length; i++)
             {

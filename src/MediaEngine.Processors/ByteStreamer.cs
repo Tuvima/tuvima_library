@@ -61,7 +61,9 @@ public sealed class ByteStreamer : IByteStreamer
 
         var info = new FileInfo(assetPath);
         if (!info.Exists)
+        {
             throw new FileNotFoundException($"Media asset not found: {assetPath}", assetPath);
+        }
 
         return Task.FromResult(info.Length);
     }
@@ -78,7 +80,9 @@ public sealed class ByteStreamer : IByteStreamer
 
         var info = new FileInfo(assetPath);
         if (!info.Exists)
+        {
             throw new FileNotFoundException($"Media asset not found: {assetPath}", assetPath);
+        }
 
         long totalLength = info.Length;
 
@@ -95,9 +99,9 @@ public sealed class ByteStreamer : IByteStreamer
         {
             return Task.FromResult(new ByteRangeResult
             {
-                Content     = Stream.Null,
-                RangeStart  = 0,
-                RangeEnd    = 0,
+                Content = Stream.Null,
+                RangeStart = 0,
+                RangeEnd = 0,
                 TotalLength = totalLength,
             });
         }
@@ -127,9 +131,9 @@ public sealed class ByteStreamer : IByteStreamer
 
             return Task.FromResult(new ByteRangeResult
             {
-                Content     = limitedStream,
-                RangeStart  = rangeStart,
-                RangeEnd    = rangeEnd,
+                Content = limitedStream,
+                RangeStart = rangeStart,
+                RangeEnd = rangeEnd,
                 TotalLength = totalLength,
             });
         }
@@ -155,12 +159,12 @@ public sealed class ByteStreamer : IByteStreamer
 
         public LengthLimitedStream(Stream inner, long maxBytes)
         {
-            _inner     = inner;
+            _inner = inner;
             _remaining = maxBytes;
         }
 
-        public override bool CanRead  => true;
-        public override bool CanSeek  => false;
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
         public override bool CanWrite => false;
 
         public override long Length =>
@@ -176,18 +180,26 @@ public sealed class ByteStreamer : IByteStreamer
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            if (_remaining <= 0) return 0;
+            if (_remaining <= 0)
+            {
+                return 0;
+            }
+
             int toRead = (int)Math.Min(count, _remaining);
-            int read   = _inner.Read(buffer, offset, toRead);
+            int read = _inner.Read(buffer, offset, toRead);
             _remaining -= read;
             return read;
         }
 
         public override int Read(Span<byte> buffer)
         {
-            if (_remaining <= 0) return 0;
+            if (_remaining <= 0)
+            {
+                return 0;
+            }
+
             int toRead = (int)Math.Min(buffer.Length, _remaining);
-            int read   = _inner.Read(buffer[..toRead]);
+            int read = _inner.Read(buffer[..toRead]);
             _remaining -= read;
             return read;
         }
@@ -197,9 +209,13 @@ public sealed class ByteStreamer : IByteStreamer
         public override async Task<int> ReadAsync(
             byte[] buffer, int offset, int count, CancellationToken ct)
         {
-            if (_remaining <= 0) return 0;
+            if (_remaining <= 0)
+            {
+                return 0;
+            }
+
             int toRead = (int)Math.Min(count, _remaining);
-            int read   = await _inner.ReadAsync(buffer.AsMemory(offset, toRead), ct)
+            int read = await _inner.ReadAsync(buffer.AsMemory(offset, toRead), ct)
                                      .ConfigureAwait(false);
             _remaining -= read;
             return read;
@@ -208,9 +224,13 @@ public sealed class ByteStreamer : IByteStreamer
         public override async ValueTask<int> ReadAsync(
             Memory<byte> buffer, CancellationToken ct = default)
         {
-            if (_remaining <= 0) return 0;
+            if (_remaining <= 0)
+            {
+                return 0;
+            }
+
             int toRead = (int)Math.Min(buffer.Length, _remaining);
-            int read   = await _inner.ReadAsync(buffer[..toRead], ct).ConfigureAwait(false);
+            int read = await _inner.ReadAsync(buffer[..toRead], ct).ConfigureAwait(false);
             _remaining -= read;
             return read;
         }
@@ -230,7 +250,11 @@ public sealed class ByteStreamer : IByteStreamer
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) _inner.Dispose();
+            if (disposing)
+            {
+                _inner.Dispose();
+            }
+
             base.Dispose(disposing);
         }
     }

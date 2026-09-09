@@ -25,10 +25,14 @@ public sealed class InitialSweepCommandService(
     public bool TrySchedule()
     {
         if (Interlocked.CompareExchange(ref _pendingOrRunning, 1, 0) != 0)
+        {
             return false;
+        }
 
         if (_requests.Writer.TryWrite(true))
+        {
             return true;
+        }
 
         Volatile.Write(ref _pendingOrRunning, 0);
         return false;

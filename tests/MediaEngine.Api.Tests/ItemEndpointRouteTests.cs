@@ -245,7 +245,10 @@ public sealed class ItemEndpointRouteTests
             var directory = pendingDirectories.Pop();
             foreach (var childDirectory in Directory.EnumerateDirectories(directory))
             {
-                if (!IsIgnoredDirectory(childDirectory, root)) pendingDirectories.Push(childDirectory);
+                if (!IsIgnoredDirectory(childDirectory, root))
+                {
+                    pendingDirectories.Push(childDirectory);
+                }
             }
 
             foreach (var file in Directory.EnumerateFiles(directory))

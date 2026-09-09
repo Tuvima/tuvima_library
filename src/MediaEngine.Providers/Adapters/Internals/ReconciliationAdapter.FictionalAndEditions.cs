@@ -2,16 +2,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 
@@ -51,7 +51,9 @@ public sealed partial class ReconciliationAdapter
         IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>>? props)
     {
         if (props is null || !props.TryGetValue("P577", out var publicationClaims))
+        {
             return null;
+        }
 
         return publicationClaims
             .Select(claim => ParseComparableYear(claim.Value?.RawValue))
@@ -66,7 +68,9 @@ public sealed partial class ReconciliationAdapter
         var hintYear = ParseComparableYear(yearHint);
         var resolvedYear = ParseComparableYear(GetResolvedClaimsYear(claims));
         if (!hintYear.HasValue || !resolvedYear.HasValue)
+        {
             return true;
+        }
 
         var maxDifference = mediaType is MediaType.Movies or MediaType.TV ? 1 : 2;
         return Math.Abs(hintYear.Value - resolvedYear.Value) <= maxDifference;
@@ -124,7 +128,10 @@ public sealed partial class ReconciliationAdapter
         var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
         var props = new List<string>(propGroup.Core);
         if (propGroup.Bridges.Count > 0)
+        {
             props.AddRange(propGroup.Bridges);
+        }
+
         props.Add($"L{language}");  // Label in metadata language
         props.Add($"D{language}");  // Description in metadata language
 
@@ -240,7 +247,9 @@ public sealed partial class ReconciliationAdapter
         IReadOnlyDictionary<string, string>? descriptions)
     {
         if (descriptions is null || string.IsNullOrWhiteSpace(qid))
+        {
             return null;
+        }
 
         return descriptions.TryGetValue(qid, out var description)
             ? description
@@ -262,7 +271,9 @@ public sealed partial class ReconciliationAdapter
         foreach (var resolved in authorResolution.Authors)
         {
             if (string.IsNullOrWhiteSpace(resolved.Qid))
+            {
                 continue;
+            }
 
             if (!string.IsNullOrWhiteSpace(resolved.RealNameQid))
             {
@@ -277,7 +288,9 @@ public sealed partial class ReconciliationAdapter
                 foreach (var penName in resolved.Pseudonyms)
                 {
                     if (string.IsNullOrWhiteSpace(penName))
+                    {
                         continue;
+                    }
 
                     claims.Add(new ProviderClaim(
                         BridgeIdKeys.AuthorPseudonym,
@@ -295,7 +308,9 @@ public sealed partial class ReconciliationAdapter
                 foreach (var realAuthor in resolved.RealAuthors)
                 {
                     if (string.IsNullOrWhiteSpace(realAuthor.Qid))
+                    {
                         continue;
+                    }
 
                     var realName = StringHelpers.FirstNonBlankOr(string.Empty, realAuthor.CanonicalName, realAuthor.Qid);
                     claims.Add(new ProviderClaim(
@@ -337,7 +352,10 @@ public sealed partial class ReconciliationAdapter
     private static string? GetEditionClaimValue(EditionInfo edition, string propertyId)
     {
         if (!edition.Claims.TryGetValue(propertyId, out var claims) || claims.Count == 0)
+        {
             return null;
+        }
+
         return claims[0].Value?.RawValue;
     }
 
@@ -347,15 +365,22 @@ public sealed partial class ReconciliationAdapter
         IReadOnlyDictionary<string, string?>? resolvedLabels = null)
     {
         if (!edition.Claims.TryGetValue(propertyId, out var claims) || claims.Count == 0)
+        {
             return null;
+        }
 
         var value = claims[0].Value;
         if (!string.IsNullOrWhiteSpace(value?.EntityLabel))
+        {
             return value.EntityLabel;
+        }
 
         var entityId = value?.EntityId;
         if (string.IsNullOrWhiteSpace(entityId) && IsExactQid(value?.RawValue))
+        {
             entityId = value!.RawValue;
+        }
+
         if (!string.IsNullOrWhiteSpace(entityId)
             && resolvedLabels?.TryGetValue(entityId, out var resolvedLabel) == true
             && !string.IsNullOrWhiteSpace(resolvedLabel))
@@ -371,11 +396,16 @@ public sealed partial class ReconciliationAdapter
     private static string? GetEditionClaimEntityId(EditionInfo edition, string propertyId)
     {
         if (!edition.Claims.TryGetValue(propertyId, out var claims) || claims.Count == 0)
+        {
             return null;
+        }
 
         var value = claims[0].Value;
         if (IsExactQid(value?.EntityId))
+        {
             return value!.EntityId;
+        }
+
         return IsExactQid(value?.RawValue) ? value!.RawValue : null;
     }
 
@@ -398,7 +428,9 @@ public sealed partial class ReconciliationAdapter
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(workQid) || _reconciler is null)
+        {
             return [];
+        }
 
         try
         {
@@ -409,7 +441,9 @@ public sealed partial class ReconciliationAdapter
                 workQid, audiobookClasses, language, ct).ConfigureAwait(false);
 
             if (editions.Count == 0)
+            {
                 return [];
+            }
 
             var referencedQids = editions
                 .SelectMany(edition => new[]
@@ -431,9 +465,9 @@ public sealed partial class ReconciliationAdapter
 
             var results = editions.Select(e =>
             {
-                var narrator  = GetEditionNarrator(e, resolvedLabels);
-                var duration  = GetEditionClaimValue(e, "P2047");
-                var asin      = GetEditionClaimValue(e, "P5749");
+                var narrator = GetEditionNarrator(e, resolvedLabels);
+                var duration = GetEditionClaimValue(e, "P2047");
+                var asin = GetEditionClaimValue(e, "P5749");
                 var publisher = GetEditionClaimLabel(e, "P123", resolvedLabels);
                 return new AudiobookEditionData(e.EntityId, e.Label, narrator, duration, asin, publisher);
             }).ToList();
@@ -536,25 +570,27 @@ public sealed partial class ReconciliationAdapter
         // Sentinel keys (those starting with '_') are stripped here so the
         // library's strict bridge resolver doesn't trip on them.
         if (realBridgeIds.Count == 0 && !CanUseConstrainedTextFallback(r, title))
+        {
             return null;
+        }
 
         // ── Text fallback — only when title and a known media type are present ─
         return new BridgeResolutionRequest
-            {
-                CorrelationKey = r.CorrelationKey,
-                MediaKind = ToBridgeMediaKind(r.MediaType, r, realBridgeIds.Count),
-                BridgeIds = realBridgeIds,
-                CustomWikidataProperties = r.WikidataProperties,
-                Title = title,
-                Creator = r.Artist ?? r.Author,
-                Year = int.TryParse(r.Year, out var parsedYear) ? parsedYear : null,
-                SeriesTitle = GetSeriesHint(r),
-                SeasonNumber = r.SeasonNumber,
-                EpisodeNumber = r.EpisodeNumber,
-                IssueNumber = r.IssueNumber,
-                Language = language,
-                RollupTarget = ToBridgeRollupTarget(r)
-            };
+        {
+            CorrelationKey = r.CorrelationKey,
+            MediaKind = ToBridgeMediaKind(r.MediaType, r, realBridgeIds.Count),
+            BridgeIds = realBridgeIds,
+            CustomWikidataProperties = r.WikidataProperties,
+            Title = title,
+            Creator = r.Artist ?? r.Author,
+            Year = int.TryParse(r.Year, out var parsedYear) ? parsedYear : null,
+            SeriesTitle = GetSeriesHint(r),
+            SeasonNumber = r.SeasonNumber,
+            EpisodeNumber = r.EpisodeNumber,
+            IssueNumber = r.IssueNumber,
+            Language = language,
+            RollupTarget = ToBridgeRollupTarget(r)
+        };
     }
 
     private static string? GetSeriesHint(WikidataResolveRequest request)
@@ -574,7 +610,9 @@ public sealed partial class ReconciliationAdapter
         Func<WikidataResolveRequest, BridgeResolutionRequest?> build)
     {
         if (!HasRealBridgeIds(request))
+        {
             return null;
+        }
 
         var textOnly = new WikidataResolveRequest
         {
@@ -606,7 +644,9 @@ public sealed partial class ReconciliationAdapter
         string? title)
     {
         if (!request.AllowConstrainedTextFallback)
+        {
             return false;
+        }
 
         if (request.MediaType is not (MediaType.Books or MediaType.Audiobooks))
         {
@@ -616,7 +656,9 @@ public sealed partial class ReconciliationAdapter
         }
 
         if (string.IsNullOrWhiteSpace(title))
+        {
             return false;
+        }
 
         return !string.IsNullOrWhiteSpace(request.Author)
                || !string.IsNullOrWhiteSpace(request.Artist)
@@ -658,7 +700,9 @@ public sealed partial class ReconciliationAdapter
         }
 
         if (!request.IsEditionAware)
+        {
             return BridgeRollupTarget.ReturnWorkAndEdition;
+        }
 
         return request.MediaType == MediaType.Audiobooks
             ? BridgeRollupTarget.PreferEdition
@@ -681,12 +725,17 @@ public sealed partial class ReconciliationAdapter
         _editionPivotCache ??= _config.GetEditionPivotConfiguration();
         var pivotRule = _editionPivotCache.GetRuleFor(mediaType);
         if (pivotRule is not null && pivotRule.WorkClasses.Count > 0)
+        {
             return pivotRule.WorkClasses;
+        }
 
         // Non-edition-aware types (Movies, TV, Comics) use instance_of_classes.
         var mediaTypeKey = mediaType.ToString();
         if (_config.InstanceOfClasses.TryGetValue(mediaTypeKey, out var classes) && classes.Count > 0)
+        {
             return classes;
+        }
+
         return [];
     }
 
@@ -699,7 +748,9 @@ public sealed partial class ReconciliationAdapter
         _editionPivotCache ??= _config.GetEditionPivotConfiguration();
         var rule = _editionPivotCache.GetRuleFor(MediaType.Audiobooks);
         if (rule is not null && rule.EditionClasses.Count > 0)
+        {
             return rule.EditionClasses;
+        }
 
         // Fallback to instance_of_classes if edition_pivot is not configured.
         return _config.InstanceOfClasses.TryGetValue("Audiobooks", out var classes) && classes.Count > 0
@@ -717,7 +768,11 @@ public sealed partial class ReconciliationAdapter
 
     private string? TryGetMetadataLanguage()
     {
-        if (_configLoader is null) return null;
+        if (_configLoader is null)
+        {
+            return null;
+        }
+
         try { return _configLoader.LoadCore().Language?.Metadata; }
         catch { return null; }
     }

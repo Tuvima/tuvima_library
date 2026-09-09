@@ -148,14 +148,14 @@ public sealed class MusicPlayStatsRepositoryTests : IDisposable
         double positionSeconds,
         double durationSeconds,
         bool isPlaying) => new()
-    {
-        QueueItemId = item.QueueItemId,
-        AssetId = item.AssetId,
-        IsPlaying = isPlaying,
-        PositionSeconds = positionSeconds,
-        DurationSeconds = durationSeconds,
-        PlaybackRate = 1,
-    };
+        {
+            QueueItemId = item.QueueItemId,
+            AssetId = item.AssetId,
+            IsPlaying = isPlaying,
+            PositionSeconds = positionSeconds,
+            DurationSeconds = durationSeconds,
+            PlaybackRate = 1,
+        };
 
     private async Task<(Guid ProfileId, Guid WorkId, Guid AssetId)> CreateProfileAssetAsync()
     {

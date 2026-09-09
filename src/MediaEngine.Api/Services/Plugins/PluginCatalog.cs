@@ -1,8 +1,8 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.Loader;
 using System.Text.Json;
-using MediaEngine.Plugins;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Plugins;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Plugins;
@@ -54,7 +54,10 @@ public sealed class PluginCatalog
     public IReadOnlyList<PluginRegistration> List()
     {
         EnsureLoaded();
-        lock (_lock) return _registrations.ToList();
+        lock (_lock)
+        {
+            return _registrations.ToList();
+        }
     }
 
     public PluginRegistration? Get(string pluginId)
@@ -91,7 +94,9 @@ public sealed class PluginCatalog
             ?? throw new InvalidOperationException($"Plugin '{pluginId}' is not registered.");
 
         if (registration.IsBuiltIn || string.IsNullOrWhiteSpace(registration.ManifestPath))
+        {
             throw new InvalidOperationException("Built-in plugin manifests are compiled into the application.");
+        }
 
         return File.ReadAllText(registration.ManifestPath);
     }
@@ -102,20 +107,28 @@ public sealed class PluginCatalog
             ?? throw new InvalidOperationException($"Plugin '{pluginId}' is not registered.");
 
         if (registration.IsBuiltIn || string.IsNullOrWhiteSpace(registration.ManifestPath))
+        {
             throw new InvalidOperationException("Built-in plugin manifests are compiled into the application.");
+        }
 
         using var document = JsonDocument.Parse(json, JsonDocumentOptions);
         var manifest = document.Deserialize<PluginManifest>(JsonOptions)
             ?? throw new InvalidOperationException("Plugin manifest JSON is empty.");
 
         if (string.IsNullOrWhiteSpace(manifest.Id))
+        {
             throw new InvalidOperationException("Plugin manifest must include an id.");
+        }
 
         if (!string.Equals(manifest.Id, registration.Manifest.Id, StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException("Changing a plugin id from the JSON editor is not supported.");
+        }
 
         if (string.IsNullOrWhiteSpace(manifest.EntryAssembly) || string.IsNullOrWhiteSpace(manifest.EntryType))
+        {
             throw new InvalidOperationException("Plugin manifest must include entry_assembly and entry_type.");
+        }
 
         File.WriteAllText(registration.ManifestPath, JsonSerializer.Serialize(manifest, WriteJsonOptions));
         Reload();
@@ -127,7 +140,9 @@ public sealed class PluginCatalog
             ?? throw new InvalidOperationException($"Plugin '{pluginId}' is not registered.");
 
         if (registration.IsBuiltIn || string.IsNullOrWhiteSpace(registration.ManifestPath))
+        {
             throw new InvalidOperationException("Built-in plugins cannot be deleted.");
+        }
 
         var pluginDirectory = Path.GetFullPath(Path.GetDirectoryName(registration.ManifestPath)!);
         var pluginRoot = Path.GetFullPath(_pluginRoot);
@@ -136,7 +151,9 @@ public sealed class PluginCatalog
             : pluginRoot + Path.DirectorySeparatorChar;
 
         if (!pluginDirectory.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException("Plugin directory is outside the configured plugin root.");
+        }
 
         Directory.Delete(pluginDirectory, recursive: true);
         _settingsService.Delete(registration.Manifest.Id);
@@ -169,11 +186,16 @@ public sealed class PluginCatalog
     {
         lock (_lock)
         {
-            if (_loaded) return;
+            if (_loaded)
+            {
+                return;
+            }
 
             var registrations = new List<PluginRegistration>();
             foreach (var plugin in _builtInPlugins)
+            {
                 registrations.Add(BuildRegistration(plugin, plugin.Manifest, isBuiltIn: true, loadError: null, manifestPath: null));
+            }
 
             registrations.AddRange(LoadFilePlugins());
             _registrations = registrations
@@ -194,6 +216,13 @@ public sealed class PluginCatalog
     {
         var config = _settingsService.Load(manifest);
         IReadOnlyList<IPluginCapability> capabilities = [];
+        var unknownPermission = manifest.Permissions.FirstOrDefault(permission =>
+            !PluginPermissionIds.All.Contains(permission));
+        if (unknownPermission is not null)
+        {
+            loadError = $"Plugin manifest declares unknown permission '{unknownPermission}'.";
+        }
+
         if (loadError is null)
         {
             try { capabilities = plugin.CreateCapabilities(); }
@@ -221,7 +250,9 @@ public sealed class PluginCatalog
         IReadOnlyList<IPluginCapability> capabilities)
     {
         if (manifest.SettingsSchema is { } manifestSchema && IsConcreteJson(manifestSchema))
+        {
             return manifestSchema.Clone();
+        }
 
         foreach (var provider in capabilities.OfType<IPluginSettingsSchemaProvider>())
         {
@@ -229,7 +260,9 @@ public sealed class PluginCatalog
             {
                 var schema = provider.GetSettingsSchema();
                 if (IsConcreteJson(schema))
+                {
                     return schema.Clone();
+                }
             }
             catch (Exception ex)
             {
@@ -246,23 +279,31 @@ public sealed class PluginCatalog
     private static void ValidateSettings(PluginRegistration registration, IReadOnlyDictionary<string, JsonElement> settings)
     {
         if (registration.SettingsSchema is not { } schema || schema.ValueKind != JsonValueKind.Object)
+        {
             return;
+        }
 
         var properties = TryGetPropertyObject(schema, "properties");
         if (properties is null)
+        {
             return;
+        }
 
         var required = ReadStringArray(schema, "required");
         foreach (var key in required)
         {
             if (!settings.ContainsKey(key))
+            {
                 throw new InvalidOperationException($"Plugin setting '{key}' is required.");
+            }
         }
 
         foreach (var (key, value) in settings)
         {
             if (!properties.Value.TryGetProperty(key, out var definition) || definition.ValueKind != JsonValueKind.Object)
+            {
                 continue;
+            }
 
             ValidateSettingValue(key, value, definition);
         }
@@ -272,18 +313,27 @@ public sealed class PluginCatalog
     {
         var expectedType = ReadString(definition, "type");
         if (!string.IsNullOrWhiteSpace(expectedType) && !SettingTypeMatches(expectedType, value))
+        {
             throw new InvalidOperationException($"Plugin setting '{key}' must be {expectedType}.");
+        }
 
         var allowedValues = ReadEnumValues(definition);
         if (allowedValues.Count > 0 && !allowedValues.Contains(ScalarSettingValue(value), StringComparer.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException($"Plugin setting '{key}' is not one of the allowed values.");
+        }
 
         if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var numeric))
         {
             if (TryReadDouble(definition, "minimum", out var min) && numeric < min)
+            {
                 throw new InvalidOperationException($"Plugin setting '{key}' must be at least {min}.");
+            }
+
             if (TryReadDouble(definition, "maximum", out var max) && numeric > max)
+            {
                 throw new InvalidOperationException($"Plugin setting '{key}' must be at most {max}.");
+            }
         }
     }
 
@@ -300,7 +350,9 @@ public sealed class PluginCatalog
     private static IReadOnlyList<string> ReadStringArray(JsonElement element, string propertyName)
     {
         if (!element.TryGetProperty(propertyName, out var property) || property.ValueKind != JsonValueKind.Array)
+        {
             return [];
+        }
 
         return property.EnumerateArray()
             .Where(item => item.ValueKind == JsonValueKind.String)
@@ -313,7 +365,9 @@ public sealed class PluginCatalog
     private static IReadOnlyList<string> ReadEnumValues(JsonElement definition)
     {
         if (!definition.TryGetProperty("enum", out var property) || property.ValueKind != JsonValueKind.Array)
+        {
             return [];
+        }
 
         return property.EnumerateArray()
             .Select(ScalarSettingValue)
@@ -324,7 +378,9 @@ public sealed class PluginCatalog
     private static bool TryReadDouble(JsonElement element, string propertyName, out double value)
     {
         if (element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.Number)
+        {
             return property.TryGetDouble(out value);
+        }
 
         value = default;
         return false;
@@ -357,7 +413,10 @@ public sealed class PluginCatalog
     private IEnumerable<PluginRegistration> LoadFilePlugins()
     {
         var results = new List<PluginRegistration>();
-        if (!Directory.Exists(_pluginRoot)) return results;
+        if (!Directory.Exists(_pluginRoot))
+        {
+            return results;
+        }
 
         foreach (var manifestPath in Directory.EnumerateFiles(_pluginRoot, "plugin.json", SearchOption.AllDirectories))
         {
@@ -379,7 +438,14 @@ public sealed class PluginCatalog
                     continue;
                 }
 
-                var assemblyPath = Path.Combine(Path.GetDirectoryName(manifestPath)!, manifest.EntryAssembly);
+                var pluginDirectory = Path.GetFullPath(Path.GetDirectoryName(manifestPath)!);
+                var assemblyPath = Path.GetFullPath(Path.Combine(pluginDirectory, manifest.EntryAssembly));
+                var normalizedPluginDirectory = pluginDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                if (!assemblyPath.StartsWith(normalizedPluginDirectory, StringComparison.OrdinalIgnoreCase))
+                {
+                    results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry assembly is outside the plugin directory.", null, manifestPath));
+                    continue;
+                }
                 if (!File.Exists(assemblyPath))
                 {
                     results.Add(new PluginRegistration(manifest, false, false, [], new Dictionary<string, JsonElement>(), "Entry assembly was not found.", null, manifestPath));

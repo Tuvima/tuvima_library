@@ -36,13 +36,20 @@ public sealed class ViewThumbnailService(
             itemId,
             "thumbnail",
             $"timeline-{MaximumEdge}.jpg");
-        if (IsCurrent(target, source.FilePath)) return target;
+        if (IsCurrent(target, source.FilePath))
+        {
+            return target;
+        }
 
         var gate = _itemLocks.GetOrAdd(itemId, static _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync(ct).ConfigureAwait(false);
         try
         {
-            if (IsCurrent(target, source.FilePath)) return target;
+            if (IsCurrent(target, source.FilePath))
+            {
+                return target;
+            }
+
             if (source.MimeType.StartsWith("video/", StringComparison.OrdinalIgnoreCase))
             {
                 return await GenerateVideoAsync(source.FilePath, target, ct).ConfigureAwait(false)
@@ -51,7 +58,9 @@ public sealed class ViewThumbnailService(
             }
 
             if (await Task.Run(() => GenerateImage(source.FilePath, target), ct).ConfigureAwait(false))
+            {
                 return target;
+            }
 
             return await GenerateImageWithFfmpegAsync(source.FilePath, target, ct).ConfigureAwait(false)
                 ? target
@@ -74,7 +83,10 @@ public sealed class ViewThumbnailService(
 
     private async Task<bool> GenerateVideoAsync(string source, string target, CancellationToken ct)
     {
-        if (ffmpeg is not { IsAvailable: true }) return false;
+        if (ffmpeg is not { IsAvailable: true })
+        {
+            return false;
+        }
 
         var directory = Path.GetDirectoryName(target)!;
         Directory.CreateDirectory(directory);
@@ -84,19 +96,29 @@ public sealed class ViewThumbnailService(
             var result = await ffmpeg.RunAsync(
                 $"-y -ss 0.5 -i {Quote(source)} -frames:v 1 -vf scale={MaximumEdge}:-2:force_original_aspect_ratio=decrease {Quote(temporary)}",
                 ct).ConfigureAwait(false);
-            if (result.ExitCode != 0 || !File.Exists(temporary)) return false;
+            if (result.ExitCode != 0 || !File.Exists(temporary))
+            {
+                return false;
+            }
+
             File.Move(temporary, target, overwrite: true);
             return true;
         }
         finally
         {
-            if (File.Exists(temporary)) File.Delete(temporary);
+            if (File.Exists(temporary))
+            {
+                File.Delete(temporary);
+            }
         }
     }
 
     private async Task<bool> GenerateImageWithFfmpegAsync(string source, string target, CancellationToken ct)
     {
-        if (ffmpeg is not { IsAvailable: true }) return false;
+        if (ffmpeg is not { IsAvailable: true })
+        {
+            return false;
+        }
 
         var directory = Path.GetDirectoryName(target)!;
         Directory.CreateDirectory(directory);
@@ -106,13 +128,20 @@ public sealed class ViewThumbnailService(
             var result = await ffmpeg.RunAsync(
                 $"-y -i {Quote(source)} -frames:v 1 -vf scale={MaximumEdge}:-2:force_original_aspect_ratio=decrease {Quote(temporary)}",
                 ct).ConfigureAwait(false);
-            if (result.ExitCode != 0 || !File.Exists(temporary)) return false;
+            if (result.ExitCode != 0 || !File.Exists(temporary))
+            {
+                return false;
+            }
+
             File.Move(temporary, target, overwrite: true);
             return true;
         }
         finally
         {
-            if (File.Exists(temporary)) File.Delete(temporary);
+            if (File.Exists(temporary))
+            {
+                File.Delete(temporary);
+            }
         }
     }
 
@@ -120,7 +149,10 @@ public sealed class ViewThumbnailService(
     {
         using var input = File.Open(source, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
         using var bitmap = SKBitmap.Decode(input);
-        if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0) return false;
+        if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
+        {
+            return false;
+        }
 
         var scale = Math.Min(1d, MaximumEdge / (double)Math.Max(bitmap.Width, bitmap.Height));
         using var resized = bitmap.Resize(new SKImageInfo(
@@ -129,7 +161,10 @@ public sealed class ViewThumbnailService(
             new SKSamplingOptions(SKFilterMode.Linear));
         using var image = SKImage.FromBitmap(resized ?? bitmap);
         using var data = image.Encode(SKEncodedImageFormat.Jpeg, 82);
-        if (data is null) return false;
+        if (data is null)
+        {
+            return false;
+        }
 
         var directory = Path.GetDirectoryName(target)!;
         Directory.CreateDirectory(directory);
@@ -145,7 +180,10 @@ public sealed class ViewThumbnailService(
         }
         finally
         {
-            if (File.Exists(temporary)) File.Delete(temporary);
+            if (File.Exists(temporary))
+            {
+                File.Delete(temporary);
+            }
         }
     }
 

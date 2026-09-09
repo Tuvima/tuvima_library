@@ -14,47 +14,89 @@ public sealed class NetworkRuntimeState
 
     public NetworkTestResultDto? LastLocalTest
     {
-        get { lock (_gate) return _lastLocalTest; }
+        get
+        {
+            lock (_gate)
+            {
+                return _lastLocalTest;
+            }
+        }
     }
 
     public NetworkTestResultDto? LastRemoteTest
     {
-        get { lock (_gate) return _lastRemoteTest; }
+        get
+        {
+            lock (_gate)
+            {
+                return _lastRemoteTest;
+            }
+        }
     }
 
     public NetworkBandwidthStatusDto Bandwidth
     {
-        get { lock (_gate) return _bandwidth; }
+        get
+        {
+            lock (_gate)
+            {
+                return _bandwidth;
+            }
+        }
     }
 
     public RouterMappingResult? RouterMapping
     {
-        get { lock (_gate) return _routerMapping; }
+        get
+        {
+            lock (_gate)
+            {
+                return _routerMapping;
+            }
+        }
     }
 
     public DateTimeOffset? RouterMappingCheckedAt
     {
-        get { lock (_gate) return _routerMappingCheckedAt; }
+        get
+        {
+            lock (_gate)
+            {
+                return _routerMappingCheckedAt;
+            }
+        }
     }
 
     public RemoteProviderSnapshot? GetRemoteProvider(string key)
     {
-        lock (_gate) return _remoteProviders.GetValueOrDefault(key);
+        lock (_gate)
+        {
+            return _remoteProviders.GetValueOrDefault(key);
+        }
     }
 
     public void RecordLocalTest(NetworkTestResultDto result)
     {
-        lock (_gate) _lastLocalTest = result;
+        lock (_gate)
+        {
+            _lastLocalTest = result;
+        }
     }
 
     public void RecordRemoteTest(NetworkTestResultDto result)
     {
-        lock (_gate) _lastRemoteTest = result;
+        lock (_gate)
+        {
+            _lastRemoteTest = result;
+        }
     }
 
     public void RecordBandwidth(NetworkBandwidthStatusDto result)
     {
-        lock (_gate) _bandwidth = result;
+        lock (_gate)
+        {
+            _bandwidth = result;
+        }
     }
 
     public void RecordRouterMapping(RouterMappingResult? result)
@@ -68,6 +110,9 @@ public sealed class NetworkRuntimeState
 
     public void RecordRemoteProvider(RemoteProviderSnapshot snapshot)
     {
-        lock (_gate) _remoteProviders[snapshot.Key] = snapshot;
+        lock (_gate)
+        {
+            _remoteProviders[snapshot.Key] = snapshot;
+        }
     }
 }

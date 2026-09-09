@@ -1,6 +1,6 @@
 using System.Net.Http.Json;
-using MediaEngine.Contracts.Setup;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Contracts.Setup;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -72,7 +72,10 @@ public sealed partial class EngineApiClient
         {
             using var request = new HttpRequestMessage(method, path) { Content = content };
             if (!string.IsNullOrWhiteSpace(setupSession))
+            {
                 request.Headers.TryAddWithoutValidation("X-Tuvima-Setup-Session", setupSession);
+            }
+
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
             if (!response.IsSuccessStatusCode)
             {

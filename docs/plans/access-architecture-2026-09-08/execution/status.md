@@ -1,5 +1,60 @@
 # Access execution status
 
+## Current acceptance — 2026-09-09
+
+This section supersedes all historical checkpoint notes below. P00–P13 implementation and acceptance are complete and have been collapsed onto the current `main` as one reviewed change. The combined automated gates and isolated browser mutation matrix pass. The normal development database has not been reset or cut over.
+
+- P03 final metadata admission covers Work, Edition, assets, and resolved artwork targets, including mixed-library variants. P13 removes the dormant role evaluator and API-key/profile-authority contracts. Setup completion now depends on installed account state, so disabling an administrator or revoking credentials cannot reopen anonymous bootstrap; concurrent bootstrap is serialized.
+- Final solution warnings-as-errors build passed with **zero warnings/errors** (`logs/access-complete-build.log`). Full `dotnet format --verify-no-changes --no-restore` passed, exit 0 (`logs/access-complete-format.log`). Mechanical commit `663749d1` formats 740 C# files, with no Razor, style, configuration, or snapshot edits; checkout CRLF normalization closes the remaining local line-ending findings. A single source assertion was made whitespace-independent without changing its authentication requirement.
+- Final complete solution tests passed: **3,632 passed, 37 existing provider skips, zero failed**, across 13 projects. Optional live-provider calls were disabled; no contract snapshot regeneration flags were set. Evidence: `logs/access-complete-verified.log`, TRX/Cobertura under `logs/access-complete-verified/`, and `logs/access-complete-verified-summary.json`. This includes Web **1,024**, API **969**, Storage **424**, Ingestion **160**, and Contracts **51** passing tests.
+- The restored CI coverage gate passed, exit 0: **46.19% lines** (107,757/233,314) and **31.45% branches** (28,260/89,852), above the documented 13% / 7% floors (`logs/access-complete-coverage.log`). It retains the separate 70% / 60% improvement targets. Threshold, duplicate-report, malformed/missing-report, no-data, and exit-code fixtures pass.
+- Native-client source and Roku static gates passed (`logs/access-complete-native-sources.log`, `logs/access-complete-roku.log`). The dependency vulnerability audit found no vulnerable packages (`logs/access-dependency-audit.log`). The refreshed source ledger contains **591 endpoint registrations**; real mapped-route tests remain the enforcement evidence.
+- Required documentation context generation and strict MkDocs build passed (`logs/access-complete-context.log`, `logs/access-complete-docs.log`). The implementation, acceptance record, and prepared cutover/squash guidance are retained together on the integration branch.
+- P11 checks live Dashboard audience authority, exact native/service credentials, and pre-removal resource provenance. The dedicated hub is exposed through the Dashboard edge with tested authentication failures and bounded cancellation/close behavior. Durable event projection precedes isolated per-recipient Dashboard delivery; a failed recipient does not lose the event or prevent delivery to other authorized recipients. Actual ingestion deletion tests cover successful post-mutation publication, failed storage mutation, and missing assets.
+- P12 prevents stale application loads or disposed operations from exposing old webhook data/signing secrets. Its focused UI and transport checks are included in the passing combined suite.
+- Final isolated runtime `complete-verified` started successfully with zero configured libraries. Both liveness routes returned HTTP 200; stderr captures were empty and checked stdout contained no fatal/unhandled matches. Users, Applications, and Authentication rendered at desktop, short-desktop, and mobile sizes; drawer focus, containment, and sticky actions were verified. The existing synthetic administrator's PIN locked and unlocked correctly.
+- After the product owner explicitly authorized the disposable mutation workflow, browser acceptance created a local-only account, changed its feature permissions, added a second profile grant, and made that grant the default. It also created a Server Integration Application, saved explicit Application permissions, generated a one-time credential, and created an enabled signed webhook. The webhook was correctly rejected until the matching underlying `ingestion.status.read` permission accompanied `events.subscribe`, then saved and reported `Waiting for new events`. No event was generated or delivered. Secrets were not retained. The browser console and host logs were clean, and the isolated hosts were stopped. See [runtime verification](access-runtime-verification.md).
+
+The [cutover procedure](cutover.md) defines the final squash, fresh access records, native re-pairing, and protection of original media/old Personal Space directories. No normal database or media reset has been performed.
+
+### Phase accounting
+
+| Phase | Integrated result | Remaining acceptance |
+|---|---|---|
+| P00–P01 | Baseline, refreshed endpoint inventory, ownership, typed permission/service registry | None for implementation/automated checks |
+| P02–P04 | Account/grant/Application persistence and live authority; catalogue and View resource enforcement | None |
+| P05–P07 | Authority-driven Dashboard; functional Users, Applications, Authentication; PIN and recovery paths | None |
+| P08–P09 | Host-bound plugin capabilities and bounded Fandom Lore service | None for implementation/automated checks |
+| P10 | Durable playback telemetry with truthful unknown delivery facts | None for implementation/automated checks |
+| P11 | Scoped durable events, exact live authority, edge transport, producer provenance | None for implementation/automated checks |
+| P12 | Service-Application webhook lifecycle, signed bounded delivery, management UI | None |
+| P13 | Legacy-authority removal, reviewed fixtures, passing combined gates, browser acceptance, cutover guidance, prepared squash description | None |
+
+The [prepared squash description](squash-description.md) records the accepted result. No PR has been published and no normal-runtime database cutover has been applied.
+
+## Latest integration — 2026-09-09 morning
+
+### Resumed integration through `663c99cd`
+
+- P06 Users/Applications and P07 authentication are implemented, including mobile drawer geometry, focus, one Custom preset, error recovery, and actionable readiness reasons. Mobile QA at 390×844 confirms both drawer footers fit the viewport and remain above the mobile dock. Synthetic account/application browser creation still awaits the specific authorization requested after automatic review rejected it; no rejected mutation has been bypassed.
+- P08 host-bound plugin capabilities and P09 the bounded Fandom Lore operation are integrated. Independent combined plugin, player resource, and projection checks passed **45/45**. Playback/progress scope checks passed **13/13** in Storage; authentication follow-up **11/11** and Applications UI **8/8** passed in Web.
+- The last full solution build passed without warnings/errors. Its diagnostic test run had **14 failures**; fixes now cover mapped-route inference, endpoint SQL boundaries, synchronous SQLite rules, new blob inventory, the Applications render race, and the AI endpoint guard. The remaining raw HTTP client guard fix is assigned to the authentication worker. This is not a green full-suite acceptance claim; the complete suite must run again after final integration.
+- P10 telemetry is active with the playback worker. P11 now has a transactional durable outbox, ordered dispatcher, bounded replay, and exact service credential checks. Native live-token checks, replay/live sequence regression coverage, producer provenance, and Dashboard Intercom audience filtering remain review gates.
+- P12 webhook storage, destination validation, exact-body signing, delivery retries, live authorization, management endpoints, and global wiring are integrated. Transport/delivery checks passed **30/30** and Storage checks **3/3**. The catalogue worker owns the management UI after its final P03 resource packet. Real delivery and final UI acceptance remain open.
+- Contracts were reviewed and passed **51/51** before telemetry/webhook additions. Their final snapshots must be reviewed again once P10–P12 contracts are stable. Main and the original media/configuration remain untouched by Access.
+
+The checkpoint notes below are historical; this subsection supersedes their open-work and worker-assignment descriptions.
+
+- Integration through `56708388` includes complete P06 Users/Applications workflows, P07 authentication policy/provider lifecycle, administrator settings lock/unlock, and further P03 catalogue/service enforcement. Main remains unchanged. P03 resource coverage and P08–P13 remain open; these are tested development checkpoints, not a completed cutover.
+- P07 worker commits `996b9336`, `580faab3`, and `5aa9c591` are integrated with the required singleton mutation gate and provider-secret overlay services. Trusted-local entry allows passwordless local-only accounts only under the configured policy; configured PINs still apply. Invitation expiry/acceptance/replay, actual provider secret overlay, prospective last-usable-method protection, and fake loopback SMTP send have focused behavior evidence.
+- Latest integration build passed with zero warnings/errors before the final drawer and administration changes. Integrated authentication/catalogue/endpoint checks passed **56/56**, and Access/authentication UI checks passed **71/71** (`logs/access-authentication-integrated`). Subsequent administration/service/profile-isolation checks passed **44/44** and shared PIN/drawer checks passed **36/36** (`logs/access-administration-services`). A new complete solution gate remains required.
+- `288bdf9e` applies explicit read/control permissions across Review, providers, AI, networking, storage, and maintenance. Personal UI preferences reject another profile or invalid storage key before configuration access, and resolved settings use the active profile. Live database authority tests verify read-only service grants cannot mutate and revocation applies immediately.
+- Browser verification caught a drawer backdrop covering its content; `18fa4843` places the backdrop below the drawer. P06 follow-up `7808733b` removes closed drawers from the accessibility tree, focuses open drawers, contains scrolling, and preserves truthful partial-mutation state for retries. `56708388` adds typed numeric input mode to the shared password field, avoiding a MudBlazor parameter cast failure.
+- Sol workers now own P08 host capability enforcement and P09 a real Fandom Lore gateway. The catalogue/security worker continues P03. Plugin namespace policy preserves canonical dotted IDs with exact provenance and global collision checks; no slug conversion.
+- Browser creation of a synthetic local-only account was rejected by automatic approval review, including after isolation was verified. Explicit user approval was requested for synthetic accounts/applications in the disposable QA database. No rejected account creation was bypassed. Read-only visual checks and automated fixture tests continue.
+
+The older sections below retain checkpoint history; the latest status above supersedes their assignment descriptions.
+
 Updated 2026-09-09. The product owner authorized execution. Astra coordinates contracts and acceptance; Sol handles security and foundation work; Terra handles bounded UI and verification changes.
 
 ## Baseline and isolation

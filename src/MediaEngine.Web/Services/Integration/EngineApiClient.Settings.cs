@@ -3,7 +3,6 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MediaEngine.Contracts.Admin;
 using MediaEngine.Contracts.Ai;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Display;
@@ -22,83 +21,6 @@ namespace MediaEngine.Web.Services.Integration;
 
 public sealed partial class EngineApiClient
 {
-    // -- /admin/api-keys -------------------------------------------------------
-
-    public async Task<List<ApiKeyDto>> GetApiKeysAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            return await _http.GetFromJsonAsync<List<ApiKeyDto>>("/admin/api-keys", ct) ?? [];
-        }
-        catch (OperationCanceledException) { return []; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /admin/api-keys failed");
-            return [];
-        }
-    }
-
-    public async Task<CreateApiKeyResponse?> CreateApiKeyAsync(
-        string label,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var body = new CreateApiKeyRequest { Label = label };
-            var resp = await _http.PostAsJsonAsync("/admin/api-keys", body, ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                return null;
-            }
-
-            return await resp.Content.ReadFromJsonAsync<CreateApiKeyResponse>(ct);
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /admin/api-keys failed");
-            return null;
-        }
-    }
-
-    public async Task<bool> RevokeApiKeyAsync(Guid id, CancellationToken ct = default)
-    {
-        try
-        {
-            var resp = await _http.DeleteAsync($"/admin/api-keys/{id}", ct);
-            return resp.IsSuccessStatusCode;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "DELETE /admin/api-keys/{Id} failed", id);
-            return false;
-        }
-    }
-
-    // -- DELETE /admin/api-keys (batch revoke-all) -----------------------------
-
-    public async Task<int> RevokeAllApiKeysAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            var resp = await _http.DeleteAsync("/admin/api-keys", ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                return 0;
-            }
-
-            var raw = await resp.Content.ReadFromJsonAsync<RevokeAllKeysResponse>(ct);
-            return raw?.RevokedCount ?? 0;
-        }
-        catch (OperationCanceledException) { return 0; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "DELETE /admin/api-keys failed");
-            return 0;
-        }
-    }
-
     // -- /profiles ---------------------------------------------------------------
 
     public async Task<List<ProfileViewModel>> GetProfilesAsync(CancellationToken ct = default)
@@ -126,61 +48,12 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<ProfileViewModel?> CreateProfileAsync(
-        string displayName, string avatarColor, string role,
+    public Task<bool> UpdateProfileAsync(
+        Guid id, string displayName, string avatarColor,
         string? navigationConfig = null,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var body = new CreateProfileRequest
-            {
-                DisplayName = displayName,
-                AvatarColor = avatarColor,
-                Role = role,
-                NavigationConfig = navigationConfig,
-            };
-            var resp = await _http.PostAsJsonAsync("/profiles", body, ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                return null;
-            }
-
-            var profile = await resp.Content.ReadFromJsonAsync<ProfileResponseDto>(ct);
-            return profile is null ? null : MapProfile(profile);
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /profiles failed");
-            return null;
-        }
-    }
-
-    public async Task<bool> UpdateProfileAsync(
-        Guid id, string displayName, string avatarColor, string role,
-        string? navigationConfig = null,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var body = new UpdateProfileRequest
-            {
-                DisplayName = displayName,
-                AvatarColor = avatarColor,
-                Role = role,
-                NavigationConfig = navigationConfig,
-            };
-            var resp = await _http.PutAsJsonAsync($"/profiles/{id}", body, ct);
-            return resp.IsSuccessStatusCode;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "PUT /profiles/{Id} failed", id);
-            return false;
-        }
-    }
+        CancellationToken ct = default) =>
+        PutAsync("UpdateProfileExperience", $"/profiles/{id:D}/experience",
+            new UpdateProfileExperienceRequest(displayName, avatarColor, navigationConfig), ct: ct);
 
     public async Task<ViewProfilePolicyDto?> GetViewProfilePolicyAsync(
         Guid id,
@@ -221,21 +94,6 @@ public sealed partial class EngineApiClient
         {
             _logger.LogWarning(ex, "PUT /profiles/{Id}/settings/view failed", id);
             return null;
-        }
-    }
-
-    public async Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default)
-    {
-        try
-        {
-            var resp = await _http.DeleteAsync($"/profiles/{id}", ct);
-            return resp.IsSuccessStatusCode;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "DELETE /profiles/{Id} failed", id);
-            return false;
         }
     }
 
@@ -832,7 +690,13 @@ public sealed partial class EngineApiClient
             var page = await _http.GetFromJsonAsync<PagedResponse<ActivityBatchSummaryDto>>(
                 BuildActivityQueryPath("/activity/batches", query), ct);
             if (page is not null)
-                foreach (var batch in page.Items) NormalizePresentationUrls(batch.AddedPreview);
+            {
+                foreach (var batch in page.Items)
+                {
+                    NormalizePresentationUrls(batch.AddedPreview);
+                }
+            }
+
             return page;
         }
         catch (OperationCanceledException) { return null; }
@@ -1010,7 +874,11 @@ public sealed partial class EngineApiClient
     private static string BuildActivityQueryPath(string path, ActivityAuditQuery query)
     {
         var values = new List<string>();
-        if (query.HistoricalOnly) values.Add("historicalOnly=true");
+        if (query.HistoricalOnly)
+        {
+            values.Add("historicalOnly=true");
+        }
+
         Add(values, "search", query.Search);
         Add(values, "mediaType", query.MediaType);
         Add(values, "status", query.Status);
@@ -1603,8 +1471,11 @@ public sealed partial class EngineApiClient
             using var request = new HttpRequestMessage(HttpMethod.Delete, "/ai/benchmark");
             using var response = await _http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return AiOperationResultDto<HardwareProfileDto>.Failure(
                     await ReadAiProblemAsync(response, "Benchmark invalidation failed", ct));
+            }
+
             var profile = await response.Content.ReadFromJsonAsync<HardwareProfileDto>(cancellationToken: ct);
             return profile is null
                 ? AiOperationResultDto<HardwareProfileDto>.Failure(ClientProblem("Invalid Engine response", "The benchmark state was empty."))

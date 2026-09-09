@@ -56,20 +56,20 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
             """,
             new
             {
-                id         = entry.Id,
-                path       = entry.FilePath,
+                id = entry.Id,
+                path = entry.FilePath,
                 mediaAssetId = entry.MediaAssetId,
-                hash       = entry.ContentHash,
-                status     = entry.Status,
-                mediaType  = entry.MediaType,
+                hash = entry.ContentHash,
+                status = entry.Status,
+                mediaType = entry.MediaType,
                 confidence = entry.ConfidenceScore,
-                title      = entry.DetectedTitle,
+                title = entry.DetectedTitle,
                 normalized = entry.NormalizedTitle,
-                qid        = entry.WikidataQid,
-                error      = entry.ErrorDetail,
-                runId      = entry.IngestionRunId,
-                created    = entry.CreatedAt.ToString("O"),
-                updated    = entry.UpdatedAt.ToString("O"),
+                qid = entry.WikidataQid,
+                error = entry.ErrorDetail,
+                runId = entry.IngestionRunId,
+                created = entry.CreatedAt.ToString("O"),
+                updated = entry.UpdatedAt.ToString("O"),
             });
 
         return Task.CompletedTask;
@@ -92,8 +92,8 @@ public sealed class IngestionLogRepository : IIngestionLogRepository
         // Build SET clause dynamically for non-null optional fields.
         var setClauses = new List<string> { "status = @status", "updated_at = @updated" };
         var dp = new DynamicParameters();
-        dp.Add("id",      id);
-        dp.Add("status",  status);
+        dp.Add("id", id);
+        dp.Add("status", status);
         dp.Add("updated", DateTimeOffset.UtcNow.ToString("O"));
 
         if (contentHash is not null)

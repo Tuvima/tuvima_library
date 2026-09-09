@@ -32,7 +32,9 @@ public sealed class VibeTagger : IVibeTagger
 
         var vocabulary = _settings.VibeVocabulary.GetForCategory(mediaCategory);
         if (vocabulary.Count == 0 || string.IsNullOrWhiteSpace(wikipediaSummary))
+        {
             return [];
+        }
 
         var vocabList = string.Join(", ", vocabulary);
         var genreList = genres.Count > 0 ? string.Join(", ", genres) : "unknown";

@@ -1,5 +1,6 @@
 using System.Reflection;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -9,7 +10,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Providers.Tests;
@@ -194,7 +194,10 @@ public sealed class SearchServiceUniverseSearchTests
         while (dir != null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
 

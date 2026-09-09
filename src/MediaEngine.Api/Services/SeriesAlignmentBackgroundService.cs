@@ -1,10 +1,10 @@
 using MediaEngine.AI.Configuration;
+using MediaEngine.AI.Infrastructure;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Jobs;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.AI.Infrastructure;
 
 namespace MediaEngine.Api.Services;
 
@@ -124,7 +124,9 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                 string.Equals(value.Key, "series", StringComparison.OrdinalIgnoreCase));
             if (series is null || canonicals.Any(value =>
                     string.Equals(value.Key, "series_position", StringComparison.OrdinalIgnoreCase)))
+            {
                 continue;
+            }
 
             var title = canonicals.FirstOrDefault(value =>
                 string.Equals(value.Key, "title", StringComparison.OrdinalIgnoreCase));
@@ -140,7 +142,9 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
             {
                 ct.ThrowIfCancellationRequested();
                 if (attempted >= batchLimit)
+                {
                     break;
+                }
 
                 var inputFingerprint = AiFeatureFingerprint.Compute(
                     workTitle,
@@ -148,13 +152,17 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                     string.Join('\n', siblingTitles));
                 var state = await _featurePersistence.GetAiFeatureStateAsync(entityId, FeatureKey, ct);
                 if (state?.IsCurrent(inputFingerprint) == true || state?.CanAttempt(DateTimeOffset.UtcNow) == false)
+                {
                     continue;
+                }
 
                 using var admission = _admission.TryAcquire(
                     MediaEngine.Domain.Enums.AiModelRole.TextQuality,
                     ct);
                 if (admission is null)
+                {
                     return;
+                }
 
                 attempted++;
                 try
@@ -165,7 +173,9 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                         siblingTitles,
                         admission.Token);
                     if (inference is null)
+                    {
                         continue;
+                    }
 
                     await _featurePersistence.ReplaceAiFeatureAsync(
                         new AiFeatureWriteRequest(
@@ -218,15 +228,19 @@ public sealed class SeriesAlignmentBackgroundService : BackgroundService
                         "SeriesAlignmentService: failed to infer position for entity {Id}",
                         entityId);
                     if (failure.Status == AiFeatureStatus.Poisoned)
+                    {
                         _logger.LogError(
                             "SeriesAlignmentService: quarantined poison entity {Id} after {Attempts} attempts",
                             entityId,
                             failure.Attempts);
+                    }
                 }
             }
 
             if (attempted >= batchLimit)
+            {
                 break;
+            }
         }
 
         _logger.LogInformation(

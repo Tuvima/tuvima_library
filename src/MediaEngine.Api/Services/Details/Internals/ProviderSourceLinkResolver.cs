@@ -11,13 +11,17 @@ internal sealed class ProviderSourceLinkResolver(
         string? mediaType = null)
     {
         if (identifiers.Count == 0)
+        {
             return [];
+        }
 
         var links = new List<ExternalSourceLinkViewModel>();
         foreach (var provider in providers)
         {
             if (provider.UiMetadata?.ExternalLinks is not { Count: > 0 } configuredLinks)
+            {
                 continue;
+            }
 
             foreach (var (identifierKey, linkConfig) in configuredLinks)
             {

@@ -8,13 +8,13 @@ public static class ViewMediaProxyEndpoint
                 [HttpMethods.Get, HttpMethods.Head],
                 HandleAsync)
             .WithName("ProxyViewMedia")
-            .WithSummary("Streams one profile-bound View media resource through the Dashboard origin.");
+            .WithSummary("Streams one profile-bound View media resource through the Dashboard origin.")
+            .RequireAuthorization();
 
     public static async Task HandleAsync(
         string grant,
         HttpContext context,
         ViewMediaGrantService grants,
-        ActiveProfileAccessor activeProfile,
         IViewMediaEngineClient engine,
         CancellationToken cancellationToken)
     {
@@ -25,7 +25,6 @@ public static class ViewMediaProxyEndpoint
             return;
         }
 
-        activeProfile.SetProfile(mediaGrant.ProfileId);
         var method = HttpMethods.IsHead(context.Request.Method) ? HttpMethod.Head : HttpMethod.Get;
         using var response = await engine.SendAsync(
             mediaGrant,

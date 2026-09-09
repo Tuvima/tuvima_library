@@ -52,25 +52,29 @@ public sealed class ReorganizationExecutor(
         ReorganizationExecutionItemResult Result(
             ReorganizationExecutionDisposition disposition,
             string? reason = null) => new()
-        {
-            Sequence = operation.Sequence,
-            CurrentPath = operation.CurrentPath,
-            ProposedPath = operation.ProposedPath ?? string.Empty,
-            Disposition = disposition,
-            Reason = reason,
-        };
+            {
+                Sequence = operation.Sequence,
+                CurrentPath = operation.CurrentPath,
+                ProposedPath = operation.ProposedPath ?? string.Empty,
+                Disposition = disposition,
+                Reason = reason,
+            };
 
         try
         {
             if (string.IsNullOrWhiteSpace(operation.ProposedPath))
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, "The destination path is unresolved.");
+            }
 
             var currentPolicies = currentPoliciesResolver();
             var currentById = new Dictionary<string, FileSourceMutationPolicy>(StringComparer.OrdinalIgnoreCase);
             foreach (var policy in currentPolicies)
             {
                 if (!currentById.TryAdd(policy.SourceId, policy))
+                {
                     return Result(ReorganizationExecutionDisposition.Blocked, "Current source identities are not unique.");
+                }
             }
 
             if (!TryResolveUnchangedPolicy(
@@ -95,14 +99,24 @@ public sealed class ReorganizationExecutor(
             }
 
             if (HasOverlappingSources(currentPolicies))
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, "Current source roots overlap.");
+            }
 
             if (!PathSafety.TryNormalizePath(operation.CurrentPath, out var currentPath, out var currentError))
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, currentError);
+            }
+
             if (!PathSafety.TryNormalizePath(operation.ProposedPath, out var proposedPath, out var proposedError))
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, proposedError);
+            }
+
             if (PathSafety.Comparer.Equals(currentPath, proposedPath))
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, "The proposed move no longer changes the path.");
+            }
 
             var sameParent = PathSafety.Comparer.Equals(
                 Path.GetDirectoryName(currentPath),
@@ -114,7 +128,9 @@ public sealed class ReorganizationExecutor(
                 Path = currentPath!,
             });
             if (!sourceDecision.Allowed)
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, sourceDecision.Reason);
+            }
 
             var destinationDecision = mutationGate.Evaluate(new SourceMutationRequest
             {
@@ -123,14 +139,24 @@ public sealed class ReorganizationExecutor(
                 Path = proposedPath!,
             });
             if (!destinationDecision.Allowed)
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, destinationDecision.Reason);
+            }
 
             if (!fileSystem.FileExists(currentPath!))
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, "The current file no longer exists.");
+            }
+
             if (fileSystem.GetFileLength(currentPath!) != operation.SizeBytes)
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, "The current file changed after preview.");
+            }
+
             if (fileSystem.FileExists(proposedPath!) || fileSystem.DirectoryExists(proposedPath!))
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, "The destination now exists.");
+            }
 
             if (!string.Equals(operation.SourceId, operation.DestinationSourceId, StringComparison.OrdinalIgnoreCase)
                 && fileSystem.GetAvailableBytes(proposedPath!) < operation.SizeBytes)
@@ -140,7 +166,9 @@ public sealed class ReorganizationExecutor(
 
             var destinationDirectory = Path.GetDirectoryName(proposedPath!);
             if (string.IsNullOrWhiteSpace(destinationDirectory))
+            {
                 return Result(ReorganizationExecutionDisposition.Blocked, "The destination directory is unresolved.");
+            }
 
             fileSystem.CreateDirectory(destinationDirectory);
             // No overwrite is permitted. A race that creates the destination
@@ -197,13 +225,19 @@ public sealed class ReorganizationExecutor(
                 ? (policy.SourceId, Root: root)
                 : (policy.SourceId, Root: null))
             .ToList();
-        if (roots.Any(entry => entry.Root is null)) return true;
+        if (roots.Any(entry => entry.Root is null))
+        {
+            return true;
+        }
 
         for (var left = 0; left < roots.Count; left++)
         {
             for (var right = left + 1; right < roots.Count; right++)
             {
-                if (PathSafety.Overlaps(roots[left].Root!, roots[right].Root!)) return true;
+                if (PathSafety.Overlaps(roots[left].Root!, roots[right].Root!))
+                {
+                    return true;
+                }
             }
         }
 

@@ -69,7 +69,11 @@ internal static class DetailViewModelBuilder
         var selectedImage = StringHelpers.FirstNonBlank(backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl);
         string? Variant(string size)
         {
-            if (string.IsNullOrWhiteSpace(selectedImage)) return null;
+            if (string.IsNullOrWhiteSpace(selectedImage))
+            {
+                return null;
+            }
+
             var baseUrl = selectedImage.Split('?')[0];
             return baseUrl.StartsWith("/stream/artwork/", StringComparison.OrdinalIgnoreCase)
                 ? $"{baseUrl}?size={size}"

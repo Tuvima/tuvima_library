@@ -325,7 +325,9 @@ public sealed class AlbumTrackManifestService(
     private static string NormalizeTrackTitle(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         var normalized = value.Trim().ToLowerInvariant();
         normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"\s*[\(\[\{].*?[\)\]\}]\s*", " ");
@@ -445,7 +447,9 @@ public sealed class AlbumTrackManifestService(
                 }
 
                 if (values.Count > 0)
+                {
                     await canonicalRepo.UpsertBatchAsync(values, ct);
+                }
             }
 
             if (hasCover
@@ -480,7 +484,9 @@ public sealed class AlbumTrackManifestService(
                   ?? configuredAppleCollectionId;
 
         if (string.IsNullOrWhiteSpace(collectionId))
+        {
             return existingChildEntitiesJson;
+        }
 
         var appleTracks = await appleRetailClient.FetchAlbumTracksAsync(collectionId, "us", "en", ct);
         if (appleTracks.Count == 0)
@@ -589,7 +595,9 @@ public sealed class AlbumTrackManifestService(
     {
         var manifestTrackCount = CountManifestTracks(manifest);
         if (manifestTrackCount <= 0)
+        {
             return;
+        }
 
         var canonicalTrackCount = rootCanonicalValues.FirstOrDefault(value =>
             string.Equals(
@@ -619,7 +627,9 @@ public sealed class AlbumTrackManifestService(
     private static string? TryReadAppleCollectionId(string? childEntitiesJson)
     {
         if (string.IsNullOrWhiteSpace(childEntitiesJson))
+        {
             return null;
+        }
 
         try
         {
@@ -638,15 +648,21 @@ public sealed class AlbumTrackManifestService(
     private static bool NeedsAlbumTrackGapFill(string? childEntitiesJson)
     {
         if (MusicAlbumManifestJson.IsComplete(childEntitiesJson))
+        {
             return false;
+        }
 
         if (string.IsNullOrWhiteSpace(childEntitiesJson))
+        {
             return true;
+        }
 
         // Older Apple manifests had no top-level collection identity, so even
         // internally complete rows could belong to a compilation or box set.
         if (AppleAlbumManifestJson.ContainsAppleTrackRows(childEntitiesJson))
+        {
             return true;
+        }
 
         try
         {

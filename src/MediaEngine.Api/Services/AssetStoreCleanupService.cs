@@ -31,7 +31,9 @@ public sealed class AssetStoreCleanupService
             cancellationToken.ThrowIfCancellationRequested();
             var fullPath = Path.GetFullPath(filePath);
             if (referenced.Contains(fullPath))
+            {
                 continue;
+            }
 
             try
             {
@@ -82,11 +84,15 @@ public sealed class AssetStoreCleanupService
             while (reader.Read())
             {
                 if (reader.IsDBNull(0))
+                {
                     continue;
+                }
 
                 var value = reader.GetString(0);
                 if (string.IsNullOrWhiteSpace(value))
+                {
                     continue;
+                }
 
                 paths.Add(Path.GetFullPath(value));
             }
@@ -100,7 +106,9 @@ public sealed class AssetStoreCleanupService
     private static void PruneEmptyAssetDirectories(string? startDir, string assetsRoot)
     {
         if (string.IsNullOrWhiteSpace(startDir))
+        {
             return;
+        }
 
         var root = Path.GetFullPath(assetsRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var current = Path.GetFullPath(startDir);
@@ -110,7 +118,9 @@ public sealed class AssetStoreCleanupService
             try
             {
                 if (!Directory.Exists(current) || Directory.EnumerateFileSystemEntries(current).Any())
+                {
                     return;
+                }
 
                 Directory.Delete(current);
                 current = Path.GetDirectoryName(current) ?? string.Empty;

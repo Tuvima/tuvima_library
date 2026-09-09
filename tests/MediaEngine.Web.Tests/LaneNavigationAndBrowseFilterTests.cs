@@ -170,8 +170,7 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("new(\"playlists\", \"Playlists\"", listenPreset, StringComparison.Ordinal);
         Assert.Contains("new(\"narrators\", \"Narrators\"", listenPreset, StringComparison.Ordinal);
         var musicTab = listenPreset[
-            listenPreset.IndexOf("Id = \"music\"", StringComparison.Ordinal)..
-            listenPreset.IndexOf("Id = \"audiobooks\"", StringComparison.Ordinal)];
+            listenPreset.IndexOf("Id = \"music\"", StringComparison.Ordinal)..listenPreset.IndexOf("Id = \"audiobooks\"", StringComparison.Ordinal)];
         Assert.DoesNotContain("Playlists", musicTab, StringComparison.Ordinal);
         Assert.Contains("DefaultGrouping = \"songs\"", musicTab, StringComparison.Ordinal);
         Assert.Contains("DefaultLayout = LibraryLayoutMode.List", musicTab, StringComparison.Ordinal);

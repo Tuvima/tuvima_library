@@ -25,8 +25,8 @@ namespace MediaEngine.Ingestion;
 public sealed class ConcurrencyGuard
 {
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _folderLocks = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _hashLocks   = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<string, SemaphoreSlim> _qidLocks    = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _hashLocks = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _qidLocks = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _personLocks = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Acquires (or creates) the folder-level lock for the given folder key.</summary>
@@ -76,7 +76,9 @@ public sealed class ConcurrencyGuard
             if (dict.TryGetValue(key, out var sem) && sem.CurrentCount == 1)
             {
                 if (dict.TryRemove(key, out _))
+                {
                     removed++;
+                }
             }
         }
         return removed;

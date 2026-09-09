@@ -3,7 +3,6 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Services;
 using MediaEngine.Domain.PersonalMedia;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
@@ -72,16 +71,6 @@ public sealed class ViewLibraryServiceTests
             fixture.CatalogueLibraryId,
             Limit: 20,
             IncludeHidden: true)).Items);
-
-        var summary = Assert.Single(fixture.Service.GetLibraries(
-            fixture.OwnerProfileId,
-            AppRoles.RestrictedProfile));
-        Assert.Equal(fixture.PersonalLibraryId, summary.Id);
-        Assert.Equal(4, summary.ItemCount);
-        Assert.Equal(1, summary.ImageCount);
-        Assert.Equal(1, summary.VideoCount);
-        Assert.Equal(1, summary.DocumentCount);
-        Assert.Equal(1, summary.AudioCount);
 
         var repeat = Assert.IsType<MediaEngine.Contracts.LocalAssets.LocalAssetScanResultDto>(
             await fixture.Service.ScanAsync(fixture.PersonalLibraryId));
@@ -202,42 +191,6 @@ public sealed class ViewLibraryServiceTests
         Assert.Null(await fixture.Service.ScanAsync(fixture.CatalogueLibraryId));
     }
 
-    [Fact]
-    public void Access_FiltersLibraryListsAndAppliesReadContributeManageActions()
-    {
-        using var fixture = new ViewFixture();
-        var stranger = Guid.NewGuid();
-
-        Assert.True(fixture.Service.CanAccess(
-            fixture.PersonalLibraryId,
-            fixture.OwnerProfileId,
-            AppRoles.RestrictedProfile,
-            LibraryAccessAction.Read));
-        Assert.True(fixture.Service.CanAccess(
-            fixture.PersonalLibraryId,
-            fixture.OwnerProfileId,
-            AppRoles.RestrictedProfile,
-            LibraryAccessAction.Contribute));
-        Assert.True(fixture.Service.CanAccess(
-            fixture.PersonalLibraryId,
-            fixture.OwnerProfileId,
-            AppRoles.RestrictedProfile,
-            LibraryAccessAction.Manage));
-        Assert.False(fixture.Service.CanAccess(
-            fixture.PersonalLibraryId,
-            stranger,
-            AppRoles.RestrictedProfile,
-            LibraryAccessAction.Read));
-        Assert.True(fixture.Service.CanAccess(
-            fixture.PersonalLibraryId,
-            stranger,
-            AppRoles.Administrator,
-            LibraryAccessAction.Manage));
-        Assert.Empty(fixture.Service.GetLibraries(stranger, AppRoles.RestrictedProfile));
-        Assert.Single(fixture.Service.GetLibraries(fixture.OwnerProfileId, AppRoles.RestrictedProfile));
-        Assert.Single(fixture.Service.GetLibraries(null, AppRoles.Administrator));
-    }
-
     private sealed class ViewFixture : IDisposable
     {
         private readonly string _root = Path.Combine(
@@ -262,7 +215,7 @@ public sealed class ViewLibraryServiceTests
             PersonalLibraryId = Guid.NewGuid();
             CatalogueLibraryId = Guid.NewGuid();
             OwnerProfileId = Guid.NewGuid();
-            new ProfileRepository(_database).InsertAsync(new Profile
+            ProfileTestData.InsertAsync(_database, new Profile
             {
                 Id = OwnerProfileId,
                 DisplayName = "View owner",
@@ -305,11 +258,10 @@ public sealed class ViewLibraryServiceTests
                 Guid.NewGuid(), space.Id, ViewSourceType.Folder, "Existing personal files", "test:personal",
                 null, now, now, ViewSourceStorageMode.Linked, ExternalPath: PersonalRoot,
                 IncludeSubdirectories: true, Enabled: true)).GetAwaiter().GetResult();
-            var storage = new ViewStorageService(_configuration, spaces);
+            var storage = new ViewStorageService(_configuration, spaces, new ViewSharedLibraryRepository(_database));
             Service = new ViewLibraryService(
                 Repository,
                 _configuration,
-                new LibraryAccessEvaluator(),
                 spaces,
                 storage,
                 NullLogger<ViewLibraryService>.Instance);
@@ -344,23 +296,23 @@ public sealed class ViewLibraryServiceTests
             var sourceId = Guid.NewGuid().ToString("D");
             return new LibraryFolderConfig
             {
-            Id = id.ToString("D"),
-            Name = "Shy's Phone Photos",
-            Kind = LibraryKinds.Personal,
-            Area = LibraryAreas.View,
-            Presentation = LibraryPresentations.MixedGallery,
-            MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
-            MediaTypes = ["Images", "ShortVideos", "Documents", "AudioNotes"],
-            OwnerProfileId = ownerProfileId.ToString("D"),
-            Visibility = LibraryVisibility.Private,
-            DuplicatePolicy = LibraryDuplicatePolicies.SkipExact,
-            AcceptedIntakeModes = [LibraryIntakeModes.BrowserUpload],
-            OrganizationPolicy = new LibraryOrganizationPolicyConfig
-            {
-                Mode = LibraryOrganizationModes.KeepOriginalFolders,
-                PreserveOriginals = true,
-            },
-            Sources =
+                Id = id.ToString("D"),
+                Name = "Shy's Phone Photos",
+                Kind = LibraryKinds.Personal,
+                Area = LibraryAreas.View,
+                Presentation = LibraryPresentations.MixedGallery,
+                MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
+                MediaTypes = ["Images", "ShortVideos", "Documents", "AudioNotes"],
+                OwnerProfileId = ownerProfileId.ToString("D"),
+                Visibility = LibraryVisibility.Private,
+                DuplicatePolicy = LibraryDuplicatePolicies.SkipExact,
+                AcceptedIntakeModes = [LibraryIntakeModes.BrowserUpload],
+                OrganizationPolicy = new LibraryOrganizationPolicyConfig
+                {
+                    Mode = LibraryOrganizationModes.KeepOriginalFolders,
+                    PreserveOriginals = true,
+                },
+                Sources =
             [
                 new LibrarySourceConfig
                 {
@@ -374,7 +326,7 @@ public sealed class ViewLibraryServiceTests
                     ParticipatesInOrganization = false,
                 },
             ],
-            PrimaryDestinationSourceId = sourceId,
+                PrimaryDestinationSourceId = sourceId,
             };
         }
 
@@ -410,7 +362,10 @@ public sealed class ViewLibraryServiceTests
             _configuration.Dispose();
             _database.Dispose();
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-            if (Directory.Exists(_root)) Directory.Delete(_root, recursive: true);
+            if (Directory.Exists(_root))
+            {
+                Directory.Delete(_root, recursive: true);
+            }
         }
     }
 }

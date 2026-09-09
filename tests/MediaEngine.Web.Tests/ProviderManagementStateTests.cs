@@ -72,7 +72,10 @@ public sealed class ProviderManagementStateTests
         {
             var candidate = Path.Combine([directory.FullName, .. segments]);
             if (File.Exists(candidate))
+            {
                 return candidate;
+            }
+
             directory = directory.Parent;
         }
 

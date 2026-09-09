@@ -23,7 +23,9 @@ public sealed class EnrichmentRefreshScheduleWorker : BackgroundService
             {
                 var queued = await _schedule.QueueDueAsync(50, stoppingToken).ConfigureAwait(false);
                 if (queued > 0)
+                {
                     _logger.LogInformation("Queued {Count} scheduled enrichment refreshes", queued);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -11,9 +12,7 @@ using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-
 // Disambiguate ProviderConfiguration — the IConfigurationLoader uses the Storage.Models one
 using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
@@ -308,7 +307,7 @@ public sealed class BatchGateTests
         // The job repo reports pending jobs for both, but the gate should
         // never query them because they aren't "running".
         var runCompleted = Guid.NewGuid();
-        var runFailed    = Guid.NewGuid();
+        var runFailed = Guid.NewGuid();
 
         var completedBatch = MakeRunningBatch(runCompleted, filesTotal: 20, startedSecondsAgo: 5);
         completedBatch.Status = "completed";
@@ -324,7 +323,7 @@ public sealed class BatchGateTests
             pendingStage1Counts: new Dictionary<string, int>
             {
                 [runCompleted.ToString()] = 5,
-                [runFailed.ToString()]    = 3,
+                [runFailed.ToString()] = 3,
             });
 
         var configLoader = new BatchGateConfigLoader(
@@ -348,12 +347,12 @@ public sealed class BatchGateTests
     private static IngestionBatch MakeRunningBatch(Guid id, int filesTotal, int startedSecondsAgo)
         => new()
         {
-            Id          = id,
-            Status      = "running",
-            FilesTotal  = filesTotal,
-            StartedAt   = DateTimeOffset.UtcNow.AddSeconds(-startedSecondsAgo),
-            CreatedAt   = DateTimeOffset.UtcNow.AddSeconds(-startedSecondsAgo),
-            UpdatedAt   = DateTimeOffset.UtcNow,
+            Id = id,
+            Status = "running",
+            FilesTotal = filesTotal,
+            StartedAt = DateTimeOffset.UtcNow.AddSeconds(-startedSecondsAgo),
+            CreatedAt = DateTimeOffset.UtcNow.AddSeconds(-startedSecondsAgo),
+            UpdatedAt = DateTimeOffset.UtcNow,
         };
 
     private static WikidataBridgeWorker MakeBridgeWorker(
@@ -440,7 +439,7 @@ public sealed class BatchGateTests
 
             foreach (var j in matches)
             {
-                j.LeaseOwner    = workerName;
+                j.LeaseOwner = workerName;
                 j.LeaseExpiresAt = DateTimeOffset.UtcNow.Add(leaseDuration);
             }
 
@@ -471,7 +470,7 @@ public sealed class BatchGateTests
             var job = _jobs.FirstOrDefault(j => j.Id == jobId);
             if (job is not null)
             {
-                job.State     = newState.ToString();
+                job.State = newState.ToString();
                 job.LastError = error;
                 job.UpdatedAt = DateTimeOffset.UtcNow;
             }
@@ -536,9 +535,9 @@ public sealed class BatchGateTests
                 {
                     BatchGate = new BatchGateSettings
                     {
-                        Enabled             = enabled,
+                        Enabled = enabled,
                         SmallBatchThreshold = smallBatchThreshold,
-                        TimeoutSeconds      = timeoutSeconds,
+                        TimeoutSeconds = timeoutSeconds,
                     },
                     LeaseSizes = new LeaseSizeSettings
                     {
@@ -646,10 +645,10 @@ public sealed class BatchGateTests
         public Task<ScoringResult> ScoreEntityAsync(ScoringContext context, CancellationToken ct = default)
             => Task.FromResult(new ScoringResult
             {
-                EntityId          = context.EntityId,
+                EntityId = context.EntityId,
                 OverallConfidence = 0.90,
-                ScoredAt          = DateTimeOffset.UtcNow,
-                FieldScores       = [],
+                ScoredAt = DateTimeOffset.UtcNow,
+                FieldScores = [],
             });
 
         public Task<IReadOnlyList<ScoringResult>> ScoreBatchAsync(IEnumerable<ScoringContext> contexts, CancellationToken ct = default)

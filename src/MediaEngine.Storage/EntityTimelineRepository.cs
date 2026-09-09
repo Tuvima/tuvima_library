@@ -27,12 +27,16 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
     {
         ct.ThrowIfCancellationRequested();
         if (events.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             foreach (var evt in events)
+            {
                 InsertEventCore(conn, tx, evt, innerCt);
+            }
         }, ct);
     }
 
@@ -194,7 +198,9 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
     {
         ct.ThrowIfCancellationRequested();
         if (changes.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -319,8 +325,10 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
     {
         ct.ThrowIfCancellationRequested();
         if (entityIds.Count == 0)
+        {
             return Task.FromResult<IReadOnlyDictionary<Guid, EntityEvent>>(
                 new Dictionary<Guid, EntityEvent>());
+        }
 
         // The temp table is connection-scoped, so population and selection share
         // one structurally locked transaction and one physical connection.
@@ -370,7 +378,10 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             var events = ReadEvents(cmd, innerCt);
             var result = new Dictionary<Guid, EntityEvent>();
             foreach (var evt in events)
+            {
                 result.TryAdd(evt.EntityId, evt);
+            }
+
             return result;
         }, ct);
     }

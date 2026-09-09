@@ -3,7 +3,7 @@ namespace MediaEngine.Api.Tests;
 public sealed class Phase7AiEndpointGuardrailTests
 {
     [Fact]
-    public void AiEndpoints_ParseEveryConfiguredRoleAndRequireAdmin()
+    public void AiEndpoints_ParseEveryConfiguredRoleAndDeclareTypedPermissions()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Api\Endpoints\AiEndpoints.cs");
         var roleSource = ReadRepoFile(@"src\MediaEngine.Domain\Enums\AiModelRole.cs");
@@ -16,7 +16,10 @@ public sealed class Phase7AiEndpointGuardrailTests
         Assert.Contains("TextScholar", roleSource, StringComparison.Ordinal);
         Assert.Contains("TextCjk", roleSource, StringComparison.Ordinal);
         Assert.Contains("Audio", roleSource, StringComparison.Ordinal);
-        Assert.True(CountOccurrences(source, ".RequireAdmin()") >= 10);
+        // Actual mapped metadata and live denial behavior are covered by
+        // MappedEndpointInventoryTests and AccessAuthorityIntegrationTests.
+        Assert.Contains("RequireAdministratorOrApplication(ApplicationPermissionIds.AiStatusRead)", source, StringComparison.Ordinal);
+        Assert.Contains("RequireAdministratorOrApplication(ApplicationPermissionIds.AiManage)", source, StringComparison.Ordinal);
     }
 
     [Fact]

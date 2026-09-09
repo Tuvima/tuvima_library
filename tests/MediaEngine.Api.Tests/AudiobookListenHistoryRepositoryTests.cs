@@ -200,6 +200,9 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
         Assert.Equal("blob", keyTypes.WorkType);
         Assert.Equal("blob", keyTypes.AssetType);
 
+        Assert.Empty(await repository.GetByWorkAsync(ids.ProfileId, ids.WorkId, default, new HashSet<Guid>()));
+        Assert.False(await repository.DeleteAsync(ids.ProfileId, bookmark.Id, default, new HashSet<Guid>()));
+        Assert.Single(await repository.GetByWorkAsync(ids.ProfileId, ids.WorkId, default, new HashSet<Guid> { ids.AssetId }));
         Assert.True(await repository.DeleteAsync(ids.ProfileId, bookmark.Id));
         Assert.Empty(await repository.GetByWorkAsync(ids.ProfileId, ids.WorkId));
     }
@@ -283,7 +286,9 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
         {
             var path = _dbPath + suffix;
             if (File.Exists(path))
+            {
                 File.Delete(path);
+            }
         }
     }
 

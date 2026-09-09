@@ -1,5 +1,5 @@
-using MediaEngine.Contracts.Setup;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Contracts.Setup;
 
 namespace MediaEngine.Web.Services.Integration;
 

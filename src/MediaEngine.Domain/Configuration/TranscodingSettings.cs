@@ -15,7 +15,7 @@ public sealed class TranscodingSettings
     /// Leave empty to enable auto-detection (tools/ffmpeg/ → PATH).
     /// </summary>
     [JsonPropertyName("ffmpeg_binary_path")]
-    public string FfmpegBinaryPath  { get; set; } = string.Empty;
+    public string FfmpegBinaryPath { get; set; } = string.Empty;
 
     /// <summary>
     /// Explicit path to ffprobe.exe / ffprobe binary.
@@ -120,13 +120,13 @@ public sealed class HlsRenditionProfile
 public sealed class TranscodingQualityProfile
 {
     [JsonPropertyName("name")]
-    public string Name       { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 
     [JsonPropertyName("resolution")]
     public string Resolution { get; set; } = string.Empty;
 
     [JsonPropertyName("codec")]
-    public string Codec      { get; set; } = "h264";
+    public string Codec { get; set; } = "h264";
 
     [JsonPropertyName("audio_codec")]
     public string AudioCodec { get; set; } = "aac";
@@ -135,7 +135,7 @@ public sealed class TranscodingQualityProfile
     public string Container { get; set; } = "mp4";
 
     [JsonPropertyName("bitrate")]
-    public string Bitrate    { get; set; } = string.Empty;
+    public string Bitrate { get; set; } = string.Empty;
 
     [JsonPropertyName("size_guidance")]
     public string SizeGuidance { get; set; } = string.Empty;

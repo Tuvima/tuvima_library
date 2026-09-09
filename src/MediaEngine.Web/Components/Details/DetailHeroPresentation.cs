@@ -1,7 +1,6 @@
-﻿using MediaEngine.Contracts.Details;
-using MediaEngine.Domain.Services;
-
 using System.Text.RegularExpressions;
+using MediaEngine.Contracts.Details;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Web.Components.Details;
 
@@ -125,13 +124,19 @@ public sealed class DetailHeroPresentation
         };
 
         if (isWatchHero)
+        {
             return $"{modeClass} tl-detail-hero--watch";
+        }
 
         if (entityType == DetailEntityType.Person)
+        {
             return $"{modeClass} tl-detail-hero--person";
+        }
 
         if (IsStructuralContainer(entityType))
+        {
             return $"{modeClass} tl-detail-hero--collection";
+        }
 
         var surfaceClass = entityType switch
         {
@@ -153,7 +158,9 @@ public sealed class DetailHeroPresentation
         if (isWatchHero
             || UsesPrimaryHeroChrome(model.EntityType)
                && model.EntityType != DetailEntityType.MusicAlbum)
+        {
             return null;
+        }
 
         return model.Subtitle;
     }
@@ -206,12 +213,16 @@ public sealed class DetailHeroPresentation
     private static string TruncateParagraph(string value, int maxLength)
     {
         if (value.Length <= maxLength)
+        {
             return value;
+        }
 
         var candidate = value[..maxLength];
         var sentenceEnd = candidate.LastIndexOfAny(['.', '!', '?']);
         if (sentenceEnd >= maxLength / 2)
+        {
             return candidate[..(sentenceEnd + 1)].TrimEnd();
+        }
 
         var wordEnd = candidate.LastIndexOf(' ');
         return $"{candidate[..Math.Max(wordEnd, 1)].TrimEnd()}…";
@@ -223,7 +234,9 @@ public sealed class DetailHeroPresentation
     private static IReadOnlyList<string> NormalizeDescriptionParagraphs(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return [];
+        }
 
         var normalized = value
             .Replace("\\r\\n", "\n", StringComparison.Ordinal)
@@ -302,13 +315,19 @@ public sealed class DetailHeroPresentation
             .FirstOrDefault();
 
         if (source == default)
+        {
             source = colors.OrderByDescending(RelativeLuminance).First();
+        }
 
         var luminance = RelativeLuminance(source);
         if (luminance > 72)
+        {
             source = Mix(source, (0, 0, 0), 1 - (72 / luminance));
+        }
         else if (luminance < 26)
+        {
             source = Mix(source, (255, 255, 255), Math.Min(0.18, (26 - luminance) / 110));
+        }
 
         return source;
     }
@@ -332,14 +351,20 @@ public sealed class DetailHeroPresentation
     private static (int R, int G, int B)? TryParseHexColor(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var hex = value.Trim().TrimStart('#');
         if (hex.Length == 3)
+        {
             hex = string.Concat(hex.Select(ch => $"{ch}{ch}"));
+        }
 
         if (hex.Length != 6 || !int.TryParse(hex, System.Globalization.NumberStyles.HexNumber, null, out var rgb))
+        {
             return null;
+        }
 
         return ((rgb >> 16) & 0xff, (rgb >> 8) & 0xff, rgb & 0xff);
     }
@@ -365,7 +390,9 @@ public sealed class DetailHeroPresentation
     private static bool IsKnownFallbackColor(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return true;
+        }
 
         var normalized = value.Trim().ToUpperInvariant();
         return normalized is "#C9922E" or "#271A3A" or "#4F7DBA";

@@ -176,25 +176,27 @@ public static class LibraryColumnDefinitions
     public static List<LibraryColumnDef> GetColumnsByTab(string tabId) =>
         tabId switch
         {
-            "new"        => NewTabColumns(),
-            "movies"     => MoviesColumns(),
-            "tv"         => TvColumns(),
-            "music"      => MusicColumns(),
-            "books"      => BooksColumns(),
+            "new" => NewTabColumns(),
+            "movies" => MoviesColumns(),
+            "tv" => TvColumns(),
+            "music" => MusicColumns(),
+            "books" => BooksColumns(),
             "audiobooks" => AudiobooksColumns(),
-            "comics"     => ComicsColumns(),
-            "people"        => GetPeopleColumns(),
-            "universes"     => GetUniverseColumns(),
-            "collections"          => GetCollectionColumns(),
+            "comics" => ComicsColumns(),
+            "people" => GetPeopleColumns(),
+            "universes" => GetUniverseColumns(),
+            "collections" => GetCollectionColumns(),
             "review_queue" => GetActionCenterColumns(),
-            _               => NewTabColumns(),
+            _ => NewTabColumns(),
         };
 
     /// <summary>Resolves columns by tab ID and view mode.</summary>
     public static List<LibraryColumnDef> GetColumnsByTab(string tabId, string viewMode)
     {
         if (tabId == "music" && viewMode == "albums")
+        {
             return MusicAlbumContainerColumns();
+        }
 
         return viewMode switch
         {
@@ -326,13 +328,13 @@ public static class LibraryColumnDefinitions
     public static List<LibraryColumnDef> GetContainerColumnsByTab(string tabId) =>
         tabId switch
         {
-            "movies"     => MovieSeriesContainerColumns(),
-            "tv"         => TvShowContainerColumns(),
-            "music"      => MusicArtistContainerColumns(),
-            "books"      => BookSeriesContainerColumns(),
+            "movies" => MovieSeriesContainerColumns(),
+            "tv" => TvShowContainerColumns(),
+            "music" => MusicArtistContainerColumns(),
+            "books" => BookSeriesContainerColumns(),
             "audiobooks" => AudiobookSeriesContainerColumns(),
-            "comics"     => ComicSeriesContainerColumns(),
-            _            => [],
+            "comics" => ComicSeriesContainerColumns(),
+            _ => [],
         };
 
     /// <summary>Resolves container-level columns for album view in Music tab.</summary>

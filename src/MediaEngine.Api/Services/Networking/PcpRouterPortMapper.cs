@@ -52,13 +52,20 @@ public sealed class PcpRouterPortMapper : IRouterPortMapper
                     TimeSpan.FromSeconds(2),
                     ct);
                 if (response.Length < 60 || response[0] != 2 || response[1] != 0x81)
+                {
                     continue;
+                }
 
                 var resultCode = response[3];
                 if (resultCode != 0)
+                {
                     return new RouterMappingResult(RouterMappingState.RouterRefused, Method, TranslateResult(resultCode), ReasonCode: $"pcp-result-{resultCode}");
+                }
+
                 if (!response.AsSpan(24, 12).SequenceEqual(_nonce))
+                {
                     continue;
+                }
 
                 var lease = BinaryPrimitives.ReadUInt32BigEndian(response.AsSpan(4, 4));
                 var externalPort = BinaryPrimitives.ReadUInt16BigEndian(response.AsSpan(42, 2));
@@ -78,7 +85,10 @@ public sealed class PcpRouterPortMapper : IRouterPortMapper
             catch (Exception ex) when (ex is SocketException or OperationCanceledException)
             {
                 if (ex is OperationCanceledException && ct.IsCancellationRequested)
+                {
                     throw;
+                }
+
                 _logger.LogDebug(ex, "PCP was unavailable through gateway {Gateway}", gateway.GatewayAddress);
             }
         }

@@ -15,7 +15,9 @@ public sealed class ResponsivePwaGuardrailTests
             SearchOption.AllDirectories);
 
         foreach (var file in files)
+        {
             Assert.DoesNotContain("@@media", File.ReadAllText(file), StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -106,7 +108,9 @@ public sealed class ResponsivePwaGuardrailTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not locate repository root.");
     }

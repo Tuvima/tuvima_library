@@ -13,14 +13,18 @@ public sealed class GatewayDiscoveryService : IGatewayDiscoveryService
         {
             if (networkInterface.OperationalStatus != OperationalStatus.Up
                 || networkInterface.NetworkInterfaceType is NetworkInterfaceType.Loopback or NetworkInterfaceType.Tunnel)
+            {
                 continue;
+            }
 
             var properties = networkInterface.GetIPProperties();
             var internalAddress = properties.UnicastAddresses
                 .Select(value => value.Address)
                 .FirstOrDefault(address => address.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(address));
             if (internalAddress is null)
+            {
                 continue;
+            }
 
             foreach (var gateway in properties.GatewayAddresses.Select(value => value.Address)
                          .Where(address => address.AddressFamily == AddressFamily.InterNetwork && !address.Equals(IPAddress.Any)))

@@ -8,16 +8,16 @@ namespace MediaEngine.Domain.Constants;
 public static class ConfidenceBand
 {
     /// <summary>Auto-accept, no review needed (bridge ID match, reconciliation title match).</summary>
-    public const double ExactFloor       = 0.95;
+    public const double ExactFloor = 0.95;
 
     /// <summary>Auto-accept (retail auto-accept, organization without QID, "high confidence" display).</summary>
-    public const double StrongFloor      = 0.85;
+    public const double StrongFloor = 0.85;
 
     /// <summary>Accept with review flag (retail ambiguous band).</summary>
     public const double ProvisionalFloor = 0.50;
 
     /// <summary>Low confidence — needs manual review.</summary>
-    public const double AmbiguousFloor   = 0.30;
+    public const double AmbiguousFloor = 0.30;
 
     // Below AmbiguousFloor = Insufficient — reject candidate.
 
@@ -26,10 +26,10 @@ public static class ConfidenceBand
     /// </summary>
     public static string Classify(double score) => score switch
     {
-        >= ExactFloor       => "Exact",
-        >= StrongFloor      => "Strong",
+        >= ExactFloor => "Exact",
+        >= StrongFloor => "Strong",
         >= ProvisionalFloor => "Provisional",
-        >= AmbiguousFloor   => "Ambiguous",
-        _                   => "Insufficient",
+        >= AmbiguousFloor => "Ambiguous",
+        _ => "Insufficient",
     };
 }

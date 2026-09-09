@@ -6,12 +6,16 @@
 @namespace MediaEngine.Web.Components.Pages
 @using MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
+@using Microsoft.AspNetCore.Components.Authorization
 @inject NavigationManager Nav
 @inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
-@inject IAdministratorElevationNavigationService Elevation
+@inject DashboardSessionAccessor Session
+@inject DashboardIdentityClient Identity
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IJSRuntime JS
-@implements IDisposable
+@inject ILogger<Settings> Logger
+@implements IAsyncDisposable
 
 <PageTitle>@BrowserTitle</PageTitle>
 
@@ -82,6 +86,7 @@
         }
 
         <div @key="DeviceContext.DeviceClass" class="@PageCanvasClass">
+            <AdministratorSurfaceGate Required="@(_profileRoleLoaded && SettingsNav.GetItem(_activeSection).AdminOnly)">
             @if (ShouldDeferForRoleResolution)
             {
                 <AppPageState Kind="AppPageStateKind.Loading"
@@ -179,6 +184,7 @@
                             break;
                 }
             }
+            </AdministratorSurfaceGate>
         </div>
     </div>
 </MediaSectionShell>
@@ -203,11 +209,8 @@
 
     private SettingsSection _activeSection = SettingsSection.Overview;
     private string _activeSubsection = string.Empty;
-    private string _currentRole = "Administrator";
     private ProfileViewModel? _activeProfile;
     private bool _profileRoleLoaded;
-    private bool _adminElevationResolved;
-    private string? _elevationRouteKey;
 
     private int _reviewCount;
     private SystemStatusViewModel? _systemStatus;
@@ -218,11 +221,12 @@
     private string _drawerTitle = string.Empty;
     private ElementReference _contentElement;
     private bool _scrollToTopPending;
+    private bool _wasAdministrationRoute;
     private Guid? _loadedBreadcrumbBatchId;
     private string? _batchBreadcrumbLabel;
     private int _breadcrumbLoadRevision;
     private IReadOnlyList<SettingsTreeGroupDef> VisibleTreeGroups =>
-        SettingsNav.FilteredTreeGroups(_currentRole).ToList();
+        SettingsNav.FilteredTreeGroups(CanManageAdministration).ToList();
 
     private IReadOnlyList<MediaSectionNavigationGroup> SettingsNavigationGroups =>
         VisibleTreeGroups
@@ -245,7 +249,7 @@
         : null;
     private IReadOnlyList<SettingsBreadcrumb> Breadcrumbs => BuildBreadcrumbs();
     private bool IsOperationsSection => _activeSection is SettingsSection.Ingestion or SettingsSection.Review;
-    private bool IsOperationsWorkspace => IsOperationsSection && SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole);
+    private bool IsOperationsWorkspace => IsOperationsSection && SettingsNav.IsVisible(SettingsSection.Ingestion, CanManageAdministration);
     private string BrowserTitle => _activeSection == SettingsSection.Libraries
         ? $"{(string.IsNullOrWhiteSpace(_activeSubsection) ? "Libraries" : _activeSubsection == "new" ? "Add Library" : _activeSubsection == "view" ? "View" : _libraryBreadcrumbName ?? "Library")} - Tuvima Library"
         : string.IsNullOrWhiteSpace(_activeSubsection)
@@ -253,8 +257,7 @@
         : $"{GetSubsectionLabel()} - {GetHeroTitle()} - Tuvima Library";
     private bool ShouldDeferForRoleResolution =>
         SettingsNav.GetItem(_activeSection).AdminOnly
-        && (!_profileRoleLoaded
-            || (IsAdministrator && !_adminElevationResolved));
+        && !_profileRoleLoaded;
     private bool IsEngineUnavailableForCurrentSection =>
         !_shellStateLoading
         && _systemStatus is null
@@ -290,14 +293,8 @@
             return;
         }
 
+        await LoadAuthorityAsync();
         ResolveSectionAndNormalize();
-        await LoadActiveProfileRoleAsync();
-        ResolveSectionAndNormalize();
-        if (!await EnsureElevationForCurrentRouteAsync())
-        {
-            return;
-        }
-
         await LoadShellStateAsync();
 
         Orchestrator.OnReviewCountChanged += OnReviewCountChanged;
@@ -307,6 +304,15 @@
 
     protected override async Task OnParametersSetAsync()
     {
+        var leavingAdministration = (_wasAdministrationRoute
+            || SettingsNav.GetItem(_activeSection).AdminOnly)
+            && !IsAdministrationRoute(Section);
+        if (leavingAdministration && Session.ShouldLockOnLeave)
+        {
+            _reviewCount = 0;
+            await ExitAdministrationAsync();
+        }
+        _wasAdministrationRoute = IsAdministrationRoute(Section);
         ResolveSectionAndNormalize();
         if (_activeSection == SettingsSection.Libraries && _libraryBreadcrumbRoute != _activeSubsection)
         {
@@ -314,7 +320,6 @@
             _libraryBreadcrumbName = null;
         }
         _scrollToTopPending = true;
-        await EnsureElevationForCurrentRouteAsync();
         await LoadBatchBreadcrumbAsync();
     }
 
@@ -329,11 +334,33 @@
         await JS.InvokeVoidAsync("scrollElementToTop", _contentElement);
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
         Orchestrator.OnProfileChanged -= OnProfileChanged;
         DeviceContext.OnChanged -= OnDeviceContextChanged;
+        if (Session.ShouldLockOnLeave)
+            await ExitAdministrationAsync();
+    }
+
+    private static bool IsAdministrationRoute(string? section)
+    {
+        var resolution = SettingsNav.ResolveRoute(section, administrationAllowed: true);
+        return resolution.IsKnownRoute && SettingsNav.GetItem(resolution.Section).AdminOnly;
+    }
+
+    private async Task ExitAdministrationAsync()
+    {
+        Session.ClearAdministratorActions();
+        try
+        {
+            await Identity.ExitAdministratorAsync();
+            await Identity.RevalidateAuthorityAsync(Session);
+        }
+        catch (Exception)
+        {
+            // The bounded server unlock lease handles a disconnected Dashboard.
+        }
     }
 
     public void OpenCuratorsDrawer(Guid entityId, string title)
@@ -369,19 +396,19 @@
         _shellStateLoading = false;
     }
 
-    private async Task LoadActiveProfileRoleAsync()
+    private async Task LoadAuthorityAsync()
     {
         try
         {
+            var principal = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+            Session.InitializeFromPrincipal(principal);
+            await Identity.EnsureInitialAuthorityAsync(Session);
             _activeProfile = await Orchestrator.GetActiveProfileAsync();
-            _currentRole = string.IsNullOrWhiteSpace(_activeProfile?.Role)
-                ? "RestrictedProfile"
-                : _activeProfile.Role;
         }
-        catch
+        catch (Exception exception)
         {
+            Logger.LogWarning(exception, "Settings authority initialization failed.");
             _activeProfile = null;
-            _currentRole = "RestrictedProfile";
         }
         finally
         {
@@ -389,44 +416,11 @@
         }
     }
 
-    private bool IsAdministrator =>
-        string.Equals(_currentRole, "Administrator", StringComparison.OrdinalIgnoreCase);
-
-    private async Task<bool> EnsureElevationForCurrentRouteAsync()
-    {
-        if (!_profileRoleLoaded)
-        {
-            return true;
-        }
-
-        if (!IsAdministrator || !SettingsNav.GetItem(_activeSection).AdminOnly)
-        {
-            _adminElevationResolved = true;
-            _elevationRouteKey = null;
-            return true;
-        }
-
-        var routeKey = new Uri(Nav.Uri).AbsolutePath;
-        if (_adminElevationResolved
-            && string.Equals(_elevationRouteKey, routeKey, StringComparison.Ordinal))
-        {
-            return true;
-        }
-
-        _adminElevationResolved = false;
-        if (!await Elevation.EnsureElevatedAsync())
-        {
-            return false;
-        }
-
-        _elevationRouteKey = routeKey;
-        _adminElevationResolved = true;
-        return true;
-    }
+    private bool CanManageAdministration => Session.HasNavigation("settings.administration");
 
     private void ResolveSectionAndNormalize()
     {
-        var resolution = SettingsNav.ResolveRoute(Section, _currentRole);
+        var resolution = SettingsNav.ResolveRoute(Section, CanManageAdministration);
         _activeSection = resolution.Section;
 
         if (!resolution.IsKnownRoute)
@@ -443,7 +437,7 @@
 
         if (!IsItemEnabledByUiSettings(SettingsNav.GetItem(_activeSection)))
         {
-            Nav.NavigateTo(SettingsNav.RouteFor(SettingsNav.FirstVisibleSection(_currentRole)), replace: true);
+            Nav.NavigateTo(SettingsNav.RouteFor(SettingsNav.FirstVisibleSection(CanManageAdministration)), replace: true);
             return;
         }
 
@@ -529,7 +523,7 @@
     {
         _ = InvokeAsync(async () =>
         {
-            await LoadActiveProfileRoleAsync();
+            await LoadAuthorityAsync();
             ResolveSectionAndNormalize();
             StateHasChanged();
         });
@@ -548,9 +542,9 @@
     }
 
     private IReadOnlyList<SettingsItemDef> GetVisibleTreeItems(SettingsTreeGroupDef group) =>
-        SettingsNav.FilteredTreeItems(group, _currentRole)
+        SettingsNav.FilteredTreeItems(group, CanManageAdministration)
             .Where(item => !DeviceContext.IsMobile || SettingsNav.IsVisibleOnMobile(item.Value))
-            .Where(item => item.Value is not SettingsSection.Review || !SettingsNav.IsVisible(SettingsSection.Ingestion, _currentRole))
+            .Where(item => item.Value is not SettingsSection.Review || !SettingsNav.IsVisible(SettingsSection.Ingestion, CanManageAdministration))
             .Where(IsItemEnabledByUiSettings)
             .ToList();
 

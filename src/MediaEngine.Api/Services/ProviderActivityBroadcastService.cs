@@ -1,6 +1,6 @@
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Providers.Services;
 
 namespace MediaEngine.Api.Services;
@@ -39,7 +39,9 @@ public sealed class ProviderActivityBroadcastService : BackgroundService
             .OrderBy(snapshot => snapshot.ProviderName, StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (snapshots.Count == 0)
+        {
             return;
+        }
 
         var signature = string.Join("|", snapshots.Select(snapshot =>
             string.Join(':',
@@ -58,7 +60,9 @@ public sealed class ProviderActivityBroadcastService : BackgroundService
                 snapshot.LastRequestAt?.ToUnixTimeSeconds() ?? 0)));
         var hasLiveProviderWork = snapshots.Any(snapshot => snapshot.ActiveRequests > 0 || snapshot.WaitingRequests > 0);
         if (!hasLiveProviderWork && string.Equals(signature, _lastSignature, StringComparison.Ordinal))
+        {
             return;
+        }
 
         _lastSignature = signature;
 

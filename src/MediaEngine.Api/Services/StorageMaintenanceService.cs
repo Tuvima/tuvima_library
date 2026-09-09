@@ -125,11 +125,15 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
     {
         using var conn = _db.CreateConnection();
         if (!TableExists(conn, table))
+        {
             return new StorageMaintenanceStepResult(label, 0, "table missing - skipped");
+        }
 
         var count = conn.ExecuteScalar<int>($"SELECT COUNT(*) FROM {table} WHERE {predicate};", parameters);
         if (!dryRun && count > 0)
+        {
             conn.Execute($"DELETE FROM {table} WHERE {predicate};", parameters);
+        }
 
         return new StorageMaintenanceStepResult(
             label,
@@ -144,7 +148,9 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
     {
         using var conn = _db.CreateConnection();
         if (!TableExists(conn, "image_cache"))
+        {
             return new StorageMaintenanceStepResult("Image cache", 0, "table missing - skipped");
+        }
 
         var cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays).ToString("O");
         var rows = conn.Query<ImageCacheRow>("""
@@ -158,7 +164,9 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
             """, new { cutoff }).AsList();
 
         if (rows.Count == 0)
+        {
             return new StorageMaintenanceStepResult("Image cache", 0, "no expired non-user rows");
+        }
 
         var referencedPaths = LoadReferencedImagePaths(conn);
         var safeRoot = ResolveSafeAssetRoot();
@@ -174,11 +182,15 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
             var shouldDelete = !referenced || !fileExists;
 
             if (!shouldDelete)
+            {
                 continue;
+            }
 
             affected++;
             if (dryRun)
+            {
                 continue;
+            }
 
             conn.Execute(
                 "DELETE FROM image_cache WHERE content_hash = @contentHash;",
@@ -209,7 +221,9 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
     {
         using var conn = _db.CreateConnection();
         if (!TableExists(conn, "metadata_claims"))
+        {
             return new StorageMaintenanceStepResult("Metadata claim compaction", 0, "table missing - skipped");
+        }
 
         var parameters = new { limit = batchSize };
         var count = conn.ExecuteScalar<int>("""
@@ -262,11 +276,15 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
     {
         using var conn = _db.CreateConnection();
         if (!TableExists(conn, "ui_settings_cache"))
+        {
             return new StorageMaintenanceStepResult("UI settings cache", 0, "table missing - skipped");
+        }
 
         var before = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM ui_settings_cache;");
         if (!dryRun)
+        {
             await _uiSettingsCache.RebuildFromFilesAsync(_configLoader, ct).ConfigureAwait(false);
+        }
 
         return new StorageMaintenanceStepResult(
             "UI settings cache",
@@ -278,7 +296,9 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
     {
         var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!TableExists(conn, "entity_assets"))
+        {
             return paths;
+        }
 
         var columns = conn.Query<string>("SELECT name FROM pragma_table_info('entity_assets');")
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -297,13 +317,17 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
             .ToList();
 
         if (selects.Count == 0)
+        {
             return paths;
+        }
 
         foreach (var path in conn.Query<string>(string.Join(" UNION ALL ", selects)))
         {
             var normalized = NormalizePath(path);
             if (normalized is not null)
+            {
                 paths.Add(normalized);
+            }
         }
 
         return paths;
@@ -335,7 +359,9 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
     private static string? NormalizePath(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
+        {
             return null;
+        }
 
         try
         {
@@ -350,11 +376,15 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
     private static bool IsUnderSafeRoot(string path, string? safeRoot)
     {
         if (string.IsNullOrWhiteSpace(safeRoot))
+        {
             return false;
+        }
 
         var root = Path.GetFullPath(safeRoot);
         if (!root.EndsWith(Path.DirectorySeparatorChar))
+        {
             root += Path.DirectorySeparatorChar;
+        }
 
         return path.StartsWith(root, StringComparison.OrdinalIgnoreCase);
     }

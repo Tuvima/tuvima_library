@@ -1,6 +1,6 @@
-using MediaEngine.Web.Services.Editing;
-using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Contracts.Metadata;
+using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Editing;
 
 namespace MediaEngine.Web.Tests;
 

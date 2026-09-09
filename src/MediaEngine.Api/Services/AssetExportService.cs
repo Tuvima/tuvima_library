@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -5,7 +6,6 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
-using System.Security.Cryptography;
 
 namespace MediaEngine.Api.Services;
 
@@ -137,7 +137,9 @@ public sealed class AssetExportService : IAssetExportService
             try
             {
                 if (File.Exists(exportPath))
+                {
                     File.Delete(exportPath);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -161,12 +163,16 @@ public sealed class AssetExportService : IAssetExportService
         var normalizedExport = Path.GetFullPath(exportPath);
         var normalizedPreferred = Path.GetFullPath(preferredPath);
         if (string.Equals(normalizedExport, normalizedPreferred, StringComparison.OrdinalIgnoreCase))
+        {
             return false;
+        }
 
         var exportInfo = new FileInfo(normalizedExport);
         var preferredInfo = new FileInfo(normalizedPreferred);
         if (exportInfo.Length != preferredInfo.Length)
+        {
             return false;
+        }
 
         using var exportStream = File.OpenRead(normalizedExport);
         using var preferredStream = File.OpenRead(normalizedPreferred);
@@ -187,7 +193,9 @@ public sealed class AssetExportService : IAssetExportService
 
             var shouldMarkPreferred = exported && preferredAssetId.HasValue && asset.Id == preferredAssetId.Value;
             if (asset.IsLocallyExported == exported && asset.IsPreferredExported == shouldMarkPreferred)
+            {
                 continue;
+            }
 
             asset.IsLocallyExported = exported;
             asset.IsPreferredExported = shouldMarkPreferred;
@@ -198,14 +206,20 @@ public sealed class AssetExportService : IAssetExportService
     private string? ResolveArtworkExportPath(string entityId, string entityType, string assetType)
     {
         if (!string.Equals(entityType, "Work", StringComparison.OrdinalIgnoreCase))
+        {
             return null;
+        }
 
         if (!Guid.TryParse(entityId, out var workId))
+        {
             return null;
+        }
 
         var context = ResolveWorkExportContext(workId);
         if (context is null || string.IsNullOrWhiteSpace(context.RepresentativeMediaFilePath))
+        {
             return null;
+        }
 
         var extension = ResolvePreferredExtension(assetType);
         var mediaFilePath = context.RepresentativeMediaFilePath;

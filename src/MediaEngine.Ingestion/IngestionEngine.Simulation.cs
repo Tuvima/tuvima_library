@@ -1,26 +1,26 @@
 using System.Text.Json;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
-using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Detection;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
-using MediaEngine.Processors.Contracts;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion;
 
@@ -67,10 +67,10 @@ public sealed partial class IngestionEngine
         {
             ops.Add(new PendingOperation
             {
-                SourcePath      = filePath,
+                SourcePath = filePath,
                 DestinationPath = filePath,
-                OperationKind   = "Skip",
-                Reason          = $"Duplicate of existing asset (hash={hash.Hex[..12]})",
+                OperationKind = "Skip",
+                Reason = $"Duplicate of existing asset (hash={hash.Hex[..12]})",
             });
             return ops;
         }
@@ -81,33 +81,33 @@ public sealed partial class IngestionEngine
         {
             ops.Add(new PendingOperation
             {
-                SourcePath      = filePath,
+                SourcePath = filePath,
                 DestinationPath = filePath,
-                OperationKind   = "Quarantine",
-                Reason          = result.CorruptReason,
+                OperationKind = "Quarantine",
+                Reason = result.CorruptReason,
             });
             return ops;
         }
 
         // Build a minimal candidate for path calculation.
         var assetId = Guid.NewGuid();
-        var claims  = BuildClaims(assetId, result);
-        var scored  = await _scorer.ScoreEntityAsync(new ScoringContext
+        var claims = BuildClaims(assetId, result);
+        var scored = await _scorer.ScoreEntityAsync(new ScoringContext
         {
-            EntityId        = assetId,
-            Claims          = claims,
+            EntityId = assetId,
+            Claims = claims,
             ProviderWeights = new Dictionary<Guid, double> { [LocalProcessorProviderId] = 1.0 },
-            Configuration   = _scoringConfig,
+            Configuration = _scoringConfig,
         }, ct).ConfigureAwait(false);
 
         var candidate = new IngestionCandidate
         {
-            Path        = filePath,
-            EventType   = FileEventType.Created,
-            DetectedAt  = DateTimeOffset.UtcNow,
-            ReadyAt     = DateTimeOffset.UtcNow,
+            Path = filePath,
+            EventType = FileEventType.Created,
+            DetectedAt = DateTimeOffset.UtcNow,
+            ReadyAt = DateTimeOffset.UtcNow,
         };
-        candidate.Metadata          = BuildMetadataDict(scored);
+        candidate.Metadata = BuildMetadataDict(scored);
         candidate.DetectedMediaType = result.DetectedType;
 
         // Simulate move.
@@ -121,10 +121,10 @@ public sealed partial class IngestionEngine
 
             ops.Add(new PendingOperation
             {
-                SourcePath      = filePath,
+                SourcePath = filePath,
                 DestinationPath = destPath,
-                OperationKind   = "Move",
-                Reason          = $"AutoOrganize template: {dryRunTemplate}",
+                OperationKind = "Move",
+                Reason = $"AutoOrganize template: {dryRunTemplate}",
             });
         }
 
@@ -136,21 +136,23 @@ public sealed partial class IngestionEngine
             {
                 ops.Add(new PendingOperation
                 {
-                    SourcePath      = filePath,
+                    SourcePath = filePath,
                     DestinationPath = filePath,
-                    OperationKind   = "WriteTag",
-                    Reason          = $"Tagger: {tagger.GetType().Name}; " +
+                    OperationKind = "WriteTag",
+                    Reason = $"Tagger: {tagger.GetType().Name}; " +
                                       $"{candidate.Metadata.Count} tag(s)",
                 });
 
                 if (result.CoverImage is { Length: > 0 })
+                {
                     ops.Add(new PendingOperation
                     {
-                        SourcePath      = filePath,
+                        SourcePath = filePath,
                         DestinationPath = filePath,
-                        OperationKind   = "WriteCoverArt",
-                        Reason          = $"Cover image {result.CoverImage.Length} bytes",
+                        OperationKind = "WriteCoverArt",
+                        Reason = $"Cover image {result.CoverImage.Length} bytes",
                     });
+                }
             }
         }
 
@@ -217,14 +219,14 @@ public sealed partial class IngestionEngine
         var reorgClaims = await _claimRepo.GetByEntityAsync(existing.Id, ct).ConfigureAwait(false);
         var reorgScoringContext = new ScoringContext
         {
-            EntityId        = existing.Id,
-            Claims          = reorgClaims,
+            EntityId = existing.Id,
+            Claims = reorgClaims,
             ProviderWeights = new Dictionary<Guid, double>
-                { [LocalProcessorProviderId] = 1.0 },
-            Configuration   = _scoringConfig,
+            { [LocalProcessorProviderId] = 1.0 },
+            Configuration = _scoringConfig,
         };
         var reorgScored = await _scorer.ScoreEntityAsync(reorgScoringContext, ct).ConfigureAwait(false);
-        bool reorgHasUserLock    = reorgClaims.Any(c => c.IsUserLocked);
+        bool reorgHasUserLock = reorgClaims.Any(c => c.IsUserLocked);
         bool reorgHighConfidence = reorgScored.OverallConfidence >= _scoringConfig.AutoLinkThreshold;
         if (!reorgHighConfidence && !reorgHasUserLock)
         {
@@ -258,11 +260,11 @@ public sealed partial class IngestionEngine
         // Build a synthetic candidate so the FileOrganizer can calculate the path.
         var synth = new IngestionCandidate
         {
-            Path       = currentPath,
-            EventType  = FileEventType.Created,
+            Path = currentPath,
+            EventType = FileEventType.Created,
             DetectedAt = DateTimeOffset.UtcNow,
-            ReadyAt    = DateTimeOffset.UtcNow,
-            Metadata          = metadata,
+            ReadyAt = DateTimeOffset.UtcNow,
+            Metadata = metadata,
             DetectedMediaType = mediaType,
         };
 
@@ -322,10 +324,10 @@ public sealed partial class IngestionEngine
             // Re-enqueue hydration so AutoOrganizeService can promote after enrichment.
             await _identityJobRepo.CreateAsync(new Domain.Entities.IdentityJob
             {
-                EntityId       = existing.Id,
-                EntityType     = EntityType.MediaAsset.ToString(),
-                MediaType      = (mediaType ?? MediaType.Unknown).ToString(),
-                Pass           = "Quick",
+                EntityId = existing.Id,
+                EntityType = EntityType.MediaAsset.ToString(),
+                MediaType = (mediaType ?? MediaType.Unknown).ToString(),
+                Pass = "Quick",
             }, ct).ConfigureAwait(false);
             _identityStageDependencies.Signal?.Signal(IdentityPipelineSignalKind.Retail);
 
@@ -390,9 +392,9 @@ public sealed partial class IngestionEngine
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
             ActionType = Domain.Constants.SystemActionType.StagedFileCleaned,
-            EntityId   = staged.Id,
+            EntityId = staged.Id,
             EntityType = "MediaAsset",
-            Detail     = $"Staged asset cleaned: {Path.GetFileName(staged.FilePathRoot)} (file missing)",
+            Detail = $"Staged asset cleaned: {Path.GetFileName(staged.FilePathRoot)} (file missing)",
         }, ct).ConfigureAwait(false);
     }
 
@@ -401,7 +403,9 @@ public sealed partial class IngestionEngine
         try
         {
             if (File.Exists(path))
+            {
                 File.Delete(path);
+            }
         }
         catch (IOException)
         {
@@ -432,7 +436,10 @@ public sealed partial class IngestionEngine
     /// </summary>
     private static void CleanEmptyWatchParents(string sourceFilePath, string? watchRoot)
     {
-        if (string.IsNullOrEmpty(watchRoot)) return;
+        if (string.IsNullOrEmpty(watchRoot))
+        {
+            return;
+        }
 
         try
         {
@@ -445,10 +452,14 @@ public sealed partial class IngestionEngine
 
                 // Stop when we reach the watch root — never delete it.
                 if (string.Equals(dirNorm, stopNorm, StringComparison.OrdinalIgnoreCase))
+                {
                     break;
+                }
 
                 if (dir.EnumerateFileSystemInfos().Any())
+                {
                     break; // Not empty — stop climbing.
+                }
 
                 var parent = dir.Parent;
                 dir.Delete();
@@ -472,13 +483,13 @@ public sealed partial class IngestionEngine
         return result.Claims
             .Select(c => new MetadataClaim
             {
-                Id          = Guid.NewGuid(),
-                EntityId    = entityId,
-                ProviderId  = LocalProcessorProviderId,
-                ClaimKey    = c.Key,
-                ClaimValue  = TextEncodingRepair.RepairMojibake(c.Value),
-                Confidence  = c.Confidence,
-                ClaimedAt   = DateTimeOffset.UtcNow,
+                Id = Guid.NewGuid(),
+                EntityId = entityId,
+                ProviderId = LocalProcessorProviderId,
+                ClaimKey = c.Key,
+                ClaimValue = TextEncodingRepair.RepairMojibake(c.Value),
+                Confidence = c.Confidence,
+                ClaimedAt = DateTimeOffset.UtcNow,
             })
             .ToList();
     }
@@ -503,17 +514,23 @@ public sealed partial class IngestionEngine
         IReadOnlyDictionary<string, string>? metadata)
     {
         if (metadata is null or { Count: 0 })
+        {
             return [];
+        }
 
         var refs = new List<PersonReference>();
 
         if (metadata.TryGetValue(MetadataFieldConstants.Author, out var author) &&
             !string.IsNullOrWhiteSpace(author))
+        {
             refs.Add(new PersonReference("Author", author.Trim()));
+        }
 
         if (metadata.TryGetValue(MetadataFieldConstants.Narrator, out var narrator) &&
             !string.IsNullOrWhiteSpace(narrator))
+        {
             refs.Add(new PersonReference("Narrator", narrator.Trim()));
+        }
 
         return refs;
     }
@@ -561,13 +578,13 @@ public sealed partial class IngestionEngine
 
             var entry = new ReviewQueueEntry
             {
-                Id              = Guid.NewGuid(),
-                EntityId        = entityId,
-                EntityType      = "MediaAsset",
-                Trigger         = trigger,
+                Id = Guid.NewGuid(),
+                EntityId = entityId,
+                EntityType = "MediaAsset",
+                Trigger = trigger,
                 ConfidenceScore = confidence,
-                Detail          = detail,
-                CreatedAt       = DateTimeOffset.UtcNow,
+                Detail = detail,
+                CreatedAt = DateTimeOffset.UtcNow,
             };
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
@@ -625,14 +642,14 @@ public sealed partial class IngestionEngine
 
             var entry = new ReviewQueueEntry
             {
-                Id              = Guid.NewGuid(),
-                EntityId        = entityId,
-                EntityType      = "MediaAsset",
-                Trigger         = ReviewTrigger.AmbiguousMediaType,
+                Id = Guid.NewGuid(),
+                EntityId = entityId,
+                EntityType = "MediaAsset",
+                Trigger = ReviewTrigger.AmbiguousMediaType,
                 ConfidenceScore = confidence,
-                CandidatesJson  = candidatesJson,
-                Detail          = detail,
-                CreatedAt       = DateTimeOffset.UtcNow,
+                CandidatesJson = candidatesJson,
+                Detail = detail,
+                CreatedAt = DateTimeOffset.UtcNow,
             };
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);
@@ -689,13 +706,13 @@ public sealed partial class IngestionEngine
 
             var entry = new ReviewQueueEntry
             {
-                Id              = Guid.NewGuid(),
-                EntityId        = entityId,
-                EntityType      = "MediaAsset",
-                Trigger         = ReviewTrigger.MetadataConflict,
+                Id = Guid.NewGuid(),
+                EntityId = entityId,
+                EntityType = "MediaAsset",
+                Trigger = ReviewTrigger.MetadataConflict,
                 ConfidenceScore = confidence,
-                Detail          = detail,
-                CreatedAt       = DateTimeOffset.UtcNow,
+                Detail = detail,
+                CreatedAt = DateTimeOffset.UtcNow,
             };
 
             await _reviewRepo.InsertAsync(entry, ct).ConfigureAwait(false);

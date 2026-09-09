@@ -26,12 +26,20 @@ public sealed class IntercomTokenService(
 
     public async Task<IntercomTokenPayload?> ValidateAsync(string token, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(token)) return null;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return null;
+        }
+
         try
         {
             var json = _protector.Unprotect(token, out _);
             var payload = JsonSerializer.Deserialize<IntercomTokenPayload>(json);
-            if (payload is null || !payload.Audience.Equals("intercom", StringComparison.Ordinal)) return null;
+            if (payload is null || !payload.Audience.Equals("intercom", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
             var session = await identities.GetSessionByIdAsync(payload.SessionId, ct).ConfigureAwait(false);
             if (session is null)
             {
@@ -73,8 +81,15 @@ public sealed class IntercomConnectionLimiter
         while (true)
         {
             var current = _counts.GetOrAdd(sessionId, 0);
-            if (current >= MaximumConnectionsPerSession) return false;
-            if (_counts.TryUpdate(sessionId, current + 1, current)) return true;
+            if (current >= MaximumConnectionsPerSession)
+            {
+                return false;
+            }
+
+            if (_counts.TryUpdate(sessionId, current + 1, current))
+            {
+                return true;
+            }
         }
     }
 
@@ -87,7 +102,10 @@ public sealed class IntercomConnectionLimiter
                 _counts.TryRemove(sessionId, out _);
                 return;
             }
-            if (_counts.TryUpdate(sessionId, current - 1, current)) return;
+            if (_counts.TryUpdate(sessionId, current - 1, current))
+            {
+                return;
+            }
         }
     }
 }

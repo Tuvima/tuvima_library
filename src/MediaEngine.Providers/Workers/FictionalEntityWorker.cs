@@ -121,7 +121,10 @@ public sealed class FictionalEntityWorker
                 .FirstOrDefault(c => string.Equals(c.Key, qidKey, StringComparison.OrdinalIgnoreCase))
                 ?.Value;
 
-            if (string.IsNullOrWhiteSpace(qidValue)) continue;
+            if (string.IsNullOrWhiteSpace(qidValue))
+            {
+                continue;
+            }
 
             var qidParts = qidValue.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             var labelParts = canonicals
@@ -135,7 +138,10 @@ public sealed class FictionalEntityWorker
                 var segments = qidPart.Split("::", 2);
                 var qid = segments[0];
 
-                if (!qid.StartsWith('Q')) continue;
+                if (!qid.StartsWith('Q'))
+                {
+                    continue;
+                }
 
                 var label = segments.Length > 1 && !string.IsNullOrWhiteSpace(segments[1])
                     ? segments[1].Trim()
@@ -155,13 +161,17 @@ public sealed class FictionalEntityWorker
         string entitySubType)
     {
         if (!canonicalArrays.TryGetValue(key, out var entries))
+        {
             return;
+        }
 
         foreach (var entry in entries)
         {
             var qid = entry.ValueQid;
             if (string.IsNullOrWhiteSpace(qid) || !qid.StartsWith('Q'))
+            {
                 continue;
+            }
 
             refs.Add(new FictionalEntityReference(qid, entry.Value, entitySubType));
         }

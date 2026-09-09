@@ -19,7 +19,8 @@ public sealed class PlaybackSessionController
     private readonly List<AudiobookListenHistoryItemDto> _audiobookHistory = [];
     private readonly List<AudiobookBookmarkDto> _audiobookBookmarks = [];
     private readonly List<PlaybackTransportCommand> _pendingTransportCommands = [];
-    private readonly Guid _sessionId = Guid.NewGuid();
+    private Guid _sessionId;
+    private long _telemetrySequence;
     private long _nextTransportRequestId;
     private long _lastDispatchedTransportRequestId;
     private PlaybackClientContext _clientContext = PlaybackClientContext.WebDefault;
@@ -695,6 +696,7 @@ public sealed class PlaybackSessionController
 
     public async Task CompleteCurrentAsync(CancellationToken ct = default)
     {
+        await ReportHeartbeatAsync(force: true, ct, hasPlaybackEnded: true);
         var nextIndex = ResolveNextIndex(automaticAdvance: true);
         if (CurrentItem is not null
             && (!nextIndex.HasValue || nextIndex.Value == CurrentIndex))
@@ -955,12 +957,16 @@ public sealed class PlaybackSessionController
         }
 
         if (command.RequestId is { } requestId && requestId <= Interlocked.Read(ref _lastDispatchedTransportRequestId))
+        {
             return;
+        }
 
         await TransportCommandRequested.Invoke(command);
 
         if (command.RequestId is { } completedRequestId)
+        {
             Interlocked.Exchange(ref _lastDispatchedTransportRequestId, completedRequestId);
+        }
     }
 
     private static bool IsCoalescibleTransportAction(string action) => action.ToLowerInvariant() switch
@@ -1242,7 +1248,10 @@ public sealed class PlaybackSessionController
             ct);
     }
 
-    public async Task ReportHeartbeatAsync(bool force = false, CancellationToken ct = default)
+    public async Task ReportHeartbeatAsync(
+        bool force = false,
+        CancellationToken ct = default,
+        bool hasPlaybackEnded = false)
     {
         if (_apiClient is null || CurrentItem?.AssetId is not Guid assetId)
         {
@@ -1264,11 +1273,13 @@ public sealed class PlaybackSessionController
             var state = await _apiClient.PostPlayerHeartbeatAsync(new PlayerHeartbeatDto
             {
                 ProfileId = profile?.Id,
-                SessionId = _sessionId,
+                SessionId = _sessionId == Guid.Empty ? null : _sessionId,
+                Sequence = Interlocked.Increment(ref _telemetrySequence),
                 DeviceId = _clientContext.DeviceId,
                 Client = _clientContext.Client,
                 AssetId = assetId,
                 IsPlaying = IsPlaying,
+                HasPlaybackEnded = hasPlaybackEnded,
                 PositionSeconds = CurrentTimeSeconds,
                 DurationSeconds = DurationSeconds > 0 ? DurationSeconds : null,
                 ProgressPct = DurationSeconds > 0 ? Math.Clamp(CurrentTimeSeconds / DurationSeconds * 100d, 0d, 100d) : null,
@@ -1887,6 +1898,16 @@ public sealed class PlaybackSessionController
         if (state is null)
         {
             return;
+        }
+
+        if (state.SessionId != Guid.Empty && state.SessionId != _sessionId)
+        {
+            var hadSession = _sessionId != Guid.Empty;
+            _sessionId = state.SessionId;
+            if (hadSession)
+            {
+                Interlocked.Exchange(ref _telemetrySequence, 0);
+            }
         }
 
         Experience = MediaKindClassifier.ToPlayerExperienceString(

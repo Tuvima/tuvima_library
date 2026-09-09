@@ -65,21 +65,44 @@ public static class CbzBuilder
         sb.AppendLine($"  <Title>{Escape(title)}</Title>");
 
         if (writer is not null)
+        {
             sb.AppendLine($"  <Writer>{Escape(writer)}</Writer>");
+        }
+
         if (series is not null)
+        {
             sb.AppendLine($"  <Series>{Escape(series)}</Series>");
+        }
+
         if (number is not null)
+        {
             sb.AppendLine($"  <Number>{number}</Number>");
+        }
+
         if (year > 0)
+        {
             sb.AppendLine($"  <Year>{year}</Year>");
+        }
+
         if (genre is not null)
+        {
             sb.AppendLine($"  <Genre>{Escape(genre)}</Genre>");
+        }
+
         if (summary is not null)
+        {
             sb.AppendLine($"  <Summary>{Escape(summary)}</Summary>");
+        }
+
         if (publisher is not null)
+        {
             sb.AppendLine($"  <Publisher>{Escape(publisher)}</Publisher>");
+        }
+
         if (penciller is not null)
+        {
             sb.AppendLine($"  <Penciller>{Escape(penciller)}</Penciller>");
+        }
 
         sb.AppendLine($"  <PageCount>{pageCount}</PageCount>");
         sb.AppendLine("</ComicInfo>");

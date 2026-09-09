@@ -1,5 +1,5 @@
-using MediaEngine.AI.Infrastructure;
 using MediaEngine.AI.Configuration;
+using MediaEngine.AI.Infrastructure;
 using MediaEngine.Storage;
 
 namespace MediaEngine.Api.Services;
@@ -16,20 +16,20 @@ public sealed class HardwareBenchmarkBackgroundService : BackgroundService
 {
     private static readonly TimeSpan StartupDelay = TimeSpan.FromSeconds(15);
 
-    private readonly HardwareBenchmarkService              _benchmark;
+    private readonly HardwareBenchmarkService _benchmark;
     private readonly ILogger<HardwareBenchmarkBackgroundService> _logger;
     private readonly OnboardingActivationGate? _onboardingGate;
     private readonly AiSettings _settings;
 
     public HardwareBenchmarkBackgroundService(
-        HardwareBenchmarkService                        benchmark,
+        HardwareBenchmarkService benchmark,
         AiSettings settings,
-        ILogger<HardwareBenchmarkBackgroundService>     logger,
+        ILogger<HardwareBenchmarkBackgroundService> logger,
         OnboardingActivationGate? onboardingGate = null)
     {
         _benchmark = benchmark;
         _settings = settings;
-        _logger    = logger;
+        _logger = logger;
         _onboardingGate = onboardingGate;
     }
 
@@ -53,7 +53,10 @@ public sealed class HardwareBenchmarkBackgroundService : BackgroundService
 
         await Task.Delay(StartupDelay, stoppingToken);
 
-        if (stoppingToken.IsCancellationRequested) return;
+        if (stoppingToken.IsCancellationRequested)
+        {
+            return;
+        }
 
         try
         {

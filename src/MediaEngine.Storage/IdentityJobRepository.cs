@@ -53,13 +53,13 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 job.PoisonAttemptCount,
                 job.LastOutcomeCategory,
                 job.LeaseOwner,
-                LeaseExpiresAt      = job.LeaseExpiresAt?.ToString("O"),
+                LeaseExpiresAt = job.LeaseExpiresAt?.ToString("O"),
                 job.SelectedCandidateId,
                 job.ResolvedQid,
                 job.LastError,
-                NextRetryAt         = job.NextRetryAt?.ToString("O"),
-                CreatedAt           = job.CreatedAt.ToString("O"),
-                UpdatedAt           = job.UpdatedAt.ToString("O"),
+                NextRetryAt = job.NextRetryAt?.ToString("O"),
+                CreatedAt = job.CreatedAt.ToString("O"),
+                UpdatedAt = job.UpdatedAt.ToString("O"),
             });
         return Task.CompletedTask;
     }
@@ -97,15 +97,15 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                         updated_at           = @UpdatedAt
                     WHERE id = @Id;
                     """, new
-                    {
-                        Id = activeJobId.Value,
-                        job.EntityType,
-                        job.MediaType,
-                        job.State,
-                        job.SelectedCandidateId,
-                        job.ResolvedQid,
-                        UpdatedAt = DateTimeOffset.UtcNow.ToString("O"),
-                    }, tx);
+                {
+                    Id = activeJobId.Value,
+                    job.EntityType,
+                    job.MediaType,
+                    job.State,
+                    job.SelectedCandidateId,
+                    job.ResolvedQid,
+                    UpdatedAt = DateTimeOffset.UtcNow.ToString("O"),
+                }, tx);
                 return activeJobId.Value;
             }
 
@@ -121,21 +121,21 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                      @SelectedCandidateId, @ResolvedQid, NULL, NULL,
                      @CreatedAt, @UpdatedAt);
                 """, new
-                {
-                    job.Id,
-                    job.EntityId,
-                    job.EntityType,
-                    job.MediaType,
-                    job.State,
-                    job.Pass,
-                    job.AttemptCount,
-                    job.PoisonAttemptCount,
-                    job.LastOutcomeCategory,
-                    job.SelectedCandidateId,
-                    job.ResolvedQid,
-                    CreatedAt = job.CreatedAt.ToString("O"),
-                    UpdatedAt = job.UpdatedAt.ToString("O"),
-                }, tx);
+            {
+                job.Id,
+                job.EntityId,
+                job.EntityType,
+                job.MediaType,
+                job.State,
+                job.Pass,
+                job.AttemptCount,
+                job.PoisonAttemptCount,
+                job.LastOutcomeCategory,
+                job.SelectedCandidateId,
+                job.ResolvedQid,
+                CreatedAt = job.CreatedAt.ToString("O"),
+                UpdatedAt = job.UpdatedAt.ToString("O"),
+            }, tx);
             return job.Id;
         }, ct);
     }
@@ -262,7 +262,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 error,
                 preserveLease = preserveLease ? 1 : 0,
                 attemptIncrement = preserveLease ? 1 : 0,
-                now   = DateTimeOffset.UtcNow.ToString("O"),
+                now = DateTimeOffset.UtcNow.ToString("O"),
             });
         return Task.CompletedTask;
     }
@@ -341,14 +341,14 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 updated_at = @now
             WHERE id = @jobId;
             """, new
-            {
-                jobId,
-                state = IdentityJobState.Failed.ToString(),
-                error,
-                category = category.ToString(),
-                poisonIncrement = policy.ConsumesPoisonBudget ? 1 : 0,
-                now = DateTimeOffset.UtcNow.ToString("O"),
-            });
+        {
+            jobId,
+            state = IdentityJobState.Failed.ToString(),
+            error,
+            category = category.ToString(),
+            poisonIncrement = policy.ConsumesPoisonBudget ? 1 : 0,
+            now = DateTimeOffset.UtcNow.ToString("O"),
+        });
         return Task.CompletedTask;
     }
 
@@ -366,7 +366,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             {
                 jobId,
                 candidateId,
-                now         = DateTimeOffset.UtcNow.ToString("O"),
+                now = DateTimeOffset.UtcNow.ToString("O"),
             });
         return Task.CompletedTask;
     }
@@ -385,7 +385,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             {
                 jobId,
                 qid,
-                now   = DateTimeOffset.UtcNow.ToString("O"),
+                now = DateTimeOffset.UtcNow.ToString("O"),
             });
         return Task.CompletedTask;
     }
@@ -575,7 +575,9 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         ct.ThrowIfCancellationRequested();
 
         if (ingestionRunIds.Count == 0)
+        {
             return Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
+        }
 
         // Validate all run ID strings are valid GUIDs before interpolating into SQL.
         var validRunIds = ingestionRunIds
@@ -584,7 +586,9 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             .Select(id => id!.Value)
             .ToList();
         if (validRunIds.Count == 0)
+        {
             return Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
+        }
 
         // Build IN clause from validated GUID strings.
         const string sql = """
@@ -617,7 +621,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             new
             {
                 jobId,
-                now   = DateTimeOffset.UtcNow.ToString("O"),
+                now = DateTimeOffset.UtcNow.ToString("O"),
             });
         return Task.CompletedTask;
     }
@@ -650,46 +654,46 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
 
     private sealed class IdentityJobRow
     {
-        public Guid    Id                  { get; set; }
-        public Guid    EntityId            { get; set; }
-        public string  EntityType          { get; set; } = "";
-        public string  MediaType           { get; set; } = "";
-        public Guid?   IngestionRunId      { get; set; }
-        public string  State               { get; set; } = "";
-        public string  Pass                { get; set; } = "";
-        public int     AttemptCount        { get; set; }
-        public int     PoisonAttemptCount  { get; set; }
+        public Guid Id { get; set; }
+        public Guid EntityId { get; set; }
+        public string EntityType { get; set; } = "";
+        public string MediaType { get; set; } = "";
+        public Guid? IngestionRunId { get; set; }
+        public string State { get; set; } = "";
+        public string Pass { get; set; } = "";
+        public int AttemptCount { get; set; }
+        public int PoisonAttemptCount { get; set; }
         public string? LastOutcomeCategory { get; set; }
-        public string? LeaseOwner          { get; set; }
-        public string? LeaseExpiresAt      { get; set; }
-        public Guid?   SelectedCandidateId { get; set; }
-        public string? ResolvedQid         { get; set; }
-        public string? LastError           { get; set; }
-        public string? NextRetryAt         { get; set; }
-        public string  CreatedAt           { get; set; } = "";
-        public string  UpdatedAt           { get; set; } = "";
+        public string? LeaseOwner { get; set; }
+        public string? LeaseExpiresAt { get; set; }
+        public Guid? SelectedCandidateId { get; set; }
+        public string? ResolvedQid { get; set; }
+        public string? LastError { get; set; }
+        public string? NextRetryAt { get; set; }
+        public string CreatedAt { get; set; } = "";
+        public string UpdatedAt { get; set; } = "";
     }
 
     private static IdentityJob MapRow(IdentityJobRow r) => new()
     {
-        Id                  = r.Id,
-        EntityId            = r.EntityId,
-        EntityType          = r.EntityType,
-        MediaType           = r.MediaType,
-        IngestionRunId      = r.IngestionRunId,
-        State               = r.State,
-        Pass                = r.Pass,
-        AttemptCount        = r.AttemptCount,
-        PoisonAttemptCount  = r.PoisonAttemptCount,
+        Id = r.Id,
+        EntityId = r.EntityId,
+        EntityType = r.EntityType,
+        MediaType = r.MediaType,
+        IngestionRunId = r.IngestionRunId,
+        State = r.State,
+        Pass = r.Pass,
+        AttemptCount = r.AttemptCount,
+        PoisonAttemptCount = r.PoisonAttemptCount,
         LastOutcomeCategory = r.LastOutcomeCategory,
-        LeaseOwner          = r.LeaseOwner,
-        LeaseExpiresAt      = r.LeaseExpiresAt is not null ? DateTimeOffset.Parse(r.LeaseExpiresAt) : null,
+        LeaseOwner = r.LeaseOwner,
+        LeaseExpiresAt = r.LeaseExpiresAt is not null ? DateTimeOffset.Parse(r.LeaseExpiresAt) : null,
         SelectedCandidateId = r.SelectedCandidateId,
-        ResolvedQid         = r.ResolvedQid,
-        LastError           = r.LastError,
-        NextRetryAt         = r.NextRetryAt is not null ? DateTimeOffset.Parse(r.NextRetryAt) : null,
-        CreatedAt           = DateTimeOffset.Parse(r.CreatedAt),
-        UpdatedAt           = DateTimeOffset.Parse(r.UpdatedAt),
+        ResolvedQid = r.ResolvedQid,
+        LastError = r.LastError,
+        NextRetryAt = r.NextRetryAt is not null ? DateTimeOffset.Parse(r.NextRetryAt) : null,
+        CreatedAt = DateTimeOffset.Parse(r.CreatedAt),
+        UpdatedAt = DateTimeOffset.Parse(r.UpdatedAt),
     };
 
     private sealed class PendingStageCountRow

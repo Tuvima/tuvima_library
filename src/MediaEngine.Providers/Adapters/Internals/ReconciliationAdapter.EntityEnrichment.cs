@@ -2,16 +2,16 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 
@@ -26,27 +26,33 @@ public sealed partial class ReconciliationAdapter
         CancellationToken ct)
     {
         var claims = new List<ProviderClaim>();
-        if (_reconciler is null) return claims;
+        if (_reconciler is null)
+        {
+            return claims;
+        }
 
         var kind = mediaType switch
         {
-            MediaType.TV     => ChildEntityKind.TvSeasonsAndEpisodes,
-            MediaType.Music  => ChildEntityKind.MusicTracks,
+            MediaType.TV => ChildEntityKind.TvSeasonsAndEpisodes,
+            MediaType.Music => ChildEntityKind.MusicTracks,
             MediaType.Comics => ChildEntityKind.ComicIssues,
-            _                => (ChildEntityKind?)null,
+            _ => (ChildEntityKind?)null,
         };
-        if (kind is null) return claims;
+        if (kind is null)
+        {
+            return claims;
+        }
 
         ChildEntityManifest manifest;
         try
         {
             manifest = await _reconciler.Children.GetChildEntitiesAsync(new ChildEntityRequest
             {
-                ParentQid                = parentQid,
-                Kind                     = kind.Value,
-                Language                 = language,
-                MaxPrimary               = mediaType == MediaType.TV ? MaxTvSeasons : MaxChildEntities,
-                MaxTotal                 = MaxChildEntities,
+                ParentQid = parentQid,
+                Kind = kind.Value,
+                Language = language,
+                MaxPrimary = mediaType == MediaType.TV ? MaxTvSeasons : MaxChildEntities,
+                MaxTotal = MaxChildEntities,
                 IncludeCreatorProperties = true,
             }, ct).ConfigureAwait(false);
         }
@@ -60,68 +66,70 @@ public sealed partial class ReconciliationAdapter
         }
 
         if (manifest is null || manifest.Children.Count == 0)
+        {
             return claims;
+        }
 
         switch (mediaType)
         {
             case MediaType.TV:
-            {
-                // v2.5.0 returns TV manifests with seasons in the primary slice
-                // and episodes tagged with Parent = season number, so the
-                // adapter can group directly from the manifest. Any episode that
-                // still arrives without a usable Parent is surfaced under an
-                // "Unassigned" pseudo-season instead of triggering extra fetches.
-                var projection = BuildTvManifestProjection(manifest);
-                claims.Add(new ProviderClaim(MetadataFieldConstants.SeasonCount,       projection.SeasonCount.ToString(),  ClaimConfidence.WikidataProperty));
-                claims.Add(new ProviderClaim(MetadataFieldConstants.EpisodeCount,      projection.EpisodeCount.ToString(), ClaimConfidence.WikidataProperty));
-                claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, projection.JsonBlob,               ClaimConfidence.WikidataProperty));
-                _logger.LogInformation(
-                    "{Provider}: child entity discovery — TV {QID}: {SeasonCount} seasons, {EpisodeCount} episodes ({Unassigned} unassigned)",
-                    Name, parentQid, projection.SeasonCount, projection.EpisodeCount, projection.UnassignedEpisodeCount);
-                break;
-            }
+                {
+                    // v2.5.0 returns TV manifests with seasons in the primary slice
+                    // and episodes tagged with Parent = season number, so the
+                    // adapter can group directly from the manifest. Any episode that
+                    // still arrives without a usable Parent is surfaced under an
+                    // "Unassigned" pseudo-season instead of triggering extra fetches.
+                    var projection = BuildTvManifestProjection(manifest);
+                    claims.Add(new ProviderClaim(MetadataFieldConstants.SeasonCount, projection.SeasonCount.ToString(), ClaimConfidence.WikidataProperty));
+                    claims.Add(new ProviderClaim(MetadataFieldConstants.EpisodeCount, projection.EpisodeCount.ToString(), ClaimConfidence.WikidataProperty));
+                    claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, projection.JsonBlob, ClaimConfidence.WikidataProperty));
+                    _logger.LogInformation(
+                        "{Provider}: child entity discovery — TV {QID}: {SeasonCount} seasons, {EpisodeCount} episodes ({Unassigned} unassigned)",
+                        Name, parentQid, projection.SeasonCount, projection.EpisodeCount, projection.UnassignedEpisodeCount);
+                    break;
+                }
 
             case MediaType.Music:
-            {
-                var trackNodes = manifest.Children.Select(t => new
                 {
-                    qid              = t.Qid,
-                    title            = t.Title,
-                    ordinal          = t.Ordinal,
-                    duration_minutes = t.Duration is { } d ? (int?)Math.Round(d.TotalMinutes) : null,
-                    performer        = t.Creators?.GetValueOrDefault("Performer"),
-                    release_date     = t.ReleaseDate?.ToString("yyyy-MM-dd"),
-                }).ToList();
+                    var trackNodes = manifest.Children.Select(t => new
+                    {
+                        qid = t.Qid,
+                        title = t.Title,
+                        ordinal = t.Ordinal,
+                        duration_minutes = t.Duration is { } d ? (int?)Math.Round(d.TotalMinutes) : null,
+                        performer = t.Creators?.GetValueOrDefault("Performer"),
+                        release_date = t.ReleaseDate?.ToString("yyyy-MM-dd"),
+                    }).ToList();
 
-                var jsonBlob = JsonSerializer.Serialize(new { tracks = trackNodes });
-                claims.Add(new ProviderClaim(MetadataFieldConstants.TrackCount,        trackNodes.Count.ToString(), ClaimConfidence.WikidataProperty));
-                claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, jsonBlob,                    ClaimConfidence.WikidataProperty));
+                    var jsonBlob = JsonSerializer.Serialize(new { tracks = trackNodes });
+                    claims.Add(new ProviderClaim(MetadataFieldConstants.TrackCount, trackNodes.Count.ToString(), ClaimConfidence.WikidataProperty));
+                    claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, jsonBlob, ClaimConfidence.WikidataProperty));
 
-                _logger.LogInformation(
-                    "{Provider}: child entity discovery — Music {QID}: {TrackCount} tracks",
-                    Name, parentQid, trackNodes.Count);
-                break;
-            }
+                    _logger.LogInformation(
+                        "{Provider}: child entity discovery — Music {QID}: {TrackCount} tracks",
+                        Name, parentQid, trackNodes.Count);
+                    break;
+                }
 
             case MediaType.Comics:
-            {
-                var issueNodes = manifest.Children.Select(i => new
                 {
-                    qid              = i.Qid,
-                    title            = i.Title,
-                    ordinal          = i.Ordinal,
-                    publication_date = i.ReleaseDate?.ToString("yyyy-MM-dd"),
-                }).ToList();
+                    var issueNodes = manifest.Children.Select(i => new
+                    {
+                        qid = i.Qid,
+                        title = i.Title,
+                        ordinal = i.Ordinal,
+                        publication_date = i.ReleaseDate?.ToString("yyyy-MM-dd"),
+                    }).ToList();
 
-                var jsonBlob = JsonSerializer.Serialize(new { issues = issueNodes });
-                claims.Add(new ProviderClaim(MetadataFieldConstants.IssueCount,        issueNodes.Count.ToString(), ClaimConfidence.WikidataProperty));
-                claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, jsonBlob,                    ClaimConfidence.WikidataProperty));
+                    var jsonBlob = JsonSerializer.Serialize(new { issues = issueNodes });
+                    claims.Add(new ProviderClaim(MetadataFieldConstants.IssueCount, issueNodes.Count.ToString(), ClaimConfidence.WikidataProperty));
+                    claims.Add(new ProviderClaim(MetadataFieldConstants.ChildEntitiesJson, jsonBlob, ClaimConfidence.WikidataProperty));
 
-                _logger.LogInformation(
-                    "{Provider}: child entity discovery — Comics {QID}: {IssueCount} issues",
-                    Name, parentQid, issueNodes.Count);
-                break;
-            }
+                    _logger.LogInformation(
+                        "{Provider}: child entity discovery — Comics {QID}: {IssueCount} issues",
+                        Name, parentQid, issueNodes.Count);
+                    break;
+                }
         }
 
         return claims;
@@ -136,20 +144,26 @@ public sealed partial class ReconciliationAdapter
         var qid = request.PreResolvedQid;
         var name = request.PersonName ?? request.Author ?? request.Narrator;
         if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(qid))
+        {
             return [];
+        }
 
         if (string.IsNullOrWhiteSpace(qid))
         {
             // Build constraints from person role hints.
             var constraints = BuildPersonConstraints(request);
-            var candidates  = await ReconcileAsync(name!, constraints, ct).ConfigureAwait(false);
+            var candidates = await ReconcileAsync(name!, constraints, ct).ConfigureAwait(false);
 
             if (candidates.Count == 0)
+            {
                 return [];
+            }
 
             var top = candidates[0];
             if (top.Score < _config.Reconciliation.ReviewThreshold)
+            {
                 return [];
+            }
 
             qid = top.Id;
         }
@@ -164,7 +178,9 @@ public sealed partial class ReconciliationAdapter
         allProps.Add($"D{language}");
 
         if (allProps.Count == 0)
+        {
             return [new ProviderClaim(BridgeIdKeys.WikidataQid, qid, 1.0)];
+        }
 
         var extensions = await ExtendAsync([qid], allProps, ct).ConfigureAwait(false);
         extensions.TryGetValue(qid, out var extPersonProps);
@@ -175,7 +191,9 @@ public sealed partial class ReconciliationAdapter
         };
 
         if (extPersonProps is not null)
+        {
             claims.AddRange(ExtensionToClaims(qid, extPersonProps, _config.DataExtension.PropertyLabels, isWork: false, castMemberLimit: 0, metadataLanguage: language));
+        }
 
         // Data Extension label pseudo-properties are not guaranteed to be
         // returned by every compatible endpoint. Resolve the canonical label
@@ -187,7 +205,9 @@ public sealed partial class ReconciliationAdapter
         {
             var displayName = await FetchDisplayLabelAsync(qid, language, ct).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(displayName))
+            {
                 claims.Add(new ProviderClaim("name", displayName, ClaimConfidence.WikidataProperty));
+            }
         }
 
         // ── Wikipedia description ─────────────────────────────────────────────
@@ -234,7 +254,9 @@ public sealed partial class ReconciliationAdapter
         string claimKey = MetadataFieldConstants.Description)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(qid))
+        {
             return [];
+        }
 
         try
         {
@@ -330,7 +352,9 @@ public sealed partial class ReconciliationAdapter
         CancellationToken ct)
     {
         if (_reconciler is null)
+        {
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
 
         var uniqueQids = qids
             .Where(qid => !string.IsNullOrWhiteSpace(qid))
@@ -339,7 +363,9 @@ public sealed partial class ReconciliationAdapter
             .ToList();
 
         if (uniqueQids.Count == 0)
+        {
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
 
         try
         {
@@ -373,7 +399,9 @@ public sealed partial class ReconciliationAdapter
     internal static string CleanAudiobookTitle(string title)
     {
         if (string.IsNullOrEmpty(title))
+        {
             return string.Empty;
+        }
 
         var cleaned = title;
 
@@ -415,7 +443,9 @@ public sealed partial class ReconciliationAdapter
     private async Task<string?> FetchDisplayLabelAsync(string qid, string displayLanguage, CancellationToken ct)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(qid))
+        {
             return null;
+        }
 
         try
         {
@@ -442,7 +472,9 @@ public sealed partial class ReconciliationAdapter
     private static string? NormalizeOptionalLang(string? lang)
     {
         if (string.IsNullOrWhiteSpace(lang))
+        {
             return null;
+        }
 
         var primary = lang.Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries)[0].Trim();
         return string.IsNullOrWhiteSpace(primary) ? null : primary.ToLowerInvariant();
@@ -451,7 +483,10 @@ public sealed partial class ReconciliationAdapter
     private static string NormalizeLang(string? lang)
     {
         if (string.IsNullOrWhiteSpace(lang))
+        {
             return "en";
+        }
+
         var primary = lang.Split(['-', '_'], StringSplitOptions.RemoveEmptyEntries)[0];
         return primary.ToLowerInvariant();
     }
@@ -464,7 +499,9 @@ public sealed partial class ReconciliationAdapter
     private static string StripLeadingMediaWikiHeadings(string text)
     {
         if (string.IsNullOrWhiteSpace(text))
+        {
             return text;
+        }
 
         var lines = text.Split('\n');
         var firstContentLine = 0;

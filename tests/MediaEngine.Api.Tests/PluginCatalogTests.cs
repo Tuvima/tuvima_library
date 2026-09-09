@@ -1,10 +1,10 @@
 using System.Reflection;
 using System.Text.Json;
 using MediaEngine.Api.Services.Plugins;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Plugin.FandomLore;
 using MediaEngine.Plugins;
 using MediaEngine.Storage;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Api.Tests;
@@ -44,7 +44,9 @@ public sealed class PluginCatalogTests
         finally
         {
             if (Directory.Exists(tempRoot))
+            {
                 Directory.Delete(tempRoot, recursive: true);
+            }
         }
     }
 
@@ -131,7 +133,9 @@ public sealed class PluginCatalogTests
         finally
         {
             if (Directory.Exists(tempRoot))
+            {
                 Directory.Delete(tempRoot, recursive: true);
+            }
         }
     }
 

@@ -1,8 +1,8 @@
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Ingestion;
 
@@ -50,7 +50,10 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
 
     private static void WriteCustomId(TagLib.File file, string key, string value)
     {
-        if (string.IsNullOrEmpty(value)) return;
+        if (string.IsNullOrEmpty(value))
+        {
+            return;
+        }
 
         if (file.GetTag(TagLib.TagTypes.Id3v2, false) is TagLib.Id3v2.Tag id3v2)
         {
@@ -88,7 +91,11 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
     /// <inheritdoc/>
     public bool CanHandle(string filePath)
     {
-        if (string.IsNullOrWhiteSpace(filePath)) return false;
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return false;
+        }
+
         return _supportedExtensions.Contains(Path.GetExtension(filePath));
     }
 
@@ -113,19 +120,29 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
             using var file = TagLib.File.Create(filePath);
 
             if (tags.TryGetValue("title", out var title))
+            {
                 file.Tag.Title = title;
+            }
 
             if (tags.TryGetValue("author", out var author))
+            {
                 file.Tag.Performers = [author];
+            }
 
             if (tags.TryGetValue("artist", out var artist))
+            {
                 file.Tag.Performers = [artist];
+            }
 
             if (tags.TryGetValue("album", out var albumName))
+            {
                 file.Tag.Album = albumName;
+            }
 
             if (tags.TryGetValue("track_number", out var trackStr) && uint.TryParse(trackStr, out var trackNo))
+            {
                 file.Tag.Track = trackNo;
+            }
 
             if (tags.TryGetValue("narrator", out var narrator))
             {
@@ -146,19 +163,29 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
             }
 
             if (tags.TryGetValue("series", out var series))
+            {
                 file.Tag.Album = series;
+            }
 
             if (tags.TryGetValue("series_position", out var pos) && uint.TryParse(pos, out var trackNum))
+            {
                 file.Tag.Track = trackNum;
+            }
 
             if (tags.TryGetValue("genre", out var genre))
+            {
                 file.Tag.Genres = [genre];
+            }
 
             if (tags.TryGetValue("description", out var desc))
+            {
                 file.Tag.Comment = desc;
+            }
 
             if (tags.TryGetValue("year", out var yearStr) && uint.TryParse(yearStr, out var year))
+            {
                 file.Tag.Year = year;
+            }
 
             if (tags.TryGetValue("publisher", out var publisher))
             {
@@ -171,7 +198,9 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
             foreach (var key in CustomIdKeys)
             {
                 if (tags.TryGetValue(key, out var idValue))
+                {
                     WriteCustomId(file, key, idValue);
+                }
             }
 
             file.Save();
@@ -179,7 +208,9 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
             // Backup cleanup — success.
             var backupPath = filePath + BackupSuffix;
             if (File.Exists(backupPath))
+            {
                 File.Delete(backupPath);
+            }
 
             _logger.LogInformation("AudioTagger: wrote {Count} tags to {Path}",
                 tags.Count, filePath);
@@ -198,7 +229,9 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
         ct.ThrowIfCancellationRequested();
 
         if (!File.Exists(filePath) || imageData.Length == 0)
+        {
             return Task.CompletedTask;
+        }
 
         WithBackup(
             filePath,
@@ -218,7 +251,9 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
 
             var backupPath = filePath + BackupSuffix;
             if (File.Exists(backupPath))
+            {
                 File.Delete(backupPath);
+            }
 
             _logger.LogInformation("AudioTagger: wrote cover art ({Size} bytes) to {Path}",
                 imageData.Length, filePath);

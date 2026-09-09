@@ -127,9 +127,12 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("AddSingleton<ICollectionSearchReadService, CollectionSearchReadService>", registrations, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>", registrations, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<CollectionCatalogReadService>", registrations, StringComparison.Ordinal);
-        Assert.Contains("catalogReadService.GetCatalogAsync(activeProfile, ct)", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("catalogReadService.GetSummaryAsync(id, activeProfile, ct)", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("catalogReadService.GetItemsAsync(id, activeProfile, take, ct)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("catalogReadService.GetCatalogAsync(activeProfile, ct, allowedWorkIds)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("catalogReadService.GetSummaryAsync(id, activeProfile, ct, allowedWorkIds)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("catalogReadService.GetItemsAsync(id, activeProfile, take, ct, allowedWorkIds)", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("authority.ActiveProfileId is not { } activeProfileId", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("profileId.Value != activeProfileId", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("outside the caller's available libraries", endpointSource, StringComparison.Ordinal);
         Assert.Contains("MapPost(\"/reconcile\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("backfillService.RunAsync", endpointSource, StringComparison.Ordinal);
     }

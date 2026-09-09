@@ -143,7 +143,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         Error = null;
         var shouldNotify = IsLoading;
         if (IsLoading)
+        {
             Notify();
+        }
 
         try
         {
@@ -162,7 +164,10 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
                     : progress.BatchId != _stateContainer.BatchProgress?.BatchId
                         || progress.ProgressPercent != _stateContainer.BatchProgress?.ProgressPercent
                         || progress.FilesProcessed != _stateContainer.BatchProgress?.FilesProcessed))
+            {
                 _stateContainer.PushBatchProgress(progress);
+            }
+
             RecentActivity = activityTask.Result
                 .Where(IsUsefulActivity)
                 .Take(12)
@@ -172,7 +177,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
             CapabilitySummary = capabilitySummaryTask.Result;
 
             if (!_detailsPreferenceSet)
+            {
                 ShowDetails = ShouldDefaultShowDetails(OperationsSummary);
+            }
 
             if (ShowDetails || ShouldLoadOperationRows(OperationsSummary))
             {
@@ -218,13 +225,19 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         {
             IsLoading = false;
             if (shouldNotify)
+            {
                 Notify();
+            }
         }
     }
 
     private static string BuildPresentationSignature(IngestionPresentationSnapshotDto? value)
     {
-        if (value is null) return "none";
+        if (value is null)
+        {
+            return "none";
+        }
+
         return string.Join('|',
             value.Status,
             value.BatchProgress?.ProgressPercent,
@@ -262,8 +275,15 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         IngestionPresentationSnapshotDto? current,
         IngestionPresentationSnapshotDto? next)
     {
-        if (next is null) return current;
-        if (current is null) return next;
+        if (next is null)
+        {
+            return current;
+        }
+
+        if (current is null)
+        {
+            return next;
+        }
 
         // The server orders the bounded preview by current activity. Preserve that order.
         return next;
@@ -274,7 +294,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         IngestionOperationsSnapshotDto? next)
     {
         if (next is null)
+        {
             return current;
+        }
 
         if (current is null)
         {
@@ -368,11 +390,20 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     private static int JobSortKey(IngestionOperationsJobDto job)
     {
         if (job.JobId == Guid.Empty)
+        {
             return 0;
+        }
+
         if (job.JobType.Contains("batch", StringComparison.OrdinalIgnoreCase))
+        {
             return 1;
+        }
+
         if (job.JobType.Contains("reading", StringComparison.OrdinalIgnoreCase))
+        {
             return 2;
+        }
+
         return IsActiveBatchStatus(job.Status) ? 3 : 4;
     }
 
@@ -559,7 +590,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         {
             detail = await _api.GetMediaOperationAsync(operationId, ct).ConfigureAwait(false);
             if (detail is not null)
+            {
                 _operationDetails[operationId] = detail;
+            }
         }
 
         var entityId = detail?.Operation.EntityId;
@@ -592,7 +625,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     private void StartBackgroundTasks()
     {
         if (_backgroundCts is not null || _disposed)
+        {
             return;
+        }
 
         _backgroundCts = new CancellationTokenSource();
         var token = _backgroundCts.Token;
@@ -625,14 +660,18 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         LastUpdated = DateTimeOffset.Now;
         NotifyLiveThrottled();
         if (_stateContainer.LastStateChangeRequiresSnapshotRefresh)
+        {
             DebounceSnapshotRefresh();
+        }
     }
 
     private void OnConnectionStateChanged(EngineConnectionState state)
     {
         Notify();
         if (state == EngineConnectionState.Online)
+        {
             DebounceSnapshotRefresh();
+        }
     }
 
     private void DebounceSnapshotRefresh()
@@ -640,7 +679,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         lock (_snapshotRefreshGate)
         {
             if (_disposed || _snapshotRefreshSignal.CurrentCount > 0)
+            {
                 return;
+            }
 
             _snapshotRefreshSignal.Release();
         }
@@ -670,7 +711,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     private void Notify()
     {
         if (!_disposed)
+        {
             OnChanged?.Invoke();
+        }
     }
 
     private void NotifyLiveThrottled()
@@ -680,7 +723,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         lock (_liveNotifyGate)
         {
             if (_disposed)
+            {
                 return;
+            }
 
             if (!_liveNotifyScheduled && now - _lastLiveNotifyAt >= LiveNotifyThrottle)
             {
@@ -690,11 +735,16 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
             else
             {
                 if (_liveNotifyScheduled)
+                {
                     return;
+                }
 
                 delay = LiveNotifyThrottle - (now - _lastLiveNotifyAt);
                 if (delay < TimeSpan.Zero)
+                {
                     delay = TimeSpan.Zero;
+                }
+
                 _liveNotifyScheduled = true;
             }
         }
@@ -721,11 +771,15 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
                 {
                     delay = LiveNotifyThrottle - (DateTimeOffset.UtcNow - _lastLiveNotifyAt);
                     if (delay < TimeSpan.Zero)
+                    {
                         delay = TimeSpan.Zero;
+                    }
                 }
 
                 if (delay > TimeSpan.Zero)
+                {
                     await Task.Delay(delay, ct).ConfigureAwait(false);
+                }
 
                 lock (_liveNotifyGate)
                 {
@@ -755,7 +809,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
             .Cast<Task>()
             .ToArray();
         if (tasks.Length > 0)
+        {
             await Task.WhenAll(tasks).ConfigureAwait(false);
+        }
 
         _backgroundCts?.Dispose();
         _backgroundCts = null;
@@ -807,7 +863,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     public async ValueTask DisposeAsync()
     {
         if (_disposed)
+        {
             return;
+        }
 
         _disposed = true;
         await StopAsync().ConfigureAwait(false);

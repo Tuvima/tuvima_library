@@ -86,7 +86,16 @@ public sealed class ContributorShelfReadServiceTests : IDisposable
     }
 
     private ContributorShelfReadService CreateService()
-        => new(new DisplayWorkProjectionReader(_db), _db);
+        => new(new TestProjection(new DisplayWorkProjectionReader(_db)), _db);
+
+    private sealed class TestProjection(DisplayWorkProjectionReader works) : IDisplayProjectionReadService
+    {
+        public Task<IReadOnlyList<DisplayWorkRow>> LoadWorksAsync(CancellationToken ct) => works.LoadAsync(ct);
+        public Task<IReadOnlyList<DisplayWorkRow>> LoadHomeWorksAsync(CancellationToken ct) => works.LoadAsync(ct);
+        public Task<IReadOnlyList<DisplayJourneyRow>> LoadJourneyAsync(string? lane, CancellationToken ct) => Task.FromResult<IReadOnlyList<DisplayJourneyRow>>([]);
+        public Task<IReadOnlySet<Guid>> LoadFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct) => Task.FromResult<IReadOnlySet<Guid>>(new HashSet<Guid>());
+        public Task<IReadOnlyList<DisplayHomeCollectionRow>> LoadHomeCollectionsAsync(Guid? profileId, CancellationToken ct) => Task.FromResult<IReadOnlyList<DisplayHomeCollectionRow>>([]);
+    }
 
     private static async Task InsertOwnedWorkAsync(
         System.Data.IDbConnection conn,

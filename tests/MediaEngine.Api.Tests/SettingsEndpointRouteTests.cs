@@ -12,7 +12,12 @@ public sealed class SettingsEndpointRouteTests
         Assert.Contains("MapPost(\"/system/backups/validate\"", source, StringComparison.Ordinal);
         Assert.Contains("backups.ValidateRestore(request.FileName)", source, StringComparison.Ordinal);
         Assert.Contains("WithName(\"ValidateBackupRestore\")", source, StringComparison.Ordinal);
-        Assert.Contains("RequireAdmin()", source, StringComparison.Ordinal);
+        var validationStart = source.IndexOf("MapPost(\"/system/backups/validate\"", StringComparison.Ordinal);
+        var restoreStart = source.IndexOf("MapPost(\"/system/backups/restore\"", StringComparison.Ordinal);
+        Assert.True(restoreStart > validationStart);
+        var validation = source[validationStart..restoreStart];
+        Assert.Contains("RequireAdministratorOrApplication(ApplicationPermissionIds.BackupRead)", validation, StringComparison.Ordinal);
+        Assert.DoesNotContain("backups.ScheduleRestore", validation, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -277,7 +277,9 @@ public static class MediaEditorSchemaCatalog
                 .TrimEnd();
 
             if (string.IsNullOrWhiteSpace(normalized))
+            {
                 return string.Empty;
+            }
 
             return string.Join("\n\n",
                 normalized.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -289,13 +291,17 @@ public static class MediaEditorSchemaCatalog
             // A comic issue inherits the parent run's generic description. Keep
             // that series copy out of an item editor and surface only issue text.
             if (isComicItem && string.Equals(field.Key, "description", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             Add(values, field.Key, field.Value);
         }
 
         if (detail is null)
+        {
             return values;
+        }
 
         Add(values, "title", detail.Title);
         Add(values, "author", detail.Author);

@@ -118,7 +118,9 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
     {
         var matchedFolder = _libraryFolderResolver.ResolveForPath(filePath);
         if (matchedFolder is null || matchedFolder.MediaTypes.Count == 0)
+        {
             return;
+        }
 
         var extension = Path.GetExtension(filePath);
         if (candidateList.Count == 0
@@ -214,15 +216,21 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
         IReadOnlyList<MediaType> folderTypes)
     {
         if (folderTypes.Count != 1)
+        {
             return false;
+        }
 
         var folderType = folderTypes[0];
         if (folderType == processorType)
+        {
             return true;
+        }
 
         var extension = Path.GetExtension(filePath);
         if (_extensionCatalog.IsStrongFormatExtension(extension))
+        {
             return false;
+        }
 
         return extension.Equals(".pdf", StringComparison.OrdinalIgnoreCase)
             || _extensionCatalog.IsVideoExtension(extension)
@@ -245,7 +253,9 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
                 .FirstOrDefault(path => IsUnderRoot(filePath, path));
 
         if (string.IsNullOrWhiteSpace(sourcePath))
+        {
             return false;
+        }
 
         var fileDir = Path.GetDirectoryName(Path.GetFullPath(filePath));
         var watchDir = Path.GetFullPath(sourcePath)
@@ -261,7 +271,9 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
 
         var ext = Path.GetExtension(filePath)?.ToLowerInvariant();
         if (_extensionCatalog.IsUnambiguousExtension(ext))
+        {
             return false;
+        }
 
         if (matchedFolder?.MediaTypes.Count == 1)
         {
@@ -274,7 +286,9 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
         for (var i = 0; i < candidateList.Count; i++)
         {
             if (candidateList[i].Confidence <= RootWatchFolderMaxConfidence)
+            {
                 continue;
+            }
 
             candidateList[i] = new MediaTypeCandidate
             {
@@ -306,7 +320,9 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
             && candidateList[0].Confidence < options.MediaTypeAutoAssignThreshold;
 
         if (!advisorNeeded && !advisorLowConfidence)
+        {
             return;
+        }
 
         try
         {
@@ -337,7 +353,9 @@ public sealed class MediaTypeResolver : IMediaTypeResolver
                 ct).ConfigureAwait(false);
 
             if (aiCandidate.Type == MediaType.Unknown)
+            {
                 return;
+            }
 
             if (advisorNeeded)
             {

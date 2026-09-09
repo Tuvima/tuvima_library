@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Reports;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -19,10 +20,20 @@ public static class ReportEndpoints
         // POST /reports — submit a problem report on a media item.
         group.MapPost("/", async (
             SubmitReportRequest request,
+            HttpContext http,
+            CatalogueResourceAuthorizationService resources,
             ISystemActivityRepository activityRepo) =>
         {
             if (request.EntityId == Guid.Empty)
+            {
                 return ApiErrors.BadRequest("entity_id is required.");
+            }
+
+            if (await resources.EvaluateAssetAsync(http, request.EntityId,
+                    ApplicationPermissionIds.LibraryRead, http.RequestAborted) != CatalogueResourceAccess.Allowed)
+            {
+                return ApiErrors.NotFound("Media item not found.");
+            }
 
             var changesJson = JsonSerializer.Serialize(new
             {
@@ -53,7 +64,7 @@ public static class ReportEndpoints
         .WithSummary("Submits a user problem report on a media item.")
         .Produces<SubmitReportResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireHumanSelfService();
 
         // GET /reports/entity/{entityId} — get all reports for a specific item.
         group.MapGet("/entity/{entityId:guid}", async (
@@ -81,7 +92,7 @@ public static class ReportEndpoints
         .WithName("GetReportsForEntity")
         .WithSummary("Returns all problem reports for a specific media item.")
         .Produces<List<ReportEntryResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead);
 
         // POST /reports/{activityId}/resolve — resolve a report.
         group.MapPost("/{activityId:long}/resolve", async (
@@ -91,7 +102,7 @@ public static class ReportEndpoints
             var entry = new SystemActivityEntry
             {
                 ActionType = SystemActionType.UserReportResolved,
-                Detail = $"Report #{activityId} resolved by curator.",
+                Detail = $"Report #{activityId} resolved.",
             };
             await activityRepo.LogAsync(entry);
 
@@ -104,7 +115,7 @@ public static class ReportEndpoints
         .WithName("ResolveReport")
         .WithSummary("Marks a problem report as resolved.")
         .Produces<SubmitReportResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve);
 
         // POST /reports/{activityId}/dismiss — dismiss a report.
         group.MapPost("/{activityId:long}/dismiss", async (
@@ -114,7 +125,7 @@ public static class ReportEndpoints
             var entry = new SystemActivityEntry
             {
                 ActionType = SystemActionType.UserReportDismissed,
-                Detail = $"Report #{activityId} dismissed by curator.",
+                Detail = $"Report #{activityId} dismissed.",
             };
             await activityRepo.LogAsync(entry);
 
@@ -127,14 +138,18 @@ public static class ReportEndpoints
         .WithName("DismissReport")
         .WithSummary("Dismisses a problem report without action.")
         .Produces<SubmitReportResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve);
 
         return app;
     }
 
     private static string? ExtractJsonField(string? json, string field)
     {
-        if (string.IsNullOrWhiteSpace(json)) return null;
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
         try
         {
             using var doc = JsonDocument.Parse(json);

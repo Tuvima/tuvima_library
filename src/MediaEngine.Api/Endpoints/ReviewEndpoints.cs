@@ -4,9 +4,10 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Paging;
-using MediaEngine.Contracts.Review;
 using MediaEngine.Contracts.Realtime;
+using MediaEngine.Contracts.Review;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -43,7 +44,7 @@ public static class ReviewEndpoints
         .WithName("GetPendingReviews")
         .WithSummary("List pending review queue items.")
         .Produces<List<MediaEngine.Contracts.Review.ReviewItemDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead);
 
         // ── GET /review/count ────────────────────────────────────────────────
         group.MapGet("/count", async (
@@ -56,7 +57,7 @@ public static class ReviewEndpoints
         .WithName("GetReviewCount")
         .WithSummary("Get the number of pending review queue items (for sidebar badge).")
         .Produces<MediaEngine.Contracts.Review.ReviewCountResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead);
 
         // ── GET /review/{id} ─────────────────────────────────────────────────
         group.MapGet("/{id:guid}", async (
@@ -71,7 +72,7 @@ public static class ReviewEndpoints
         .WithSummary("Get a single review queue item with full details.")
         .Produces<MediaEngine.Contracts.Review.ReviewItemDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewRead);
 
         // ── POST /review/{id}/resolve ────────────────────────────────────────
         group.MapPost("/{id:guid}/resolve", async (
@@ -87,10 +88,14 @@ public static class ReviewEndpoints
         {
             var item = await reviewRepo.GetByIdAsync(id, ct);
             if (item is null)
+            {
                 return ApiErrors.NotFound($"Review item '{id}' not found.");
+            }
 
             if (item.Status != ReviewStatus.Pending)
+            {
                 return ApiErrors.BadRequest("Review item is not pending.");
+            }
 
             // 1. Apply user field overrides (creates user-locked claims).
             if (request.FieldOverrides is { Count: > 0 })
@@ -99,13 +104,13 @@ public static class ReviewEndpoints
                 {
                     var claim = new MetadataClaim
                     {
-                        Id           = Guid.NewGuid(),
-                        EntityId     = item.EntityId,
-                        ProviderId   = WellKnownProviders.UserManual,
-                        ClaimKey     = ov.Key,
-                        ClaimValue   = ov.Value,
-                        Confidence   = 1.0,
-                        ClaimedAt    = DateTimeOffset.UtcNow,
+                        Id = Guid.NewGuid(),
+                        EntityId = item.EntityId,
+                        ProviderId = WellKnownProviders.UserManual,
+                        ClaimKey = ov.Key,
+                        ClaimValue = ov.Value,
+                        Confidence = 1.0,
+                        ClaimedAt = DateTimeOffset.UtcNow,
                         IsUserLocked = true,
                     };
                     await claimRepo.InsertBatchAsync([claim], ct);
@@ -119,13 +124,13 @@ public static class ReviewEndpoints
             {
                 var qidClaim = new MetadataClaim
                 {
-                    Id           = Guid.NewGuid(),
-                    EntityId     = item.EntityId,
-                    ProviderId   = WellKnownProviders.UserManual,
-                    ClaimKey     = "wikidata_qid",
-                    ClaimValue   = request.SelectedQid,
-                    Confidence   = 1.0,
-                    ClaimedAt    = DateTimeOffset.UtcNow,
+                    Id = Guid.NewGuid(),
+                    EntityId = item.EntityId,
+                    ProviderId = WellKnownProviders.UserManual,
+                    ClaimKey = "wikidata_qid",
+                    ClaimValue = request.SelectedQid,
+                    Confidence = 1.0,
+                    ClaimedAt = DateTimeOffset.UtcNow,
                     IsUserLocked = true,
                 };
                 await claimRepo.InsertBatchAsync([qidClaim], ct);
@@ -150,11 +155,11 @@ public static class ReviewEndpoints
 
                 await pipeline.RunSynchronousAsync(new HarvestRequest
                 {
-                    EntityId               = item.EntityId,
-                    EntityType             = EntityType.MediaAsset,
-                    MediaType              = Domain.Enums.MediaType.Unknown,
-                    Hints                  = hints,
-                    PreResolvedQid         = request.SelectedQid,
+                    EntityId = item.EntityId,
+                    EntityType = EntityType.MediaAsset,
+                    MediaType = Domain.Enums.MediaType.Unknown,
+                    Hints = hints,
+                    PreResolvedQid = request.SelectedQid,
                     SuppressReviewCreation = true,
                 }, ct);
             }
@@ -164,35 +169,41 @@ public static class ReviewEndpoints
 
             // 4. Log activity with canonical values for Dashboard rich card.
             var resolvedCanonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
-            var resolvedLookup     = resolvedCanonicals.ToDictionary(
+            var resolvedLookup = resolvedCanonicals.ToDictionary(
                 c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
-            resolvedLookup.TryGetValue(MetadataFieldConstants.Title,       out var rTitle);
-            if (string.IsNullOrWhiteSpace(rTitle)) resolvedLookup.TryGetValue("file_name", out rTitle);
-            resolvedLookup.TryGetValue(MetadataFieldConstants.Author,      out var rAuthor);
-            resolvedLookup.TryGetValue(MetadataFieldConstants.Year,        out var rYear);
+            resolvedLookup.TryGetValue(MetadataFieldConstants.Title, out var rTitle);
+            if (string.IsNullOrWhiteSpace(rTitle))
+            {
+                resolvedLookup.TryGetValue("file_name", out rTitle);
+            }
+
+            resolvedLookup.TryGetValue(MetadataFieldConstants.Author, out var rAuthor);
+            resolvedLookup.TryGetValue(MetadataFieldConstants.Year, out var rYear);
             resolvedLookup.TryGetValue(MetadataFieldConstants.Description, out var rDesc);
-            resolvedLookup.TryGetValue(MetadataFieldConstants.MediaTypeField,  out var rMediaType);
+            resolvedLookup.TryGetValue(MetadataFieldConstants.MediaTypeField, out var rMediaType);
             if (!resolvedLookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var rCover))
+            {
                 resolvedLookup.TryGetValue(MetadataFieldConstants.Cover, out rCover);
+            }
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
-                ActionType  = SystemActionType.ReviewItemResolved,
-                EntityId    = item.EntityId,
+                ActionType = SystemActionType.ReviewItemResolved,
+                EntityId = item.EntityId,
                 ChangesJson = JsonSerializer.Serialize(new
                 {
-                    title          = rTitle,
-                    author         = rAuthor,
-                    year           = rYear,
-                    description    = rDesc,
-                    media_type     = rMediaType,
-                    entity_id      = item.EntityId.ToString(),
-                    action         = "resolved",
-                    qid            = request.SelectedQid,
+                    title = rTitle,
+                    author = rAuthor,
+                    year = rYear,
+                    description = rDesc,
+                    media_type = rMediaType,
+                    entity_id = item.EntityId.ToString(),
+                    action = "resolved",
+                    qid = request.SelectedQid,
                     field_overrides = request.FieldOverrides?.Count ?? 0,
-                    cover_url      = rCover,
+                    cover_url = rCover,
                 }),
-                Detail      = $"Review resolved — QID: {request.SelectedQid ?? "none"}, "
+                Detail = $"Review resolved — QID: {request.SelectedQid ?? "none"}, "
                             + $"{request.FieldOverrides?.Count ?? 0} field overrides.",
             }, ct);
 
@@ -212,7 +223,7 @@ public static class ReviewEndpoints
         .Produces<ReviewResolveResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve);
 
         // ── POST /review/{id}/dismiss ────────────────────────────────────────
         group.MapPost("/{id:guid}/dismiss", async (
@@ -225,41 +236,51 @@ public static class ReviewEndpoints
         {
             var item = await reviewRepo.GetByIdAsync(id, ct);
             if (item is null)
+            {
                 return ApiErrors.NotFound($"Review item '{id}' not found.");
+            }
 
             if (item.Status != ReviewStatus.Pending)
+            {
                 return ApiErrors.BadRequest("Review item is not pending.");
+            }
 
             await reviewRepo.UpdateStatusAsync(id, ReviewStatus.Dismissed, "user", ct);
 
             var dismissCanonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
-            var dismissLookup     = dismissCanonicals.ToDictionary(
+            var dismissLookup = dismissCanonicals.ToDictionary(
                 c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
-            dismissLookup.TryGetValue(MetadataFieldConstants.Title,       out var dTitle);
-            if (string.IsNullOrWhiteSpace(dTitle)) dismissLookup.TryGetValue("file_name", out dTitle);
-            dismissLookup.TryGetValue(MetadataFieldConstants.Author,      out var dAuthor);
-            dismissLookup.TryGetValue(MetadataFieldConstants.Year,        out var dYear);
+            dismissLookup.TryGetValue(MetadataFieldConstants.Title, out var dTitle);
+            if (string.IsNullOrWhiteSpace(dTitle))
+            {
+                dismissLookup.TryGetValue("file_name", out dTitle);
+            }
+
+            dismissLookup.TryGetValue(MetadataFieldConstants.Author, out var dAuthor);
+            dismissLookup.TryGetValue(MetadataFieldConstants.Year, out var dYear);
             dismissLookup.TryGetValue(MetadataFieldConstants.Description, out var dDesc);
-            dismissLookup.TryGetValue(MetadataFieldConstants.MediaTypeField,  out var dMediaType);
+            dismissLookup.TryGetValue(MetadataFieldConstants.MediaTypeField, out var dMediaType);
             if (!dismissLookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var dCover))
+            {
                 dismissLookup.TryGetValue(MetadataFieldConstants.Cover, out dCover);
+            }
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
-                ActionType  = SystemActionType.ReviewItemResolved,
-                EntityId    = item.EntityId,
+                ActionType = SystemActionType.ReviewItemResolved,
+                EntityId = item.EntityId,
                 ChangesJson = JsonSerializer.Serialize(new
                 {
-                    title       = dTitle,
-                    author      = dAuthor,
-                    year        = dYear,
+                    title = dTitle,
+                    author = dAuthor,
+                    year = dYear,
                     description = dDesc,
-                    media_type  = dMediaType,
-                    entity_id   = item.EntityId.ToString(),
-                    action      = "dismissed",
-                    cover_url   = dCover,
+                    media_type = dMediaType,
+                    entity_id = item.EntityId.ToString(),
+                    action = "dismissed",
+                    cover_url = dCover,
                 }),
-                Detail      = "Review item dismissed by user.",
+                Detail = "Review item dismissed by user.",
             }, ct);
 
             await publisher.PublishAsync(
@@ -277,7 +298,7 @@ public static class ReviewEndpoints
         .Produces<ReviewDismissResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve);
 
         // ── POST /review/{id}/skip-universe ────────────────────────────────
         group.MapPost("/{id:guid}/skip-universe", async (
@@ -291,10 +312,14 @@ public static class ReviewEndpoints
         {
             var item = await reviewRepo.GetByIdAsync(id, ct);
             if (item is null)
+            {
                 return ApiErrors.NotFound($"Review item '{id}' not found.");
+            }
 
             if (item.Status != ReviewStatus.Pending)
+            {
                 return ApiErrors.BadRequest("Review item is not pending.");
+            }
 
             // 1. Set universe_mismatch flag on the Work.
             await collectionRepo.SetUniverseMismatchAsync(item.EntityId, ct);
@@ -303,34 +328,40 @@ public static class ReviewEndpoints
             await reviewRepo.UpdateStatusAsync(id, ReviewStatus.Dismissed, "user", ct);
 
             var skipCanonicals = await canonicalRepo.GetByEntityAsync(item.EntityId, ct);
-            var skipLookup     = skipCanonicals.ToDictionary(
+            var skipLookup = skipCanonicals.ToDictionary(
                 c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
-            skipLookup.TryGetValue(MetadataFieldConstants.Title,       out var sTitle);
-            if (string.IsNullOrWhiteSpace(sTitle)) skipLookup.TryGetValue("file_name", out sTitle);
-            skipLookup.TryGetValue(MetadataFieldConstants.Author,      out var sAuthor);
-            skipLookup.TryGetValue(MetadataFieldConstants.Year,        out var sYear);
+            skipLookup.TryGetValue(MetadataFieldConstants.Title, out var sTitle);
+            if (string.IsNullOrWhiteSpace(sTitle))
+            {
+                skipLookup.TryGetValue("file_name", out sTitle);
+            }
+
+            skipLookup.TryGetValue(MetadataFieldConstants.Author, out var sAuthor);
+            skipLookup.TryGetValue(MetadataFieldConstants.Year, out var sYear);
             skipLookup.TryGetValue(MetadataFieldConstants.Description, out var sDesc);
-            skipLookup.TryGetValue(MetadataFieldConstants.MediaTypeField,  out var sMediaType);
+            skipLookup.TryGetValue(MetadataFieldConstants.MediaTypeField, out var sMediaType);
             if (!skipLookup.TryGetValue(MetadataFieldConstants.CoverUrl, out var sCover))
+            {
                 skipLookup.TryGetValue(MetadataFieldConstants.Cover, out sCover);
+            }
 
             // 3. Log activity.
             await activityRepo.LogAsync(new SystemActivityEntry
             {
-                ActionType  = SystemActionType.ReviewItemResolved,
-                EntityId    = item.EntityId,
+                ActionType = SystemActionType.ReviewItemResolved,
+                EntityId = item.EntityId,
                 ChangesJson = JsonSerializer.Serialize(new
                 {
-                    title       = sTitle,
-                    author      = sAuthor,
-                    year        = sYear,
+                    title = sTitle,
+                    author = sAuthor,
+                    year = sYear,
                     description = sDesc,
-                    media_type  = sMediaType,
-                    entity_id   = item.EntityId.ToString(),
-                    action      = "skipped",
-                    cover_url   = sCover,
+                    media_type = sMediaType,
+                    entity_id = item.EntityId.ToString(),
+                    action = "skipped",
+                    cover_url = sCover,
                 }),
-                Detail      = "Universe matching skipped by user.",
+                Detail = "Universe matching skipped by user.",
             }, ct);
 
             // 4. Broadcast event.
@@ -349,7 +380,7 @@ public static class ReviewEndpoints
         .Produces<ReviewSkipUniverseResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.ReviewResolve);
 
         return app;
     }

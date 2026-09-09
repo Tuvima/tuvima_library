@@ -68,10 +68,16 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                      @SmartRuleJson, @CoverItemId, @SortOrder, @now, @now);
                 """, new
             {
-                id, command.OwnerProfileId, command.PersonalSpaceId, Name = command.Name.Trim(),
-                Description = NullIfWhiteSpace(command.Description), Kind = ToStorage(command.Kind),
+                id,
+                command.OwnerProfileId,
+                command.PersonalSpaceId,
+                Name = command.Name.Trim(),
+                Description = NullIfWhiteSpace(command.Description),
+                Kind = ToStorage(command.Kind),
                 SmartRuleJson = NormalizeRule(command.Kind, command.SmartRuleJson),
-                command.CoverItemId, command.SortOrder, now,
+                command.CoverItemId,
+                command.SortOrder,
+                now,
             }, transaction, cancellationToken: token));
             return new ViewGallery(id, command.OwnerProfileId, command.PersonalSpaceId,
                 command.Name.Trim(), NullIfWhiteSpace(command.Description), command.Kind,
@@ -93,7 +99,11 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                 SELECT personal_space_id AS PersonalSpaceId, gallery_kind AS Kind
                   FROM view_galleries WHERE id = @GalleryId;
                 """, command, transaction, cancellationToken: token));
-            if (current.PersonalSpaceId == Guid.Empty) return null;
+            if (current.PersonalSpaceId == Guid.Empty)
+            {
+                return null;
+            }
+
             ValidateCover(connection, transaction, current.PersonalSpaceId, command.CoverItemId, token);
             if (command.Kind == ViewGalleryKind.Smart)
             {
@@ -110,9 +120,14 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                  WHERE id = @GalleryId;
                 """, new
             {
-                command.GalleryId, Name = command.Name.Trim(), Description = NullIfWhiteSpace(command.Description),
-                Kind = ToStorage(command.Kind), SmartRuleJson = normalizedRule, command.CoverItemId,
-                command.SortOrder, now,
+                command.GalleryId,
+                Name = command.Name.Trim(),
+                Description = NullIfWhiteSpace(command.Description),
+                Kind = ToStorage(command.Kind),
+                SmartRuleJson = normalizedRule,
+                command.CoverItemId,
+                command.SortOrder,
+                now,
             }, transaction, cancellationToken: token));
             var count = connection.ExecuteScalar<int>(new CommandDefinition(
                 "SELECT COUNT(1) FROM view_gallery_items WHERE gallery_id = @GalleryId;",
@@ -142,8 +157,15 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
     {
         ValidateId(galleryId, nameof(galleryId));
         if ((afterPosition.HasValue) != (afterItemId.HasValue))
+        {
             throw new ArgumentException("Both Gallery item cursor values are required together.");
-        if (afterPosition < 0 || limit is < 1 or > 500) throw new ArgumentOutOfRangeException(nameof(limit));
+        }
+
+        if (afterPosition < 0 || limit is < 1 or > 500)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit));
+        }
+
         ct.ThrowIfCancellationRequested();
         using var connection = database.CreateConnection();
         var rows = connection.Query<GalleryItemRow>(new CommandDefinition("""
@@ -156,7 +178,11 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
              LIMIT @take;
             """, new { galleryId, afterPosition, afterItemId, take = limit + 1 }, cancellationToken: ct)).ToList();
         var hasMore = rows.Count > limit;
-        if (hasMore) rows.RemoveAt(rows.Count - 1);
+        if (hasMore)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
+
         var items = rows.Select(row => new ViewGalleryItem(
             row.GalleryId, row.ItemId, row.Position, DateTimeOffset.Parse(row.AddedAt))).ToList();
         var last = items.LastOrDefault();
@@ -224,9 +250,13 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                     "DELETE FROM view_gallery_items WHERE gallery_id = @galleryId AND item_id = @itemId;",
                     new { galleryId, itemId }, transaction, cancellationToken: token));
             }
-            if (removed != 0) connection.Execute(new CommandDefinition(
+            if (removed != 0)
+            {
+                connection.Execute(new CommandDefinition(
                 "UPDATE view_galleries SET updated_at = @now WHERE id = @galleryId;",
                 new { galleryId, now = DateTimeOffset.UtcNow }, transaction, cancellationToken: token));
+            }
+
             return removed;
         }, ct);
     }
@@ -235,7 +265,11 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
         Guid galleryId, Guid itemId, int position, CancellationToken ct = default)
     {
         ValidateId(galleryId, nameof(galleryId)); ValidateId(itemId, nameof(itemId));
-        if (position < 0) throw new ArgumentOutOfRangeException(nameof(position));
+        if (position < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(position));
+        }
+
         return database.ExecuteWriteAsync((connection, transaction, token) =>
         {
             RequireManualGallery(connection, transaction, galleryId, token);
@@ -243,9 +277,13 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                 UPDATE view_gallery_items SET position = @position
                  WHERE gallery_id = @galleryId AND item_id = @itemId;
                 """, new { galleryId, itemId, position }, transaction, cancellationToken: token)) != 0;
-            if (changed) connection.Execute(new CommandDefinition(
+            if (changed)
+            {
+                connection.Execute(new CommandDefinition(
                 "UPDATE view_galleries SET updated_at = @now WHERE id = @galleryId;",
                 new { galleryId, now = DateTimeOffset.UtcNow }, transaction, cancellationToken: token));
+            }
+
             return changed;
         }, ct);
     }
@@ -261,7 +299,11 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
             var ownerId = connection.QuerySingleOrDefault<Guid?>(new CommandDefinition(
                 "SELECT owner_profile_id FROM view_galleries WHERE id = @galleryId;",
                 new { galleryId }, transaction, cancellationToken: token));
-            if (!ownerId.HasValue) throw new InvalidOperationException($"Gallery '{galleryId:D}' does not exist.");
+            if (!ownerId.HasValue)
+            {
+                throw new InvalidOperationException($"Gallery '{galleryId:D}' does not exist.");
+            }
+
             connection.Execute(new CommandDefinition(
                 "DELETE FROM view_gallery_shares WHERE gallery_id = @galleryId;",
                 new { galleryId }, transaction, cancellationToken: token));
@@ -272,7 +314,10 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                         "SELECT COUNT(1) FROM profiles WHERE id = @profileId;",
                         new { profileId = share.ProfileId },
                         transaction, cancellationToken: token)) == 0)
+                {
                     throw new InvalidOperationException($"Profile '{share.ProfileId:D}' does not exist.");
+                }
+
                 connection.Execute(new CommandDefinition("""
                     INSERT INTO view_gallery_shares (gallery_id, profile_id, permission, shared_at)
                     VALUES (@galleryId, @ProfileId, @Permission, @now);
@@ -315,8 +360,16 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
             SELECT personal_space_id AS PersonalSpaceId, gallery_kind AS Kind
               FROM view_galleries WHERE id = @galleryId;
             """, new { galleryId }, transaction, cancellationToken: ct));
-        if (row.PersonalSpaceId == Guid.Empty) throw new InvalidOperationException($"Gallery '{galleryId:D}' does not exist.");
-        if (row.Kind != "manual") throw new InvalidOperationException("Smart Galleries derive membership from rules and cannot be edited manually.");
+        if (row.PersonalSpaceId == Guid.Empty)
+        {
+            throw new InvalidOperationException($"Gallery '{galleryId:D}' does not exist.");
+        }
+
+        if (row.Kind != "manual")
+        {
+            throw new InvalidOperationException("Smart Galleries derive membership from rules and cannot be edited manually.");
+        }
+
         return row;
     }
 
@@ -327,7 +380,9 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
                 SELECT COUNT(1) FROM view_personal_spaces
                  WHERE id = @spaceId AND owner_profile_id = @ownerId;
                 """, new { spaceId, ownerId }, transaction, cancellationToken: ct)) == 0)
+        {
             throw new InvalidOperationException("Gallery owner must own its Personal Space.");
+        }
     }
 
     private static void ValidateCover(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction,
@@ -336,7 +391,9 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
         if (coverItemId.HasValue && connection.ExecuteScalar<long>(new CommandDefinition("""
                 SELECT COUNT(1) FROM local_items WHERE id = @coverItemId AND personal_space_id = @spaceId;
                 """, new { coverItemId, spaceId }, transaction, cancellationToken: ct)) == 0)
+        {
             throw new InvalidOperationException("Gallery cover must belong to its owner's Personal Space.");
+        }
     }
 
     private static void Validate(CreateViewGalleryCommand command)
@@ -350,10 +407,18 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
     {
         if (kind == ViewGalleryKind.Manual)
         {
-            if (!string.IsNullOrWhiteSpace(json)) throw new ArgumentException("Manual Galleries cannot define a smart rule.");
+            if (!string.IsNullOrWhiteSpace(json))
+            {
+                throw new ArgumentException("Manual Galleries cannot define a smart rule.");
+            }
+
             return null;
         }
-        if (string.IsNullOrWhiteSpace(json)) throw new ArgumentException("Smart Galleries require a rule definition.");
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            throw new ArgumentException("Smart Galleries require a rule definition.");
+        }
+
         return ViewSmartGalleryRules.Normalize(json);
     }
 
@@ -434,7 +499,9 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
     {
         var gallery = Map(row);
         if (gallery.Kind != ViewGalleryKind.Smart || string.IsNullOrWhiteSpace(gallery.SmartRuleJson))
+        {
             return gallery;
+        }
 
         try
         {
@@ -469,14 +536,23 @@ public sealed class ViewGalleryRepository(IDatabaseConnection database) : IViewG
         value == "view" ? ViewGallerySharePermission.View : ViewGallerySharePermission.Contribute;
     private static string? NullIfWhiteSpace(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static void ValidateId(Guid id, string parameterName)
-    { if (id == Guid.Empty) throw new ArgumentException("ID is required.", parameterName); }
+    {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("ID is required.", parameterName);
+        }
+    }
 
     private sealed class GalleryRow
     {
-        public Guid Id { get; init; } public Guid OwnerProfileId { get; init; } public Guid PersonalSpaceId { get; init; }
+        public Guid Id { get; init; }
+        public Guid OwnerProfileId { get; init; }
+        public Guid PersonalSpaceId { get; init; }
         public string Name { get; init; } = string.Empty; public string? Description { get; init; }
         public string GalleryKind { get; init; } = string.Empty; public string? SmartRuleJson { get; init; }
-        public Guid? CoverItemId { get; init; } public int SortOrder { get; init; } public int ItemCount { get; init; }
+        public Guid? CoverItemId { get; init; }
+        public int SortOrder { get; init; }
+        public int ItemCount { get; init; }
         public string CreatedAt { get; init; } = string.Empty; public string UpdatedAt { get; init; } = string.Empty;
     }
     private sealed class GalleryItemRow

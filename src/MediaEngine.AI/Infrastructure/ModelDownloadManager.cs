@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using MediaEngine.AI.Configuration;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
-using MediaEngine.Contracts.Realtime;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Infrastructure;

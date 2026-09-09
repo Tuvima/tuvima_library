@@ -1,21 +1,38 @@
 namespace MediaEngine.Api.Services.View;
 
 public sealed class ViewSharedContributionHostedService(
-    ViewSharedContributionService contributions,
+    IViewSharedContributionQueue queue,
+    IServiceScopeFactory scopeFactory,
     ILogger<ViewSharedContributionHostedService> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        foreach (var id in contributions.GetRecoverableIds(stoppingToken))
-            await ProcessAsync(id, stoppingToken);
+        IReadOnlyList<Guid> recoverable;
+        using (var scope = scopeFactory.CreateScope())
+        {
+            recoverable = scope.ServiceProvider.GetRequiredService<ViewSharedContributionService>()
+                .GetRecoverableIds(stoppingToken);
+        }
 
-        await foreach (var id in contributions.ReadQueueAsync(stoppingToken))
+        foreach (var id in recoverable)
+        {
             await ProcessAsync(id, stoppingToken);
+        }
+
+        await foreach (var id in queue.ReadAllAsync(stoppingToken))
+        {
+            await ProcessAsync(id, stoppingToken);
+        }
     }
 
     private async Task ProcessAsync(Guid id, CancellationToken ct)
     {
-        try { await contributions.ProcessAsync(id, ct); }
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            await scope.ServiceProvider.GetRequiredService<ViewSharedContributionService>()
+                .ProcessAsync(id, ct);
+        }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
         catch (Exception exception)
         {

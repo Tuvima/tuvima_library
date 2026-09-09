@@ -50,9 +50,15 @@ public static class DisplayFormat
     public static string FormatDurationCompact(TimeSpan value)
     {
         if (value.TotalSeconds < 60)
+        {
             return $"{Math.Max(1, (int)Math.Round(value.TotalSeconds))}s";
+        }
+
         if (value.TotalMinutes < 60)
+        {
             return $"{(int)value.TotalMinutes}m {value.Seconds}s";
+        }
+
         return $"{(int)value.TotalHours}h {value.Minutes}m";
     }
 
@@ -66,9 +72,15 @@ public static class DisplayFormat
     {
         duration = duration.Duration();
         if (duration.TotalHours >= 1)
+        {
             return $"{(int)duration.TotalHours}h {duration.Minutes}m";
+        }
+
         if (duration.TotalMinutes >= 1)
+        {
             return $"{duration.Minutes}m {duration.Seconds}s";
+        }
+
         return $"{Math.Max(1, duration.Seconds)}s";
     }
 
@@ -96,7 +108,9 @@ public static class DisplayFormat
     public static string FormatDurationHoursMinutesRounded(double seconds)
     {
         if (seconds <= 0)
+        {
             return "0m";
+        }
 
         var totalMinutes = (int)Math.Round(seconds / 60);
         var hours = totalMinutes / 60;
@@ -172,9 +186,13 @@ public static class DisplayFormat
         for (var i = 0; i < normalized.Length; i++)
         {
             if (i > 0 && char.IsUpper(normalized[i]) && !char.IsWhiteSpace(normalized[i - 1]))
+            {
                 builder.Append(' ');
+            }
             else if (i > 0 && char.IsDigit(normalized[i]) && char.IsLetter(normalized[i - 1]))
+            {
                 builder.Append(' ');
+            }
 
             builder.Append(normalized[i]);
         }

@@ -21,7 +21,9 @@ public sealed class MediaOperationRecoveryHostedService : BackgroundService
         {
             var reclaimed = await _operations.ReclaimStuckAsync(TimeSpan.FromMinutes(2), stoppingToken);
             if (reclaimed > 0)
+            {
                 _logger.LogInformation("Recovered {Count} interrupted media operations after restart.", reclaimed);
+            }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

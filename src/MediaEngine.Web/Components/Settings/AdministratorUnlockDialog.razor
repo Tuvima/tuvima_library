@@ -1,0 +1,19 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<AppDialog>
+    <DialogContent>
+        <AdministratorSurfaceGate Required="true">
+            <p>Your administrator settings are unlocked. Continue to open the editor.</p>
+            <AppButton Label="Continue to editor" Variant="Variant.Filled" Color="Color.Primary" OnClick="Continue" />
+        </AdministratorSurfaceGate>
+    </DialogContent>
+    <DialogActions>
+        <AppButton Label="Cancel" OnClick="Cancel" />
+    </DialogActions>
+</AppDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    private void Continue() => MudDialog.Close(DialogResult.Ok(true));
+    private void Cancel() => MudDialog.Cancel();
+}

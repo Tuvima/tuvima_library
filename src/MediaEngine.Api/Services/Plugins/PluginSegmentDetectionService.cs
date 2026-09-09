@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -11,23 +11,20 @@ public sealed class PluginSegmentDetectionService
     private readonly PluginCatalog _catalog;
     private readonly IPlaybackSegmentRepository _segments;
     private readonly IMediaAssetRepository _assets;
-    private readonly IPluginToolRuntime _tools;
-    private readonly IPluginAiClient _ai;
+    private readonly IPluginExecutionContextFactory _contexts;
     private readonly ILogger<PluginSegmentDetectionService> _logger;
 
     public PluginSegmentDetectionService(
         PluginCatalog catalog,
         IPlaybackSegmentRepository segments,
         IMediaAssetRepository assets,
-        IPluginToolRuntime tools,
-        IPluginAiClient ai,
+        IPluginExecutionContextFactory contexts,
         ILogger<PluginSegmentDetectionService> logger)
     {
         _catalog = catalog;
         _segments = segments;
         _assets = assets;
-        _tools = tools;
-        _ai = ai;
+        _contexts = contexts;
         _logger = logger;
     }
 
@@ -35,7 +32,9 @@ public sealed class PluginSegmentDetectionService
     {
         var asset = await _assets.FindByIdAsync(assetId, ct).ConfigureAwait(false);
         if (asset is null)
+        {
             return [];
+        }
 
         var context = new PluginMediaAssetContext
         {
@@ -52,17 +51,19 @@ public sealed class PluginSegmentDetectionService
         foreach (var registration in registrations)
         {
             if (!registration.Enabled || registration.LoadError is not null)
+            {
                 continue;
+            }
 
-            var temp = Path.Combine(Path.GetTempPath(), "tuvima-plugins", registration.Manifest.Id, Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(temp);
             try
             {
-                var execution = new PluginExecutionContext(registration.Manifest.Id, registration.Settings, temp, _tools, _ai);
+                await using var execution = _contexts.CreateForMedia(registration.Manifest.Id, "segment-detection", context);
                 foreach (var detector in registration.Capabilities.OfType<IPlaybackSegmentDetector>())
                 {
-                    if (!detector.CanAnalyze(context))
+                    if (!detector.CanAnalyze(context, execution))
+                    {
                         continue;
+                    }
 
                     var results = await detector.AnalyzeAsync(context, execution, ct).ConfigureAwait(false);
                     detected.AddRange(results.Select(result => new PlaybackSegment
@@ -83,10 +84,6 @@ public sealed class PluginSegmentDetectionService
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.LogWarning(ex, "Plugin segment detection failed for {PluginId} asset {AssetId}", registration.Manifest.Id, assetId);
-            }
-            finally
-            {
-                TryDeleteDirectory(temp);
             }
         }
 
@@ -122,16 +119,5 @@ public sealed class PluginSegmentDetectionService
         };
     }
 
-    private void TryDeleteDirectory(string path)
-    {
-        try
-        {
-            if (Directory.Exists(path)) Directory.Delete(path, recursive: true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Could not delete plugin segment detection temp directory {Path}", path);
-        }
-    }
 }
 

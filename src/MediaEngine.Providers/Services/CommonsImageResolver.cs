@@ -27,7 +27,9 @@ public sealed class CommonsImageResolver
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(commonsFilename) || string.IsNullOrWhiteSpace(personFolderPath))
+        {
             return null;
+        }
 
         try
         {
@@ -35,7 +37,9 @@ public sealed class CommonsImageResolver
             var url = _config.Endpoints.CommonsFilePath + encodedName;
             var ext = Path.GetExtension(commonsFilename).ToLowerInvariant();
             if (string.IsNullOrEmpty(ext))
+            {
                 ext = ".jpg";
+            }
 
             using var client = _httpFactory.CreateClient("headshot_download");
             using var response = await client.GetAsync(url, ct).ConfigureAwait(false);
@@ -43,7 +47,9 @@ public sealed class CommonsImageResolver
 
             var bytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct).ConfigureAwait(false);
             if (bytes.Length == 0)
+            {
                 return null;
+            }
 
             Directory.CreateDirectory(personFolderPath);
             var destPath = Path.Combine(personFolderPath, $"headshot{ext}");

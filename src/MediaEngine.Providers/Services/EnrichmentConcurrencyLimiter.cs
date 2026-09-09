@@ -1,6 +1,6 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -71,7 +71,9 @@ public sealed class EnrichmentConcurrencyLimiter : IEnrichmentConcurrencyLimiter
     public void Dispose()
     {
         foreach (var limiter in _limiters.Values)
+        {
             limiter.Dispose();
+        }
     }
 
     private static int NormalizeLimit(int configured) => Math.Max(1, configured);

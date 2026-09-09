@@ -1,7 +1,8 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Encodings.Web;
 using MediaEngine.Api.Services;
-using MediaEngine.Api.Services.View;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Identity.Contracts;
@@ -31,14 +32,20 @@ public static class TuvimaClaimTypes
     public const string ClientVersion = "tuvima:client_version";
     public const string TokenId = "tuvima:token_id";
     public const string Scope = "tuvima:scope";
+    public const string PrincipalKind = "tuvima:principal_kind";
+    public const string ApplicationId = "tuvima:application_id";
+    public const string ApplicationCredentialId = "tuvima:application_credential_id";
+    public const string AccountAuthorizationVersion = "tuvima:account_authorization_version";
+    public const string GrantAuthorizationVersion = "tuvima:grant_authorization_version";
+    public const string ApplicationAuthorizationVersion = "tuvima:application_authorization_version";
 }
 
 public static class AuthPolicies
 {
     public const string Authenticated = "authenticated_user";
     public const string Administrator = "administrator";
-    public const string AdministratorRole = "administrator_role";
-    public const string StandardOrAdministrator = "standard_or_administrator";
+    public const string AdministratorEligibility = "effective_administrator";
+    public const string HumanSelfService = "human_self_service";
     public const string DashboardService = "dashboard_service";
     public const string DashboardInteractive = "dashboard_interactive";
     public const string IntercomConnect = "intercom_connect";
@@ -50,9 +57,8 @@ public sealed class TuvimaAuthenticationHandler(
     UrlEncoder encoder,
     IFirstPartyIdentityService identity,
     ClientAuthorizationService clientAuthorization,
-    IApiKeyLookupCache apiKeys,
+    IApplicationRepository applications,
     IConfigurationLoader configurationLoader,
-    IConfiguration configuration,
     IWebHostEnvironment environment)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
@@ -68,13 +74,17 @@ public sealed class TuvimaAuthenticationHandler(
             var rawToken = authorization["Bearer ".Length..].Trim();
             var client = await clientAuthorization.ValidateAccessTokenAsync(rawToken, Context.RequestAborted).ConfigureAwait(false);
             if (client is null)
+            {
                 return AuthenticateResult.Fail("Invalid, expired, or revoked bearer token.");
+            }
 
             var claims = new List<Claim>
             {
-                new(ClaimTypes.NameIdentifier, client.Device.ProfileId.ToString("D")),
+                new(ClaimTypes.NameIdentifier, client.Account.Id.ToString("D")),
                 new(ClaimTypes.Name, client.Device.DeviceName),
-                new(ClaimTypes.Role, client.Role),
+                new(TuvimaClaimTypes.PrincipalKind, Domain.Authorization.PrincipalKind.DelegatedUserClient.ToString()),
+                new(TuvimaClaimTypes.ApplicationId, client.Application.Id.ToString("D")),
+                new(TuvimaClaimTypes.AccountId, client.Account.Id.ToString("D")),
                 new(TuvimaClaimTypes.ProfileId, client.Device.ProfileId.ToString("D")),
                 new(TuvimaClaimTypes.ActiveProfileId, client.Device.ProfileId.ToString("D")),
                 new(TuvimaClaimTypes.DeviceId, client.Device.Id.ToString("D")),
@@ -83,6 +93,9 @@ public sealed class TuvimaAuthenticationHandler(
                 new(TuvimaClaimTypes.ClientVersion, client.Device.ClientVersion),
                 new(TuvimaClaimTypes.TokenId, client.Token.Id.ToString("D")),
                 new(TuvimaClaimTypes.AuthenticationMethod, "device_bearer"),
+                new(TuvimaClaimTypes.AccountAuthorizationVersion, client.Account.AuthorizationVersion.ToString()),
+                new(TuvimaClaimTypes.GrantAuthorizationVersion, client.Grant.AuthorizationVersion.ToString()),
+                new(TuvimaClaimTypes.ApplicationAuthorizationVersion, client.Application.AuthorizationVersion.ToString()),
             };
             claims.AddRange(ClientAuthorizationService.SplitScopes(client.Token.Scopes)
                 .Select(scope => new Claim(TuvimaClaimTypes.Scope, scope)));
@@ -93,13 +106,16 @@ public sealed class TuvimaAuthenticationHandler(
         {
             var serviceToken = serviceValues.ToString();
             if (!await identity.ValidateServiceCredentialAsync(serviceToken, Context.RequestAborted).ConfigureAwait(false))
+            {
                 return AuthenticateResult.Fail("Invalid Dashboard service credential.");
+            }
 
             var claims = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, "service:dashboard"),
                 new(ClaimTypes.Name, "Tuvima Dashboard"),
                 new(TuvimaClaimTypes.DashboardService, "true"),
+                new(TuvimaClaimTypes.PrincipalKind, Domain.Authorization.PrincipalKind.DashboardTransport.ToString()),
             };
 
             SessionValidationResult? session = null;
@@ -107,33 +123,12 @@ public sealed class TuvimaAuthenticationHandler(
                 && !string.IsNullOrWhiteSpace(sessionValues.ToString()))
             {
                 session = await identity.ValidateSessionAsync(sessionValues.ToString(), true, Context.RequestAborted).ConfigureAwait(false);
-                if (session is null) return AuthenticateResult.Fail("Invalid or revoked user session.");
+                if (session is null)
+                {
+                    return AuthenticateResult.Fail("Invalid or revoked user session.");
+                }
+
                 AddSessionClaims(claims, session);
-            }
-
-            if (session is not null)
-            {
-                // The validated session is the authority for the interactive
-                // Dashboard's active profile. Publish it for View even when the
-                // optional request assertion is absent or arrives before the
-                // circuit-scoped profile accessor has finished initializing.
-                HttpViewRequestProfileContext.SetTrustedProfile(
-                    Context,
-                    new ViewRequestProfile(
-                        session.ActiveProfile.Id,
-                        session.ActiveProfile.Role.ToString()));
-
-                var assertion = ViewProfileAssertion.Verify(
-                    Request,
-                    serviceToken,
-                    session.ActiveProfile.Role.ToString(),
-                    DateTimeOffset.UtcNow,
-                    configuration.GetValue(
-                        "MediaEngine:Security:ViewProfileAssertionMaxSkewSeconds",
-                        ViewProfileAssertion.DefaultMaxClockSkewSeconds));
-                if (assertion is not null
-                    && assertion.ProfileId == session.ActiveProfile.Id)
-                    HttpViewRequestProfileContext.SetTrustedProfile(Context, assertion);
             }
 
             return Success(claims);
@@ -142,14 +137,23 @@ public sealed class TuvimaAuthenticationHandler(
         if (Request.Headers.TryGetValue("X-Api-Key", out var apiKeyValues))
         {
             var raw = apiKeyValues.ToString();
-            if (string.IsNullOrWhiteSpace(raw)) return AuthenticateResult.Fail("API key is empty.");
-            var match = await apiKeys.FindByHashedKeyAsync(ApiKeyService.HashKey(raw), Context.RequestAborted).ConfigureAwait(false);
-            if (match is null) return AuthenticateResult.Fail("Invalid API key.");
-            return Success([
-                new Claim(ClaimTypes.NameIdentifier, $"api-key:{match.Id:D}"),
-                new Claim(ClaimTypes.Name, match.Label),
-                new Claim(ClaimTypes.Role, match.Role),
-            ]);
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return AuthenticateResult.Fail("API key is empty.");
+            }
+
+            var hash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
+            var match = await applications.FindApplicationCredentialAsync(hash, DateTimeOffset.UtcNow, Context.RequestAborted).ConfigureAwait(false);
+            if (match is null || !match.Application.IsEnabled)
+            {
+                return AuthenticateResult.Fail("Invalid Application credential.");
+            }
+
+            await applications.TouchCredentialUsageAsync(match.Application.Id, match.Credential.Id, DateTimeOffset.UtcNow, Context.RequestAborted).ConfigureAwait(false);
+            var claims = new List<Claim> { new(ClaimTypes.NameIdentifier, $"application:{match.Application.Id:D}"), new(ClaimTypes.Name, match.Application.Name), new(TuvimaClaimTypes.PrincipalKind, Domain.Authorization.PrincipalKind.ServiceApplication.ToString()), new(TuvimaClaimTypes.ApplicationId, match.Application.Id.ToString("D")), new(TuvimaClaimTypes.ApplicationAuthorizationVersion, match.Application.AuthorizationVersion.ToString()) };
+            claims.Add(new(TuvimaClaimTypes.ApplicationCredentialId, match.Credential.Id.ToString("D")));
+            claims.AddRange(match.Permissions.Select(p => new Claim(TuvimaClaimTypes.Scope, p.Value)));
+            return Success(claims);
         }
 
         var auth = configurationLoader.LoadCore().Auth;
@@ -158,7 +162,7 @@ public sealed class TuvimaAuthenticationHandler(
             return Success([
                 new Claim(ClaimTypes.NameIdentifier, "development:localhost"),
                 new Claim(ClaimTypes.Name, "Development localhost"),
-                new Claim(ClaimTypes.Role, AppRoles.Administrator),
+                new Claim(TuvimaClaimTypes.PrincipalKind, Domain.Authorization.PrincipalKind.HostRecovery.ToString()),
             ]);
         }
 
@@ -175,7 +179,8 @@ public sealed class TuvimaAuthenticationHandler(
     {
         claims.Add(new Claim(ClaimTypes.NameIdentifier, result.Account.Id.ToString("D")));
         claims.Add(new Claim(ClaimTypes.Name, result.ActiveProfile.DisplayName));
-        claims.Add(new Claim(ClaimTypes.Role, result.ActiveProfile.Role.ToString()));
+        claims.RemoveAll(claim => claim.Type == TuvimaClaimTypes.PrincipalKind);
+        claims.Add(new Claim(TuvimaClaimTypes.PrincipalKind, Domain.Authorization.PrincipalKind.Human.ToString()));
         claims.Add(new Claim(TuvimaClaimTypes.AccountId, result.Account.Id.ToString("D")));
         claims.Add(new Claim(TuvimaClaimTypes.ProfileId, result.ActiveProfile.Id.ToString("D")));
         claims.Add(new Claim(TuvimaClaimTypes.ActiveProfileId, result.ActiveProfile.Id.ToString("D")));
@@ -184,6 +189,7 @@ public sealed class TuvimaAuthenticationHandler(
         claims.Add(new Claim(TuvimaClaimTypes.DeviceClass, "web"));
         claims.Add(new Claim(TuvimaClaimTypes.ClientId, result.Session.Client));
         claims.Add(new Claim(TuvimaClaimTypes.AuthenticationMethod, result.Session.AuthenticationMethod));
+        claims.Add(new Claim(TuvimaClaimTypes.AccountAuthorizationVersion, result.Account.AuthorizationVersion.ToString()));
     }
 
     private static bool IsLoopback(System.Net.IPAddress? address) =>

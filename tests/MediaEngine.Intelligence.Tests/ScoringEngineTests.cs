@@ -1,9 +1,9 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Intelligence.Tests;
@@ -18,7 +18,7 @@ public sealed class ScoringEngineTests
     private static readonly Guid AppleProviderId = Guid.Parse("b1000001-e000-4000-8000-000000000001");
     private static readonly Guid ProviderA = Guid.Parse("aaaa0000-0000-0000-0000-000000000001");
     private static readonly Guid ProviderB = Guid.Parse("bbbb0000-0000-0000-0000-000000000002");
-    private static readonly Guid EntityId  = Guid.Parse("eeee0000-0000-0000-0000-000000000001");
+    private static readonly Guid EntityId = Guid.Parse("eeee0000-0000-0000-0000-000000000001");
 
     private static readonly ScoringConfiguration DefaultConfig = new();
 
@@ -62,7 +62,7 @@ public sealed class ScoringEngineTests
             ],
             ProviderWeights = new Dictionary<Guid, double>
             {
-                [ProviderA]          = 1.0,
+                [ProviderA] = 1.0,
                 [WikidataProviderId] = 1.0,
             },
             Configuration = DefaultConfig,
@@ -246,7 +246,7 @@ public sealed class ScoringEngineTests
             ],
             ProviderWeights = new Dictionary<Guid, double>
             {
-                [ProviderA]          = 0.1,
+                [ProviderA] = 0.1,
                 [WikidataProviderId] = 1.0,
             },
             Configuration = DefaultConfig,
@@ -493,13 +493,13 @@ public sealed class ScoringEngineTests
 
     private static MetadataClaim MakeClaim(
         string key, string value, Guid providerId, double confidence) => new()
-    {
-        Id         = Guid.NewGuid(),
-        EntityId   = EntityId,
-        ProviderId = providerId,
-        ClaimKey   = key,
-        ClaimValue = value,
-        Confidence = confidence,
-        ClaimedAt  = DateTimeOffset.UtcNow,
-    };
+        {
+            Id = Guid.NewGuid(),
+            EntityId = EntityId,
+            ProviderId = providerId,
+            ClaimKey = key,
+            ClaimValue = value,
+            Confidence = confidence,
+            ClaimedAt = DateTimeOffset.UtcNow,
+        };
 }

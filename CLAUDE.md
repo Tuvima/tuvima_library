@@ -165,7 +165,7 @@ The Engine and Dashboard are two independent apps that communicate over HTTP + S
 | `src/MediaEngine.Providers` | The Research Team | Config-driven and reconciliation adapters, hydration pipeline workers, ~24 enrichment/reconciliation services. The bulk of the runtime payload lives here. |
 | `src/MediaEngine.Ingestion` | The Mail Room | Folder watchers, debounce, hashing, dedup, file organization, write-back. `IngestionEngine` is the orchestration entry point. |
 | `src/MediaEngine.AI` | The Brain | Local model lifecycle, hardware benchmarking, 15 AI feature services (SmartLabeler, VibeTagger, TldrGenerator, QidDisambiguator, etc.), Llama + Whisper inference. |
-| `src/MediaEngine.Identity` | The Front Desk | Profiles, roles, multi-user rules. Small but important. Builds with `TreatWarningsAsErrors`. |
+| `src/MediaEngine.Identity` | The Front Desk | Accounts, profile grants, authentication, and multi-user rules. Small but important. Builds with `TreatWarningsAsErrors`. |
 | `src/MediaEngine.Plugins` | The Plug Socket | Plugin contracts (`ITuvimaPlugin`, `IPluginCapability`, `IPlaybackSegmentDetector`), manifest, models. In-process plugin model. |
 | `src/MediaEngine.Plugin.CommercialSkip` | A Plugin | Detects commercial breaks via Comskip (primary) or FFmpeg (fallback). Produces `playback-segment-detector` segments. |
 | `src/MediaEngine.Plugin.MediaSegments` | A Plugin | Detects opening credits / closing credits / recap segments. |
@@ -209,11 +209,15 @@ The Intelligence project's main public surface:
 Config: `config/scoring.json`, `config/field_priorities.json`.
 
 ### 3.3 — Security
-**Detail:** [`docs/architecture/security.md`](docs/architecture/security.md)
+**Detail:** [Security architecture](docs/architecture/security.md). Access remains under final integration; see its execution status before claiming delivery.
 
-Every endpoint requires authentication except `/system/status` and localhost (when bypass is enabled). Endpoints declare intent through extension guards (`RequireAdmin()`, `RequireAdminOrCurator()`, `RequireAnyRole()`). Three roles: Administrator (full), Curator (browse + metadata), Consumer (browse only). API keys are labelled and individually revocable. Rate-limiting policies (`key_generation`, `streaming`, `general`) are configured in `config/core.json`. Path traversal protection (`PathValidator`) guards folder endpoints. The SignalR `Intercom` hub is server-push only (no client-invokable methods) and is gated by `IntercomAuthFilter` registered in `Program.cs`.
+Accounts own feature/library grants and administrator eligibility; profiles own experience, restrictions, history, and Personal Space identity. Effective administration requires the enabled account and exact active grant with AdminEnabled. Optional grant-specific PIN protection gates administrator surfaces and editor entry. Dashboard navigation/actions consume live Engine authority; no seed-owner or locally stored profile role fallback is permitted. Personal settings remain available when administrator settings are locked.
 
-The Dashboard account menu uses `SettingsNav` role visibility for Needs Review. Consumer profiles neither request nor render the review count; Administrator and Curator profiles can open the queue.
+Applications own registered service permissions. Credentials are hashed, independently revocable, and displayed once; native clients additionally intersect account, profile, consent, device, and exact token authority. TuvimaAuthentication, IRequestAuthorityResolver, and IAuthorizationEvaluator apply live identity and operation policy. Resource scope is checked before catalogue counts/grouping/paging and on artwork, streaming, personal state, and View paths. View private, explicit administrator inspection, Shared Library, and Gallery-share policies remain separate.
+
+Host-bound plugin capabilities differ from external service permissions; unavailable functions remain visibly unavailable. Application events use a durable outbox and a separate scoped hub; Dashboard Intercom retains its wire and requires recipient filtering. Webhooks use current Application permissions, safe DNS-pinned destinations, exact-body HMAC, protected one-time secrets, and bounded retries. Exact event/native and combined acceptance remains tracked in the plan.
+
+Obsolete pre-beta identity state fails fast. Do not restore role-based guest keys, automatic compatibility conversion, localhost administration, or private-space reassignment. Original source media remain protected.
 
 ### 3.4 — Dashboard UI
 **Detail:** [`docs/architecture/dashboard-ui.md`](docs/architecture/dashboard-ui.md)

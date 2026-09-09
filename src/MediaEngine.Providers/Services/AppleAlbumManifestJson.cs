@@ -25,7 +25,9 @@ public static class AppleAlbumManifestJson
         {
             var title = track["trackName"]?.GetValue<string>();
             if (string.IsNullOrWhiteSpace(title))
+            {
                 continue;
+            }
 
             ordinal++;
             var trackNumber = track["trackNumber"]?.GetValue<int?>() ?? ordinal;
@@ -39,13 +41,19 @@ public static class AppleAlbumManifestJson
             };
 
             if (track["discNumber"]?.GetValue<int?>() is { } discNumber)
+            {
                 item["disc_number"] = discNumber;
+            }
 
             if (durationMillis is > 0)
+            {
                 item["duration_seconds"] = Math.Round(durationMillis.Value / 1000d, 3);
+            }
 
             if (track["trackId"]?.GetValue<long?>() is { } trackId)
+            {
                 item["apple_music_id"] = trackId.ToString(CultureInfo.InvariantCulture);
+            }
 
             array.Add(item);
         }
@@ -64,7 +72,9 @@ public static class AppleAlbumManifestJson
     public static bool IsCompleteForCollection(string? json, string? collectionId = null)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return false;
+        }
 
         try
         {
@@ -101,7 +111,9 @@ public static class AppleAlbumManifestJson
     public static bool ContainsAppleTrackRows(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return false;
+        }
 
         try
         {

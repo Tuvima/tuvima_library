@@ -137,7 +137,10 @@ public sealed class RouterPortMapperTests
         var transport = new FakeUdpTransport((_, _, payload) =>
         {
             if (payload.Length == 2)
+            {
                 return new byte[12] { 0, 128, 0, 0, 0, 0, 0, 0, 203, 0, 113, 8 };
+            }
+
             var response = new byte[16];
             response[1] = 130;
             BinaryPrimitives.WriteUInt16BigEndian(response.AsSpan(2, 2), 2);
@@ -179,7 +182,10 @@ public sealed class RouterPortMapperTests
             }
 
             if (action.Contains("GetExternalIPAddress", StringComparison.Ordinal))
+            {
                 return Text("<Envelope><NewExternalIPAddress>198.51.100.20</NewExternalIPAddress></Envelope>");
+            }
+
             return new HttpResponseMessage(HttpStatusCode.OK);
         }));
         var mapper = new UpnpRouterPortMapper(

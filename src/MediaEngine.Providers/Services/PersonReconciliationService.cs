@@ -1,15 +1,14 @@
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
-using TwPersonRole = Tuvima.Wikidata.PersonRole;
-using TwPersonSearchRequest = Tuvima.Wikidata.PersonSearchRequest;
-using TwPersonSearchResult = Tuvima.Wikidata.PersonSearchResult;
-
 // PersonSearchResult exists in both MediaEngine.Domain.Models and Tuvima.Wikidata
 // (the v2.1+ Persons sub-service). The Domain DTO is the public contract this
 // service exposes; the library type is only used internally to call the wrapper.
 using PersonSearchResult = MediaEngine.Domain.Models.PersonSearchResult;
+using TwPersonRole = Tuvima.Wikidata.PersonRole;
+using TwPersonSearchRequest = Tuvima.Wikidata.PersonSearchRequest;
+using TwPersonSearchResult = Tuvima.Wikidata.PersonSearchResult;
 
 namespace MediaEngine.Providers.Services;
 
@@ -71,7 +70,9 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         CancellationToken ct = default)
     {
         if (_reconciler is null || string.IsNullOrWhiteSpace(name))
+        {
             return null;
+        }
 
         var language = _configLoader.LoadCore().Language?.Metadata ?? "en";
 
@@ -81,10 +82,10 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
             libResult = await _reconciler.Persons.SearchAsync(
                 new TwPersonSearchRequest
                 {
-                    Name            = name,
-                    Role            = MapRole(expectedRole),
-                    TitleHint       = workTitle,
-                    Language        = language,
+                    Name = name,
+                    Role = MapRole(expectedRole),
+                    TitleHint = workTitle,
+                    Language = language,
                     AcceptThreshold = AutoAcceptThreshold,
                     // IncludeMusicalGroups left null — the library defaults
                     // Performer / Artist to true and every other role to false,
@@ -121,7 +122,9 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
     {
         var results = new Dictionary<string, PersonSearchResult?>(StringComparer.OrdinalIgnoreCase);
         if (_reconciler is null || requests.Count == 0)
+        {
             return results;
+        }
 
         // Deduplicate by name (case-insensitive), keeping the first occurrence's
         // Role and WorkTitle. Mirrors the legacy implementation's contract.
@@ -130,10 +133,15 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
         foreach (var req in requests)
         {
             if (!string.IsNullOrWhiteSpace(req.Name) && !seen.ContainsKey(req.Name))
+            {
                 seen[req.Name] = req;
+            }
         }
 
-        if (seen.Count == 0) return results;
+        if (seen.Count == 0)
+        {
+            return results;
+        }
 
         // The Wikidata client deduplicates and bounds provider concurrency internally.
         // We still deduplicate here so the result map preserves this service's
@@ -197,14 +205,14 @@ public sealed class PersonReconciliationService : IPersonReconciliationService
     private static TwPersonRole MapRole(string expectedRole) => expectedRole switch
     {
         // Match-case insensitive comparison via ToLowerInvariant first.
-        _ when string.Equals(expectedRole, "Author",     StringComparison.OrdinalIgnoreCase) => TwPersonRole.Author,
-        _ when string.Equals(expectedRole, "Narrator",   StringComparison.OrdinalIgnoreCase) => TwPersonRole.Narrator,
-        _ when string.Equals(expectedRole, "Director",   StringComparison.OrdinalIgnoreCase) => TwPersonRole.Director,
-        _ when string.Equals(expectedRole, "Actor",      StringComparison.OrdinalIgnoreCase) => TwPersonRole.Actor,
+        _ when string.Equals(expectedRole, "Author", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Author,
+        _ when string.Equals(expectedRole, "Narrator", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Narrator,
+        _ when string.Equals(expectedRole, "Director", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Director,
+        _ when string.Equals(expectedRole, "Actor", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Actor,
         _ when string.Equals(expectedRole, "VoiceActor", StringComparison.OrdinalIgnoreCase) => TwPersonRole.VoiceActor,
-        _ when string.Equals(expectedRole, "Composer",   StringComparison.OrdinalIgnoreCase) => TwPersonRole.Composer,
-        _ when string.Equals(expectedRole, "Performer",  StringComparison.OrdinalIgnoreCase) => TwPersonRole.Performer,
-        _ when string.Equals(expectedRole, "Artist",     StringComparison.OrdinalIgnoreCase) => TwPersonRole.Artist,
+        _ when string.Equals(expectedRole, "Composer", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Composer,
+        _ when string.Equals(expectedRole, "Performer", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Performer,
+        _ when string.Equals(expectedRole, "Artist", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Artist,
         _ when string.Equals(expectedRole, "Screenwriter", StringComparison.OrdinalIgnoreCase) => TwPersonRole.Screenwriter,
         _ => TwPersonRole.Unknown,
     };

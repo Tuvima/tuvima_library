@@ -2,12 +2,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MediaEngine.Contracts.Authentication;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Api.Security;
 
-public sealed record ClientAccessIdentity(ClientToken Token, ClientDevice Device, string Role);
+public sealed record ClientAccessIdentity(ClientToken Token, ClientDevice Device, Account Account, AccountProfileGrant Grant, MediaEngine.Domain.Entities.Application Application);
 
 public sealed record ClientTokenResult(OAuthTokenResponse? Success, OAuthErrorResponse? Error)
 {
@@ -17,7 +18,9 @@ public sealed record ClientTokenResult(OAuthTokenResponse? Success, OAuthErrorRe
 
 public sealed class ClientAuthorizationService(
     IClientAuthorizationRepository repository,
-    IProfileRepository profiles,
+    IAccountRepository accounts,
+    IApplicationRepository applications,
+    IPermissionRegistry permissions,
     TimeProvider timeProvider)
 {
     public const string DeviceGrantType = "urn:ietf:params:oauth:grant-type:device_code";
@@ -38,6 +41,12 @@ public sealed class ClientAuthorizationService(
         CancellationToken ct = default)
     {
         var clientId = RequiredText(request.ClientId, nameof(request.ClientId), 100);
+        var application = await applications.GetApplicationByClientIdAsync(clientId, ct).ConfigureAwait(false);
+        if (application?.IsEnabled != true || application.ApplicationType != ApplicationType.UserClient)
+        {
+            throw new ArgumentException("The client_id is not registered for an enabled user-client Application.", nameof(request.ClientId));
+        }
+
         var now = timeProvider.GetUtcNow();
         var deviceCode = RandomToken(32);
         var userCode = RandomUserCode();
@@ -50,6 +59,7 @@ public sealed class ClientAuthorizationService(
         await repository.InsertPairingAsync(new DevicePairingRequest
         {
             Id = Guid.NewGuid(),
+            ApplicationId = application.Id,
             DeviceCodeHash = Hash(deviceCode),
             UserCodeHash = Hash(NormalizeUserCode(userCode)),
             ClientId = clientId,
@@ -101,6 +111,7 @@ public sealed class ClientAuthorizationService(
 
     public async Task<bool> DecideAsync(
         PairingDecisionRequest request,
+        Guid accountId,
         Guid profileId,
         Guid approvedByProfileId,
         CancellationToken ct = default)
@@ -115,9 +126,20 @@ public sealed class ClientAuthorizationService(
         var approved = request.Scopes.Count == 0
             ? requested
             : NormalizeScopes(request.Scopes).Where(requested.Contains).ToArray();
+        var account = await accounts.GetByIdAsync(accountId, ct).ConfigureAwait(false);
+        var grant = await accounts.GetGrantAsync(accountId, profileId, ct).ConfigureAwait(false);
+        var boundApplication = await applications.GetApplicationByClientIdAsync(pairing.ClientId, ct).ConfigureAwait(false);
+        if (account?.IsEnabled != true || grant?.IsEnabled != true ||
+            boundApplication?.IsEnabled != true || boundApplication.Id != pairing.ApplicationId ||
+            boundApplication.ApplicationType != ApplicationType.UserClient)
+        {
+            return false;
+        }
+
         return await repository.DecidePairingAsync(
             pairing.Id,
             request.Approved,
+            accountId,
             profileId,
             approvedByProfileId,
             JoinScopes(approved),
@@ -146,10 +168,8 @@ public sealed class ClientAuthorizationService(
             return null;
         }
 
-        var profile = await profiles.GetByIdAsync(match.Value.Device.ProfileId, ct).ConfigureAwait(false);
-        return profile is null
-            ? null
-            : new ClientAccessIdentity(match.Value.Token, match.Value.Device, profile.Role.ToString());
+        var live = await ValidateBindingAsync(match.Value.Token, match.Value.Device, ct).ConfigureAwait(false);
+        return live;
     }
 
     public Task<IReadOnlyList<ClientDevice>> GetDevicesAsync(Guid profileId, CancellationToken ct = default) =>
@@ -203,19 +223,35 @@ public sealed class ClientAuthorizationService(
         {
             return ClientTokenResult.Failed("access_denied", "The device request was denied.");
         }
-        if (pairing.Status != "approved" || pairing.ProfileId is not Guid profileId)
+        if (pairing.Status != "approved" || pairing.ProfileId is not Guid profileId || pairing.AccountId is not Guid accountId)
         {
             return ClientTokenResult.Failed("expired_token", "The device authorization has already been consumed.");
+        }
+
+        var account = await accounts.GetByIdAsync(accountId, ct).ConfigureAwait(false);
+        var grant = await accounts.GetGrantAsync(accountId, profileId, ct).ConfigureAwait(false);
+        var application = await applications.GetApplicationByClientIdAsync(pairing.ClientId, ct).ConfigureAwait(false);
+        if (account?.IsEnabled != true || grant?.IsEnabled != true || application?.IsEnabled != true ||
+            application.Id != pairing.ApplicationId || application.ApplicationType != ApplicationType.UserClient)
+        {
+            return ClientTokenResult.Failed("access_denied", "The approved account, profile grant, or Application is unavailable.");
+        }
+
+        if (!await HasEffectivePermissionsAsync(application, SplitScopes(pairing.ApprovedScopes), ct).ConfigureAwait(false))
+        {
+            return ClientTokenResult.Failed("access_denied", "The approved scopes are no longer granted to the Application.");
         }
 
         var deviceId = Guid.NewGuid();
         var familyId = Guid.NewGuid();
         var scopes = pairing.ApprovedScopes;
-        var access = NewToken(deviceId, profileId, familyId, "access", scopes, 0, AccessTokenLifetime, now);
-        var refresh = NewToken(deviceId, profileId, familyId, "refresh", scopes, 0, RefreshTokenLifetime, now);
+        var access = NewToken(application.Id, accountId, deviceId, profileId, familyId, "access", scopes, account.AuthorizationVersion, grant.AuthorizationVersion, application.AuthorizationVersion, 0, AccessTokenLifetime, now);
+        var refresh = NewToken(application.Id, accountId, deviceId, profileId, familyId, "refresh", scopes, account.AuthorizationVersion, grant.AuthorizationVersion, application.AuthorizationVersion, 0, RefreshTokenLifetime, now);
         var device = new ClientDevice
         {
             Id = deviceId,
+            ApplicationId = application.Id,
+            AccountId = accountId,
             ProfileId = profileId,
             DeviceName = pairing.DeviceName,
             DeviceClass = pairing.DeviceClass,
@@ -261,9 +297,15 @@ public sealed class ClientAuthorizationService(
             return ClientTokenResult.Failed("invalid_grant", "The refresh token is expired or revoked.");
         }
 
+        var live = await ValidateBindingAsync(current, match.Value.Device, ct).ConfigureAwait(false);
+        if (live is null)
+        {
+            return ClientTokenResult.Failed("invalid_grant", "The account, profile grant, Application, or scope grant changed.");
+        }
+
         var nextGeneration = checked(current.Generation + 1);
-        var access = NewToken(current.DeviceId, current.ProfileId, current.TokenFamilyId, "access", current.Scopes, nextGeneration, AccessTokenLifetime, now);
-        var refresh = NewToken(current.DeviceId, current.ProfileId, current.TokenFamilyId, "refresh", current.Scopes, nextGeneration, RefreshTokenLifetime, now);
+        var access = NewToken(current.ApplicationId, current.AccountId, current.DeviceId, current.ProfileId, current.TokenFamilyId, "access", current.Scopes, live.Account.AuthorizationVersion, live.Grant.AuthorizationVersion, live.Application.AuthorizationVersion, nextGeneration, AccessTokenLifetime, now);
+        var refresh = NewToken(current.ApplicationId, current.AccountId, current.DeviceId, current.ProfileId, current.TokenFamilyId, "refresh", current.Scopes, live.Account.AuthorizationVersion, live.Grant.AuthorizationVersion, live.Application.AuthorizationVersion, nextGeneration, RefreshTokenLifetime, now);
         if (!await repository.RotateRefreshTokenAsync(current, access.Entity, refresh.Entity, now, ct).ConfigureAwait(false))
         {
             await repository.RevokeTokenFamilyAsync(current.TokenFamilyId, now, "refresh_token_replay", ct).ConfigureAwait(false);
@@ -285,11 +327,16 @@ public sealed class ClientAuthorizationService(
         }, null);
 
     private static (ClientToken Entity, string Plaintext) NewToken(
+        Guid applicationId,
+        Guid accountId,
         Guid deviceId,
         Guid profileId,
         Guid familyId,
         string kind,
         string scopes,
+        long accountVersion,
+        long grantVersion,
+        long applicationVersion,
         int generation,
         TimeSpan lifetime,
         DateTimeOffset now)
@@ -298,16 +345,76 @@ public sealed class ClientAuthorizationService(
         return (new ClientToken
         {
             Id = Guid.NewGuid(),
+            ApplicationId = applicationId,
+            AccountId = accountId,
             DeviceId = deviceId,
             ProfileId = profileId,
             TokenFamilyId = familyId,
             Kind = kind,
             TokenHash = Hash(plaintext),
             Scopes = scopes,
+            AccountAuthorizationVersion = accountVersion,
+            GrantAuthorizationVersion = grantVersion,
+            ApplicationAuthorizationVersion = applicationVersion,
             Generation = generation,
             CreatedAt = now,
             ExpiresAt = now.Add(lifetime),
         }, plaintext);
+    }
+
+    private async Task<ClientAccessIdentity?> ValidateBindingAsync(ClientToken token, ClientDevice device, CancellationToken ct)
+    {
+        if (token.ApplicationId != device.ApplicationId || token.AccountId != device.AccountId || token.ProfileId != device.ProfileId)
+        {
+            return null;
+        }
+
+        var account = await accounts.GetByIdAsync(token.AccountId, ct).ConfigureAwait(false);
+        var grant = await accounts.GetGrantAsync(token.AccountId, token.ProfileId, ct).ConfigureAwait(false);
+        var application = await applications.GetApplicationAsync(token.ApplicationId, ct).ConfigureAwait(false);
+        if (account?.IsEnabled != true || grant?.IsEnabled != true || application?.IsEnabled != true)
+        {
+            return null;
+        }
+
+        var boundApplication = await applications.GetApplicationByClientIdAsync(device.ClientId, ct).ConfigureAwait(false);
+        if (boundApplication?.Id != application.Id || boundApplication.ApplicationType != ApplicationType.UserClient)
+        {
+            return null;
+        }
+
+        if (account.AuthorizationVersion != token.AccountAuthorizationVersion || grant.AuthorizationVersion != token.GrantAuthorizationVersion || application.AuthorizationVersion != token.ApplicationAuthorizationVersion)
+        {
+            return null;
+        }
+
+        if (!await HasEffectivePermissionsAsync(application, SplitScopes(token.Scopes), ct).ConfigureAwait(false))
+        {
+            return null;
+        }
+
+        return new(token, device, account, grant, application);
+    }
+
+    private async Task<bool> HasEffectivePermissionsAsync(
+        MediaEngine.Domain.Entities.Application application,
+        IEnumerable<string> scopes,
+        CancellationToken ct)
+    {
+        var grants = application.IsAdministrator
+            ? null
+            : await applications.GetApplicationPermissionsAsync(application.Id, ct).ConfigureAwait(false);
+        foreach (var scope in scopes)
+        {
+            var permission = new ApplicationPermissionId(scope);
+            if (!permissions.TryGet(permission, out var definition) || !definition.IsAvailable ||
+                !definition.ApplicationTypes.Contains(application.ApplicationType) ||
+                (!application.IsAdministrator && !grants!.Contains(permission)))
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     public static IReadOnlyList<string> SplitScopes(string value) =>
@@ -322,7 +429,9 @@ public sealed class ClientAuthorizationService(
             .ToArray();
         var unknown = supplied.Where(scope => !ClientApiScopes.Consumer.Contains(scope, StringComparer.Ordinal)).ToArray();
         if (unknown.Length > 0)
+        {
             throw new ArgumentException($"Unsupported scope: {string.Join(", ", unknown)}.");
+        }
 
         var requested = supplied
             .Order(StringComparer.Ordinal)

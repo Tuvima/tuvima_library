@@ -15,14 +15,11 @@ public sealed class ViewQueryOrchestratorTests
         var included = State(access: false, include: true);
         var excluded = State(access: false, include: false);
         var http = new DefaultHttpContext();
-        HttpViewRequestProfileContext.SetTrustedProfile(
-            http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
         var context = new HttpViewRequestProfileContext(
-            new HttpContextAccessor { HttpContext = http });
+            new HttpContextAccessor { HttpContext = http }, TestViewAuthorityResolver.Human(caller.Policy.ProfileId));
         var resolver = new ViewScopeResolver(
             new ViewScopeResolverTests.ScopeStore(caller, included, excluded));
-        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore());
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(), new TestAllowAuthorizationEvaluator());
         var backend = new CapturingBackend();
         var orchestrator = new ViewQueryOrchestrator(context, authorization, backend);
 
@@ -32,7 +29,7 @@ public sealed class ViewQueryOrchestratorTests
 
         Assert.Equal(ViewAccessOutcome.Allowed, result.Outcome);
         var plan = Assert.IsType<ViewAssetQueryPlan>(backend.Plan);
-        Assert.Empty(plan.Scope.LibraryIds);
+        Assert.Equal([Guid.Parse("00000000-0000-0000-0000-000000000003")], plan.Scope.LibraryIds);
         Assert.True(plan.IncludeSharedLibraryAssets);
         Assert.Equal("lake", plan.Search);
     }
@@ -43,9 +40,9 @@ public sealed class ViewQueryOrchestratorTests
         var context = new HttpViewRequestProfileContext(new HttpContextAccessor
         {
             HttpContext = new DefaultHttpContext(),
-        });
+        }, TestViewAuthorityResolver.Anonymous);
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore());
-        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore());
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(), new TestAllowAuthorizationEvaluator());
         var backend = new CapturingBackend();
         var orchestrator = new ViewQueryOrchestrator(context, authorization, backend);
 
@@ -56,17 +53,41 @@ public sealed class ViewQueryOrchestratorTests
     }
 
     [Fact]
+    public async Task StalePersistedProfileScopeFallsBackOnlyWhenMarkedPersisted()
+    {
+        var caller = State(access: false, include: false);
+        var staleProfileId = Guid.NewGuid();
+        var http = new DefaultHttpContext();
+        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http },
+            TestViewAuthorityResolver.Human(caller.Policy.ProfileId));
+        var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(), new TestAllowAuthorizationEvaluator());
+
+        var explicitBackend = new CapturingBackend();
+        var explicitQuery = new ViewQueryOrchestrator(context, authorization, explicitBackend);
+        var explicitResult = await explicitQuery.QueryAsync(new ViewAssetQueryRequest(
+            ViewScopeRequest.ForProfile(staleProfileId)));
+        Assert.Equal(ViewAccessOutcome.NotFound, explicitResult.Outcome);
+        Assert.Null(explicitBackend.Plan);
+
+        var persistedBackend = new CapturingBackend();
+        var persistedQuery = new ViewQueryOrchestrator(context, authorization, persistedBackend);
+        var persistedResult = await persistedQuery.QueryAsync(new ViewAssetQueryRequest(
+            ViewScopeRequest.ForProfile(staleProfileId), AllowStaleSelectionFallback: true));
+        Assert.Equal(ViewAccessOutcome.Allowed, persistedResult.Outcome);
+        Assert.True(persistedResult.Scope!.WasFallback);
+        Assert.Equal(caller.PersonalSpace!.LibraryId, Assert.Single(persistedBackend.Plan!.Scope.LibraryIds));
+    }
+
+    [Fact]
     public async Task GalleryQueryDoesNotReachBackendUntilGalleryIsAuthorized()
     {
         var caller = State(access: false, include: false);
         var http = new DefaultHttpContext();
-        HttpViewRequestProfileContext.SetTrustedProfile(
-            http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
         var context = new HttpViewRequestProfileContext(
-            new HttpContextAccessor { HttpContext = http });
+            new HttpContextAccessor { HttpContext = http }, TestViewAuthorityResolver.Human(caller.Policy.ProfileId));
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
-        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore());
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(), new TestAllowAuthorizationEvaluator());
         var backend = new CapturingBackend();
         var orchestrator = new ViewQueryOrchestrator(context, authorization, backend);
 
@@ -85,14 +106,13 @@ public sealed class ViewQueryOrchestratorTests
         var owner = State(access: false, include: false);
         var galleryId = Guid.NewGuid();
         var http = new DefaultHttpContext();
-        HttpViewRequestProfileContext.SetTrustedProfile(http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
-        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
+        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http },
+            TestViewAuthorityResolver.Human(caller.Policy.ProfileId));
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller, owner));
         var resource = new ViewResourceDescriptor(ViewResourceKind.Gallery, galleryId,
             owner.Policy.ProfileId, owner.PersonalSpace!.LibraryId,
             new HashSet<Guid> { caller.Policy.ProfileId });
-        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource));
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource), new TestAllowAuthorizationEvaluator());
         var backend = new CapturingBackend();
         var orchestrator = new ViewQueryOrchestrator(context, authorization, backend, new StubSmartGalleryService());
 
@@ -110,13 +130,12 @@ public sealed class ViewQueryOrchestratorTests
         var caller = State(access: false, include: false);
         var galleryId = Guid.NewGuid();
         var http = new DefaultHttpContext();
-        HttpViewRequestProfileContext.SetTrustedProfile(http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
-        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
+        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http },
+            TestViewAuthorityResolver.Human(caller.Policy.ProfileId));
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
         var resource = new ViewResourceDescriptor(ViewResourceKind.Gallery, galleryId,
             caller.Policy.ProfileId, caller.PersonalSpace!.LibraryId);
-        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource));
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource), new TestAllowAuthorizationEvaluator());
         var backend = new CapturingBackend();
         var rule = CollectionRuleDefinition.SingleGroup(
             [new CollectionRulePredicate { Field = "favorite", Op = "eq", Value = "true" }]);
@@ -137,11 +156,10 @@ public sealed class ViewQueryOrchestratorTests
     {
         var caller = State(access: false, include: false);
         var http = new DefaultHttpContext();
-        HttpViewRequestProfileContext.SetTrustedProfile(http,
-            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"));
-        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http });
+        var context = new HttpViewRequestProfileContext(new HttpContextAccessor { HttpContext = http },
+            TestViewAuthorityResolver.Human(caller.Policy.ProfileId));
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
-        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore());
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(), new TestAllowAuthorizationEvaluator());
         var backend = new CapturingBackend();
         var smart = new StubSmartGalleryService(CollectionRuleDefinition.SingleGroup(
             [new CollectionRulePredicate { Field = "favorite", Value = "true" }]));
@@ -165,20 +183,20 @@ public sealed class ViewQueryOrchestratorTests
         var resource = new ViewResourceDescriptor(
             ViewResourceKind.Thumbnail,
             itemId,
-            owner.Policy.ProfileId,
-            owner.PersonalSpace!.LibraryId,
+            null,
+            Guid.Parse("00000000-0000-0000-0000-000000000003"),
             IsSharedLibraryAsset: true);
-        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource));
+        var authorization = new ViewResourceAuthorizationService(resolver, new EmptyResourceStore(resource), new TestAllowAuthorizationEvaluator());
 
         var shared = await authorization.AuthorizeAsync(
-            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"),
+            TestViewAuthorityResolver.Human(caller.Policy.ProfileId).Authority,
             new ViewResourceRequest(ViewScopeRequest.Shared, ViewResourceKind.Thumbnail, itemId));
         var mine = await authorization.AuthorizeAsync(
-            new ViewRequestProfile(caller.Policy.ProfileId, "RestrictedProfile"),
+            TestViewAuthorityResolver.Human(caller.Policy.ProfileId).Authority,
             new ViewResourceRequest(ViewScopeRequest.Mine, ViewResourceKind.Thumbnail, itemId));
 
         Assert.Equal(ViewAccessOutcome.Allowed, shared.Outcome);
-        Assert.Empty(shared.Scope!.LibraryIds);
+        Assert.Equal([Guid.Parse("00000000-0000-0000-0000-000000000003")], shared.Scope!.LibraryIds);
         Assert.Equal(ViewAccessOutcome.NotFound, mine.Outcome);
     }
 

@@ -79,7 +79,7 @@ public sealed class IdentityMatcher : IIdentityMatcher
         ArgumentNullException.ThrowIfNull(candidate);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        var entityMap    = BuildMap(entity);
+        var entityMap = BuildMap(entity);
         var candidateMap = BuildMap(candidate);
 
         // ── Pass 1: hard-identifier short-circuit ──────────────────────────
@@ -90,7 +90,9 @@ public sealed class IdentityMatcher : IIdentityMatcher
                 candidateMap.TryGetValue(key, out string? evB))
             {
                 if (_exactMatch.Compute(evA, evB) >= 1.0)
+                {
                     matchedIds.Add(key);
+                }
             }
         }
 
@@ -98,10 +100,10 @@ public sealed class IdentityMatcher : IIdentityMatcher
         {
             return Task.FromResult(new MatchResult
             {
-                Similarity           = 1.0,
-                MatchedIdentifiers   = matchedIds,
-                HardIdentifierMatch  = true,
-                Disposition          = LinkDisposition.AutoLinked,
+                Similarity = 1.0,
+                MatchedIdentifiers = matchedIds,
+                HardIdentifierMatch = true,
+                Disposition = LinkDisposition.AutoLinked,
             });
         }
 
@@ -115,14 +117,14 @@ public sealed class IdentityMatcher : IIdentityMatcher
             // No shared fields — cannot determine similarity.
             return Task.FromResult(new MatchResult
             {
-                Similarity  = 0.0,
+                Similarity = 0.0,
                 Disposition = LinkDisposition.Rejected,
             });
         }
 
         // Separate title from other keys.
         bool hasTitleField = commonKeys.Contains(TitleKey, StringComparer.OrdinalIgnoreCase);
-        var  otherKeys     = commonKeys
+        var otherKeys = commonKeys
             .Where(k => !string.Equals(k, TitleKey, StringComparison.OrdinalIgnoreCase))
             .Where(k => !NonIdentityFuzzyFields.Contains(k))
             .ToList();
@@ -138,8 +140,8 @@ public sealed class IdentityMatcher : IIdentityMatcher
                 candidateMap[TitleKey]);
 
             double w = otherKeys.Count == 0 ? 1.0 : TitleWeight;
-            weightedSum  += w * titleSim;
-            totalWeight  += w;
+            weightedSum += w * titleSim;
+            totalWeight += w;
         }
 
         if (otherKeys.Count > 0)
@@ -158,7 +160,7 @@ public sealed class IdentityMatcher : IIdentityMatcher
 
         return Task.FromResult(new MatchResult
         {
-            Similarity  = similarity,
+            Similarity = similarity,
             Disposition = disposition,
         });
     }
@@ -189,8 +191,16 @@ public sealed class IdentityMatcher : IIdentityMatcher
         double similarity,
         ScoringConfiguration config)
     {
-        if (similarity >= config.AutoLinkThreshold)  return LinkDisposition.AutoLinked;
-        if (similarity >= config.ConflictThreshold)  return LinkDisposition.NeedsReview;
+        if (similarity >= config.AutoLinkThreshold)
+        {
+            return LinkDisposition.AutoLinked;
+        }
+
+        if (similarity >= config.ConflictThreshold)
+        {
+            return LinkDisposition.NeedsReview;
+        }
+
         return LinkDisposition.Rejected;
     }
 }

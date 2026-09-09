@@ -35,17 +35,19 @@ public sealed class ResolverCacheRepository : IResolverCacheRepository
             """, new { cacheKey, now = DateTimeOffset.UtcNow.ToString("O") });
 
         if (row == default)
+        {
             return Task.FromResult<ResolverCacheEntry?>(null);
+        }
 
         var entry = new ResolverCacheEntry(
-            CacheKey:        row.CacheKey,
+            CacheKey: row.CacheKey,
             NormalizedTitle: row.NormalizedTitle,
-            MediaType:       row.MediaType,
-            WikidataQid:     row.WikidataQid,
-            Confidence:      row.Confidence,
-            EntityLabel:     row.EntityLabel,
-            CreatedAt:       DateTimeOffset.Parse(row.CreatedAt),
-            ExpiresAt:       DateTimeOffset.Parse(row.ExpiresAt));
+            MediaType: row.MediaType,
+            WikidataQid: row.WikidataQid,
+            Confidence: row.Confidence,
+            EntityLabel: row.EntityLabel,
+            CreatedAt: DateTimeOffset.Parse(row.CreatedAt),
+            ExpiresAt: DateTimeOffset.Parse(row.ExpiresAt));
 
         return Task.FromResult<ResolverCacheEntry?>(entry);
     }
@@ -71,14 +73,14 @@ public sealed class ResolverCacheRepository : IResolverCacheRepository
                 expires_at   = excluded.expires_at
             """, new
         {
-            key        = entry.CacheKey,
-            title      = entry.NormalizedTitle,
-            mediaType  = entry.MediaType,
-            qid        = entry.WikidataQid,
+            key = entry.CacheKey,
+            title = entry.NormalizedTitle,
+            mediaType = entry.MediaType,
+            qid = entry.WikidataQid,
             confidence = entry.Confidence,
-            label      = entry.EntityLabel,
-            created    = entry.CreatedAt.ToString("O"),
-            expires    = entry.ExpiresAt.ToString("O"),
+            label = entry.EntityLabel,
+            created = entry.CreatedAt.ToString("O"),
+            expires = entry.ExpiresAt.ToString("O"),
         });
 
         return Task.CompletedTask;

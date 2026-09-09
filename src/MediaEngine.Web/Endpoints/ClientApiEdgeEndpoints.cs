@@ -1,8 +1,9 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text.Encodings.Web;
+using System.Net.WebSockets;
 using System.Text;
+using System.Text.Encodings.Web;
 using MediaEngine.Contracts.Authentication;
 using Microsoft.AspNetCore.Antiforgery;
 
@@ -36,9 +37,14 @@ public static class ClientApiEdgeEndpoints
                 using var response = await clients.CreateClient("EngineIdentity")
                     .GetAsync($"/api/v1/pairing/review/{Uri.EscapeDataString(code)}", ct);
                 if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
                     return Results.Challenge();
+                }
+
                 if (response.IsSuccessStatusCode)
+                {
                     review = await response.Content.ReadFromJsonAsync<PairingReviewResponse>(cancellationToken: ct);
+                }
             }
 
             var tokens = antiforgery.GetAndStoreTokens(context);
@@ -62,9 +68,14 @@ public static class ClientApiEdgeEndpoints
                 new PairingDecisionRequest { UserCode = code, Approved = approved, Scopes = scopes },
                 ct);
             if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
                 return Results.Challenge();
+            }
+
             if (!response.IsSuccessStatusCode)
+            {
                 return Results.Content(PairingResultPage("Pairing failed", "The code expired or was already used."), "text/html; charset=utf-8", statusCode: 400);
+            }
 
             return Results.Content(PairingResultPage(
                 approved ? "Device paired" : "Pairing denied",
@@ -79,7 +90,141 @@ public static class ClientApiEdgeEndpoints
         .WithName("ProxyClientApiV1")
         .AllowAnonymous();
 
+        app.MapMethods(ApplicationEventClientMethods.HubPath + "/{**hubPath}",
+            [HttpMethods.Get, HttpMethods.Post], ProxyApplicationEventsAsync)
+        .WithName("ProxyApplicationEvents")
+        .AllowAnonymous();
+
         return app;
+    }
+
+    private static async Task ProxyApplicationEventsAsync(
+        string? hubPath,
+        HttpContext context,
+        IHttpClientFactory clients,
+        CancellationToken ct)
+    {
+        if (!TryReadBearer(context.Request, out var bearer))
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        var suffix = string.IsNullOrWhiteSpace(hubPath) ? string.Empty : "/" + hubPath.TrimStart('/');
+        var upstreamPath = ApplicationEventClientMethods.HubPath + suffix + context.Request.QueryString;
+        if (context.WebSockets.IsWebSocketRequest)
+        {
+            using var http = clients.CreateClient("ClientApiProxy");
+            var baseAddress = http.BaseAddress ?? throw new InvalidOperationException("Client API proxy base address is missing.");
+            var builder = new UriBuilder(new Uri(baseAddress, upstreamPath))
+            {
+                Scheme = baseAddress.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ? "wss" : "ws",
+            };
+            using var upstream = new ClientWebSocket();
+            upstream.Options.CollectHttpResponseDetails = true;
+            upstream.Options.SetRequestHeader("Authorization", "Bearer " + bearer);
+            foreach (var protocol in context.WebSockets.WebSocketRequestedProtocols)
+            {
+                upstream.Options.AddSubProtocol(protocol);
+            }
+
+            try
+            {
+                await upstream.ConnectAsync(builder.Uri, ct).ConfigureAwait(false);
+            }
+            catch (WebSocketException)
+            {
+                context.Response.StatusCode = upstream.HttpStatusCode switch
+                {
+                    HttpStatusCode.Unauthorized => StatusCodes.Status401Unauthorized,
+                    HttpStatusCode.Forbidden => StatusCodes.Status403Forbidden,
+                    _ => StatusCodes.Status502BadGateway,
+                };
+                return;
+            }
+            using var downstream = await context.WebSockets.AcceptWebSocketAsync(upstream.SubProtocol).ConfigureAwait(false);
+            using var closed = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            var toEngine = PumpWebSocketAsync(downstream, upstream, closed.Token);
+            var toClient = PumpWebSocketAsync(upstream, downstream, closed.Token);
+            await Task.WhenAny(toEngine, toClient).ConfigureAwait(false);
+            closed.CancelAfter(TimeSpan.FromSeconds(5));
+            try { await Task.WhenAll(toEngine, toClient).ConfigureAwait(false); }
+            catch (OperationCanceledException) when (closed.IsCancellationRequested)
+            {
+                // The bounded shutdown cancels the pump still waiting after its peer has closed.
+            }
+            catch (WebSocketException) when (closed.IsCancellationRequested ||
+                                             downstream.State is WebSocketState.Aborted or WebSocketState.Closed ||
+                                             upstream.State is WebSocketState.Aborted or WebSocketState.Closed)
+            {
+                // A disconnected peer can abort the remaining receive while the other pump finishes.
+            }
+            finally
+            {
+                await closed.CancelAsync().ConfigureAwait(false);
+            }
+            return;
+        }
+
+        using var request = new HttpRequestMessage(new HttpMethod(context.Request.Method), upstreamPath);
+        if (context.Request.ContentLength > 0 || context.Request.Headers.ContainsKey("Transfer-Encoding"))
+        {
+            request.Content = new StreamContent(context.Request.Body);
+            if (MediaTypeHeaderValue.TryParse(context.Request.ContentType, out var contentType))
+            {
+                request.Content.Headers.ContentType = contentType;
+            }
+        }
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        using var response = await clients.CreateClient("ClientApiProxy")
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
+        context.Response.StatusCode = (int)response.StatusCode;
+        foreach (var header in response.Headers)
+        {
+            context.Response.Headers[header.Key] = header.Value.ToArray();
+        }
+
+        foreach (var header in response.Content.Headers)
+        {
+            context.Response.Headers[header.Key] = header.Value.ToArray();
+        }
+
+        context.Response.Headers.Remove("transfer-encoding");
+        await response.Content.CopyToAsync(context.Response.Body, ct).ConfigureAwait(false);
+    }
+
+    private static async Task PumpWebSocketAsync(WebSocket source, WebSocket destination, CancellationToken ct)
+    {
+        var buffer = new byte[16 * 1024];
+        while (!ct.IsCancellationRequested &&
+               source.State is WebSocketState.Open or WebSocketState.CloseSent &&
+               destination.State is WebSocketState.Open or WebSocketState.CloseReceived)
+        {
+            var message = await source.ReceiveAsync(buffer, ct).ConfigureAwait(false);
+            if (message.MessageType == WebSocketMessageType.Close)
+            {
+                await destination.CloseOutputAsync(
+                    message.CloseStatus ?? WebSocketCloseStatus.NormalClosure,
+                    message.CloseStatusDescription,
+                    ct).ConfigureAwait(false);
+                return;
+            }
+            await destination.SendAsync(
+                buffer.AsMemory(0, message.Count), message.MessageType, message.EndOfMessage, ct).ConfigureAwait(false);
+        }
+    }
+
+    private static bool TryReadBearer(HttpRequest request, out string token)
+    {
+        token = string.Empty;
+        if (!AuthenticationHeaderValue.TryParse(request.Headers.Authorization.ToString(), out var value) ||
+            !value.Scheme.Equals("Bearer", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(value.Parameter))
+        {
+            return false;
+        }
+
+        token = value.Parameter;
+        return true;
     }
 
     private static async Task ProxyClientApiAsync(
@@ -102,7 +247,9 @@ public static class ClientApiEdgeEndpoints
         {
             request.Content = new StreamContent(context.Request.Body);
             if (MediaTypeHeaderValue.TryParse(context.Request.ContentType, out var contentType))
+            {
                 request.Content.Headers.ContentType = contentType;
+            }
         }
 
         CopyRequestHeader(context.Request, request, "Authorization");
@@ -117,12 +264,20 @@ public static class ClientApiEdgeEndpoints
             .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
         context.Response.StatusCode = (int)response.StatusCode;
         foreach (var header in response.Headers)
+        {
             context.Response.Headers[header.Key] = header.Value.ToArray();
+        }
+
         foreach (var header in response.Content.Headers)
+        {
             context.Response.Headers[header.Key] = header.Value.ToArray();
+        }
+
         context.Response.Headers.Remove("transfer-encoding");
         if (HttpMethods.IsHead(context.Request.Method))
+        {
             return;
+        }
 
         if (response.Content.Headers.ContentType?.MediaType?.Contains("json", StringComparison.OrdinalIgnoreCase) == true)
         {
@@ -143,7 +298,9 @@ public static class ClientApiEdgeEndpoints
     private static void CopyRequestHeader(HttpRequest source, HttpRequestMessage destination, string name)
     {
         if (source.Headers.TryGetValue(name, out var value))
+        {
             destination.Headers.TryAddWithoutValidation(name, value.ToArray());
+        }
     }
 
     private static string PairingPage(string code, PairingReviewResponse? review, string? antiforgeryToken)

@@ -187,7 +187,9 @@ public sealed partial class BoundaryContractGuardrailTests
         var additions = actual.Except(expected).Order(StringComparer.Ordinal).ToList();
         var stale = expected.Except(actual).Order(StringComparer.Ordinal).ToList();
         if (additions.Count == 0 && stale.Count == 0)
+        {
             return;
+        }
 
         var actualInventoryPath = WriteActualInventory();
         var entryByKey = entries.ToDictionary(entry => entry.Key, StringComparer.Ordinal);
@@ -200,7 +202,10 @@ public sealed partial class BoundaryContractGuardrailTests
             {
                 message.Append("  + ").Append(key);
                 if (entryByKey.TryGetValue(key, out var entry))
+                {
                     message.Append("  @ ").Append(entry.Location);
+                }
+
                 message.AppendLine();
             }
         }
@@ -209,7 +214,9 @@ public sealed partial class BoundaryContractGuardrailTests
         {
             message.AppendLine("Stale debt entries must be deleted after the production boundary is fixed:");
             foreach (var key in stale)
+            {
                 message.Append("  - ").AppendLine(key);
+            }
         }
 
         message.AppendLine("The approved fixture is tests/MediaEngine.Contracts.Tests/Fixtures/TemporaryWireDebt.txt.");
@@ -260,7 +267,9 @@ public sealed partial class BoundaryContractGuardrailTests
         {
             var ordinal = 0;
             foreach (var entry in group.OrderBy(item => item.SourceIndex))
+            {
                 entry.Occurrence = ++ordinal;
+            }
         }
 
         var classified = all
@@ -283,7 +292,9 @@ public sealed partial class BoundaryContractGuardrailTests
         {
             var source = File.ReadAllText(path);
             if (!ContainsAnyGenericMethod(source, EndpointMethods()))
+            {
                 continue;
+            }
 
             var context = CreateSourceContext(path, source, definitions);
             foreach (var call in FindGenericCalls(source, context.ScrubbedSource, EndpointMethods()))
@@ -305,7 +316,9 @@ public sealed partial class BoundaryContractGuardrailTests
         {
             var source = File.ReadAllText(path);
             if (!ContainsAnyGenericMethod(source, methods))
+            {
                 continue;
+            }
 
             var context = CreateSourceContext(path, source, definitions);
             foreach (var call in FindGenericCalls(source, context.ScrubbedSource, methods))
@@ -358,7 +371,9 @@ public sealed partial class BoundaryContractGuardrailTests
             var token = tokenMatch.Groups["token"].Value;
             var simpleName = token.Split('.').Last();
             if (IgnoredTypeTokens.Contains(simpleName) || IsGenericParameter(simpleName))
+            {
                 continue;
+            }
 
             IReadOnlyList<TypeDefinition> candidates;
             if (context.Aliases.TryGetValue(simpleName, out var aliasTarget))
@@ -427,9 +442,13 @@ public sealed partial class BoundaryContractGuardrailTests
             }
 
             if (candidates.Count == 1)
+            {
                 result.Add(candidates[0]);
+            }
             else
+            {
                 result.UnionWith(candidates);
+            }
         }
 
         return result.ToList();
@@ -469,7 +488,9 @@ public sealed partial class BoundaryContractGuardrailTests
         {
             var source = File.ReadAllText(path);
             if (!ContainsAny(source, "class", "record", "struct", "enum", "interface"))
+            {
                 continue;
+            }
 
             var namespaceName = NamespaceRegex().Match(source).Groups["namespace"].Value;
             foreach (Match match in TypeDeclarationRegex().Matches(source))
@@ -503,7 +524,9 @@ public sealed partial class BoundaryContractGuardrailTests
         {
             var method = match.Groups["method"].Value;
             if (!methods.Contains(method))
+            {
                 continue;
+            }
 
             var openingAngle = scrubbed.IndexOf('<', match.Index + match.Length - 1);
             var closingAngle = FindMatchingAngle(scrubbed, openingAngle);
@@ -522,9 +545,13 @@ public sealed partial class BoundaryContractGuardrailTests
         for (var index = openingIndex; index < source.Length; index++)
         {
             if (source[index] == '<')
+            {
                 depth++;
+            }
             else if (source[index] == '>' && --depth == 0)
+            {
                 return index;
+            }
         }
 
         return -1;
@@ -562,7 +589,10 @@ public sealed partial class BoundaryContractGuardrailTests
                         if (rawQuoteCount >= 3)
                         {
                             for (var offset = 0; offset < rawQuoteCount; offset++)
+                            {
                                 Blank(chars, index + offset);
+                            }
+
                             index += rawQuoteCount - 1;
                             state = LexicalState.RawString;
                         }
@@ -584,9 +614,14 @@ public sealed partial class BoundaryContractGuardrailTests
 
                 case LexicalState.LineComment:
                     if (current is '\r' or '\n')
+                    {
                         state = LexicalState.Code;
+                    }
                     else
+                    {
                         Blank(chars, index);
+                    }
+
                     break;
 
                 case LexicalState.BlockComment:
@@ -609,7 +644,9 @@ public sealed partial class BoundaryContractGuardrailTests
                     {
                         Blank(chars, index);
                         if (index + 1 < chars.Length)
+                        {
                             Blank(chars, ++index);
+                        }
                     }
                     else if (current == terminator)
                     {
@@ -643,7 +680,10 @@ public sealed partial class BoundaryContractGuardrailTests
                     if (current == '"' && CountRun(chars, index, '"') >= rawQuoteCount)
                     {
                         for (var offset = 0; offset < rawQuoteCount; offset++)
+                        {
                             Blank(chars, index + offset);
+                        }
+
                         index += rawQuoteCount - 1;
                         state = LexicalState.Code;
                     }
@@ -661,14 +701,19 @@ public sealed partial class BoundaryContractGuardrailTests
     private static void Blank(char[] chars, int index)
     {
         if (chars[index] is not ('\r' or '\n'))
+        {
             chars[index] = ' ';
+        }
     }
 
     private static int CountRun(char[] chars, int index, char value)
     {
         var count = 0;
         while (index + count < chars.Length && chars[index + count] == value)
+        {
             count++;
+        }
+
         return count;
     }
 
@@ -696,19 +741,40 @@ public sealed partial class BoundaryContractGuardrailTests
             }).ToLowerInvariant();
 
         if (ContainsAny(text, "universe", "chronicle", "loredelta", "narrative"))
+        {
             return "frozen-universe-chronicle";
+        }
+
         if (ContainsAny(text, "search", "canonical", "match"))
+        {
             return "search-matching";
+        }
+
         if (ContainsAny(text, "collection", "display", "shelf", "tile"))
+        {
             return "collections-display";
+        }
+
         if (ContainsAny(text, "person", "people", "profile", "favorite", "taste"))
+        {
             return "people-profiles";
+        }
+
         if (ContainsAny(text, "playback", "player", "reader", "reading", "progress", "journey", "stream", "bookmark", "highlight", "track"))
+        {
             return "playback-reading";
+        }
+
         if (ContainsAny(text, "ingestion", "operation", "activity", "batch", "folderhealth", "retagsweep", "initialsweep"))
+        {
             return "ingestion-operations";
+        }
+
         if (ContainsAny(text, "review", "curation", "libraryitem", "libraryendpoint", "mediaeditor", "metadata"))
+        {
             return "curation-review";
+        }
+
         if (ContainsAny(
                 text,
                 "/aien",
@@ -720,7 +786,10 @@ public sealed partial class BoundaryContractGuardrailTests
                 "provider",
                 "settings",
                 "configuration"))
+        {
             return "ai-plugins-settings";
+        }
+
         return "misc-wire";
     }
 
@@ -789,7 +858,9 @@ public sealed partial class BoundaryContractGuardrailTests
         for (var position = 0; position < index && position < source.Length; position++)
         {
             if (source[position] == '\n')
+            {
                 line++;
+            }
         }
         return line;
     }
@@ -801,7 +872,9 @@ public sealed partial class BoundaryContractGuardrailTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         return directory?.FullName
             ?? throw new DirectoryNotFoundException("Could not locate the repository root.");
@@ -995,7 +1068,9 @@ public sealed partial class BoundaryContractGuardrailTests
         {
             var normalized = name.Replace("global::", string.Empty, StringComparison.Ordinal);
             if (_byQualifiedName.TryGetValue(normalized, out var exact))
+            {
                 return exact;
+            }
 
             return _byQualifiedName
                 .Where(pair => pair.Key.EndsWith($".{normalized}", StringComparison.Ordinal))
@@ -1008,11 +1083,17 @@ public sealed partial class BoundaryContractGuardrailTests
             if (sourcePath.Contains(
                     $"{Path.DirectorySeparatorChar}MediaEngine.Web{Path.DirectorySeparatorChar}",
                     StringComparison.OrdinalIgnoreCase))
+            {
                 return _webGlobalUsings;
+            }
+
             if (sourcePath.Contains(
                     $"{Path.DirectorySeparatorChar}MediaEngine.Api{Path.DirectorySeparatorChar}",
                     StringComparison.OrdinalIgnoreCase))
+            {
                 return _apiGlobalUsings;
+            }
+
             return [];
         }
 

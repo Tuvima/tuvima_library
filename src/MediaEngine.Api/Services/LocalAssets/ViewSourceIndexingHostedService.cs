@@ -1,9 +1,9 @@
+using System.Collections.Concurrent;
+using System.Threading.Channels;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion;
 using MediaEngine.Ingestion.Models;
-using System.Threading.Channels;
-using System.Collections.Concurrent;
 
 namespace MediaEngine.Api.Services.LocalAssets;
 
@@ -36,7 +36,10 @@ public sealed class ViewSourceIndexingHostedService(
 
     public void RequestReconcile(Guid libraryId)
     {
-        if (_pendingScans.TryAdd(libraryId, 0)) _scanRequests.Writer.TryWrite(libraryId);
+        if (_pendingScans.TryAdd(libraryId, 0))
+        {
+            _scanRequests.Writer.TryWrite(libraryId);
+        }
     }
     private IReadOnlyList<ViewSourceWatch> _sources = [];
     private bool _resourcesDisposed;
@@ -44,6 +47,11 @@ public sealed class ViewSourceIndexingHostedService(
     public static IReadOnlyList<ViewSourceWatch> SelectConfiguredSources(
         IReadOnlyList<(MediaEngine.Domain.PersonalMedia.ViewPersonalSpace Space,
             MediaEngine.Domain.PersonalMedia.ViewSource Source, string Path)> sources)
+        => SelectConfiguredSources(sources.Select(entry =>
+            (entry.Space.LibraryId, entry.Path, entry.Source.IncludeSubdirectories)).ToList());
+
+    public static IReadOnlyList<ViewSourceWatch> SelectConfiguredSources(
+        IReadOnlyList<(Guid LibraryId, string Path, bool IncludeSubdirectories)> sources)
     {
         ArgumentNullException.ThrowIfNull(sources);
         var result = new List<ViewSourceWatch>();
@@ -53,7 +61,9 @@ public sealed class ViewSourceIndexingHostedService(
             {
                 var root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(entry.Path));
                 if (!string.IsNullOrWhiteSpace(root))
-                    result.Add(new ViewSourceWatch(entry.Space.LibraryId, root, entry.Source.IncludeSubdirectories));
+                {
+                    result.Add(new ViewSourceWatch(entry.LibraryId, root, entry.IncludeSubdirectories));
+                }
             }
             catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
             {
@@ -74,7 +84,11 @@ public sealed class ViewSourceIndexingHostedService(
         out Guid libraryId)
     {
         libraryId = Guid.Empty;
-        if (sources is null || string.IsNullOrWhiteSpace(path)) return false;
+        if (sources is null || string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
         string fullPath;
         try { fullPath = Path.GetFullPath(path); }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
@@ -84,25 +98,41 @@ public sealed class ViewSourceIndexingHostedService(
         // it is non-recursive. Never fall back to a broader source and cross a
         // Personal Space boundary merely because the nested source excludes a child.
         var enclosing = sources.Where(source => IsWithinRoot(fullPath, source.RootPath)).ToList();
-        if (enclosing.Count == 0) return false;
+        if (enclosing.Count == 0)
+        {
+            return false;
+        }
+
         var longestRoot = enclosing.Max(source => source.RootPath.Length);
         var matches = enclosing.Where(source => source.RootPath.Length == longestRoot
             && IsWithinSource(fullPath, source)).ToList();
-        if (matches.Count == 0) return false;
+        if (matches.Count == 0)
+        {
+            return false;
+        }
+
         var owners = matches
             .Select(source => source.LibraryId).Distinct().ToList();
-        if (owners.Count != 1) return false;
+        if (owners.Count != 1)
+        {
+            return false;
+        }
+
         libraryId = owners[0];
         return true;
     }
 
     public async Task RefreshSourcesAsync(CancellationToken ct = default)
     {
-        var next = SelectConfiguredSources(await storage.GetEnabledSourcesAsync(ct));
+        var next = SelectConfiguredSources(await storage.GetEnabledSourcePathsAsync(ct));
         List<IViewSourceWatcher> previous;
         lock (_lifecycleLock)
         {
-            if (_resourcesDisposed) return;
+            if (_resourcesDisposed)
+            {
+                return;
+            }
+
             previous = [.. _watchers];
             _watchers.Clear();
             _sources = next;
@@ -123,7 +153,7 @@ public sealed class ViewSourceIndexingHostedService(
     {
         try
         {
-            _sources = SelectConfiguredSources(await storage.GetEnabledSourcesAsync(stoppingToken));
+            _sources = SelectConfiguredSources(await storage.GetEnabledSourcePathsAsync(stoppingToken));
         }
         catch (Exception exception)
         {
@@ -144,7 +174,11 @@ public sealed class ViewSourceIndexingHostedService(
 
         // Directory enumeration can be expensive. Keep it off the hosted-service
         // startup path so Kestrel does not wait for an existing photo archive.
-        foreach (var libraryId in _sources.Select(source => source.LibraryId).Distinct()) RequestReconcile(libraryId);
+        foreach (var libraryId in _sources.Select(source => source.LibraryId).Distinct())
+        {
+            RequestReconcile(libraryId);
+        }
+
         var reconciliation = Task.Run(
             () => ReconcileExistingFilesAsync(stoppingToken),
             CancellationToken.None);
@@ -198,7 +232,11 @@ public sealed class ViewSourceIndexingHostedService(
                 var watcher = watcherFactory.Create(source);
                 watcher.FileChanged += OnFileChanged;
                 watcher.WatcherError += OnWatcherError;
-                lock (_lifecycleLock) _watchers.Add(watcher);
+                lock (_lifecycleLock)
+                {
+                    _watchers.Add(watcher);
+                }
+
                 watcher.Start();
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
@@ -273,7 +311,11 @@ public sealed class ViewSourceIndexingHostedService(
     private void OnFileChanged(object? sender, ViewSourceFileEvent change)
     {
         var queue = _queue;
-        if (queue is null || !TryResolveLibrary(_sources, change.Path, out _)) return;
+        if (queue is null || !TryResolveLibrary(_sources, change.Path, out _))
+        {
+            return;
+        }
+
         var type = change.Kind switch
         {
             ViewSourceFileEventKind.Created => FileEventType.Created,
@@ -305,7 +347,11 @@ public sealed class ViewSourceIndexingHostedService(
         DebounceQueue? queue;
         lock (_lifecycleLock)
         {
-            if (_resourcesDisposed) return;
+            if (_resourcesDisposed)
+            {
+                return;
+            }
+
             _resourcesDisposed = true;
             watchers = [.. _watchers];
             _watchers.Clear();
@@ -333,7 +379,11 @@ public sealed class ViewSourceIndexingHostedService(
 
     private static bool IsWithinSource(string fullPath, ViewSourceWatch source)
     {
-        if (!IsWithinRoot(fullPath, source.RootPath)) return false;
+        if (!IsWithinRoot(fullPath, source.RootPath))
+        {
+            return false;
+        }
+
         return source.IncludeSubdirectories
             || string.Equals(Path.GetDirectoryName(fullPath), source.RootPath, PathComparison);
     }
@@ -344,7 +394,10 @@ public sealed class ViewSourceIndexingHostedService(
         if (relative == ".."
             || relative.StartsWith(".." + Path.DirectorySeparatorChar, PathComparison)
             || Path.IsPathRooted(relative))
+        {
             return false;
+        }
+
         return true;
     }
 
@@ -387,7 +440,10 @@ internal sealed class FileSystemViewSourceWatcher : IViewSourceWatcher
 
     public void Stop()
     {
-        if (!_disposed) _watcher.EnableRaisingEvents = false;
+        if (!_disposed)
+        {
+            _watcher.EnableRaisingEvents = false;
+        }
     }
 
     private void OnCreated(object sender, FileSystemEventArgs args) =>
@@ -401,7 +457,11 @@ internal sealed class FileSystemViewSourceWatcher : IViewSourceWatcher
 
     private void Raise(string path, ViewSourceFileEventKind kind, string? oldPath = null)
     {
-        if (_disposed || Directory.Exists(path)) return;
+        if (_disposed || Directory.Exists(path))
+        {
+            return;
+        }
+
         FileChanged?.Invoke(this, new ViewSourceFileEvent(path, kind, oldPath));
     }
 
@@ -410,7 +470,11 @@ internal sealed class FileSystemViewSourceWatcher : IViewSourceWatcher
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
+
         _disposed = true;
         _watcher.EnableRaisingEvents = false;
         _watcher.Created -= OnCreated;

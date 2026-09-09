@@ -6,12 +6,12 @@ namespace MediaEngine.Domain.Models;
 
 /// <summary>Request to search Wikidata for identity candidates.</summary>
 public sealed record SearchUniverseRequest(
-    [property: JsonPropertyName("query")]          string Query,
-    [property: JsonPropertyName("media_type")]     string MediaType,
+    [property: JsonPropertyName("query")] string Query,
+    [property: JsonPropertyName("media_type")] string MediaType,
     [property: JsonPropertyName("max_candidates")] int MaxCandidates = 5,
-    [property: JsonPropertyName("local_title")]    string? LocalTitle = null,
-    [property: JsonPropertyName("local_author")]   string? LocalAuthor = null,
-    [property: JsonPropertyName("local_year")]     string? LocalYear = null);
+    [property: JsonPropertyName("local_title")] string? LocalTitle = null,
+    [property: JsonPropertyName("local_author")] string? LocalAuthor = null,
+    [property: JsonPropertyName("local_year")] string? LocalYear = null);
 
 /// <summary>A single enriched Wikidata candidate with cover art and description chained from retail.</summary>
 public sealed class UniverseCandidate
@@ -71,9 +71,9 @@ public sealed class UniverseCandidate
 
 /// <summary>Result of a universe search — list of enriched candidates.</summary>
 public sealed record SearchUniverseResult(
-    [property: JsonPropertyName("candidates")]  IReadOnlyList<UniverseCandidate> Candidates,
-    [property: JsonPropertyName("query")]       string Query,
-    [property: JsonPropertyName("media_type")]  string MediaType);
+    [property: JsonPropertyName("candidates")] IReadOnlyList<UniverseCandidate> Candidates,
+    [property: JsonPropertyName("query")] string Query,
+    [property: JsonPropertyName("media_type")] string MediaType);
 
 // ── Retail Search ─────────────────────────────────────────────────────────────
 
@@ -84,14 +84,14 @@ public sealed record SearchUniverseResult(
 /// <c>RetailCandidate.CompositeScore</c> for improved ranking.
 /// </summary>
 public sealed record SearchRetailRequest(
-    [property: JsonPropertyName("query")]          string Query,
-    [property: JsonPropertyName("media_type")]     string MediaType,
+    [property: JsonPropertyName("query")] string Query,
+    [property: JsonPropertyName("media_type")] string MediaType,
     [property: JsonPropertyName("max_candidates")] int MaxCandidates = 5,
-    [property: JsonPropertyName("local_title")]    string? LocalTitle = null,
-    [property: JsonPropertyName("local_author")]   string? LocalAuthor = null,
-    [property: JsonPropertyName("local_year")]     string? LocalYear = null,
-    [property: JsonPropertyName("file_hints")]     IReadOnlyDictionary<string, string>? FileHints = null,
-    [property: JsonPropertyName("search_fields")]  IReadOnlyDictionary<string, string>? SearchFields = null);
+    [property: JsonPropertyName("local_title")] string? LocalTitle = null,
+    [property: JsonPropertyName("local_author")] string? LocalAuthor = null,
+    [property: JsonPropertyName("local_year")] string? LocalYear = null,
+    [property: JsonPropertyName("file_hints")] IReadOnlyDictionary<string, string>? FileHints = null,
+    [property: JsonPropertyName("search_fields")] IReadOnlyDictionary<string, string>? SearchFields = null);
 
 /// <summary>A single retail provider candidate with cover art and basic metadata.</summary>
 public sealed class RetailCandidate
@@ -144,9 +144,9 @@ public sealed class RetailCandidate
 
 /// <summary>Result of a retail search — list of candidates from relevant providers.</summary>
 public sealed record SearchRetailResult(
-    [property: JsonPropertyName("candidates")]  IReadOnlyList<RetailCandidate> Candidates,
-    [property: JsonPropertyName("query")]       string Query,
-    [property: JsonPropertyName("media_type")]  string MediaType);
+    [property: JsonPropertyName("candidates")] IReadOnlyList<RetailCandidate> Candidates,
+    [property: JsonPropertyName("query")] string Query,
+    [property: JsonPropertyName("media_type")] string MediaType);
 
 // ── Apply Match ───────────────────────────────────────────────────────────────
 

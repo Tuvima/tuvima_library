@@ -1,8 +1,8 @@
 using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Ingestion.Contracts;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Ingestion;
 
@@ -46,7 +46,7 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
     /// </summary>
     public const int Version = 1;
 
-    private static readonly XNamespace DcNs  = "http://purl.org/dc/elements/1.1/";
+    private static readonly XNamespace DcNs = "http://purl.org/dc/elements/1.1/";
     private static readonly XNamespace OpfNs = "http://www.idpf.org/2007/opf";
 
     // OPF MIME type as stored in EPUB container.xml.
@@ -71,7 +71,11 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
     /// <inheritdoc/>
     public bool CanHandle(string filePath)
     {
-        if (string.IsNullOrWhiteSpace(filePath)) return false;
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return false;
+        }
+
         string ext = Path.GetExtension(filePath);
         return ext.Equals(".epub", StringComparison.OrdinalIgnoreCase);
     }
@@ -152,7 +156,7 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
         try
         {
             // Copy all entries to the temp file, replacing the OPF entry.
-            using (var srcZip  = ZipFile.OpenRead(epubPath))
+            using (var srcZip = ZipFile.OpenRead(epubPath))
             using (var destZip = ZipFile.Open(temp, ZipArchiveMode.Create))
             {
                 string opfEntryName = FindOpfEntryName(srcZip);
@@ -166,8 +170,10 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
                         // Read, patch, re-write OPF XML.
                         XDocument opf;
                         await using (var stream = entry.Open())
+                        {
                             opf = await XDocument.LoadAsync(stream, LoadOptions.None, ct)
                                                   .ConfigureAwait(false);
+                        }
 
                         ApplyTagsToOpf(opf, tags);
 
@@ -182,7 +188,7 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
                         // Copy entry verbatim.
                         var newEntry = destZip.CreateEntry(entry.FullName, CompressionLevel.NoCompression);
                         newEntry.LastWriteTime = entry.LastWriteTime;
-                        await using var src  = entry.Open();
+                        await using var src = entry.Open();
                         await using var dest = newEntry.Open();
                         await src.CopyToAsync(dest, ct).ConfigureAwait(false);
                     }
@@ -194,7 +200,10 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
         }
         finally
         {
-            if (File.Exists(temp)) File.Delete(temp);
+            if (File.Exists(temp))
+            {
+                File.Delete(temp);
+            }
         }
     }
 
@@ -208,12 +217,12 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
 
         try
         {
-            using (var srcZip  = ZipFile.OpenRead(epubPath))
+            using (var srcZip = ZipFile.OpenRead(epubPath))
             using (var destZip = ZipFile.Open(temp, ZipArchiveMode.Create))
             {
-                string opfEntryName  = FindOpfEntryName(srcZip);
+                string opfEntryName = FindOpfEntryName(srcZip);
                 string coverEntryName = FindCoverEntryName(srcZip, opfEntryName) ?? "OEBPS/cover.jpg";
-                string ext            = mime == "image/png" ? "png" : "jpg";
+                string ext = mime == "image/png" ? "png" : "jpg";
 
                 // Normalise the cover entry name to use the correct extension.
                 string finalCoverName = Path.ChangeExtension(coverEntryName, ext);
@@ -227,12 +236,16 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
                     if (entry.FullName.Equals(opfEntryName, StringComparison.OrdinalIgnoreCase))
                     {
                         await using (var stream = entry.Open())
+                        {
                             opf = await XDocument.LoadAsync(stream, LoadOptions.None, ct)
                                                   .ConfigureAwait(false);
+                        }
 
                         // Update cover item href in OPF manifest.
                         if (opf is not null)
+                        {
                             UpdateCoverManifestEntry(opf, finalCoverName, mime);
+                        }
 
                         var newEntry = destZip.CreateEntry(entry.FullName, CompressionLevel.Optimal);
                         newEntry.LastWriteTime = DateTimeOffset.UtcNow;
@@ -252,7 +265,7 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
                     {
                         var newEntry = destZip.CreateEntry(entry.FullName, CompressionLevel.NoCompression);
                         newEntry.LastWriteTime = entry.LastWriteTime;
-                        await using var src  = entry.Open();
+                        await using var src = entry.Open();
                         await using var dest = newEntry.Open();
                         await src.CopyToAsync(dest, ct).ConfigureAwait(false);
                     }
@@ -273,7 +286,10 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
         }
         finally
         {
-            if (File.Exists(temp)) File.Delete(temp);
+            if (File.Exists(temp))
+            {
+                File.Delete(temp);
+            }
         }
     }
 
@@ -286,7 +302,10 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
         var metadata = opf.Descendants(OpfNs + "metadata").FirstOrDefault()
                     ?? opf.Descendants("metadata").FirstOrDefault();
 
-        if (metadata is null) return;
+        if (metadata is null)
+        {
+            return;
+        }
 
         foreach (var (key, value) in tags)
         {
@@ -314,11 +333,16 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
                                 .Equals($"tuvima:{key}", StringComparison.OrdinalIgnoreCase));
 
                     if (existing is not null)
+                    {
                         existing.SetAttributeValue("content", value);
+                    }
                     else
+                    {
                         metadata.Add(new XElement(OpfNs + "meta",
-                            new XAttribute("name",    $"tuvima:{key}"),
+                            new XAttribute("name", $"tuvima:{key}"),
                             new XAttribute("content", value)));
+                    }
+
                     break;
             }
         }
@@ -328,9 +352,13 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
     {
         var el = parent.Element(elementName);
         if (el is not null)
+        {
             el.SetValue(value);
+        }
         else
+        {
             parent.Add(new XElement(elementName, value));
+        }
     }
 
     private static void UpdateCoverManifestEntry(XDocument opf, string newHref, string mime)
@@ -338,7 +366,10 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
         var manifest = opf.Descendants(OpfNs + "manifest").FirstOrDefault()
                     ?? opf.Descendants("manifest").FirstOrDefault();
 
-        if (manifest is null) return;
+        if (manifest is null)
+        {
+            return;
+        }
 
         var coverItem = manifest.Elements()
             .FirstOrDefault(e =>
@@ -347,7 +378,7 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
 
         if (coverItem is not null)
         {
-            coverItem.SetAttributeValue("href",       newHref);
+            coverItem.SetAttributeValue("href", newHref);
             coverItem.SetAttributeValue("media-type", mime);
         }
     }
@@ -370,7 +401,9 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
             var rootfile = doc.Descendants()
                 .FirstOrDefault(e => e.Name.LocalName == "rootfile");
             if (rootfile?.Attribute("full-path")?.Value is { } path)
+            {
                 return path;
+            }
         }
 
         // Fallback: first .opf entry.
@@ -386,7 +419,10 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
     private static string? FindCoverEntryName(ZipArchive zip, string opfEntryName)
     {
         var opfEntry = zip.GetEntry(opfEntryName);
-        if (opfEntry is null) return null;
+        if (opfEntry is null)
+        {
+            return null;
+        }
 
         using var stream = opfEntry.Open();
         var opf = XDocument.Load(stream);
@@ -401,7 +437,10 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
                 (e.Attribute("media-type")?.Value ?? string.Empty)
                     .StartsWith("image/", StringComparison.OrdinalIgnoreCase));
 
-        if (coverItem?.Attribute("href")?.Value is not { } href) return null;
+        if (coverItem?.Attribute("href")?.Value is not { } href)
+        {
+            return null;
+        }
 
         // OPF href is relative to the OPF file's directory.
         string opfDir = Path.GetDirectoryName(opfEntryName.Replace('\\', '/')) ?? string.Empty;
@@ -418,15 +457,21 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
     {
         if (data.Length >= 4 &&
             data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47)
+        {
             return "image/png";
+        }
 
         if (data.Length >= 3 &&
             data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+        {
             return "image/jpeg";
+        }
 
         if (data.Length >= 4 &&
             data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38)
+        {
             return "image/gif";
+        }
 
         return "image/jpeg"; // safe fallback
     }

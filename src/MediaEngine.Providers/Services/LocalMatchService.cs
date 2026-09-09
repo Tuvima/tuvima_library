@@ -1,6 +1,6 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -58,10 +58,10 @@ public sealed class LocalMatchService : ILocalMatchService
         IConfigurationLoader configLoader,
         ILogger<LocalMatchService> logger)
     {
-        _bridgeIdRepo  = bridgeIdRepo;
+        _bridgeIdRepo = bridgeIdRepo;
         _canonicalRepo = canonicalRepo;
-        _configLoader  = configLoader;
-        _logger        = logger;
+        _configLoader = configLoader;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -84,13 +84,17 @@ public sealed class LocalMatchService : ILocalMatchService
         {
             if (!hints.TryGetValue(idType, out var idValue)
                 || string.IsNullOrWhiteSpace(idValue))
+            {
                 continue;
+            }
 
             IReadOnlyList<BridgeIdEntry> matches =
                 await _bridgeIdRepo.FindByValueAsync(idType, idValue, ct).ConfigureAwait(false);
 
             if (matches.Count == 0)
+            {
                 continue;
+            }
 
             // Take the first entry — the repository orders by most recent.
             var match = matches[0];
@@ -101,10 +105,10 @@ public sealed class LocalMatchService : ILocalMatchService
 
             return new LocalMatchResult
             {
-                Found           = true,
-                EntityId        = match.EntityId,
+                Found = true,
+                EntityId = match.EntityId,
                 MatchedByIdType = idType,
-                IsExactIdMatch  = true,
+                IsExactIdMatch = true,
             };
         }
 

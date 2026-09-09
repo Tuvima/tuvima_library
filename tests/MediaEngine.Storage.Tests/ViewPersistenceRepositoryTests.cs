@@ -262,7 +262,14 @@ public sealed class ViewPersistenceRepositoryTests : IDisposable
     public void Dispose()
     {
         _database.Dispose();
-        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-        if (File.Exists(_path)) File.Delete(_path);
+        using (var pool = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={_path}"))
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearPool(pool);
+        }
+
+        if (File.Exists(_path))
+        {
+            File.Delete(_path);
+        }
     }
 }

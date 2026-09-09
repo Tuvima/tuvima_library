@@ -13,6 +13,20 @@ public sealed class AuthSettingsDto
     [JsonPropertyName("require_https_remote")]
     public bool RequireHttpsRemote { get; init; }
 
+    [JsonPropertyName("password_sign_in_enabled")] public bool PasswordSignInEnabled { get; init; }
+    [JsonPropertyName("passkey_sign_in_enabled")] public bool PasskeySignInEnabled { get; init; }
+    [JsonPropertyName("external_sign_in_enabled")] public bool ExternalSignInEnabled { get; init; }
+    [JsonPropertyName("allow_remote_sign_in")] public bool AllowRemoteSignIn { get; init; }
+    [JsonPropertyName("allow_local_only_accounts")] public bool AllowLocalOnlyAccounts { get; init; }
+    [JsonPropertyName("trusted_local_networks")] public List<string> TrustedLocalNetworks { get; init; } = [];
+    [JsonPropertyName("invitation_lifetime_hours")] public int InvitationLifetimeHours { get; init; }
+    [JsonPropertyName("session_lifetime_hours")] public int SessionLifetimeHours { get; init; }
+    [JsonPropertyName("maximum_active_sessions")] public int MaximumActiveSessions { get; init; }
+    [JsonPropertyName("canonical_origin_ready")] public bool CanonicalOriginReady { get; init; }
+    [JsonPropertyName("passkey_ready")] public bool PasskeyReady { get; init; }
+    [JsonPropertyName("recovery_delivery_ready")] public bool RecoveryDeliveryReady { get; init; }
+    [JsonPropertyName("restart_required")] public bool RestartRequired { get; init; }
+
     [JsonPropertyName("external_providers")]
     public List<ExternalAuthProviderDto> ExternalProviders { get; init; } = [];
 
@@ -28,6 +42,7 @@ public sealed class PasswordResetDeliveryDto
     [JsonPropertyName("smtp_port")] public int SmtpPort { get; init; }
     [JsonPropertyName("from_address")] public string FromAddress { get; init; } = string.Empty;
     [JsonPropertyName("configured")] public bool Configured { get; init; }
+    [JsonPropertyName("ready")] public bool Ready { get; init; }
 }
 
 public sealed class ExternalAuthProviderDto
@@ -56,8 +71,56 @@ public sealed class ExternalAuthProviderDto
     [JsonPropertyName("scopes")]
     public List<string> Scopes { get; init; } = [];
 
+    [JsonPropertyName("use_pkce")] public bool UsePkce { get; init; } = true;
+    [JsonPropertyName("authorization_endpoint")] public string AuthorizationEndpoint { get; init; } = string.Empty;
+    [JsonPropertyName("token_endpoint")] public string TokenEndpoint { get; init; } = string.Empty;
+    [JsonPropertyName("user_information_endpoint")] public string UserInformationEndpoint { get; init; } = string.Empty;
+    [JsonPropertyName("id_claim")] public string IdClaim { get; init; } = "id";
+    [JsonPropertyName("name_claim")] public string NameClaim { get; init; } = "name";
+    [JsonPropertyName("email_claim")] public string EmailClaim { get; init; } = "email";
+
     [JsonPropertyName("callback_path")]
     public string CallbackPath { get; init; } = string.Empty;
+
+    [JsonPropertyName("configured")] public bool Configured { get; init; }
+    [JsonPropertyName("ready")] public bool Ready { get; init; }
+    [JsonPropertyName("restart_required")] public bool RestartRequired { get; init; }
+}
+
+public sealed class UpdateAuthSettingsRequest
+{
+    [JsonPropertyName("mode")] public string Mode { get; init; } = "Local";
+    [JsonPropertyName("localhost_bypass")] public bool LocalhostBypass { get; init; }
+    [JsonPropertyName("require_https_remote")] public bool RequireHttpsRemote { get; init; }
+    [JsonPropertyName("password_sign_in_enabled")] public bool PasswordSignInEnabled { get; init; }
+    [JsonPropertyName("passkey_sign_in_enabled")] public bool PasskeySignInEnabled { get; init; }
+    [JsonPropertyName("external_sign_in_enabled")] public bool ExternalSignInEnabled { get; init; }
+    [JsonPropertyName("allow_remote_sign_in")] public bool AllowRemoteSignIn { get; init; }
+    [JsonPropertyName("allow_local_only_accounts")] public bool AllowLocalOnlyAccounts { get; init; }
+    [JsonPropertyName("trusted_local_networks")] public List<string> TrustedLocalNetworks { get; init; } = [];
+    [JsonPropertyName("invitation_lifetime_hours")] public int InvitationLifetimeHours { get; init; }
+    [JsonPropertyName("session_lifetime_hours")] public int SessionLifetimeHours { get; init; }
+    [JsonPropertyName("maximum_active_sessions")] public int MaximumActiveSessions { get; init; }
+}
+
+public sealed class UpdateExternalAuthProviderRequest
+{
+    [JsonPropertyName("kind")] public string Kind { get; init; } = "oidc";
+    [JsonPropertyName("enabled")] public bool Enabled { get; init; }
+    [JsonPropertyName("display_name")] public string DisplayName { get; init; } = string.Empty;
+    [JsonPropertyName("issuer")] public string Issuer { get; init; } = string.Empty;
+    [JsonPropertyName("authority")] public string Authority { get; init; } = string.Empty;
+    [JsonPropertyName("client_id")] public string ClientId { get; init; } = string.Empty;
+    [JsonPropertyName("client_secret")] public string? ClientSecret { get; init; }
+    [JsonPropertyName("clear_client_secret")] public bool ClearClientSecret { get; init; }
+    [JsonPropertyName("scopes")] public List<string> Scopes { get; init; } = [];
+    [JsonPropertyName("use_pkce")] public bool UsePkce { get; init; } = true;
+    [JsonPropertyName("authorization_endpoint")] public string AuthorizationEndpoint { get; init; } = string.Empty;
+    [JsonPropertyName("token_endpoint")] public string TokenEndpoint { get; init; } = string.Empty;
+    [JsonPropertyName("user_information_endpoint")] public string UserInformationEndpoint { get; init; } = string.Empty;
+    [JsonPropertyName("id_claim")] public string IdClaim { get; init; } = "id";
+    [JsonPropertyName("name_claim")] public string NameClaim { get; init; } = "name";
+    [JsonPropertyName("email_claim")] public string EmailClaim { get; init; } = "email";
 }
 
 public sealed record ServerGeneralSettingsDto(

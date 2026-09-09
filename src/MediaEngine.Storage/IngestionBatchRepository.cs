@@ -60,20 +60,20 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             """,
             new
             {
-                id               = batch.Id,
-                status           = batch.Status,
-                sourcePath       = batch.SourcePath,
-                category         = batch.Category,
-                filesTotal       = batch.FilesTotal,
-                filesProcessed   = batch.FilesProcessed,
-                filesRegistered  = batch.FilesIdentified,
-                filesReview      = batch.FilesReview,
-                filesNoMatch     = batch.FilesNoMatch,
-                filesFailed      = batch.FilesFailed,
-                startedAt        = batch.StartedAt.ToString("O"),
-                completedAt      = batch.CompletedAt?.ToString("O"),
-                createdAt        = batch.CreatedAt.ToString("O"),
-                updatedAt        = batch.UpdatedAt.ToString("O"),
+                id = batch.Id,
+                status = batch.Status,
+                sourcePath = batch.SourcePath,
+                category = batch.Category,
+                filesTotal = batch.FilesTotal,
+                filesProcessed = batch.FilesProcessed,
+                filesRegistered = batch.FilesIdentified,
+                filesReview = batch.FilesReview,
+                filesNoMatch = batch.FilesNoMatch,
+                filesFailed = batch.FilesFailed,
+                startedAt = batch.StartedAt.ToString("O"),
+                completedAt = batch.CompletedAt?.ToString("O"),
+                createdAt = batch.CreatedAt.ToString("O"),
+                updatedAt = batch.UpdatedAt.ToString("O"),
             });
 
         return Task.CompletedTask;
@@ -105,13 +105,13 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             new
             {
                 id,
-                filesTotal       = filesTotal,
-                filesProcessed   = filesProcessed,
-                filesIdentified  = filesIdentified,
-                filesReview      = filesReview,
-                filesNoMatch     = filesNoMatch,
-                filesFailed      = filesFailed,
-                updatedAt        = DateTimeOffset.UtcNow.ToString("O"),
+                filesTotal = filesTotal,
+                filesProcessed = filesProcessed,
+                filesIdentified = filesIdentified,
+                filesReview = filesReview,
+                filesNoMatch = filesNoMatch,
+                filesFailed = filesFailed,
+                updatedAt = DateTimeOffset.UtcNow.ToString("O"),
             });
 
         return Task.CompletedTask;
@@ -131,9 +131,9 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             new
             {
                 id,
-                status      = status,
+                status = status,
                 completedAt = DateTimeOffset.UtcNow.ToString("O"),
-                updatedAt   = DateTimeOffset.UtcNow.ToString("O"),
+                updatedAt = DateTimeOffset.UtcNow.ToString("O"),
             });
 
         return Task.CompletedTask;
@@ -202,12 +202,12 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
         // Map enum to the exact SQLite column name.
         var colName = column switch
         {
-            BatchCounterColumn.FilesTotal      => "files_total",
-            BatchCounterColumn.FilesProcessed  => "files_processed",
+            BatchCounterColumn.FilesTotal => "files_total",
+            BatchCounterColumn.FilesProcessed => "files_processed",
             BatchCounterColumn.FilesIdentified => "files_registered",
-            BatchCounterColumn.FilesReview     => "files_review",
-            BatchCounterColumn.FilesNoMatch    => "files_no_match",
-            BatchCounterColumn.FilesFailed     => "files_failed",
+            BatchCounterColumn.FilesReview => "files_review",
+            BatchCounterColumn.FilesNoMatch => "files_no_match",
+            BatchCounterColumn.FilesFailed => "files_failed",
             _ => throw new ArgumentOutOfRangeException(nameof(column), column, "Unknown BatchCounterColumn value"),
         };
 

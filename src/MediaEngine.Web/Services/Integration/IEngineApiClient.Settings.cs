@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MediaEngine.Contracts.Admin;
 using MediaEngine.Contracts.Ai;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Display;
@@ -57,34 +56,19 @@ public partial interface IEngineApiClient
     /// <summary>GET /settings/security/auth - sign-in and SSO configuration.</summary>
     Task<AuthSettingsDto?> GetAuthSettingsAsync(CancellationToken ct = default);
 
-    // ── API key management (/admin/api-keys) ──────────────────────────────────
-
-    /// <summary>GET /admin/api-keys — list all issued keys (id, label, created_at).</summary>
-    Task<List<ApiKeyDto>> GetApiKeysAsync(CancellationToken ct = default);
-
-    /// <summary>POST /admin/api-keys — generate a new key. Returns key + one-time plaintext.</summary>
-    Task<CreateApiKeyResponse?> CreateApiKeyAsync(string label, CancellationToken ct = default);
-
-    /// <summary>DELETE /admin/api-keys/{id} — revoke a key immediately.</summary>
-    Task<bool> RevokeApiKeyAsync(Guid id, CancellationToken ct = default);
-
-    /// <summary>DELETE /admin/api-keys — revoke all keys in a single batch. Returns count of revoked keys.</summary>
-    Task<int> RevokeAllApiKeysAsync(CancellationToken ct = default);
+    /// <summary>PUT /settings/security/auth - persist sign-in and session policy.</summary>
+    Task<AuthSettingsDto?> UpdateAuthSettingsAsync(UpdateAuthSettingsRequest request, CancellationToken ct = default);
+    Task<AuthSettingsDto?> UpdateExternalAuthProviderAsync(string providerId, UpdateExternalAuthProviderRequest request, CancellationToken ct = default);
+    Task<bool> DeleteExternalAuthProviderAsync(string providerId, CancellationToken ct = default);
 
     // ── Profiles (/profiles) ────────────────────────────────────────────────────
 
     /// <summary>GET /profiles — list all user profiles.</summary>
     Task<List<ProfileViewModel>> GetProfilesAsync(CancellationToken ct = default);
 
-    /// <summary>POST /profiles — create a new user profile.</summary>
-    Task<ProfileViewModel?> CreateProfileAsync(
-        string displayName, string avatarColor, string role,
-        string? navigationConfig = null,
-        CancellationToken ct = default);
-
-    /// <summary>PUT /profiles/{id} — update an existing profile.</summary>
+    /// <summary>PUT /profiles/{id}/experience — update the active profile experience.</summary>
     Task<bool> UpdateProfileAsync(
-        Guid id, string displayName, string avatarColor, string role,
+        Guid id, string displayName, string avatarColor,
         string? navigationConfig = null,
         CancellationToken ct = default);
 
@@ -105,11 +89,8 @@ public partial interface IEngineApiClient
         double zoom = 1,
         CancellationToken ct = default);
 
-    /// <summary>DELETE /profiles/{id} — delete a profile.</summary>
     /// <summary>DELETE /profiles/{id}/avatar - remove a persisted profile avatar image.</summary>
     Task<ProfileViewModel?> RemoveProfileAvatarAsync(Guid id, CancellationToken ct = default);
-
-    Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>GET /profiles/{id}/taste — read the computed taste profile for a user.</summary>
     Task<TasteProfileBuildResponse?> GetTasteProfileAsync(Guid id, CancellationToken ct = default);

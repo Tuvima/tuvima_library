@@ -9,12 +9,16 @@ public static class IngestionBatchDisplay
     public static string Title(ActivityBatchSummaryDto batch)
     {
         if (!string.IsNullOrWhiteSpace(batch.Category))
+        {
             return batch.Category.EndsWith("import", StringComparison.OrdinalIgnoreCase)
                 ? batch.Category
                 : $"{batch.Category} import";
+        }
 
         if (batch.MediaTypeCount > 1)
+        {
             return "Mixed media scan";
+        }
 
         return batch.MediaTypes.Count == 1
             ? $"{LaneFor(batch.MediaTypes[0].MediaType)} import"
@@ -38,14 +42,18 @@ public static class IngestionBatchDisplay
     public static string Summary(ActivityBatchSummaryDto batch)
     {
         if (batch.FailureCount > 0)
+        {
             return HasMedia(batch)
                 ? "Ingestion completed with failures."
                 : "The scan completed with failures and added no media.";
+        }
 
         if (batch.ReviewCount > 0)
+        {
             return HasMedia(batch)
                 ? "Ingestion completed; some items need follow-up."
                 : "The scan found items that need review before they can be added.";
+        }
 
         return HasMedia(batch)
             ? "Ingestion completed successfully."

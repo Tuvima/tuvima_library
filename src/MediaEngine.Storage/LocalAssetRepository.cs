@@ -17,9 +17,10 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
     private sealed class ItemRow
     {
         public Guid Id { get; init; }
+        public string ScopeKind { get; init; } = LocalAssetScopeKinds.Personal;
         public Guid LibraryId { get; init; }
-        public Guid PersonalSpaceId { get; init; }
-        public Guid OwnerProfileId { get; init; }
+        public Guid? PersonalSpaceId { get; init; }
+        public Guid? OwnerProfileId { get; init; }
         public string MediaKind { get; init; } = string.Empty;
         public string? Title { get; init; }
         public string FileName { get; init; } = string.Empty;
@@ -76,7 +77,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         public Guid ItemId { get; init; }
         public Guid FileId { get; init; }
         public Guid LibraryId { get; init; }
-        public Guid OwnerProfileId { get; init; }
+        public Guid? OwnerProfileId { get; init; }
         public Guid? SourceId { get; init; }
         public Guid? DeviceId { get; init; }
         public string FilePath { get; init; } = string.Empty;
@@ -115,7 +116,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
 
         using var connection = database.CreateConnection();
         var rows = connection.Query<ItemRow>("""
-            SELECT li.id AS Id,
+            SELECT li.id AS Id, li.scope_kind AS ScopeKind,
                    li.library_id AS LibraryId,
                    li.personal_space_id AS PersonalSpaceId,
                    li.owner_profile_id AS OwnerProfileId,
@@ -196,13 +197,25 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         ArgumentNullException.ThrowIfNull(query);
         if ((query.AuthorizedLibraryIds is null || query.AuthorizedLibraryIds.Count == 0)
             && !query.IncludeSharedLibraryAssets)
+        {
             throw new ArgumentException("At least one resolver-authorized library is required.", nameof(query));
+        }
+
         if (query.AuthorizedLibraryIds?.Any(id => id == Guid.Empty) == true)
+        {
             throw new ArgumentException("Authorized library IDs cannot be empty.", nameof(query));
+        }
+
         if ((query.BeforeEffectiveAt.HasValue) != (query.BeforeItemId.HasValue))
+        {
             throw new ArgumentException("Both timeline cursor values are required together.", nameof(query));
+        }
+
         if (query.Limit is < 1 or > 500)
+        {
             throw new ArgumentOutOfRangeException(nameof(query), "Limit must be between 1 and 500.");
+        }
+
         ct.ThrowIfCancellationRequested();
 
         var libraryIds = query.AuthorizedLibraryIds?.Distinct().ToArray() ?? [];
@@ -216,7 +229,10 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             ? "0 = 1"
             : string.Join(" OR ", libraryIds.Select((_, index) => $"li.library_id = @LibraryId{index}"));
         if (query.IncludeSharedLibraryAssets)
+        {
             libraryPredicate = $"({libraryPredicate}) OR EXISTS (SELECT 1 FROM view_shared_assets vsa WHERE vsa.item_id = li.id)";
+        }
+
         var smartRule = query.SmartRule is null
             ? new LocalAssetSmartRuleSql("1 = 1", new DynamicParameters())
             : LocalAssetSmartRuleSqlCompiler.Compile(query.SmartRule);
@@ -237,10 +253,13 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         });
         parameters.AddDynamicParams(smartRule.Parameters);
         for (var index = 0; index < libraryIds.Length; index++)
+        {
             parameters.Add($"LibraryId{index}", GuidSql.ToBlob(libraryIds[index]), System.Data.DbType.Binary);
+        }
+
         using var connection = database.CreateConnection();
         var rows = connection.Query<ItemRow>(new CommandDefinition($$"""
-            SELECT li.id AS Id, li.library_id AS LibraryId,
+            SELECT li.id AS Id, li.scope_kind AS ScopeKind, li.library_id AS LibraryId,
                    li.personal_space_id AS PersonalSpaceId, li.owner_profile_id AS OwnerProfileId,
                    li.media_kind AS MediaKind, li.title AS Title,
                    li.primary_file_name AS FileName, li.primary_mime_type AS MimeType,
@@ -304,7 +323,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
              LIMIT @Take;
             """, parameters, cancellationToken: ct)).ToList();
         var hasMore = rows.Count > query.Limit;
-        if (hasMore) rows.RemoveAt(rows.Count - 1);
+        if (hasMore)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
+
         var items = MapItems(connection, rows);
         var last = rows.LastOrDefault();
         return new LocalAssetTimelinePage(
@@ -315,11 +338,15 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
 
     public LocalAssetDto? Find(Guid itemId, CancellationToken ct = default)
     {
-        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
+        if (itemId == Guid.Empty)
+        {
+            throw new ArgumentException("Item ID is required.", nameof(itemId));
+        }
+
         ct.ThrowIfCancellationRequested();
         using var connection = database.CreateConnection();
         var row = connection.QuerySingleOrDefault<ItemRow>("""
-            SELECT li.id AS Id, li.library_id AS LibraryId, li.media_kind AS MediaKind,
+            SELECT li.id AS Id, li.scope_kind AS ScopeKind, li.library_id AS LibraryId, li.media_kind AS MediaKind,
                    li.personal_space_id AS PersonalSpaceId, li.owner_profile_id AS OwnerProfileId,
                    li.title AS Title, li.primary_file_name AS FileName,
                    li.primary_mime_type AS MimeType, li.captured_at AS CapturedAt,
@@ -349,7 +376,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         string role = LocalAssetFileRoles.Primary,
         CancellationToken ct = default)
     {
-        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
+        if (itemId == Guid.Empty)
+        {
+            throw new ArgumentException("Item ID is required.", nameof(itemId));
+        }
+
         role = NormalizeRole(role);
         ct.ThrowIfCancellationRequested();
         using var connection = database.CreateConnection();
@@ -396,24 +427,42 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             token.ThrowIfCancellationRequested();
             var now = DateTimeOffset.UtcNow;
             var normalizedKind = NormalizeMediaKind(registration.MediaKind);
-            var spaceOwner = connection.QuerySingleOrDefault<(Guid OwnerProfileId, Guid LibraryId)>("""
-                SELECT owner_profile_id AS OwnerProfileId, library_id AS LibraryId
-                  FROM view_personal_spaces WHERE id = @PersonalSpaceId;
-                """, registration, transaction);
-            if (spaceOwner.OwnerProfileId == Guid.Empty)
-                throw new InvalidOperationException($"Personal Space '{registration.PersonalSpaceId:D}' does not exist.");
-            if (spaceOwner.OwnerProfileId != registration.OwnerProfileId || spaceOwner.LibraryId != registration.LibraryId)
-                throw new InvalidOperationException("Asset owner, Personal Space, and configured library must identify the same ownership boundary.");
+            var scopeKind = NormalizeScopeKind(registration.ScopeKind);
+            if (scopeKind == LocalAssetScopeKinds.Personal)
+            {
+                var spaceOwner = connection.QuerySingleOrDefault<(Guid OwnerProfileId, Guid LibraryId)>("""
+                    SELECT owner_profile_id AS OwnerProfileId, library_id AS LibraryId
+                      FROM view_personal_spaces WHERE id = @PersonalSpaceId;
+                    """, registration, transaction);
+                if (spaceOwner.OwnerProfileId == Guid.Empty)
+                {
+                    throw new InvalidOperationException($"Personal Space '{registration.PersonalSpaceId:D}' does not exist.");
+                }
+
+                if (spaceOwner.OwnerProfileId != registration.OwnerProfileId || spaceOwner.LibraryId != registration.LibraryId)
+                {
+                    throw new InvalidOperationException("Asset owner, Personal Space, and configured library must identify the same ownership boundary.");
+                }
+            }
+            else if (connection.ExecuteScalar<long>("""
+                    SELECT COUNT(*) FROM view_shared_library
+                     WHERE singleton_key=1 AND library_id=@LibraryId;
+                    """, registration, transaction) == 0)
+            {
+                throw new InvalidOperationException("A Shared item must use the server-owned Shared library.");
+            }
+
             var primary = registration.Files.SingleOrDefault(file =>
                 string.Equals(file.Role, LocalAssetFileRoles.Primary, StringComparison.OrdinalIgnoreCase));
 
             var itemId = registration.ExistingItemId;
             if (itemId.HasValue)
             {
-                var actualOwner = connection.QuerySingleOrDefault<(Guid LibraryId, Guid PersonalSpaceId, Guid OwnerProfileId)>(
+                var actualOwner = connection.QuerySingleOrDefault<(Guid LibraryId, Guid? PersonalSpaceId, Guid? OwnerProfileId, string ScopeKind)>(
                     """
                     SELECT library_id AS LibraryId, personal_space_id AS PersonalSpaceId,
-                           owner_profile_id AS OwnerProfileId FROM local_items WHERE id = @itemId;
+                           owner_profile_id AS OwnerProfileId, scope_kind AS ScopeKind
+                      FROM local_items WHERE id = @itemId;
                     """,
                     new { itemId }, transaction);
                 if (actualOwner.LibraryId == Guid.Empty)
@@ -422,7 +471,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                 }
                 if (actualOwner.LibraryId != registration.LibraryId
                     || actualOwner.PersonalSpaceId != registration.PersonalSpaceId
-                    || actualOwner.OwnerProfileId != registration.OwnerProfileId)
+                    || actualOwner.OwnerProfileId != registration.OwnerProfileId
+                    || actualOwner.ScopeKind != scopeKind)
                 {
                     throw new InvalidOperationException("A local item cannot be attached across ownership boundaries.");
                 }
@@ -435,9 +485,12 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                       FROM local_items li
                       JOIN local_item_files lif ON lif.item_id = li.id AND lif.role = 'primary'
                       JOIN local_files lf ON lf.id = lif.file_id
-                     WHERE li.personal_space_id = @PersonalSpaceId AND lf.content_hash = @primaryHash COLLATE NOCASE
+                     WHERE li.scope_kind=@scopeKind AND li.library_id=@LibraryId
+                       AND ((@scopeKind='shared' AND li.personal_space_id IS NULL)
+                         OR li.personal_space_id=@PersonalSpaceId)
+                       AND lf.content_hash = @primaryHash COLLATE NOCASE
                      LIMIT 1;
-                    """, new { registration.PersonalSpaceId, primaryHash }, transaction);
+                    """, new { registration.PersonalSpaceId, registration.LibraryId, scopeKind, primaryHash }, transaction);
             }
 
             var itemAdded = !itemId.HasValue;
@@ -446,14 +499,15 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             {
                 connection.Execute("""
                     INSERT INTO local_items
-                        (id, personal_space_id, owner_profile_id, library_id, media_kind, title, primary_file_name,
+                        (id, scope_kind, personal_space_id, owner_profile_id, library_id, media_kind, title, primary_file_name,
                          primary_mime_type, captured_at, created_at, updated_at, favorite, hidden)
                     VALUES
-                        (@itemId, @PersonalSpaceId, @OwnerProfileId, @LibraryId, @MediaKind, @Title, @FileName,
+                        (@itemId, @scopeKind, @PersonalSpaceId, @OwnerProfileId, @LibraryId, @MediaKind, @Title, @FileName,
                          @MimeType, @CapturedAt, @now, @now, 0, 0);
                     """, new
                 {
                     itemId,
+                    scopeKind,
                     registration.PersonalSpaceId,
                     registration.OwnerProfileId,
                     registration.LibraryId,
@@ -521,7 +575,7 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             foreach (var file in registration.Files)
             {
                 token.ThrowIfCancellationRequested();
-                ValidateSourceIdentity(connection, transaction, registration.PersonalSpaceId, file);
+                ValidateSourceIdentity(connection, transaction, registration, scopeKind, file);
                 var hash = NormalizeHash(file.ContentHash);
                 var role = NormalizeRole(file.Role);
                 var fileId = connection.QuerySingleOrDefault<Guid?>(
@@ -570,7 +624,10 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
                     file.ModifiedAt,
                     now,
                 }, transaction);
-                if (!sourceExists) sourcesAdded++;
+                if (!sourceExists)
+                {
+                    sourcesAdded++;
+                }
 
                 connection.Execute("""
                     INSERT INTO local_item_files
@@ -606,7 +663,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         bool? hidden,
         CancellationToken ct = default)
     {
-        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
+        if (itemId == Guid.Empty)
+        {
+            throw new ArgumentException("Item ID is required.", nameof(itemId));
+        }
+
         if (!favorite.HasValue && !hidden.HasValue)
         {
             throw new ArgumentException("At least one flag value is required.");
@@ -635,8 +696,16 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         LocalAssetLifecycleState state,
         CancellationToken ct = default)
     {
-        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
-        if (!Enum.IsDefined(state)) throw new ArgumentOutOfRangeException(nameof(state));
+        if (itemId == Guid.Empty)
+        {
+            throw new ArgumentException("Item ID is required.", nameof(itemId));
+        }
+
+        if (!Enum.IsDefined(state))
+        {
+            throw new ArgumentOutOfRangeException(nameof(state));
+        }
+
         return database.ExecuteWriteAsync((connection, transaction, token) =>
         {
             token.ThrowIfCancellationRequested();
@@ -656,7 +725,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         IReadOnlyCollection<string> tags,
         CancellationToken ct = default)
     {
-        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
+        if (itemId == Guid.Empty)
+        {
+            throw new ArgumentException("Item ID is required.", nameof(itemId));
+        }
+
         ArgumentNullException.ThrowIfNull(tags);
         return database.ExecuteWriteAsync((connection, transaction, token) =>
         {
@@ -677,7 +750,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
         LocalAssetAnnotation annotation,
         CancellationToken ct = default)
     {
-        if (itemId == Guid.Empty) throw new ArgumentException("Item ID is required.", nameof(itemId));
+        if (itemId == Guid.Empty)
+        {
+            throw new ArgumentException("Item ID is required.", nameof(itemId));
+        }
+
         ValidateAnnotation(annotation);
         return database.ExecuteWriteAsync((connection, transaction, token) =>
         {
@@ -746,7 +823,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
 
     private static List<LocalAssetDto> MapItems(SqliteConnection connection, IReadOnlyList<ItemRow> rows)
     {
-        if (rows.Count == 0) return [];
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
         var parameters = new DynamicParameters();
         var itemPredicate = string.Join(" OR ", rows.Select((row, index) =>
         {
@@ -813,7 +894,8 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             files,
             tags,
             $"/view/items/{row.Id:D}/thumbnail",
-            $"/view/items/{row.Id:D}/content");
+            $"/view/items/{row.Id:D}/content",
+            row.ScopeKind);
 
     private static void ReplaceTags(
         SqliteConnection connection,
@@ -888,23 +970,53 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
 
     private static void ValidateQuery(LocalAssetQuery query)
     {
-        if (query.LibraryId == Guid.Empty) throw new ArgumentException("Library ID is required.", nameof(query));
-        if (query.Offset < 0) throw new ArgumentOutOfRangeException(nameof(query), "Offset cannot be negative.");
-        if (query.Limit is < 1 or > 500) throw new ArgumentOutOfRangeException(nameof(query), "Limit must be between 1 and 500.");
+        if (query.LibraryId == Guid.Empty)
+        {
+            throw new ArgumentException("Library ID is required.", nameof(query));
+        }
+
+        if (query.Offset < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(query), "Offset cannot be negative.");
+        }
+
+        if (query.Limit is < 1 or > 500)
+        {
+            throw new ArgumentOutOfRangeException(nameof(query), "Limit must be between 1 and 500.");
+        }
+
         if (query.HiddenOnly && !query.IncludeHidden)
         {
             throw new ArgumentException("Hidden-only queries must include hidden items.", nameof(query));
         }
         if (!Enum.IsDefined(query.Lifecycle))
+        {
             throw new ArgumentOutOfRangeException(nameof(query), "Unsupported lifecycle filter.");
+        }
     }
 
     private static void ValidateRegistration(LocalAssetRegistration registration)
     {
         ArgumentNullException.ThrowIfNull(registration);
-        if (registration.LibraryId == Guid.Empty) throw new ArgumentException("Library ID is required.", nameof(registration));
-        if (registration.PersonalSpaceId == Guid.Empty) throw new ArgumentException("Personal Space ID is required.", nameof(registration));
-        if (registration.OwnerProfileId == Guid.Empty) throw new ArgumentException("Owner profile ID is required.", nameof(registration));
+        if (registration.LibraryId == Guid.Empty)
+        {
+            throw new ArgumentException("Library ID is required.", nameof(registration));
+        }
+
+        var scopeKind = NormalizeScopeKind(registration.ScopeKind);
+        if (scopeKind == LocalAssetScopeKinds.Personal
+            && (registration.PersonalSpaceId is not { } spaceId || spaceId == Guid.Empty
+                || registration.OwnerProfileId is not { } ownerId || ownerId == Guid.Empty))
+        {
+            throw new ArgumentException("Personal items require non-empty Personal Space and owner profile IDs.", nameof(registration));
+        }
+
+        if (scopeKind == LocalAssetScopeKinds.Shared
+            && (registration.PersonalSpaceId is not null || registration.OwnerProfileId is not null))
+        {
+            throw new ArgumentException("Shared items cannot carry personal ownership IDs.", nameof(registration));
+        }
+
         NormalizeMediaKind(registration.MediaKind);
         if (registration.Files is null || registration.Files.Count == 0)
         {
@@ -938,11 +1050,18 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
             ArgumentException.ThrowIfNullOrWhiteSpace(file.FilePath);
             ArgumentException.ThrowIfNullOrWhiteSpace(file.FileName);
             ArgumentException.ThrowIfNullOrWhiteSpace(file.MimeType);
-            if (file.ByteSize < 0) throw new ArgumentOutOfRangeException(nameof(registration), "File size cannot be negative.");
+            if (file.ByteSize < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(registration), "File size cannot be negative.");
+            }
+
             NormalizeHash(file.ContentHash);
             NormalizeRole(file.Role);
             if (file.SourceId == Guid.Empty || file.DeviceId == Guid.Empty)
+            {
                 throw new ArgumentException("Source and device IDs cannot be empty.", nameof(registration));
+            }
+
             if (string.Equals(file.Role, LocalAssetFileRoles.Derivative, StringComparison.OrdinalIgnoreCase)
                 && string.IsNullOrWhiteSpace(file.DerivativeKind))
             {
@@ -966,7 +1085,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
 
     private static void ValidateJson(string? value, string parameterName)
     {
-        if (string.IsNullOrWhiteSpace(value)) return;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
         try
         {
             using var _ = JsonDocument.Parse(value);
@@ -1012,7 +1135,11 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
 
     private static string? BuildSearchExpression(string? search)
     {
-        if (string.IsNullOrWhiteSpace(search)) return null;
+        if (string.IsNullOrWhiteSpace(search))
+        {
+            return null;
+        }
+
         var terms = search.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(term => term.Replace("\"", "\"\"", StringComparison.Ordinal))
             .Where(term => term.Length != 0)
@@ -1025,21 +1152,46 @@ public sealed class LocalAssetRepository(IDatabaseConnection database) : ILocalA
     private static string? NullIfWhiteSpace(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
+    private static string NormalizeScopeKind(string value) => value switch
+    {
+        LocalAssetScopeKinds.Personal => LocalAssetScopeKinds.Personal,
+        LocalAssetScopeKinds.Shared => LocalAssetScopeKinds.Shared,
+        _ => throw new ArgumentException("Local item scope must be personal or shared.", nameof(value)),
+    };
+
     private static void ValidateSourceIdentity(
         System.Data.IDbConnection connection,
         System.Data.IDbTransaction transaction,
-        Guid personalSpaceId,
+        LocalAssetRegistration registration,
+        string scopeKind,
         LocalAssetFileRegistration file)
     {
         if (file.SourceId.HasValue && connection.ExecuteScalar<long>("""
                 SELECT COUNT(1) FROM view_sources
-                 WHERE id = @SourceId AND personal_space_id = @personalSpaceId;
-                """, new { file.SourceId, personalSpaceId }, transaction) == 0)
-            throw new InvalidOperationException("A file source must belong to the asset's Personal Space.");
+                 WHERE id=@SourceId AND scope_kind=@scopeKind AND library_id=@LibraryId
+                   AND ((@scopeKind='shared' AND personal_space_id IS NULL)
+                     OR personal_space_id=@PersonalSpaceId);
+                """, new { file.SourceId, registration.PersonalSpaceId, registration.LibraryId, scopeKind }, transaction) == 0)
+        {
+            throw new InvalidOperationException("A file source must belong to the item's exact View scope.");
+        }
+
+        if (scopeKind == LocalAssetScopeKinds.Shared && file.SourceId is null)
+        {
+            throw new InvalidOperationException("Shared files require a verified server-owned View source.");
+        }
+
+        if (scopeKind == LocalAssetScopeKinds.Shared && file.DeviceId is not null)
+        {
+            throw new InvalidOperationException("Shared file observations cannot belong to a personal device.");
+        }
+
         if (file.DeviceId.HasValue && connection.ExecuteScalar<long>("""
                 SELECT COUNT(1) FROM view_devices
-                 WHERE id = @DeviceId AND personal_space_id = @personalSpaceId;
-                """, new { file.DeviceId, personalSpaceId }, transaction) == 0)
+                 WHERE id = @DeviceId AND personal_space_id = @PersonalSpaceId;
+                """, new { file.DeviceId, registration.PersonalSpaceId }, transaction) == 0)
+        {
             throw new InvalidOperationException("A file device must belong to the asset's Personal Space.");
+        }
     }
 }

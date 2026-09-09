@@ -155,7 +155,11 @@ public sealed class MetadataEditorRepositoryTests : IDisposable
     public void Dispose()
     {
         _database.Dispose();
-        SqliteConnection.ClearAllPools();
+        using (var pool = new SqliteConnection($"Data Source={_databasePath}"))
+        {
+            SqliteConnection.ClearPool(pool);
+        }
+
         File.Delete(_databasePath);
     }
 

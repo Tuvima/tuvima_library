@@ -22,10 +22,14 @@ public static class ArtworkCanonicalHelper
         };
 
         if (!string.IsNullOrWhiteSpace(coverSource))
+        {
             values.Add(Create(entityId, MetadataFieldConstants.CoverSource, coverSource, lastScoredAt));
+        }
 
         if (settled)
+        {
             values.Add(Create(entityId, MetadataFieldConstants.ArtworkSettledAt, lastScoredAt.ToString("o"), lastScoredAt));
+        }
 
         return values;
     }

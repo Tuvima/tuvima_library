@@ -1,7 +1,7 @@
 using System.Text.Json;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -112,7 +112,9 @@ public sealed class Stage2ConfigTests
         // Movies, TV, Comics, Unknown are deliberately opted out.
         var optedOut = new[] { MediaType.Movies, MediaType.TV, MediaType.Comics, MediaType.Unknown };
         foreach (var mt in optedOut)
+        {
             Assert.Null(config!.GetRuleFor(mt));
+        }
     }
 
     [Fact]
@@ -155,7 +157,10 @@ public sealed class Stage2ConfigTests
         while (dir is not null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
         throw new InvalidOperationException("Could not find repository root (.git directory)");

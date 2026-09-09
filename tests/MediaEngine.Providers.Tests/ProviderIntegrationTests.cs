@@ -1,8 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Abstractions;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -10,7 +8,9 @@ using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit.Abstractions;
 
 namespace MediaEngine.Providers.Tests;
@@ -48,12 +48,12 @@ public sealed class ProviderIntegrationTests
 
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "The Fellowship of the Ring",
-            Author     = "J.R.R. Tolkien",
-            BaseUrl    = "https://itunes.apple.com",
+            MediaType = MediaType.Books,
+            Title = "The Fellowship of the Ring",
+            Author = "J.R.R. Tolkien",
+            BaseUrl = "https://itunes.apple.com",
         };
 
         var claims = await adapter.FetchAsync(request);
@@ -77,12 +77,12 @@ public sealed class ProviderIntegrationTests
 
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobooks,
-            Title      = "The Fellowship of the Ring",
-            Author     = "J.R.R. Tolkien",
-            BaseUrl    = "https://itunes.apple.com",
+            MediaType = MediaType.Audiobooks,
+            Title = "The Fellowship of the Ring",
+            Author = "J.R.R. Tolkien",
+            BaseUrl = "https://itunes.apple.com",
         };
 
         var claims = await adapter.FetchAsync(request);
@@ -103,13 +103,13 @@ public sealed class ProviderIntegrationTests
 
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "The Fellowship of the Ring",
-            Author     = "J.R.R. Tolkien",
-            Isbn       = "9780547928210",
-            BaseUrl    = "https://openlibrary.org",
+            MediaType = MediaType.Books,
+            Title = "The Fellowship of the Ring",
+            Author = "J.R.R. Tolkien",
+            Isbn = "9780547928210",
+            BaseUrl = "https://openlibrary.org",
         };
 
         var claims = await adapter.FetchAsync(request);
@@ -134,12 +134,12 @@ public sealed class ProviderIntegrationTests
 
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "The Fellowship of the Ring",
-            Isbn       = "9780547928210",
-            BaseUrl    = "https://openlibrary.org",
+            MediaType = MediaType.Books,
+            Title = "The Fellowship of the Ring",
+            Isbn = "9780547928210",
+            BaseUrl = "https://openlibrary.org",
         };
 
         var claims = await adapter.FetchAsync(request);
@@ -157,19 +157,21 @@ public sealed class ProviderIntegrationTests
 
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "The Fellowship of the Ring",
-            Author     = "J.R.R. Tolkien",
-            BaseUrl    = "https://itunes.apple.com",
+            MediaType = MediaType.Books,
+            Title = "The Fellowship of the Ring",
+            Author = "J.R.R. Tolkien",
+            BaseUrl = "https://itunes.apple.com",
         };
 
         var results = await adapter.SearchAsync(request, limit: 10);
 
         _output.WriteLine($"Apple Books Search: {results.Count} results.");
         foreach (var r in results)
+        {
             _output.WriteLine($"  [{r.ProviderName}] \"{r.Title}\" by {r.Author} ({r.Year})");
+        }
 
         Assert.NotEmpty(results);
         Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
@@ -182,19 +184,21 @@ public sealed class ProviderIntegrationTests
 
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "The Fellowship of the Ring",
-            Author     = "J.R.R. Tolkien",
-            BaseUrl    = "https://openlibrary.org",
+            MediaType = MediaType.Books,
+            Title = "The Fellowship of the Ring",
+            Author = "J.R.R. Tolkien",
+            BaseUrl = "https://openlibrary.org",
         };
 
         var results = await adapter.SearchAsync(request, limit: 10);
 
         _output.WriteLine($"Open Library Search: {results.Count} results.");
         foreach (var r in results)
+        {
             _output.WriteLine($"  [{r.ProviderName}] \"{r.Title}\" by {r.Author} ({r.Year})");
+        }
 
         Assert.NotEmpty(results);
         Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
@@ -269,7 +273,10 @@ public sealed class ProviderIntegrationTests
         while (dir != null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
         throw new InvalidOperationException("Could not find repository root (.git directory)");

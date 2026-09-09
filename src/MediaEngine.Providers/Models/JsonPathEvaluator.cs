@@ -28,7 +28,9 @@ public static class JsonPathEvaluator
     public static JsonNode? Evaluate(JsonNode? root, string path)
     {
         if (root is null || string.IsNullOrEmpty(path))
+        {
             return null;
+        }
 
         var current = root;
         var segments = path.Split('.');
@@ -37,7 +39,9 @@ public static class JsonPathEvaluator
         {
             var segment = segments[i];
             if (current is null)
+            {
                 return null;
+            }
 
             // Check for array access: "property[index]" or "property[*]"
             var bracketStart = segment.IndexOf('[');
@@ -49,13 +53,17 @@ public static class JsonPathEvaluator
                     var propName = segment[..bracketStart];
                     current = NavigateProperty(current, propName);
                     if (current is null)
+                    {
                         return null;
+                    }
                 }
 
                 // Parse the bracket expression.
                 var bracketEnd = segment.IndexOf(']', bracketStart);
                 if (bracketEnd < 0)
+                {
                     return null;
+                }
 
                 var indexStr = segment[(bracketStart + 1)..bracketEnd];
 
@@ -71,21 +79,31 @@ public static class JsonPathEvaluator
                     // key is in segments[i+1..]. E.g. "narrators[*]" + "name".
                     string? childKey;
                     if (!string.IsNullOrEmpty(inlineChild))
+                    {
                         childKey = inlineChild;
+                    }
                     else if (i + 1 < segments.Length)
+                    {
                         childKey = string.Join(".", segments[(i + 1)..]);
+                    }
                     else
+                    {
                         childKey = null;
+                    }
 
                     return ExtractWildcard(current, childKey);
                 }
 
                 // Numeric index.
                 if (!int.TryParse(indexStr, out var index))
+                {
                     return null;
+                }
 
                 if (current is not JsonArray arr || index < 0 || index >= arr.Count)
+                {
                     return null;
+                }
 
                 current = arr[index];
             }
@@ -106,21 +124,37 @@ public static class JsonPathEvaluator
     public static string? GetStringValue(JsonNode? node)
     {
         if (node is null)
+        {
             return null;
+        }
 
         if (node is JsonValue value)
         {
             // Try string first, then fall back to raw text.
             if (value.TryGetValue<string>(out var str))
+            {
                 return str;
+            }
+
             if (value.TryGetValue<int>(out var intVal))
+            {
                 return intVal.ToString();
+            }
+
             if (value.TryGetValue<long>(out var longVal))
+            {
                 return longVal.ToString();
+            }
+
             if (value.TryGetValue<double>(out var dblVal))
+            {
                 return dblVal.ToString("G");
+            }
+
             if (value.TryGetValue<bool>(out var boolVal))
+            {
                 return boolVal.ToString();
+            }
 
             return value.ToJsonString().Trim('"');
         }
@@ -140,14 +174,18 @@ public static class JsonPathEvaluator
     public static IReadOnlyList<string> GetArrayValues(JsonNode? node)
     {
         if (node is not JsonArray arr)
+        {
             return [];
+        }
 
         var result = new List<string>(arr.Count);
         foreach (var item in arr)
         {
             var str = GetStringValue(item);
             if (!string.IsNullOrWhiteSpace(str))
+            {
                 result.Add(str);
+            }
         }
 
         return result;
@@ -158,7 +196,9 @@ public static class JsonPathEvaluator
     private static JsonNode? NavigateProperty(JsonNode current, string propertyName)
     {
         if (current is JsonObject obj)
+        {
             return obj[propertyName];
+        }
 
         return null;
     }
@@ -171,12 +211,17 @@ public static class JsonPathEvaluator
         JsonNode current, string? childKey)
     {
         if (current is not JsonArray arr)
+        {
             return null;
+        }
 
         var results = new JsonArray();
         foreach (var element in arr)
         {
-            if (element is null) continue;
+            if (element is null)
+            {
+                continue;
+            }
 
             JsonNode? extracted;
             if (!string.IsNullOrEmpty(childKey))
@@ -193,7 +238,9 @@ public static class JsonPathEvaluator
             {
                 var strVal = GetStringValue(extracted);
                 if (!string.IsNullOrWhiteSpace(strVal))
+                {
                     results.Add(JsonValue.Create(strVal));
+                }
             }
         }
 

@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -24,6 +22,8 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
@@ -69,7 +69,11 @@ internal sealed partial class DetailCompositionOrchestrator
             .ToList());
     }
 
-    private async Task<IReadOnlyList<CharacterGroupViewModel>> BuildCollectionCharactersAsync(Guid collectionId, string? qid, CancellationToken ct)
+    private async Task<IReadOnlyList<CharacterGroupViewModel>> BuildCollectionCharactersAsync(
+        Guid collectionId,
+        string? qid,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(qid))
         {
@@ -102,10 +106,20 @@ internal sealed partial class DetailCompositionOrchestrator
                )
             WHERE fe.fictional_universe_qid = @qid
               AND fe.entity_sub_type = 'Character'
+              AND (@restrictWorks = 0 OR EXISTS (
+                  SELECT 1
+                  FROM fictional_entity_work_links visible_link
+                  WHERE visible_link.entity_id=fe.id
+                    AND visible_link.work_qid IN @visibleWorkQids))
             ORDER BY fe.label
             LIMIT 24;
             """,
-            new { qid },
+            new
+            {
+                qid,
+                restrictWorks = authorizedWorks is null ? 0 : 1,
+                visibleWorkQids = VisibleWorkQids(authorizedWorks),
+            },
             cancellationToken: ct));
 
         var characters = rows.Select(row => new EntityCreditViewModel
@@ -125,7 +139,10 @@ internal sealed partial class DetailCompositionOrchestrator
             : [new CharacterGroupViewModel { Title = "Characters", GroupType = CharacterGroupType.MainCharacters, Characters = characters }];
     }
 
-    private async Task<IReadOnlyList<CreditGroupViewModel>> BuildUniverseCastGroupsAsync(string? qid, CancellationToken ct)
+    private async Task<IReadOnlyList<CreditGroupViewModel>> BuildUniverseCastGroupsAsync(
+        string? qid,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(qid))
         {
@@ -156,9 +173,15 @@ internal sealed partial class DetailCompositionOrchestrator
                 ON cp.fictional_entity_id = fe.id
                AND cp.person_id = p.id
             WHERE fe.fictional_universe_qid = @qid
+              AND (@restrictWorks = 0 OR cpl.work_qid IN @visibleWorkQids)
             ORDER BY cpl.rowid, fe.label, cp.is_default DESC;
             """,
-            new { qid },
+            new
+            {
+                qid,
+                restrictWorks = authorizedWorks is null ? 0 : 1,
+                visibleWorkQids = VisibleWorkQids(authorizedWorks),
+            },
             cancellationToken: ct))).ToList();
 
         var credits = rows
@@ -226,6 +249,22 @@ internal sealed partial class DetailCompositionOrchestrator
         return credits.Count == 0
             ? []
             : ApplyContributorGroupPresentation(DetailEntityType.Universe, SplitCastGroups(credits));
+    }
+
+    private static string[] VisibleWorkQids(IReadOnlyList<DisplayWorkRow>? authorizedWorks)
+    {
+        if (authorizedWorks is null)
+        {
+            return ["__unrestricted__"];
+        }
+
+        var qids = authorizedWorks
+            .Select(work => work.IdentityQid)
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Cast<string>()
+            .ToArray();
+        return qids.Length > 0 ? qids : ["__none__"];
     }
 
     private async Task<IReadOnlyList<RelationshipGroup>> BuildUniverseRelationshipGroupsAsync(string? qid, CancellationToken ct)
@@ -668,9 +707,14 @@ internal sealed partial class DetailCompositionOrchestrator
             wikidataQid,
             values is null ? null : GetValue(values, BridgeIdKeys.WikidataQid)));
         if (!string.IsNullOrWhiteSpace(qid))
+        {
             identifiers[BridgeIdKeys.WikidataQid] = qid;
+        }
+
         if (!string.IsNullOrWhiteSpace(wikipediaUrl))
+        {
             identifiers["wikipedia_url"] = wikipediaUrl.Trim();
+        }
 
         var mediaType = values is not null
                         && !string.IsNullOrWhiteSpace(GetValue(values, MetadataFieldConstants.ShowName))

@@ -96,7 +96,8 @@ public static class ClientAuthorizationEndpoints
             try
             {
                 var profileId = RequiredGuidClaim(user, TuvimaClaimTypes.ActiveProfileId);
-                return await authorization.DecideAsync(request, profileId, profileId, ct)
+                var accountId = RequiredGuidClaim(user, TuvimaClaimTypes.AccountId);
+                return await authorization.DecideAsync(request, accountId, profileId, profileId, ct)
                     ? Results.NoContent()
                     : ApiErrors.NotFound("The pairing code is invalid, expired, or already decided.");
             }
@@ -166,8 +167,10 @@ public static class ClientAuthorizationEndpoints
     private static async Task<DeviceAuthorizationRequest> ReadDeviceAuthorizationRequestAsync(HttpRequest request, CancellationToken ct)
     {
         if (!request.HasFormContentType)
+        {
             return await request.ReadFromJsonAsync<DeviceAuthorizationRequest>(cancellationToken: ct)
                 ?? throw new ArgumentException("A request body is required.");
+        }
 
         var form = await request.ReadFormAsync(ct);
         var capabilities = string.IsNullOrWhiteSpace(form["capabilities"])
@@ -188,8 +191,10 @@ public static class ClientAuthorizationEndpoints
     private static async Task<OAuthTokenRequest> ReadTokenRequestAsync(HttpRequest request, CancellationToken ct)
     {
         if (!request.HasFormContentType)
+        {
             return await request.ReadFromJsonAsync<OAuthTokenRequest>(cancellationToken: ct)
                 ?? new OAuthTokenRequest();
+        }
 
         var form = await request.ReadFormAsync(ct);
         return new OAuthTokenRequest

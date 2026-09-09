@@ -1,3 +1,4 @@
+using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Canonical;
 using MediaEngine.Api.Services.Collections;
@@ -25,18 +26,21 @@ public static class TuvimaDisplayServiceCollectionExtensions
         services.AddSingleton<ArtworkScopeService>();
         services.AddSingleton<CanonicalCandidateBuilder>();
 
-        // These services are stateless over immutable/singleton dependencies. Keeping
-        // one shared instance avoids manufacturing a graph for every API request.
-        services.AddSingleton<IDisplayProjectionReadService, DisplayProjectionReadService>();
+        // Raw projections remain shared and cacheable. The authorization projection
+        // and composers are request scoped so every response uses current authority.
+        services.AddSingleton<IRawDisplayProjectionReadService, DisplayProjectionReadService>();
+        services.AddScoped<AuthorizedDisplayProjectionReadService>();
+        services.AddScoped<IDisplayProjectionReadService>(services =>
+            services.GetRequiredService<AuthorizedDisplayProjectionReadService>());
         services.AddSingleton<DisplayWorkProjectionReader>();
-        services.AddSingleton<ContributorShelfReadService>();
+        services.AddScoped<ContributorShelfReadService>();
         services.AddSingleton<DisplayJourneyProjectionReader>();
         services.AddSingleton<DisplayFavoriteProjectionReader>();
         services.AddSingleton<DisplayHomeCollectionProjectionReader>();
         services.AddSingleton<DisplayLaneGroupPolicy>();
         services.AddSingleton<DisplayCardBuilder>();
         services.AddSingleton<DisplayShelfBuilder>();
-        services.AddSingleton<DisplayComposerService>();
+        services.AddScoped<DisplayComposerService>();
         services.AddSingleton<DetailRecommendationService>();
         services.AddSingleton<DetailComposerService>();
         return services;

@@ -29,7 +29,9 @@ public sealed class MusicBrainzReleaseClient(
         CancellationToken ct)
     {
         if (!Guid.TryParse(releaseId, out var parsedReleaseId))
+        {
             return null;
+        }
 
         var normalizedReleaseId = parsedReleaseId.ToString("D", CultureInfo.InvariantCulture);
         var configuredEndpoint = configurationSnapshots?.Current.Providers
@@ -66,17 +68,23 @@ public sealed class MusicBrainzReleaseClient(
         string expectedReleaseId)
     {
         if (release is null)
+        {
             return null;
+        }
 
         var releaseId = release["id"]?.GetValue<string>();
         if (!string.Equals(releaseId, expectedReleaseId, StringComparison.OrdinalIgnoreCase))
+        {
             return null;
+        }
 
         var tracks = new JsonArray();
         var globalOrdinal = 0;
         var media = release["media"]?.AsArray();
         if (media is null)
+        {
             return null;
+        }
 
         foreach (var medium in media
                      .Where(node => node is not null)
@@ -85,7 +93,9 @@ public sealed class MusicBrainzReleaseClient(
             var discNumber = medium!["position"]?.GetValue<int?>() ?? 1;
             var mediumTracks = medium["tracks"]?.AsArray();
             if (mediumTracks is null)
+            {
                 continue;
+            }
 
             foreach (var track in mediumTracks
                          .Where(node => node is not null)
@@ -94,7 +104,9 @@ public sealed class MusicBrainzReleaseClient(
                 var title = track!["title"]?.GetValue<string>()
                     ?? track["recording"]?["title"]?.GetValue<string>();
                 if (string.IsNullOrWhiteSpace(title))
+                {
                     continue;
+                }
 
                 globalOrdinal++;
                 var trackNumber = track["position"]?.GetValue<int?>() ?? globalOrdinal;
@@ -110,18 +122,24 @@ public sealed class MusicBrainzReleaseClient(
                 };
 
                 if (durationMillis is > 0)
+                {
                     item["duration_seconds"] = Math.Round(durationMillis.Value / 1000d, 3);
+                }
 
                 var recordingId = track["recording"]?["id"]?.GetValue<string>();
                 if (!string.IsNullOrWhiteSpace(recordingId))
+                {
                     item["musicbrainz_recording_id"] = recordingId;
+                }
 
                 tracks.Add(item);
             }
         }
 
         if (tracks.Count == 0)
+        {
             return null;
+        }
 
         var albumTitle = release["title"]?.GetValue<string>();
         var artist = ReadArtistCredit(release["artist-credit"]?.AsArray());
@@ -148,7 +166,9 @@ public sealed class MusicBrainzReleaseClient(
     private static string? ReadArtistCredit(JsonArray? credits)
     {
         if (credits is null)
+        {
             return null;
+        }
 
         var parts = credits
             .Where(node => node is not null)
@@ -171,7 +191,9 @@ public static class MusicBrainzAlbumManifestJson
     public static bool IsCompleteForRelease(string? json, string? releaseId = null)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return false;
+        }
 
         try
         {

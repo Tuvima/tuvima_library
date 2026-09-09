@@ -8,11 +8,11 @@ internal static class CurationContractMapper
 {
     public static MediaEngine.Web.Models.ViewDTOs.BatchLibraryItemResponse ToViewModel(
         this MediaEngine.Contracts.Items.BatchLibraryItemResponse source) => new()
-    {
-        ProcessedCount = source.ProcessedCount,
-        TotalRequested = source.TotalRequested,
-        Message = source.Message,
-    };
+        {
+            ProcessedCount = source.ProcessedCount,
+            TotalRequested = source.TotalRequested,
+            Message = source.Message,
+        };
 
     public static LibraryCatalogPageResponse ToViewModel(this LibraryItemsPageDto source) => new()
     {

@@ -23,7 +23,9 @@ public static class FileSourceMutationPolicyFactory
             string.Equals(candidate.Id, source.Id, StringComparison.OrdinalIgnoreCase)
             && string.Equals(candidate.Path, source.Path, StringComparison.OrdinalIgnoreCase));
         if (!belongsToLibrary)
+        {
             throw new ArgumentException("The source is not part of the supplied library.", nameof(source));
+        }
 
         bool managed = string.Equals(
             source.ManagementMode,
@@ -57,7 +59,9 @@ public static class FileSourceMutationPolicyFactory
             string.Equals(candidate.Id, source.Id, StringComparison.OrdinalIgnoreCase)
             && string.Equals(candidate.Path, source.Path, StringComparison.OrdinalIgnoreCase));
         if (!belongsToLibrary)
+        {
             throw new ArgumentException("The source is not part of the supplied library.", nameof(source));
+        }
 
         bool managed = string.Equals(
             source.ManagementMode,

@@ -5,6 +5,7 @@ using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Activity;
 using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -26,7 +27,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityHistorySummary")
         .WithSummary("Returns the compact Activity and Audit history summary.")
         .Produces<ActivityHistorySummaryDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches", async (
             IActivityBatchReadService readService,
@@ -63,7 +64,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityBatches")
         .WithSummary("Returns paged ingestion batch summaries for the Activity audit page.")
         .Produces<PagedResponse<ActivityBatchSummaryDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}", async (
             Guid batchId,
@@ -79,7 +80,7 @@ public static class ActivityEndpoints
         .WithSummary("Returns one exact activity operation regardless of the current history date range.")
         .Produces<ActivityBatchSummaryDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}/presentation", async (
             Guid batchId,
@@ -95,7 +96,7 @@ public static class ActivityEndpoints
         .WithSummary("Returns the human-readable expanded presentation for one durable batch.")
         .Produces<ActivityBatchPresentationDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}/media-groups", async (
             Guid batchId,
@@ -113,7 +114,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityBatchMediaGroups")
         .WithSummary("Returns paged, event-scoped media groups produced by one batch.")
         .Produces<PagedResponse<IngestionMediaGroupDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}/groups", async (
             Guid batchId,
@@ -126,7 +127,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityBatchGroups")
         .WithSummary("Returns media-type rollups for one ingestion batch.")
         .Produces<List<ActivityMediaTypeGroupDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}/insights", async (
             Guid batchId,
@@ -138,7 +139,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityBatchInsights")
         .WithSummary("Returns compact enrichment and provider aggregates for one durable batch.")
         .Produces<ActivityBatchInsightsDto>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}/items", async (
             Guid batchId,
@@ -159,7 +160,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityBatchItems")
         .WithSummary("Returns paged title/item rows for one ingestion batch.")
         .Produces<PagedResponse<ActivityBatchItemDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}/events", async (
             Guid batchId,
@@ -177,7 +178,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityBatchEvents")
         .WithSummary("Returns a filtered, paged technical event log for one durable batch.")
         .Produces<PagedResponse<ActivityTechnicalEventDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/batches/{batchId:guid}/items/{assetId:guid}", async (
             Guid batchId,
@@ -194,7 +195,7 @@ public static class ActivityEndpoints
         .WithSummary("Returns timeline, file details, people, and provenance for one batch item.")
         .Produces<ActivityBatchItemDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         group.MapGet("/people", async (
             IActivityBatchReadService readService,
@@ -230,7 +231,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityPeopleAudit")
         .WithSummary("Returns people hydrated or linked by ingestion batches with source provenance.")
         .Produces<PagedResponse<ActivityPersonAuditDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.SystemActivityRead);
 
         // GET /activity/recent?limit=50 — returns the most recent activity entries.
         group.MapGet("/recent", async (
@@ -249,12 +250,12 @@ public static class ActivityEndpoints
         .WithName("GetRecentActivity")
         .WithSummary("Returns the most recent activity log entries, newest first.")
         .Produces<List<ActivityEntryResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.SystemActivityRead);
 
         // POST /activity/prune — manual prune trigger.
         group.MapPost("/prune", async (
             ISystemActivityRepository repo,
-            IConfigurationLoader      configLoader) =>
+            IConfigurationLoader configLoader) =>
         {
             var maintenance = configLoader.LoadMaintenance();
             var retentionDays = maintenance.ActivityRetentionDays;
@@ -262,33 +263,33 @@ public static class ActivityEndpoints
 
             return Results.Ok(new PruneResponse
             {
-                Deleted       = deleted,
+                Deleted = deleted,
                 RetentionDays = retentionDays,
             });
         })
         .WithName("PruneActivity")
         .WithSummary("Deletes activity entries older than the configured retention period.")
         .Produces<PruneResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         // GET /activity/stats — entry count and retention setting.
         group.MapGet("/stats", async (
             ISystemActivityRepository repo,
-            IConfigurationLoader      configLoader) =>
+            IConfigurationLoader configLoader) =>
         {
             var maintenance = configLoader.LoadMaintenance();
-            var count       = await repo.CountAsync();
+            var count = await repo.CountAsync();
 
             return Results.Ok(new ActivityStatsResponse
             {
-                TotalEntries  = count,
+                TotalEntries = count,
                 RetentionDays = maintenance.ActivityRetentionDays,
             });
         })
         .WithName("GetActivityStats")
         .WithSummary("Returns the total entry count and the current retention setting.")
         .Produces<ActivityStatsResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.SystemActivityRead);
 
         // PUT /activity/retention — update retention period.
         group.MapPut("/retention", (
@@ -296,7 +297,9 @@ public static class ActivityEndpoints
             IConfigurationLoader configLoader) =>
         {
             if (days < 1 || days > 365)
+            {
                 return ApiErrors.BadRequest("Retention must be between 1 and 365 days.");
+            }
 
             var maintenance = configLoader.LoadMaintenance();
             maintenance.ActivityRetentionDays = days;
@@ -304,7 +307,7 @@ public static class ActivityEndpoints
 
             return Results.Ok(new ActivityStatsResponse
             {
-                TotalEntries  = 0,
+                TotalEntries = 0,
                 RetentionDays = days,
             });
         })
@@ -312,7 +315,7 @@ public static class ActivityEndpoints
         .WithSummary("Updates the activity retention period in days.")
         .Produces<ActivityStatsResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdmin();
+        .RequireEffectiveAdministrator();
 
         // GET /activity/by-types?types=BatchCreated,BatchCompleted&limit=50
         // Returns recent entries filtered by action types for activity summaries.
@@ -335,7 +338,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityByTypes")
         .WithSummary("Returns recent activity entries filtered by one or more action types (comma-separated).")
         .Produces<List<ActivityEntryResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.SystemActivityRead);
 
         // GET /activity/run/{runId} — returns all entries for a specific ingestion run.
         group.MapGet("/run/{runId:guid}", async (
@@ -352,7 +355,7 @@ public static class ActivityEndpoints
         .WithName("GetActivityByRunId")
         .WithSummary("Returns all activity entries for a given ingestion run, ordered by timestamp.")
         .Produces<List<ActivityEntryResponse>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.IngestionHistoryRead);
 
         return app;
     }
@@ -400,16 +403,16 @@ public static class ActivityEndpoints
 
         return new ActivityEntryResponse
         {
-            Id              = e.Id,
-            OccurredAt      = e.OccurredAt.ToString("O"),
-            ActionType      = e.ActionType,
-            CollectionName  = collectionName,
-            EntityId        = e.EntityId?.ToString(),
-            EntityType      = e.EntityType,
-            ProfileId       = e.ProfileId?.ToString(),
-            ChangesJson     = e.ChangesJson,
-            Detail          = detail,
-            IngestionRunId  = e.IngestionRunId?.ToString(),
+            Id = e.Id,
+            OccurredAt = e.OccurredAt.ToString("O"),
+            ActionType = e.ActionType,
+            CollectionName = collectionName,
+            EntityId = e.EntityId?.ToString(),
+            EntityType = e.EntityType,
+            ProfileId = e.ProfileId?.ToString(),
+            ChangesJson = e.ChangesJson,
+            Detail = detail,
+            IngestionRunId = e.IngestionRunId?.ToString(),
         };
     }
 
@@ -425,7 +428,9 @@ public static class ActivityEndpoints
             var person = await personRepo.FindByIdAsync(personId.Value, ct);
             var personName = ResolveBestPersonName(person?.Name);
             if (!string.IsNullOrWhiteSpace(personName))
+            {
                 return personName;
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(qid))
@@ -433,7 +438,9 @@ public static class ActivityEndpoints
             var label = await qidLabelRepo.GetLabelAsync(qid, ct);
             var labelName = ResolveBestPersonName(label);
             if (!string.IsNullOrWhiteSpace(labelName))
+            {
                 return labelName;
+            }
         }
 
         return null;
@@ -449,11 +456,15 @@ public static class ActivityEndpoints
         foreach (var candidate in candidates)
         {
             if (string.IsNullOrWhiteSpace(candidate))
+            {
                 continue;
+            }
 
             var trimmed = candidate.Trim();
             if (!IsPlaceholderPersonName(trimmed))
+            {
                 return trimmed;
+            }
         }
 
         return null;
@@ -462,11 +473,15 @@ public static class ActivityEndpoints
     private static bool IsPlaceholderPersonName(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return true;
+        }
 
         var trimmed = value.Trim();
         if (trimmed.StartsWith("Unknown Person (", StringComparison.OrdinalIgnoreCase))
+        {
             return true;
+        }
 
         return trimmed.Length > 1
             && trimmed[0] is 'Q'
@@ -476,7 +491,9 @@ public static class ActivityEndpoints
     private static string? ExtractPersonQid(string? changesJson)
     {
         if (string.IsNullOrWhiteSpace(changesJson))
+        {
             return null;
+        }
 
         try
         {
@@ -494,17 +511,23 @@ public static class ActivityEndpoints
     private static string? ExtractFirstQid(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var index = value.IndexOf('Q');
         while (index >= 0 && index < value.Length - 1)
         {
             var end = index + 1;
             while (end < value.Length && char.IsDigit(value[end]))
+            {
                 end++;
+            }
 
             if (end > index + 1)
+            {
                 return value[index..end];
+            }
 
             index = value.IndexOf('Q', index + 1);
         }
@@ -515,12 +538,16 @@ public static class ActivityEndpoints
     private static string? NormalizeQid(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var qid = value.Trim();
         var slash = qid.LastIndexOf('/');
         if (slash >= 0)
+        {
             qid = qid[(slash + 1)..];
+        }
 
         return qid.Length > 1 && qid[0] is 'Q' && qid.Skip(1).All(char.IsDigit)
             ? qid

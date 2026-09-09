@@ -52,7 +52,9 @@ public sealed class BackedUpMetadataTaggerTests : IDisposable
                 // Backup deletion on success is caller-owned (mirrors every real
                 // tagger, which deletes the backup itself right after saving).
                 if (File.Exists(backupPath))
+                {
                     File.Delete(backupPath);
+                }
             },
             onFailure: _ => { });
 
@@ -73,7 +75,9 @@ public sealed class BackedUpMetadataTaggerTests : IDisposable
             {
                 await File.WriteAllTextAsync(path, "MUTATED");
                 if (File.Exists(backupPath))
+                {
                     File.Delete(backupPath);
+                }
             },
             onFailure: _ => { });
 

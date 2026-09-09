@@ -213,7 +213,9 @@ public static class BuiltInBrowseCollectionCatalog
         }
 
         if (!string.IsNullOrWhiteSpace(groupField))
+        {
             query = query.Where(view => string.Equals(view.GroupByField, groupField, StringComparison.OrdinalIgnoreCase));
+        }
 
         return query;
     }

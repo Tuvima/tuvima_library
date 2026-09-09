@@ -33,7 +33,9 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
         var results = new List<PlaybackSegment>();
         using var reader = cmd.ExecuteReader();
         while (reader.Read())
+        {
             results.Add(ReadSegment(reader));
+        }
 
         return Task.FromResult<IReadOnlyList<PlaybackSegment>>(results);
     }
@@ -58,7 +60,10 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
 
     public Task UpsertBatchAsync(Guid assetId, IReadOnlyList<PlaybackSegment> segments, CancellationToken ct = default)
     {
-        if (segments.Count == 0) return Task.CompletedTask;
+        if (segments.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {

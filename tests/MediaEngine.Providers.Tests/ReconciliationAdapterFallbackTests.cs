@@ -1,12 +1,12 @@
 using System.Collections;
 using System.Reflection;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 

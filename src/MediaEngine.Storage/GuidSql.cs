@@ -22,7 +22,9 @@ public static class GuidSql
     public static Guid FromDb(object value)
     {
         if (value is byte[] { Length: 16 } bytes)
+        {
             return new Guid(bytes, bigEndian: true);
+        }
 
         if (value is byte[] invalidBytes)
         {
@@ -37,7 +39,9 @@ public static class GuidSql
     public static Guid? FromDbNullable(object? value)
     {
         if (value is null or DBNull)
+        {
             return null;
+        }
 
         return FromDb(value);
     }

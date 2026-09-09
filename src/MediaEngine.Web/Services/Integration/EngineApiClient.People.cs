@@ -3,18 +3,18 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Metadata;
 using MediaEngine.Contracts.Paging;
-using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Persons;
-using MediaEngine.Domain.Models;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -32,7 +32,9 @@ public sealed partial class EngineApiClient
             var safeLimit = Math.Clamp(limit <= 0 ? 200 : limit, 1, 500);
             var url = $"/persons?offset={safeOffset}&limit={safeLimit}";
             if (!string.IsNullOrWhiteSpace(role))
+            {
                 url += $"&role={Uri.EscapeDataString(role)}";
+            }
 
             var page = await ReadPersonPageAsync(url, ct);
             return page?.Items;
@@ -63,13 +65,25 @@ public sealed partial class EngineApiClient
             var safeLimit = Math.Clamp(limit <= 0 ? 100 : limit, 1, 500);
             var url = $"/persons?catalog=true&offset={safeOffset}&limit={safeLimit}";
             if (!string.IsNullOrWhiteSpace(search))
+            {
                 url += $"&q={Uri.EscapeDataString(search)}";
+            }
+
             if (!string.IsNullOrEmpty(role))
+            {
                 url += $"&role={Uri.EscapeDataString(role)}";
+            }
+
             if (!string.IsNullOrWhiteSpace(lane))
+            {
                 url += $"&lane={Uri.EscapeDataString(lane)}";
+            }
+
             if (string.Equals(sort, "count", StringComparison.OrdinalIgnoreCase))
+            {
                 url += "&sort=count";
+            }
+
             return await ReadPersonPageAsync(url, ct);
         }
         catch (Exception ex)
@@ -109,17 +123,17 @@ public sealed partial class EngineApiClient
                     p.has_local_headshot,
                     p.headshot_url);
                 return new PersonViewModel
-            {
-                Id               = p.id,
-                Name             = p.name,
-                Roles            = p.roles,
-                WikidataQid      = p.wikidata_qid,
-                HeadshotUrl      = headshotUrl,
-                HasLocalHeadshot = p.has_local_headshot,
-                LocalHeadshotUrl = headshotUrl,
-                Biography        = p.biography,
-                Occupation       = p.occupation,
-            };
+                {
+                    Id = p.id,
+                    Name = p.name,
+                    Roles = p.roles,
+                    WikidataQid = p.wikidata_qid,
+                    HeadshotUrl = headshotUrl,
+                    HasLocalHeadshot = p.has_local_headshot,
+                    LocalHeadshotUrl = headshotUrl,
+                    Biography = p.biography,
+                    Occupation = p.occupation,
+                };
             }).ToList() ?? [];
         }
         catch (Exception ex)
@@ -207,7 +221,9 @@ public sealed partial class EngineApiClient
     {
         var page = await _http.GetFromJsonAsync<PagedResponse<PersonListItemResponse>>(url, ct);
         if (page is null)
+        {
             return null;
+        }
 
         var normalized = page.Items
             .Select(person => person with
@@ -229,12 +245,16 @@ public sealed partial class EngineApiClient
         {
             var raw = await _http.GetFromJsonAsync<MediaEngine.Contracts.Collections.RelatedCollectionsResponse>(
                 $"/collections/{collectionId}/related?limit={limit}", ct);
-            if (raw is null) return null;
+            if (raw is null)
+            {
+                return null;
+            }
+
             return new RelatedCollectionsViewModel
             {
                 SectionTitle = raw.SectionTitle,
-                Reason       = raw.Reason,
-                Collections         = raw.Collections.Select(MapCollection).ToList(),
+                Reason = raw.Reason,
+                Collections = raw.Collections.Select(MapCollection).ToList(),
             };
         }
         catch (Exception ex)
@@ -254,36 +274,40 @@ public sealed partial class EngineApiClient
         {
             var raw = await _http.GetFromJsonAsync<PersonDetailResponse>(
                 $"/persons/{personId}", ct);
-            if (raw is null) return null;
+            if (raw is null)
+            {
+                return null;
+            }
+
             return new PersonDetailViewModel
             {
-                Id               = raw.Id,
-                Name             = raw.Name ?? string.Empty,
-                Roles            = raw.Roles.ToList(),
-                HeadshotUrl      = raw.HeadshotUrl,
+                Id = raw.Id,
+                Name = raw.Name ?? string.Empty,
+                Roles = raw.Roles.ToList(),
+                HeadshotUrl = raw.HeadshotUrl,
                 HasLocalHeadshot = raw.HasLocalHeadshot,
                 LocalHeadshotUrl = !string.IsNullOrWhiteSpace(raw.HeadshotUrl)
                     ? AbsoluteUrl(raw.HeadshotUrl)
                     : raw.HasLocalHeadshot ? AbsoluteUrl($"/persons/{raw.Id}/headshot") : null,
-                Biography        = raw.Biography,
-                Occupation       = raw.Occupation,
-                DateOfBirth      = raw.DateOfBirth,
-                DateOfDeath      = raw.DateOfDeath,
-                PlaceOfBirth     = raw.PlaceOfBirth,
-                PlaceOfDeath     = raw.PlaceOfDeath,
-                Nationality      = raw.Nationality,
-                WikidataQid      = raw.WikidataQid,
-                Instagram        = raw.Instagram,
-                Twitter          = raw.Twitter,
-                TikTok           = raw.TikTok,
-                Mastodon         = raw.Mastodon,
-                Website          = raw.Website,
-                IsGroup          = raw.IsGroup,
-                GroupMembers     = raw.GroupMembers.Select(MapGroupMember).ToList(),
-                MemberOfGroups   = raw.MemberOfGroups.Select(MapGroupMember).ToList(),
-                BannerUrl        = raw.BannerUrl is not null ? AbsoluteUrl(raw.BannerUrl) : null,
-                BackgroundUrl    = raw.BackgroundUrl is not null ? AbsoluteUrl(raw.BackgroundUrl) : null,
-                LogoUrl          = raw.LogoUrl is not null ? AbsoluteUrl(raw.LogoUrl) : null,
+                Biography = raw.Biography,
+                Occupation = raw.Occupation,
+                DateOfBirth = raw.DateOfBirth,
+                DateOfDeath = raw.DateOfDeath,
+                PlaceOfBirth = raw.PlaceOfBirth,
+                PlaceOfDeath = raw.PlaceOfDeath,
+                Nationality = raw.Nationality,
+                WikidataQid = raw.WikidataQid,
+                Instagram = raw.Instagram,
+                Twitter = raw.Twitter,
+                TikTok = raw.TikTok,
+                Mastodon = raw.Mastodon,
+                Website = raw.Website,
+                IsGroup = raw.IsGroup,
+                GroupMembers = raw.GroupMembers.Select(MapGroupMember).ToList(),
+                MemberOfGroups = raw.MemberOfGroups.Select(MapGroupMember).ToList(),
+                BannerUrl = raw.BannerUrl is not null ? AbsoluteUrl(raw.BannerUrl) : null,
+                BackgroundUrl = raw.BackgroundUrl is not null ? AbsoluteUrl(raw.BackgroundUrl) : null,
+                LogoUrl = raw.LogoUrl is not null ? AbsoluteUrl(raw.LogoUrl) : null,
             };
         }
         catch (Exception ex)
@@ -314,7 +338,10 @@ public sealed partial class EngineApiClient
         {
             var response = await _http.PutAsJsonAsync($"/persons/{personId}/editor", request, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 LastError = await response.Content.ReadAsStringAsync(ct);
+            }
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -334,7 +361,9 @@ public sealed partial class EngineApiClient
         if (artwork is not null)
         {
             foreach (var variant in artwork.Slots.SelectMany(slot => slot.Variants))
+            {
                 variant.ImageUrl = string.IsNullOrWhiteSpace(variant.ImageUrl) ? null : AbsoluteUrl(variant.ImageUrl);
+            }
         }
         return artwork;
     }
@@ -352,7 +381,10 @@ public sealed partial class EngineApiClient
             content.Add(new StreamContent(fileStream), "file", fileName);
             var response = await _http.PostAsync($"/persons/{personId}/artwork/{Uri.EscapeDataString(assetType)}", content, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 LastError = await response.Content.ReadAsStringAsync(ct);
+            }
+
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -407,7 +439,11 @@ public sealed partial class EngineApiClient
         try
         {
             var response = await _http.GetAsync($"persons/{personId}/aliases", ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             var result = await response.Content.ReadFromJsonAsync<PersonAliasResponse>(cancellationToken: ct);
             return result is null
                 ? null

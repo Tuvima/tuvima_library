@@ -22,7 +22,9 @@ internal static class TuvimaHttpClientRegistration
         });
 
         if (addStandardResilience)
+        {
             registration.AddStandardResilienceHandler();
+        }
 
         return registration;
     }

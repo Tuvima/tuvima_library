@@ -1,12 +1,13 @@
-using Microsoft.AspNetCore.SignalR;
 using MediaEngine.Api.Realtime;
+using MediaEngine.Api.Services.Events;
 using MediaEngine.Domain.Contracts;
+using Microsoft.AspNetCore.SignalR;
 
 namespace MediaEngine.Api.Services;
 
 /// <summary>
 /// Relay service that implements <see cref="IEventPublisher"/> by forwarding
-/// every published event to all connected SignalR clients via
+/// authorized events to current Dashboard recipients via
 /// <see cref="Intercom"/>.
 ///
 /// The event name becomes the SignalR method name; the payload is serialised
@@ -19,22 +20,59 @@ namespace MediaEngine.Api.Services;
 public sealed class SignalREventPublisher : IEventPublisher
 {
     private readonly IHubContext<Intercom> _collection;
+    private readonly ApplicationEventProjectionPublisher? _external;
+    private readonly IntercomAudienceRegistry? _audiences;
+    private readonly IIntercomAudienceAuthorizer? _authorization;
+    private readonly ILogger<SignalREventPublisher>? _logger;
 
-    public SignalREventPublisher(IHubContext<Intercom> collection)
+    public SignalREventPublisher(
+        IHubContext<Intercom> collection,
+        IntercomAudienceRegistry? audiences = null,
+        IIntercomAudienceAuthorizer? authorization = null,
+        ApplicationEventProjectionPublisher? external = null,
+        ILogger<SignalREventPublisher>? logger = null)
     {
         ArgumentNullException.ThrowIfNull(collection);
         _collection = collection;
+        _audiences = audiences;
+        _authorization = authorization;
+        _external = external;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
-    /// <remarks>
-    /// If no clients are connected, <see cref="IHubContext.Clients.All.SendAsync"/>
-    /// completes immediately without error — SignalR handles the zero-subscriber case.
-    /// </remarks>
-    public Task PublishAsync<TPayload>(
+    public async Task PublishAsync<TPayload>(
         string eventName,
         TPayload payload,
         CancellationToken ct = default)
         where TPayload : notnull
-        => _collection.Clients.All.SendAsync(eventName, payload, ct);
+    {
+        // Persist the external fact before attempting delivery to an ephemeral Dashboard circuit.
+        if (_external is not null)
+        {
+            await _external.ProjectAsync(eventName, payload, ct).ConfigureAwait(false);
+        }
+
+        foreach (var connection in _audiences?.Snapshot() ?? [])
+        {
+            try
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                timeout.CancelAfter(TimeSpan.FromSeconds(10));
+                if (_authorization is not null && await _authorization.CanReceiveAsync(connection, eventName, payload, timeout.Token).ConfigureAwait(false))
+                {
+                    await _collection.Clients.Client(connection.ConnectionId).SendAsync(eventName, payload, timeout.Token).ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception exception)
+            {
+                _logger?.LogWarning(exception, "Dashboard event delivery failed for {EventName} on {ConnectionId}.",
+                    eventName, connection.ConnectionId);
+            }
+        }
+    }
 }

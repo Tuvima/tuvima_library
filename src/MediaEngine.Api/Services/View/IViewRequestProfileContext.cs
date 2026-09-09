@@ -1,33 +1,39 @@
+using MediaEngine.Api.Security;
+using MediaEngine.Domain.Authorization;
 using Microsoft.AspNetCore.Http;
 
 namespace MediaEngine.Api.Services.View;
 
 public interface IViewRequestProfileContext
 {
-    ViewRequestProfile? Current { get; }
+    ValueTask<RequestAuthority> ResolveAuthorityAsync(CancellationToken ct = default);
 }
 
 /// <summary>
-/// Reads identity only from server-populated request state. Query-string,
-/// route, and browser-selected profile identifiers are intentionally ignored.
-/// Authentication middleware should call <see cref="SetTrustedProfile"/> after
-/// it has associated a credential/session with a profile.
+/// Resolves View identity only through the common authenticated request authority.
+/// Query-string, route, and browser-selected profile identifiers are never authority.
 /// </summary>
-public sealed class HttpViewRequestProfileContext(IHttpContextAccessor accessor)
-    : IViewRequestProfileContext
+public sealed class HttpViewRequestProfileContext : IViewRequestProfileContext
 {
-    private static readonly object ItemKey = new();
+    private readonly IHttpContextAccessor accessor;
+    private readonly IRequestAuthorityResolver authorityResolver;
 
-    public ViewRequestProfile? Current =>
-        accessor.HttpContext?.Items.TryGetValue(ItemKey, out var value) == true
-            ? value as ViewRequestProfile
-            : null;
-
-    public static void SetTrustedProfile(HttpContext context, ViewRequestProfile profile)
+    public HttpViewRequestProfileContext(IHttpContextAccessor accessor, IRequestAuthorityResolver authorityResolver)
     {
-        ArgumentNullException.ThrowIfNull(context);
-        ArgumentNullException.ThrowIfNull(profile);
-        context.Items[ItemKey] = profile;
+        this.accessor = accessor;
+        this.authorityResolver = authorityResolver;
     }
+
+    public ValueTask<RequestAuthority> ResolveAuthorityAsync(CancellationToken ct = default)
+    {
+        var context = accessor.HttpContext;
+        if (context is null)
+        {
+            return ValueTask.FromResult(new RequestAuthority(PrincipalKind.Anonymous, false));
+        }
+
+        return authorityResolver.ResolveAsync(context, ct);
+    }
+
 }
 

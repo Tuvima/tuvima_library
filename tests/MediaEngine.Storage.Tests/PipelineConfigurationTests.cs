@@ -209,7 +209,9 @@ public sealed class PipelineConfigurationTests
         {
             var defaultFields = defaults.RootElement.GetProperty(media.Name).GetProperty("field_priorities");
             foreach (var field in media.Value.GetProperty("field_priorities").EnumerateObject())
+            {
                 Assert.True(defaultFields.TryGetProperty(field.Name, out _), $"Default priority is missing {media.Name}.{field.Name}.");
+            }
         }
     }
 
@@ -305,7 +307,9 @@ public sealed class PipelineConfigurationTests
         {
             var candidate = Path.Combine(new[] { directory.FullName }.Concat(parts).ToArray());
             if (File.Exists(candidate))
+            {
                 return candidate;
+            }
 
             directory = directory.Parent;
         }

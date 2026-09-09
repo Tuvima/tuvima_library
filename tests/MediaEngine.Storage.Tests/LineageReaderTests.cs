@@ -45,7 +45,7 @@ public sealed class LineageReaderTests : IDisposable
         await InsertCanonicalAsync(assetId, "title", "Hide and Seek");
         // Parent-scope: author lives on the root show Work row.
         await InsertCanonicalArrayAsync(showId, "author", "Dan Erickson");
-        await InsertCanonicalArrayAsync(showId, "genre",  "Sci-Fi");
+        await InsertCanonicalArrayAsync(showId, "genre", "Sci-Fi");
 
         var repo = new LibraryItemRepository(_db);
         var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
@@ -88,8 +88,8 @@ public sealed class LineageReaderTests : IDisposable
         var (workId, _, assetId) = await BuildStandaloneWorkAsync("Movies");
 
         await InsertCanonicalAsync(assetId, "title", "Dune");
-        await InsertCanonicalAsync(workId,  "year",     "2021");
-        await InsertCanonicalArrayAsync(workId,  "director", "Denis Villeneuve");
+        await InsertCanonicalAsync(workId, "year", "2021");
+        await InsertCanonicalArrayAsync(workId, "director", "Denis Villeneuve");
 
         var repo = new LibraryItemRepository(_db);
         var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
@@ -107,10 +107,10 @@ public sealed class LineageReaderTests : IDisposable
     {
         var (showId, _, _, assetId) = await BuildTvHierarchyAsync();
 
-        await InsertCanonicalAsync(assetId, "title",         "Hide and Seek");
-        await InsertCanonicalAsync(assetId, "original_title","Hide and Seek");
-        await InsertCanonicalArrayAsync(showId,  "author",        "Dan Erickson");
-        await InsertCanonicalAsync(showId,  "description",   "A workplace mystery.");
+        await InsertCanonicalAsync(assetId, "title", "Hide and Seek");
+        await InsertCanonicalAsync(assetId, "original_title", "Hide and Seek");
+        await InsertCanonicalArrayAsync(showId, "author", "Dan Erickson");
+        await InsertCanonicalAsync(showId, "description", "A workplace mystery.");
 
         var index = new SearchIndexRepository(_db);
         await index.UpsertByEntityIdAsync(assetId);
@@ -130,8 +130,8 @@ public sealed class LineageReaderTests : IDisposable
         // resolve to the same FTS row.
         var (showId, _, episodeWorkId, assetId) = await BuildTvHierarchyAsync();
 
-        await InsertCanonicalAsync(assetId, "title",  "Hide and Seek");
-        await InsertCanonicalArrayAsync(showId,  "author", "Dan Erickson");
+        await InsertCanonicalAsync(assetId, "title", "Hide and Seek");
+        await InsertCanonicalArrayAsync(showId, "author", "Dan Erickson");
 
         var index = new SearchIndexRepository(_db);
         await index.UpsertByEntityIdAsync(episodeWorkId);
@@ -486,9 +486,9 @@ public sealed class LineageReaderTests : IDisposable
         BuildStandaloneWorkAsync(string mediaType)
     {
         using var conn = _db.CreateConnection();
-        var collectionId   = Guid.NewGuid();
-        var workId  = Guid.NewGuid();
-        var edId    = Guid.NewGuid();
+        var collectionId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var edId = Guid.NewGuid();
         var assetId = Guid.NewGuid();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
@@ -607,7 +607,11 @@ public sealed class LineageReaderTests : IDisposable
             """;
         AddGuid(cmd, "@assetId", assetId);
         using var rdr = cmd.ExecuteReader();
-        if (!rdr.Read()) return (null, null, null, null);
+        if (!rdr.Read())
+        {
+            return (null, null, null, null);
+        }
+
         return (
             rdr.IsDBNull(0) ? null : GuidSql.FromDb(rdr.GetValue(0)),
             rdr.IsDBNull(1) ? null : rdr.GetString(1),

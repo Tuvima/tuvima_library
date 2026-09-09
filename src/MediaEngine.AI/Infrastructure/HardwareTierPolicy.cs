@@ -14,11 +14,20 @@ public static class HardwareTierPolicy
         long gpuVramMb = 0)
     {
         if (hasDedicatedGpu && (gpuVramMb >= 8192 || availableRamMb >= 16384) && tokensPerSecond >= 15)
+        {
             return TierHigh;
+        }
+
         if (tokensPerSecond >= 60 && availableRamMb >= 16384)
+        {
             return TierHigh;
+        }
+
         if (tokensPerSecond >= 10 && availableRamMb >= 8192)
+        {
             return TierMedium;
+        }
+
         return TierLow;
     }
 

@@ -6,11 +6,11 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// server event, etc.).
 /// </summary>
 public sealed record ActivityEntry(
-    DateTimeOffset  OccurredAt,
-    ActivityKind    Kind,
-    string          Icon,
-    string          Summary,
-    string?         Detail = null);
+    DateTimeOffset OccurredAt,
+    ActivityKind Kind,
+    string Icon,
+    string Summary,
+    string? Detail = null);
 
 /// <summary>Categories for activity timeline entries.</summary>
 public enum ActivityKind

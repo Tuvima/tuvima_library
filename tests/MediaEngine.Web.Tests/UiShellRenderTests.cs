@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 using Bunit;
 using MediaEngine.Web.Components.Collections;
@@ -61,7 +63,19 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Services.AddScoped<MediaReactionService>();
         Services.AddScoped<FavoriteService>();
         Services.AddScoped<MediaEditorLauncherService>();
-        Services.AddSingleton<IAdministratorElevationNavigationService>(new AlwaysElevatedNavigationService());
+        Services.AddSingleton<IAdministratorSurfaceAccessService>(new AlwaysUnlockedAdministratorSurfaceAccessService());
+        var profileId = Guid.Parse("00000000-0000-0000-0000-000000000001");
+        var authority = new MediaEngine.Contracts.Authentication.DashboardAuthorityResponse(
+            profileId, profileId, true, true, 1, 1, true, true, null, 1,
+            [new MediaEngine.Contracts.Authentication.AccountProfileGrantDto(profileId, profileId, "Test User", null,
+                true, true, true, new MediaEngine.Contracts.Authentication.GrantAdminProtectionDto(
+                    false, "None", null, 1, false, null), 1, DateTimeOffset.UtcNow)],
+            ["settings.administration"], ["access.manage"]);
+        var session = new DashboardSessionAccessor();
+        session.Set("test-session-token", profileId, profileId, Guid.NewGuid(), authority);
+        Services.AddScoped(_ => session);
+        Services.AddSingleton<IHttpClientFactory>(new SettingsIdentityClientFactory(new DelayedLockHandler(authority, session)));
+        Services.AddScoped<DashboardIdentityClient>();
     }
 
     [Fact]
@@ -181,6 +195,108 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.NotEmpty(cut.FindAll(".admin-overview-card--attention"));
             Assert.DoesNotContain("No active transcodes", cut.Markup);
             Assert.Contains("Recent Activity", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public async Task Settings_AdminToPersonalTransition_LocksAndClearsActionsBeforeDeleteCompletes()
+    {
+        var profile = Guid.NewGuid();
+        var authority = new MediaEngine.Contracts.Authentication.DashboardAuthorityResponse(
+            profile, profile, true, true, 1, 1, true, true, null, 1,
+            [new MediaEngine.Contracts.Authentication.AccountProfileGrantDto(profile, profile, "Profile", null, true, true, true,
+                new MediaEngine.Contracts.Authentication.GrantAdminProtectionDto(true, "LockOnLeave", 30, 1, false, null), 1, DateTimeOffset.UtcNow)],
+            ["settings.administration"], ["access.manage", "administrator.lock"]);
+        var session = new DashboardSessionAccessor();
+        session.Set("session", profile, profile, Guid.NewGuid(), authority);
+        var handler = new DelayedLockHandler(authority, session);
+        Services.AddSingleton<IHttpClientFactory>(new SettingsIdentityClientFactory(handler));
+        Services.AddScoped<DashboardIdentityClient>();
+        Services.AddScoped(_ => session);
+
+        var host = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0); builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1); builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2); builder.CloseComponent();
+            builder.OpenComponent<Settings>(3);
+            builder.AddAttribute(4, nameof(Settings.Section), "system");
+            builder.AddAttribute(5, nameof(Settings.Subsection), "overview");
+            builder.CloseComponent();
+        });
+        var cut = host.FindComponent<Settings>();
+        cut.WaitForAssertion(() => Assert.True(session.ShouldLockOnLeave));
+        cut.Render(parameters => parameters.Add(page => page.Section, "profile"));
+
+        await handler.DeleteObserved.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.True(handler.ActionsWereClearedBeforeDelete);
+        Assert.True(handler.DeleteObserved.Task.IsCompletedSuccessfully);
+    }
+
+    [Fact]
+    public void Settings_DirectAdminRoute_InitializesCircuitAuthorityBeforeResolvingRoute()
+    {
+        var profile = Guid.NewGuid();
+        var authority = new MediaEngine.Contracts.Authentication.DashboardAuthorityResponse(
+            profile, profile, true, true, 1, 1, true, false, null, 1,
+            [new MediaEngine.Contracts.Authentication.AccountProfileGrantDto(profile, profile, "Profile", null, true, true, true,
+                new MediaEngine.Contracts.Authentication.GrantAdminProtectionDto(false, "None", null, 1, false, null), 1, DateTimeOffset.UtcNow)],
+            ["settings.administration"], []);
+        var session = new DashboardSessionAccessor();
+        var handler = new DelayedLockHandler(authority, session);
+        Services.AddSingleton<IHttpClientFactory>(new SettingsIdentityClientFactory(handler));
+        Services.AddScoped<DashboardIdentityClient>();
+        Services.AddScoped(_ => session);
+
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0); builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1); builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2); builder.CloseComponent();
+            builder.OpenComponent<Settings>(3);
+            builder.AddAttribute(4, nameof(Settings.Section), "access");
+            builder.AddAttribute(5, nameof(Settings.Subsection), "users");
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.True(handler.ValidationRequested);
+            Assert.True(session.HasNavigation("settings.administration"));
+            Assert.Single(cut.FindAll("input[aria-label='Administrator PIN']"));
+            Assert.Empty(cut.FindAll("[data-access-section='users']"));
+        });
+    }
+
+    [Fact]
+    public void MainLayoutAndSettings_FirstAdminRoute_ShareTheInitialAuthorityValidation()
+    {
+        var profile = Guid.NewGuid();
+        var authority = new MediaEngine.Contracts.Authentication.DashboardAuthorityResponse(
+            profile, profile, true, true, 1, 1, true, false, null, 1,
+            [new MediaEngine.Contracts.Authentication.AccountProfileGrantDto(profile, profile, "Profile", null, true, true, true,
+                new MediaEngine.Contracts.Authentication.GrantAdminProtectionDto(false, "None", null, 1, false, null), 1, DateTimeOffset.UtcNow)],
+            ["settings.administration"], []);
+        var session = new DashboardSessionAccessor();
+        var handler = new DelayedLockHandler(authority, session);
+        Services.AddSingleton<IHttpClientFactory>(new SettingsIdentityClientFactory(handler));
+        Services.AddScoped<DashboardIdentityClient>();
+        Services.AddScoped(_ => session);
+
+        var cut = Render<MainLayout>(parameters => parameters.Add(layout => layout.Body, builder =>
+        {
+            builder.OpenComponent<Settings>(0);
+            builder.AddAttribute(1, nameof(Settings.Section), "access");
+            builder.AddAttribute(2, nameof(Settings.Subsection), "users");
+            builder.CloseComponent();
+        }));
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.True(handler.ValidationRequested);
+            Assert.True(session.HasNavigation("settings.administration"));
+            Assert.Single(cut.FindAll("input[aria-label='Administrator PIN']"));
+            Assert.Empty(cut.FindAll("[data-access-section='users']"));
         });
     }
 
@@ -829,9 +945,47 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.DoesNotContain(".listen-page--audiobooks {\n    grid-template-columns", css, StringComparison.Ordinal);
     }
 
-    private sealed class AlwaysElevatedNavigationService : IAdministratorElevationNavigationService
+    private sealed class AlwaysUnlockedAdministratorSurfaceAccessService : IAdministratorSurfaceAccessService
     {
-        public Task<bool> EnsureElevatedAsync(CancellationToken ct = default) => Task.FromResult(true);
+        public Task<bool> EnsureUnlockedAsync(CancellationToken ct = default) => Task.FromResult(true);
+    }
+
+    private sealed class SettingsIdentityClientFactory(HttpMessageHandler handler) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(handler, false) { BaseAddress = new Uri("http://engine.test") };
+    }
+
+
+    private sealed class DelayedLockHandler(MediaEngine.Contracts.Authentication.DashboardAuthorityResponse authority, DashboardSessionAccessor session) : HttpMessageHandler
+    {
+        public TaskCompletionSource DeleteObserved { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public bool ActionsWereClearedBeforeDelete { get; private set; }
+        public bool ValidationRequested { get; private set; }
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (request.Method == HttpMethod.Delete && request.RequestUri!.AbsolutePath == "/access/admin-unlock")
+            {
+                DeleteObserved.SetResult();
+                ActionsWereClearedBeforeDelete = !session.HasAction("access.manage");
+                return new HttpResponseMessage(HttpStatusCode.NoContent);
+            }
+            if (request.RequestUri!.AbsolutePath == "/auth/session/validate")
+            {
+                ValidationRequested = true;
+                var response = new MediaEngine.Contracts.Authentication.SessionValidationResponse
+                {
+                    SessionId = Guid.NewGuid(),
+                    AccountId = authority.AccountId,
+                    ActiveProfileId = authority.ActiveProfileId,
+                    DisplayName = "Profile",
+                    Authority = authority,
+                    AuthenticationMethod = "test",
+                    ExpiresAt = DateTimeOffset.UtcNow.AddHours(1),
+                };
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(response) };
+            }
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new { }) };
+        }
     }
 
     [Fact]

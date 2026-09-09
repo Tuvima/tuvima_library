@@ -11,7 +11,8 @@ public static class ViewDiscoveryEndpoints
 {
     public static IEndpointRouteBuilder MapViewDiscoveryEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/view").WithTags("View");
+        var group = app.MapGroup("/view").WithTags("View")
+            .RequireAuthorization(AuthPolicies.Authenticated);
 
         group.MapGet("/places", async (
             string? scope,
@@ -41,8 +42,7 @@ public static class ViewDiscoveryEndpoints
         .WithSummary("List real location groups from the caller's authorized View scope.")
         .Produces<ViewPlacesPageDto>()
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .ProducesProblem(StatusCodes.Status404NotFound);
 
         group.MapGet("/people", async (
             string? scope,
@@ -72,8 +72,7 @@ public static class ViewDiscoveryEndpoints
         .WithSummary("List provenance-aware named or reviewed people from the caller's authorized View scope.")
         .Produces<ViewPeoplePageDto>()
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .ProducesProblem(StatusCodes.Status404NotFound);
 
         return app;
     }
@@ -88,9 +87,15 @@ public static class ViewDiscoveryEndpoints
             _ => throw new ArgumentException("View scope must be shared, mine, or profile.", nameof(value)),
         };
         if (kind == ViewScopeKind.Profile && profileId is null)
+        {
             throw new ArgumentException("Profile scope requires scopeProfileId.", nameof(profileId));
+        }
+
         if (kind != ViewScopeKind.Profile && profileId is not null)
+        {
             throw new ArgumentException("scopeProfileId is valid only for profile scope.", nameof(profileId));
+        }
+
         return kind == ViewScopeKind.Profile
             ? ViewScopeRequest.ForProfile(profileId!.Value)
             : kind == ViewScopeKind.Mine ? ViewScopeRequest.Mine : ViewScopeRequest.Shared;
@@ -100,6 +105,7 @@ public static class ViewDiscoveryEndpoints
     {
         ViewAccessOutcome.Allowed when result.Page is not null => Results.Ok(result.Page),
         ViewAccessOutcome.Unauthenticated => Results.Unauthorized(),
+        ViewAccessOutcome.Forbidden => ApiErrors.Forbidden("View access is not permitted."),
         _ => ApiErrors.NotFound("The requested View scope was not found."),
     };
 
@@ -107,6 +113,7 @@ public static class ViewDiscoveryEndpoints
     {
         ViewAccessOutcome.Allowed when result.Page is not null => Results.Ok(result.Page),
         ViewAccessOutcome.Unauthenticated => Results.Unauthorized(),
+        ViewAccessOutcome.Forbidden => ApiErrors.Forbidden("View access is not permitted."),
         _ => ApiErrors.NotFound("The requested View scope was not found."),
     };
 }

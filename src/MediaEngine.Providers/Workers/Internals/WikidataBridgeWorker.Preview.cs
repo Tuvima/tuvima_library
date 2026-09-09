@@ -26,7 +26,9 @@ public sealed partial class WikidataBridgeWorker
     {
         var reconAdapter = _providers.OfType<ReconciliationAdapter>().FirstOrDefault();
         if (reconAdapter is null)
+        {
             return new SearchUniverseResult([], queryOverride ?? string.Empty, requestedMediaType);
+        }
 
         var persistedJob = await _jobRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
         var job = new IdentityJob
@@ -44,11 +46,15 @@ public sealed partial class WikidataBridgeWorker
         };
 
         if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType))
+        {
             mediaType = MediaType.Unknown;
+        }
 
         WorkLineage? lineage = null;
         if (string.Equals(job.EntityType, "MediaAsset", StringComparison.OrdinalIgnoreCase))
+        {
             lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct).ConfigureAwait(false);
+        }
 
         var contextEntityIds = new HashSet<Guid> { entityId };
         if (lineage is not null)
@@ -79,7 +85,10 @@ public sealed partial class WikidataBridgeWorker
             foreach (var (key, value) in evidenceOverrides)
             {
                 if (string.IsNullOrWhiteSpace(value) || _bridgeIdHelper.GetPCode(key) is null)
+                {
                     continue;
+                }
+
                 bridgeDict[key] = value.Trim();
                 AddWikidataProperty(mediaType, key, wikidataProps);
             }
@@ -99,9 +108,13 @@ public sealed partial class WikidataBridgeWorker
         if (!string.IsNullOrWhiteSpace(queryOverride))
         {
             if (mediaType == MediaType.Music && !string.IsNullOrWhiteSpace(album))
+            {
                 album = queryOverride.Trim();
+            }
             else
+            {
                 title = queryOverride.Trim();
+            }
         }
 
         var ctx = new JobContext(
@@ -193,9 +206,11 @@ public sealed partial class WikidataBridgeWorker
             };
 
             if (_retailMatchScoring is not null && !string.IsNullOrWhiteSpace(title))
+            {
                 universe.MatchScores = ToPreviewFieldMatches(
                     _retailMatchScoring.ScoreCandidate(
                         localEvidence, candidateTitle, candidateAuthor, candidateYear, mediaType));
+            }
 
             candidates.Add(universe);
         }
@@ -213,10 +228,16 @@ public sealed partial class WikidataBridgeWorker
     {
         var pCode = _bridgeIdHelper.GetPCode(bridgeIdType);
         if (pCode is null)
+        {
             return;
+        }
+
         if (mediaType == MediaType.TV
             && string.Equals(bridgeIdType, BridgeIdKeys.TmdbId, StringComparison.OrdinalIgnoreCase))
+        {
             pCode = "P4983";
+        }
+
         properties[bridgeIdType] = pCode;
     }
 
@@ -225,11 +246,16 @@ public sealed partial class WikidataBridgeWorker
         params string[] keys)
     {
         if (overrides is null)
+        {
             return null;
+        }
+
         foreach (var key in keys)
         {
             if (overrides.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return value.Trim();
+            }
         }
         return null;
     }
@@ -243,9 +269,21 @@ public sealed partial class WikidataBridgeWorker
         var evidence = overrides is null
             ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(overrides, StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(title)) evidence[MetadataFieldConstants.Title] = title;
-        if (!string.IsNullOrWhiteSpace(author)) evidence[MetadataFieldConstants.Author] = author;
-        if (!string.IsNullOrWhiteSpace(year)) evidence[MetadataFieldConstants.Year] = year;
+        if (!string.IsNullOrWhiteSpace(title))
+        {
+            evidence[MetadataFieldConstants.Title] = title;
+        }
+
+        if (!string.IsNullOrWhiteSpace(author))
+        {
+            evidence[MetadataFieldConstants.Author] = author;
+        }
+
+        if (!string.IsNullOrWhiteSpace(year))
+        {
+            evidence[MetadataFieldConstants.Year] = year;
+        }
+
         return evidence;
     }
 

@@ -1,35 +1,35 @@
-using System.Text.Json.Nodes;
-using System.Text.Json;
 using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
-using MediaEngine.Contracts.Metadata;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Metadata;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Metadata;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using ArtworkEditorEnvelope = MediaEngine.Contracts.Metadata.ArtworkEditorDto;
-using ArtworkSlotEnvelope = MediaEngine.Contracts.Metadata.ArtworkSlotDto;
-using ArtworkVariantEnvelope = MediaEngine.Contracts.Metadata.ArtworkVariantDto;
-using ProviderArtworkRefreshEnvelope = MediaEngine.Contracts.Metadata.ProviderArtworkRefreshDto;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Storage.Contracts;
+using ArtworkEditorEnvelope = MediaEngine.Contracts.Metadata.ArtworkEditorDto;
 using ArtworkResolutionContext = MediaEngine.Domain.Models.MetadataArtworkResolutionContext;
-using EditorLaunchContext = MediaEngine.Domain.Models.MetadataEditorLaunchContext;
+using ArtworkSlotEnvelope = MediaEngine.Contracts.Metadata.ArtworkSlotDto;
+using ArtworkVariantEnvelope = MediaEngine.Contracts.Metadata.ArtworkVariantDto;
 using ClaimDto = MediaEngine.Contracts.Metadata.ClaimDto;
 using ConflictDto = MediaEngine.Contracts.Metadata.ConflictDto;
+using EditorLaunchContext = MediaEngine.Domain.Models.MetadataEditorLaunchContext;
 using HydrateResponse = MediaEngine.Contracts.Metadata.HydrateResponse;
 using LabelResolveEntry = MediaEngine.Contracts.Metadata.LabelResolveEntry;
 using LabelResolveRequest = MediaEngine.Contracts.Metadata.LabelResolveRequest;
@@ -37,6 +37,7 @@ using LockClaimRequest = MediaEngine.Contracts.Metadata.LockClaimRequest;
 using LockClaimResponse = MediaEngine.Contracts.Metadata.LockClaimResponse;
 using MetadataOverrideRequest = MediaEngine.Contracts.Metadata.MetadataOverrideRequest;
 using MetadataOverrideResponse = MediaEngine.Contracts.Metadata.MetadataOverrideResponse;
+using ProviderArtworkRefreshEnvelope = MediaEngine.Contracts.Metadata.ProviderArtworkRefreshDto;
 using ReclassifyRequest = MediaEngine.Contracts.Metadata.ReclassifyRequest;
 using ReclassifyResponse = MediaEngine.Contracts.Metadata.ReclassifyResponse;
 
@@ -76,7 +77,8 @@ public static partial class MetadataEndpoints
         .WithName("GetClaimHistory")
         .WithSummary("Returns all metadata claims for a Work or Edition, ordered by claimed_at.")
         .Produces<List<ClaimDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataRead);
 
         // -- GET /metadata/conflicts -----------------------------------------
         group.MapGet("/conflicts", async (
@@ -96,11 +98,13 @@ public static partial class MetadataEndpoints
         .WithName("GetConflicts")
         .WithSummary("Returns all canonical values with unresolved metadata conflicts.")
         .Produces<List<ConflictDto>>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireEffectiveAdministrator();
 
         // -- PATCH /metadata/lock-claim ---------------------------------------
         group.MapMethods("/lock-claim", ["PATCH"], async (
             LockClaimRequest request,
+            HttpContext httpContext,
+            CatalogueResourceAuthorizationService resources,
             IMetadataClaimRepository claimRepo,
             ICanonicalValueRepository canonicalRepo,
             ITransactionJournal journal,
@@ -109,27 +113,44 @@ public static partial class MetadataEndpoints
         {
             ct.ThrowIfCancellationRequested();
 
+            if (await resources.EvaluateAnyEntityAsync(
+                    httpContext,
+                    request.EntityId,
+                    ApplicationPermissionIds.MetadataWrite,
+                    ct).ConfigureAwait(false) != CatalogueResourceAccess.Allowed)
+            {
+                return ApiErrors.NotFound("Metadata entity was not found.");
+            }
+
             if (string.IsNullOrWhiteSpace(request.ClaimKey))
+            {
                 return ApiErrors.BadRequest("claim_key must not be empty.");
+            }
+
             if (string.IsNullOrWhiteSpace(request.ChosenValue))
+            {
                 return ApiErrors.BadRequest("chosen_value must not be empty.");
+            }
+
             if (!UserLockableFields.Contains(request.ClaimKey))
+            {
                 return ApiErrors.BadRequest(
                     $"Field '{request.ClaimKey}' cannot be user-locked. " +
                     $"Only these fields accept user locks: {string.Join(", ", UserLockableFields)}. " +
                     "Structured metadata (title, author, year, etc.) is resolved by the provider hierarchy.");
+            }
 
             var lockedAt = DateTimeOffset.UtcNow;
 
             // 1. Insert a user-locked claim (confidence 1.0).
             var claim = new MetadataClaim
             {
-                Id           = Guid.NewGuid(),
-                EntityId     = request.EntityId,
-                ProviderId   = WellKnownProviders.UserManual,
-                ClaimKey     = request.ClaimKey,
-                ClaimValue   = request.ChosenValue,
-                ClaimedAt    = lockedAt,
+                Id = Guid.NewGuid(),
+                EntityId = request.EntityId,
+                ProviderId = WellKnownProviders.UserManual,
+                ClaimKey = request.ClaimKey,
+                ClaimValue = request.ChosenValue,
+                ClaimedAt = lockedAt,
                 IsUserLocked = true,
             };
             await claimRepo.InsertBatchAsync([claim], ct);
@@ -160,17 +181,17 @@ public static partial class MetadataEndpoints
 
             return Results.Ok(new LockClaimResponse
             {
-                EntityId    = request.EntityId,
-                ClaimKey    = request.ClaimKey,
+                EntityId = request.EntityId,
+                ClaimKey = request.ClaimKey,
                 ChosenValue = request.ChosenValue,
-                LockedAt    = lockedAt,
+                LockedAt = lockedAt,
             });
         })
         .WithName("LockClaim")
         .WithSummary("Create a user-locked metadata claim and update the canonical value. Used by the Curator's Drawer.")
         .Produces<LockClaimResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite);
 
         // -- POST /metadata/hydrate/{entityId} -----------------------------
         group.MapPost("/hydrate/{entityId:guid}", async (
@@ -191,11 +212,11 @@ public static partial class MetadataEndpoints
             {
                 result = await pipeline.RunSynchronousAsync(new Domain.Models.HarvestRequest
                 {
-                    EntityId   = entityId,
+                    EntityId = entityId,
                     EntityType = EntityType.MediaAsset,
-                    MediaType  = Domain.Enums.MediaType.Unknown,
-                    Hints      = hints,
-                    Pass       = Domain.Enums.HydrationPass.Universe,
+                    MediaType = Domain.Enums.MediaType.Unknown,
+                    Hints = hints,
+                    Pass = Domain.Enums.HydrationPass.Universe,
                 }, ct);
             }
             catch (Exception ex)
@@ -213,14 +234,14 @@ public static partial class MetadataEndpoints
 
             return Results.Ok(new HydrateResponse
             {
-                WikidataQid  = result.WikidataQid,
-                ClaimsAdded  = result.TotalClaimsAdded,
+                WikidataQid = result.WikidataQid,
+                ClaimsAdded = result.TotalClaimsAdded,
                 Stage1Claims = result.Stage1ClaimsAdded,
                 Stage2Claims = result.Stage2ClaimsAdded,
-                NeedsReview  = result.NeedsReview,
+                NeedsReview = result.NeedsReview,
                 ReviewItemId = result.ReviewItemId,
-                Success      = true,
-                Message      = $"Hydrated {result.TotalClaimsAdded} claims across 2 stages"
+                Success = true,
+                Message = $"Hydrated {result.TotalClaimsAdded} claims across 2 stages"
                              + (result.WikidataQid is not null ? $" (QID: {result.WikidataQid})" : "")
                              + (result.NeedsReview ? " — needs review." : "."),
             });
@@ -228,7 +249,8 @@ public static partial class MetadataEndpoints
         .WithName("HydrateEntity")
         .WithSummary("Run the two-stage hydration pipeline for a Work or Edition entity. Admin or Curator.")
         .Produces<HydrateResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataEnrichmentRun);
 
         // -- POST /metadata/search -----------------------------------------
         group.MapPost("/search", async (
@@ -241,22 +263,30 @@ public static partial class MetadataEndpoints
             var searchLogger = loggerFactory.CreateLogger("MetadataSearch");
 
             if (string.IsNullOrWhiteSpace(request.ProviderName))
+            {
                 return ApiErrors.BadRequest("provider_name is required.");
+            }
 
             if (string.IsNullOrWhiteSpace(request.Query))
+            {
                 return ApiErrors.BadRequest("query is required.");
+            }
 
             // Find the named provider.
             var provider = providers.FirstOrDefault(
                 p => string.Equals(p.Name, request.ProviderName, StringComparison.OrdinalIgnoreCase));
 
             if (provider is null)
+            {
                 return ApiErrors.NotFound($"Provider '{request.ProviderName}' not found.");
+            }
 
             // Parse media type.
             var mediaType = Domain.Enums.MediaType.Unknown;
             if (!string.IsNullOrEmpty(request.MediaType))
+            {
                 Enum.TryParse(request.MediaType, ignoreCase: true, out mediaType);
+            }
 
             searchLogger.LogInformation(
                 "Search: provider={Provider}, mediaType={MediaType}, query={Query}",
@@ -269,11 +299,11 @@ public static partial class MetadataEndpoints
             // Build the lookup request using the search query as the title hint.
             var lookupRequest = new ProviderLookupRequest
             {
-                EntityId   = Guid.Empty,
+                EntityId = Guid.Empty,
                 EntityType = EntityType.MediaAsset,
-                MediaType  = mediaType,
-                Title      = request.Query,
-                BaseUrl    = baseUrl,
+                MediaType = mediaType,
+                Title = request.Query,
+                BaseUrl = baseUrl,
             };
 
             var limit = Math.Clamp(request.Limit, 1, 50);
@@ -286,16 +316,16 @@ public static partial class MetadataEndpoints
             var response = new MetadataSearchResponse
             {
                 ProviderName = request.ProviderName,
-                Query        = request.Query,
+                Query = request.Query,
                 Results = results.Select(r => new MetadataSearchResultDto
                 {
-                    Title          = r.Title,
-                    Author         = r.Author,
-                    Description    = r.Description,
-                    Year           = r.Year,
-                    ThumbnailUrl   = r.ThumbnailUrl,
+                    Title = r.Title,
+                    Author = r.Author,
+                    Description = r.Description,
+                    Year = r.Year,
+                    ThumbnailUrl = r.ThumbnailUrl,
                     ProviderItemId = r.ProviderItemId,
-                    Confidence     = r.Confidence,
+                    Confidence = r.Confidence,
                 }).ToList(),
             };
 
@@ -306,7 +336,7 @@ public static partial class MetadataEndpoints
         .Produces<MetadataSearchResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch);
 
         // -- PUT /metadata/{entityId}/override ----------------------------
         group.MapPut("/{entityId:guid}/override", async (
@@ -320,7 +350,9 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
+            {
                 return ApiErrors.BadRequest("At least one field override is required.");
+            }
 
             var now = DateTimeOffset.UtcNow;
             var updatedKeys = new List<string>();
@@ -333,34 +365,38 @@ public static partial class MetadataEndpoints
                 .Where(k => !string.IsNullOrWhiteSpace(k) && !UserLockableFields.Contains(k))
                 .ToList();
             if (rejectedKeys.Count > 0)
+            {
                 return ApiErrors.BadRequest(
                     $"Fields cannot be user-locked: {string.Join(", ", rejectedKeys)}. " +
                     $"Only these fields accept user locks: {string.Join(", ", UserLockableFields)}. " +
                     "Structured metadata (title, author, year, etc.) is resolved by the provider hierarchy.");
+            }
 
             foreach (var (key, value) in request.Fields)
             {
                 if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+                {
                     continue;
+                }
 
                 // 1. Create a user-locked claim (confidence 1.0, never overridden).
                 claims.Add(new MetadataClaim
                 {
-                    Id           = Guid.NewGuid(),
-                    EntityId     = entityId,
-                    ProviderId   = WellKnownProviders.UserManual,
-                    ClaimKey     = key,
-                    ClaimValue   = value,
-                    ClaimedAt    = now,
+                    Id = Guid.NewGuid(),
+                    EntityId = entityId,
+                    ProviderId = WellKnownProviders.UserManual,
+                    ClaimKey = key,
+                    ClaimValue = value,
+                    ClaimedAt = now,
                     IsUserLocked = true,
                 });
 
                 // 2. Prepare canonical value upsert.
                 canonicals.Add(new CanonicalValue
                 {
-                    EntityId     = entityId,
-                    Key          = key,
-                    Value        = value,
+                    EntityId = entityId,
+                    Key = key,
+                    Value = value,
                     LastScoredAt = now,
                 });
 
@@ -369,19 +405,26 @@ public static partial class MetadataEndpoints
 
             // Persist all claims and canonical values in batch.
             if (claims.Count > 0)
+            {
                 await claimRepo.InsertBatchAsync(claims, ct);
+            }
+
             if (canonicals.Count > 0)
+            {
                 await canonicalRepo.UpsertBatchAsync(canonicals, ct);
+            }
 
             if (updatedKeys.Count == 0)
+            {
                 return ApiErrors.BadRequest("No valid field overrides provided.");
+            }
 
             // 3. Log to activity ledger.
             await activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = SystemActionType.MetadataManualOverride,
-                EntityId   = entityId,
-                Detail     = $"Manual override: {updatedKeys.Count} field(s) ? {string.Join(", ", updatedKeys)}.",
+                EntityId = entityId,
+                Detail = $"Manual override: {updatedKeys.Count} field(s) ? {string.Join(", ", updatedKeys)}.",
             }, ct);
 
             // 4. Broadcast so the Dashboard refreshes.
@@ -405,16 +448,17 @@ public static partial class MetadataEndpoints
 
             return Results.Ok(new MetadataOverrideResponse
             {
-                EntityId       = entityId,
-                FieldsUpdated  = updatedKeys.Count,
-                OverriddenAt   = now,
+                EntityId = entityId,
+                FieldsUpdated = updatedKeys.Count,
+                OverriddenAt = now,
             });
         })
         .WithName("OverrideMetadata")
         .WithSummary("Manually override metadata fields for an entity. Creates user-locked claims at confidence 1.0.")
         .Produces<MetadataOverrideResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
 
         // -- POST /metadata/{entityId}/reclassify ------------------------------
         group.MapPost("/{entityId:guid}/reclassify", async (
@@ -430,7 +474,9 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.MediaType))
+            {
                 return ApiErrors.BadRequest("media_type is required.");
+            }
 
             // Validate the media type string parses to a known MediaType enum value.
             if (!Enum.TryParse<Domain.Enums.MediaType>(request.MediaType, ignoreCase: true, out var newMediaType)
@@ -454,25 +500,25 @@ public static partial class MetadataEndpoints
 
             var claims = claimEntityIds.Select(claimEntityId => new MetadataClaim
             {
-                Id           = Guid.NewGuid(),
-                EntityId     = claimEntityId,
-                ProviderId   = WellKnownProviders.UserManual,
-                ClaimKey     = MetadataFieldConstants.MediaTypeField,
-                ClaimValue   = newMediaType.ToString(),
-                ClaimedAt    = now,
+                Id = Guid.NewGuid(),
+                EntityId = claimEntityId,
+                ProviderId = WellKnownProviders.UserManual,
+                ClaimKey = MetadataFieldConstants.MediaTypeField,
+                ClaimValue = newMediaType.ToString(),
+                ClaimedAt = now,
                 IsUserLocked = true,
             }).ToList();
             await claimRepo.InsertBatchAsync(claims, ct);
 
             // 2. Upsert canonical media_type values and the work discriminator used by detail/search screens.
             await canonicalRepo.UpsertBatchAsync(claimEntityIds.Select(claimEntityId => new CanonicalValue
-                {
-                    EntityId     = claimEntityId,
-                    Key          = MetadataFieldConstants.MediaTypeField,
-                    Value        = newMediaType.ToString(),
-                    LastScoredAt = now,
-                    IsConflicted = false,
-                })
+            {
+                EntityId = claimEntityId,
+                Key = MetadataFieldConstants.MediaTypeField,
+                Value = newMediaType.ToString(),
+                LastScoredAt = now,
+                IsConflicted = false,
+            })
                 .ToList(), ct);
 
             if (targetWorkId is { } workId)
@@ -501,19 +547,19 @@ public static partial class MetadataEndpoints
 
             await pipeline.EnqueueAsync(new HarvestRequest
             {
-                EntityId   = targetAssetId,
+                EntityId = targetAssetId,
                 EntityType = EntityType.MediaAsset,
-                MediaType  = newMediaType,
-                Hints      = hints,
+                MediaType = newMediaType,
+                Hints = hints,
             }, ct);
 
             // 5. Log activity.
             await activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = SystemActionType.MetadataRefreshed,
-                EntityId   = requestedEntityId,
+                EntityId = requestedEntityId,
                 EntityType = "MediaAsset",
-                Detail     = $"Media type reclassified to {newMediaType} by user.",
+                Detail = $"Media type reclassified to {newMediaType} by user.",
             }, ct);
 
             // 6. Broadcast events.
@@ -534,17 +580,18 @@ public static partial class MetadataEndpoints
 
             return Results.Ok(new ReclassifyResponse
             {
-                EntityId        = requestedEntityId,
-                NewMediaType    = newMediaType.ToString(),
-                ReclassifiedAt  = now,
-                ReviewResolved  = reviewResolved,
+                EntityId = requestedEntityId,
+                NewMediaType = newMediaType.ToString(),
+                ReclassifiedAt = now,
+                ReviewResolved = reviewResolved,
             });
         })
         .WithName("ReclassifyMediaType")
         .WithSummary("Reclassify a media asset to a different media type. Creates a user-locked claim and re-triggers hydration.")
         .Produces<ReclassifyResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
 
         // -- GET /metadata/{entityId}/editor-context -------------------------
         group.MapGet("/{entityId:guid}/editor-context", async (
@@ -556,7 +603,9 @@ public static partial class MetadataEndpoints
         {
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"Editor context for {entityId} not found.");
+            }
 
             return Results.Ok(new MediaEditorContextDto
             {
@@ -602,7 +651,8 @@ public static partial class MetadataEndpoints
         .WithSummary("Resolve scope-aware edit panel context for a launch entity.")
         .Produces<MediaEditorContextDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataRead);
 
         MapMediaEditorNavigatorEndpoints(group);
 
@@ -614,16 +664,28 @@ public static partial class MetadataEndpoints
             ILibraryItemRepository libraryItemRepo,
             IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
+            HttpContext httpContext,
+            CatalogueResourceAuthorizationService resources,
             CancellationToken ct) =>
         {
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"Editor context for {entityId} not found.");
+            }
 
             var scope = context.Scopes.FirstOrDefault(candidate =>
                 string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
             if (scope is null)
+            {
                 return ApiErrors.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+            }
+
+            if (!await HasEditorScopeAccessAsync(
+                    httpContext, resources, scope, ApplicationPermissionIds.MetadataRead, ct).ConfigureAwait(false))
+            {
+                return ApiErrors.NotFound("Artwork scope was not found.");
+            }
 
             var artwork = await artworkScopeService.BuildScopedArtworkEnvelopeAsync(scope, ct);
             return Results.Ok(artwork);
@@ -632,7 +694,8 @@ public static partial class MetadataEndpoints
         .WithSummary("Return grouped artwork variants for one editor scope.")
         .Produces<ArtworkEditorEnvelope>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataRead);
 
         // -- POST /metadata/{entityId}/artwork/{scopeId}/refresh-provider ---
         group.MapPost("/{entityId:guid}/artwork/{scopeId}/refresh-provider", async (
@@ -644,16 +707,28 @@ public static partial class MetadataEndpoints
             CoverArtWorker coverArtWorker,
             IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
+            HttpContext httpContext,
+            CatalogueResourceAuthorizationService resources,
             CancellationToken ct) =>
         {
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"Editor context for {entityId} not found.");
+            }
 
             var scope = context.Scopes.FirstOrDefault(candidate =>
                 string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
             if (scope is null)
+            {
                 return ApiErrors.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+            }
+
+            if (!await HasEditorScopeAccessAsync(
+                    httpContext, resources, scope, ApplicationPermissionIds.MetadataEnrichmentRun, ct).ConfigureAwait(false))
+            {
+                return ApiErrors.NotFound("Artwork scope was not found.");
+            }
 
             if (!ArtworkScopeService.IsProviderArtworkRefreshSupported(scope))
             {
@@ -666,12 +741,24 @@ public static partial class MetadataEndpoints
 
             var target = await artworkScopeService.ResolveProviderArtworkRefreshTargetAsync(scope, ct);
             if (target.Skipped is not null)
+            {
                 return Results.Ok(target.Skipped);
+            }
+
+            if (target.RepresentativeAssetId is not { } representativeAssetId ||
+                await resources.EvaluateAssetAsync(
+                    httpContext,
+                    representativeAssetId,
+                    ApplicationPermissionIds.MetadataEnrichmentRun,
+                    ct).ConfigureAwait(false) != CatalogueResourceAccess.Allowed)
+            {
+                return ApiErrors.NotFound("Artwork scope was not found.");
+            }
 
             if (!string.IsNullOrWhiteSpace(target.CoverUrl))
             {
                 await coverArtWorker.DownloadAndPersistAsync(
-                    target.RepresentativeAssetId!.Value,
+                    representativeAssetId,
                     target.WorkQid,
                     ct,
                     target.CoverUrl);
@@ -697,7 +784,7 @@ public static partial class MetadataEndpoints
             }
 
             var result = await imageEnrichment.EnrichWorkImagesAsync(
-                target.RepresentativeAssetId!.Value,
+                representativeAssetId,
                 target.WorkQid,
                 ct);
 
@@ -707,7 +794,8 @@ public static partial class MetadataEndpoints
         .WithSummary("Refresh provider artwork for one editor scope without rerunning full identity matching.")
         .Produces<ProviderArtworkRefreshEnvelope>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataEnrichmentRun);
 
         // -- GET /metadata/{entityId}/artwork --------------------------------
         group.MapGet("/{entityId:guid}/artwork", async (
@@ -788,7 +876,8 @@ public static partial class MetadataEndpoints
         .WithName("GetArtworkEditor")
         .WithSummary("Return grouped artwork variants for the editor.")
         .Produces<ArtworkEditorEnvelope>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataRead);
 
         // -- POST /metadata/{entityId}/cover ---------------------------------
         group.MapPost("/{entityId:guid}/cover", async (
@@ -805,23 +894,34 @@ public static partial class MetadataEndpoints
             var coverLogger = loggerFactory.CreateLogger("CoverUpload");
 
             if (!httpRequest.HasFormContentType)
+            {
                 return ApiErrors.BadRequest("Expected multipart form data.");
+            }
 
             var form = await httpRequest.ReadFormAsync(ct);
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
+            {
                 return ApiErrors.BadRequest("No file provided.");
+            }
+
             if (file.Length > BoundedHttpContent.MaximumImageBytes)
+            {
                 return ApiErrors.BadRequest("Artwork files must be 20 MB or smaller.");
+            }
 
             var normalizedAssetType = "CoverArt";
             if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
+            {
                 return ApiErrors.BadRequest("Only JPEG and PNG images are accepted.");
+            }
 
             var context = await metadataData.ResolveArtworkContextAsync(entityId, ct);
             var targetEntityId = context.RootWorkId ?? context.WorkId;
             if (targetEntityId is null || targetEntityId == Guid.Empty)
+            {
                 return ApiErrors.NotFound($"Asset {entityId} not found.");
+            }
 
             var variantId = Guid.NewGuid();
             var localPath = artworkScopeService.BuildArtworkUploadPath(
@@ -833,7 +933,9 @@ public static partial class MetadataEndpoints
 
             AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
+            {
                 await BoundedHttpContent.CopyImageToFileAtomicallyAsync(stream, localPath, ct);
+            }
 
             var storedAsset = new EntityAsset
             {
@@ -864,9 +966,9 @@ public static partial class MetadataEndpoints
             await activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = SystemActionType.CoverArtSaved,
-                EntityId   = entityId,
+                EntityId = entityId,
                 EntityType = "MediaAsset",
-                Detail     = "Cover art uploaded manually",
+                Detail = "Cover art uploaded manually",
             }, ct);
 
             return Results.Ok(new ArtworkUploadResponse(
@@ -880,7 +982,8 @@ public static partial class MetadataEndpoints
         .Produces<ArtworkUploadResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite)
         .DisableAntiforgery();
 
         // -- POST /metadata/{entityId}/artwork/{scopeId}/{assetType} --------
@@ -895,51 +998,81 @@ public static partial class MetadataEndpoints
             IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
             HttpRequest httpRequest,
+            CatalogueResourceAuthorizationService resources,
             CancellationToken ct) =>
         {
             var normalizedAssetType = ArtworkScopeService.NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
+            {
                 return ApiErrors.BadRequest("Artwork type is not supported for scoped upload.");
-
-            if (!httpRequest.HasFormContentType)
-                return ApiErrors.BadRequest("Expected multipart form data.");
+            }
 
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"Editor context for {entityId} not found.");
+            }
 
             var scope = context.Scopes.FirstOrDefault(candidate =>
                 string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
             if (scope is null)
+            {
                 return ApiErrors.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+            }
+
+            if (!await HasEditorScopeAccessAsync(
+                    httpRequest.HttpContext, resources, scope, ApplicationPermissionIds.MetadataWrite, ct).ConfigureAwait(false))
+            {
+                return ApiErrors.NotFound("Artwork scope was not found.");
+            }
 
             if (!scope.CanEditArtwork || scope.ArtworkOwnerEntityId is null || string.IsNullOrWhiteSpace(scope.ArtworkOwnerEntityKind))
+            {
                 return ApiErrors.BadRequest($"Scope '{scope.Label}' does not accept artwork uploads.");
+            }
+
+            if (!httpRequest.HasFormContentType)
+            {
+                return ApiErrors.BadRequest("Expected multipart form data.");
+            }
 
             var allowedSlots = ArtworkScopeService.GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
             if (!allowedSlots.Contains(normalizedAssetType, StringComparer.OrdinalIgnoreCase))
+            {
                 return ApiErrors.BadRequest($"{normalizedAssetType} is not valid for the {scope.Label} scope.");
+            }
 
             var form = await httpRequest.ReadFormAsync(ct);
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
+            {
                 return ApiErrors.BadRequest("No file provided.");
+            }
+
             if (file.Length > BoundedHttpContent.MaximumImageBytes)
+            {
                 return ApiErrors.BadRequest("Artwork files must be 20 MB or smaller.");
+            }
 
             if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
+            {
                 return ApiErrors.BadRequest(normalizedAssetType == "Logo"
                     ? "Logo uploads must be PNG images."
                     : "Only JPEG and PNG images are accepted.");
+            }
 
             var variantId = Guid.NewGuid();
             var localPath = artworkScopeService.BuildScopedArtworkUploadPath(scope, normalizedAssetType, variantId, file.ContentType);
             if (string.IsNullOrWhiteSpace(localPath))
+            {
                 return ApiErrors.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
+            }
 
             AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
+            {
                 await BoundedHttpContent.CopyImageToFileAtomicallyAsync(stream, localPath, ct);
+            }
 
             var storedAsset = new EntityAsset
             {
@@ -978,7 +1111,8 @@ public static partial class MetadataEndpoints
         .Produces<ScopedArtworkUploadResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite)
         .DisableAntiforgery();
 
         // -- POST /metadata/{entityId}/artwork/{scopeId}/{assetType}/from-url -
@@ -994,35 +1128,57 @@ public static partial class MetadataEndpoints
             IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
             IHttpClientFactory httpFactory,
+            HttpContext httpContext,
+            CatalogueResourceAuthorizationService resources,
             CancellationToken ct) =>
         {
             var normalizedAssetType = ArtworkScopeService.NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
+            {
                 return ApiErrors.BadRequest("Artwork type is not supported for scoped download.");
-
-            if (string.IsNullOrWhiteSpace(request.ImageUrl))
-                return ApiErrors.BadRequest("image_url is required.");
+            }
 
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
+            {
                 return ApiErrors.NotFound($"Editor context for {entityId} not found.");
+            }
 
             var scope = context.Scopes.FirstOrDefault(candidate =>
                 string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
             if (scope is null)
+            {
                 return ApiErrors.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+            }
+
+            if (!await HasEditorScopeAccessAsync(
+                    httpContext, resources, scope, ApplicationPermissionIds.MetadataWrite, ct).ConfigureAwait(false))
+            {
+                return ApiErrors.NotFound("Artwork scope was not found.");
+            }
 
             if (!scope.CanEditArtwork || scope.ArtworkOwnerEntityId is null || string.IsNullOrWhiteSpace(scope.ArtworkOwnerEntityKind))
+            {
                 return ApiErrors.BadRequest($"Scope '{scope.Label}' does not accept artwork downloads.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ImageUrl))
+            {
+                return ApiErrors.BadRequest("image_url is required.");
+            }
 
             var allowedSlots = ArtworkScopeService.GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
             if (!allowedSlots.Contains(normalizedAssetType, StringComparer.OrdinalIgnoreCase))
+            {
                 return ApiErrors.BadRequest($"{normalizedAssetType} is not valid for the {scope.Label} scope.");
+            }
 
             using var client = httpFactory.CreateClient("cover_download");
             using var response = await client.GetAsync(request.ImageUrl, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return ApiErrors.BadRequest($"Failed to download image: {(int)response.StatusCode} {response.ReasonPhrase}");
+            }
 
             byte[] imageBytes;
             try
@@ -1034,18 +1190,24 @@ public static partial class MetadataEndpoints
                 return ApiErrors.BadRequest(ex.Message);
             }
             if (imageBytes.Length == 0)
+            {
                 return ApiErrors.BadRequest("Downloaded image is empty.");
+            }
 
             var contentType = response.Content.Headers.ContentType?.MediaType;
             if (!ArtworkScopeService.IsArtworkUploadAllowed(contentType, normalizedAssetType))
+            {
                 return ApiErrors.BadRequest(normalizedAssetType == "Logo"
                     ? "Logo uploads must be PNG images."
                     : "Only JPEG and PNG images are accepted.");
+            }
 
             var variantId = Guid.NewGuid();
             var localPath = artworkScopeService.BuildScopedArtworkUploadPath(scope, normalizedAssetType, variantId, contentType);
             if (string.IsNullOrWhiteSpace(localPath))
+            {
                 return ApiErrors.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
+            }
 
             AssetPathService.EnsureDirectory(localPath);
             await BoundedHttpContent.WriteFileAtomicallyAsync(localPath, imageBytes, ct);
@@ -1087,7 +1249,8 @@ public static partial class MetadataEndpoints
         .Produces<ScopedArtworkUploadResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
 
         // -- POST /metadata/{entityId}/artwork/{assetType} -------------------
         group.MapPost("/{entityId:guid}/artwork/{assetType}", async (
@@ -1102,27 +1265,40 @@ public static partial class MetadataEndpoints
         {
             var normalizedAssetType = ArtworkScopeService.NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
+            {
                 return ApiErrors.BadRequest("Artwork type must be CoverArt, Background, or Logo.");
+            }
 
             if (!httpRequest.HasFormContentType)
+            {
                 return ApiErrors.BadRequest("Expected multipart form data.");
+            }
 
             var form = await httpRequest.ReadFormAsync(ct);
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
+            {
                 return ApiErrors.BadRequest("No file provided.");
+            }
+
             if (file.Length > BoundedHttpContent.MaximumImageBytes)
+            {
                 return ApiErrors.BadRequest("Artwork files must be 20 MB or smaller.");
+            }
 
             if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
+            {
                 return ApiErrors.BadRequest(normalizedAssetType == "Logo"
                     ? "Logo uploads must be PNG images."
                     : "Only JPEG and PNG images are accepted.");
+            }
 
             var context = await metadataData.ResolveArtworkContextAsync(entityId, ct);
             var targetEntityId = context.RootWorkId ?? context.WorkId;
             if (targetEntityId is null || targetEntityId == Guid.Empty)
+            {
                 return ApiErrors.NotFound($"Asset {entityId} not found.");
+            }
 
             var variantId = Guid.NewGuid();
             var localPath = artworkScopeService.BuildArtworkUploadPath(
@@ -1134,7 +1310,9 @@ public static partial class MetadataEndpoints
 
             AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
+            {
                 await BoundedHttpContent.CopyImageToFileAtomicallyAsync(stream, localPath, ct);
+            }
 
             var storedAsset = new EntityAsset
             {
@@ -1171,7 +1349,8 @@ public static partial class MetadataEndpoints
         .Produces<ArtworkUploadResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser()
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite)
         .DisableAntiforgery();
 
         // -- PUT /metadata/artwork/{variantId}/preferred ---------------------
@@ -1184,12 +1363,16 @@ public static partial class MetadataEndpoints
         {
             var target = await entityAssetRepo.FindByIdAsync(variantId, ct);
             if (target is null)
+            {
                 return ApiErrors.NotFound($"Artwork variant {variantId} not found.");
+            }
 
             await entityAssetRepo.SetPreferredAsync(variantId, ct);
             target = await entityAssetRepo.FindByIdAsync(variantId, ct);
             if (target is null)
+            {
                 return ApiErrors.NotFound($"Artwork variant {variantId} not found.");
+            }
 
             if (!string.Equals(target.EntityType, "Person", StringComparison.OrdinalIgnoreCase))
             {
@@ -1210,7 +1393,8 @@ public static partial class MetadataEndpoints
         .WithSummary("Mark an artwork variant as preferred for its slot.")
         .Produces<ArtworkVariantPreferredResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireCatalogueArtworkAccess(ApplicationPermissionIds.MetadataWrite);
 
         // -- DELETE /metadata/artwork/{variantId} ----------------------------
         group.MapDelete("/artwork/{variantId:guid}", async (
@@ -1222,7 +1406,9 @@ public static partial class MetadataEndpoints
         {
             var target = await entityAssetRepo.FindByIdAsync(variantId, ct);
             if (target is null)
+            {
                 return ApiErrors.NotFound($"Artwork variant {variantId} not found.");
+            }
 
             var entityId = Guid.Parse(target.EntityId);
             var siblings = await entityAssetRepo.GetByEntityAsync(target.EntityId, target.AssetTypeValue, ct);
@@ -1235,7 +1421,9 @@ public static partial class MetadataEndpoints
                 try
                 {
                     if (File.Exists(target.LocalImagePath))
+                    {
                         File.Delete(target.LocalImagePath);
+                    }
                 }
                 catch
                 {
@@ -1262,9 +1450,13 @@ public static partial class MetadataEndpoints
             {
                 await artworkScopeService.SyncArtworkCanonicalAsync(entityId, target.AssetTypeValue, nextPreferred, ct);
                 if (nextPreferred is not null)
+                {
                     await assetExportService.ReconcileArtworkAsync(nextPreferred.EntityId, nextPreferred.EntityType, nextPreferred.AssetTypeValue, ct);
+                }
                 else
+                {
                     await assetExportService.ClearArtworkExportAsync(target.EntityId, target.EntityType, target.AssetTypeValue, ct);
+                }
             }
 
             return Results.Ok(new ArtworkVariantDeletedResponse(
@@ -1276,7 +1468,8 @@ public static partial class MetadataEndpoints
         .WithSummary("Delete an artwork variant from the item.")
         .Produces<ArtworkVariantDeletedResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireCatalogueArtworkAccess(ApplicationPermissionIds.MetadataWrite);
 
         // -- GET /metadata/wikidata-test ----------------------------------------
         //
@@ -1296,20 +1489,26 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(isbn))
+            {
                 return ApiErrors.BadRequest("Provide ?title= or ?isbn= query parameter.");
+            }
 
             var provConfigs = configLoader.LoadAllProviders();
             var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var pc in provConfigs)
+            {
                 foreach (var (key, url) in pc.Endpoints)
+                {
                     endpointMap.TryAdd(key, url);
+                }
+            }
 
-            var apiBaseUrl    = endpointMap.GetValueOrDefault("wikidata_api", "");
+            var apiBaseUrl = endpointMap.GetValueOrDefault("wikidata_api", "");
             var sparqlBaseUrl = endpointMap.GetValueOrDefault("wikidata_sparql", "");
 
             var results = new Dictionary<string, object?>
             {
-                ["api_base_url"]    = apiBaseUrl,
+                ["api_base_url"] = apiBaseUrl,
                 ["sparql_base_url"] = sparqlBaseUrl,
             };
 
@@ -1332,9 +1531,9 @@ public static partial class MetadataEndpoints
                     {
                         using var apiClient = httpFactory.CreateClient("wikidata_api");
                         var response = await apiClient.GetAsync(searchUrl, ct);
-                        var body     = await response.Content.ReadAsStringAsync(ct);
-                        var json     = JsonNode.Parse(body) as JsonObject;
-                        var search   = json?["search"]?.AsArray();
+                        var body = await response.Content.ReadAsStringAsync(ct);
+                        var json = JsonNode.Parse(body) as JsonObject;
+                        var search = json?["search"]?.AsArray();
 
                         results["title_result_count"] = search?.Count ?? 0;
                         results["title_results"] = search?
@@ -1362,7 +1561,7 @@ public static partial class MetadataEndpoints
         .WithName("WikidataTest")
         .WithSummary("Diagnostic: test Wikidata search by title or ISBN bridge lookup.")
         .Produces<Dictionary<string, object?>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch);
 
 
         // POST /metadata/search-all
@@ -1380,11 +1579,15 @@ public static partial class MetadataEndpoints
             var searchLogger = loggerFactory.CreateLogger("MetadataFanOutSearch");
 
             if (string.IsNullOrWhiteSpace(request.Query))
+            {
                 return ApiErrors.BadRequest("query is required.");
+            }
 
             var mediaType = Domain.Enums.MediaType.Unknown;
             if (!string.IsNullOrEmpty(request.MediaType))
+            {
                 Enum.TryParse(request.MediaType, ignoreCase: true, out mediaType);
+            }
 
             var limit = Math.Clamp(request.MaxResultsPerProvider, 1, 25);
             var providerList = providers.ToList();
@@ -1412,11 +1615,11 @@ public static partial class MetadataEndpoints
 
                 var lookupRequest = new ProviderLookupRequest
                 {
-                    EntityId   = Guid.Empty,
+                    EntityId = Guid.Empty,
                     EntityType = EntityType.MediaAsset,
-                    MediaType  = mediaType,
-                    Title      = request.Query,
-                    BaseUrl    = baseUrl,
+                    MediaType = mediaType,
+                    Title = request.Query,
+                    BaseUrl = baseUrl,
                 };
 
                 try
@@ -1428,19 +1631,19 @@ public static partial class MetadataEndpoints
 
                     return new ProviderSearchResult
                     {
-                        ProviderId   = provider.ProviderId.ToString(),
+                        ProviderId = provider.ProviderId.ToString(),
                         ProviderName = provider.Name,
                         Items = results.Select(r => new FanOutSearchResultItem
                         {
-                            Title          = r.Title,
-                            Author         = r.Author,
-                            Description    = r.Description,
-                            Year           = r.Year,
-                            ThumbnailUrl   = r.ThumbnailUrl,
+                            Title = r.Title,
+                            Author = r.Author,
+                            Description = r.Description,
+                            Year = r.Year,
+                            ThumbnailUrl = r.ThumbnailUrl,
                             ProviderItemId = r.ProviderItemId,
-                            Confidence     = r.Confidence,
-                            ResultType     = r.ResultType,
-                            RawFields      = BuildRawFields(r),
+                            Confidence = r.Confidence,
+                            ResultType = r.ResultType,
+                            RawFields = BuildRawFields(r),
                         }).ToList(),
                     };
                 }
@@ -1448,9 +1651,9 @@ public static partial class MetadataEndpoints
                 {
                     return new ProviderSearchResult
                     {
-                        ProviderId   = provider.ProviderId.ToString(),
+                        ProviderId = provider.ProviderId.ToString(),
                         ProviderName = provider.Name,
-                        Error        = "Timeout (10s)",
+                        Error = "Timeout (10s)",
                     };
                 }
                 catch (Exception ex)
@@ -1459,9 +1662,9 @@ public static partial class MetadataEndpoints
                         "Fan-out search: provider {Provider} failed", provider.Name);
                     return new ProviderSearchResult
                     {
-                        ProviderId   = provider.ProviderId.ToString(),
+                        ProviderId = provider.ProviderId.ToString(),
                         ProviderName = provider.Name,
-                        Error        = ex.Message,
+                        Error = ex.Message,
                     };
                 }
             }).ToList();
@@ -1471,10 +1674,10 @@ public static partial class MetadataEndpoints
 
             var response = new FanOutSearchResponse
             {
-                Results            = providerResults.ToList(),
-                TotalProviders     = eligibleProviders.Count,
+                Results = providerResults.ToList(),
+                TotalProviders = eligibleProviders.Count,
                 RespondedProviders = providerResults.Count(r => r.Error is null),
-                ElapsedMs          = stopwatch.Elapsed.TotalMilliseconds,
+                ElapsedMs = stopwatch.Elapsed.TotalMilliseconds,
             };
 
             return Results.Ok(response);
@@ -1483,7 +1686,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Fan-out search across all eligible providers. Admin or Curator.")
         .Produces<FanOutSearchResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch);
 
         // -- GET /metadata/{entityId}/search-cache -------------------------
         group.MapGet("/{entityId:guid}/search-cache", async (
@@ -1499,7 +1702,8 @@ public static partial class MetadataEndpoints
         .WithSummary("Retrieve cached fan-out search results for an entity (30-day TTL)")
         .Produces<SearchResultsCacheResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataRead);
 
         // -- PUT /metadata/{entityId}/search-cache -------------------------
         group.MapPut("/{entityId:guid}/search-cache", async (
@@ -1508,7 +1712,10 @@ public static partial class MetadataEndpoints
             ISearchResultsCacheRepository cache) =>
         {
             if (string.IsNullOrEmpty(body.ResultsJson))
+            {
                 return ApiErrors.BadRequest("results_json is required");
+            }
+
             await cache.UpsertAsync(entityId, body.ResultsJson);
             return Results.NoContent();
         })
@@ -1516,7 +1723,8 @@ public static partial class MetadataEndpoints
         .WithSummary("Cache fan-out search results for an entity")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataMatch);
 
         // GET /metadata/canonical/{entityId}
         //
@@ -1547,7 +1755,9 @@ public static partial class MetadataEndpoints
             }
 
             if (canonicals.Count == 0)
+            {
                 return ApiErrors.NotFound($"No canonical values found for entity {entityId}.");
+            }
 
             // Load claims to determine user-lock and conflict status per field.
             var allClaims = await claimRepo.GetByEntityAsync(resolvedId, ct);
@@ -1585,9 +1795,9 @@ public static partial class MetadataEndpoints
 
                 return new CanonicalFieldDto
                 {
-                    Key          = cv.Key,
-                    Value        = cv.Value,
-                    Confidence   = (winningClaim?.Confidence ?? 0.0),
+                    Key = cv.Key,
+                    Value = cv.Value,
+                    Confidence = (winningClaim?.Confidence ?? 0.0),
                     ProviderName = providerName,
                     IsUserLocked = isUserLocked,
                     IsConflicted = isConflicted,
@@ -1597,10 +1807,11 @@ public static partial class MetadataEndpoints
             return Results.Ok(fields);
         })
         .WithName("GetCanonicalValues")
-        .WithSummary("Get all canonical values for an entity with provenance. Curator+.")
+        .WithSummary("Get canonical values and provenance for authorized metadata administration.")
         .Produces<List<CanonicalFieldDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataRead);
 
         // POST /metadata/{entityId}/cover-from-url
         //
@@ -1623,11 +1834,15 @@ public static partial class MetadataEndpoints
             var logger = loggerFactory.CreateLogger("CoverFromUrl");
 
             if (string.IsNullOrWhiteSpace(request.ImageUrl))
+            {
                 return ApiErrors.BadRequest("image_url is required.");
+            }
 
             var asset = await assetRepo.FindByIdAsync(entityId, ct);
             if (asset is null)
+            {
                 return ApiErrors.NotFound($"Media asset {entityId} not found.");
+            }
 
             var lineage = await workRepo.GetLineageByAssetAsync(entityId, ct);
             var ownerEntityId = lineage?.TargetForParentScope ?? entityId;
@@ -1641,11 +1856,15 @@ public static partial class MetadataEndpoints
                 var imageBytes = await BoundedHttpContent.ReadImageAsync(response.Content, ct);
 
                 if (imageBytes.Length == 0)
+                {
                     return ApiErrors.BadRequest("Downloaded image is empty.");
+                }
 
                 var contentType = response.Content.Headers.ContentType?.MediaType;
                 if (!ArtworkScopeService.IsArtworkUploadAllowed(contentType, "CoverArt"))
+                {
                     return ApiErrors.BadRequest("Only JPEG and PNG images are accepted.");
+                }
 
                 var variantId = Guid.NewGuid();
                 var coverPath = artworkScopeService.BuildArtworkUploadPath("Work", ownerEntityId, "CoverArt", variantId, contentType);
@@ -1700,7 +1919,8 @@ public static partial class MetadataEndpoints
         .Produces<CoverFromUrlResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataWrite)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataWrite);
 
         // -- POST /metadata/labels/resolve ---------------------------------
         group.MapPost("/labels/resolve", async (
@@ -1709,16 +1929,18 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             if (request.Qids is null || request.Qids.Count == 0)
+            {
                 return Results.Ok(new Dictionary<string, LabelResolveEntry>());
+            }
 
             var labels = await qidLabelRepo.GetLabelDetailsAsync(request.Qids, ct);
             var result = labels.ToDictionary(
                 l => l.Qid,
                 l => new LabelResolveEntry
                 {
-                    Label       = l.Label,
+                    Label = l.Label,
                     Description = l.Description,
-                    EntityType  = l.EntityType,
+                    EntityType = l.EntityType,
                 });
 
             return Results.Ok(result);
@@ -1726,7 +1948,7 @@ public static partial class MetadataEndpoints
         .WithName("ResolveLabels")
         .WithSummary("Batch-resolve Wikidata QIDs to display labels from the local cache.")
         .Produces<Dictionary<string, LabelResolveEntry>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead);
 
         // -- GET /metadata/{qid}/aliases ---------------------------------------
         //
@@ -1740,17 +1962,23 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(qid) || !qid.StartsWith("Q", StringComparison.OrdinalIgnoreCase))
+            {
                 return ApiErrors.BadRequest("qid must be a valid Wikidata QID starting with 'Q'.");
+            }
 
             if (reconciler is null)
+            {
                 return Results.Ok(new WikidataAliasesResponse(qid, null, Array.Empty<string>()));
+            }
 
             try
             {
                 var entities = await reconciler.GetEntitiesAsync([qid], "en", ct);
 
                 if (!entities.TryGetValue(qid, out var entity))
+                {
                     return Results.Ok(new WikidataAliasesResponse(qid, null, Array.Empty<string>()));
+                }
 
                 var resultLabel = entity.Label;
                 var resultAliases = (IReadOnlyList<string>)(entity.Aliases ?? []);
@@ -1773,7 +2001,10 @@ public static partial class MetadataEndpoints
                     {
                         // Strip entity URI prefix if present.
                         var slashIdx = workQid.LastIndexOf('/');
-                        if (slashIdx >= 0) workQid = workQid[(slashIdx + 1)..];
+                        if (slashIdx >= 0)
+                        {
+                            workQid = workQid[(slashIdx + 1)..];
+                        }
 
                         if (workQid.StartsWith("Q", StringComparison.OrdinalIgnoreCase))
                         {
@@ -1802,7 +2033,7 @@ public static partial class MetadataEndpoints
         .WithSummary("Returns the Wikidata label and all aliases for a given QID.")
         .Produces<WikidataAliasesResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAnyRole();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead);
 
         return app;
     }
@@ -1816,7 +2047,9 @@ public static partial class MetadataEndpoints
     {
         var launch = await metadataData.ResolveEditorLaunchAsync(entityId, ct);
         if (launch is null)
+        {
             return null;
+        }
 
         var launchDetail = await libraryItemRepo.GetDetailAsync(launch.WorkId, ct);
         var launchCanonicals = await canonicalRepo.GetByEntityAsync(launch.WorkId, ct);
@@ -1841,7 +2074,9 @@ public static partial class MetadataEndpoints
 
         var scopes = BuildEditorScopes(launch, launchDetail, canonicalMap, rootDetail, rootCanonicalMap, artistOwnerId);
         if (scopes.Count == 0)
+        {
             return null;
+        }
 
         var scopeIdentitySummaries = new Dictionary<Guid, MediaEditorIdentitySummaryEnvelope>();
         foreach (var scope in scopes
@@ -1850,11 +2085,17 @@ public static partial class MetadataEndpoints
         {
             LibraryItemDetail? scopeDetail;
             if (scope.FieldEntityId == launch.WorkId)
+            {
                 scopeDetail = launchDetail;
+            }
             else if (scope.FieldEntityId == launch.RootWorkId)
+            {
                 scopeDetail = rootDetail;
+            }
             else
+            {
                 scopeDetail = await libraryItemRepo.GetDetailAsync(scope.FieldEntityId, ct);
+            }
 
             scopeIdentitySummaries[scope.FieldEntityId] = BuildIdentitySummary(scopeDetail);
         }
@@ -1887,6 +2128,24 @@ public static partial class MetadataEndpoints
             scopeIdentitySummaries);
     }
 
+    private static async ValueTask<bool> HasEditorScopeAccessAsync(
+        HttpContext httpContext,
+        CatalogueResourceAuthorizationService resources,
+        EditorScopeResolution scope,
+        ApplicationPermissionId permission,
+        CancellationToken ct)
+    {
+        var entityId = scope.ArtworkOwnerEntityId ?? scope.FieldEntityId;
+        var entityType = scope.ArtworkOwnerEntityKind ?? scope.FieldEntityKind;
+        return !string.IsNullOrWhiteSpace(entityType) &&
+               await resources.EvaluateEntityAsync(
+                   httpContext,
+                   entityType,
+                   entityId,
+                   permission,
+                   ct).ConfigureAwait(false) == CatalogueResourceAccess.Allowed;
+    }
+
     private static bool IsContainerEditorMediaType(string? mediaType) =>
         NormalizeEditorMediaType(mediaType) is "TV" or "Music";
 
@@ -1914,15 +2173,21 @@ public static partial class MetadataEndpoints
 
         var tabs = new List<string> { "details" };
         if (normalized == "Audiobooks")
+        {
             tabs.Add("contents");
+        }
 
         if (canEditArtwork)
+        {
             tabs.Add("artwork");
+        }
 
         tabs.Add("links");
 
         if (!string.IsNullOrWhiteSpace(representativeMediaFilePath))
+        {
             tabs.Add("file");
+        }
 
         tabs.Add("history");
 
@@ -1961,7 +2226,9 @@ public static partial class MetadataEndpoints
     private static string BuildFileMetadataSyncStatus(string? filePath, string? writebackStatus)
     {
         if (string.IsNullOrWhiteSpace(filePath))
+        {
             return "No file";
+        }
 
         return (writebackStatus ?? string.Empty).Trim().ToLowerInvariant() switch
         {
@@ -1976,7 +2243,9 @@ public static partial class MetadataEndpoints
     {
         var map = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         foreach (var key in GetLockedFieldKeys(mediaType, scopeId))
+        {
             map[key] = true;
+        }
 
         return map;
     }
@@ -2299,7 +2568,9 @@ public static partial class MetadataEndpoints
     private static void AddParsedGuid(List<Guid> ids, string? value)
     {
         if (Guid.TryParse(value, out var parsed) && !ids.Contains(parsed))
+        {
             ids.Add(parsed);
+        }
     }
 
     private static async Task<string?> ResolveAssetWikidataQidAsync(
@@ -2414,23 +2685,43 @@ public static partial class MetadataEndpoints
         var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         if (!string.IsNullOrEmpty(item.Title))
+        {
             fields[MetadataFieldConstants.Title] = item.Title;
+        }
+
         if (!string.IsNullOrEmpty(item.Author))
+        {
             fields[MetadataFieldConstants.Author] = item.Author;
+        }
+
         if (!string.IsNullOrEmpty(item.Description))
+        {
             fields[MetadataFieldConstants.Description] = item.Description;
+        }
+
         if (!string.IsNullOrEmpty(item.Year))
+        {
             fields[MetadataFieldConstants.Year] = item.Year;
+        }
+
         if (!string.IsNullOrEmpty(item.ThumbnailUrl))
+        {
             fields[MetadataFieldConstants.Cover] = item.ThumbnailUrl;
+        }
+
         if (!string.IsNullOrEmpty(item.ProviderItemId))
+        {
             fields["provider_item_id"] = item.ProviderItemId;
+        }
+
         if (item.ExtraFields is { Count: > 0 })
         {
             foreach (var (key, value) in item.ExtraFields)
             {
                 if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                {
                     fields[key] = value;
+                }
             }
         }
 

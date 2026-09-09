@@ -1,15 +1,15 @@
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
-using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -57,14 +57,14 @@ public static class ScoringHelper
         var domainClaims = claims
             .Select(pc => new MetadataClaim
             {
-                Id           = Guid.NewGuid(),
-                EntityId     = entityId,
-                ProviderId   = providerId,
+                Id = Guid.NewGuid(),
+                EntityId = entityId,
+                ProviderId = providerId,
                 DecisionSourceProviderId = decisionSourceProviderId,
-                ClaimKey     = pc.Key,
-                ClaimValue   = pc.Value,
-                Confidence   = pc.Confidence,
-                ClaimedAt    = DateTimeOffset.UtcNow,
+                ClaimKey = pc.Key,
+                ClaimValue = pc.Value,
+                Confidence = pc.Confidence,
+                ClaimedAt = DateTimeOffset.UtcNow,
                 IsUserLocked = false,
             })
             .ToList();
@@ -82,7 +82,7 @@ public static class ScoringHelper
         }
 
         // Load ALL claims for this entity and re-score.
-        var allClaims       = await claimRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
+        var allClaims = await claimRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
         detectedMediaType = await ResolveDetectedMediaTypeAsync(
             entityId,
             allClaims,
@@ -97,21 +97,21 @@ public static class ScoringHelper
 
         var scoringConfig = new ScoringConfiguration
         {
-            AutoLinkThreshold     = scoringSettings.AutoLinkThreshold,
-            ConflictThreshold     = scoringSettings.ConflictThreshold,
-            ConflictEpsilon       = scoringSettings.ConflictEpsilon,
-            StaleClaimDecayDays   = scoringSettings.StaleClaimDecayDays,
+            AutoLinkThreshold = scoringSettings.AutoLinkThreshold,
+            ConflictThreshold = scoringSettings.ConflictThreshold,
+            ConflictEpsilon = scoringSettings.ConflictEpsilon,
+            StaleClaimDecayDays = scoringSettings.StaleClaimDecayDays,
             StaleClaimDecayFactor = scoringSettings.StaleClaimDecayFactor,
         };
 
         var scoringContext = new ScoringContext
         {
-            EntityId             = entityId,
-            Claims               = allClaims,
-            ProviderWeights      = providerWeights,
+            EntityId = entityId,
+            Claims = allClaims,
+            ProviderWeights = providerWeights,
             ProviderFieldWeights = providerFieldWeights,
-            Configuration        = scoringConfig,
-            DetectedMediaType    = detectedMediaType,
+            Configuration = scoringConfig,
+            DetectedMediaType = detectedMediaType,
         };
 
         var scored = await scoringEngine.ScoreEntityAsync(scoringContext, ct).ConfigureAwait(false);
@@ -122,13 +122,13 @@ public static class ScoringHelper
             .Where(f => !MetadataFieldConstants.IsMultiValued(f.Key))
             .Select(f => new CanonicalValue
             {
-                EntityId          = entityId,
-                Key               = f.Key,
-                Value             = f.WinningValue!,
-                LastScoredAt      = scored.ScoredAt,
-                IsConflicted      = f.IsConflicted,
+                EntityId = entityId,
+                Key = f.Key,
+                Value = f.WinningValue!,
+                LastScoredAt = scored.ScoredAt,
+                IsConflicted = f.IsConflicted,
                 WinningProviderId = f.WinningProviderId,
-                NeedsReview       = f.IsConflicted, // Unit 5: conflicted fields immediately flagged for review
+                NeedsReview = f.IsConflicted, // Unit 5: conflicted fields immediately flagged for review
             })
             .ToList();
 
@@ -147,11 +147,15 @@ public static class ScoringHelper
                 .Distinct(StringComparer.OrdinalIgnoreCase))
             {
                 if (winningKeys.Contains(key))
+                {
                     continue;
+                }
 
                 await canonicalRepo.DeleteByKeyAsync(entityId, key, ct).ConfigureAwait(false);
                 if (arrayRepo is not null && MetadataFieldConstants.IsMultiValued(key))
+                {
                     await arrayRepo.SetValuesAsync(entityId, key, [], ct).ConfigureAwait(false);
+                }
             }
         }
 
@@ -173,12 +177,16 @@ public static class ScoringHelper
             foreach (var fieldScore in scored.FieldScores)
             {
                 if (!MetadataFieldConstants.IsMultiValued(fieldScore.Key))
+                {
                     continue;
+                }
 
                 // Skip companion _qid keys — they are paired with their parent key below.
                 if (fieldScore.Key.EndsWith(MetadataFieldConstants.CompanionQidSuffix,
                         StringComparison.OrdinalIgnoreCase))
+                {
                     continue;
+                }
 
                 try
                 {
@@ -191,7 +199,9 @@ public static class ScoringHelper
                         .ToList();
 
                     if (winningClaims.Count == 0)
+                    {
                         continue;
+                    }
 
                     // Collect companion _qid claims from the same provider.
                     var qidKey = fieldScore.Key + MetadataFieldConstants.CompanionQidSuffix;
@@ -208,7 +218,9 @@ public static class ScoringHelper
 
                     var entries = BuildCanonicalArrayEntries(winningClaims, qidClaims);
                     if (entries.Count == 0)
+                    {
                         continue;
+                    }
 
                     // Multi-valued metadata is array-only. Remove any scalar row
                     // left from an older field classification before replacing
@@ -226,7 +238,9 @@ public static class ScoringHelper
             }
 
             if (searchIndex is not null)
+            {
                 await searchIndex.UpsertByEntityIdAsync(entityId, ct).ConfigureAwait(false);
+            }
         }
 
         return scored;
@@ -240,7 +254,9 @@ public static class ScoringHelper
         MediaType fallback = MediaType.Unknown)
     {
         if (fallback != MediaType.Unknown)
+        {
             return fallback;
+        }
 
         var claimMediaType = claims
             .Where(c => c.ClaimKey.Equals(MetadataFieldConstants.MediaTypeField, StringComparison.OrdinalIgnoreCase))
@@ -249,7 +265,9 @@ public static class ScoringHelper
             .Select(c => MediaTypeParser.Parse(c.ClaimValue))
             .FirstOrDefault(mt => mt != MediaType.Unknown);
         if (claimMediaType != MediaType.Unknown)
+        {
             return claimMediaType;
+        }
 
         var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
         var canonicalMediaType = canonicals
@@ -257,7 +275,9 @@ public static class ScoringHelper
             .Select(c => MediaTypeParser.Parse(c.Value))
             .FirstOrDefault(mt => mt != MediaType.Unknown);
         if (canonicalMediaType != MediaType.Unknown)
+        {
             return canonicalMediaType;
+        }
 
         return InferMediaTypeFromClaimKeys(claims);
     }
@@ -265,22 +285,30 @@ public static class ScoringHelper
     private static MediaType InferMediaTypeFromClaimKeys(IReadOnlyList<MetadataClaim> claims)
     {
         if (claims.Any(c => c.ClaimKey.Equals("tmdb_collection_id", StringComparison.OrdinalIgnoreCase)))
+        {
             return MediaType.Movies;
+        }
 
         if (claims.Any(c => c.ClaimKey.Equals(BridgeIdKeys.TmdbId, StringComparison.OrdinalIgnoreCase)
             || c.ClaimKey.Equals(MetadataFieldConstants.ShowName, StringComparison.OrdinalIgnoreCase)
             || c.ClaimKey.Equals(MetadataFieldConstants.EpisodeNumber, StringComparison.OrdinalIgnoreCase)))
+        {
             return MediaType.TV;
+        }
 
         if (claims.Any(c => c.ClaimKey.Equals(BridgeIdKeys.ComicVineVolumeId, StringComparison.OrdinalIgnoreCase)
             || c.ClaimKey.Equals(MetadataFieldConstants.IssueNumber, StringComparison.OrdinalIgnoreCase)))
+        {
             return MediaType.Comics;
+        }
 
         if (claims.Any(c => c.ClaimKey.Equals(BridgeIdKeys.AppleMusicCollectionId, StringComparison.OrdinalIgnoreCase)
             || c.ClaimKey.Equals(BridgeIdKeys.MusicBrainzReleaseGroupId, StringComparison.OrdinalIgnoreCase)
             || c.ClaimKey.Equals(MetadataFieldConstants.TrackNumber, StringComparison.OrdinalIgnoreCase)
             || c.ClaimKey.Equals(MetadataFieldConstants.Album, StringComparison.OrdinalIgnoreCase)))
+        {
             return MediaType.Music;
+        }
 
         return MediaType.Unknown;
     }
@@ -293,14 +321,18 @@ public static class ScoringHelper
     {
         if (!key.Equals(MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase)
             || qidClaims.Count <= 1)
+        {
             return qidClaims.ToList();
+        }
 
         var isCollectivePseudonym = allClaims.Any(c =>
             c.ProviderId == winningProviderId
             && c.ClaimKey.Equals("author_is_collective_pseudonym", StringComparison.OrdinalIgnoreCase)
             && c.ClaimValue.Equals("true", StringComparison.OrdinalIgnoreCase));
         if (!isCollectivePseudonym)
+        {
             return qidClaims.ToList();
+        }
 
         var memberQids = allClaims
             .Where(c => c.ProviderId == winningProviderId
@@ -309,7 +341,9 @@ public static class ScoringHelper
             .Where(qid => !string.IsNullOrWhiteSpace(qid))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         if (memberQids.Count == 0)
+        {
             return qidClaims.ToList();
+        }
 
         var filtered = qidClaims
             .Where(claim =>
@@ -343,7 +377,9 @@ public static class ScoringHelper
             {
                 var value = StringHelpers.FirstNonBlank(parsed.Label, parsed.Qid);
                 if (string.IsNullOrWhiteSpace(value))
+                {
                     continue;
+                }
 
                 entries.Add(new CanonicalArrayEntry
                 {
@@ -359,7 +395,9 @@ public static class ScoringHelper
                 if (string.IsNullOrWhiteSpace(value)
                     || LooksLikeAggregateContributorName(value)
                     || qidLabels.Contains(value))
+                {
                     continue;
+                }
 
                 entries.Add(new CanonicalArrayEntry
                 {
@@ -389,7 +427,9 @@ public static class ScoringHelper
         {
             var key = entry.ValueQid ?? entry.Value;
             if (string.IsNullOrWhiteSpace(entry.Value) || !seen.Add(key))
+            {
                 continue;
+            }
 
             result.Add(new CanonicalArrayEntry
             {
@@ -405,12 +445,16 @@ public static class ScoringHelper
     private static (string? Qid, string? Label) ParseQidLabel(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return (null, null);
+        }
 
         var trimmed = value.Trim();
         var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
         if (delimiter > 0)
+        {
             return (ExtractQid(trimmed[..delimiter]), StringHelpers.FirstNonBlank(trimmed[(delimiter + 2)..], null));
+        }
 
         return (ExtractQid(trimmed), null);
     }
@@ -423,12 +467,16 @@ public static class ScoringHelper
     private static string? ExtractQid(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var trimmed = value.Trim();
         var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
         if (delimiter > 0)
+        {
             trimmed = trimmed[..delimiter].Trim();
+        }
 
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
@@ -490,7 +538,9 @@ public static class ScoringHelper
         foreach (var c in claims)
         {
             if (string.IsNullOrWhiteSpace(c.Key))
+            {
                 continue;
+            }
 
             switch (ClaimScopeCatalog.GetScope(c.Key, lineage.MediaType))
             {
@@ -596,7 +646,9 @@ public static class ScoringHelper
         ClaimScope? scope)
     {
         if (providerId != WellKnownProviders.Wikidata)
+        {
             return null;
+        }
 
         var keys = StructuredDiscoveryFieldCatalog.Fields
             .Where(field => field.Source == DiscoveryFactSource.StructuredProvider)
@@ -644,7 +696,9 @@ public static class ScoringHelper
         if (parentClaims.Any(c =>
                 string.Equals(c.Key, MetadataFieldConstants.Title,
                     StringComparison.OrdinalIgnoreCase)))
+        {
             return;
+        }
 
         var isStandalone = lineage.TargetForParentScope == lineage.TargetForSelfScope;
 
@@ -671,15 +725,17 @@ public static class ScoringHelper
             // series): mint a title from the container field.
             sourceKey = lineage.MediaType switch
             {
-                MediaType.Music       => MetadataFieldConstants.Album,
-                MediaType.TV          => MetadataFieldConstants.ShowName,
-                MediaType.Comics      => MetadataFieldConstants.Series,
-                MediaType.Books       => MetadataFieldConstants.Series,
-                MediaType.Audiobooks  => MetadataFieldConstants.Series,
-                _                     => null,
+                MediaType.Music => MetadataFieldConstants.Album,
+                MediaType.TV => MetadataFieldConstants.ShowName,
+                MediaType.Comics => MetadataFieldConstants.Series,
+                MediaType.Books => MetadataFieldConstants.Series,
+                MediaType.Audiobooks => MetadataFieldConstants.Series,
+                _ => null,
             };
             if (sourceKey is null)
+            {
                 return;
+            }
 
             source = parentClaims
                 .Where(c => string.Equals(c.Key, sourceKey, StringComparison.OrdinalIgnoreCase)
@@ -689,11 +745,13 @@ public static class ScoringHelper
         }
 
         if (source is null)
+        {
             return;
+        }
 
         parentClaims.Add(new ProviderClaim(
-            Key:        MetadataFieldConstants.Title,
-            Value:      source.Value,
+            Key: MetadataFieldConstants.Title,
+            Value: source.Value,
             Confidence: source.Confidence));
 
         logger?.LogDebug(
@@ -710,7 +768,7 @@ public static class ScoringHelper
             IReadOnlyList<MediaEngine.Domain.Configuration.ProviderConfiguration> providerConfigs,
             IEnumerable<IExternalMetadataProvider> providers)
     {
-        var weights      = new Dictionary<Guid, double>();
+        var weights = new Dictionary<Guid, double>();
         Dictionary<Guid, IReadOnlyDictionary<string, double>>? fieldWeights = null;
 
         foreach (var provider in providers)
@@ -719,8 +777,15 @@ public static class ScoringHelper
                 .FirstOrDefault(p => string.Equals(p.Name, provider.Name,
                     StringComparison.OrdinalIgnoreCase));
 
-            if (provConfig is null) continue;
-            if (!provConfig.Enabled) continue;
+            if (provConfig is null)
+            {
+                continue;
+            }
+
+            if (!provConfig.Enabled)
+            {
+                continue;
+            }
 
             weights[provider.ProviderId] = provConfig.Weight;
 

@@ -21,7 +21,9 @@ public sealed class WatchlistService
     {
         var watchlist = await GetOrCreateWatchlistAsync(profileId, ct);
         if (watchlist is null)
+        {
             return null;
+        }
 
         var items = await _apiClient.GetCollectionItemsAsync(watchlist.Id, 500, profileId, ct);
         var item = items.FirstOrDefault(entry => entry.WorkId == workId);
@@ -32,7 +34,9 @@ public sealed class WatchlistService
     {
         var membership = await GetMembershipAsync(workId, profileId, ct);
         if (membership is null)
+        {
             return null;
+        }
 
         if (membership.IsInWatchlist && membership.ItemId.HasValue)
         {
@@ -49,7 +53,9 @@ public sealed class WatchlistService
 
         var added = await _apiClient.AddCollectionItemAsync(membership.CollectionId, workId, profileId, ct);
         if (!added)
+        {
             return membership;
+        }
 
         return await GetMembershipAsync(workId, profileId, ct);
     }
@@ -57,7 +63,9 @@ public sealed class WatchlistService
     private async Task<ManagedCollectionViewModel?> GetOrCreateWatchlistAsync(Guid? profileId, CancellationToken ct)
     {
         if (!profileId.HasValue)
+        {
             return null;
+        }
 
         var collections = await _apiClient.GetManagedCollectionsAsync(profileId, ct);
         var watchlist = collections.FirstOrDefault(collection =>
@@ -66,7 +74,9 @@ public sealed class WatchlistService
             && collection.ProfileId == profileId);
 
         if (watchlist is not null)
+        {
             return watchlist;
+        }
 
         var created = await _apiClient.CreateCollectionAsync(
             WatchlistName,
@@ -81,7 +91,9 @@ public sealed class WatchlistService
             ct);
 
         if (!created)
+        {
             return null;
+        }
 
         collections = await _apiClient.GetManagedCollectionsAsync(profileId, ct);
         return collections.FirstOrDefault(collection =>

@@ -158,10 +158,16 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         string? query,
         string? mediaTypes,
         IReadOnlySet<Guid> existingWorkIds,
+        IReadOnlySet<Guid> allowedWorkIds,
         int? offset,
         int? limit,
         CancellationToken ct)
     {
+        if (allowedWorkIds.Count == 0)
+        {
+            return [];
+        }
+
         var take = Math.Clamp(limit ?? 24, 1, 100);
         var skip = Math.Max(0, offset ?? 0);
         var normalizedQuery = (query ?? string.Empty).Trim();
@@ -246,6 +252,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             WHERE w.work_kind != 'catalog'
               AND ra.AssetId IS NOT NULL
               AND {visibleWorkPredicate}
+              AND w.id IN @allowedWorkIds
               AND (@mediaTypeCount = 0 OR w.media_type IN @mediaTypes)
               AND (
                     @searchLike IS NULL
@@ -268,6 +275,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                 searchLike,
                 mediaTypes = requestedMediaTypes,
                 mediaTypeCount = requestedMediaTypes.Length,
+                allowedWorkIds = allowedWorkIds.Select(GuidSql.ToBlob).ToArray(),
                 limit = take,
                 offset = skip,
             },
@@ -277,22 +285,22 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             .GroupBy(row => row.WorkId)
             .Select(group => group.First())
             .Select(row => new CollectionMediaLookupDto
-        {
-            WorkId = row.WorkId,
-            Title = row.Title,
-            Subtitle = BuildLookupSubtitle(row),
-            Creator = row.Creator,
-            MediaType = row.MediaType,
-            Year = row.Year,
-            ArtworkUrl = IsTvContainer(row.WorkKind, row.MediaType)
+            {
+                WorkId = row.WorkId,
+                Title = row.Title,
+                Subtitle = BuildLookupSubtitle(row),
+                Creator = row.Creator,
+                MediaType = row.MediaType,
+                Year = row.Year,
+                ArtworkUrl = IsTvContainer(row.WorkKind, row.MediaType)
                 ? row.RootArtworkUrl
                 : !string.IsNullOrWhiteSpace(row.ArtworkUrl)
                     ? row.ArtworkUrl
                     : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value}/cover" : null,
-            ParentContext = BuildLookupParentContext(row),
-            Route = BuildLookupRoute(row),
-            AlreadyInCollection = existingWorkIds.Contains(row.WorkId),
-        }).ToList();
+                ParentContext = BuildLookupParentContext(row),
+                Route = BuildLookupRoute(row),
+                AlreadyInCollection = existingWorkIds.Contains(row.WorkId),
+            }).ToList();
     }
 
     public async Task<List<CollectionItemDto>> ResolveItemsAsync(
@@ -396,20 +404,20 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             .GroupBy(row => row.WorkId)
             .Select(group => group.OrderBy(row => row.SortOrder).First())
             .Select(row => new CollectionItemDto
-        {
-            Id = Guid.ParseExact(row.ItemId, "D"),
-            WorkId = row.WorkId,
-            Title = row.Title,
-            Creator = row.Creator,
-            MediaType = row.MediaType,
-            CoverUrl = row.CoverAssetId.HasValue
+            {
+                Id = Guid.ParseExact(row.ItemId, "D"),
+                WorkId = row.WorkId,
+                Title = row.Title,
+                Creator = row.Creator,
+                MediaType = row.MediaType,
+                CoverUrl = row.CoverAssetId.HasValue
                 ? $"/stream/artwork/{row.CoverAssetId.Value:D}"
                 : !string.IsNullOrWhiteSpace(row.CoverUrl)
                     ? row.CoverUrl
                     : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
-            SortOrder = row.SortOrder,
-            DetailRoute = BuildResolvedItemRoute(row),
-        }).ToList();
+                SortOrder = row.SortOrder,
+                DetailRoute = BuildResolvedItemRoute(row),
+            }).ToList();
     }
 
     private static bool IsTvContainer(string? workKind, string mediaType) =>

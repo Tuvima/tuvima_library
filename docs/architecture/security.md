@@ -1,195 +1,71 @@
 ---
 title: "Security Architecture"
-summary: "Deep technical documentation for authentication, authorization, rate limiting, and secure service boundaries."
+summary: "Live account, profile, application, and resource authorization in Tuvima Library."
 audience: "developer"
 category: "architecture"
 product_area: "security"
 tags:
   - "security"
-  - "api-keys"
+  - "authentication"
   - "authorization"
 ---
 
 # Security Architecture
 
-## Secret Store
+This describes the Access implementation under final integration. Delivery evidence and remaining acceptance gates are recorded in the [Access execution status](../plans/access-architecture-2026-09-08/execution/status.md). The replacement is accepted as one cutover; individual worker checkpoints do not represent deployment.
 
-Private API keys for external metadata providers such as TMDB, Comic Vine, Fanart.tv, and OpenSubtitles are config-file secrets. Base provider definitions live under `config/providers/*.json`; long-lived local credentials belong in matching gitignored overlays under `config/secrets/{provider}.json`. A blank API key in a base provider file does not mean the effective runtime key is missing if the matching secrets file exists.
+## Accounts and profiles
 
-## Guest Key System
+An account authenticates a person and owns Read, Watch, Listen, View, actual catalogued-library grants, and administrator eligibility. A profile owns experience, restrictions, history, and Personal Space identity. Each account may hold at most eight profile grants. Sharing a profile deliberately shares that profile's experience and private space; it does not transfer another account's administrator eligibility.
 
-Any application that wants to communicate with the Engine must present a valid API key. Keys are:
+Effective administration requires an enabled account, a valid active account/profile grant, account administrator eligibility, and `AdminEnabled` on that grant. An optional grant-specific PIN protects administrator surfaces independently of sign-in and profile-selection PINs. Unlock expiry and authorization revisions are enforced by the Engine. The Dashboard consumes projected navigation/actions and never trusts a locally stored profile role or a seed-owner fallback. Editor entry uses the shared unlock prompt and revalidates before opening.
 
-- Generated inside the Engine with an assigned role (Administrator, Curator, or Consumer)
-- Given a human-readable label (e.g. "Media manager integration", "Mobile app")
-- Revocable individually without affecting any other active keys
+Local-only accounts have no invented email address and require an explicitly trusted local entry path. A localhost request alone is never an administrator identity. Public setup, authentication, recovery, and health routes are explicitly designated exceptions; other endpoints require an authenticated authority and the applicable operation/resource checks.
 
-## Mandatory Authentication
+## Applications and native clients
 
-Every Engine endpoint requires authentication, with two exceptions:
+Applications own registered service permissions. Their credentials are hashed, independently revocable, and shown once when created. Rotating a credential does not change Application permissions. `X-Api-Key` resolves the live Application and exact credential rather than a role embedded in a key.
 
-- `/system/status` - the health probe endpoint, always open without authentication
-- Localhost requests - when `MediaEngine:Security:LocalhostBypass` is `true` (the default), requests originating from the local machine are treated as Administrator without requiring a key. This preserves the local development and home-server experience.
+Server integrations and automation act as service principals. User clients additionally bind the current account, active profile grant, device, consent, and native token. Effective delegated access is their intersection. Disabling an account, grant, Application, credential, device, or token must revoke dependent access. The Dashboard service identity only authorizes its narrow transport duties; it cannot substitute for the signed-in human.
 
-All other unauthenticated requests receive `401 Unauthorized`.
+`TuvimaAuthentication` establishes identity; `IRequestAuthorityResolver` resolves current authority; `IAuthorizationEvaluator` decides registered operations. Endpoint metadata exposes those decisions for mapped-route guardrails. A valid credential alone is insufficient to authorize an operation.
 
-## Local Administrator Password Recovery
+## Resource scope
 
-Tuvima Library does not expose an anonymous password-reset endpoint, including
-on localhost. A loopback request proves where a request originated, but it does
-not prove that the person making it owns or administers the library.
+Catalogue access applies feature and actual library grants to concrete assets before representative selection, counts, grouping, pagination, and serialization. Every artwork, download, reader, HLS, queue, history, bookmark, and progress path verifies its resource independently. Multiple assets of one work do not let an allowed library reveal another library's variant. HLS grants retain exact live authority bindings, and personal writes require the current profile.
 
-Local administrator recovery has two supported paths:
+View has its own feature and resource policies. Private access resolves the exact active profile. Explicit administrator inspection remains a separate scope. Shared Library access, contributions, review, and Gallery sharing remain separate policies. A Gallery share authorizes proven Gallery members and derivatives, never sibling assets or an entire private source. View assets never enter catalogue provider enrichment. Deleting identity records must not delete original media or transfer a private space to another person.
 
-- Use one of the one-time recovery codes generated during first-run setup. A
-  successful recovery rotates the full set, so the used and previously saved
-  codes can no longer be reused.
-- Run the bundled `tuvima-admin auth reset-password` command on the Engine host.
-  The command requires an elevated Windows administrator terminal or effective
-  user ID 0 on Linux, macOS, and containers. It reads the new password from an
-  interactive, non-echoing prompt and refuses redirected input, so passwords
-  are never accepted as command-line arguments or shell input.
+## Authentication and recovery
 
-For a source checkout, run this from an elevated terminal at the repository root:
+Settings > Access contains Users, Applications, and Authentication. Authentication controls local passwords, passkeys, remote sign-in, invitation policy, local-only access, session policy, and external providers. Readiness is derived from real configuration; unavailable sign-in methods carry reasons. Verified external identities use provider, canonical issuer, and immutable subject. Email alone never silently links an identity. See [external authentication](../guides/external-authentication.md).
+
+Administrator password recovery uses one-time recovery codes or the elevated host command:
 
 ```powershell
 dotnet run --project src/MediaEngine.Admin -- auth reset-password --config-dir config
 ```
 
-For the official container image, run:
+The command takes the password through a non-echoing interactive prompt, requires operating-system administration, and refuses to create a missing database. Recovery invalidates existing security credentials/sessions according to the account recovery service. There is no anonymous localhost password-reset bypass.
 
-```bash
-docker exec -it --user 0 tuvima-library /app/admin/tuvima-admin auth reset-password
-```
+## Plugin and event boundaries
 
-The host command verifies that the named credential belongs to an Administrator,
-changes its security stamp, clears password lockout state, revokes every active
-session for that profile, rotates all recovery codes, and records a security
-audit event. It fails if it cannot locate an existing library database and never
-creates or migrates a database as part of recovery.
+Plugin execution receives host-bound identity and declared capabilities. External service permissions are separate from host capabilities. Unimplemented capabilities remain unavailable with a reason. The Fandom Lore service exposes one bounded typed operation with authorization before effects.
 
-This design follows the same physical-host proof used by established local
-servers: Jellyfin writes a short-lived reset artifact into its server data
-directory, while Immich and Grafana provide server-side administrator commands.
-Tuvima uses the command model so resetting access requires operating-system or
-container administration rather than mere access to the Dashboard URL.
+Application events use a dedicated `/application-events` hub and durable outbox. Envelopes contain `event_id`, `event_type`, `version`, `occurred_at`, `server_id`, `subject`, and `payload`; the server ID is a persisted opaque identity. Delivery rechecks the current principal and resource scope. Replay is bounded and reports gaps. Dashboard Intercom recipients also receive live account/resource checks. Its frozen Lore/Universe contract pair is unchanged; the reviewed ingestion event contracts add optional asset and pre-removal provenance fields so event authorization remains possible after deletion. Durable projection precedes best-effort Dashboard delivery, and one failed recipient does not discard the event or block other recipients. Exact live-connection and producer evidence is tracked in the execution status.
 
-## Accounts, Profiles, and External Authentication
+Webhooks belong to service Applications. Endpoint configuration, selected event permissions, and delivery are revalidated. HTTPS is the public default; explicit local-network approval permits private destinations. Loopback, link-local/metadata, redirects, proxy routing, mixed unsafe DNS answers, and DNS rebinding are rejected. Delivery signs the timestamp plus the exact UTF-8 body with HMAC-SHA256. Signing secrets appear once and are protected at rest. Retries retain a stable delivery identity, bounded queue, attempt count, and expiry; errors expose sanitized status without credentials or response bodies.
 
-The target separation of sign-in accounts from in-library profiles, including
-household profile grants, passwordless local accounts, passkeys, email recovery,
-multi-provider OIDC/OAuth, and administrator elevation, is defined in the
-[Account, Profile, and Authentication Plan](account-profile-authentication-plan.md).
+## Secrets, limits, and lifecycle
 
-The current provider-capable boundary accepts multiple provider registrations.
-OIDC and OAuth providers use separate handlers, and verified external identities
-are keyed by provider ID, canonical issuer, and immutable subject rather than by
-email. Provider setup is documented in
-[Configure External Authentication](../guides/external-authentication.md).
+Provider definitions live under `config/providers/`; long-lived provider credentials belong in gitignored overlays under `config/secrets/`. Authentication provider secrets use their dedicated protected overlay. Credentials, PINs, passwords, invitation/recovery tokens, and webhook signing secrets must not enter logs or ordinary DTOs.
 
-## Role-Based Authorization
+Rate limits apply to authentication, credential operations, streaming, general API access, and real-time connections according to the registered policies. Folder and managed-asset operations validate intended roots and provenance before disk access; authorization does not waive existing-source protection.
 
-Each API key carries one of three roles:
-
-**Administrator** - Full access to all endpoints.
-
-**Curator** - Can browse the library, stream files, read and write metadata claims, and view provider status. Cannot access admin operations, folder settings, ingestion controls, or profile management.
-
-**Consumer** - Can browse the library, stream files, and read metadata claim history. Cannot modify metadata or access any settings endpoints.
-
-## Endpoint Role Guards
-
-Authentication (via `ApiKeyMiddleware`) only proves a caller has a valid key; it does not by itself
-restrict *which* endpoints that key can reach. Role restriction is applied per endpoint through
-`RoleAuthorizationFilter` (`src/MediaEngine.Api/Security/RoleAuthorizationFilter.cs`) using three
-fluent extensions — `RequireAdmin()`, `RequireAdminOrCurator()`, `RequireAnyRole()` — with overloads
-for both an individual route (`RouteHandlerBuilder`) and a whole `MapGroup(...)` (`RouteGroupBuilder`).
-
-Guards are applied at whichever level matches the endpoint's shape:
-
-- **Group-level** — when every route under a group shares the same minimum role (for example, all of
-  `/persons`, `/library` (characters), `/timeline`, `/progress`, and the universe graph routes require
-  any authenticated role), the guard is chained directly onto the `MapGroup(...)` declaration so every
-  route mapped on that group inherits it.
-- **Per-route escalation** — a route that needs a stricter guard than its group can still add its own
-  `Require*()` call on top; both filters run, so the stricter one wins. For example, the universe graph
-  group requires any role, but `POST /universe/entity/{qid}/deep-enrich` additionally requires
-  `RequireAdminOrCurator()`.
-- **Per-route only** — groups with mixed read/write access levels (for example `/collections`,
-  `/metadata`, `/settings`) keep guards on individual routes rather than the group.
-
-Every `Require*()` call — group or route level — also attaches `RoleRequirementMetadata` (an
-endpoint-metadata record listing the allowed roles) via `WithMetadata(...)`. This makes the role
-requirement discoverable from endpoint metadata rather than only from the filter pipeline, which is
-what `RouteAuthorizationGuardrailTests` (`tests/MediaEngine.Api.Tests/RouteAuthorizationGuardrailTests.cs`)
-scans for: every mapped route in `src/MediaEngine.Api/Endpoints/*.cs` must resolve a `Require*()` guard,
-either on its own chain or on its file's `MapGroup(...)` declaration, with a narrow allowlist for
-`/system/status` (the intentionally open connectivity probe), `/health`, and Swagger.
-
-Surfaces brought under a guard as part of the security hardening pass: the universe graph endpoints
-(`/universes`, `/universe/{qid}/...`), people (`/persons/...`), library characters
-(`/library/characters/...`, `/library/portraits/...`, `/library/persons/{id}/character-roles`,
-`/library/universes/{qid}/characters`, `/library/assets/{id}`, `/library/enrichment/universe/trigger`),
-the entity timeline (`/timeline/...`), playback/reading progress (`/progress/...`), the provider
-catalogue (`/providers/catalogue`), canon discrepancy detection (`/metadata/{id}/canon-discrepancies`),
-pipeline settings (`/settings/pipelines`) and provider icons (`/settings/providers/{name}/icon`), UI
-library preferences (`/settings/ui/library-preferences`), metadata search-cache
-(`/metadata/{id}/search-cache`) and label resolution (`/metadata/labels/resolve`), and the collection
-series manifest (`/collections/{id}/series-manifest`).
-
-## API Key Lookup Cache
-
-Every authenticated request hashes the incoming `X-Api-Key` header and looks it up. Rather than hitting the database on every single request, `ApiKeyMiddleware` calls `IApiKeyLookupCache` — a private, service-owned, in-memory cache that sits in front of `IApiKeyRepository`:
-
-- Both matches and "not found" results are cached, so a flood of invalid-key guesses cannot force a database round trip per request.
-- Entries expire after 30 seconds (absolute TTL), which caps the maximum time it could take for a change to be noticed if nothing invalidated the cache proactively.
-- Creating or revoking a key (`POST /admin/api-keys`, `DELETE /admin/api-keys/{id}`, `DELETE /admin/api-keys`) clears the cache immediately, so in the normal case a revoked key stops working right away rather than waiting out the TTL. The 30-second TTL is only the worst-case ceiling.
-- The cache is capped at 1024 entries so it cannot grow without bound under a scanning/brute-force attempt.
-
-## Rate Limiting
-
-Three rate-limiting policies protect the Engine from abuse or runaway automation:
-
-| Policy | Limit |
-|--------|-------|
-| Key generation | 5 requests / minute / IP |
-| File streaming | 100 requests / minute / IP |
-| General API | 60 requests / minute / IP |
-
-The general policy is also registered as the Engine's process-wide default (`GlobalLimiter`), so every
-connection point is throttled per IP even if it never opts into a named policy explicitly. Rate limiting
-runs before API key authentication in the request pipeline, so a flood of unauthenticated requests is
-throttled before it can trigger a database lookup.
-
-A small set of paths are exempt from the general default because they either must always stay reachable
-or already carry their own, differently-tuned policy that would otherwise be double-throttled underneath it:
-
-- `/system/status`, `/health` — health/status probes that must remain reachable for monitoring
-- `/swagger` — API documentation, development-only
-- the SignalR Intercom hub path — real-time push connections, not request-driven traffic
-- `/stream`, `/read`, `/playback` — carry the higher-limit streaming policy for media playback
-- `/admin/api-keys` — carries the stricter key-generation policy
-
-## Path Traversal Protection
-
-Folder-related endpoints (`PUT /settings/libraries`,
-`PUT /settings/incoming-sources`, and `/settings/test-path`) reject paths that
-contain `..` traversal segments or target known system directories (for
-example, `C:\Windows` or `/etc`). This prevents an authorized client from
-accidentally or maliciously navigating outside the intended library roots.
-
-## SignalR Collection Authentication
-
-The real-time Intercom at `/intercom` requires authentication via one of:
-
-- `X-Api-Key` request header
-- `access_token` query string parameter
-- Localhost bypass (when `LocalhostBypass` is enabled)
-
-Unauthenticated connection attempts from non-localhost origins are rejected before the WebSocket handshake completes.
+Pre-beta obsolete database/configuration state fails fast and is rebuilt from configured sources. Do not add compatibility authorization schemas, old role readers, or automatic key conversion. This permission covers disposable application state only; original and read-only source media remain protected. The [Access cutover procedure](../plans/access-architecture-2026-09-08/execution/cutover.md) covers fresh identity state, native re-pairing, and protection of existing Personal Space directories.
 
 ## Related
 
-- [Engine API Reference](../reference/api-endpoints.md)
-- [How to Build, Test, and Verify Changes](../guides/running-tests.md)
-- [Settings Architecture and Review Queue](dashboard-ui.md)
+- [Access implementation plan](../plans/access-architecture-2026-09-08/plan.md)
+- [View privacy and storage](view-personal-media.md)
+- [Build and verification](../guides/running-tests.md)

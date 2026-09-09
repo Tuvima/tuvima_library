@@ -39,13 +39,13 @@ public sealed class TimelineRecorder
     {
         await _timelineRepo.InsertEventAsync(new EntityEvent
         {
-            EntityId       = entityId,
-            EntityType     = "Work",
-            EventType      = "retail_matched",
-            Stage          = 1,
-            Trigger        = "ingestion",
-            ProviderName   = providerName,
-            Detail         = $"Retail match: {providerName} contributed {claimCount} claim(s)",
+            EntityId = entityId,
+            EntityType = "Work",
+            EventType = "retail_matched",
+            Stage = 1,
+            Trigger = "ingestion",
+            ProviderName = providerName,
+            Detail = $"Retail match: {providerName} contributed {claimCount} claim(s)",
             IngestionRunId = runId,
         }, ct).ConfigureAwait(false);
 
@@ -81,12 +81,12 @@ public sealed class TimelineRecorder
     {
         await _timelineRepo.InsertEventAsync(new EntityEvent
         {
-            EntityId       = entityId,
-            EntityType     = "Work",
-            EventType      = "retail_no_match",
-            Stage          = 1,
-            Trigger        = "ingestion",
-            Detail         = string.IsNullOrWhiteSpace(titleHint)
+            EntityId = entityId,
+            EntityType = "Work",
+            EventType = "retail_no_match",
+            Stage = 1,
+            Trigger = "ingestion",
+            Detail = string.IsNullOrWhiteSpace(titleHint)
                 ? "No retail match found"
                 : $"No retail match found for \"{titleHint}\"",
             IngestionRunId = runId,
@@ -126,14 +126,14 @@ public sealed class TimelineRecorder
     {
         await _timelineRepo.InsertEventAsync(new EntityEvent
         {
-            EntityId       = entityId,
-            EntityType     = "Work",
-            EventType      = "wikidata_bridge_resolved",
-            Stage          = 2,
-            Trigger        = "ingestion",
-            ResolvedQid    = qid,
-            BridgeIdType   = bridgeType,
-            Detail         = $"{bridgeType} \u2192 {qid}",
+            EntityId = entityId,
+            EntityType = "Work",
+            EventType = "wikidata_bridge_resolved",
+            Stage = 2,
+            Trigger = "ingestion",
+            ResolvedQid = qid,
+            BridgeIdType = bridgeType,
+            Detail = $"{bridgeType} \u2192 {qid}",
             IngestionRunId = runId,
         }, ct).ConfigureAwait(false);
 
@@ -167,12 +167,12 @@ public sealed class TimelineRecorder
     {
         await _timelineRepo.InsertEventAsync(new EntityEvent
         {
-            EntityId       = entityId,
-            EntityType     = "Work",
-            EventType      = "wikidata_no_match",
-            Stage          = 2,
-            Trigger        = "ingestion",
-            Detail         = "No Wikidata entity found via bridge IDs or title search",
+            EntityId = entityId,
+            EntityType = "Work",
+            EventType = "wikidata_no_match",
+            Stage = 2,
+            Trigger = "ingestion",
+            Detail = "No Wikidata entity found via bridge IDs or title search",
             IngestionRunId = runId,
         }, ct).ConfigureAwait(false);
 
@@ -208,13 +208,13 @@ public sealed class TimelineRecorder
     {
         await _timelineRepo.InsertEventAsync(new EntityEvent
         {
-            EntityId       = entityId,
-            EntityType     = "Work",
-            EventType      = "wikidata_title_resolved",
-            Stage          = 2,
-            Trigger        = "ingestion",
-            ResolvedQid    = qid,
-            Detail         = $"Title search \u2192 {qid}",
+            EntityId = entityId,
+            EntityType = "Work",
+            EventType = "wikidata_title_resolved",
+            Stage = 2,
+            Trigger = "ingestion",
+            ResolvedQid = qid,
+            Detail = $"Title search \u2192 {qid}",
             IngestionRunId = runId,
         }, ct).ConfigureAwait(false);
 
@@ -254,14 +254,14 @@ public sealed class TimelineRecorder
     {
         await _timelineRepo.InsertEventAsync(new EntityEvent
         {
-            EntityId       = entityId,
-            EntityType     = "Work",
-            EventType      = "wikidata_ai_disambiguated",
-            Stage          = 2,
-            Trigger        = "ai_disambiguation",
-            ResolvedQid    = qid,
-            Confidence     = confidence,
-            Detail         = string.IsNullOrWhiteSpace(reasoning)
+            EntityId = entityId,
+            EntityType = "Work",
+            EventType = "wikidata_ai_disambiguated",
+            Stage = 2,
+            Trigger = "ai_disambiguation",
+            ResolvedQid = qid,
+            Confidence = confidence,
+            Detail = string.IsNullOrWhiteSpace(reasoning)
                 ? $"AI selected {qid} at {confidence:P0}"
                 : $"AI selected {qid} at {confidence:P0}: {reasoning}",
             IngestionRunId = runId,

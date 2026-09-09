@@ -3,6 +3,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Contracts.Operations;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Domain.Authorization;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -11,8 +12,7 @@ public static class EnrichmentRefreshEndpoints
     public static IEndpointRouteBuilder MapEnrichmentRefreshEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/ingestion/refresh-schedule")
-            .WithTags("Ingestion")
-            .RequireAnyRole();
+            .WithTags("Ingestion");
 
         group.MapGet("/", async (
             string? entityType,
@@ -26,7 +26,8 @@ public static class EnrichmentRefreshEndpoints
                 ct)))
             .WithName("GetEnrichmentRefreshSchedule")
             .WithSummary("Upcoming and active recurring enrichment refreshes.")
-            .Produces<EnrichmentRefreshScheduleResponse>();
+            .Produces<EnrichmentRefreshScheduleResponse>()
+            .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         group.MapGet("/{entityType}/{entityId:guid}", async (
             string entityType,
@@ -42,7 +43,8 @@ public static class EnrichmentRefreshEndpoints
         .WithName("GetEntityEnrichmentRefreshSchedule")
         .WithSummary("Returns one enrichment schedule without synchronizing the whole library.")
         .Produces<EnrichmentRefreshScheduleDto>()
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         group.MapPost("/{entityType}/{entityId:guid}/run-now", async (
             string entityType,
@@ -58,7 +60,7 @@ public static class EnrichmentRefreshEndpoints
         .WithName("RunEnrichmentRefreshNow")
         .WithSummary("Queue an entity for the full enrichment cycle now.")
         .Produces<EnrichmentRefreshQueuedResponse>(StatusCodes.Status202Accepted)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun);
 
         return app;
     }

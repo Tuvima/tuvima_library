@@ -92,7 +92,9 @@ public sealed class RemoteAccessReadinessService
     private async Task<NetworkTestCheckDto> CheckTailscaleAsync(CancellationToken ct)
     {
         if (!_providers.TryGetValue("tailscale", out var provider))
+        {
             return Check("tailscale", "Tailscale Serve", false, "The Tailscale deployment provider is unavailable.");
+        }
 
         var state = await provider.TestAsync(ct).ConfigureAwait(false);
         return Check(
@@ -105,7 +107,9 @@ public sealed class RemoteAccessReadinessService
     private async Task<NetworkTestCheckDto> CheckHttpsEndpointAsync(string? value, CancellationToken ct)
     {
         if (!Uri.TryCreate(value, UriKind.Absolute, out var origin) || origin.Scheme != Uri.UriSchemeHttps)
+        {
             return Check("https-endpoint", "HTTPS reverse proxy", false, "Configure an absolute HTTPS address.");
+        }
 
         var nonce = Guid.NewGuid().ToString("N");
         var probeUri = new Uri(origin, $"/_tuvima/remote-probe?nonce={nonce}");
@@ -127,7 +131,10 @@ public sealed class RemoteAccessReadinessService
         catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or System.Text.Json.JsonException)
         {
             if (ex is OperationCanceledException && ct.IsCancellationRequested)
+            {
                 throw;
+            }
+
             _logger.LogInformation(ex, "Remote HTTPS readiness probe failed for {Host}", origin.Host);
             return Check(
                 "https-endpoint",

@@ -1,6 +1,6 @@
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -54,7 +54,9 @@ public sealed class CanonDiscrepancyService : ICanonDiscrepancyService
 
         // Strip QID from URI if needed (e.g. "http://www.wikidata.org/entity/Q12345" → "Q12345").
         if (masterWorkQid.Contains('/'))
+        {
             masterWorkQid = masterWorkQid.Split('/')[^1];
+        }
 
         // Find entity IDs in the library that carry the matching wikidata_qid canonical value.
         var masterEntityIds = await _canonRepo.FindByValueAsync("wikidata_qid", masterWorkQid, ct)
@@ -89,7 +91,9 @@ public sealed class CanonDiscrepancyService : ICanonDiscrepancyService
         {
             if (!editionDict.TryGetValue(field, out var editionValue) ||
                 !masterDict.TryGetValue(field, out var masterValue))
+            {
                 continue;
+            }
 
             if (!string.Equals(editionValue, masterValue, StringComparison.OrdinalIgnoreCase))
             {

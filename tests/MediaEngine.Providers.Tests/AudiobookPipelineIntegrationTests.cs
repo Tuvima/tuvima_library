@@ -1,12 +1,12 @@
 using System.Text.Json;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 using Xunit.Abstractions;
 
@@ -44,8 +44,8 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     public AudiobookPipelineIntegrationTests(ITestOutputHelper output)
     {
-        _output        = output;
-        _adapter       = BuildReconciliationAdapter();
+        _output = output;
+        _adapter = BuildReconciliationAdapter();
         _appleApiAdapter = BuildAppleApiAdapter();
     }
 
@@ -79,10 +79,10 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
     public async Task Reconcile_AudiobookWithUnabridgedSuffix_CleanedVersionResolvesWithHigherScore()
     {
         // Simulate what a raw M4B tag often contains — title with "(Unabridged)" suffix.
-        var rawTitle   = "Project Hail Mary (Unabridged)";
+        var rawTitle = "Project Hail Mary (Unabridged)";
         var cleanTitle = "Project Hail Mary";
 
-        var rawResults   = await _adapter.ReconcileAsync(rawTitle);
+        var rawResults = await _adapter.ReconcileAsync(rawTitle);
         await Task.Delay(500); // polite rate-limit gap
         var cleanResults = await _adapter.ReconcileAsync(cleanTitle);
 
@@ -145,7 +145,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
         var dateValues = workProps["P577"];
         Assert.NotEmpty(dateValues);
         var dateValue = dateValues[0];
-        var yearStr   = dateValue.Value?.Kind == WikidataValueKind.Time
+        var yearStr = dateValue.Value?.Kind == WikidataValueKind.Time
             ? dateValue.Value.RawValue
             : dateValue.Value?.RawValue ?? string.Empty;
         Assert.Contains("2021", yearStr, StringComparison.Ordinal);
@@ -164,7 +164,9 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
         _output.WriteLine($"\n═══ Audiobook Edition Discovery: Q190159 (Dune) — {editions.Count} audiobook edition(s) ═══");
         foreach (var ed in editions)
+        {
             _output.WriteLine($"  narrator={ed.Narrator}  duration={ed.Duration}  asin={ed.ASIN}  publisher={ed.Publisher}");
+        }
 
         // We do not assert Count > 0 here because P747 coverage varies on Wikidata.
         // We assert the call completed without exception and returned a valid (possibly empty) list.
@@ -182,12 +184,12 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
     {
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobooks,
-            Title      = "Project Hail Mary",
-            Author     = "Andy Weir",
-            BaseUrl    = "https://itunes.apple.com",
+            MediaType = MediaType.Audiobooks,
+            Title = "Project Hail Mary",
+            Author = "Andy Weir",
+            BaseUrl = "https://itunes.apple.com",
         };
 
         var claims = await _appleApiAdapter.FetchAsync(request);
@@ -213,12 +215,12 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
     {
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Books,
-            Title      = "Project Hail Mary",
-            Author     = "Andy Weir",
-            BaseUrl    = "https://itunes.apple.com",
+            MediaType = MediaType.Books,
+            Title = "Project Hail Mary",
+            Author = "Andy Weir",
+            BaseUrl = "https://itunes.apple.com",
         };
 
         var claims = await _appleApiAdapter.FetchAsync(request);
@@ -290,7 +292,9 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
         _output.WriteLine($"  Authors ({authors.Count}):");
         foreach (var a in authors)
+        {
             _output.WriteLine($"    id={a.Value?.EntityId}  label={a.Value?.RawValue}");
+        }
     }
 
     // ── 8. Pen name detection: The Expanse / James S.A. Corey ────────────────
@@ -330,7 +334,9 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
         Assert.NotEmpty(authorValues);
         _output.WriteLine($"  P50 values ({authorValues.Count}):");
         foreach (var a in authorValues)
+        {
             _output.WriteLine($"    id={a.Value?.EntityId}  label={a.Value?.RawValue}");
+        }
     }
 
     // ── 9. FilterByMediaType: Dune novel passes Books and Audiobooks filters ──
@@ -429,7 +435,7 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
         LogCandidates("Reconcile: Dune (Audiobooks)", audiobooksResults);
 
         // Both should resolve Q190192 (the canonical Wikidata item for the Dune novel).
-        var booksMatch     = booksResults.FirstOrDefault(r =>
+        var booksMatch = booksResults.FirstOrDefault(r =>
             string.Equals(r.Id, "Q190192", StringComparison.OrdinalIgnoreCase));
         var audiobooksMatch = audiobooksResults.FirstOrDefault(r =>
             string.Equals(r.Id, "Q190192", StringComparison.OrdinalIgnoreCase));
@@ -450,11 +456,11 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
         // Simulates ingesting an M4B file tagged "Dune" by "Frank Herbert".
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobooks,
-            Title      = "Dune",
-            Author     = "Frank Herbert",
+            MediaType = MediaType.Audiobooks,
+            Title = "Dune",
+            Author = "Frank Herbert",
         };
 
         var claims = await _adapter.FetchAsync(request);
@@ -527,19 +533,21 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
     {
         var request = new ProviderLookupRequest
         {
-            EntityId   = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
             EntityType = EntityType.MediaAsset,
-            MediaType  = MediaType.Audiobooks,
-            Title      = "Dune",
-            Author     = "Frank Herbert",
-            BaseUrl    = "https://itunes.apple.com",
+            MediaType = MediaType.Audiobooks,
+            Title = "Dune",
+            Author = "Frank Herbert",
+            BaseUrl = "https://itunes.apple.com",
         };
 
         var results = await _appleApiAdapter.SearchAsync(request, limit: 10);
 
         _output.WriteLine($"\n═══ Apple API SearchAsync (Audiobook): Dune — {results.Count} result(s) ═══");
         foreach (var r in results)
+        {
             _output.WriteLine($"  \"{r.Title}\"  by {r.Author}  ({r.Year})  confidence={r.Confidence:F2}");
+        }
 
         Assert.NotEmpty(results);
 
@@ -566,9 +574,9 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
 
     private static ReconciliationAdapter BuildReconciliationAdapter()
     {
-        var root   = FindRepoRoot();
-        var path   = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
-        var json   = File.ReadAllText(path);
+        var root = FindRepoRoot();
+        var path = Path.Combine(root, "config", "providers", "wikidata_reconciliation.json");
+        var json = File.ReadAllText(path);
         var config = JsonSerializer.Deserialize<ReconciliationProviderConfig>(json, s_jsonOptions)
                      ?? throw new InvalidOperationException("Failed to deserialize wikidata_reconciliation.json");
 
@@ -586,12 +594,12 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
     private static ConfigDrivenAdapter BuildAppleApiAdapter()
     {
         // Use apple_api.json if present (renamed from apple_books.json), fall back to apple_books.json.
-        var root     = FindRepoRoot();
-        var apiPath  = Path.Combine(root, "config", "providers", "apple_api.json");
+        var root = FindRepoRoot();
+        var apiPath = Path.Combine(root, "config", "providers", "apple_api.json");
         var fallback = Path.Combine(root, "config", "providers", "apple_books.json");
-        var path     = File.Exists(apiPath) ? apiPath : fallback;
-        var json     = File.ReadAllText(path);
-        var config   = JsonSerializer.Deserialize<ProviderConfiguration>(json, s_jsonOptions)
+        var path = File.Exists(apiPath) ? apiPath : fallback;
+        var json = File.ReadAllText(path);
+        var config = JsonSerializer.Deserialize<ProviderConfiguration>(json, s_jsonOptions)
                        ?? throw new InvalidOperationException($"Failed to deserialize {Path.GetFileName(path)}");
 
         var factory = BuildHttpFactory(config.Name);
@@ -604,7 +612,10 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
         while (dir != null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
         throw new InvalidOperationException("Could not find repository root (.git directory)");
@@ -632,7 +643,10 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
     {
         _output.WriteLine($"\n═══ {label} — {candidates.Count} candidate(s) ═══");
         foreach (var c in candidates)
+        {
             _output.WriteLine($"  {c.Id}  \"{c.Name}\"  score={c.Score:F1}  match={c.Match}  desc={c.Description}");
+        }
+
         _output.WriteLine("");
     }
 
@@ -646,10 +660,10 @@ public sealed class AudiobookPipelineIntegrationTests : IDisposable
             {
                 foreach (var v in values)
                 {
-                    var str       = v.Value?.Kind == WikidataValueKind.String ? v.Value.RawValue : null;
-                    var id        = v.Value?.EntityId;
+                    var str = v.Value?.Kind == WikidataValueKind.String ? v.Value.RawValue : null;
+                    var id = v.Value?.EntityId;
                     var monoLabel = v.Value?.Kind == WikidataValueKind.MonolingualText ? v.Value.RawValue : null;
-                    var date      = v.Value?.Kind == WikidataValueKind.Time ? v.Value.RawValue : null;
+                    var date = v.Value?.Kind == WikidataValueKind.Time ? v.Value.RawValue : null;
                     _output.WriteLine($"    [{pCode}]  str={str}  id={id}  label={monoLabel}  date={date}");
                 }
             }

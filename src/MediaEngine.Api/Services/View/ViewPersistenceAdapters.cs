@@ -11,12 +11,17 @@ namespace MediaEngine.Api.Services.View;
 public sealed class ViewScopePersistenceService(
     IProfileRepository profiles,
     IViewProfileRepository policies,
-    IViewPersonalSpaceRepository spaces) : IViewScopeStore
+    IViewPersonalSpaceRepository spaces,
+    IDatabaseConnection database) : IViewScopeStore
 {
     public async Task<ViewScopeStoreEntry?> FindProfileAsync(Guid profileId, CancellationToken ct = default)
     {
         var profile = await profiles.GetByIdAsync(profileId, ct).ConfigureAwait(false);
-        if (profile is null) return null;
+        if (profile is null)
+        {
+            return null;
+        }
+
         return new ViewScopeStoreEntry(
             await policies.GetPolicyAsync(profileId, ct).ConfigureAwait(false),
             await spaces.GetByOwnerAsync(profileId, ct).ConfigureAwait(false),
@@ -39,6 +44,15 @@ public sealed class ViewScopePersistenceService(
         }
         return result;
     }
+
+    public Task<Guid?> GetSharedLibraryIdAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var connection = database.CreateConnection();
+        return Task.FromResult(connection.QuerySingleOrDefault<Guid?>(new CommandDefinition(
+            "SELECT library_id FROM view_shared_library WHERE singleton_key = 1;",
+            cancellationToken: ct)));
+    }
 }
 
 public sealed class ViewResourcePersistenceService(
@@ -56,7 +70,11 @@ public sealed class ViewResourcePersistenceService(
         if (kind == ViewResourceKind.Gallery)
         {
             var gallery = await galleries.GetAsync(resourceId, ct).ConfigureAwait(false);
-            if (gallery is null) return null;
+            if (gallery is null)
+            {
+                return null;
+            }
+
             var space = await spaces.GetByOwnerAsync(gallery.OwnerProfileId, ct).ConfigureAwait(false);
             var shares = await galleries.GetSharesAsync(resourceId, ct).ConfigureAwait(false);
             return new ViewResourceDescriptor(
@@ -70,9 +88,14 @@ public sealed class ViewResourcePersistenceService(
         }
 
         var item = assets.Find(resourceId, ct);
-        if (item is null) return null;
-        var explicitProfiles = await GetExplicitAssetRecipientsAsync(item.Id, requestingProfileId, ct)
-            .ConfigureAwait(false);
+        if (item is null)
+        {
+            return null;
+        }
+
+        var explicitProfiles = requestingProfileId == Guid.Empty
+            ? new HashSet<Guid>()
+            : await GetExplicitAssetRecipientsAsync(item.Id, requestingProfileId, ct).ConfigureAwait(false);
         using var connection = database.CreateConnection();
         var isSharedLibraryAsset = connection.ExecuteScalar<int>(new Dapper.CommandDefinition(
             "SELECT COUNT(*) FROM view_shared_assets WHERE item_id = @itemId;",
@@ -95,6 +118,51 @@ public sealed class ViewResourcePersistenceService(
             .ConfigureAwait(false)
             ? new HashSet<Guid> { requestingProfileId }
             : new HashSet<Guid>();
+    }
+
+    public Task<LocalAssetContentLocation?> ResolveContentAsync(Guid itemId, string role,
+        ResolvedViewScope scope, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var connection = database.CreateConnection();
+        var row = connection.QueryFirstOrDefault<AuthorizedContentRow>(new CommandDefinition("""
+            SELECT li.id AS ItemId, lf.id AS FileId, li.library_id AS LibraryId,
+                   li.owner_profile_id AS OwnerProfileId, lfs.source_id AS SourceId,
+                   lfs.device_id AS DeviceId, lfs.file_path AS FilePath,
+                   lf.mime_type AS MimeType, lf.byte_size AS ByteSize,
+                   lf.content_hash AS ContentHash, lif.role AS Role,
+                   lif.derivative_kind AS DerivativeKind
+              FROM local_items li
+              JOIN local_item_files lif ON lif.item_id=li.id AND lif.role=@role
+              JOIN local_files lf ON lf.id=lif.file_id
+              JOIN local_file_sources lfs ON lfs.file_id=lf.id AND lfs.library_id=li.library_id
+              JOIN view_sources vs ON vs.id=lfs.source_id AND vs.library_id=li.library_id
+             WHERE li.id=@itemId AND li.library_id=@libraryId
+               AND ((li.scope_kind='shared' AND vs.scope_kind='shared' AND vs.personal_space_id IS NULL)
+                 OR (li.scope_kind='personal' AND vs.scope_kind='personal'
+                     AND vs.personal_space_id=li.personal_space_id))
+             ORDER BY lfs.indexed_at DESC, lfs.id LIMIT 1;
+            """, new { itemId, role, libraryId = scope.LibraryIds.Single() }, cancellationToken: ct));
+        return Task.FromResult(row is null ? null : new LocalAssetContentLocation(
+            row.ItemId, row.FileId, row.LibraryId, row.OwnerProfileId,
+            row.SourceId, row.DeviceId, row.FilePath, row.MimeType, row.ByteSize,
+            row.ContentHash, row.Role, row.DerivativeKind));
+    }
+
+    private sealed class AuthorizedContentRow
+    {
+        public Guid ItemId { get; init; }
+        public Guid FileId { get; init; }
+        public Guid LibraryId { get; init; }
+        public Guid? OwnerProfileId { get; init; }
+        public Guid? SourceId { get; init; }
+        public Guid? DeviceId { get; init; }
+        public string FilePath { get; init; } = "";
+        public string MimeType { get; init; } = "";
+        public long ByteSize { get; init; }
+        public string ContentHash { get; init; } = "";
+        public string Role { get; init; } = "";
+        public string? DerivativeKind { get; init; }
     }
 }
 
@@ -131,7 +199,11 @@ public static class ViewTimelineCursorCodec
 {
     public static string? Encode(LocalAssetTimelineCursor? cursor)
     {
-        if (cursor is null) return null;
+        if (cursor is null)
+        {
+            return null;
+        }
+
         var value = string.Create(
             CultureInfo.InvariantCulture,
             $"{cursor.EffectiveAt.UtcTicks}:{cursor.ItemId:N}");
@@ -141,7 +213,11 @@ public static class ViewTimelineCursorCodec
 
     public static LocalAssetTimelineCursor? Decode(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
         try
         {
             var normalized = value.Replace('-', '+').Replace('_', '/');
@@ -151,7 +227,10 @@ public static class ViewTimelineCursorCodec
             if (separator <= 0
                 || !long.TryParse(decoded[..separator], NumberStyles.None, CultureInfo.InvariantCulture, out var ticks)
                 || !Guid.TryParseExact(decoded[(separator + 1)..], "N", out var itemId))
+            {
                 throw new FormatException();
+            }
+
             return new LocalAssetTimelineCursor(new DateTimeOffset(ticks, TimeSpan.Zero), itemId);
         }
         catch (Exception exception) when (exception is FormatException or ArgumentOutOfRangeException)

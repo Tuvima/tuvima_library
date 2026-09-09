@@ -483,6 +483,44 @@ public sealed class LibraryItemProjectionTests : IDisposable
         Assert.Equal("721429965", detail.RetailProviderItemId);
     }
 
+    [Fact]
+    public async Task LibraryItemDetail_UsesOnlyValidatedPreferredAssetAsRepresentative()
+    {
+        var (workId, firstAssetId) = await BuildStandaloneWorkAsync("Books");
+        var secondEditionId = Guid.NewGuid();
+        var secondAssetId = Guid.NewGuid();
+        using (var connection = _db.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO editions (id, work_id) VALUES (@secondEditionId, @workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@secondAssetId, @secondEditionId, @hash, @filePath, 'Normal');
+                """,
+                new
+                {
+                    secondEditionId,
+                    workId,
+                    secondAssetId,
+                    hash = $"hash_{secondAssetId:N}",
+                    filePath = $"/allowed/{secondAssetId:N}.epub",
+                });
+        }
+        await InsertCanonicalAsync(firstAssetId, "title", "Denied edition title");
+        await InsertCanonicalAsync(secondAssetId, "title", "Allowed edition title");
+
+        var repository = new LibraryItemRepository(_db);
+        var detail = await repository.GetDetailAsync(workId, secondAssetId);
+
+        Assert.NotNull(detail);
+        Assert.Equal("Allowed edition title", detail!.Title);
+        Assert.Equal($"/allowed/{secondAssetId:N}.epub", detail.FilePath);
+
+        var (otherWorkId, otherAssetId) = await BuildStandaloneWorkAsync("Books");
+        Assert.Null(await repository.GetDetailAsync(workId, otherAssetId));
+        Assert.Null(await repository.GetDetailAsync(otherWorkId, firstAssetId));
+    }
+
     private async Task<(Guid WorkId, Guid AssetId)> BuildStandaloneWorkAsync(string mediaType)
     {
         using var conn = _db.CreateConnection();

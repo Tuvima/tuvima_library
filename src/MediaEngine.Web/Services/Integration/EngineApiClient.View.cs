@@ -127,7 +127,10 @@ public sealed partial class EngineApiClient
     public Task<ViewSharedContributionPageDto?> GetViewSharedContributionsAsync(string mode = "mine", string? status = null, int offset = 0, int limit = 50, CancellationToken ct = default) =>
         GetAsync<ViewSharedContributionPageDto>("GET /view/shared/contributions", "/view/shared/contributions", new Dictionary<string, string?>
         {
-            ["mode"] = mode, ["status"] = status, ["offset"] = offset.ToString(), ["limit"] = limit.ToString(),
+            ["mode"] = mode,
+            ["status"] = status,
+            ["offset"] = offset.ToString(),
+            ["limit"] = limit.ToString(),
         }, ct: ct);
     public Task<ViewSharedContributionDto?> GetViewSharedContributionAsync(Guid contributionId, CancellationToken ct = default) =>
         GetAsync<ViewSharedContributionDto>("GET /view/shared/contributions/{id}", $"/view/shared/contributions/{contributionId:D}", ct: ct);
@@ -201,7 +204,11 @@ public sealed partial class EngineApiClient
         {
             using var response = await _http.PutAsJsonAsync(
                 $"/view/admin/profiles/{profileId:D}/sources/{sourceId:D}", request, ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             return await response.Content.ReadFromJsonAsync<ViewSourceAdminDto>(cancellationToken: ct);
         }
         catch (OperationCanceledException) { return null; }

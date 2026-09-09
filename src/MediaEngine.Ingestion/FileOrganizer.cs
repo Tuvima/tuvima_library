@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Ingestion;
 
@@ -109,7 +109,7 @@ public sealed class FileOrganizer : IFileOrganizer
     // Sentinel characters used to stand in for literal `{` and `}` while the
     // template is being resolved. They are unescaped in the cleanup pass.
     // Using control characters that cannot legally appear in any path segment.
-    private const char OpenBraceSentinel  = '\u0001';
+    private const char OpenBraceSentinel = '\u0001';
     private const char CloseBraceSentinel = '\u0002';
 
     // Matches any remaining {Token} references not inside parentheses.
@@ -170,34 +170,34 @@ public sealed class FileOrganizer : IFileOrganizer
         // Build sample tokens with representative values.
         var sampleTokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Title"]       = "Sample Book",
-            ["Author"]      = "Jane Author",
-            ["Year"]        = "2024",
-            ["MediaType"]   = "Epub",
-            ["Extension"]   = "epub",
-            ["Ext"]         = ".epub",
-            ["Series"]      = "Great Series",
-            ["Publisher"]   = "Publisher Co",
-            ["Category"]    = "Books",
-            ["CollectionName"]     = "Sample Book",
-            ["Format"]      = "Epub",
-            ["Edition"]     = "Hardcover",
-            ["Qid"]         = "Q190159",
-            ["Artist"]      = "Sample Artist",
+            ["Title"] = "Sample Book",
+            ["Author"] = "Jane Author",
+            ["Year"] = "2024",
+            ["MediaType"] = "Epub",
+            ["Extension"] = "epub",
+            ["Ext"] = ".epub",
+            ["Series"] = "Great Series",
+            ["Publisher"] = "Publisher Co",
+            ["Category"] = "Books",
+            ["CollectionName"] = "Sample Book",
+            ["Format"] = "Epub",
+            ["Edition"] = "Hardcover",
+            ["Qid"] = "Q190159",
+            ["Artist"] = "Sample Artist",
             ["AlbumArtist"] = "Sample Album Artist",
-            ["Album"]       = "Sample Album",
-            ["BookTitle"]   = "Sample Audiobook",
-            ["TrackTitle"]  = "Chapter One",
+            ["Album"] = "Sample Album",
+            ["BookTitle"] = "Sample Audiobook",
+            ["TrackTitle"] = "Chapter One",
             ["TrackNumber"] = "01",
-            ["Season"]      = "01",
-            ["Episode"]     = "01",
+            ["Season"] = "01",
+            ["Episode"] = "01",
             ["EpisodeTitle"] = "Pilot",
-            ["Disc"]        = string.Empty,
+            ["Disc"] = string.Empty,
             ["IssueNumber"] = "001",
-            ["ImdbId"]      = "tt1234567",
-            ["TmdbId"]      = "12345",
-            ["TvdbId"]      = "67890",
-            ["Hash6"]       = "a1b2c3",
+            ["ImdbId"] = "tt1234567",
+            ["TmdbId"] = "12345",
+            ["TvdbId"] = "67890",
+            ["Hash6"] = "a1b2c3",
         };
 
         string resolved = ResolveTemplate(template, sampleTokens);
@@ -245,7 +245,9 @@ public sealed class FileOrganizer : IFileOrganizer
         // Ensure the destination directory exists.
         string? destDir = Path.GetDirectoryName(destinationPath);
         if (!string.IsNullOrEmpty(destDir))
+        {
             Directory.CreateDirectory(destDir);
+        }
 
         // If the source is already at the requested destination, there is
         // nothing left to do.
@@ -332,7 +334,7 @@ public sealed class FileOrganizer : IFileOrganizer
         // token is non-empty, or collapsed entirely when empty.
         string resolved = BridgeIdGroupRegex.Replace(template1, match =>
         {
-            string prefix    = match.Groups[1].Value;
+            string prefix = match.Groups[1].Value;
             string tokenName = match.Groups[2].Value;
             bool hasLeadingSpace = match.Value.Length > 0 && char.IsWhiteSpace(match.Value[0]);
 
@@ -363,7 +365,9 @@ public sealed class FileOrganizer : IFileOrganizer
             {
                 string sanitized = Sanitize(value);
                 if (!string.IsNullOrWhiteSpace(sanitized) && sanitized != "Unknown")
+                {
                     return hasLeadingSpace ? $" ({sanitized})" : $"({sanitized})";
+                }
             }
 
             // Token is empty/missing — collapse the entire group.
@@ -387,7 +391,7 @@ public sealed class FileOrganizer : IFileOrganizer
 
         // Unescape bridge-ID sentinel braces back to literal `{` / `}`.
         resolved = resolved
-            .Replace(OpenBraceSentinel,  '{')
+            .Replace(OpenBraceSentinel, '{')
             .Replace(CloseBraceSentinel, '}');
 
         // Trim each path segment individually, then drop any segment that
@@ -401,7 +405,11 @@ public sealed class FileOrganizer : IFileOrganizer
         {
             string trimmed = segments[i].Trim();
             bool isLast = i == segments.Length - 1;
-            if (trimmed.Length == 0 && !isLast) continue;
+            if (trimmed.Length == 0 && !isLast)
+            {
+                continue;
+            }
+
             kept.Add(trimmed);
         }
         resolved = string.Join('/', kept);
@@ -425,33 +433,33 @@ public sealed class FileOrganizer : IFileOrganizer
 
         var tokens = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Title"]     = meta.GetValueOrDefault(MetadataFieldConstants.Title,     "Unknown"),
-            ["Author"]    = meta.GetValueOrDefault(MetadataFieldConstants.Author,    "Unknown"),
-            ["Year"]      = meta.GetValueOrDefault(MetadataFieldConstants.Year,      string.Empty),
+            ["Title"] = meta.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown"),
+            ["Author"] = meta.GetValueOrDefault(MetadataFieldConstants.Author, "Unknown"),
+            ["Year"] = meta.GetValueOrDefault(MetadataFieldConstants.Year, string.Empty),
             ["MediaType"] = candidate.DetectedMediaType?.ToString() ?? "Unknown",
             ["Extension"] = ext.TrimStart('.'),
-            ["Ext"]       = ext,     // includes the dot — e.g. ".epub"
-            ["Series"]    = meta.GetValueOrDefault(MetadataFieldConstants.Series,    "") is { Length: > 0 } sv
+            ["Ext"] = ext,     // includes the dot — e.g. ".epub"
+            ["Series"] = meta.GetValueOrDefault(MetadataFieldConstants.Series, "") is { Length: > 0 } sv
                               ? sv
                               : meta.GetValueOrDefault("show_name", string.Empty),
             ["Publisher"] = meta.GetValueOrDefault(MetadataFieldConstants.PublisherField, "Unknown"),
             // ── Collection-First template tokens ────────────────────────────────────────
-            ["Category"]  = ResolveCategoryFromMediaType(candidate.DetectedMediaType),
-            ["CollectionName"]   = meta.GetValueOrDefault(MetadataFieldConstants.Title,   "Unknown"),
-            ["Format"]    = candidate.DetectedMediaType?.ToString() ?? "Unknown",
-            ["Edition"]   = meta.GetValueOrDefault("edition", string.Empty),
-            ["Qid"]       = meta.GetValueOrDefault("wikidata_qid") is { Length: > 0 } q ? q : "Q0",
+            ["Category"] = ResolveCategoryFromMediaType(candidate.DetectedMediaType),
+            ["CollectionName"] = meta.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown"),
+            ["Format"] = candidate.DetectedMediaType?.ToString() ?? "Unknown",
+            ["Edition"] = meta.GetValueOrDefault("edition", string.Empty),
+            ["Qid"] = meta.GetValueOrDefault("wikidata_qid") is { Length: > 0 } q ? q : "Q0",
             // ── Per-media-type tokens ────────────────────────────────────────────
-            ["Artist"]      = meta.GetValueOrDefault(MetadataFieldConstants.Artist,       meta.GetValueOrDefault(MetadataFieldConstants.Author, "Unknown")),
+            ["Artist"] = meta.GetValueOrDefault(MetadataFieldConstants.Artist, meta.GetValueOrDefault(MetadataFieldConstants.Author, "Unknown")),
             ["AlbumArtist"] = meta.GetValueOrDefault("album_artist", meta.GetValueOrDefault(MetadataFieldConstants.Artist, meta.GetValueOrDefault(MetadataFieldConstants.Author, "Unknown"))),
-            ["Album"]       = meta.GetValueOrDefault(MetadataFieldConstants.Album,        "Unknown"),
-            ["BookTitle"]   = meta.GetValueOrDefault("book_title", meta.GetValueOrDefault(MetadataFieldConstants.Album, meta.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown"))),
-            ["TrackTitle"]  = meta.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown"),
+            ["Album"] = meta.GetValueOrDefault(MetadataFieldConstants.Album, "Unknown"),
+            ["BookTitle"] = meta.GetValueOrDefault("book_title", meta.GetValueOrDefault(MetadataFieldConstants.Album, meta.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown"))),
+            ["TrackTitle"] = meta.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown"),
             ["TrackNumber"] = PadNumeric(meta.GetValueOrDefault(MetadataFieldConstants.TrackNumber, string.Empty) is { Length: > 0 } track
                                   ? track
                                   : meta.GetValueOrDefault("audiobook_part_number", string.Empty)),
-            ["Season"]      = PadNumeric(meta.GetValueOrDefault("season",  "") is { Length: > 0 } sn ? sn : meta.GetValueOrDefault("season_number",  string.Empty)),
-            ["Episode"]     = PadNumeric(meta.GetValueOrDefault("episode", "") is { Length: > 0 } ep ? ep : meta.GetValueOrDefault("episode_number", string.Empty)),
+            ["Season"] = PadNumeric(meta.GetValueOrDefault("season", "") is { Length: > 0 } sn ? sn : meta.GetValueOrDefault("season_number", string.Empty)),
+            ["Episode"] = PadNumeric(meta.GetValueOrDefault("episode", "") is { Length: > 0 } ep ? ep : meta.GetValueOrDefault("episode_number", string.Empty)),
             // ── TV episode title (Plex/Jellyfin filename convention) ─────────────
             ["EpisodeTitle"] = meta.GetValueOrDefault("episode_title", "") is { Length: > 0 } et
                                   ? et
@@ -460,7 +468,7 @@ public sealed class FileOrganizer : IFileOrganizer
             // Optional segment — collapses cleanly when used with the conditional
             // group syntax `({Disc})` so single-disc albums don't get a stray
             // "Disc 01/" subfolder.
-            ["Disc"]        = meta.GetValueOrDefault("disc", "") is { Length: > 0 } d
+            ["Disc"] = meta.GetValueOrDefault("disc", "") is { Length: > 0 } d
                                   ? PadNumeric(d)
                                   : meta.GetValueOrDefault("disc_number", string.Empty) is { Length: > 0 } dn
                                       ? PadNumeric(dn)
@@ -472,19 +480,23 @@ public sealed class FileOrganizer : IFileOrganizer
             // organized by Tuvima drop straight into Plex / Jellyfin without further
             // intervention. Bridge IDs are populated into the metadata bag by the
             // ConfigDrivenAdapter / hydration pipeline using the BridgeIdKeys names.
-            ["ImdbId"]      = meta.GetValueOrDefault(BridgeIdKeys.ImdbId, string.Empty),
-            ["TmdbId"]      = meta.GetValueOrDefault(BridgeIdKeys.TmdbId, string.Empty),
-            ["TvdbId"]      = meta.GetValueOrDefault(BridgeIdKeys.TvdbId, string.Empty),
+            ["ImdbId"] = meta.GetValueOrDefault(BridgeIdKeys.ImdbId, string.Empty),
+            ["TmdbId"] = meta.GetValueOrDefault(BridgeIdKeys.TmdbId, string.Empty),
+            ["TvdbId"] = meta.GetValueOrDefault(BridgeIdKeys.TvdbId, string.Empty),
             // ── Content hash token for collision avoidance ──────────────────────
-            ["Hash6"]       = meta.TryGetValue("content_hash", out var hash) && hash.Length >= 6
+            ["Hash6"] = meta.TryGetValue("content_hash", out var hash) && hash.Length >= 6
                                   ? hash[..6]
                                   : string.Empty,
         };
 
         // Merge caller-supplied extras (allow overriding built-ins).
         if (extra is not null)
+        {
             foreach (var (k, v) in extra)
+            {
                 tokens[k] = v;
+            }
+        }
 
         return tokens;
     }
@@ -501,15 +513,22 @@ public sealed class FileOrganizer : IFileOrganizer
     /// </summary>
     private static string Sanitize(string value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
 
         var sb = new System.Text.StringBuilder(value.Length);
         foreach (char c in value)
         {
             if (Array.IndexOf(InvalidPathChars, c) >= 0)
+            {
                 sb.Append('_');
+            }
             else
+            {
                 sb.Append(c);
+            }
         }
 
         // Collapse sequences of spaces and trim.
@@ -523,13 +542,13 @@ public sealed class FileOrganizer : IFileOrganizer
     /// </summary>
     private static string ResolveCategoryFromMediaType(MediaType? mt) => mt switch
     {
-        MediaType.Books      => "Books",
-        MediaType.Comics     => "Comics",
-        MediaType.Movies     => "Movies",
-        MediaType.TV         => "TV",
+        MediaType.Books => "Books",
+        MediaType.Comics => "Comics",
+        MediaType.Movies => "Movies",
+        MediaType.TV => "TV",
         MediaType.Audiobooks => "Audiobooks",
-        MediaType.Music      => "Music",
-        _                   => "Other",  // Unknown, null — caught by upstream guard
+        MediaType.Music => "Music",
+        _ => "Other",  // Unknown, null — caught by upstream guard
     };
 
     /// <summary>
@@ -538,7 +557,11 @@ public sealed class FileOrganizer : IFileOrganizer
     /// </summary>
     private static string PadNumeric(string value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return value;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
         return int.TryParse(value.Trim(), out int n) ? n.ToString("D2") : value.Trim();
     }
 
@@ -548,16 +571,22 @@ public sealed class FileOrganizer : IFileOrganizer
     /// </summary>
     private static string ResolveCollision(string path)
     {
-        if (!File.Exists(path)) return path;
+        if (!File.Exists(path))
+        {
+            return path;
+        }
 
-        string dir  = Path.GetDirectoryName(path) ?? string.Empty;
+        string dir = Path.GetDirectoryName(path) ?? string.Empty;
         string stem = Path.GetFileNameWithoutExtension(path);
-        string ext  = Path.GetExtension(path);
+        string ext = Path.GetExtension(path);
 
         for (int i = 2; i < 10_000; i++)
         {
             string candidate = Path.Combine(dir, $"{stem} ({i}){ext}");
-            if (!File.Exists(candidate)) return candidate;
+            if (!File.Exists(candidate))
+            {
+                return candidate;
+            }
         }
 
         // Extremely unlikely: fall back to a GUID suffix.

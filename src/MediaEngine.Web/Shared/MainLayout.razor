@@ -6,6 +6,9 @@
 @inject UniverseStateContainer State
 @inject ShellActivityState Activity
 @inject DashboardAuthUiOptions AuthUi
+@inject DashboardSessionAccessor _session
+@inject DashboardIdentityClient Identity
+@inject AuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager Nav
 @inject IStringLocalizer<SharedStrings> L
 @inject ILogger<MainLayout> Logger
@@ -18,6 +21,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Resources
 @using Microsoft.Extensions.Localization
+@using Microsoft.AspNetCore.Components.Authorization
 
 <MudThemeProvider Theme="@ThemeService.Theme" IsDarkMode="true" />
 <MudPopoverProvider />
@@ -163,6 +167,8 @@
     private Guid? _activeProfileId;
     private int _reviewCount;
     private int _accountMenuVersion;
+    private readonly CancellationTokenSource _authorityRefreshCancellation = new();
+    private Task? _authorityRefreshTask;
     private List<ProfileViewModel> _profiles = [];
     private DotNetObjectReference<MainLayout>? _dotNetRef;
 
@@ -198,8 +204,8 @@
         ? "main-content-with-topbar main-content-with-topbar--cinematic"
         : "main-content-with-topbar";
     private string MainContainerClass => IsCinematicShell ? "px-0 py-0" : "py-6 px-0";
-    private bool CanViewReview => SettingsNav.IsVisible(SettingsSection.Review, _profileRole);
-    private bool CanViewSystemActivity => SettingsNav.IsVisible(SettingsSection.Ingestion, _profileRole);
+    private bool CanViewReview => _session.HasNavigation("settings.administration");
+    private bool CanViewSystemActivity => _session.HasNavigation("settings.administration");
     private IReadOnlyList<ShellNavLink> IntentDockLinks => DeviceContext.Settings.Shell.IntentDockItems
         .Select(item => _intentDockCatalog.TryGetValue(item, out var link) ? link : (ShellNavLink?)null)
         .Where(link => link.HasValue)
@@ -221,6 +227,7 @@
         Nav.LocationChanged += OnLocationChanged;
         State.OnStateChanged += OnUniverseStateChanged;
         Orchestrator.OnEngineConnectionStateChanged += OnEngineConnectionStateChanged;
+        _session.OnAuthorityChanged += OnAuthorityChanged;
         SyncLocationState();
     }
 
@@ -244,8 +251,11 @@
 
         await JS.InvokeVoidAsync("setThemeClass");
 
+        await InitializeCircuitAuthorityAsync();
         await SyncCultureAsync();
         await LoadActiveProfileAsync();
+        _authorityRefreshTask = Identity.RunAuthorityRefreshLoopAsync(
+            _session, TimeSpan.FromMinutes(1), _authorityRefreshCancellation.Token);
         await LoadReviewCountAsync();
         await Orchestrator.StartSignalRAsync();
         await Activity.InitializeAsync();
@@ -274,6 +284,8 @@
     {
         InvokeAsync(StateHasChanged);
     }
+
+    private void OnAuthorityChanged() => InvokeAsync(StateHasChanged);
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
@@ -337,6 +349,23 @@
         }
     }
 
+    private async Task InitializeCircuitAuthorityAsync()
+    {
+        try
+        {
+            var principal = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+            _session.InitializeFromPrincipal(principal);
+            await Identity.EnsureInitialAuthorityAsync(_session, _authorityRefreshCancellation.Token);
+        }
+        catch (OperationCanceledException) when (_authorityRefreshCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            Logger.LogDebug(exception, "Could not initialize Dashboard authority for this circuit.");
+        }
+    }
+
     private async Task LoadActiveProfileAsync()
     {
         try
@@ -354,9 +383,9 @@
             _displayName = string.IsNullOrWhiteSpace(profile.DisplayName)
                 ? "User"
                 : profile.DisplayName.Trim();
-            _profileRole = string.IsNullOrWhiteSpace(profile.Role)
-                ? "Profile"
-                : profile.Role.Trim();
+            _profileRole = _session.Authority?.EffectiveAdministrator == true
+                ? "Administrator"
+                : "Profile";
             _avatarInitial = GetAvatarInitial(_displayName);
         }
         catch (Exception ex)
@@ -424,6 +453,21 @@
         Orchestrator.OnReviewCountChanged -= OnReviewCountChanged;
         Orchestrator.OnProfileChanged -= OnProfileChanged;
         Orchestrator.OnEngineConnectionStateChanged -= OnEngineConnectionStateChanged;
+        _session.OnAuthorityChanged -= OnAuthorityChanged;
+        _authorityRefreshCancellation.Cancel();
+        if (_authorityRefreshTask is not null)
+        {
+            try
+            {
+                await _authorityRefreshTask;
+            }
+            catch (OperationCanceledException) when (_authorityRefreshCancellation.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Dashboard authority refresh did not stop cleanly during layout disposal.");
+            }
+        }
+        _authorityRefreshCancellation.Dispose();
         State.OnStateChanged -= OnUniverseStateChanged;
 
         try

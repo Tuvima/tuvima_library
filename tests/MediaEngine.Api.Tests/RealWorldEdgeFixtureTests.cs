@@ -39,7 +39,9 @@ public sealed class RealWorldEdgeFixtureTests
         finally
         {
             if (Directory.Exists(root))
+            {
                 Directory.Delete(root, recursive: true);
+            }
         }
     }
 

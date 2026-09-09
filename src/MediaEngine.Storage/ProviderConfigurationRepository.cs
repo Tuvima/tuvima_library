@@ -20,13 +20,13 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
     private const string Mask = "********";
 
     private readonly IDatabaseConnection _db;
-    private readonly ISecretStore        _secrets;
+    private readonly ISecretStore _secrets;
 
     public ProviderConfigurationRepository(IDatabaseConnection db, ISecretStore secrets)
     {
         ArgumentNullException.ThrowIfNull(db);
         ArgumentNullException.ThrowIfNull(secrets);
-        _db      = db;
+        _db = db;
         _secrets = secrets;
     }
 
@@ -49,9 +49,9 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
         var results = rows.ConvertAll(r => new ProviderConfiguration
         {
             ProviderId = providerId,
-            Key        = r.Key,
-            Value      = r.IsSecret == 1 ? Mask : string.Empty,
-            IsSecret   = r.IsSecret == 1,
+            Key = r.Key,
+            Value = r.IsSecret == 1 ? Mask : string.Empty,
+            IsSecret = r.IsSecret == 1,
         });
 
         return Task.FromResult<IReadOnlyList<ProviderConfiguration>>(results);
@@ -76,7 +76,9 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
             """, new { providerId, key });
 
         if (row == default)
+        {
             return Task.FromResult<string?>(null);
+        }
 
         // Decrypt if secret; return raw value otherwise.
         // SECURITY: result is never logged — callers must observe the same rule.
@@ -116,7 +118,7 @@ public sealed class ProviderConfigurationRepository : IProviderConfigurationRepo
         {
             providerId,
             key,
-            value    = storedValue,
+            value = storedValue,
             isSecret = isSecret ? 1 : 0,
         });
 

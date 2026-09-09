@@ -35,7 +35,7 @@ public sealed class PersonExtractionTests
         Assert.Contains(refs, r =>
             r.Name == "Terry Pratchett" && r.Role == "Author" && r.WikidataQid == "Q46248");
         Assert.Contains(refs, r =>
-            r.Name == "Neil Gaiman"     && r.Role == "Author" && r.WikidataQid == "Q210112");
+            r.Name == "Neil Gaiman" && r.Role == "Author" && r.WikidataQid == "Q210112");
     }
 
     // ── Single author ─────────────────────────────────────────────────────────
@@ -53,8 +53,8 @@ public sealed class PersonExtractionTests
 
         Assert.Single(refs);
         Assert.Equal("Frank Herbert", refs[0].Name);
-        Assert.Equal("Author",        refs[0].Role);
-        Assert.Equal("Q44413",        refs[0].WikidataQid);
+        Assert.Equal("Author", refs[0].Role);
+        Assert.Equal("Q44413", refs[0].WikidataQid);
     }
 
     // ── Performer → Narrator role mapping ────────────────────────────────────
@@ -72,8 +72,8 @@ public sealed class PersonExtractionTests
 
         Assert.Single(refs);
         Assert.Equal("Tim Gerard Reynolds", refs[0].Name);
-        Assert.Equal("Narrator",            refs[0].Role);
-        Assert.Equal("Q123456",             refs[0].WikidataQid);
+        Assert.Equal("Narrator", refs[0].Role);
+        Assert.Equal("Q123456", refs[0].WikidataQid);
     }
 
     // ── Deduplication when narrator and performer refer to the same person ────
@@ -112,8 +112,8 @@ public sealed class PersonExtractionTests
         var refs = Extract(claims);
 
         Assert.Equal(2, refs.Count);
-        Assert.Contains(refs, r => r.Name == "Andy Weir"   && r.Role == "Author");
-        Assert.Contains(refs, r => r.Name == "Ray Porter"  && r.Role == "Narrator");
+        Assert.Contains(refs, r => r.Name == "Andy Weir" && r.Role == "Author");
+        Assert.Contains(refs, r => r.Name == "Ray Porter" && r.Role == "Narrator");
     }
 
     // ── No person claims at all ───────────────────────────────────────────────

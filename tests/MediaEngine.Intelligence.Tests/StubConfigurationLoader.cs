@@ -1,7 +1,7 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Intelligence.Tests;
 

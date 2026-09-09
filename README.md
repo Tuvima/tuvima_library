@@ -253,7 +253,7 @@ Current builds include:
   trusted Shared/Mine scopes, cursor-paged Photos, local search, reversible
   lifecycle state, Manual/Smart Galleries, and Collection Gallery/rule sources.
 - Inline corrections and a Review Queue for items that need help.
-- Settings for libraries, providers, profiles, local AI, plugins, ingestion, and system health.
+- Settings for libraries, providers, Access users/applications/authentication, local AI, plugins, ingestion, and system health. The Access replacement separates sign-in accounts from profiles, grants access to actual libraries, and gives integrations their own revocable credentials; see [implementation status](docs/plans/access-architecture-2026-09-08/execution/status.md) for final acceptance gates.
 - Guided setup with live password feedback, optional profile PIN, readable recovery codes, and media folders that can be added later.
 - Operations shares batch progress with the navbar, refreshes active media and artwork, and keeps completed batch history separate. Resumed batches remain visible after a restart. Track, episode, and comic issue additions show counts without provider totals or per-item completion bars.
 - View library settings explain the shared storage base and private profile spaces. Folders are created when files are first written, rather than when a profile is configured.

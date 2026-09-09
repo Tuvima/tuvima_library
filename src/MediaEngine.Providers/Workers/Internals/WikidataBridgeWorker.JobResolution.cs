@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -10,7 +11,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
 
@@ -36,7 +36,9 @@ public sealed partial class WikidataBridgeWorker
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.BridgeSearching, ct: ct);
 
         if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType))
+        {
             mediaType = MediaType.Unknown;
+        }
 
         WorkLineage? lineage = null;
         if (string.Equals(job.EntityType, "MediaAsset", StringComparison.OrdinalIgnoreCase))
@@ -79,7 +81,7 @@ public sealed partial class WikidataBridgeWorker
         var resolutionScope = ResolveBridgeResolutionScope(mediaType);
         bridgeIds = OrderBridgeIdsForResolution(mediaType, resolutionScope, bridgeIds);
 
-        var bridgeDict    = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var bridgeDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var wikidataProps = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var bridge in bridgeIds)
@@ -90,7 +92,10 @@ public sealed partial class WikidataBridgeWorker
             {
                 if (string.Equals(bridge.IdType, BridgeIdKeys.TmdbId, StringComparison.OrdinalIgnoreCase)
                     && mediaType == MediaType.TV)
+                {
                     pCode = "P4983";
+                }
+
                 wikidataProps.TryAdd(bridge.IdType, pCode);
             }
         }
@@ -111,21 +116,21 @@ public sealed partial class WikidataBridgeWorker
                 lineage?.TargetForParentScope);
 
         var ctx = new JobContext(
-            Job:           job,
-            MediaType:     mediaType,
-            BridgeIds:     bridgeIds,
-            BridgeDict:    bridgeDict,
+            Job: job,
+            MediaType: mediaType,
+            BridgeIds: bridgeIds,
+            BridgeDict: bridgeDict,
             WikidataProps: wikidataProps,
-            TitleHint:     titleHint,
-            AuthorHint:    authorHint,
-            YearHint:      yearHint,
-            AlbumHint:     albumHint,
-            ArtistHint:    artistHint,
-            SeriesHint:    seriesHint,
-            LanguageHint:  languageHint,
-            SeasonNumber:  seasonNumber,
+            TitleHint: titleHint,
+            AuthorHint: authorHint,
+            YearHint: yearHint,
+            AlbumHint: albumHint,
+            ArtistHint: artistHint,
+            SeriesHint: seriesHint,
+            LanguageHint: languageHint,
+            SeasonNumber: seasonNumber,
             EpisodeNumber: episodeNumber,
-            IssueNumber:   issueNumber);
+            IssueNumber: issueNumber);
 
         // Resolve QID for this single job via the unified facade.
         try
@@ -141,10 +146,10 @@ public sealed partial class WikidataBridgeWorker
                 ctx.PrimaryBridgeIdType = result.PrimaryBridgeIdType;
                 ctx.MatchedBy = result.MatchedBy switch
                 {
-                    ResolveStrategy.MusicAlbum         => "music_album",
-                    ResolveStrategy.BridgeId           => "bridge_id",
-                    ResolveStrategy.TextSearch         => "retail_text",
-                    _                                  => null,
+                    ResolveStrategy.MusicAlbum => "music_album",
+                    ResolveStrategy.BridgeId => "bridge_id",
+                    ResolveStrategy.TextSearch => "retail_text",
+                    _ => null,
                 };
 
                 // Persist the resolution method as a canonical value (mirrors batch path).
@@ -182,7 +187,9 @@ public sealed partial class WikidataBridgeWorker
         await FinaliseJobAsync(ctx, reconAdapter, allCandidates, ct);
 
         if (allCandidates.Count > 0)
+        {
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);
+        }
     }
 
     internal static (
@@ -255,7 +262,9 @@ public sealed partial class WikidataBridgeWorker
                 GetCanonical(canonicals, "issue"),
                 GetCanonical(canonicals, MetadataFieldConstants.SeriesPosition));
             if (!string.IsNullOrWhiteSpace(seriesHint))
+            {
                 titleHint = seriesHint;
+            }
 
             authorHint ??= GetCanonical(canonicals, "writer")
                 ?? GetCanonical(canonicals, MetadataFieldConstants.Illustrator);
@@ -302,14 +311,20 @@ public sealed partial class WikidataBridgeWorker
     private bool ShouldAllowConstrainedTextFallback(JobContext ctx)
     {
         if (!string.Equals(ctx.Job.State, IdentityJobState.RetailMatched.ToString(), StringComparison.OrdinalIgnoreCase))
+        {
             return false;
+        }
 
         if (string.IsNullOrWhiteSpace(ctx.TitleHint))
+        {
             return false;
+        }
 
         var policy = LoadBridgeResolutionScope(ResolveBridgeResolutionScope(ctx.MediaType));
         if (policy?.AllowConstrainedTextFallback != true)
+        {
             return false;
+        }
 
         return ctx.MediaType switch
         {
@@ -324,11 +339,15 @@ public sealed partial class WikidataBridgeWorker
     private static int? TryParsePositiveOrdinal(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var trimmed = value.Trim();
         if (int.TryParse(trimmed, out var parsed) && parsed >= 0)
+        {
             return parsed;
+        }
 
         var digits = new string(trimmed
             .SkipWhile(c => !char.IsDigit(c))
@@ -352,7 +371,9 @@ public sealed partial class WikidataBridgeWorker
         void AddEntries(Guid entityId, Func<string, bool> include)
         {
             if (!allBridgeIds.TryGetValue(entityId, out var entityEntries))
+            {
                 return;
+            }
 
             foreach (var entry in entityEntries)
             {
@@ -364,7 +385,9 @@ public sealed partial class WikidataBridgeWorker
                 }
 
                 if (seen.Add($"{entry.IdType}\u001f{entry.IdValue}"))
+                {
                     entries.Add(entry);
+                }
             }
         }
 
@@ -373,7 +396,9 @@ public sealed partial class WikidataBridgeWorker
         AddEntries(jobEntityId, _ => true);
 
         if (lineage is null)
+        {
             return entries;
+        }
 
         var selfId = lineage.TargetForSelfScope;
         var parentId = lineage.TargetForParentScope;
@@ -412,7 +437,9 @@ public sealed partial class WikidataBridgeWorker
             }
 
             if (!seen.Add($"{canonical.Key}\u001f{canonical.Value}"))
+            {
                 continue;
+            }
 
             entries.Add(new BridgeIdEntry
             {
@@ -448,11 +475,15 @@ public sealed partial class WikidataBridgeWorker
         }
 
         if (bridgeIds.Count <= 1)
+        {
             return bridgeIds;
+        }
 
         var priority = BuildBridgeIdPriority(mediaType);
         if (priority.Count == 0)
+        {
             return bridgeIds;
+        }
 
         return bridgeIds
             .Select((entry, index) => (Entry: entry, Index: index))
@@ -485,7 +516,9 @@ public sealed partial class WikidataBridgeWorker
         };
 
         if (scope is not null)
+        {
             AddDistinctAdditionalClaim(ctx, MetadataFieldConstants.WikidataQidScope, scope, 1.0);
+        }
     }
 
     private BridgeResolutionScopeConfiguration? LoadBridgeResolutionScope(string scope) =>
@@ -500,13 +533,17 @@ public sealed partial class WikidataBridgeWorker
         foreach (var provider in GetExecutionSnapshot().Providers)
         {
             if (provider.PreferredBridgeIds is null)
+            {
                 continue;
+            }
 
             var keys = ResolvePreferredBridgeIds(provider.PreferredBridgeIds, mediaType);
             foreach (var key in keys)
             {
                 if (!string.IsNullOrWhiteSpace(key) && !priority.ContainsKey(key))
+                {
                     priority[key] = priority.Count;
+                }
             }
         }
 
@@ -518,7 +555,9 @@ public sealed partial class WikidataBridgeWorker
         MediaType mediaType)
     {
         if (preferredBridgeIds.TryGetValue(mediaType.ToString(), out var direct))
+        {
             return direct;
+        }
 
         if (mediaType == MediaType.TV
             && preferredBridgeIds.TryGetValue("TV Shows", out var tvShows))
@@ -537,19 +576,27 @@ public sealed partial class WikidataBridgeWorker
         WorkLineage? lineage)
     {
         if (entityId == jobEntityId || lineage is null)
+        {
             return true;
+        }
 
         var selfId = lineage.TargetForSelfScope;
         var parentId = lineage.TargetForParentScope;
 
         if (selfId == parentId)
+        {
             return entityId == selfId;
+        }
 
         if (entityId == selfId)
+        {
             return !ClaimScopeCatalog.IsParentScoped(key, mediaType);
+        }
 
         if (entityId == parentId)
+        {
             return ClaimScopeCatalog.IsParentScoped(key, mediaType);
+        }
 
         return false;
     }
@@ -565,15 +612,21 @@ public sealed partial class WikidataBridgeWorker
         void AddValues(Guid entityId)
         {
             if (!allCanonicals.TryGetValue(entityId, out var entityValues))
+            {
                 return;
+            }
 
             foreach (var value in entityValues)
             {
                 if (string.IsNullOrWhiteSpace(value.Key))
+                {
                     continue;
+                }
 
                 if (seen.Add($"{value.Key}\u001f{value.Value}"))
+                {
                     values.Add(value);
+                }
             }
         }
 
@@ -591,10 +644,14 @@ public sealed partial class WikidataBridgeWorker
     private static string? BuildComicTitleHint(string seriesHint, string? titleHint)
     {
         if (string.IsNullOrWhiteSpace(titleHint))
+        {
             return seriesHint;
+        }
 
         if (TitleAlreadyIncludesSeries(titleHint, seriesHint))
+        {
             return titleHint;
+        }
 
         return $"{seriesHint} {titleHint}".Trim();
     }
@@ -605,7 +662,9 @@ public sealed partial class WikidataBridgeWorker
         var normalizedSeries = RetailTextSimilarity.NormalizeComparableText(series);
 
         if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
+        {
             return false;
+        }
 
         return normalizedTitle.Equals(normalizedSeries, StringComparison.Ordinal)
             || normalizedTitle.StartsWith(normalizedSeries + " ", StringComparison.Ordinal)

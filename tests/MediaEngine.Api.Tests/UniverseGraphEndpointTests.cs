@@ -33,14 +33,32 @@ public sealed class UniverseGraphEndpointTests
         Assert.True(start >= 0 && end > start);
 
         var graphRoute = source[start..end];
-        Assert.Contains("entityRepo.GetWorkLinksAsync(", graphRoute, StringComparison.Ordinal);
-        Assert.Contains("allEntities.Select(entity => entity.Id)", graphRoute, StringComparison.Ordinal);
+        Assert.Contains("LoadVisibleUniverseScopeAsync(", graphRoute, StringComparison.Ordinal);
+        Assert.Contains("entityRepo.GetWorkLinksAsync(", source, StringComparison.Ordinal);
+        Assert.Contains("allEntities.Select(entity => entity.Id)", source, StringComparison.Ordinal);
+        Assert.Contains("visibleWorkQids.Contains(link.WorkQid)", source, StringComparison.Ordinal);
         Assert.Contains("eraActorResolver.ResolveActorsForEraAsync(", graphRoute, StringComparison.Ordinal);
         Assert.Contains("BuildEgoNetwork(center, maxDepth, entityQids, relationships)", graphRoute, StringComparison.Ordinal);
         Assert.Contains("ApiImageUrls.BuildPersonHeadshotUrl(", graphRoute, StringComparison.Ordinal);
         Assert.DoesNotContain("GetWorkLinksAsync(entity.Id", graphRoute, StringComparison.Ordinal);
         Assert.DoesNotContain("relRepo.GetByEntityAsync", graphRoute, StringComparison.Ordinal);
         Assert.DoesNotContain("ResolveActorForEraAsync", graphRoute, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VisibleUniverseEntitiesRequireProvenanceFromAnAuthorizedWork()
+    {
+        var visible = new FictionalEntity { Id = Guid.NewGuid(), WikidataQid = "Q1" };
+        var withheld = new FictionalEntity { Id = Guid.NewGuid(), WikidataQid = "Q2" };
+        IReadOnlyList<MediaEngine.Domain.Contracts.FictionalEntityWorkLink> visibleLinks =
+        [
+            new(visible.Id, "Q100", "Visible work", "appears_in"),
+        ];
+
+        var filtered = UniverseGraphEndpoints.FilterVisibleEntities(
+            [visible, withheld], visibleLinks);
+
+        Assert.Equal(visible.Id, Assert.Single(filtered).Id);
     }
 
     private static EntityRelationship Edge(string subject, string target) => new()

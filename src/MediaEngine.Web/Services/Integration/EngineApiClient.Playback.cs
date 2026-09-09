@@ -3,19 +3,19 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Progress;
 using MediaEngine.Contracts.Reading;
 using MediaEngine.Contracts.Reports;
-using MediaEngine.Domain.Models;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -194,10 +194,15 @@ public sealed partial class EngineApiClient
         {
             var tracks = await _http.GetFromJsonAsync<List<TextTrackDto>>($"/stream/{assetId}/text-tracks", ct);
             if (tracks is null)
+            {
                 return [];
+            }
 
             foreach (var track in tracks)
+            {
                 track.Url = AbsoluteUrl(track.Url);
+            }
+
             return tracks;
         }
         catch (OperationCanceledException) { return []; }
@@ -214,7 +219,9 @@ public sealed partial class EngineApiClient
         {
             var response = await _http.GetAsync($"/stream/{assetId}/lyrics", ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return null;
+            }
 
             return await response.Content.ReadAsStringAsync(ct);
         }
@@ -236,11 +243,15 @@ public sealed partial class EngineApiClient
             request.Headers.TryAddWithoutValidation("Idempotency-Key", Guid.NewGuid().ToString("N"));
             using var response = await _http.SendAsync(request, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return null;
+            }
 
             var queued = await response.Content.ReadFromJsonAsync<RefreshTextTracksResponse>(cancellationToken: ct);
             if (queued?.operation_id is not { } operationId)
+            {
                 return queued;
+            }
 
             for (var attempt = 0; attempt < 40; attempt++)
             {
@@ -248,7 +259,9 @@ public sealed partial class EngineApiClient
                 var detail = await GetMediaOperationAsync(operationId, ct);
                 var operation = detail?.Operation;
                 if (operation is null || operation.Status is "queued" or "leased" or "running" or "pending" or "interrupted")
+                {
                     continue;
+                }
 
                 return queued with
                 {
@@ -295,7 +308,10 @@ public sealed partial class EngineApiClient
             form.Add(fileContent, "file", fileName);
             using var response = await _http.PostAsync($"/stream/{assetId:D}/text-tracks/import", form, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return null;
+            }
+
             return await response.Content.ReadFromJsonAsync<RefreshTextTracksResponse>(cancellationToken: ct);
         }
         catch (OperationCanceledException) { return null; }
@@ -455,36 +471,41 @@ public sealed partial class EngineApiClient
         {
             var url = $"/api/v1/progress/journey?limit={limit}";
             if (userId.HasValue)
+            {
                 url += $"&userId={userId.Value}";
+            }
+
             if (collectionId.HasValue)
+            {
                 url += $"&collectionId={collectionId.Value}";
+            }
 
             var raw = await _http.GetFromJsonAsync<List<JourneyItemDto>>(url, ct);
             return raw?.Select(j => new JourneyItemViewModel
             {
-                AssetId        = j.AssetId,
-                WorkId         = j.WorkId,
-                CollectionId          = j.CollectionId,
-                Title          = j.Title,
-                Author         = j.Author,
-                CoverUrl       = j.CoverUrl is not null ? AbsoluteUrl(j.CoverUrl) : null,
-                BackgroundUrl  = j.BackgroundUrl is not null ? AbsoluteUrl(j.BackgroundUrl) : null,
-                BannerUrl      = j.BannerUrl is not null ? AbsoluteUrl(j.BannerUrl) : null,
-                HeroUrl        = j.HeroUrl  is not null ? AbsoluteUrl(j.HeroUrl)  : null,
-                LogoUrl        = j.LogoUrl  is not null ? AbsoluteUrl(j.LogoUrl)  : null,
+                AssetId = j.AssetId,
+                WorkId = j.WorkId,
+                CollectionId = j.CollectionId,
+                Title = j.Title,
+                Author = j.Author,
+                CoverUrl = j.CoverUrl is not null ? AbsoluteUrl(j.CoverUrl) : null,
+                BackgroundUrl = j.BackgroundUrl is not null ? AbsoluteUrl(j.BackgroundUrl) : null,
+                BannerUrl = j.BannerUrl is not null ? AbsoluteUrl(j.BannerUrl) : null,
+                HeroUrl = j.HeroUrl is not null ? AbsoluteUrl(j.HeroUrl) : null,
+                LogoUrl = j.LogoUrl is not null ? AbsoluteUrl(j.LogoUrl) : null,
                 CoverWidthPx = j.CoverWidthPx,
                 CoverHeightPx = j.CoverHeightPx,
                 BackgroundWidthPx = j.BackgroundWidthPx,
                 BackgroundHeightPx = j.BackgroundHeightPx,
                 BannerWidthPx = j.BannerWidthPx,
                 BannerHeightPx = j.BannerHeightPx,
-                Narrator       = j.Narrator,
-                Series         = j.Series,
+                Narrator = j.Narrator,
+                Series = j.Series,
                 SeriesPosition = j.SeriesPosition,
-                Description    = j.Description,
-                MediaType      = j.MediaType,
-                ProgressPct    = j.ProgressPct,
-                LastAccessed   = j.LastAccessed,
+                Description = j.Description,
+                MediaType = j.MediaType,
+                ProgressPct = j.ProgressPct,
+                LastAccessed = j.LastAccessed,
                 CollectionDisplayName = j.CollectionDisplayName,
                 ExtendedProperties = j.ExtendedProperties,
             }).ToList() ?? [];
@@ -497,7 +518,7 @@ public sealed partial class EngineApiClient
         }
     }
 
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid Profile, Guid Asset),long> _progressRevisions = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(Guid Profile, Guid Asset), long> _progressRevisions = new();
 
     public async Task<bool> SaveProgressAsync(
         Guid assetId, Guid? userId = null, double progressPct = 0,
@@ -514,9 +535,17 @@ public sealed partial class EngineApiClient
                 extended_properties = extendedProperties,
             };
             var resp = await _http.PutAsJsonAsync($"/api/v1/progress/{assetId}", body, ct);
-            if (!resp.IsSuccessStatusCode) return false;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return false;
+            }
+
             var saved = await resp.Content.ReadFromJsonAsync<UserStateResponse>(ct);
-            if (saved is not null) _progressRevisions[(_progressProfile?.ProfileId ?? Guid.Empty, assetId)] = saved.Revision;
+            if (saved is not null)
+            {
+                _progressRevisions[(_progressProfile?.ProfileId ?? Guid.Empty, assetId)] = saved.Revision;
+            }
+
             return true;
         }
         catch (Exception ex)
@@ -544,7 +573,11 @@ public sealed partial class EngineApiClient
 
             resp.EnsureSuccessStatusCode();
             var state = await resp.Content.ReadFromJsonAsync<UserStateResponse>(ct);
-            if (state is not null) _progressRevisions[(_progressProfile?.ProfileId ?? Guid.Empty, assetId)] = state.Revision;
+            if (state is not null)
+            {
+                _progressRevisions[(_progressProfile?.ProfileId ?? Guid.Empty, assetId)] = state.Revision;
+            }
+
             return state;
         }
         catch (Exception ex)
@@ -628,7 +661,10 @@ public sealed partial class EngineApiClient
         {
             var result = await _http.GetFromJsonAsync<System.Text.Json.JsonElement>($"read/resolve/{workId}", ct);
             if (result.TryGetProperty("assetId", out var prop) && Guid.TryParse(prop.GetString(), out var id))
+            {
                 return id;
+            }
+
             return null;
         }
         catch (Exception ex) { LastError = ex.Message; return null; }
@@ -690,7 +726,11 @@ public sealed partial class EngineApiClient
         try
         {
             var response = await _http.PostAsJsonAsync("/reports", request, ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             return await response.Content.ReadFromJsonAsync<SubmitReportResponse>(cancellationToken: ct);
         }
         catch (Exception ex)

@@ -6,6 +6,7 @@
 @using Microsoft.JSInterop
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
+@inject DashboardSessionAccessor Session
 @inject IJSRuntime Js
 @inject ISnackbar Snackbar
 
@@ -733,7 +734,7 @@ else
     {
         var profile = await Orchestrator.GetActiveProfileAsync();
         _activeProfileId = profile?.Id;
-        _canCurateSequence = profile?.Role is "Administrator" or "StandardUser";
+        _canCurateSequence = Session.HasNavigation("settings.administration");
 
         var key = $"{Placement.ContainerId}:{Placement.SelectedContainerId}:{Placement.CurrentItem.Id}:{Placement.OrderedItems.Count}:{Placement.Groups.Count}:{Placement.ContainerDescription}:{_activeProfileId}";
         if (!string.Equals(key, _placementKey, StringComparison.Ordinal))

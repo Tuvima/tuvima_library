@@ -37,7 +37,10 @@ public sealed record ViewSmartRuleDefinition
     public static ViewSmartRuleDefinition Create(int version, string json)
     {
         if (version != CurrentVersion)
+        {
             throw new ArgumentOutOfRangeException(nameof(version), $"Only View smart-rule version {CurrentVersion} is supported.");
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(json);
 
         JsonDocument document;
@@ -70,16 +73,26 @@ public sealed record ViewSmartRuleDefinition
                 foreach (var property in element.EnumerateObject())
                 {
                     if (IsAssetIdentityTerm(property.Name))
+                    {
                         throw new ArgumentException("View smart rules cannot select individual personal assets.");
+                    }
+
                     RejectAssetIdentity(property.Value);
                 }
                 break;
             case JsonValueKind.Array:
-                foreach (var child in element.EnumerateArray()) RejectAssetIdentity(child);
+                foreach (var child in element.EnumerateArray())
+                {
+                    RejectAssetIdentity(child);
+                }
+
                 break;
             case JsonValueKind.String:
                 if (IsAssetIdentityTerm(element.GetString() ?? string.Empty))
+                {
                     throw new ArgumentException("View smart rules cannot select individual personal assets.");
+                }
+
                 break;
         }
     }

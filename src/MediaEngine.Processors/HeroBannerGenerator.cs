@@ -202,7 +202,10 @@ public sealed class HeroBannerGenerator : IHeroBannerGenerator
                 pixel.ToHsl(out float h, out float s, out float l);
 
                 // Skip very dark or very light pixels (backgrounds, highlights).
-                if (l < 0.1f || l > 0.9f || s < 0.15f) continue;
+                if (l < 0.1f || l > 0.9f || s < 0.15f)
+                {
+                    continue;
+                }
 
                 int bucket = Math.Clamp((int)(h / 20f), 0, hueBucketCount - 1);
                 hueBuckets[bucket]++;

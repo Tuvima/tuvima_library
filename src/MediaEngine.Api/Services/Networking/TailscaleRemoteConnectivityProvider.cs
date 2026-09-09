@@ -60,7 +60,10 @@ public sealed class TailscaleRemoteConnectivityProvider : IRemoteConnectivityPro
             catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or JsonException or InvalidOperationException)
             {
                 if (ex is OperationCanceledException && ct.IsCancellationRequested)
+                {
                     throw;
+                }
+
                 _logger.LogDebug(ex, "Tailscale sidecar health probe failed");
                 return new RemoteProviderSnapshot(
                     Key, DisplayName, RemoteProviderState.Error, configuredAddress,
@@ -124,9 +127,15 @@ public sealed class TailscaleRemoteConnectivityProvider : IRemoteConnectivityPro
     private static string? NormalizeHttpsAddress(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
+
         if (Uri.TryCreate(value, UriKind.Absolute, out var absolute))
+        {
             return absolute.Scheme == Uri.UriSchemeHttps ? absolute.GetLeftPart(UriPartial.Authority) : null;
+        }
+
         return Uri.TryCreate($"https://{value}", UriKind.Absolute, out var hostname)
             ? hostname.GetLeftPart(UriPartial.Authority)
             : null;
@@ -137,7 +146,10 @@ public sealed class TailscaleRemoteConnectivityProvider : IRemoteConnectivityPro
         var nonce = Guid.NewGuid().ToString("N");
         using var response = await _http.GetAsync($"{address}/_tuvima/remote-probe?nonce={nonce}", ct).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
+        {
             return false;
+        }
+
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
         var root = document.RootElement;
         return string.Equals(GetString(root, "product"), "Tuvima Library", StringComparison.Ordinal)

@@ -81,11 +81,16 @@ public sealed class DatabaseConnectionTransactionTests : IDisposable
     public async Task ExecuteWriteAsync_SerializesConcurrentWritersWithoutDatabaseLockedErrors()
     {
         const int writerCount = 8;
-
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var writers = Enumerable.Range(0, writerCount)
-            .Select(i => _db.ExecuteWriteAsync((conn, tx, _) =>
-                InsertHashRow(conn, tx, $"C:/library/concurrent-{i}.mkv", $"hash-{i}")))
+            .Select(i => Task.Run(async () =>
+            {
+                await start.Task;
+                await _db.ExecuteWriteAsync((conn, tx, _) =>
+                    InsertHashRow(conn, tx, $"C:/library/concurrent-{i}.mkv", $"hash-{i}"));
+            }))
             .ToArray();
+        start.SetResult();
 
         // Task.WhenAll surfaces the first failure; a "database is locked" SqliteException
         // here would mean write serialization was not actually enforced.
@@ -150,7 +155,9 @@ public sealed class DatabaseConnectionTransactionTests : IDisposable
         try
         {
             if (File.Exists(path))
+            {
                 File.Delete(path);
+            }
         }
         catch
         {

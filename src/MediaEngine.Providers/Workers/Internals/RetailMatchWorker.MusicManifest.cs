@@ -27,12 +27,16 @@ public sealed partial class RetailMatchWorker
             ?? rootValues.FirstOrDefault(value =>
                 string.Equals(value.Key, BridgeIdKeys.AppleMusicCollectionId, StringComparison.OrdinalIgnoreCase))?.Value;
         if (string.IsNullOrWhiteSpace(collectionId))
+        {
             return;
+        }
 
         var appleProvider = _providers.FirstOrDefault(provider =>
             string.Equals(provider.Name, providerName, StringComparison.OrdinalIgnoreCase));
         if (appleProvider is null)
+        {
             return;
+        }
 
         await PersistAppleAlbumManifestAsync(
                 lineage,
@@ -65,11 +69,15 @@ public sealed partial class RetailMatchWorker
             var existingManifest = rootValues.FirstOrDefault(value =>
                 string.Equals(value.Key, MetadataFieldConstants.ChildEntitiesJson, StringComparison.OrdinalIgnoreCase))?.Value;
             if (MusicBrainzAlbumManifestJson.IsCompleteForRelease(existingManifest, releaseId))
+            {
                 return;
+            }
 
             var release = await _musicBrainzReleaseClient.FetchReleaseAsync(releaseId, ct).ConfigureAwait(false);
             if (release is null)
+            {
                 return;
+            }
 
             var values = new List<CanonicalValue>
             {
@@ -145,17 +153,23 @@ public sealed partial class RetailMatchWorker
             var existingManifest = rootValues.FirstOrDefault(value =>
                 string.Equals(value.Key, MetadataFieldConstants.ChildEntitiesJson, StringComparison.OrdinalIgnoreCase))?.Value;
             if (AppleAlbumManifestJson.IsCompleteForCollection(existingManifest, collectionId))
+            {
                 return;
+            }
 
             var tracks = knownTracks
                 ?? await _appleClient.FetchAlbumTracksAsync(collectionId, "us", "en", ct).ConfigureAwait(false);
             if (tracks.Count == 0)
+            {
                 return;
+            }
 
             var manifest = AppleAlbumManifestJson.Build(tracks, collectionId, album, artist);
             var trackCount = tracks.Count(track => !string.IsNullOrWhiteSpace(track["trackName"]?.GetValue<string>()));
             if (trackCount == 0)
+            {
                 return;
+            }
 
             await _canonicalRepo.UpsertBatchAsync(
                 [

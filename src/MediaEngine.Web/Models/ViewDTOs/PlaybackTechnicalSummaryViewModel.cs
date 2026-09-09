@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -34,10 +34,14 @@ public static class PlaybackTechnicalSummaryDisplay
     public static string? VideoChip(PlaybackTechnicalSummaryViewModel? summary)
     {
         if (summary is null)
+        {
             return null;
+        }
 
         if (string.IsNullOrWhiteSpace(summary.VideoResolutionLabel))
+        {
             return summary.VideoCodec;
+        }
 
         return string.IsNullOrWhiteSpace(summary.VideoCodec)
             ? summary.VideoResolutionLabel
@@ -47,14 +51,18 @@ public static class PlaybackTechnicalSummaryDisplay
     public static string? AudioChip(PlaybackTechnicalSummaryViewModel? summary)
     {
         if (summary is null)
+        {
             return null;
+        }
 
         var label = string.IsNullOrWhiteSpace(summary.AudioLanguage)
             ? summary.AudioCodec
             : summary.AudioLanguage;
 
         if (string.IsNullOrWhiteSpace(label))
+        {
             return null;
+        }
 
         var suffixParts = new[] { summary.AudioCodec, summary.AudioChannels }
             .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -62,7 +70,9 @@ public static class PlaybackTechnicalSummaryDisplay
             .ToList();
 
         if (suffixParts.Count == 0 || string.Equals(label, summary.AudioCodec, StringComparison.OrdinalIgnoreCase))
+        {
             return label;
+        }
 
         return $"{label} ({string.Join(" ", suffixParts)})";
     }

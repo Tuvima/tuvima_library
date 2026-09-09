@@ -1,5 +1,5 @@
-using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Contracts.Realtime;
+using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -21,30 +21,30 @@ public sealed class UniverseStateContainer : IDisposable
     private readonly object _notificationLock = new();
     private CancellationTokenSource? _notificationCts;
     private bool _pendingSnapshotRefresh;
-    private List<CollectionViewModel>         _collections                       = [];
-    private CollectionViewModel?              _selected;
-    private UniverseViewModel?         _universe;
-    private bool                       _loaded;
-    private IngestionProgressEvent?    _ingestionProgress;
-    private BatchProgressEvent?        _batchProgress;
+    private List<CollectionViewModel> _collections = [];
+    private CollectionViewModel? _selected;
+    private UniverseViewModel? _universe;
+    private bool _loaded;
+    private IngestionProgressEvent? _ingestionProgress;
+    private BatchProgressEvent? _batchProgress;
     private readonly Dictionary<Guid, LiveIngestionItemProgress> _ingestionItemProgress = new();
     private UniverseEnrichmentProgressEvent? _universeEnrichmentProgress;
-    private DateTimeOffset?            _universeEnrichmentProgressReceivedAt;
+    private DateTimeOffset? _universeEnrichmentProgressReceivedAt;
     private readonly Dictionary<string, LiveModelDownloadProgress> _modelDownloadActivity = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Guid, MediaOperationChangedEvent> _mediaOperationActivity = [];
     private List<IngestionProviderActivityDto> _providerActivity = [];
-    private WatchFolderActiveEvent?    _latestWatchFolderActivation;
-    private string[]?                  _activeLaneMediaTypes;
-    private bool                       _lastStateChangeRequiresSnapshotRefresh = true;
+    private WatchFolderActiveEvent? _latestWatchFolderActivation;
+    private string[]? _activeLaneMediaTypes;
+    private bool _lastStateChangeRequiresSnapshotRefresh = true;
     private readonly List<PersonEnrichedEvent> _personUpdates = [];
-    private readonly List<ActivityEntry>       _activityLog   = [];
+    private readonly List<ActivityEntry> _activityLog = [];
     private const int MaxActivityEntries = 100;
     private const int MaxTrackedIngestionItems = 200;
 
     // ── Read-only surface ─────────────────────────────────────────────────────
 
-    public IReadOnlyList<CollectionViewModel> Collections              => _collections;
-    public CollectionViewModel?               Selected          => _selected;
+    public IReadOnlyList<CollectionViewModel> Collections => _collections;
+    public CollectionViewModel? Selected => _selected;
 
     /// <summary>
     /// Language code configured in the Engine (e.g. "en", "fr", "de").
@@ -58,48 +58,48 @@ public sealed class UniverseStateContainer : IDisposable
     /// Null until the first successful collection load; components should guard with
     /// <c>@if (State.Universe is { } u)</c>.
     /// </summary>
-    public UniverseViewModel?          Universe          => _universe;
+    public UniverseViewModel? Universe => _universe;
 
-    public bool                        IsLoaded          => _loaded;
+    public bool IsLoaded => _loaded;
 
     /// <summary>
     /// Latest ingestion progress snapshot pushed via SignalR.
     /// Null when no ingestion is in progress or the circuit is freshly created.
     /// </summary>
-    public IngestionProgressEvent?          IngestionProgress           => _ingestionProgress;
+    public IngestionProgressEvent? IngestionProgress => _ingestionProgress;
 
     /// <summary>
     /// Latest batch progress snapshot pushed via SignalR.
     /// Contains running counters, progress percentage, and estimated time remaining.
     /// Null when no batch is active.
     /// </summary>
-    public BatchProgressEvent?              BatchProgress               => _batchProgress;
+    public BatchProgressEvent? BatchProgress => _batchProgress;
     public IReadOnlyList<LiveIngestionItemProgress> IngestionItemProgress =>
         _ingestionItemProgress.Values
             .OrderByDescending(item => item.ReceivedAt)
             .ToList();
-    public UniverseEnrichmentProgressEvent? UniverseEnrichmentProgress  => _universeEnrichmentProgress;
-    public DateTimeOffset?                  UniverseEnrichmentProgressReceivedAt => _universeEnrichmentProgressReceivedAt;
+    public UniverseEnrichmentProgressEvent? UniverseEnrichmentProgress => _universeEnrichmentProgress;
+    public DateTimeOffset? UniverseEnrichmentProgressReceivedAt => _universeEnrichmentProgressReceivedAt;
     public IReadOnlyList<LiveModelDownloadProgress> ModelDownloadActivity =>
         _modelDownloadActivity.Values.OrderByDescending(item => item.ReceivedAt).ToList();
     public IReadOnlyList<MediaOperationChangedEvent> MediaOperationActivity =>
         _mediaOperationActivity.Values.OrderByDescending(item => item.UpdatedAt).ToList();
     public IReadOnlyList<IngestionProviderActivityDto> ProviderActivity => _providerActivity;
-    public bool                             LastStateChangeRequiresSnapshotRefresh => _lastStateChangeRequiresSnapshotRefresh;
+    public bool LastStateChangeRequiresSnapshotRefresh => _lastStateChangeRequiresSnapshotRefresh;
 
-    public IReadOnlyList<PersonEnrichedEvent> RecentPersonUpdates        => _personUpdates;
+    public IReadOnlyList<PersonEnrichedEvent> RecentPersonUpdates => _personUpdates;
 
     /// <summary>
     /// The most recent <c>"WatchFolderActive"</c> event received via SignalR.
     /// Null until the watch folder has been configured or changed in the current circuit.
     /// </summary>
-    public WatchFolderActiveEvent?          LatestWatchFolderActivation => _latestWatchFolderActivation;
+    public WatchFolderActiveEvent? LatestWatchFolderActivation => _latestWatchFolderActivation;
 
     /// <summary>
     /// Rolling log of plain-English activity entries from SignalR events.
     /// Most recent entries first. Capped at <see cref="MaxActivityEntries"/>.
     /// </summary>
-    public IReadOnlyList<ActivityEntry>    ActivityLog                 => _activityLog;
+    public IReadOnlyList<ActivityEntry> ActivityLog => _activityLog;
 
     // ── Lane filter ──────────────────────────────────────────────────────────
 
@@ -157,9 +157,9 @@ public sealed class UniverseStateContainer : IDisposable
     /// </summary>
     public void SetCollections(IEnumerable<CollectionViewModel> collections)
     {
-        _collections     = collections.ToList();
+        _collections = collections.ToList();
         _universe = UniverseMapper.MapFromCollections(_collections);
-        _loaded   = true;
+        _loaded = true;
         NotifyStateChanged();
     }
 
@@ -175,11 +175,11 @@ public sealed class UniverseStateContainer : IDisposable
     /// </summary>
     public void Invalidate(bool requiresSnapshotRefresh = true)
     {
-        _collections                = [];
-        _selected            = null;
-        _universe            = null;
-        _loaded              = false;
-        _ingestionProgress   = null;
+        _collections = [];
+        _selected = null;
+        _universe = null;
+        _loaded = false;
+        _ingestionProgress = null;
         // Note: _activeLaneMediaTypes is NOT cleared on invalidate
         // so the user's lane selection persists across data refreshes.
         NotifyStateChanged(requiresSnapshotRefresh);
@@ -266,9 +266,13 @@ public sealed class UniverseStateContainer : IDisposable
     public void PushModelDownloadProgress(ModelDownloadProgressEvent ev)
     {
         if (ev.Percent >= 100)
+        {
             _modelDownloadActivity.Remove(ev.Role);
+        }
         else
+        {
             _modelDownloadActivity[ev.Role] = new LiveModelDownloadProgress(ev, DateTimeOffset.UtcNow);
+        }
 
         NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
@@ -276,7 +280,9 @@ public sealed class UniverseStateContainer : IDisposable
     public void PushModelStateChanged(ModelStateChangedEvent ev)
     {
         if (!ev.NewState.Equals("Downloading", StringComparison.OrdinalIgnoreCase))
+        {
             _modelDownloadActivity.Remove(ev.Role);
+        }
 
         NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
@@ -284,9 +290,13 @@ public sealed class UniverseStateContainer : IDisposable
     public void PushMediaOperationChanged(MediaOperationChangedEvent ev)
     {
         if (IsActiveOperationStatus(ev.Status))
+        {
             _mediaOperationActivity[ev.Id] = ev;
+        }
         else
+        {
             _mediaOperationActivity.Remove(ev.Id);
+        }
 
         NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
@@ -295,7 +305,9 @@ public sealed class UniverseStateContainer : IDisposable
     {
         _mediaOperationActivity.Clear();
         foreach (var operation in operations.Where(operation => IsActiveOperationStatus(operation.Status)))
+        {
             _mediaOperationActivity[operation.Id] = operation;
+        }
 
         NotifyStateChanged(requiresSnapshotRefresh: false, throttle: true);
     }
@@ -339,7 +351,9 @@ public sealed class UniverseStateContainer : IDisposable
     {
         _personUpdates.Add(ev);
         if (_personUpdates.Count > 50)
+        {
             _personUpdates.RemoveAt(0);
+        }
 
         PushActivity(new ActivityEntry(
             DateTimeOffset.UtcNow, ActivityKind.PersonEnriched,
@@ -413,7 +427,9 @@ public sealed class UniverseStateContainer : IDisposable
     {
         _activityLog.Insert(0, entry);
         if (_activityLog.Count > MaxActivityEntries)
+        {
             _activityLog.RemoveAt(_activityLog.Count - 1);
+        }
     }
 
     /// <summary>Adds a startup entry — called once by the orchestrator on connection.</summary>
@@ -451,7 +467,9 @@ public sealed class UniverseStateContainer : IDisposable
             // Keep it current even when the actual render notification is coalesced.
             _lastStateChangeRequiresSnapshotRefresh = _pendingSnapshotRefresh;
             if (_notificationCts is not null)
+            {
                 return;
+            }
 
             _notificationCts = new CancellationTokenSource();
             _ = FlushNotificationAsync(_notificationCts);
@@ -467,7 +485,9 @@ public sealed class UniverseStateContainer : IDisposable
             lock (_notificationLock)
             {
                 if (!ReferenceEquals(_notificationCts, source))
+                {
                     return;
+                }
 
                 requiresSnapshotRefresh = _pendingSnapshotRefresh;
                 _pendingSnapshotRefresh = false;
@@ -496,7 +516,9 @@ public sealed class UniverseStateContainer : IDisposable
     private void PruneIngestionItemProgress()
     {
         if (_ingestionItemProgress.Count <= MaxTrackedIngestionItems)
+        {
             return;
+        }
 
         foreach (var stale in _ingestionItemProgress
             .OrderBy(pair => IsFileIngestionTerminal(pair.Value.Event) ? 0 : 1)

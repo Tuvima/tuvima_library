@@ -609,14 +609,20 @@ public sealed class Phase5InlineEditingTests
             : new DirectoryInfo(Directory.GetCurrentDirectory());
 
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         if (directory is not null)
+        {
             return directory.FullName;
+        }
 
         directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
     }

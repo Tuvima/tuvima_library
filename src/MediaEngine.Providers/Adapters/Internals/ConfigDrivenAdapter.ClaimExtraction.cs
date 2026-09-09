@@ -6,16 +6,16 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Models;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Adapters;
 
@@ -91,8 +91,14 @@ public sealed partial class ConfigDrivenAdapter
                         JsonPathEvaluator.Evaluate(b!, sort.Path)) ?? "";
                     var cmp = string.Compare(aVal, bVal, StringComparison.OrdinalIgnoreCase);
                     if (sort.Direction.Equals("desc", StringComparison.OrdinalIgnoreCase))
+                    {
                         cmp = -cmp;
-                    if (cmp != 0) return cmp;
+                    }
+
+                    if (cmp != 0)
+                    {
+                        return cmp;
+                    }
                 }
                 return 0;
             });
@@ -120,12 +126,18 @@ public sealed partial class ConfigDrivenAdapter
     /// </summary>
     private static bool PassesFilters(JsonNode node, List<SelectionFilter>? filters)
     {
-        if (filters is null || filters.Count == 0) return true;
+        if (filters is null || filters.Count == 0)
+        {
+            return true;
+        }
 
         foreach (var filter in filters)
         {
             var val = JsonPathEvaluator.Evaluate(node, filter.Path);
-            if (val is null) return false;
+            if (val is null)
+            {
+                return false;
+            }
 
             if (filter.EqualsValue.HasValue)
             {
@@ -136,19 +148,31 @@ public sealed partial class ConfigDrivenAdapter
                 {
                     case System.Text.Json.JsonValueKind.True:
                         if (!strVal.Equals("true", StringComparison.OrdinalIgnoreCase))
+                        {
                             return false;
+                        }
+
                         break;
                     case System.Text.Json.JsonValueKind.False:
                         if (!strVal.Equals("false", StringComparison.OrdinalIgnoreCase))
+                        {
                             return false;
+                        }
+
                         break;
                     case System.Text.Json.JsonValueKind.String:
                         if (!strVal.Equals(expected.GetString(), StringComparison.OrdinalIgnoreCase))
+                        {
                             return false;
+                        }
+
                         break;
                     default:
                         if (!strVal.Equals(expected.GetRawText(), StringComparison.OrdinalIgnoreCase))
+                        {
                             return false;
+                        }
+
                         break;
                 }
             }
@@ -162,7 +186,11 @@ public sealed partial class ConfigDrivenAdapter
     private static bool MatchesJsonPath(JsonNode node, string path, string expected)
     {
         var val = JsonPathEvaluator.Evaluate(node, path);
-        if (val is null) return false;
+        if (val is null)
+        {
+            return false;
+        }
+
         var str = JsonPathEvaluator.GetStringValue(val);
         return string.Equals(str, expected, StringComparison.OrdinalIgnoreCase);
     }
@@ -180,7 +208,9 @@ public sealed partial class ConfigDrivenAdapter
     {
         var mappings = FilterMappingsByMediaType(_config.FieldMappings, mediaType);
         if (mappings.Count == 0)
+        {
             return [];
+        }
 
         var claims = new List<ProviderClaim>();
 
@@ -195,21 +225,29 @@ public sealed partial class ConfigDrivenAdapter
             };
 
             if (sourceNode is null)
+            {
                 continue;
+            }
 
             // Check condition before extracting (e.g. only emit cover when artwork exists).
             if (mapping.Condition is not null && !PassesFilters(sourceNode, [mapping.Condition]))
+            {
                 continue;
+            }
 
             var node = JsonPathEvaluator.Evaluate(sourceNode, mapping.JsonPath);
             if (node is null)
+            {
                 continue;
+            }
 
             var values = ApplyTransform(node, mapping);
             foreach (var value in values)
             {
                 if (!string.IsNullOrWhiteSpace(value))
+                {
                     claims.Add(new ProviderClaim(mapping.ClaimKey, value, mapping.Confidence));
+                }
             }
         }
 
@@ -224,7 +262,9 @@ public sealed partial class ConfigDrivenAdapter
     {
         var mappings = FilterMappingsByMediaType(_config.FieldMappings, mediaType);
         if (mappings.Count == 0)
+        {
             return [];
+        }
 
         var claims = new List<ProviderClaim>();
 
@@ -232,13 +272,17 @@ public sealed partial class ConfigDrivenAdapter
         {
             var node = JsonPathEvaluator.Evaluate(resultNode, mapping.JsonPath);
             if (node is null)
+            {
                 continue;
+            }
 
             var values = ApplyTransform(node, mapping);
             foreach (var value in values)
             {
                 if (!string.IsNullOrWhiteSpace(value))
+                {
                     claims.Add(new ProviderClaim(mapping.ClaimKey, value, mapping.Confidence));
+                }
             }
         }
 
@@ -256,12 +300,16 @@ public sealed partial class ConfigDrivenAdapter
 
         // Handle transforms that operate on JSON arrays specially.
         if (JsonPathEvaluator.IsArray(node))
+        {
             return HandleArrayTransform(node, transformName, args);
+        }
 
         // Scalar value path.
         var raw = JsonPathEvaluator.GetStringValue(node);
         if (string.IsNullOrWhiteSpace(raw))
+        {
             return [];
+        }
 
         var transformed = !string.IsNullOrEmpty(args)
             ? ValueTransformCatalog.Apply(transformName, raw, args)
@@ -304,13 +352,22 @@ public sealed partial class ConfigDrivenAdapter
 
             foreach (var element in arr)
             {
-                if (element is not JsonObject obj) continue;
+                if (element is not JsonObject obj)
+                {
+                    continue;
+                }
+
                 var type = JsonPathEvaluator.GetStringValue(obj["type"]);
                 var identifier = JsonPathEvaluator.GetStringValue(obj["identifier"]);
-                if (string.IsNullOrWhiteSpace(identifier)) continue;
+                if (string.IsNullOrWhiteSpace(identifier))
+                {
+                    continue;
+                }
 
                 if (string.Equals(type, "ISBN_13", StringComparison.OrdinalIgnoreCase))
+                {
                     isbn13 = identifier;
+                }
 
                 fallback ??= identifier;
             }
@@ -332,16 +389,24 @@ public sealed partial class ConfigDrivenAdapter
     private static IReadOnlyList<string> HandleNestedJoin(JsonNode node, string? fieldName)
     {
         if (node is not JsonArray arr || string.IsNullOrEmpty(fieldName))
+        {
             return [];
+        }
 
         var extracted = new List<string>();
         foreach (var element in arr)
         {
-            if (element is null) continue;
+            if (element is null)
+            {
+                continue;
+            }
+
             var child = JsonPathEvaluator.Evaluate(element, fieldName);
             var str = JsonPathEvaluator.GetStringValue(child);
             if (!string.IsNullOrWhiteSpace(str))
+            {
                 extracted.Add(str);
+            }
         }
 
         return extracted.Count > 0 ? [string.Join(", ", extracted)] : [];
@@ -362,9 +427,14 @@ public sealed partial class ConfigDrivenAdapter
         {
             var value = ResolveRequestField(request, field);
             if (string.IsNullOrWhiteSpace(value))
+            {
                 return false;
+            }
+
             if (value.Length < 3 || GenericTerms.Contains(value.Trim()))
+            {
                 return false;
+            }
         }
 
         if (strategy.Query is not null)
@@ -373,7 +443,9 @@ public sealed partial class ConfigDrivenAdapter
             {
                 var value = ResolveRequestField(request, clause.Value);
                 if (string.IsNullOrWhiteSpace(value))
+                {
                     return false;
+                }
             }
         }
 
@@ -406,17 +478,23 @@ public sealed partial class ConfigDrivenAdapter
         // In Sequential pipeline mode, check bridge IDs from prior providers
         // when the direct request property is empty.
         if (direct is not null)
+        {
             return direct;
+        }
 
         if (request.PriorProviderBridgeIds?.TryGetValue(fieldName.ToLowerInvariant(), out var bridgeValue) == true)
+        {
             return bridgeValue;
+        }
 
         // Fall back to the hints dictionary for any remaining fields (year,
         // series_position, etc.) so config-driven URL templates can reference
         // arbitrary claim keys without code changes.
         if (request.Hints?.TryGetValue(fieldName.ToLowerInvariant(), out var hintValue) == true
             && !string.IsNullOrWhiteSpace(hintValue))
+        {
             return hintValue;
+        }
 
         return null;
     }
@@ -433,11 +511,15 @@ public sealed partial class ConfigDrivenAdapter
         List<SearchStrategyConfig>? strategies, MediaType mediaType)
     {
         if (strategies is null or { Count: 0 })
+        {
             return strategies;
+        }
 
         // Unknown = wildcard — return all strategies.
         if (mediaType == MediaType.Unknown)
+        {
             return strategies;
+        }
 
         var mediaTypeStr = mediaType.ToString();
         return strategies
@@ -456,11 +538,15 @@ public sealed partial class ConfigDrivenAdapter
         List<FieldMappingConfig>? mappings, MediaType mediaType)
     {
         if (mappings is null or { Count: 0 })
+        {
             return [];
+        }
 
         // Unknown = wildcard — return all mappings.
         if (mediaType == MediaType.Unknown)
+        {
             return mappings;
+        }
 
         var mediaTypeStr = mediaType.ToString();
         return mappings
@@ -475,13 +561,17 @@ public sealed partial class ConfigDrivenAdapter
     private static HashSet<T> ParseEnumSet<T>(List<string>? values) where T : struct, Enum
     {
         if (values is null or { Count: 0 })
+        {
             return [];
+        }
 
         var set = new HashSet<T>();
         foreach (var val in values)
         {
             if (Enum.TryParse<T>(val, ignoreCase: true, out var parsed))
+            {
                 set.Add(parsed);
+            }
         }
 
         return set;
@@ -502,8 +592,8 @@ public sealed partial class ConfigDrivenAdapter
         _config.LanguageStrategy switch
         {
             LanguageStrategy.Localized => NormalizeLocalePart(request.FileLanguage ?? request.Language, "en"),
-            LanguageStrategy.Both      => NormalizeLocalePart(request.FileLanguage ?? request.Language, "en"),
-            _                          => "en",             // Source: always English
+            LanguageStrategy.Both => NormalizeLocalePart(request.FileLanguage ?? request.Language, "en"),
+            _ => "en",             // Source: always English
         };
 
     /// <summary>
@@ -520,40 +610,40 @@ public sealed partial class ConfigDrivenAdapter
         string country) =>
         new()
         {
-            EntityId       = source.EntityId,
-            EntityType     = source.EntityType,
-            MediaType      = source.MediaType,
-            Title          = source.Title,
-            Author         = source.Author,
-            Year           = source.Year,
-            Narrator       = source.Narrator,
-            ShowName       = source.ShowName,
-            Album          = source.Album,
-            Artist         = source.Artist,
-            Director       = source.Director,
-            Composer       = source.Composer,
-            SeasonNumber   = source.SeasonNumber,
-            EpisodeNumber  = source.EpisodeNumber,
-            TrackNumber    = source.TrackNumber,
-            Series         = source.Series,
-            Genre          = source.Genre,
-            Asin           = source.Asin,
-            Isbn           = source.Isbn,
-            AppleBooksId   = source.AppleBooksId,
-            AudibleId      = source.AudibleId,
-            TmdbId         = source.TmdbId,
-            ImdbId         = source.ImdbId,
-            PersonName     = source.PersonName,
-            PersonRole     = source.PersonRole,
+            EntityId = source.EntityId,
+            EntityType = source.EntityType,
+            MediaType = source.MediaType,
+            Title = source.Title,
+            Author = source.Author,
+            Year = source.Year,
+            Narrator = source.Narrator,
+            ShowName = source.ShowName,
+            Album = source.Album,
+            Artist = source.Artist,
+            Director = source.Director,
+            Composer = source.Composer,
+            SeasonNumber = source.SeasonNumber,
+            EpisodeNumber = source.EpisodeNumber,
+            TrackNumber = source.TrackNumber,
+            Series = source.Series,
+            Genre = source.Genre,
+            Asin = source.Asin,
+            Isbn = source.Isbn,
+            AppleBooksId = source.AppleBooksId,
+            AudibleId = source.AudibleId,
+            TmdbId = source.TmdbId,
+            ImdbId = source.ImdbId,
+            PersonName = source.PersonName,
+            PersonRole = source.PersonRole,
             PreResolvedQid = source.PreResolvedQid,
-            Hints          = source.Hints,
+            Hints = source.Hints,
             PriorProviderBridgeIds = source.PriorProviderBridgeIds,
-            BaseUrl        = source.BaseUrl,
-            SparqlBaseUrl  = source.SparqlBaseUrl,
-            Language       = language,
-            FileLanguage   = source.FileLanguage,
-            Country        = country,
-            HydrationPass  = source.HydrationPass,
+            BaseUrl = source.BaseUrl,
+            SparqlBaseUrl = source.SparqlBaseUrl,
+            Language = language,
+            FileLanguage = source.FileLanguage,
+            Country = country,
+            HydrationPass = source.HydrationPass,
         };
 
     private sealed record ComicVineVolumeFacts(

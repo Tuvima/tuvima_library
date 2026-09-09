@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace MediaEngine.Web.Services.Integration;
 
-public sealed class DashboardCookieEvents(DashboardIdentityClient identity) : CookieAuthenticationEvents
+public sealed class DashboardCookieEvents(
+    DashboardIdentityClient identity,
+    DashboardSessionAccessor session) : CookieAuthenticationEvents
 {
     public override async Task ValidatePrincipal(CookieValidatePrincipalContext context)
     {
@@ -24,14 +26,12 @@ public sealed class DashboardCookieEvents(DashboardIdentityClient identity) : Co
             return;
         }
 
-        var currentRole = context.Principal?.FindFirstValue(ClaimTypes.Role);
-        var currentActive = context.Principal?.FindFirstValue("tuvima:active_profile_id");
-        if (!string.Equals(currentRole, validated.Role, StringComparison.Ordinal)
-            || !string.Equals(currentActive, validated.ActiveProfileId.ToString("D"), StringComparison.OrdinalIgnoreCase))
-        {
-            context.ReplacePrincipal(DashboardPrincipalFactory.Create(validated, token));
-            context.ShouldRenew = true;
-        }
+        session.Set(token, validated.AccountId, validated.ActiveProfileId, validated.SessionId, validated.Authority);
+        // The server projection carries live account, grant, unlock, and capability
+        // state. Replacing the principal on every validation prevents a retained
+        // cookie claim from outliving an access or protection mutation.
+        context.ReplacePrincipal(DashboardPrincipalFactory.Create(validated, token));
+        context.ShouldRenew = true;
     }
 }
 
@@ -39,26 +39,29 @@ public static class DashboardPrincipalFactory
 {
     public static ClaimsPrincipal Create(AuthSessionResponse response) =>
         CreateCore(response.SessionId, response.AccountId, response.ActiveProfileId, response.DisplayName,
-            response.Role, response.AuthenticationMethod, response.SessionToken);
+            response.Authority, response.AuthenticationMethod, response.SessionToken);
 
     public static ClaimsPrincipal Create(SessionValidationResponse response, string token) =>
         CreateCore(response.SessionId, response.AccountId, response.ActiveProfileId, response.DisplayName,
-            response.Role, response.AuthenticationMethod, token);
+            response.Authority, response.AuthenticationMethod, token);
 
-    private static ClaimsPrincipal CreateCore(Guid sessionId, Guid accountId, Guid activeProfileId, string name, string role, string method, string token)
+    private static ClaimsPrincipal CreateCore(Guid sessionId, Guid accountId, Guid activeProfileId, string name, DashboardAuthorityResponse authority, string method, string token)
     {
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, accountId.ToString("D")),
             new Claim(ClaimTypes.Name, name),
-            new Claim(ClaimTypes.Role, role),
             new Claim("tuvima:account_id", accountId.ToString("D")),
             new Claim("tuvima:profile_id", activeProfileId.ToString("D")),
             new Claim("tuvima:active_profile_id", activeProfileId.ToString("D")),
             new Claim("tuvima:session_id", sessionId.ToString("D")),
             new Claim("tuvima:authentication_method", method),
             new Claim(DashboardEngineAuthenticationHandler.SessionTokenClaim, token),
+            new Claim("tuvima:account_authorization_version", authority.AccountAuthorizationVersion.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new Claim("tuvima:grant_authorization_version", authority.GrantAuthorizationVersion.ToString(System.Globalization.CultureInfo.InvariantCulture)),
         };
+        claims.AddRange(authority.NavigationCapabilities.Select(capability => new Claim("tuvima:navigation", capability)));
+        claims.AddRange(authority.ActionCapabilities.Select(capability => new Claim("tuvima:action", capability)));
         return new ClaimsPrincipal(new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme));
     }
 }

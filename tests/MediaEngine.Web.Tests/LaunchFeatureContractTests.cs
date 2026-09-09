@@ -25,15 +25,15 @@ public sealed class LaunchFeatureContractTests : IDisposable
     {
         SettingsNav.ConfigureEnvironment(productionMode: true);
 
-        Assert.True(SettingsNav.IsVisible(SettingsSection.AdminOverview, "Administrator"));
-        Assert.True(SettingsNav.IsVisible(SettingsSection.Delivery, "Administrator"));
-        Assert.True(SettingsNav.IsVisible(SettingsSection.Access, "Administrator"));
-        Assert.False(SettingsNav.IsVisible(SettingsSection.Plugins, "Administrator"));
-        Assert.False(SettingsNav.IsVisible(SettingsSection.DevHarness, "Administrator"));
-        Assert.False(SettingsNav.IsVisible(SettingsSection.ProviderTester, "Administrator"));
-        Assert.False(SettingsNav.IsVisible(SettingsSection.Privacy, "Administrator"));
+        Assert.True(SettingsNav.IsVisible(SettingsSection.AdminOverview, true));
+        Assert.True(SettingsNav.IsVisible(SettingsSection.Delivery, true));
+        Assert.True(SettingsNav.IsVisible(SettingsSection.Access, true));
+        Assert.False(SettingsNav.IsVisible(SettingsSection.Plugins, true));
+        Assert.False(SettingsNav.IsVisible(SettingsSection.DevHarness, true));
+        Assert.False(SettingsNav.IsVisible(SettingsSection.ProviderTester, true));
+        Assert.False(SettingsNav.IsVisible(SettingsSection.Privacy, true));
 
-        var directRoute = SettingsNav.ResolveRoute("plugins", "Administrator");
+        var directRoute = SettingsNav.ResolveRoute("plugins", true);
         Assert.False(directRoute.RequestedSectionAllowed);
         Assert.NotEqual(SettingsSection.Plugins, directRoute.Section);
     }

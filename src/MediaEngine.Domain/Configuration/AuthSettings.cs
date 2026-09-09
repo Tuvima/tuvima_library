@@ -13,6 +13,33 @@ public sealed class AuthSettings
     [JsonPropertyName("require_https_remote")]
     public bool RequireHttpsRemote { get; set; }
 
+    [JsonPropertyName("password_sign_in_enabled")]
+    public bool PasswordSignInEnabled { get; set; } = true;
+
+    [JsonPropertyName("passkey_sign_in_enabled")]
+    public bool PasskeySignInEnabled { get; set; } = true;
+
+    [JsonPropertyName("external_sign_in_enabled")]
+    public bool ExternalSignInEnabled { get; set; } = true;
+
+    [JsonPropertyName("allow_remote_sign_in")]
+    public bool AllowRemoteSignIn { get; set; } = true;
+
+    [JsonPropertyName("allow_local_only_accounts")]
+    public bool AllowLocalOnlyAccounts { get; set; } = true;
+
+    [JsonPropertyName("trusted_local_networks")]
+    public List<string> TrustedLocalNetworks { get; set; } = [];
+
+    [JsonPropertyName("invitation_lifetime_hours")]
+    public int InvitationLifetimeHours { get; set; } = 168;
+
+    [JsonPropertyName("session_lifetime_hours")]
+    public int SessionLifetimeHours { get; set; } = 336;
+
+    [JsonPropertyName("maximum_active_sessions")]
+    public int MaximumActiveSessions { get; set; } = 20;
+
     [JsonPropertyName("external_providers")]
     public List<ExternalAuthProviderSettings> ExternalProviders { get; set; } = [];
 

@@ -1,8 +1,8 @@
-using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Ingestion.Services;
 
@@ -24,13 +24,13 @@ namespace MediaEngine.Ingestion.Services;
 /// </summary>
 public sealed class WritebackConfigState : IDisposable
 {
-    private readonly IConfigurationLoader            _configLoader;
-    private readonly ILogger<WritebackConfigState>   _logger;
-    private readonly object                          _gate = new();
-    private FileSystemWatcher?                       _watcher;
-    private Timer?                                   _reloadTimer;
-    private DateTime                                 _lastChangeUtc = DateTime.MinValue;
-    private bool                                     _disposed;
+    private readonly IConfigurationLoader _configLoader;
+    private readonly ILogger<WritebackConfigState> _logger;
+    private readonly object _gate = new();
+    private FileSystemWatcher? _watcher;
+    private Timer? _reloadTimer;
+    private DateTime _lastChangeUtc = DateTime.MinValue;
+    private bool _disposed;
 
     /// <summary>
     /// Per-media-type SHA-256 of (sorted-field-list-JSON + tagger version).
@@ -68,11 +68,11 @@ public sealed class WritebackConfigState : IDisposable
     public event Action? PendingApplied;
 
     public WritebackConfigState(
-        IConfigurationLoader          configLoader,
+        IConfigurationLoader configLoader,
         ILogger<WritebackConfigState> logger)
     {
         _configLoader = configLoader;
-        _logger       = logger;
+        _logger = logger;
 
         // Initial load — disk state becomes Current with no pending diff.
         var initial = LoadAndComputeHashes(out _);
@@ -90,15 +90,20 @@ public sealed class WritebackConfigState : IDisposable
     {
         lock (_gate)
         {
-            if (PendingHashes.Count == 0) return;
+            if (PendingHashes.Count == 0)
+            {
+                return;
+            }
 
             var merged = new Dictionary<string, string>(CurrentHashes, StringComparer.OrdinalIgnoreCase);
             foreach (var (key, value) in PendingHashes)
+            {
                 merged[key] = value;
+            }
 
             CurrentHashes = merged;
             PendingHashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            PendingDiff   = Array.Empty<WritebackFieldDiff>();
+            PendingDiff = Array.Empty<WritebackFieldDiff>();
         }
 
         _logger.LogInformation("WritebackConfigState: pending diff applied; sweep will be eligible");
@@ -159,7 +164,11 @@ public sealed class WritebackConfigState : IDisposable
         {
             var slice = fields.GetFieldsFor(mediaType);
             rawSlices[mediaType] = slice.ToList();
-            if (slice.Count == 0) continue;
+            if (slice.Count == 0)
+            {
+                continue;
+            }
+
             hashes[mediaType] = ComputeSliceHash(mediaType, slice);
         }
 
@@ -191,13 +200,13 @@ public sealed class WritebackConfigState : IDisposable
     /// </summary>
     private static int TaggerVersionFor(string mediaType) => mediaType switch
     {
-        "Movies"     => VideoMetadataTagger.Version,
-        "TV"         => VideoMetadataTagger.Version,
-        "Music"      => AudioMetadataTagger.Version,
+        "Movies" => VideoMetadataTagger.Version,
+        "TV" => VideoMetadataTagger.Version,
+        "Music" => AudioMetadataTagger.Version,
         "Audiobooks" => AudioMetadataTagger.Version,
-        "Books"      => EpubMetadataTagger.Version,
-        "Comics"     => ComicMetadataTagger.Version,
-        _            => 0,
+        "Books" => EpubMetadataTagger.Version,
+        "Comics" => ComicMetadataTagger.Version,
+        _ => 0,
     };
 
     private static readonly string[] MediaTypeKeys =
@@ -240,11 +249,16 @@ public sealed class WritebackConfigState : IDisposable
         lock (_gate)
         {
             if (_disposed)
+            {
                 return;
+            }
 
             var now = DateTime.UtcNow;
             if ((now - _lastChangeUtc).TotalMilliseconds < 500)
+            {
                 return;
+            }
+
             _lastChangeUtc = now;
 
             _reloadTimer ??= new Timer(
@@ -264,7 +278,9 @@ public sealed class WritebackConfigState : IDisposable
         lock (_gate)
         {
             if (_disposed)
+            {
                 return;
+            }
         }
 
         RecomputePending();
@@ -279,7 +295,9 @@ public sealed class WritebackConfigState : IDisposable
             lock (_gate)
             {
                 if (_disposed)
+                {
                     return;
+                }
 
                 // Diff against CURRENT (not against the old pending) so the user
                 // always sees the full delta from approved baseline.
@@ -291,9 +309,12 @@ public sealed class WritebackConfigState : IDisposable
                     var oldList = oldSlices.TryGetValue(mediaType, out var o) ? o : Array.Empty<string>();
                     var newList = newSlices.TryGetValue(mediaType, out var n) ? n : Array.Empty<string>();
 
-                    var added   = newList.Except(oldList, StringComparer.OrdinalIgnoreCase).ToList();
+                    var added = newList.Except(oldList, StringComparer.OrdinalIgnoreCase).ToList();
                     var removed = oldList.Except(newList, StringComparer.OrdinalIgnoreCase).ToList();
-                    if (added.Count == 0 && removed.Count == 0) continue;
+                    if (added.Count == 0 && removed.Count == 0)
+                    {
+                        continue;
+                    }
 
                     diff.Add(new WritebackFieldDiff(mediaType, added, removed));
                 }
@@ -309,11 +330,13 @@ public sealed class WritebackConfigState : IDisposable
                 foreach (var entry in diff)
                 {
                     if (newHashes.TryGetValue(entry.MediaType, out var h))
+                    {
                         pending[entry.MediaType] = h;
+                    }
                 }
 
                 PendingHashes = pending;
-                PendingDiff   = diff;
+                PendingDiff = diff;
             }
 
             _logger.LogInformation("WritebackConfigState: staged pending diff covering {Count} media type(s)",
@@ -354,7 +377,9 @@ public sealed class WritebackConfigState : IDisposable
         lock (_gate)
         {
             if (_disposed)
+            {
                 return;
+            }
 
             _disposed = true;
             watcher = _watcher;

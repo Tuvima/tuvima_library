@@ -111,7 +111,10 @@ public sealed class MetadataSettingsStateService
         var requiresKey = status?.RequiresApiKey ?? catalogue.RequiresKey;
         var hasKey = status?.HasApiKey ?? !requiresKey;
         var logo = catalogue.IconPath;
-        if (!string.IsNullOrWhiteSpace(logo) && !logo.StartsWith('/')) logo = "/" + logo.TrimStart('/');
+        if (!string.IsNullOrWhiteSpace(logo) && !logo.StartsWith('/'))
+        {
+            logo = "/" + logo.TrimStart('/');
+        }
 
         return new MetadataProviderInventoryItem(
             catalogue.Name,
@@ -153,7 +156,11 @@ public sealed class MetadataSettingsStateService
             for (var index = 0; index < ordered.Count; index++)
             {
                 var entry = ordered[index];
-                if (!string.Equals(entry.Name, catalogue.Name, StringComparison.OrdinalIgnoreCase)) continue;
+                if (!string.Equals(entry.Name, catalogue.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 result.Add(new MetadataProviderParticipation(
                     mediaType,
                     LaneFor(mediaType),
@@ -277,24 +284,49 @@ public sealed class MetadataSettingsStateService
     {
         var contributions = new List<string>();
         if (string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase) || entry.UseAsIdentityFallback)
+        {
             contributions.Add("Identity");
+        }
+
         if (capabilities.Contains(ProviderCapabilityId.Metadata, StringComparer.OrdinalIgnoreCase))
+        {
             contributions.Add(NormalizeMediaType(mediaType) switch { "Comics" => "Issue details", "Music" => "Album details", "TV" => "Episode details", _ => "Metadata" });
+        }
+
         if (capabilities.Contains(ProviderCapabilityId.Artwork, StringComparer.OrdinalIgnoreCase))
         {
             contributions.Add(NormalizeMediaType(mediaType) is "Movies" or "TV" ? "Poster" : "Cover");
-            if (NormalizeMediaType(mediaType) is "Movies" or "TV") contributions.Add("Background");
+            if (NormalizeMediaType(mediaType) is "Movies" or "TV")
+            {
+                contributions.Add("Background");
+            }
         }
-        if (capabilities.Contains(ProviderCapabilityId.Ratings, StringComparer.OrdinalIgnoreCase)) contributions.Add("Ratings");
-        if (capabilities.Contains(ProviderCapabilityId.People, StringComparer.OrdinalIgnoreCase)) contributions.Add("People seeds");
-        if (contributions.Count == 0 && status?.AvailableFields is { Count: > 0 }) contributions.Add("Metadata");
+        if (capabilities.Contains(ProviderCapabilityId.Ratings, StringComparer.OrdinalIgnoreCase))
+        {
+            contributions.Add("Ratings");
+        }
+
+        if (capabilities.Contains(ProviderCapabilityId.People, StringComparer.OrdinalIgnoreCase))
+        {
+            contributions.Add("People seeds");
+        }
+
+        if (contributions.Count == 0 && status?.AvailableFields is { Count: > 0 })
+        {
+            contributions.Add("Metadata");
+        }
+
         return contributions.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     private static IReadOnlyList<string> CanonicalOutputs(IReadOnlyList<string> capabilities)
     {
         var outputs = new List<string> { "Canonical identity" };
-        if (capabilities.Contains(ProviderCapabilityId.Relationships, StringComparer.OrdinalIgnoreCase)) outputs.Add("Relationships");
+        if (capabilities.Contains(ProviderCapabilityId.Relationships, StringComparer.OrdinalIgnoreCase))
+        {
+            outputs.Add("Relationships");
+        }
+
         return outputs;
     }
 
@@ -307,9 +339,14 @@ public sealed class MetadataSettingsStateService
             {
                 case ProviderCapabilityId.Artwork:
                     if (string.Equals(provider.Category, "Image", StringComparison.OrdinalIgnoreCase))
+                    {
                         outputs.AddRange(["Backgrounds", "Logos"]);
+                    }
                     else
+                    {
                         outputs.Add("Artwork");
+                    }
+
                     break;
                 case ProviderCapabilityId.Lyrics:
                     outputs.AddRange(["Lyrics", "Synchronized lyrics"]);
@@ -330,29 +367,77 @@ public sealed class MetadataSettingsStateService
 
     private static string RoleLabel(PipelineProviderEntry entry, int index)
     {
-        if (entry.UseAsIdentityFallback) return "Fallback";
-        if (string.Equals(entry.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase)) return "Optional";
-        if (index == 0 && string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase)) return "Primary";
-        if (string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase)) return "Secondary";
+        if (entry.UseAsIdentityFallback)
+        {
+            return "Fallback";
+        }
+
+        if (string.Equals(entry.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Optional";
+        }
+
+        if (index == 0 && string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Primary";
+        }
+
+        if (string.Equals(entry.Purpose, "identity", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Secondary";
+        }
+
         return "Participant";
     }
 
     private static string DescriptionFor(ProviderCatalogueDto provider, IReadOnlyList<MetadataProviderParticipation> participations)
     {
-        if (provider.RequiredSystemProvider) return "Required canonical identity and relationship provider.";
+        if (provider.RequiredSystemProvider)
+        {
+            return "Required canonical identity and relationship provider.";
+        }
+
         var stages = participations.Select(item => item.Stage).Distinct().Order().ToList();
-        if (stages.SequenceEqual([1])) return "Identifies media and supplies initial metadata during ingest.";
-        if (stages.Contains(3) && !stages.Contains(1)) return "Adds optional information after media has been identified.";
+        if (stages.SequenceEqual([1]))
+        {
+            return "Identifies media and supplies initial metadata during ingest.";
+        }
+
+        if (stages.Contains(3) && !stages.Contains(1))
+        {
+            return "Adds optional information after media has been identified.";
+        }
+
         return "Contributes metadata and enrichment across the ingestion flow.";
     }
 
     public static string HealthLabel(ProviderStatusDto? status)
     {
-        if (status is null) return "Not checked";
-        if (!status.Enabled) return "Disabled";
-        if (status.RequiresApiKey && !status.HasApiKey) return "Needs setup";
-        if (string.Equals(status.HealthStatus, "Down", StringComparison.OrdinalIgnoreCase)) return "Unavailable";
-        if (string.Equals(status.HealthStatus, "Degraded", StringComparison.OrdinalIgnoreCase)) return "Degraded";
+        if (status is null)
+        {
+            return "Not checked";
+        }
+
+        if (!status.Enabled)
+        {
+            return "Disabled";
+        }
+
+        if (status.RequiresApiKey && !status.HasApiKey)
+        {
+            return "Needs setup";
+        }
+
+        if (string.Equals(status.HealthStatus, "Down", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Unavailable";
+        }
+
+        if (string.Equals(status.HealthStatus, "Degraded", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Degraded";
+        }
+
         return status.IsReachable || string.Equals(status.HealthStatus, "Healthy", StringComparison.OrdinalIgnoreCase) ? "Connected" : "Enabled";
     }
 

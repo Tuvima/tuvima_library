@@ -109,11 +109,30 @@ public static class FlacBuilder
             $"TITLE={title}",
             $"ARTIST={artist}"
         };
-        if (album is not null) comments.Add($"ALBUM={album}");
-        if (year > 0) comments.Add($"DATE={year}");
-        if (genre is not null) comments.Add($"GENRE={genre}");
-        if (trackNumber is not null) comments.Add($"TRACKNUMBER={trackNumber}");
-        if (albumArtist is not null) comments.Add($"ALBUMARTIST={albumArtist}");
+        if (album is not null)
+        {
+            comments.Add($"ALBUM={album}");
+        }
+
+        if (year > 0)
+        {
+            comments.Add($"DATE={year}");
+        }
+
+        if (genre is not null)
+        {
+            comments.Add($"GENRE={genre}");
+        }
+
+        if (trackNumber is not null)
+        {
+            comments.Add($"TRACKNUMBER={trackNumber}");
+        }
+
+        if (albumArtist is not null)
+        {
+            comments.Add($"ALBUMARTIST={albumArtist}");
+        }
 
         // Comment count
         WriteLittleEndian32(stream, comments.Count);

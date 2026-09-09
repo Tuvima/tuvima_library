@@ -1,6 +1,6 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Ingestion.Tests;
 
@@ -18,8 +18,12 @@ public sealed class SourceMutationPolicyGateTests
         var root = NewRoot();
         var source = new LibrarySourceConfig
         {
-            Id = "source", Path = root, ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
-            AccessMode = LibrarySourceAccessModes.Writable, ParticipatesInOrganization = true, WritebackOverride = true,
+            Id = "source",
+            Path = root,
+            ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
+            AccessMode = LibrarySourceAccessModes.Writable,
+            ParticipatesInOrganization = true,
+            WritebackOverride = true,
         };
         var library = new LibraryFolderConfig { Id = "library", Sources = [source] };
         var policy = FileSourceMutationPolicyFactory.Create(library, source, allowDelete: true);

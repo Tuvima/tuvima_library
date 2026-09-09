@@ -6,16 +6,16 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Models;
-using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Adapters;
 
@@ -114,7 +114,9 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
         CancellationToken ct = default)
     {
         if (!CanHandle(request.MediaType) || !CanHandle(request.EntityType))
+        {
             return [];
+        }
 
         // Skip providers known to be down — items will be queued as "Waiting for Provider".
         if (_healthMonitor.IsDown(Name))
@@ -213,7 +215,9 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
             foreach (var strategy in strategies)
             {
                 if (!AllRequiredFieldsPresent(strategy, englishRequest))
+                {
                     continue;
+                }
 
                 try
                 {
@@ -252,7 +256,9 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
         {
             var claims = await ExecuteFetchPassAsync(strategies, pass, ct).ConfigureAwait(false);
             if (claims.Count > 0)
+            {
                 return claims;
+            }
         }
 
         return [];
@@ -272,7 +278,9 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
         CancellationToken ct = default)
     {
         if (!CanHandle(request.MediaType) || !CanHandle(request.EntityType))
+        {
             return [];
+        }
 
         // Short-circuit when an API key is required but not configured.
         if (_config.RequiresApiKey
@@ -292,7 +300,9 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
             .ToList();
 
         if (strategies is null or { Count: 0 })
+        {
             return [];
+        }
 
         // Resolve the effective language based on the provider's language strategy.
         var effectiveLang = ResolveEffectiveLanguage(request);
@@ -306,16 +316,22 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
         foreach (var strategy in strategies)
         {
             if (!AllRequiredFieldsPresent(strategy, effectiveRequest))
+            {
                 continue;
+            }
 
             // Strategies without a results_path return a single object — not useful
             // for multi-result search. Skip to the next strategy.
             if (string.IsNullOrEmpty(strategy.ResultsPath))
+            {
                 continue;
+            }
 
             // Per-strategy cap.
             if (strategy.MaxResults > 0)
+            {
                 effectiveLimit = Math.Min(effectiveLimit, strategy.MaxResults);
+            }
 
             try
             {
@@ -323,7 +339,9 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
                     .ConfigureAwait(false);
 
                 if (results.Count > 0)
+                {
                     return results;
+                }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -347,14 +365,20 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
             foreach (var strategy in strategies)
             {
                 if (!AllRequiredFieldsPresent(strategy, englishRequest))
+                {
                     continue;
+                }
 
                 if (string.IsNullOrEmpty(strategy.ResultsPath))
+                {
                     continue;
+                }
 
                 var strategyLimit = limit;
                 if (strategy.MaxResults > 0)
+                {
                     strategyLimit = Math.Min(strategyLimit, strategy.MaxResults);
+                }
 
                 try
                 {
@@ -362,7 +386,9 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
                         .ConfigureAwait(false);
 
                     if (results.Count > 0)
+                    {
                         return results;
+                    }
                 }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
                 catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException or System.Text.Json.JsonException or InvalidOperationException)
@@ -379,7 +405,9 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
         {
             var results = await ExecuteSearchPassAsync(strategies, pass, limit, ct).ConfigureAwait(false);
             if (results.Count > 0)
+            {
                 return results;
+            }
         }
 
         return [];

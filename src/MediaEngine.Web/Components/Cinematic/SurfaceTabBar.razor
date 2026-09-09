@@ -7,7 +7,7 @@
             <AppNativeButton Type="button"
                              Role="tab"
                              Class="@ItemClassFor(item)"
-                             AriaSelected="@(string.Equals(item.Key, ActiveKey, StringComparison.OrdinalIgnoreCase))"
+                             aria-selected="@(string.Equals(item.Key, ActiveKey, StringComparison.OrdinalIgnoreCase) ? "true" : "false")"
                              OnClick="@(() => ActiveKeyChanged.InvokeAsync(item.Key))">
                 @if (!string.IsNullOrWhiteSpace(item.Icon))
                 {

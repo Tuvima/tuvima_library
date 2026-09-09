@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Profiles;
 
@@ -10,6 +11,10 @@ public sealed class DashboardIdentityClient(
     IHttpContextAccessor? contextAccessor = null,
     ILogger<DashboardIdentityClient>? logger = null)
 {
+    private readonly object _initialAuthorityGate = new();
+    private Task<DashboardAuthorityResponse?>? _initialAuthorityTask;
+    private DashboardSessionAccessor? _initialAuthoritySession;
+    private DashboardSessionSnapshot? _initialAuthoritySnapshot;
     private HttpClient Client => clients.CreateClient("EngineIdentity");
 
     public async Task<AuthBootstrapStatusResponse?> GetBootstrapStatusAsync(CancellationToken ct = default) =>
@@ -33,6 +38,160 @@ public sealed class DashboardIdentityClient(
             : await response.Content.ReadFromJsonAsync<SessionValidationResponse>(cancellationToken: ct).ConfigureAwait(false);
     }
 
+    public async Task<DashboardAuthorityResponse?> RevalidateAuthorityAsync(
+        DashboardSessionAccessor session,
+        CancellationToken ct = default)
+    {
+        var refresh = session.SnapshotForRefresh();
+        if (string.IsNullOrWhiteSpace(refresh.Snapshot.SessionToken))
+        {
+            return null;
+        }
+
+        var result = await ValidateDetailedAsync(refresh.Snapshot.SessionToken, ct).ConfigureAwait(false);
+        if (result.Invalid)
+        {
+            session.ClearIfCurrent(refresh);
+            return null;
+        }
+        if (result.Unusable)
+        {
+            session.ClearAuthorityIfCurrent(refresh);
+            return null;
+        }
+        var validated = result.Response;
+        if (validated is null)
+        {
+            return null;
+        }
+
+        if (!session.TrySet(refresh, validated.AccountId, validated.ActiveProfileId, validated.SessionId, validated.Authority))
+        {
+            return null;
+        }
+
+        return validated.Authority;
+    }
+
+    /// <summary>Coalesces the first circuit validation used by layout and page initialization.</summary>
+    public Task<DashboardAuthorityResponse?> EnsureInitialAuthorityAsync(
+        DashboardSessionAccessor session, CancellationToken ct = default)
+    {
+        var snapshot = session.CurrentSnapshot();
+        lock (_initialAuthorityGate)
+        {
+            if (_initialAuthorityTask is not null
+                && ReferenceEquals(_initialAuthoritySession, session)
+                && Equals(_initialAuthoritySnapshot, snapshot))
+            {
+                return _initialAuthorityTask;
+            }
+
+            var completion = new TaskCompletionSource<DashboardAuthorityResponse?>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _initialAuthoritySession = session;
+            _initialAuthoritySnapshot = snapshot;
+            _initialAuthorityTask = completion.Task;
+            _ = CompleteInitialAuthorityAsync(session, snapshot, ct, completion);
+            return completion.Task;
+        }
+    }
+
+    private async Task CompleteInitialAuthorityAsync(DashboardSessionAccessor session,
+        DashboardSessionSnapshot snapshot, CancellationToken ct,
+        TaskCompletionSource<DashboardAuthorityResponse?> completion)
+    {
+        try { completion.TrySetResult(await RevalidateAuthorityAsync(session, ct).ConfigureAwait(false)); }
+        catch (Exception exception) { completion.TrySetException(exception); }
+        finally
+        {
+            lock (_initialAuthorityGate)
+            {
+                if (ReferenceEquals(_initialAuthoritySession, session)
+                    && Equals(_initialAuthoritySnapshot, snapshot)
+                    && ReferenceEquals(_initialAuthorityTask, completion.Task))
+                {
+                    _initialAuthorityTask = null;
+                    _initialAuthoritySession = null;
+                    _initialAuthoritySnapshot = null;
+                }
+            }
+        }
+    }
+
+    public async Task RunAuthorityRefreshLoopAsync(
+        DashboardSessionAccessor session,
+        TimeSpan interval,
+        CancellationToken ct)
+    {
+        using var timer = new PeriodicTimer(interval);
+        try
+        {
+            while (await timer.WaitForNextTickAsync(ct).ConfigureAwait(false))
+            {
+                try
+                {
+                    await RevalidateAuthorityAsync(session, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    break;
+                }
+                catch (Exception exception)
+                {
+                    logger?.LogWarning(exception,
+                        "Dashboard authority refresh failed; the next scheduled refresh will retry.");
+                }
+            }
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
+    }
+
+    private async Task<(SessionValidationResponse? Response, bool Invalid, bool Unusable)> ValidateDetailedAsync(
+        string sessionToken,
+        CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/auth/session/validate");
+            request.Headers.TryAddWithoutValidation(DashboardEngineAuthenticationHandler.SessionHeader, sessionToken);
+            using var response = await Client.SendAsync(request, ct).ConfigureAwait(false);
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                return (null, true, false);
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return (null, false, false);
+            }
+
+            var validation = await response.Content
+                .ReadFromJsonAsync<SessionValidationResponse>(cancellationToken: ct)
+                .ConfigureAwait(false);
+            if (validation is null)
+            {
+                logger?.LogWarning("Dashboard authority validation returned an empty success response.");
+                return (null, false, true);
+            }
+            return (validation, false, false);
+        }
+        catch (JsonException exception)
+        {
+            logger?.LogWarning(exception,
+                "Dashboard authority validation returned a malformed success response.");
+            return (null, false, true);
+        }
+        catch (NotSupportedException exception)
+        {
+            logger?.LogWarning(exception,
+                "Dashboard authority validation returned an unsupported success response.");
+            return (null, false, true);
+        }
+        catch (HttpRequestException) { return (null, false, false); }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested) { return (null, false, false); }
+    }
+
     public async Task<IReadOnlyList<string>?> RecoverAsync(RecoverPasswordRequest request, CancellationToken ct = default)
     {
         using var response = await Client.PostAsJsonAsync("/auth/password/recover", request, ct).ConfigureAwait(false);
@@ -42,66 +201,400 @@ public sealed class DashboardIdentityClient(
         return result?.RecoveryCodes;
     }
 
-    public async Task<string?> BeginPasswordResetAsync(string email,CancellationToken ct=default)
+    public async Task<string?> BeginPasswordResetAsync(BeginPasswordResetRequest request, CancellationToken ct = default)
     {
-        using var response=await Client.PostAsJsonAsync("/auth/password/reset/begin",new BeginPasswordResetRequest(email),ct).ConfigureAwait(false);
-        return response.IsSuccessStatusCode?(await response.Content.ReadFromJsonAsync<BeginPasswordResetResponse>(cancellationToken:ct).ConfigureAwait(false))?.Token:null;
+        using var response = await Client.PostAsJsonAsync("/auth/password/reset/begin", request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode ? (await response.Content.ReadFromJsonAsync<BeginPasswordResetResponse>(cancellationToken: ct).ConfigureAwait(false))?.Token : null;
     }
 
-    public async Task<bool> CompletePasswordResetAsync(string token,string newPassword,CancellationToken ct=default)=>
-        (await Client.PostAsJsonAsync("/auth/password/reset/complete",new ResetPasswordTokenRequest(token,newPassword),ct).ConfigureAwait(false)).IsSuccessStatusCode;
+    public async Task<bool> CompletePasswordResetAsync(ResetPasswordTokenRequest request, CancellationToken ct = default) =>
+        (await Client.PostAsJsonAsync("/auth/password/reset/complete", request, ct).ConfigureAwait(false)).IsSuccessStatusCode;
 
-    public async Task<AccountResponse?> GetAccountAsync(CancellationToken ct=default)=>
-        await GetAsync<AccountResponse>("/accounts/me",ct).ConfigureAwait(false);
-    public async Task<AuthSessionResponse?> AcceptInvitationAsync(AcceptAccountInvitationRequest request,CancellationToken ct=default)
-    {using var response=await Client.PostAsJsonAsync("/auth/invitations/accept",request,ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AuthSessionResponse>(cancellationToken:ct).ConfigureAwait(false):null;}
+    public async Task<AccountSelfServiceResponse?> GetAccountAsync(CancellationToken ct = default) =>
+        await GetAsync<AccountSelfServiceResponse>("/access/self-service", ct).ConfigureAwait(false);
 
-    public async Task<AccountExternalLoginDto?> LinkExternalLoginAsync(LinkAccountExternalLoginRequest request,CancellationToken ct=default)
+    public Task<AccountSelfServiceResponse?> GetSelfServiceAsync(CancellationToken ct = default) =>
+        GetAsync<AccountSelfServiceResponse>("/access/self-service", ct);
+
+    public Task<List<AccountAccessResponse>> GetManagedAccountsAsync(CancellationToken ct = default) =>
+        GetAsync<List<AccountAccessResponse>>("/access/accounts", ct).ContinueWith(task => task.Result ?? [], ct);
+
+    public Task<AccountAccessResponse?> GetManagedAccountAsync(Guid accountId, CancellationToken ct = default) =>
+        GetAsync<AccountAccessResponse>($"/access/accounts/{accountId:D}", ct);
+
+    public async Task<List<ManagedProfileResponse>> GetManagedProfilesAsync(CancellationToken ct = default) =>
+        await GetAsync<List<ManagedProfileResponse>>("/access/profiles", ct).ConfigureAwait(false) ?? [];
+
+    public async Task<List<AccessLibraryOptionDto>> GetAccessLibrariesAsync(CancellationToken ct = default) =>
+        await GetAsync<List<AccessLibraryOptionDto>>("/access/libraries", ct).ConfigureAwait(false) ?? [];
+
+    public Task<DashboardAccessMutationResult<ManagedProfileResponse>> CreateManagedProfileResultAsync(CreateManagedProfileRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<CreateManagedProfileRequest, ManagedProfileResponse>(HttpMethod.Post, "/access/profiles", request, ct);
+
+    public Task<DashboardAccessMutationResult<ManagedProfileResponse>> UpdateManagedProfileResultAsync(Guid profileId, UpdateManagedProfileRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<UpdateManagedProfileRequest, ManagedProfileResponse>(HttpMethod.Put, $"/access/profiles/{profileId:D}", request, ct);
+
+    public Task<DashboardAccessMutationResult> DeleteManagedProfileResultAsync(Guid profileId, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Delete, $"/access/profiles/{profileId:D}", ct);
+
+    public Task<DashboardAccessMutationResult<AccountInvitationResponse>> CreateInvitationResultAsync(CreateAccountInvitationRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<CreateAccountInvitationRequest, AccountInvitationResponse>(HttpMethod.Post, "/access/invitations", request, ct);
+
+    public async Task<AccountAccessResponse?> CreateManagedAccountAsync(CreateManagedAccountRequest request, CancellationToken ct = default) =>
+        (await CreateManagedAccountResultAsync(request, ct).ConfigureAwait(false)).Value;
+
+    public Task<DashboardAccessMutationResult<AccountAccessResponse>> CreateManagedAccountResultAsync(CreateManagedAccountRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<CreateManagedAccountRequest, AccountAccessResponse>(HttpMethod.Post, "/access/accounts", request, ct);
+
+    public async Task<AccountAccessResponse?> UpdateManagedAccountAsync(Guid accountId, UpdateManagedAccountRequest request, CancellationToken ct = default) =>
+        (await UpdateManagedAccountResultAsync(accountId, request, ct).ConfigureAwait(false)).Value;
+
+    public Task<DashboardAccessMutationResult<AccountAccessResponse>> UpdateManagedAccountResultAsync(Guid accountId, UpdateManagedAccountRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<UpdateManagedAccountRequest, AccountAccessResponse>(HttpMethod.Put, $"/access/accounts/{accountId:D}", request, ct);
+
+    public async Task<bool> DeleteManagedAccountAsync(Guid accountId, CancellationToken ct = default) =>
+        (await DeleteManagedAccountResultAsync(accountId, ct).ConfigureAwait(false)).Succeeded;
+
+    public Task<DashboardAccessMutationResult> DeleteManagedAccountResultAsync(Guid accountId, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Delete, $"/access/accounts/{accountId:D}", ct);
+
+    public Task<DashboardAccessMutationResult> ReplaceManagedAccountAccessResultAsync(Guid accountId, ReplaceAccountAccessRequest request, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Put, $"/access/accounts/{accountId:D}/access", request, ct);
+
+    public Task<DashboardAccessMutationResult> SetManagedProfileGrantResultAsync(Guid accountId, Guid profileId, SetAccountProfileGrantAccessRequest request, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Put, $"/access/accounts/{accountId:D}/grants/{profileId:D}", request, ct);
+
+    public Task<DashboardAccessMutationResult> SetGrantProtectionResultAsync(Guid accountId, Guid profileId, SetGrantAdminProtectionRequest request, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Put, $"/access/accounts/{accountId:D}/grants/{profileId:D}/admin-protection", request, ct);
+
+    public async Task<bool> RevokeManagedProfileGrantAsync(Guid accountId, Guid profileId, CancellationToken ct = default) =>
+        (await RevokeManagedProfileGrantResultAsync(accountId, profileId, ct).ConfigureAwait(false)).Succeeded;
+
+    public Task<DashboardAccessMutationResult> RevokeManagedProfileGrantResultAsync(Guid accountId, Guid profileId, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Delete, $"/access/accounts/{accountId:D}/grants/{profileId:D}", ct);
+
+    public Task<List<ApplicationPermissionDefinitionDto>> GetApplicationPermissionsAsync(CancellationToken ct = default) =>
+        GetAsync<List<ApplicationPermissionDefinitionDto>>("/access/applications/permissions", ct).ContinueWith(task => task.Result ?? [], ct);
+
+    public Task<List<ApplicationPermissionPresetDto>> GetApplicationPresetsAsync(CancellationToken ct = default) =>
+        GetAsync<List<ApplicationPermissionPresetDto>>("/access/applications/presets", ct).ContinueWith(task => task.Result ?? [], ct);
+
+    public Task<List<ApplicationResponse>> GetApplicationsAsync(CancellationToken ct = default) =>
+        GetAsync<List<ApplicationResponse>>("/access/applications", ct).ContinueWith(task => task.Result ?? [], ct);
+
+    public async Task<ApplicationResponse?> CreateApplicationAsync(CreateApplicationRequest request, CancellationToken ct = default) =>
+        (await CreateApplicationResultAsync(request, ct).ConfigureAwait(false)).Value;
+
+    public Task<DashboardAccessMutationResult<ApplicationResponse>> CreateApplicationResultAsync(CreateApplicationRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<CreateApplicationRequest, ApplicationResponse>(HttpMethod.Post, "/access/applications", request, ct);
+
+    public async Task<ApplicationResponse?> UpdateApplicationAsync(Guid applicationId, UpdateApplicationRequest request, CancellationToken ct = default) =>
+        (await UpdateApplicationResultAsync(applicationId, request, ct).ConfigureAwait(false)).Value;
+
+    public Task<DashboardAccessMutationResult<ApplicationResponse>> UpdateApplicationResultAsync(Guid applicationId, UpdateApplicationRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<UpdateApplicationRequest, ApplicationResponse>(HttpMethod.Put, $"/access/applications/{applicationId:D}", request, ct);
+
+    public async Task<bool> DeleteApplicationAsync(Guid applicationId, CancellationToken ct = default) =>
+        (await DeleteApplicationResultAsync(applicationId, ct).ConfigureAwait(false)).Succeeded;
+
+    public Task<DashboardAccessMutationResult> DeleteApplicationResultAsync(Guid applicationId, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Delete, $"/access/applications/{applicationId:D}", ct);
+
+    public async Task<ApplicationResponse?> ReplaceApplicationPermissionsAsync(Guid applicationId, SetApplicationPermissionsRequest request, CancellationToken ct = default) =>
+        (await ReplaceApplicationPermissionsResultAsync(applicationId, request, ct).ConfigureAwait(false)).Value;
+
+    public Task<DashboardAccessMutationResult<ApplicationResponse>> ReplaceApplicationPermissionsResultAsync(Guid applicationId, SetApplicationPermissionsRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<SetApplicationPermissionsRequest, ApplicationResponse>(HttpMethod.Put, $"/access/applications/{applicationId:D}/permissions", request, ct);
+
+    public async Task<ApplicationResponse?> SetApplicationClientBindingsAsync(Guid applicationId, SetApplicationClientBindingsRequest request, CancellationToken ct = default) =>
+        (await SetApplicationClientBindingsResultAsync(applicationId, request, ct).ConfigureAwait(false)).Value;
+
+    public Task<DashboardAccessMutationResult<ApplicationResponse>> SetApplicationClientBindingsResultAsync(Guid applicationId, SetApplicationClientBindingsRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<SetApplicationClientBindingsRequest, ApplicationResponse>(HttpMethod.Put, $"/access/applications/{applicationId:D}/client-bindings", request, ct);
+
+    public async Task<ApplicationCredentialIssuedResponse?> IssueApplicationCredentialAsync(Guid applicationId, CreateApplicationCredentialRequest request, CancellationToken ct = default) =>
+        (await IssueApplicationCredentialResultAsync(applicationId, request, ct).ConfigureAwait(false)).Value;
+
+    public Task<DashboardAccessMutationResult<ApplicationCredentialIssuedResponse>> IssueApplicationCredentialResultAsync(Guid applicationId, CreateApplicationCredentialRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<CreateApplicationCredentialRequest, ApplicationCredentialIssuedResponse>(HttpMethod.Post, $"/access/applications/{applicationId:D}/credentials", request, ct);
+
+    public async Task<ApplicationCredentialIssuedResponse?> RotateApplicationCredentialAsync(Guid applicationId, Guid credentialId, RotateApplicationCredentialRequest request, CancellationToken ct = default) =>
+        (await RotateApplicationCredentialResultAsync(applicationId, credentialId, request, ct).ConfigureAwait(false)).Value;
+
+    public Task<DashboardAccessMutationResult<ApplicationCredentialIssuedResponse>> RotateApplicationCredentialResultAsync(Guid applicationId, Guid credentialId, RotateApplicationCredentialRequest request, CancellationToken ct = default) =>
+        SendMutationAsync<RotateApplicationCredentialRequest, ApplicationCredentialIssuedResponse>(HttpMethod.Post, $"/access/applications/{applicationId:D}/credentials/{credentialId:D}/rotate", request, ct);
+
+    public async Task<bool> RevokeApplicationCredentialAsync(Guid applicationId, Guid credentialId, CancellationToken ct = default) =>
+        (await RevokeApplicationCredentialResultAsync(applicationId, credentialId, ct).ConfigureAwait(false)).Succeeded;
+
+    public Task<DashboardAccessMutationResult> RevokeApplicationCredentialResultAsync(Guid applicationId, Guid credentialId, CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Delete, $"/access/applications/{applicationId:D}/credentials/{credentialId:D}", ct);
+
+    public Task<List<string>> GetApplicationWebhookEventTypesAsync(Guid applicationId, CancellationToken ct = default) =>
+        GetAsync<List<string>>($"/access/applications/{applicationId:D}/webhooks/event-types", ct)
+            .ContinueWith(task => task.Result ?? [], ct);
+
+    public Task<List<ApplicationWebhookResponse>> GetApplicationWebhooksAsync(Guid applicationId, CancellationToken ct = default) =>
+        GetAsync<List<ApplicationWebhookResponse>>($"/access/applications/{applicationId:D}/webhooks", ct)
+            .ContinueWith(task => task.Result ?? [], ct);
+
+    public Task<DashboardAccessMutationResult<ApplicationWebhookSecretResponse>> CreateApplicationWebhookResultAsync(
+        Guid applicationId,
+        SaveApplicationWebhookRequest request,
+        CancellationToken ct = default) =>
+        SendMutationAsync<SaveApplicationWebhookRequest, ApplicationWebhookSecretResponse>(
+            HttpMethod.Post,
+            $"/access/applications/{applicationId:D}/webhooks",
+            request,
+            ct);
+
+    public Task<DashboardAccessMutationResult<ApplicationWebhookSecretResponse>> UpdateApplicationWebhookResultAsync(
+        Guid applicationId,
+        Guid webhookId,
+        SaveApplicationWebhookRequest request,
+        CancellationToken ct = default) =>
+        SendMutationAsync<SaveApplicationWebhookRequest, ApplicationWebhookSecretResponse>(
+            HttpMethod.Put,
+            $"/access/applications/{applicationId:D}/webhooks/{webhookId:D}",
+            request,
+            ct);
+
+    public Task<DashboardAccessMutationResult<ApplicationWebhookSecretResponse>> RotateApplicationWebhookSecretResultAsync(
+        Guid applicationId,
+        Guid webhookId,
+        CancellationToken ct = default) =>
+        SendMutationAsync<object, ApplicationWebhookSecretResponse>(
+            HttpMethod.Post,
+            $"/access/applications/{applicationId:D}/webhooks/{webhookId:D}/rotate",
+            new { },
+            ct);
+
+    public Task<DashboardAccessMutationResult> DeleteApplicationWebhookResultAsync(
+        Guid applicationId,
+        Guid webhookId,
+        CancellationToken ct = default) =>
+        SendMutationAsync(HttpMethod.Delete, $"/access/applications/{applicationId:D}/webhooks/{webhookId:D}", ct);
+
+    public Task<GrantAdminUnlockResponse?> GetAdministratorUnlockAsync(CancellationToken ct = default) =>
+        GetAsync<GrantAdminUnlockResponse>("/access/admin-unlock", ct);
+
+    public Task<GrantAdminUnlockResponse?> UnlockAdministratorAsync(GrantAdminUnlockRequest request, CancellationToken ct = default) =>
+        SendAsync<GrantAdminUnlockRequest, GrantAdminUnlockResponse>(HttpMethod.Post, "/access/admin-unlock", request, ct);
+
+    public async Task<bool> ExitAdministratorAsync(CancellationToken ct = default)
     {
-        using var response=await Client.PostAsJsonAsync("/accounts/me/external-logins",request,ct).ConfigureAwait(false);
-        return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AccountExternalLoginDto>(cancellationToken:ct).ConfigureAwait(false):null;
+        using var response = await Client.DeleteAsync("/access/admin-unlock", ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode;
+    }
+    public async Task<AuthSessionResponse?> AcceptInvitationAsync(AcceptAccountInvitationRequest request, CancellationToken ct = default)
+    { using var response = await Client.PostAsJsonAsync("/auth/invitations/accept", request, ct).ConfigureAwait(false); return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<AuthSessionResponse>(cancellationToken: ct).ConfigureAwait(false) : null; }
+
+    public async Task<ExternalIdentityTransactionResponse?> BeginExternalIdentityTransactionAsync(
+        BeginExternalIdentityTransactionRequest request,
+        CancellationToken ct = default)
+    {
+        using var response = await Client.PostAsJsonAsync("/auth/external-transactions", request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<ExternalIdentityTransactionResponse>(cancellationToken: ct).ConfigureAwait(false)
+            : null;
     }
 
-    public async Task<List<AccountExternalLoginDto>> GetExternalLoginsAsync(CancellationToken ct=default)=>
-        await GetAsync<List<AccountExternalLoginDto>>("/accounts/me/external-logins",ct).ConfigureAwait(false)??[];
-
-    public async Task<bool> UnlinkExternalLoginAsync(Guid id,CancellationToken ct=default)=>
-        (await Client.DeleteAsync($"/accounts/me/external-logins/{id:D}",ct).ConfigureAwait(false)).IsSuccessStatusCode;
-    public async Task<List<AccountResponse>> GetAccountsAsync(CancellationToken ct=default)=>await GetAsync<List<AccountResponse>>("/accounts",ct).ConfigureAwait(false)??[];
-    public async Task<AccountResponse?> CreateAccountAsync(CreateAccountRequest request,CancellationToken ct=default)
-    {using var response=await Client.PostAsJsonAsync("/accounts",request,ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AccountResponse>(cancellationToken:ct).ConfigureAwait(false):null;}
-    public async Task<AccountResponse?> GrantProfileAsync(Guid accountId,Guid profileId,bool isDefault=false,CancellationToken ct=default)
-    {using var response=await Client.PutAsJsonAsync($"/accounts/{accountId:D}/profiles/{profileId:D}",new SetAccountProfileGrantRequest(isDefault),ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AccountResponse>(cancellationToken:ct).ConfigureAwait(false):null;}
-    public async Task<AccountResponse?> RevokeProfileAsync(Guid accountId,Guid profileId,CancellationToken ct=default)
-    {using var response=await Client.DeleteAsync($"/accounts/{accountId:D}/profiles/{profileId:D}",ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AccountResponse>(cancellationToken:ct).ConfigureAwait(false):null;}
-    public async Task<AccountInvitationResponse?> CreateInvitationAsync(CreateAccountInvitationRequest request,CancellationToken ct=default)
-    {using var response=await Client.PostAsJsonAsync("/accounts/invitations",request,ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AccountInvitationResponse>(cancellationToken:ct).ConfigureAwait(false):null;}
-
-    public Task<PasskeyOptionsResponse?> GetPasskeyLoginOptionsAsync(string? email,CancellationToken ct=default)=>
-        SendPasskeyAsync<BeginPasskeyLoginRequest,PasskeyOptionsResponse>("/auth/passkeys/login/options",new(email),ct);
-    public Task<AuthSessionResponse?> CompletePasskeyLoginAsync(CompletePasskeyLoginRequest body,CancellationToken ct=default)=>
-        SendPasskeyAsync<CompletePasskeyLoginRequest,AuthSessionResponse>("/auth/passkeys/login/complete",body,ct);
-    public Task<PasskeyOptionsResponse?> GetPasskeyRegistrationOptionsAsync(CancellationToken ct=default)=>
-        SendPasskeyAsync<object,PasskeyOptionsResponse>("/auth/passkeys/registration/options",new{},ct);
-    public async Task<bool> CompletePasskeyRegistrationAsync(CompletePasskeyRegistrationRequest body,CancellationToken ct=default)
-    {using var request=PasskeyRequest(HttpMethod.Post,"/auth/passkeys/registration/complete",body);using var response=await Client.SendAsync(request,ct).ConfigureAwait(false);return response.IsSuccessStatusCode;}
-    public async Task<List<PasskeyCredentialResponse>> GetPasskeysAsync(CancellationToken ct=default)=>await GetAsync<List<PasskeyCredentialResponse>>("/auth/passkeys",ct).ConfigureAwait(false)??[];
-    public async Task<bool> RemovePasskeyAsync(string id,CancellationToken ct=default)=>(await Client.DeleteAsync($"/auth/passkeys/{Uri.EscapeDataString(id)}",ct).ConfigureAwait(false)).IsSuccessStatusCode;
-    public async Task<AdministratorElevationResponse?> GetElevationAsync(CancellationToken ct=default)=>await GetAsync<AdministratorElevationResponse>("/auth/elevation",ct).ConfigureAwait(false);
-    public async Task<AdministratorElevationResponse?> ElevateAsync(string secret,CancellationToken ct=default)
-    {using var response=await Client.PostAsJsonAsync("/auth/elevation",new ElevateAdministratorRequest{Secret=secret},ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<AdministratorElevationResponse>(cancellationToken:ct).ConfigureAwait(false):null;}
-    public async Task<bool> SetAdministratorPinAsync(Guid profileId,string? pin,CancellationToken ct=default)=>
-        (await Client.PutAsJsonAsync($"/auth/profiles/{profileId:D}/administrator-pin",new SetProfilePinRequest{Pin=pin??string.Empty},ct).ConfigureAwait(false)).IsSuccessStatusCode;
-    public Task<PasskeyOptionsResponse?> GetPasskeyElevationOptionsAsync(CancellationToken ct=default)=>SendPasskeyAsync<object,PasskeyOptionsResponse>("/auth/passkeys/elevation/options",new{},ct);
-    public Task<AdministratorElevationResponse?> CompletePasskeyElevationAsync(CompletePasskeyElevationRequest body,CancellationToken ct=default)=>SendPasskeyAsync<CompletePasskeyElevationRequest,AdministratorElevationResponse>("/auth/passkeys/elevation/complete",body,ct);
-
-    private async Task<TResponse?> SendPasskeyAsync<TRequest,TResponse>(string path,TRequest body,CancellationToken ct)
-    {using var request=PasskeyRequest(HttpMethod.Post,path,body);using var response=await Client.SendAsync(request,ct).ConfigureAwait(false);return response.IsSuccessStatusCode?await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken:ct).ConfigureAwait(false):default;}
-    private HttpRequestMessage PasskeyRequest<T>(HttpMethod method,string path,T body)
+    public async Task<AccountExternalLoginDto?> LinkExternalLoginAsync(LinkAccountExternalLoginRequest request, CancellationToken ct = default)
     {
-        var request=new HttpRequestMessage(method,path){Content=JsonContent.Create(body)};var inbound=contextAccessor?.HttpContext?.Request;
-        if(inbound is not null){request.Headers.Host=inbound.Host.Value;request.Headers.TryAddWithoutValidation("Origin",$"{inbound.Scheme}://{inbound.Host.Value}");}
+        using var response = await Client.PostAsJsonAsync("/auth/external-link", request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<AccountExternalLoginDto>(cancellationToken: ct).ConfigureAwait(false)
+            : null;
+    }
+
+    public async Task<List<AccountExternalLoginDto>> GetExternalLoginsAsync(CancellationToken ct = default) =>
+        await GetAsync<List<AccountExternalLoginDto>>("/access/self-service/external-logins", ct).ConfigureAwait(false) ?? [];
+
+    public async Task<bool> UnlinkExternalLoginAsync(Guid id, CancellationToken ct = default) =>
+        (await Client.DeleteAsync($"/access/self-service/external-logins/{id:D}", ct).ConfigureAwait(false)).IsSuccessStatusCode;
+
+    public Task<PasskeyOptionsResponse?> GetPasskeyLoginOptionsAsync(string? email, bool isLocal, bool isHttps, CancellationToken ct = default) =>
+        SendPasskeyAsync<BeginPasskeyLoginRequest, PasskeyOptionsResponse>("/auth/passkeys/login/options", new(email, isLocal, isHttps), ct);
+    public Task<AuthSessionResponse?> CompletePasskeyLoginAsync(CompletePasskeyLoginRequest body, CancellationToken ct = default) =>
+        SendPasskeyAsync<CompletePasskeyLoginRequest, AuthSessionResponse>("/auth/passkeys/login/complete", body, ct);
+    public Task<PasskeyOptionsResponse?> GetPasskeyRegistrationOptionsAsync(CancellationToken ct = default) =>
+        SendPasskeyAsync<object, PasskeyOptionsResponse>("/auth/passkeys/registration/options", new { }, ct);
+    public async Task<bool> CompletePasskeyRegistrationAsync(CompletePasskeyRegistrationRequest body, CancellationToken ct = default)
+    { using var request = PasskeyRequest(HttpMethod.Post, "/auth/passkeys/registration/complete", body); using var response = await Client.SendAsync(request, ct).ConfigureAwait(false); return response.IsSuccessStatusCode; }
+    public async Task<List<PasskeyCredentialResponse>> GetPasskeysAsync(CancellationToken ct = default) => await GetAsync<List<PasskeyCredentialResponse>>("/auth/passkeys", ct).ConfigureAwait(false) ?? [];
+    public async Task<bool> RemovePasskeyAsync(string id, CancellationToken ct = default) => (await Client.DeleteAsync($"/auth/passkeys/{Uri.EscapeDataString(id)}", ct).ConfigureAwait(false)).IsSuccessStatusCode;
+
+    private async Task<TResponse?> SendPasskeyAsync<TRequest, TResponse>(string path, TRequest body, CancellationToken ct)
+    { using var request = PasskeyRequest(HttpMethod.Post, path, body); using var response = await Client.SendAsync(request, ct).ConfigureAwait(false); return response.IsSuccessStatusCode ? await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct).ConfigureAwait(false) : default; }
+    private HttpRequestMessage PasskeyRequest<T>(HttpMethod method, string path, T body)
+    {
+        var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) }; var inbound = contextAccessor?.HttpContext?.Request;
+        if (inbound is not null) { request.Headers.Host = inbound.Host.Value; request.Headers.TryAddWithoutValidation("Origin", $"{inbound.Scheme}://{inbound.Host.Value}"); }
         return request;
+    }
+
+    private async Task<DashboardAccessMutationResult<TResponse>> SendMutationAsync<TRequest, TResponse>(
+        HttpMethod method,
+        string path,
+        TRequest body,
+        CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+            using var response = await Client.SendAsync(request, ct).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                return await ReadMutationFailureAsync<TResponse>(response, ct).ConfigureAwait(false);
+            }
+
+            try
+            {
+                var value = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct).ConfigureAwait(false);
+                return value is null
+                    ? DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.InvalidResponse, response.StatusCode)
+                    : DashboardAccessMutationResult<TResponse>.Success(value);
+            }
+            catch (JsonException)
+            {
+                return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.InvalidResponse, response.StatusCode);
+            }
+            catch (NotSupportedException)
+            {
+                return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.InvalidResponse, response.StatusCode);
+            }
+            catch (IOException)
+            {
+                return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.Transient, response.StatusCode);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.Transient);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return DashboardAccessMutationResult<TResponse>.FailureResult(DashboardAccessMutationFailure.Transient);
+        }
+    }
+
+    private async Task<DashboardAccessMutationResult> SendMutationAsync(
+        HttpMethod method,
+        string path,
+        object body,
+        CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+            using var response = await Client.SendAsync(request, ct).ConfigureAwait(false);
+            return response.IsSuccessStatusCode
+                ? DashboardAccessMutationResult.Success()
+                : await ReadMutationFailureAsync(response, ct).ConfigureAwait(false);
+        }
+        catch (HttpRequestException)
+        {
+            return DashboardAccessMutationResult.FailureResult(DashboardAccessMutationFailure.Transient);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return DashboardAccessMutationResult.FailureResult(DashboardAccessMutationFailure.Transient);
+        }
+    }
+
+    private async Task<DashboardAccessMutationResult> SendMutationAsync(
+        HttpMethod method,
+        string path,
+        CancellationToken ct)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(method, path);
+            using var response = await Client.SendAsync(request, ct).ConfigureAwait(false);
+            return response.IsSuccessStatusCode
+                ? DashboardAccessMutationResult.Success()
+                : await ReadMutationFailureAsync(response, ct).ConfigureAwait(false);
+        }
+        catch (HttpRequestException)
+        {
+            return DashboardAccessMutationResult.FailureResult(DashboardAccessMutationFailure.Transient);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return DashboardAccessMutationResult.FailureResult(DashboardAccessMutationFailure.Transient);
+        }
+    }
+
+    private static async Task<DashboardAccessMutationResult<T>> ReadMutationFailureAsync<T>(HttpResponseMessage response, CancellationToken ct)
+    {
+        var failure = MutationFailure(response.StatusCode);
+        var fields = failure == DashboardAccessMutationFailure.Validation
+            ? await ReadValidationFieldNamesAsync(response, ct).ConfigureAwait(false)
+            : [];
+        return DashboardAccessMutationResult<T>.FailureResult(failure, response.StatusCode, fields);
+    }
+
+    private static async Task<DashboardAccessMutationResult> ReadMutationFailureAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        var failure = MutationFailure(response.StatusCode);
+        var fields = failure == DashboardAccessMutationFailure.Validation
+            ? await ReadValidationFieldNamesAsync(response, ct).ConfigureAwait(false)
+            : [];
+        return DashboardAccessMutationResult.FailureResult(failure, response.StatusCode, fields);
+    }
+
+    private static DashboardAccessMutationFailure MutationFailure(HttpStatusCode statusCode) => statusCode switch
+    {
+        HttpStatusCode.BadRequest => DashboardAccessMutationFailure.Validation,
+        HttpStatusCode.Unauthorized => DashboardAccessMutationFailure.Unauthorized,
+        HttpStatusCode.Forbidden => DashboardAccessMutationFailure.Forbidden,
+        HttpStatusCode.Conflict => DashboardAccessMutationFailure.Conflict,
+        HttpStatusCode.NotFound => DashboardAccessMutationFailure.NotFound,
+        HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests or HttpStatusCode.BadGateway
+            or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout => DashboardAccessMutationFailure.Transient,
+        _ => DashboardAccessMutationFailure.Failed,
+    };
+
+    private static async Task<IReadOnlyList<string>> ReadValidationFieldNamesAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct).ConfigureAwait(false);
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !document.RootElement.TryGetProperty("errors", out var errors)
+                || errors.ValueKind != JsonValueKind.Object)
+            {
+                return [];
+            }
+
+            return errors.EnumerateObject()
+                .Select(property => property.Name)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+        catch (NotSupportedException)
+        {
+            return [];
+        }
+        catch (IOException)
+        {
+            return [];
+        }
+    }
+
+    private async Task<TResponse?> SendAsync<TRequest, TResponse>(HttpMethod method, string path, TRequest body, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(method, path) { Content = JsonContent.Create(body) };
+        using var response = await Client.SendAsync(request, ct).ConfigureAwait(false);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: ct).ConfigureAwait(false)
+            : default;
     }
 
     public async Task<List<DeviceSessionResponse>> GetSessionsAsync(CancellationToken ct = default) =>

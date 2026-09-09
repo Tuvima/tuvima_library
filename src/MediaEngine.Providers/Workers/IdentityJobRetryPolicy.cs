@@ -1,7 +1,7 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Jobs;
 
 namespace MediaEngine.Providers.Workers;
@@ -59,7 +59,9 @@ internal static class IdentityJobRetryPolicy
             ? settings.IdentityRetryJitterMaxMilliseconds
             : DefaultJitterMaxMilliseconds;
         if (jitterMax <= jitterMin)
+        {
             jitterMax = jitterMin + 1;
+        }
 
         var executionAttempt = Math.Max(1, job.AttemptCount + 1);
         var delay = exception is RateLimitedDependencyException { RetryAfter: { } retryAfter }

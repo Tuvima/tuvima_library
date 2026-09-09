@@ -1,6 +1,6 @@
 # Access architecture: review and implementation plan
 
-Status: implementation authorized and active. Prerequisite crash/ingestion verification and P01 are complete; P02–P05 are undergoing combined security verification in the isolated integration branch. No Access implementation has been merged into main. P06–P13 remain in scope behind their dependency gates.
+Status: P00–P13 implementation and acceptance are complete and have been collapsed into `main` as one reviewed change. The combined build, formatting, tests, and coverage gates pass: 3,632 tests passed, 37 existing provider tests skipped, zero failed. Isolated browser acceptance also passed for account/profile lifecycle, grants, administrator PIN protection, service applications, replaceable credentials, and signed webhooks. The normal development database has not been reset or cut over. See [execution status](execution/status.md) for evidence and the [cutover procedure](execution/cutover.md) for replacement-runtime startup requirements.
 
 Reviewed on 2026-09-08 against `main` at `3af3ae3cf57dac270dd99b35a408af48e6c2b069`. Recheck the base before starting workers.
 

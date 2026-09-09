@@ -1,6 +1,7 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Development;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -10,7 +11,6 @@ using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -39,14 +39,18 @@ public static class DebugEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Title))
+            {
                 return ApiErrors.BadRequest("Title is required.");
+            }
 
             // Find the Wikidata Reconciliation provider.
             var provider = providers.FirstOrDefault(p => p.Domain == ProviderDomain.Universal);
             if (provider is null)
+            {
                 return Results.Problem(
                     "Wikidata Reconciliation provider is not registered.",
                     statusCode: StatusCodes.Status503ServiceUnavailable);
+            }
 
             // Parse media type — default to Unknown if unrecognised.
             Enum.TryParse<MediaType>(request.MediaType, ignoreCase: true, out var mediaType);
@@ -56,15 +60,15 @@ public static class DebugEndpoints
 
             var lookupRequest = new ProviderLookupRequest
             {
-                EntityId     = Guid.NewGuid(), // ephemeral — not persisted
-                EntityType   = EntityType.MediaAsset,
-                MediaType    = mediaType,
-                Title        = request.Title,
-                Author       = request.Author,
-                Language     = core.Language.Metadata,
-                Country      = core.Country  ?? "us",
+                EntityId = Guid.NewGuid(), // ephemeral — not persisted
+                EntityType = EntityType.MediaAsset,
+                MediaType = mediaType,
+                Title = request.Title,
+                Author = request.Author,
+                Language = core.Language.Metadata,
+                Country = core.Country ?? "us",
                 HydrationPass = HydrationPass.Universe,
-                BaseUrl      = string.Empty,
+                BaseUrl = string.Empty,
             };
 
             IReadOnlyList<ProviderClaim> claims;
@@ -200,22 +204,24 @@ public static class DebugEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Title))
+            {
                 return ApiErrors.BadRequest("Title is required.");
+            }
 
             Enum.TryParse<MediaType>(request.MediaType, ignoreCase: true, out var mediaType);
             var core = configLoader.LoadCore();
 
             var lookupRequest = new ProviderLookupRequest
             {
-                EntityId      = Guid.NewGuid(),
-                EntityType    = EntityType.MediaAsset,
-                MediaType     = mediaType,
-                Title         = request.Title,
-                Author        = request.Author,
-                Language      = core.Language.Metadata,
-                Country       = core.Country  ?? "us",
+                EntityId = Guid.NewGuid(),
+                EntityType = EntityType.MediaAsset,
+                MediaType = mediaType,
+                Title = request.Title,
+                Author = request.Author,
+                Language = core.Language.Metadata,
+                Country = core.Country ?? "us",
                 HydrationPass = HydrationPass.Universe,
-                BaseUrl       = string.Empty,
+                BaseUrl = string.Empty,
             };
 
             IReadOnlyList<SearchResultItem> candidates;
@@ -266,7 +272,9 @@ public static class DebugEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Qid))
+            {
                 return ApiErrors.BadRequest("QID is required.");
+            }
 
             Enum.TryParse<MediaType>(request.MediaType, ignoreCase: true, out var mediaType);
             var core = configLoader.LoadCore();
@@ -274,15 +282,15 @@ public static class DebugEndpoints
             // Use PreResolvedQid to skip reconciliation and go straight to Data Extension.
             var lookupRequest = new ProviderLookupRequest
             {
-                EntityId       = Guid.NewGuid(),
-                EntityType     = EntityType.MediaAsset,
-                MediaType      = mediaType,
-                Title          = request.Qid, // Title not needed when QID is pre-resolved
-                Author         = request.Author,
-                Language       = core.Language.Metadata,
-                Country        = core.Country  ?? "us",
-                HydrationPass  = HydrationPass.Universe,
-                BaseUrl        = string.Empty,
+                EntityId = Guid.NewGuid(),
+                EntityType = EntityType.MediaAsset,
+                MediaType = mediaType,
+                Title = request.Qid, // Title not needed when QID is pre-resolved
+                Author = request.Author,
+                Language = core.Language.Metadata,
+                Country = core.Country ?? "us",
+                HydrationPass = HydrationPass.Universe,
+                BaseUrl = string.Empty,
                 PreResolvedQid = request.Qid,
             };
 
@@ -418,7 +426,9 @@ public static class DebugEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Qid))
+            {
                 return ApiErrors.BadRequest("QID is required.");
+            }
 
             Enum.TryParse<MediaType>(request.MediaType, ignoreCase: true, out var mediaType);
             var core = configLoader.LoadCore();
@@ -426,15 +436,15 @@ public static class DebugEndpoints
             // Use PreResolvedQid to skip reconciliation and go straight to Data Extension.
             var lookupRequest = new ProviderLookupRequest
             {
-                EntityId       = Guid.NewGuid(),
-                EntityType     = EntityType.MediaAsset,
-                MediaType      = mediaType,
-                Title          = request.Qid,
-                Author         = request.Author,
-                Language       = core.Language.Metadata,
-                Country        = core.Country  ?? "us",
-                HydrationPass  = HydrationPass.Universe,
-                BaseUrl        = string.Empty,
+                EntityId = Guid.NewGuid(),
+                EntityType = EntityType.MediaAsset,
+                MediaType = mediaType,
+                Title = request.Qid,
+                Author = request.Author,
+                Language = core.Language.Metadata,
+                Country = core.Country ?? "us",
+                HydrationPass = HydrationPass.Universe,
+                BaseUrl = string.Empty,
                 PreResolvedQid = request.Qid,
             };
 
@@ -484,35 +494,35 @@ public static class DebugEndpoints
                         c.Key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase));
                     var role = matchingClaim?.Key switch
                     {
-                        "author_qid"       => "Author",
-                        "narrator_qid"     => "Narrator",
-                        "director_qid"     => "Director",
-                        "cast_qid"         => "Actor",
+                        "author_qid" => "Author",
+                        "narrator_qid" => "Narrator",
+                        "director_qid" => "Director",
+                        "cast_qid" => "Actor",
                         "screenwriter_qid" => "Screenwriter",
-                        "composer_qid"     => "Composer",
-                        _                  => "Author",
+                        "composer_qid" => "Composer",
+                        _ => "Author",
                     };
 
                     person = new Person
                     {
-                        Id          = Guid.NewGuid(),
-                        Name        = label,
-                        Roles       = [role],
+                        Id = Guid.NewGuid(),
+                        Name = label,
+                        Roles = [role],
                         WikidataQid = qid,
-                        CreatedAt   = DateTimeOffset.UtcNow,
+                        CreatedAt = DateTimeOffset.UtcNow,
                     };
                     person = await personRepo.CreateAsync(person, ct);
 
                     // Enqueue Wikidata enrichment for this person.
                     await harvestService.EnqueueAsync(new HarvestRequest
                     {
-                        EntityId   = person.Id,
+                        EntityId = person.Id,
                         EntityType = EntityType.Person,
-                        MediaType  = mediaType,
-                        Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                        MediaType = mediaType,
+                        Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                         {
                             ["name"] = label,
-                            ["qid"]  = qid,
+                            ["qid"] = qid,
                         },
                     }, ct);
                 }
@@ -559,38 +569,38 @@ public static class DebugEndpoints
                         c.Key.EndsWith("_qid", StringComparison.OrdinalIgnoreCase));
                     var entitySubType = matchingClaim?.Key switch
                     {
-                        "location_qid"     => "Location",
+                        "location_qid" => "Location",
                         "organization_qid" => "Organization",
-                        _                  => "Character",
+                        _ => "Character",
                     };
 
                     entity = new FictionalEntity
                     {
-                        Id                   = Guid.NewGuid(),
-                        WikidataQid          = qid,
-                        Label                = label,
-                        EntitySubType        = entitySubType,
+                        Id = Guid.NewGuid(),
+                        WikidataQid = qid,
+                        Label = label,
+                        EntitySubType = entitySubType,
                         FictionalUniverseQid = universeQid,
-                        CreatedAt            = DateTimeOffset.UtcNow,
+                        CreatedAt = DateTimeOffset.UtcNow,
                     };
                     await entityRepo.CreateAsync(entity, ct);
 
                     // Enqueue enrichment for this entity.
                     var entityType = entitySubType switch
                     {
-                        "Location"     => EntityType.Location,
+                        "Location" => EntityType.Location,
                         "Organization" => EntityType.Organization,
-                        _              => EntityType.Character,
+                        _ => EntityType.Character,
                     };
                     await harvestService.EnqueueAsync(new HarvestRequest
                     {
-                        EntityId   = entity.Id,
+                        EntityId = entity.Id,
                         EntityType = entityType,
-                        MediaType  = mediaType,
-                        Hints      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                        MediaType = mediaType,
+                        Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
                         {
                             ["name"] = label,
-                            ["qid"]  = qid,
+                            ["qid"] = qid,
                         },
                     }, ct);
                 }
@@ -668,24 +678,28 @@ public static class DebugEndpoints
         foreach (var claim in claims)
         {
             if (!fieldKeys.Any(k => string.Equals(k, claim.Key, StringComparison.OrdinalIgnoreCase)))
+            {
                 continue;
+            }
 
             // Value format: "Q12345::LabelText" or just "Q12345".
             var separatorIdx = claim.Value.IndexOf("::", StringComparison.Ordinal);
             string qid, label;
             if (separatorIdx > 0)
             {
-                qid   = claim.Value[..separatorIdx];
+                qid = claim.Value[..separatorIdx];
                 label = claim.Value[(separatorIdx + 2)..];
             }
             else
             {
-                qid   = claim.Value;
+                qid = claim.Value;
                 label = claim.Value;
             }
 
             if (!string.IsNullOrWhiteSpace(qid))
+            {
                 results.TryAdd(qid, label);
+            }
         }
 
         return results.Select(kv => (kv.Key, kv.Value)).ToList();
@@ -708,35 +722,62 @@ public static class DebugEndpoints
             .Where(c => c.HydrationStages.Contains(2))
             .ToList();
 
-        if (stage2Configs.Count == 0) return results;
+        if (stage2Configs.Count == 0)
+        {
+            return results;
+        }
 
         // Collect desired bridge keys from all Stage 2 providers' preferred_bridge_ids.
         var desiredKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var cfg in stage2Configs)
         {
-            if (cfg.PreferredBridgeIds is null) continue;
+            if (cfg.PreferredBridgeIds is null)
+            {
+                continue;
+            }
+
             if (cfg.PreferredBridgeIds.TryGetValue(mediaTypeName, out var keys))
             {
-                foreach (var k in keys) desiredKeys.Add(k);
+                foreach (var k in keys)
+                {
+                    desiredKeys.Add(k);
+                }
             }
         }
 
-        if (desiredKeys.Count == 0) return results;
+        if (desiredKeys.Count == 0)
+        {
+            return results;
+        }
 
         // Track which keys we've already emitted (first value wins, matching pipeline logic).
         var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var claim in claims)
         {
-            if (string.IsNullOrEmpty(claim.Value)) continue;
+            if (string.IsNullOrEmpty(claim.Value))
+            {
+                continue;
+            }
 
             // Check if the claim key matches directly or via alias.
             var effectiveKey = claim.Key;
             var alias = IdentifierNormalizationService.GetClaimKeyAlias(claim.Key);
-            if (alias is not null) effectiveKey = alias;
+            if (alias is not null)
+            {
+                effectiveKey = alias;
+            }
 
-            if (!desiredKeys.Contains(effectiveKey)) continue;
-            if (emitted.Contains(effectiveKey)) continue;
+            if (!desiredKeys.Contains(effectiveKey))
+            {
+                continue;
+            }
+
+            if (emitted.Contains(effectiveKey))
+            {
+                continue;
+            }
+
             emitted.Add(effectiveKey);
 
             // Apply retail format normalization.
@@ -744,16 +785,23 @@ public static class DebugEndpoints
             {
                 "isbn" => new string(claim.Value.Where(char.IsLetterOrDigit).ToArray()),
                 "asin" => claim.Value.Trim().ToUpperInvariant(),
-                _      => claim.Value.Trim()
+                _ => claim.Value.Trim()
             };
 
-            if (string.IsNullOrWhiteSpace(normalizedValue)) continue;
+            if (string.IsNullOrWhiteSpace(normalizedValue))
+            {
+                continue;
+            }
 
             // Determine which providers would use this hint.
             var targetProviders = stage2Configs
                 .Where(cfg =>
                 {
-                    if (cfg.PreferredBridgeIds is null) return false;
+                    if (cfg.PreferredBridgeIds is null)
+                    {
+                        return false;
+                    }
+
                     return cfg.PreferredBridgeIds.TryGetValue(mediaTypeName, out var pKeys)
                            && pKeys.Contains(effectiveKey, StringComparer.OrdinalIgnoreCase);
                 })

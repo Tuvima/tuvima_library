@@ -23,6 +23,15 @@ public interface ILibraryItemRepository
     Task<LibraryItemDetail?> GetDetailAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>
+    /// Returns work detail using a caller-authorized asset as the representative edition.
+    /// The repository rejects an asset that is not a live member of the requested work.
+    /// </summary>
+    Task<LibraryItemDetail?> GetDetailAsync(
+        Guid entityId,
+        Guid preferredAssetId,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Returns counts for each status category (All, Review, Auto, Edited, Duplicate).
     /// </summary>
     Task<LibraryItemStatusCounts> GetStatusCountsAsync(CancellationToken ct = default);
@@ -54,26 +63,26 @@ public interface ILibraryItemRepository
 /// Includes per-trigger breakdown within InReview (e.g. "LowConfidence" → 25).
 /// </summary>
 public sealed record LibraryItemLifecycleCounts(
-    [property: JsonPropertyName("identified")]     int Identified,
-    [property: JsonPropertyName("in_review")]      int InReview,
-    [property: JsonPropertyName("provisional")]    int Provisional,
-    [property: JsonPropertyName("rejected")]       int Rejected,
-    [property: JsonPropertyName("person_count")]   int PersonCount,
-    [property: JsonPropertyName("collection_count")]      int CollectionCount,
+    [property: JsonPropertyName("identified")] int Identified,
+    [property: JsonPropertyName("in_review")] int InReview,
+    [property: JsonPropertyName("provisional")] int Provisional,
+    [property: JsonPropertyName("rejected")] int Rejected,
+    [property: JsonPropertyName("person_count")] int PersonCount,
+    [property: JsonPropertyName("collection_count")] int CollectionCount,
     [property: JsonPropertyName("trigger_counts")] IReadOnlyDictionary<string, int> TriggerCounts);
 
 /// <summary>Counts for status tab badges.</summary>
 public sealed record LibraryItemStatusCounts(
-    [property: JsonPropertyName("total")]            int Total,
-    [property: JsonPropertyName("needs_review")]     int NeedsReview,
-    [property: JsonPropertyName("auto_approved")]    int AutoApproved,
-    [property: JsonPropertyName("edited")]           int Edited,
-    [property: JsonPropertyName("duplicate")]        int Duplicate,
-    [property: JsonPropertyName("staging")]          int Staging = 0,
-    [property: JsonPropertyName("missing_images")]   int MissingImages = 0,
+    [property: JsonPropertyName("total")] int Total,
+    [property: JsonPropertyName("needs_review")] int NeedsReview,
+    [property: JsonPropertyName("auto_approved")] int AutoApproved,
+    [property: JsonPropertyName("edited")] int Edited,
+    [property: JsonPropertyName("duplicate")] int Duplicate,
+    [property: JsonPropertyName("staging")] int Staging = 0,
+    [property: JsonPropertyName("missing_images")] int MissingImages = 0,
     [property: JsonPropertyName("recently_updated")] int RecentlyUpdated = 0,
-    [property: JsonPropertyName("low_confidence")]   int LowConfidence = 0,
-    [property: JsonPropertyName("rejected")]         int Rejected = 0);
+    [property: JsonPropertyName("low_confidence")] int LowConfidence = 0,
+    [property: JsonPropertyName("rejected")] int Rejected = 0);
 
 /// <summary>Aggregate counts derived from the shared libraryItem pipeline projection.</summary>
 public sealed record LibraryItemProjectionSummary(

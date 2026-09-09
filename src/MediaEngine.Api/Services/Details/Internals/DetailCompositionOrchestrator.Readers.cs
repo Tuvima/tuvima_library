@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -24,6 +22,8 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
@@ -34,8 +34,14 @@ internal sealed partial class DetailCompositionOrchestrator
         Guid? rootWorkId,
         CancellationToken ct,
         IReadOnlyList<Guid>? resolvedWorkIds = null,
-        Guid? profileId = null)
+        Guid? profileId = null,
+        IReadOnlyList<Guid>? authorizedAssetIds = null)
     {
+        if (authorizedAssetIds is { Count: 0 })
+        {
+            return [];
+        }
+
         using var conn = _db.CreateConnection();
         var displayYearSql = MediaDateSql.DisplayOriginalYear(
             "w.id",
@@ -151,7 +157,10 @@ internal sealed partial class DetailCompositionOrchestrator
                 SELECT candidate.id FROM media_assets candidate
                 JOIN editions edition ON edition.id=candidate.edition_id
                 LEFT JOIN user_states progress ON progress.asset_id=candidate.id AND progress.user_id=@defaultOwnerUserId
-                WHERE edition.work_id=w.id AND candidate.status='Normal' AND candidate.is_orphaned=0
+                WHERE edition.work_id=w.id
+                  AND candidate.status='Normal'
+                  AND candidate.is_orphaned=0
+                  AND (@restrictAssets = 0 OR candidate.id IN @authorizedAssetIds)
                 ORDER BY progress.last_accessed DESC, candidate.id LIMIT 1
             )
             LEFT JOIN user_states us ON us.asset_id = ma.id
@@ -186,6 +195,10 @@ internal sealed partial class DetailCompositionOrchestrator
                 resolvedWorkIds = resolvedWorkIds is { Count: > 0 }
                     ? resolvedWorkIds.Select(GuidSql.ToBlob).ToArray()
                     : [GuidSql.ToBlob(Guid.Empty)],
+                restrictAssets = authorizedAssetIds is null ? 0 : 1,
+                authorizedAssetIds = authorizedAssetIds is { Count: > 0 }
+                    ? authorizedAssetIds.Select(GuidSql.ToBlob).ToArray()
+                    : [GuidSql.ToBlob(Guid.Empty)],
             },
             cancellationToken: ct));
         var works = rawRows.Select(row => new CollectionWorkSummary(
@@ -217,7 +230,8 @@ internal sealed partial class DetailCompositionOrchestrator
                 StringValue(row.AssetId),
                 StringValue(row.CoverState)),
             ResolveCollectionArtworkUrl(StringValue(row.BackgroundUrl), StringValue(row.AssetId), "background", StringValue(row.BackgroundState)),
-            StringValue(row.AssetId)) { LastAccessed = StringValue(row.LastAccessed) }).ToList();
+            StringValue(row.AssetId))
+        { LastAccessed = StringValue(row.LastAccessed) }).ToList();
 
         // Dynamic collections can include an owned work before its edition and
         // asset rows have been linked into this query. The canonical work detail
@@ -348,9 +362,10 @@ internal sealed partial class DetailCompositionOrchestrator
     private async Task<Dictionary<string, string>> LoadWorkCanonicalMapAsync(
         Guid workId,
         LibraryItemDetail detail,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlyList<Guid>? authorizedAssetIds = null)
     {
-        var values = await LoadWorkAndAssetCanonicalMapAsync(workId, ct);
+        var values = await LoadWorkAndAssetCanonicalMapAsync(workId, ct, authorizedAssetIds);
         foreach (var canonical in detail.CanonicalValues)
         {
             // Repository detail values are edition/asset-oriented. They fill gaps,
@@ -363,7 +378,8 @@ internal sealed partial class DetailCompositionOrchestrator
 
     private async Task<Dictionary<string, string>> LoadWorkAndAssetCanonicalMapAsync(
         Guid workId,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlyList<Guid>? authorizedAssetIds = null)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         using var conn = _db.CreateConnection();
@@ -374,9 +390,17 @@ internal sealed partial class DetailCompositionOrchestrator
             INNER JOIN editions e ON e.id = ma.edition_id
             WHERE e.work_id = @workId
               AND ma.status = 'Normal'
+              AND (@filterAssets=0 OR ma.id IN @authorizedAssetIds)
             ORDER BY ma.id;
             """,
-            new { workId = GuidSql.ToBlob(workId) },
+            new
+            {
+                workId = GuidSql.ToBlob(workId),
+                filterAssets = authorizedAssetIds is null ? 0 : 1,
+                authorizedAssetIds = authorizedAssetIds is { Count: > 0 }
+                    ? authorizedAssetIds.Select(GuidSql.ToBlob).ToArray()
+                    : [GuidSql.ToBlob(Guid.Empty)],
+            },
             cancellationToken: ct));
         foreach (var assetId in assetIds.Distinct())
         {
@@ -400,7 +424,9 @@ internal sealed partial class DetailCompositionOrchestrator
             new { workId = GuidSql.ToBlob(workId), subtitle = MetadataFieldConstants.Subtitle },
             cancellationToken: ct));
         if (!string.IsNullOrWhiteSpace(editionSubtitle))
+        {
             values[$"edition_{MetadataFieldConstants.Subtitle}"] = editionSubtitle;
+        }
 
         foreach (var (key, value) in await LoadCanonicalMapAsync(workId, ct))
         {
@@ -590,7 +616,9 @@ internal sealed partial class DetailCompositionOrchestrator
         }
 
         if (entityType == DetailEntityType.MusicAlbum)
+        {
             return new SecondaryTitleSelection(null, null, HasMore: false);
+        }
 
         var shortDescription = NormalizeHeroSummary(StringHelpers.FirstNonBlankOr(string.Empty,
             GetValue(canonicalValues, MetadataFieldConstants.ShortDescription),
@@ -605,12 +633,16 @@ internal sealed partial class DetailCompositionOrchestrator
         }
 
         if (string.IsNullOrWhiteSpace(longDescription))
+        {
             return new SecondaryTitleSelection(null, null, HasMore: false);
+        }
 
         const int maximumLength = 240;
         var normalized = longDescription.Trim();
         if (normalized.Length <= maximumLength)
+        {
             return new SecondaryTitleSelection(normalized, MetadataFieldConstants.Description, HasMore: false);
+        }
 
         var cut = normalized[..maximumLength];
         var wordEnd = cut.LastIndexOf(' ');

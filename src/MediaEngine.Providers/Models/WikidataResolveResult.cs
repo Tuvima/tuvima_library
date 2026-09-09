@@ -64,7 +64,7 @@ public sealed class WikidataResolveResult
     /// <summary>Singleton not-found result.</summary>
     public static WikidataResolveResult NotFound { get; } = new()
     {
-        Found     = false,
+        Found = false,
         MatchedBy = ResolveStrategy.NotResolved,
     };
 }

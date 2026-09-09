@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Models;
 using MediaEngine.Web.Services.Playback;
 
 namespace MediaEngine.Web.Services.Configuration;
@@ -29,11 +29,17 @@ public sealed class DashboardConfigurationReader
         {
             foreach (var provider in core.Auth.ExternalProviders)
             {
-                if (secrets.Providers.TryGetValue(provider.Id, out var secret)) provider.ClientSecret = secret.ClientSecret;
+                if (secrets.Providers.TryGetValue(provider.Id, out var secret))
+                {
+                    provider.ClientSecret = secret.ClientSecret;
+                }
             }
         }
         var emailSecrets = LoadJson<DashboardEmailSecrets>(Path.Combine(".secrets", "email.json"));
-        if (emailSecrets is not null) core.Auth.PasswordReset.Password = emailSecrets.SmtpPassword;
+        if (emailSecrets is not null)
+        {
+            core.Auth.PasswordReset.Password = emailSecrets.SmtpPassword;
+        }
 
         return core;
     }
@@ -51,7 +57,9 @@ public sealed class DashboardConfigurationReader
     {
         var path = Path.Combine(_configDirectory, relativePath);
         if (!File.Exists(path))
+        {
             return default;
+        }
 
         try
         {

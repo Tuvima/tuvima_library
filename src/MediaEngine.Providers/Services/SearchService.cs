@@ -1,8 +1,8 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using MediaEngine.Domain;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using Microsoft.Extensions.Logging;
@@ -39,13 +39,13 @@ public sealed class SearchService : ISearchService
     /// </summary>
     private static readonly Dictionary<string, string[]> MediaTypeKeywords = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["Epub"]      = ["novel", "book", "literary work", "written work", "light novel", "short story collection", "novella", "poetry collection", "anthology"],
-        ["Audiobook"]  = ["novel", "book", "literary work", "written work", "audiobook", "light novel", "novella", "poetry collection", "anthology"],
-        ["Books"]      = ["novel", "book", "literary work", "written work", "light novel", "short story collection", "novella", "poetry collection", "anthology"],
-        ["Movies"]     = ["film", "movie", "animated film", "short film", "documentary film"],
-        ["TV"]         = ["television series", "web series", "animated series", "miniseries", "television film"],
-        ["Music"]      = ["album", "single", "musical work", "song", "extended play"],
-        ["Comics"]     = ["comic book", "manga", "graphic novel", "comic book series", "manhwa"],
+        ["Epub"] = ["novel", "book", "literary work", "written work", "light novel", "short story collection", "novella", "poetry collection", "anthology"],
+        ["Audiobook"] = ["novel", "book", "literary work", "written work", "audiobook", "light novel", "novella", "poetry collection", "anthology"],
+        ["Books"] = ["novel", "book", "literary work", "written work", "light novel", "short story collection", "novella", "poetry collection", "anthology"],
+        ["Movies"] = ["film", "movie", "animated film", "short film", "documentary film"],
+        ["TV"] = ["television series", "web series", "animated series", "miniseries", "television film"],
+        ["Music"] = ["album", "single", "musical work", "song", "extended play"],
+        ["Comics"] = ["comic book", "manga", "graphic novel", "comic book series", "manhwa"],
     };
 
     public SearchService(
@@ -64,12 +64,12 @@ public sealed class SearchService : ISearchService
 
         var providerList = providers.ToList();
 
-        _providers      = providerList;
-        _configLoader   = configLoader;
-        _fuzzy          = fuzzy;
-        _retailScoring  = retailScoring;
+        _providers = providerList;
+        _configLoader = configLoader;
+        _fuzzy = fuzzy;
+        _retailScoring = retailScoring;
         _candidateScorer = candidateScorer ?? new RetailCandidateScorer();
-        _logger         = logger;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -78,7 +78,9 @@ public sealed class SearchService : ISearchService
         CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(request.Query))
+        {
             return new SearchUniverseResult([], request.Query, request.MediaType);
+        }
 
         var mediaType = MediaTypeParser.Parse(request.MediaType);
 
@@ -100,7 +102,9 @@ public sealed class SearchService : ISearchService
         var (language, country) = GetConfiguredLocale();
         var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)
+        {
             providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
+        }
 
         try
         {
@@ -121,21 +125,23 @@ public sealed class SearchService : ISearchService
 
             var providerRequest = new ProviderLookupRequest
             {
-                EntityId   = Guid.NewGuid(),
+                EntityId = Guid.NewGuid(),
                 EntityType = EntityType.Work,
-                MediaType  = mediaType,
-                Title      = searchQuery,
-                Author     = shouldUseCreatorHint ? request.LocalAuthor : null,
-                BaseUrl    = GetProviderBaseUrl(wikidataProvider.Name, providerEndpoints),
-                Language   = language,
-                Country    = country,
+                MediaType = mediaType,
+                Title = searchQuery,
+                Author = shouldUseCreatorHint ? request.LocalAuthor : null,
+                BaseUrl = GetProviderBaseUrl(wikidataProvider.Name, providerEndpoints),
+                Language = language,
+                Country = country,
             };
 
             var searchResults = await wikidataProvider.SearchAsync(
                 providerRequest, request.MaxCandidates, ct).ConfigureAwait(false);
 
             if (searchResults.Count == 0)
+            {
                 return new SearchUniverseResult([], request.Query, request.MediaType);
+            }
 
             var candidates = new List<UniverseCandidate>();
 
@@ -144,15 +150,17 @@ public sealed class SearchService : ISearchService
                 // Skip items without a valid QID
                 var qid = result.ProviderItemId ?? "";
                 if (string.IsNullOrEmpty(qid) || !qid.StartsWith('Q'))
+                {
                     continue;
+                }
 
                 var qidCandidate = new QidCandidate
                 {
-                    Qid            = qid,
-                    Label          = result.Title,
-                    Description    = result.Description,
+                    Qid = qid,
+                    Label = result.Title,
+                    Description = result.Description,
                     ResolutionTier = "title_search",
-                    InstanceOf     = ExtractInstanceOfFromDescription(result.Description),
+                    InstanceOf = ExtractInstanceOfFromDescription(result.Description),
                 };
 
                 var enriched = BuildUniverseCandidate(qidCandidate, mediaType, result.ExtraFields);
@@ -169,9 +177,14 @@ public sealed class SearchService : ISearchService
                     ["title"] = request.LocalTitle,
                 };
                 if (!string.IsNullOrWhiteSpace(request.LocalAuthor))
+                {
                     fileHints["author"] = request.LocalAuthor;
+                }
+
                 if (!string.IsNullOrWhiteSpace(request.LocalYear))
+                {
                     fileHints["year"] = request.LocalYear;
+                }
 
                 foreach (var c in candidates)
                 {
@@ -208,20 +221,26 @@ public sealed class SearchService : ISearchService
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Query))
+        {
             return new SearchRetailResult([], request.Query, request.MediaType);
+        }
 
-        var mediaType      = MediaTypeParser.Parse(request.MediaType);
+        var mediaType = MediaTypeParser.Parse(request.MediaType);
         var retailProviders = GetRetailProviders(mediaType, useAutomaticMatching);
 
         if (retailProviders.Count == 0)
+        {
             return new SearchRetailResult([], request.Query, request.MediaType);
+        }
 
         // Build endpoint map for URLs/country/language
         var provConfigs = _configLoader.LoadAllProviders();
         var (language, country) = GetConfiguredLocale();
         var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in provConfigs)
+        {
             providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
+        }
 
         var candidates = new List<RetailCandidate>();
 
@@ -234,7 +253,9 @@ public sealed class SearchService : ISearchService
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         foreach (var providerResults in results)
+        {
             candidates.AddRange(providerResults);
+        }
 
         // ── Unified retail match scoring ─────────────────────────────────────
         // Score each candidate against file metadata using the same service
@@ -284,7 +305,9 @@ public sealed class SearchService : ISearchService
                         mutableFields["automatic_outcome"] = decision.Outcome;
                         mutableFields["threshold_path"] = decision.ThresholdPath;
                         if (decision.RejectionReasons.Count > 0)
+                        {
                             mutableFields["rejection_reasons"] = string.Join(",", decision.RejectionReasons);
+                        }
                     }
                 }
                 else
@@ -299,7 +322,9 @@ public sealed class SearchService : ISearchService
         {
             // No local context — composite equals provider confidence
             foreach (var c in candidates)
+            {
                 c.CompositeScore = c.Confidence;
+            }
         }
 
         return new SearchRetailResult(candidates, request.Query, request.MediaType);
@@ -321,17 +346,17 @@ public sealed class SearchService : ISearchService
 
         return new UniverseCandidate
         {
-            Qid               = candidate.Qid,
-            Label             = candidate.Label,
-            Description       = candidate.Description,
-            InstanceOf        = candidate.InstanceOf ?? ExtractInstanceOfFromDescription(candidate.Description),
-            Year              = year,
-            Author            = author,
-            CoverUrl          = null,
-            ResolutionTier    = candidate.ResolutionTier,
-            Confidence        = EstimateConfidence(candidate.ResolutionTier),
-            BridgeIds         = new Dictionary<string, string>(),
-            MediaType         = mediaType.ToString(),
+            Qid = candidate.Qid,
+            Label = candidate.Label,
+            Description = candidate.Description,
+            InstanceOf = candidate.InstanceOf ?? ExtractInstanceOfFromDescription(candidate.Description),
+            Year = year,
+            Author = author,
+            CoverUrl = null,
+            ResolutionTier = candidate.ResolutionTier,
+            Confidence = EstimateConfidence(candidate.ResolutionTier),
+            BridgeIds = new Dictionary<string, string>(),
+            MediaType = mediaType.ToString(),
             MediaTypeMetadata = metadata,
         };
     }
@@ -350,7 +375,9 @@ public sealed class SearchService : ISearchService
         {
             var author = ExtractAuthorFromDescription(candidate.Description);
             if (!string.IsNullOrWhiteSpace(author))
+            {
                 metadata.TryAdd("author", author);
+            }
         }
 
         return metadata.Count == 0 ? null : metadata;
@@ -361,7 +388,9 @@ public sealed class SearchService : ISearchService
         params string[] keys)
     {
         if (metadata is null)
+        {
             return null;
+        }
 
         foreach (var key in keys)
         {
@@ -406,7 +435,10 @@ public sealed class SearchService : ISearchService
                     searchFields.TryGetValue("show_name", out fieldTitle);
                 }
                 if (!searchFields.TryGetValue("author", out fieldAuthor))
+                {
                     searchFields.TryGetValue("artist", out fieldAuthor);
+                }
+
                 searchFields.TryGetValue("show_name", out fieldShowName);
                 searchFields.TryGetValue("album", out fieldAlbum);
                 searchFields.TryGetValue("artist", out fieldArtist);
@@ -422,33 +454,35 @@ public sealed class SearchService : ISearchService
                 searchFields.TryGetValue("asin", out fieldAsin);
                 // ShowName fallback: series → show_name (matches RetailMatchWorker)
                 if (fieldShowName is null)
+                {
                     fieldShowName = fieldSeries;
+                }
             }
 
             var providerRequest = new ProviderLookupRequest
             {
-                EntityId      = Guid.NewGuid(),
-                EntityType    = EntityType.Work,
-                MediaType     = mediaType,
-                Title         = fieldTitle ?? query,
-                Author        = fieldAuthor,
-                ShowName      = fieldShowName,
-                Album         = fieldAlbum,
-                Artist        = fieldArtist,
-                Director      = fieldDirector,
-                Composer      = fieldComposer,
-                Genre         = fieldGenre,
-                Series        = fieldSeries,
-                Narrator      = fieldNarrator,
-                SeasonNumber  = fieldSeasonNumber,
+                EntityId = Guid.NewGuid(),
+                EntityType = EntityType.Work,
+                MediaType = mediaType,
+                Title = fieldTitle ?? query,
+                Author = fieldAuthor,
+                ShowName = fieldShowName,
+                Album = fieldAlbum,
+                Artist = fieldArtist,
+                Director = fieldDirector,
+                Composer = fieldComposer,
+                Genre = fieldGenre,
+                Series = fieldSeries,
+                Narrator = fieldNarrator,
+                SeasonNumber = fieldSeasonNumber,
                 EpisodeNumber = fieldEpisodeNumber,
-                TrackNumber   = fieldTrackNumber,
-                Isbn          = fieldIsbn,
-                Asin          = fieldAsin,
-                BaseUrl       = GetProviderBaseUrl(provider.Name, providerEndpoints),
-                Language      = language,
-                Country       = country,
-                Hints         = searchFields is { Count: > 0 }
+                TrackNumber = fieldTrackNumber,
+                Isbn = fieldIsbn,
+                Asin = fieldAsin,
+                BaseUrl = GetProviderBaseUrl(provider.Name, providerEndpoints),
+                Language = language,
+                Country = country,
+                Hints = searchFields is { Count: > 0 }
                     ? new Dictionary<string, string>(searchFields)
                     : null,
             };
@@ -457,16 +491,16 @@ public sealed class SearchService : ISearchService
 
             return results.Select(r => new RetailCandidate
             {
-                ProviderId     = provider.ProviderId.ToString(),
-                ProviderName   = provider.Name,
+                ProviderId = provider.ProviderId.ToString(),
+                ProviderName = provider.Name,
                 ProviderItemId = r.ProviderItemId,
-                Title          = r.Title,
-                Year           = r.Year,
-                Author         = r.Author,
-                Description    = r.Description,
-                CoverUrl       = r.ThumbnailUrl,
-                Confidence     = r.Confidence,
-                ExtraFields    = r.ExtraFields ?? new Dictionary<string, string>(),
+                Title = r.Title,
+                Year = r.Year,
+                Author = r.Author,
+                Description = r.Description,
+                CoverUrl = r.ThumbnailUrl,
+                Confidence = r.Confidence,
+                ExtraFields = r.ExtraFields ?? new Dictionary<string, string>(),
             });
         }
         catch (Exception ex)
@@ -525,7 +559,9 @@ public sealed class SearchService : ISearchService
 
             var claims = await provider.FetchAsync(request, ct).ConfigureAwait(false);
             if (claims.Count == 0)
+            {
                 return [];
+            }
 
             var extraFields = claims
                 .Where(claim => !string.IsNullOrWhiteSpace(claim.Key) && !string.IsNullOrWhiteSpace(claim.Value))
@@ -533,7 +569,9 @@ public sealed class SearchService : ISearchService
                 .ToDictionary(group => group.Key, group => group.First().Value, StringComparer.OrdinalIgnoreCase);
             var candidateTitle = extraFields.GetValueOrDefault(MetadataFieldConstants.Title);
             if (string.IsNullOrWhiteSpace(candidateTitle))
+            {
                 return [];
+            }
 
             return
             [
@@ -573,14 +611,24 @@ public sealed class SearchService : ISearchService
         var enabled = ProviderExecutionFilter.EnabledProviders(_providers, allConfigs)
             .Where(p =>
             {
-                if (ExcludedFromRetail.Contains(p.Name)) return false;
-                if (!p.CanHandle(mediaType) || !p.CanHandle(EntityType.Work)) return false;
+                if (ExcludedFromRetail.Contains(p.Name))
+                {
+                    return false;
+                }
+
+                if (!p.CanHandle(mediaType) || !p.CanHandle(EntityType.Work))
+                {
+                    return false;
+                }
+
                 return true;
             })
             .ToList();
 
         if (!useAutomaticMatching)
+        {
             return enabled;
+        }
 
         var pipeline = _configLoader.LoadPipelines().GetPipelineForMediaType(mediaType.ToString());
         var configuredOrder = pipeline.Providers
@@ -603,11 +651,19 @@ public sealed class SearchService : ISearchService
         if (providerEndpoints.TryGetValue(providerName, out var endpoints))
         {
             if (endpoints.TryGetValue(providerName, out var url))
+            {
                 return url.TrimEnd('/');
+            }
+
             if (endpoints.TryGetValue("api", out var apiUrl))
+            {
                 return apiUrl.TrimEnd('/');
+            }
+
             if (endpoints.Count > 0)
+            {
                 return endpoints.Values.First().TrimEnd('/');
+            }
         }
         return string.Empty;
     }
@@ -623,16 +679,20 @@ public sealed class SearchService : ISearchService
 
     private static double EstimateConfidence(string? tier) => tier switch
     {
-        "bridge"            => 0.95,
+        "bridge" => 0.95,
         "structured_sparql" => 0.75,
-        "title_search"      => 0.55,
-        _                   => 0.50,
+        "title_search" => 0.55,
+        _ => 0.50,
     };
 
     /// <summary>Heuristic: extract a 4-digit year from a Wikidata description like "1965 novel by...".</summary>
     private static string? ExtractYearFromDescription(string? description)
     {
-        if (string.IsNullOrWhiteSpace(description)) return null;
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return null;
+        }
+
         var match = System.Text.RegularExpressions.Regex.Match(description, @"\b(1[5-9]\d{2}|20[0-2]\d)\b");
         return match.Success ? match.Value : null;
     }
@@ -655,13 +715,18 @@ public sealed class SearchService : ISearchService
 
     private static string? ExtractInstanceOfFromDescription(string? description)
     {
-        if (string.IsNullOrWhiteSpace(description)) return null;
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return null;
+        }
 
         // Longest-first match so "comic book series" beats "comic book".
         foreach (var kw in InstanceOfKeywords.OrderByDescending(k => k.Length))
         {
             if (description.Contains(kw, StringComparison.OrdinalIgnoreCase))
+            {
                 return kw;
+            }
         }
         return null;
     }
@@ -669,7 +734,11 @@ public sealed class SearchService : ISearchService
     /// <summary>Heuristic: extract author from "... by Author Name" pattern.</summary>
     private static string? ExtractAuthorFromDescription(string? description)
     {
-        if (string.IsNullOrWhiteSpace(description)) return null;
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            return null;
+        }
+
         var match = System.Text.RegularExpressions.Regex.Match(
             description, @"\bby\s+([A-Z][a-zA-Z\s\-\.]{2,40}?)(?:\s*[,;(]|$)",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
@@ -686,11 +755,20 @@ public sealed class SearchService : ISearchService
             ? new Dictionary<string, string>(request.FileHints, StringComparer.OrdinalIgnoreCase)
             : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(request.LocalTitle))
+        {
             hints.TryAdd("title", request.LocalTitle);
+        }
+
         if (!string.IsNullOrWhiteSpace(request.LocalAuthor))
+        {
             hints.TryAdd("author", request.LocalAuthor);
+        }
+
         if (!string.IsNullOrWhiteSpace(request.LocalYear))
+        {
             hints.TryAdd("year", request.LocalYear);
+        }
+
         return hints;
     }
 
@@ -700,7 +778,9 @@ public sealed class SearchService : ISearchService
         CandidateExtendedMetadata candidate)
     {
         if (mediaType != MediaType.Comics)
+        {
             return 0.0;
+        }
 
         var fileSeries = fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
         var fileIssue = fileHints.GetValueOrDefault("issue_number")
@@ -747,17 +827,17 @@ public sealed class SearchService : ISearchService
     {
         return new FieldMatchResult
         {
-            TitleScore      = scores.TitleScore,
-            AuthorScore     = scores.AuthorScore,
-            YearScore       = scores.YearScore,
-            FormatScore     = scores.FormatScore,
-            CoverScore      = scores.CoverArtScore,
-            CompositeScore  = scores.CompositeScore,
-            TitleVerdict    = ToVerdict(scores.TitleScore),
-            AuthorVerdict   = scores.AuthorScore < 0 ? FieldMatchVerdict.NotAvailable : ToVerdict(scores.AuthorScore),
-            YearVerdict     = scores.YearScore < 0 ? FieldMatchVerdict.NotAvailable : ToVerdict(scores.YearScore),
-            FormatVerdict   = ToVerdict(scores.FormatScore),
-            CoverVerdict    = scores.CoverArtScore < 0 ? FieldMatchVerdict.NotAvailable : ToVerdict(scores.CoverArtScore),
+            TitleScore = scores.TitleScore,
+            AuthorScore = scores.AuthorScore,
+            YearScore = scores.YearScore,
+            FormatScore = scores.FormatScore,
+            CoverScore = scores.CoverArtScore,
+            CompositeScore = scores.CompositeScore,
+            TitleVerdict = ToVerdict(scores.TitleScore),
+            AuthorVerdict = scores.AuthorScore < 0 ? FieldMatchVerdict.NotAvailable : ToVerdict(scores.AuthorScore),
+            YearVerdict = scores.YearScore < 0 ? FieldMatchVerdict.NotAvailable : ToVerdict(scores.YearScore),
+            FormatVerdict = ToVerdict(scores.FormatScore),
+            CoverVerdict = scores.CoverArtScore < 0 ? FieldMatchVerdict.NotAvailable : ToVerdict(scores.CoverArtScore),
         };
     }
 
@@ -765,6 +845,6 @@ public sealed class SearchService : ISearchService
     {
         >= 0.95 => FieldMatchVerdict.Exact,
         >= 0.70 => FieldMatchVerdict.Close,
-        _       => FieldMatchVerdict.Mismatch,
+        _ => FieldMatchVerdict.Mismatch,
     };
 }

@@ -36,7 +36,11 @@ public static class Mp3Builder
         WriteTextFrame(frames, "TIT2", title);
         WriteTextFrame(frames, "TPE1", artist);
         WriteTextFrame(frames, "TALB", album);
-        if (year > 0) WriteTextFrame(frames, "TYER", year.ToString());
+        if (year > 0)
+        {
+            WriteTextFrame(frames, "TYER", year.ToString());
+        }
+
         WriteTextFrame(frames, "TLAN", language);
 
         // Genre tag to help disambiguation heuristics.
@@ -56,16 +60,24 @@ public static class Mp3Builder
         }
 
         if (asin is not null)
+        {
             WriteTxxxFrame(frames, "ASIN", asin);
+        }
 
         if (series is not null)
+        {
             WriteTxxxFrame(frames, "SERIES", series);
+        }
 
         if (seriesPosition is not null)
+        {
             WriteTxxxFrame(frames, "SERIES_INDEX", seriesPosition.Value.ToString());
+        }
 
         if (trackNumber is not null)
+        {
             WriteTextFrame(frames, "TRCK", trackNumber.Value.ToString());
+        }
 
         byte[] frameData = frames.ToArray();
 

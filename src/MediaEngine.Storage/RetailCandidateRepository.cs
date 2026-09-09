@@ -19,7 +19,9 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
     {
         ct.ThrowIfCancellationRequested();
         if (candidates.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -113,41 +115,41 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
 
     private sealed class RetailCandidateRow
     {
-        public Guid    Id                 { get; set; }
-        public Guid    JobId              { get; set; }
-        public Guid    ProviderId         { get; set; }
-        public string  ProviderName       { get; set; } = "";
-        public string? ProviderItemId     { get; set; }
-        public int     Rank               { get; set; }
-        public string  Title              { get; set; } = "";
-        public string? Creator            { get; set; }
-        public string? Year               { get; set; }
-        public double  ScoreTotal         { get; set; }
+        public Guid Id { get; set; }
+        public Guid JobId { get; set; }
+        public Guid ProviderId { get; set; }
+        public string ProviderName { get; set; } = "";
+        public string? ProviderItemId { get; set; }
+        public int Rank { get; set; }
+        public string Title { get; set; } = "";
+        public string? Creator { get; set; }
+        public string? Year { get; set; }
+        public double ScoreTotal { get; set; }
         public string? ScoreBreakdownJson { get; set; }
-        public string? BridgeIdsJson      { get; set; }
-        public string? Description        { get; set; }
-        public string? ImageUrl           { get; set; }
-        public string  Outcome            { get; set; } = "";
-        public string  CreatedAt          { get; set; } = "";
+        public string? BridgeIdsJson { get; set; }
+        public string? Description { get; set; }
+        public string? ImageUrl { get; set; }
+        public string Outcome { get; set; } = "";
+        public string CreatedAt { get; set; } = "";
     }
 
     private static RetailMatchCandidate MapRow(RetailCandidateRow r) => new()
     {
-        Id                 = r.Id,
-        JobId              = r.JobId,
-        ProviderId         = r.ProviderId,
-        ProviderName       = r.ProviderName,
-        ProviderItemId     = r.ProviderItemId,
-        Rank               = r.Rank,
-        Title              = r.Title,
-        Creator            = r.Creator,
-        Year               = r.Year,
-        ScoreTotal         = r.ScoreTotal,
+        Id = r.Id,
+        JobId = r.JobId,
+        ProviderId = r.ProviderId,
+        ProviderName = r.ProviderName,
+        ProviderItemId = r.ProviderItemId,
+        Rank = r.Rank,
+        Title = r.Title,
+        Creator = r.Creator,
+        Year = r.Year,
+        ScoreTotal = r.ScoreTotal,
         ScoreBreakdownJson = r.ScoreBreakdownJson,
-        BridgeIdsJson      = r.BridgeIdsJson,
-        Description        = r.Description,
-        ImageUrl           = r.ImageUrl,
-        Outcome            = r.Outcome,
-        CreatedAt          = DateTimeOffset.Parse(r.CreatedAt),
+        BridgeIdsJson = r.BridgeIdsJson,
+        Description = r.Description,
+        ImageUrl = r.ImageUrl,
+        Outcome = r.Outcome,
+        CreatedAt = DateTimeOffset.Parse(r.CreatedAt),
     };
 }

@@ -39,7 +39,9 @@ public sealed class TextTrackRefreshOperationWorker(
                 }
 
                 foreach (var operation in leased)
+                {
                     await ProcessAsync(operation, stoppingToken).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

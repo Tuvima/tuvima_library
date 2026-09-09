@@ -21,9 +21,14 @@ public sealed class IngestionMediaCardTests : AsyncBunitContext
     {
         var item = new IngestionMediaGroupDto
         {
-            Title = "A Night at the Opera", Subtitle = "Queen", MediaType = "Music",
-            Availability = "finishing", StatusLabel = "Adding lyrics",
-            ChildUnit = "tracks", ChildCompleted = 5, FileCount = 6,
+            Title = "A Night at the Opera",
+            Subtitle = "Queen",
+            MediaType = "Music",
+            Availability = "finishing",
+            StatusLabel = "Adding lyrics",
+            ChildUnit = "tracks",
+            ChildCompleted = 5,
+            FileCount = 6,
             Artwork = new() { State = "complete", Label = "Artwork complete" },
             TextTracks = new() { State = "active", Label = "Lyrics active" },
         };
@@ -53,8 +58,12 @@ public sealed class IngestionMediaCardTests : AsyncBunitContext
     {
         var cut = Render<IngestionMediaCard>(parameters => parameters.Add(component => component.Item, new()
         {
-            Title = "The Quiet Mind", Subtitle = "Books", MediaType = "Books",
-            Availability = availability, StatusLabel = status, FileCount = 1,
+            Title = "The Quiet Mind",
+            Subtitle = "Books",
+            MediaType = "Books",
+            Availability = availability,
+            StatusLabel = status,
+            FileCount = 1,
         }));
 
         Assert.Equal(expected, cut.Find(".ingestion-media-card__activity").TextContent.Trim());
@@ -70,8 +79,12 @@ public sealed class IngestionMediaCardTests : AsyncBunitContext
     {
         var cut = Render<IngestionMediaCard>(parameters => parameters.Add(component => component.Item, new()
         {
-            Title = "New album", MediaType = "Music", StatusLabel = "Identifying",
-            ChildUnit = "tracks", FileCount = 8, ChildCompleted = 0,
+            Title = "New album",
+            MediaType = "Music",
+            StatusLabel = "Identifying",
+            ChildUnit = "tracks",
+            FileCount = 8,
+            ChildCompleted = 0,
         }));
 
         Assert.Equal("8 files", cut.Find(".ingestion-media-card__count").TextContent);
@@ -85,9 +98,14 @@ public sealed class IngestionMediaCardTests : AsyncBunitContext
             .Add(component => component.DisplayMode, "list")
             .Add(component => component.Item, new()
             {
-                Title = "The Quiet Mind", Subtitle = "Daniel Brooks", MediaType = "Audiobooks",
-                Availability = "ready", StatusLabel = "Ready", ChildUnit = "files",
-                ChildCompleted = 12, FileCount = 12,
+                Title = "The Quiet Mind",
+                Subtitle = "Daniel Brooks",
+                MediaType = "Audiobooks",
+                Availability = "ready",
+                StatusLabel = "Ready",
+                ChildUnit = "files",
+                ChildCompleted = 12,
+                FileCount = 12,
                 Artwork = new() { State = "complete", Label = "Artwork complete" },
                 Metadata = new() { State = "complete", Label = "Metadata complete" },
             }));

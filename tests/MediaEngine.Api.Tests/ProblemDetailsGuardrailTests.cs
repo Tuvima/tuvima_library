@@ -55,11 +55,15 @@ public sealed class ProblemDetailsGuardrailTests
             // DevSupport/ holds dev-only harnesses, not production endpoint handlers, and is
             // excluded from this scan even if a future reorganization nests it under Endpoints.
             if (relativePath.Contains("/DevSupport/", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             var text = File.ReadAllText(path);
             if (!BannedErrorShapeRegex.IsMatch(text))
+            {
                 continue;
+            }
 
             if (allowlist.Contains(relativePath))
             {
@@ -98,7 +102,9 @@ public sealed class ProblemDetailsGuardrailTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "MediaEngine.slnx")))
+        {
             dir = dir.Parent;
+        }
 
         return dir?.FullName ?? throw new InvalidOperationException("Could not locate repository root.");
     }

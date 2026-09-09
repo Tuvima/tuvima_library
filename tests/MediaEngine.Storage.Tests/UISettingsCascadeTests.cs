@@ -1,8 +1,8 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -287,15 +287,21 @@ file sealed class StubConfigLoader : IConfigurationLoader
     {
         // Route ui/devices/{name} to DeviceProfiles
         if (subdirectory == "ui/devices" && typeof(T) == typeof(UIDeviceProfile))
+        {
             return DeviceProfiles.TryGetValue(name, out var device) ? (T)(object)device : null;
+        }
 
         // Route ui/profiles/{name} to ProfileSettings
         if (subdirectory == "ui/profiles" && typeof(T) == typeof(UIProfileSettings))
+        {
             return ProfileSettings.TryGetValue(name, out var profile) ? (T)(object)profile : null;
+        }
 
         // Route ui/global to UIGlobalSettings
         if (subdirectory == "ui" && name == "global" && typeof(T) == typeof(UIGlobalSettings))
+        {
             return (T)(object)new UIGlobalSettings();
+        }
 
         return null;
     }

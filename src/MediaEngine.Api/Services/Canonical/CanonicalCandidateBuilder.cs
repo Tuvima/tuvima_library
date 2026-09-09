@@ -69,7 +69,9 @@ internal sealed class CanonicalCandidateBuilder(
         CancellationToken ct)
     {
         if (lineage.TargetForSelfScope == lineage.TargetForParentScope)
+        {
             return null;
+        }
 
         string? parentField = policy.TargetFieldGroup switch
         {
@@ -78,7 +80,9 @@ internal sealed class CanonicalCandidateBuilder(
             _ => null,
         };
         if (string.IsNullOrWhiteSpace(parentField))
+        {
             return null;
+        }
 
         var parentCanonicals = await canonicalRepo.GetByEntityAsync(lineage.TargetForParentScope, ct);
         var currentParentName = parentCanonicals
@@ -120,7 +124,9 @@ internal sealed class CanonicalCandidateBuilder(
     public static string BuildCanonicalQuery(CanonicalTargetPolicy policy, IReadOnlyDictionary<string, string> draftFields, string? queryOverride)
     {
         if (!string.IsNullOrWhiteSpace(queryOverride))
+        {
             return queryOverride.Trim();
+        }
 
         return string.Join(" ", policy.QueryFieldKeys
             .Where(draftFields.ContainsKey)
@@ -219,7 +225,9 @@ internal sealed class CanonicalCandidateBuilder(
         foreach (var key in keys)
         {
             if (fields.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return value.Trim();
+            }
         }
         return null;
     }
@@ -288,34 +296,55 @@ internal sealed class CanonicalCandidateBuilder(
     {
         var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(candidate.Title))
+        {
             fields[MetadataFieldConstants.Title] = candidate.Title;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.Author))
         {
             fields[MetadataFieldConstants.Author] = candidate.Author;
             fields.TryAdd(MetadataFieldConstants.Artist, candidate.Author);
         }
         if (!string.IsNullOrWhiteSpace(candidate.Director))
+        {
             fields[MetadataFieldConstants.Director] = candidate.Director;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.Description))
+        {
             fields[MetadataFieldConstants.Description] = candidate.Description;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.Year))
+        {
             fields[MetadataFieldConstants.Year] = candidate.Year;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
+        {
             fields[MetadataFieldConstants.CoverUrl] = candidate.CoverUrl;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.ProviderItemId))
+        {
             fields["provider_item_id"] = candidate.ProviderItemId;
+        }
 
         foreach (var (key, value) in candidate.ExtraFields ?? new Dictionary<string, string>())
         {
             if (!string.IsNullOrWhiteSpace(value))
+            {
                 fields[key] = value;
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(candidate.ProviderItemId))
         {
             var guessedBridgeId = GuessBridgeIdKey(candidate.ProviderName, mediaType, targetFieldGroup);
             if (!string.IsNullOrWhiteSpace(guessedBridgeId))
+            {
                 fields.TryAdd(guessedBridgeId, candidate.ProviderItemId!);
+            }
         }
 
         return fields;
@@ -325,25 +354,41 @@ internal sealed class CanonicalCandidateBuilder(
     {
         var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(candidate.Label))
+        {
             fields[MetadataFieldConstants.Title] = candidate.Label;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.Author))
         {
             fields[MetadataFieldConstants.Author] = candidate.Author;
             fields.TryAdd(MetadataFieldConstants.Artist, candidate.Author);
         }
         if (!string.IsNullOrWhiteSpace(candidate.Director))
+        {
             fields[MetadataFieldConstants.Director] = candidate.Director;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.Description))
+        {
             fields[MetadataFieldConstants.Description] = candidate.Description;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.Year))
+        {
             fields[MetadataFieldConstants.Year] = candidate.Year;
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
+        {
             fields[MetadataFieldConstants.CoverUrl] = candidate.CoverUrl;
+        }
 
         foreach (var (key, value) in candidate.MediaTypeMetadata ?? new Dictionary<string, string>())
         {
             if (!string.IsNullOrWhiteSpace(value))
+            {
                 fields[key] = value;
+            }
         }
 
         switch (targetFieldGroup)
@@ -392,7 +437,9 @@ internal sealed class CanonicalCandidateBuilder(
         foreach (var key in keys)
         {
             if (TryResolveFieldValue(source, key, allowContainerTitleAliases, out var value))
+            {
                 output[key] = value;
+            }
         }
 
         return output;
@@ -405,7 +452,9 @@ internal sealed class CanonicalCandidateBuilder(
         out string value)
     {
         if (source.TryGetValue(key, out value!) && !string.IsNullOrWhiteSpace(value))
+        {
             return true;
+        }
 
         var aliases = key switch
         {
@@ -420,7 +469,9 @@ internal sealed class CanonicalCandidateBuilder(
         foreach (var alias in aliases)
         {
             if (source.TryGetValue(alias, out value!) && !string.IsNullOrWhiteSpace(value))
+            {
                 return true;
+            }
         }
 
         value = string.Empty;
@@ -431,20 +482,38 @@ internal sealed class CanonicalCandidateBuilder(
     {
         var normalized = providerName?.Trim().ToLowerInvariant() ?? "";
         if (normalized.Contains("comic"))
+        {
             return BridgeIdKeys.ComicVineId;
+        }
+
         if (normalized.Contains("tmdb"))
+        {
             return string.Equals(mediaType, MediaType.TV.ToString(), StringComparison.OrdinalIgnoreCase)
                    && string.Equals(targetFieldGroup, "show_episode", StringComparison.OrdinalIgnoreCase)
                 ? BridgeIdKeys.TmdbEpisodeId
                 : BridgeIdKeys.TmdbId;
+        }
+
         if (normalized.Contains("imdb"))
+        {
             return BridgeIdKeys.ImdbId;
+        }
+
         if (normalized.Contains("audible"))
+        {
             return BridgeIdKeys.AudibleId;
+        }
+
         if (normalized.Contains("apple_books"))
+        {
             return BridgeIdKeys.AppleBooksId;
+        }
+
         if (normalized.Contains("open_library"))
+        {
             return BridgeIdKeys.OpenLibraryId;
+        }
+
         if (normalized.Contains("apple_music"))
         {
             return targetFieldGroup switch

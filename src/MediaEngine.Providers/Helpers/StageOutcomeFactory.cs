@@ -1,6 +1,6 @@
 using System.Text.Json;
-using MediaEngine.Domain;
 using MediaEngine.Contracts.Realtime;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -30,12 +30,12 @@ public sealed class StageOutcomeFactory
         ILogger<StageOutcomeFactory> logger,
         IIngestionBatchArtifactRepository? artifactRepo = null)
     {
-        _reviewRepo    = reviewRepo;
-        _activityRepo  = activityRepo;
+        _reviewRepo = reviewRepo;
+        _activityRepo = activityRepo;
         _eventPublisher = eventPublisher;
         _canonicalRepo = canonicalRepo;
         _artifactRepo = artifactRepo;
-        _logger        = logger;
+        _logger = logger;
     }
 
     /// <summary>
@@ -150,14 +150,14 @@ public sealed class StageOutcomeFactory
 
         var entry = new ReviewQueueEntry
         {
-            Id              = Guid.NewGuid(),
-            EntityId        = entityId,
-            EntityType      = "MediaAsset",
-            Trigger         = ReviewTrigger.MultipleQidMatches,
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            Trigger = ReviewTrigger.MultipleQidMatches,
             ConfidenceScore = 0.0,
-            Detail          = $"Multiple Wikidata QID candidates found \u2014 manual disambiguation required",
-            CandidatesJson  = candidatesJson,
-            ReviewReadyAt   = DateTimeOffset.UtcNow,
+            Detail = $"Multiple Wikidata QID candidates found \u2014 manual disambiguation required",
+            CandidatesJson = candidatesJson,
+            ReviewReadyAt = DateTimeOffset.UtcNow,
             AutomationCompletedAt = DateTimeOffset.UtcNow,
         };
 
@@ -321,14 +321,14 @@ public sealed class StageOutcomeFactory
 
         var entry = new ReviewQueueEntry
         {
-            Id              = Guid.NewGuid(),
-            EntityId        = entityId,
-            EntityType      = entityType,
-            Trigger         = trigger,
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = entityType,
+            Trigger = trigger,
             ConfidenceScore = confidence,
-            Detail          = detail,
-            CandidatesJson  = candidatesJson,
-            ReviewReadyAt   = reviewReady ? DateTimeOffset.UtcNow : null,
+            Detail = detail,
+            CandidatesJson = candidatesJson,
+            ReviewReadyAt = reviewReady ? DateTimeOffset.UtcNow : null,
             AutomationCompletedAt = reviewReady ? DateTimeOffset.UtcNow : null,
         };
 
@@ -365,9 +365,9 @@ public sealed class StageOutcomeFactory
     {
         await _activityRepo.LogAsync(new SystemActivityEntry
         {
-            ActionType     = SystemActionType.ReviewItemCreated,
-            EntityId       = entry.EntityId,
-            Detail         = $"Review item created: {entry.Trigger}",
+            ActionType = SystemActionType.ReviewItemCreated,
+            EntityId = entry.EntityId,
+            Detail = $"Review item created: {entry.Trigger}",
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 
@@ -397,7 +397,9 @@ public sealed class StageOutcomeFactory
         CancellationToken ct)
     {
         if (_artifactRepo is null)
+        {
             return;
+        }
 
         await _artifactRepo.RecordAsync(
             ingestionRunId,

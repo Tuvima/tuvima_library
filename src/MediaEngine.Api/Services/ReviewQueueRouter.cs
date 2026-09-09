@@ -29,7 +29,9 @@ public sealed class ReviewQueueRouter : IReviewQueueRouter
     {
         var operation = await _operations.GetByIdAsync(operationId, ct);
         if (operation is null || operation.EntityId is null || !ReviewEligibility.IsReviewEligible(operation))
+        {
             return;
+        }
 
         await SendIfAbsentAsync(new ReviewQueueEntry
         {
@@ -50,11 +52,15 @@ public sealed class ReviewQueueRouter : IReviewQueueRouter
     {
         var state = await _capabilityStates.GetAsync(entityId, capabilityId, subKey, ct);
         if (state is null)
+        {
             return;
+        }
 
         var definition = _registry.Find(capabilityId);
         if (!ReviewEligibility.IsReviewEligible(state, definition))
+        {
             return;
+        }
 
         await SendIfAbsentAsync(new ReviewQueueEntry
         {
@@ -87,7 +93,9 @@ public sealed class ReviewQueueRouter : IReviewQueueRouter
     {
         var existing = await _reviewQueue.GetPendingByEntityAsync(entry.EntityId, ct);
         if (existing.Count > 0)
+        {
             return;
+        }
 
         await _reviewQueue.InsertAsync(entry, ct);
     }

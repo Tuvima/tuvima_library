@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -24,6 +22,8 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
@@ -88,20 +88,17 @@ internal sealed partial class DetailCompositionOrchestrator
         CancellationToken ct = default,
         string? selectedContainerId = null,
         Guid? profileId = null,
-        string? callerRole = null)
+        DetailActionAuthorizationContext actionAuthorization = default,
+        IReadOnlyList<Guid>? authorizedAssetIds = null,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks = null)
     {
         var isAdminView = context is DetailPresentationContext.Admin;
         var favoriteWorkIds = await _reader.LoadFavoriteWorkIdsAsync(profileId, ct);
-        var actionAuthorization = await DetailActionAuthorizationPolicy.ResolveAsync(
-            callerRole,
-            profileId,
-            _profiles,
-            ct);
 
         var model = entityType switch
         {
-            DetailEntityType.Person => await BuildPersonAsync(id, entityType, context, isAdminView, actionAuthorization, ct),
-            DetailEntityType.BookSeries => await BuildBookSeriesAsync(id, context, isAdminView, actionAuthorization, favoriteWorkIds, profileId, selectedContainerId, ct),
+            DetailEntityType.Person => await BuildPersonAsync(id, entityType, context, isAdminView, actionAuthorization, authorizedWorks, ct),
+            DetailEntityType.BookSeries => await BuildBookSeriesAsync(id, context, isAdminView, actionAuthorization, favoriteWorkIds, profileId, selectedContainerId, authorizedWorks, ct),
             DetailEntityType.Collection or DetailEntityType.TvShow or DetailEntityType.MovieSeries
                 or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(
                     id,
@@ -112,13 +109,35 @@ internal sealed partial class DetailCompositionOrchestrator
                     favoriteWorkIds,
                     ct,
                     profileId: profileId,
-                    selectedContainerId: selectedContainerId),
-            DetailEntityType.Character => await BuildCharacterAsync(id, context, isAdminView, actionAuthorization, ct),
-            DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, actionAuthorization, ct),
-            _ => await BuildWorkAsync(id, entityType, context, isAdminView, actionAuthorization, selectedContainerId, favoriteWorkIds, profileId, ct),
+                    selectedContainerId: selectedContainerId,
+                    authorizedWorks: authorizedWorks),
+            DetailEntityType.Character => await BuildCharacterAsync(id, context, isAdminView, actionAuthorization, authorizedWorks, ct),
+            DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, actionAuthorization, authorizedWorks, ct),
+            _ => await BuildWorkAsync(
+                id,
+                entityType,
+                context,
+                isAdminView,
+                actionAuthorization,
+                selectedContainerId,
+                favoriteWorkIds,
+                profileId,
+                authorizedAssetIds,
+                authorizedWorks,
+                ct),
         };
         if (model is not null && profileId.HasValue)
-            await AddPersonalActionsAsync(model, profileId.Value, ct);
+        {
+            var personalStatusAssetIds = authorizedAssetIds is not null
+                ? authorizedAssetIds.ToHashSet()
+                : authorizedWorks?.Select(work => work.AssetId).ToHashSet();
+            await AddPersonalActionsAsync(
+                model,
+                profileId.Value,
+                actionAuthorization,
+                personalStatusAssetIds,
+                ct);
+        }
         return model;
     }
 }

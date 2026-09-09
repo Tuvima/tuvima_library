@@ -1,5 +1,9 @@
+using System.Net;
+using System.Text;
+using System.Text.Json;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -17,14 +21,9 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Net;
-using System.Text;
-using System.Text.Json;
-
 // Disambiguate ProviderConfiguration — the IConfigurationLoader uses the Storage.Models one
 using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
@@ -3332,14 +3331,22 @@ public sealed class WorkerPipelineTests
         public Task SetSelectedCandidateAsync(Guid jobId, Guid candidateId, CancellationToken ct = default)
         {
             var job = _jobs.FirstOrDefault(j => j.Id == jobId);
-            if (job is not null) job.SelectedCandidateId = candidateId;
+            if (job is not null)
+            {
+                job.SelectedCandidateId = candidateId;
+            }
+
             return Task.CompletedTask;
         }
 
         public Task SetResolvedQidAsync(Guid jobId, string qid, CancellationToken ct = default)
         {
             var job = _jobs.FirstOrDefault(j => j.Id == jobId);
-            if (job is not null) job.ResolvedQid = qid;
+            if (job is not null)
+            {
+                job.ResolvedQid = qid;
+            }
+
             return Task.CompletedTask;
         }
 
@@ -4115,7 +4122,9 @@ public sealed class WorkerPipelineTests
         {
             var target = Assets.FirstOrDefault(asset => asset.Id == assetId);
             if (target is null)
+            {
                 return Task.CompletedTask;
+            }
 
             foreach (var asset in Assets.Where(asset =>
                          string.Equals(asset.EntityId, target.EntityId, StringComparison.OrdinalIgnoreCase)

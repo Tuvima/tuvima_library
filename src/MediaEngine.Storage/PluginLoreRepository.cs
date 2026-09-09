@@ -189,7 +189,9 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
     {
         ct.ThrowIfCancellationRequested();
         if (status is not (PluginLoreSourceStatus.Approved or PluginLoreSourceStatus.Rejected or PluginLoreSourceStatus.Pending))
+        {
             throw new ArgumentOutOfRangeException(nameof(status), status, "Unsupported plugin lore source status.");
+        }
 
         var now = DateTimeOffset.UtcNow;
         using var conn = _db.CreateConnection();
@@ -367,7 +369,9 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
     private static string NormalizeSourceKey(string baseUrl)
     {
         if (Uri.TryCreate(baseUrl, UriKind.Absolute, out var uri))
+        {
             return uri.Host.ToLowerInvariant();
+        }
 
         return baseUrl.Trim().TrimEnd('/').ToLowerInvariant();
     }

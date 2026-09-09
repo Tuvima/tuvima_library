@@ -222,15 +222,15 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
               AND capability_id = @capabilityId
               AND COALESCE(sub_key, '') = COALESCE(@subKey, '');
             """, new
-            {
-                entityId,
-                capabilityId,
-                subKey,
-                error,
-                category = category.ToString(),
-                status = terminal ? EntityCapabilityStatus.FailedTerminal : EntityCapabilityStatus.FailedRetryable,
-                now = DateTimeOffset.UtcNow.ToString("O"),
-            });
+        {
+            entityId,
+            capabilityId,
+            subKey,
+            error,
+            category = category.ToString(),
+            status = terminal ? EntityCapabilityStatus.FailedTerminal : EntityCapabilityStatus.FailedRetryable,
+            now = DateTimeOffset.UtcNow.ToString("O"),
+        });
         return Task.CompletedTask;
     }
 

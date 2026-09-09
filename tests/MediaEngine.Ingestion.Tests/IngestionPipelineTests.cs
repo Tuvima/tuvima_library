@@ -1,7 +1,7 @@
 using System.Text.Json;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Models;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Ingestion.Tests;
 
@@ -78,13 +78,13 @@ public class IngestionPipelineTests
 
         var candidate = new IngestionCandidate
         {
-            Path              = @"C:\watch\test.epub",
-            EventType         = FileEventType.Created,
-            DetectedAt        = DateTimeOffset.UtcNow,
-            ReadyAt           = DateTimeOffset.UtcNow,
-            Metadata          = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            Path = @"C:\watch\test.epub",
+            EventType = FileEventType.Created,
+            DetectedAt = DateTimeOffset.UtcNow,
+            ReadyAt = DateTimeOffset.UtcNow,
+            Metadata = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["title"]  = "Test Title",
+                ["title"] = "Test Title",
                 ["author"] = "Test Author",
             },
             DetectedMediaType = mediaType,
@@ -128,7 +128,10 @@ public class IngestionPipelineTests
         while (dir != null)
         {
             if (Directory.Exists(Path.Combine(dir, ".git")))
+            {
                 return dir;
+            }
+
             dir = Path.GetDirectoryName(dir);
         }
         throw new InvalidOperationException("Could not find repository root (.git directory)");

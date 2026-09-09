@@ -26,7 +26,9 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
                     SELECT COUNT(1) FROM collection_view_sources
                      WHERE collection_id = @CollectionId AND gallery_id = @GalleryId;
                     """, command, transaction, cancellationToken: token)) != 0)
+            {
                 throw new InvalidOperationException("This Gallery is already a source for the Collection.");
+            }
 
             var id = Guid.NewGuid();
             var now = DateTimeOffset.UtcNow;
@@ -39,7 +41,12 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
                      NULL, NULL, @Position, @now, @now);
                 """, new
             {
-                id, command.CollectionId, command.OwnerProfileId, command.GalleryId, command.Position, now,
+                id,
+                command.CollectionId,
+                command.OwnerProfileId,
+                command.GalleryId,
+                command.Position,
+                now,
             }, transaction, cancellationToken: token));
             return new CollectionViewSource(id, command.CollectionId, command.OwnerProfileId,
                 CollectionViewSourceKind.Gallery, command.GalleryId, null, command.Position, now, now);
@@ -71,8 +78,13 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
                      @Version, @Json, @Position, @now, @now);
                 """, new
             {
-                id, command.CollectionId, command.OwnerProfileId,
-                command.SmartRule.Version, command.SmartRule.Json, command.Position, now,
+                id,
+                command.CollectionId,
+                command.OwnerProfileId,
+                command.SmartRule.Version,
+                command.SmartRule.Json,
+                command.Position,
+                now,
             }, transaction, cancellationToken: token));
             return new CollectionViewSource(id, command.CollectionId, command.OwnerProfileId,
                 CollectionViewSourceKind.SmartRule, null, command.SmartRule, command.Position, now, now);
@@ -117,12 +129,19 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
                  WHERE cvs.id = @SourceId AND cvs.collection_id = @CollectionId
                    AND cvs.owner_profile_id = @OwnerProfileId;
                 """, command, transaction, cancellationToken: token));
-            if (existing is null) return null;
+            if (existing is null)
+            {
+                return null;
+            }
 
             if (command.Kind == CollectionViewSourceKind.Gallery)
+            {
                 RequireOwnedGallery(connection, transaction, command.GalleryId!.Value, command.OwnerProfileId, token);
+            }
             else
+            {
                 RequirePersonalSpace(connection, transaction, command.OwnerProfileId, token);
+            }
 
             var now = DateTimeOffset.UtcNow;
             connection.Execute(new CommandDefinition("""
@@ -134,11 +153,15 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
                    AND owner_profile_id = @OwnerProfileId;
                 """, new
             {
-                command.SourceId, command.CollectionId, command.OwnerProfileId,
-                Kind = ToStorage(command.Kind), command.GalleryId,
+                command.SourceId,
+                command.CollectionId,
+                command.OwnerProfileId,
+                Kind = ToStorage(command.Kind),
+                command.GalleryId,
                 RuleVersion = command.SmartRule?.Version,
                 RuleJson = command.SmartRule?.Json,
-                command.Position, now,
+                command.Position,
+                now,
             }, transaction, cancellationToken: token));
             return new CollectionViewSource(command.SourceId, command.CollectionId, command.OwnerProfileId,
                 command.Kind, command.GalleryId, command.SmartRule, command.Position,
@@ -176,7 +199,11 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
         ArgumentNullException.ThrowIfNull(collectionIds);
         ValidateId(viewerProfileId, nameof(viewerProfileId));
         var ids = collectionIds.Where(id => id != Guid.Empty).Distinct().ToArray();
-        if (ids.Length == 0) return Task.FromResult<IReadOnlyList<CollectionViewSourceProjection>>([]);
+        if (ids.Length == 0)
+        {
+            return Task.FromResult<IReadOnlyList<CollectionViewSourceProjection>>([]);
+        }
+
         ct.ThrowIfCancellationRequested();
 
         var parameters = new DynamicParameters();
@@ -226,15 +253,27 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
             SELECT collection_type AS CollectionType, scope AS Scope, profile_id AS ProfileId
               FROM collections WHERE id = @collectionId;
             """, new { collectionId }, transaction, cancellationToken: ct));
-        if (row is null) throw new InvalidOperationException($"Collection '{collectionId:D}' does not exist.");
+        if (row is null)
+        {
+            throw new InvalidOperationException($"Collection '{collectionId:D}' does not exist.");
+        }
+
         if (!string.Equals(row.CollectionType, "Custom", StringComparison.OrdinalIgnoreCase))
+        {
             throw new InvalidOperationException("Personal-media sources are supported only by Custom Collections.");
+        }
+
         if (connection.ExecuteScalar<long>(new CommandDefinition(
                 "SELECT COUNT(1) FROM profiles WHERE id = @ownerProfileId;",
                 new { ownerProfileId }, transaction, cancellationToken: ct)) == 0)
+        {
             throw new InvalidOperationException($"Profile '{ownerProfileId:D}' does not exist.");
+        }
+
         if (row.ProfileId.HasValue && row.ProfileId.Value != ownerProfileId)
+        {
             throw new InvalidOperationException("A user-scoped Collection can use only its owner's personal-media sources.");
+        }
     }
 
     private static void RequireOwnedGallery(
@@ -248,7 +287,9 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
                 SELECT COUNT(1) FROM view_galleries
                  WHERE id = @galleryId AND owner_profile_id = @ownerProfileId;
                 """, new { galleryId, ownerProfileId }, transaction, cancellationToken: ct)) == 0)
+        {
             throw new InvalidOperationException("Gallery does not exist or is not owned by the source profile.");
+        }
     }
 
     private static void RequirePersonalSpace(
@@ -260,7 +301,9 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
         if (connection.ExecuteScalar<long>(new CommandDefinition("""
                 SELECT COUNT(1) FROM view_personal_spaces WHERE owner_profile_id = @ownerProfileId;
                 """, new { ownerProfileId }, transaction, cancellationToken: ct)) == 0)
+        {
             throw new InvalidOperationException("View smart-rule owner does not have a Personal Space.");
+        }
     }
 
     private static CollectionViewSource Map(SourceRow row) => new(
@@ -276,11 +319,16 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
         if (kind == CollectionViewSourceKind.Gallery)
         {
             if (!galleryId.HasValue || galleryId == Guid.Empty || rule is not null)
+            {
                 throw new ArgumentException("A Gallery source requires only a Gallery ID.");
+            }
+
             return;
         }
         if (galleryId.HasValue || rule is null)
+        {
             throw new ArgumentException("A smart-rule source requires only a rule definition.");
+        }
     }
 
     private static string ToStorage(CollectionViewSourceKind kind) => kind switch
@@ -300,11 +348,17 @@ public sealed class CollectionViewSourceRepository(IDatabaseConnection database)
     private static DateTimeOffset ParseDate(string value) => DateTimeOffset.Parse(value);
     private static void ValidateId(Guid value, string parameterName)
     {
-        if (value == Guid.Empty) throw new ArgumentException("ID is required.", parameterName);
+        if (value == Guid.Empty)
+        {
+            throw new ArgumentException("ID is required.", parameterName);
+        }
     }
     private static void ValidatePosition(int position)
     {
-        if (position < 0) throw new ArgumentOutOfRangeException(nameof(position));
+        if (position < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(position));
+        }
     }
 
     private sealed class CollectionRow

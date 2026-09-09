@@ -76,12 +76,12 @@ public sealed class ScoringConfiguration
     public static IReadOnlyDictionary<string, ConfidenceFloor> DefaultConfidenceFloors { get; } =
         new Dictionary<string, ConfidenceFloor>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Books"]      = new(["title", "author"], 0.70, 0.10),
+            ["Books"] = new(["title", "author"], 0.70, 0.10),
             ["Audiobooks"] = new(["title", "author"], 0.70, 0.10),
-            ["Movies"]     = new(["title", "year"],   0.70, 0.15),
-            ["TV"]         = new(["title"],            0.70, 0.15),
-            ["Music"]      = new(["title", "artist"],  0.70, 0.10),
-            ["Comic"]      = new(["title"],            0.70, 0.10),
+            ["Movies"] = new(["title", "year"], 0.70, 0.15),
+            ["TV"] = new(["title"], 0.70, 0.15),
+            ["Music"] = new(["title", "artist"], 0.70, 0.10),
+            ["Comic"] = new(["title"], 0.70, 0.10),
         };
 }
 

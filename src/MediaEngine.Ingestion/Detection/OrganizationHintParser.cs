@@ -70,27 +70,47 @@ public static class OrganizationHintParser
     public static OrganizationHints Parse(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
+        {
             return OrganizationHints.Empty;
+        }
 
         var bridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         // IMDB — Plex first, then Jellyfin. Normalise `tt` prefix to lowercase.
         var imdbMatch = PlexImdb.Match(path);
-        if (!imdbMatch.Success) imdbMatch = JellyfinImdb.Match(path);
+        if (!imdbMatch.Success)
+        {
+            imdbMatch = JellyfinImdb.Match(path);
+        }
+
         if (imdbMatch.Success)
+        {
             bridgeIds[BridgeIdKeys.ImdbId] = imdbMatch.Groups[1].Value.ToLowerInvariant();
+        }
 
         // TMDB
         var tmdbMatch = PlexTmdb.Match(path);
-        if (!tmdbMatch.Success) tmdbMatch = JellyfinTmdb.Match(path);
+        if (!tmdbMatch.Success)
+        {
+            tmdbMatch = JellyfinTmdb.Match(path);
+        }
+
         if (tmdbMatch.Success)
+        {
             bridgeIds[BridgeIdKeys.TmdbId] = tmdbMatch.Groups[1].Value;
+        }
 
         // TVDB
         var tvdbMatch = PlexTvdb.Match(path);
-        if (!tvdbMatch.Success) tvdbMatch = JellyfinTvdb.Match(path);
+        if (!tvdbMatch.Success)
+        {
+            tvdbMatch = JellyfinTvdb.Match(path);
+        }
+
         if (tvdbMatch.Success)
+        {
             bridgeIds[BridgeIdKeys.TvdbId] = tvdbMatch.Groups[1].Value;
+        }
 
         // Edition label — always Plex form; Jellyfin uses a suffix after a
         // separator which is ambiguous without more context and is left to
@@ -98,7 +118,9 @@ public static class OrganizationHintParser
         string? editionLabel = null;
         var editionMatch = PlexEdition.Match(path);
         if (editionMatch.Success)
+        {
             editionLabel = editionMatch.Groups[1].Value.Trim();
+        }
 
         // Extras detection — walk folder components.
         bool isExtras = false;
@@ -113,12 +135,18 @@ public static class OrganizationHintParser
             }
 
             var parent = Path.GetDirectoryName(dir);
-            if (parent == dir) break;
+            if (parent == dir)
+            {
+                break;
+            }
+
             dir = parent;
         }
 
         if (bridgeIds.Count == 0 && editionLabel is null && !isExtras)
+        {
             return OrganizationHints.Empty;
+        }
 
         return new OrganizationHints(bridgeIds, editionLabel, isExtras);
     }
@@ -164,8 +192,8 @@ public sealed class OrganizationHints
         string? editionLabel,
         bool isExtras)
     {
-        BridgeIds    = bridgeIds;
+        BridgeIds = bridgeIds;
         EditionLabel = editionLabel;
-        IsExtras     = isExtras;
+        IsExtras = isExtras;
     }
 }

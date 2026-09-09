@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -25,6 +23,8 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
 using static MediaEngine.Api.Services.Details.Internals.DetailViewModelBuilder;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
@@ -39,17 +39,29 @@ internal sealed partial class DetailCompositionOrchestrator
         string? selectedContainerId,
         IReadOnlySet<Guid> favoriteWorkIds,
         Guid? profileId,
+        IReadOnlyList<Guid>? authorizedAssetIds,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks,
         CancellationToken ct)
     {
-        var detail = await _libraryItems.GetDetailAsync(workId, ct);
+        if (authorizedAssetIds is { Count: 0 })
+        {
+            return null;
+        }
+
+        var preferredAssetId = authorizedAssetIds is { Count: > 0 }
+            ? authorizedAssetIds[0]
+            : Guid.Empty;
+        var detail = preferredAssetId == Guid.Empty
+            ? await _libraryItems.GetDetailAsync(workId, ct)
+            : await _libraryItems.GetDetailAsync(workId, preferredAssetId, ct);
         if (detail is null)
         {
             return null;
         }
 
         var entityType = requestedType == DetailEntityType.Work ? InferWorkEntityType(detail.MediaType, detail) : requestedType;
-        var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct, profileId);
-        var values = await LoadWorkCanonicalMapAsync(workId, detail, ct);
+        var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct, profileId, authorizedAssetIds);
+        var values = await LoadWorkCanonicalMapAsync(workId, detail, ct, authorizedAssetIds);
         var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
         var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
         var resolvedTitle = ResolveWorkDisplayTitle(displayTitle, detail, values, entityType);
@@ -79,7 +91,10 @@ internal sealed partial class DetailCompositionOrchestrator
                 detail.HeroUrl,
                 artworkFallback.BackgroundUrl);
         var bannerUrl = entityType == DetailEntityType.TvEpisode ? null : StringHelpers.FirstNonBlankOr(string.Empty, detail.BannerUrl, artworkFallback.BannerUrl);
-        if (entityType == DetailEntityType.TvEpisode) foregroundArtworkUrl = backdropUrl;
+        if (entityType == DetailEntityType.TvEpisode)
+        {
+            foregroundArtworkUrl = backdropUrl;
+        }
 
         var artwork = BuildArtwork(
             entityType,
@@ -116,10 +131,14 @@ internal sealed partial class DetailCompositionOrchestrator
                 favoriteWorkIds,
                 ct,
                 workId,
-                profileId);
+                profileId,
+                authorizedWorks: authorizedWorks);
             sequencePlacement = showModel?.SequencePlacement;
             if (sequencePlacement is null || !sequencePlacement.OrderedItems.Any(item => item.Id == workId.ToString("D") && item.IsOwned))
+            {
                 return null;
+            }
+
             fullContributorGroups = showModel!.FullContributorGroups;
         }
 
@@ -141,7 +160,10 @@ internal sealed partial class DetailCompositionOrchestrator
         var displaySubtitle = ResolveDisplayOverride(displayOverrides, MetadataFieldConstants.Subtitle);
         var displayGenre = ResolveDisplayOverride(displayOverrides, MetadataFieldConstants.Genre);
         if (!string.IsNullOrWhiteSpace(displayGenre))
+        {
             values[MetadataFieldConstants.Genre] = displayGenre;
+        }
+
         var semanticTagline = entityType == DetailEntityType.TvEpisode ? null : StringHelpers.FirstNonBlank(displayTagline, GetValue(values, MetadataFieldConstants.Tagline));
         var semanticSubtitle = entityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.ComicIssue or DetailEntityType.Work
             ? StringHelpers.FirstNonBlank(displaySubtitle, GetValue(values, MetadataFieldConstants.Subtitle))
@@ -224,6 +246,7 @@ internal sealed partial class DetailCompositionOrchestrator
         IReadOnlySet<Guid> favoriteWorkIds,
         Guid? profileId,
         string? selectedContainerId,
+        IReadOnlyList<DisplayWorkRow>? authorizedWorks,
         CancellationToken ct)
     {
         var canonicalSeries = await BuildCollectionAsync(
@@ -235,7 +258,8 @@ internal sealed partial class DetailCompositionOrchestrator
             favoriteWorkIds,
             ct,
             profileId: profileId,
-            selectedContainerId: selectedContainerId);
+            selectedContainerId: selectedContainerId,
+            authorizedWorks: authorizedWorks);
         if (canonicalSeries is not null || _collectionBrowse is null)
         {
             return canonicalSeries;
@@ -261,6 +285,8 @@ internal sealed partial class DetailCompositionOrchestrator
                 selectedContainerId: selectedContainerId,
                 favoriteWorkIds: favoriteWorkIds,
                 profileId: profileId,
+                authorizedAssetIds: null,
+                authorizedWorks: authorizedWorks,
                 ct: ct);
             if (seedDetail is not null)
             {

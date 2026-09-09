@@ -124,7 +124,10 @@ public sealed class CollectionPersonalMediaSectionTests : AsyncBunitContext
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
+
         Assert.NotNull(directory);
         return Path.Combine([directory!.FullName, .. segments]);
     }

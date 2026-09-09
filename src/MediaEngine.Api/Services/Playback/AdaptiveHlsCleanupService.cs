@@ -39,7 +39,10 @@ public sealed class AdaptiveHlsCleanupService(
     internal async Task CleanupAsync(CancellationToken ct = default)
     {
         var settings = configuration.LoadTranscoding();
-        if (!settings.CleanupLruEnabled) return;
+        if (!settings.CleanupLruEnabled)
+        {
+            return;
+        }
 
         var root = ResolveCacheRoot(settings, configuration.LoadCore().LibraryRoot);
         var hlsRoot = Path.GetFullPath(Path.Combine(root, "hls"));
@@ -53,7 +56,11 @@ public sealed class AdaptiveHlsCleanupService(
 
         foreach (var row in rows)
         {
-            if (hls.IsActive(row.Id)) continue;
+            if (hls.IsActive(row.Id))
+            {
+                continue;
+            }
+
             var lastAccessed = DateTimeOffset.TryParse(
                 row.LastAccessed,
                 CultureInfo.InvariantCulture,
@@ -64,13 +71,22 @@ public sealed class AdaptiveHlsCleanupService(
             var expired = lastAccessed < cutoff;
             var overLimit = totalBytes > limitBytes && row.Status == "ready";
             var failed = row.Status == "failed" && lastAccessed < DateTimeOffset.UtcNow.AddHours(-1);
-            if (!expired && !overLimit && !failed) continue;
+            if (!expired && !overLimit && !failed)
+            {
+                continue;
+            }
 
             if (TryResolveManagedDirectory(hlsRoot, row.RootPath, out var path) && Directory.Exists(path))
+            {
                 Directory.Delete(path, recursive: true);
+            }
+
             var staging = row.RootPath + ".staging";
             if (TryResolveManagedDirectory(hlsRoot, staging, out var stagingPath) && Directory.Exists(stagingPath))
+            {
                 Directory.Delete(stagingPath, recursive: true);
+            }
+
             await packages.DeleteAsync(row.Id, ct).ConfigureAwait(false);
             totalBytes -= Math.Max(0, row.TotalBytes);
             logger.LogInformation("Reclaimed adaptive HLS package {PackageId} ({Bytes} bytes)", row.Id, row.TotalBytes);
@@ -82,7 +98,9 @@ public sealed class AdaptiveHlsCleanupService(
         foreach (var directory in Directory.EnumerateDirectories(root, "*.staging", SearchOption.TopDirectoryOnly))
         {
             if (Directory.GetLastWriteTimeUtc(directory) < DateTime.UtcNow.AddHours(-1))
+            {
                 Directory.Delete(directory, recursive: true);
+            }
         }
     }
 
@@ -95,7 +113,11 @@ public sealed class AdaptiveHlsCleanupService(
     private static string ResolveCacheRoot(TranscodingSettings settings, string? libraryRoot)
     {
         var path = string.IsNullOrWhiteSpace(settings.VariantCachePath) ? ".data/variants" : settings.VariantCachePath;
-        if (string.IsNullOrWhiteSpace(libraryRoot)) libraryRoot = AppContext.BaseDirectory;
+        if (string.IsNullOrWhiteSpace(libraryRoot))
+        {
+            libraryRoot = AppContext.BaseDirectory;
+        }
+
         return Path.GetFullPath(Path.IsPathRooted(path) ? path : Path.Combine(libraryRoot, path));
     }
 }

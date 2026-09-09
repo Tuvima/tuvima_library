@@ -1,20 +1,20 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Forms;
-using Microsoft.AspNetCore.Components.Routing;
-using Microsoft.JSInterop;
 using MediaEngine.Contracts.Details;
-using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Operations;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Services;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.JSInterop;
 using MudBlazor;
 
 namespace MediaEngine.Web.Components.MediaEditor;
@@ -61,7 +61,9 @@ public partial class SharedMediaEditorShell
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && Inline)
+        {
             await JS.InvokeVoidAsync("tuvimaEditorFocus", ".sme-title");
+        }
     }
     [Inject] protected IDialogService DialogService { get; set; } = null!;
     [Inject] protected ILogger<SharedMediaEditorShell> Logger { get; set; } = null!;
@@ -302,7 +304,9 @@ public partial class SharedMediaEditorShell
     protected string GetContentTotalDurationLabel()
     {
         if (!string.IsNullOrWhiteSpace(_detail?.Runtime))
+        {
             return _detail.Runtime!;
+        }
 
         var totalSeconds = AudiobookChapters.Sum(chapter =>
             chapter.DurationSeconds
@@ -310,7 +314,9 @@ public partial class SharedMediaEditorShell
                 ? Math.Max(0, chapter.EndSeconds.Value - chapter.StartSeconds.Value)
                 : 0));
         if (totalSeconds <= 0)
+        {
             return "Unknown";
+        }
 
         var duration = TimeSpan.FromSeconds(totalSeconds);
         return duration.TotalHours >= 1
@@ -459,7 +465,9 @@ public partial class SharedMediaEditorShell
             await LoadRefreshScheduleAsync();
         }
         else
+        {
             await LoadBatchAsync();
+        }
     }
 
     private async Task LoadRefreshScheduleAsync()
@@ -467,19 +475,25 @@ public partial class SharedMediaEditorShell
         var entityType = ActiveScope?.FieldEntityKind ?? "Work";
         _refreshSchedule = await ApiClient.GetEntityEnrichmentRefreshScheduleAsync(entityType, EditorContextEntityId);
         if (_refreshSchedule is null && CurrentEntityId != EditorContextEntityId)
+        {
             _refreshSchedule = await ApiClient.GetEntityEnrichmentRefreshScheduleAsync("MediaAsset", CurrentEntityId);
+        }
     }
 
     protected async Task QueueFullEnrichmentAsync()
     {
         var target = _refreshSchedule;
         if (_refreshQueueing)
+        {
             return;
+        }
 
         var entityId = target?.EntityId ?? CurrentEntityId;
         var entityType = target?.EntityType ?? ActiveScope?.FieldEntityKind ?? "Work";
         if (entityId == Guid.Empty)
+        {
             return;
+        }
 
         _refreshQueueing = true;
         try
@@ -565,7 +579,9 @@ public partial class SharedMediaEditorShell
                         : _editorContext.InitialScope;
 
                 if (!_editorContext.Scopes.Any(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase)))
+                {
                     _activeScopeId = _editorContext.Scopes.OrderBy(scope => scope.Order).FirstOrDefault()?.ScopeId ?? string.Empty;
+                }
 
                 await LoadScopeStateAsync(forceReload: true);
             }
@@ -601,7 +617,9 @@ public partial class SharedMediaEditorShell
             }
 
             if (IsFileScope)
+            {
                 _tabState.ActivateFile();
+            }
 
             EnsureActiveTabVisible();
             InitializeMatchSearchQueries();
@@ -624,11 +642,15 @@ public partial class SharedMediaEditorShell
     private async Task LoadProfilePreferencesAsync(Guid workId)
     {
         if (Request.ActiveProfileId is not { } profileId || workId == Guid.Empty || IsBatchMode)
+        {
             return;
+        }
 
         var preferences = await ApiClient.GetItemEditorPreferencesAsync(workId, profileId);
         if (preferences is null)
+        {
             return;
+        }
 
         _profilePreferencesByWork[workId] = preferences;
     }
@@ -655,12 +677,16 @@ public partial class SharedMediaEditorShell
     {
         if (!string.Equals(_selectedMediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
             || AudiobookChapters.Count == 0)
+        {
             return;
+        }
 
         var overrides = await ApiClient.GetAudiobookChapterTitleOverridesAsync(workId);
         _audiobookChapterOverrideKeys.Clear();
         foreach (var chapterOverride in overrides)
+        {
             _audiobookChapterOverrideKeys.Add(BuildAudiobookChapterKey(chapterOverride.AssetId, chapterOverride.ChapterIndex));
+        }
     }
 
     protected static string BuildAudiobookChapterKey(MediaGroupingItemViewModel chapter) =>
@@ -690,15 +716,21 @@ public partial class SharedMediaEditorShell
     protected void OnAudiobookChapterTitleInput(MediaGroupingItemViewModel chapter, string? value)
     {
         if (!Guid.TryParse(chapter.AssetId, out var assetId) || !chapter.ChapterIndex.HasValue)
+        {
             return;
+        }
 
         var key = BuildAudiobookChapterKey(chapter);
         var normalized = (value ?? string.Empty).Trim();
         _audiobookChapterResetKeys.Remove(key);
         if (string.IsNullOrWhiteSpace(normalized) || string.Equals(normalized, chapter.Title, StringComparison.Ordinal))
+        {
             _audiobookChapterEdits.Remove(key);
+        }
         else
+        {
             _audiobookChapterEdits[key] = new AudiobookChapterEdit(assetId, chapter.ChapterIndex.Value, normalized, PlaybackChapterTitleSources.Override);
+        }
     }
 
     protected void QueueAudiobookChapterReset(MediaGroupingItemViewModel chapter)
@@ -717,7 +749,9 @@ public partial class SharedMediaEditorShell
     protected static string FormatAudiobookChapterTime(double? seconds)
     {
         if (!seconds.HasValue)
+        {
             return "--:--";
+        }
 
         var duration = TimeSpan.FromSeconds(Math.Max(0, seconds.Value));
         return duration.TotalHours >= 1
@@ -735,7 +769,9 @@ public partial class SharedMediaEditorShell
     private async Task LoadScopeStateAsync(bool forceReload = false)
     {
         if (!IsSingleItem || _editorContext is null || ActiveScope is null)
+        {
             return;
+        }
 
         var stateKey = BuildScopeStateKey(ActiveScope.FieldEntityId, ActiveScope.ScopeId);
         if (!forceReload && _scopeStates.TryGetValue(stateKey, out var cachedState))
@@ -777,7 +813,10 @@ public partial class SharedMediaEditorShell
         _history = state.History;
         _artwork = state.Artwork;
         if (ActiveScope is not null)
+        {
             _artworkStates[BuildScopeStateKey(ActiveScope.FieldEntityId, ActiveScope.ScopeId)] = state.Artwork;
+        }
+
         _selectedMediaType = NormalizeEditorMediaType(_detail?.MediaType ?? _editorContext?.MediaType ?? Request.MediaType);
         _schema = MediaEditorSchemaCatalog.Resolve(_selectedMediaType);
         _canonicalTargetGroup = ActiveScope?.CanonicalTargetGroup ?? _schema.DefaultTargetGroup;
@@ -792,7 +831,9 @@ public partial class SharedMediaEditorShell
     protected async Task SelectScopeAsync(string scopeId)
     {
         if (string.Equals(_activeScopeId, scopeId, StringComparison.OrdinalIgnoreCase))
+        {
             return;
+        }
 
         var wasFileScope = IsFileScope;
         _tabState.RememberCurrentNonFile();
@@ -829,7 +870,9 @@ public partial class SharedMediaEditorShell
     protected async Task SelectNavigatorNodeAsync(Guid entityId)
     {
         if (entityId == Guid.Empty || entityId == EditorContextEntityId)
+        {
             return;
+        }
 
         _loading = true;
         StateHasChanged();
@@ -848,7 +891,9 @@ public partial class SharedMediaEditorShell
     protected async Task SelectContentItemAsync(EditorContentGroup group, MediaEditorNavigatorNodeDto item)
     {
         if (!item.IsClickable || !item.IsOwned || item.PrimaryAssetId is null)
+        {
             return;
+        }
 
         if (string.Equals(_selectedMediaType, "TV", StringComparison.OrdinalIgnoreCase))
         {
@@ -920,7 +965,9 @@ public partial class SharedMediaEditorShell
     protected async Task ReturnToContainerEditorAsync()
     {
         if (_containerReturnState is null)
+        {
             return;
+        }
 
         var state = _containerReturnState;
         await LoadSingleItemAsync(state.EntityId, resetEditorState: false);
@@ -932,7 +979,9 @@ public partial class SharedMediaEditorShell
     protected async Task SelectArtworkScopeAsync(string scopeId)
     {
         if (string.IsNullOrWhiteSpace(scopeId))
+        {
             return;
+        }
 
         _tabState.Activate("artwork");
 
@@ -975,15 +1024,21 @@ public partial class SharedMediaEditorShell
     private async Task LoadArtworkStateAsync(string? scopeId, bool forceReload = false)
     {
         if (!IsSingleItem || string.IsNullOrWhiteSpace(scopeId))
+        {
             return;
+        }
 
         var scope = GetScopeById(scopeId);
         if (scope is null)
+        {
             return;
+        }
 
         var stateKey = BuildScopeStateKey(scope.FieldEntityId, scope.ScopeId);
         if (!forceReload && _artworkStates.ContainsKey(stateKey))
+        {
             return;
+        }
 
         var slots = ResolveArtworkSlots(scope);
         if (!scope.CanEditArtwork && slots.Count == 0)
@@ -1129,7 +1184,9 @@ public partial class SharedMediaEditorShell
     protected static int GetFieldLineCount(MediaEditorFieldDefinition field)
     {
         if (!string.Equals(field.InputKind, "textarea", StringComparison.OrdinalIgnoreCase))
+        {
             return 1;
+        }
 
         return string.Equals(field.Key, "description", StringComparison.OrdinalIgnoreCase) ? 7 : 4;
     }
@@ -1139,15 +1196,21 @@ public partial class SharedMediaEditorShell
         var scopedKey = BuildScopedFieldKey(key);
 
         if (_editedValues.TryGetValue(scopedKey, out var edited) && !_clearedInlineOverrideKeys.Contains(scopedKey))
+        {
             return edited;
+        }
 
         if (IsBatchMode)
+        {
             return string.Empty;
+        }
 
         if (_profilePreferencesByWork.TryGetValue(CurrentEntityId, out var preferences))
         {
             if (string.Equals(key, "custom_tags", StringComparison.OrdinalIgnoreCase))
+            {
                 return string.Join(", ", preferences.LocalTags);
+            }
         }
 
         if (!_clearedInlineOverrideKeys.Contains(scopedKey)
@@ -1176,9 +1239,13 @@ public partial class SharedMediaEditorShell
         else if (string.IsNullOrWhiteSpace(normalized))
         {
             if (ShouldSaveAsDisplayOverride(scopedKey, key) && !string.IsNullOrWhiteSpace(baseline))
+            {
                 _editedValues[scopedKey] = string.Empty;
+            }
             else
+            {
                 _editedValues.Remove(scopedKey);
+            }
         }
         else
         {
@@ -1285,7 +1352,9 @@ public partial class SharedMediaEditorShell
                     .ToDictionary(entry => entry.Key.Key, entry => entry.Value, StringComparer.OrdinalIgnoreCase);
 
                 if (!await SaveProfileEditorPreferencesAsync(CurrentEntityId, currentOverrideFields, currentPreferenceFields))
+                {
                     return;
+                }
 
                 savedAnything = true;
                 profileSavedEntities.Add(CurrentEntityId);
@@ -1294,7 +1363,9 @@ public partial class SharedMediaEditorShell
             foreach (var scopeGroup in fieldChangesByScope)
             {
                 if (profileSavedEntities.Contains(scopeGroup.Key.EntityId))
+                {
                     continue;
+                }
 
                 var overrideFields = scopeGroup
                     .Where(entry => ShouldSaveAsDisplayOverride(entry.RawKey, entry.Key.Key))
@@ -1306,7 +1377,9 @@ public partial class SharedMediaEditorShell
                 if (Request.Mode == SharedMediaEditorMode.Normal && Request.ActiveProfileId.HasValue)
                 {
                     if (!await SaveProfileEditorPreferencesAsync(scopeGroup.Key.EntityId, overrideFields, preferenceFields))
+                    {
                         return;
+                    }
 
                     savedAnything = true;
                     profileSavedEntities.Add(scopeGroup.Key.EntityId);
@@ -1344,7 +1417,9 @@ public partial class SharedMediaEditorShell
                 {
                     var chapter = AudiobookChapters.FirstOrDefault(item => BuildAudiobookChapterKey(item) == key);
                     if (chapter is null || !Guid.TryParse(chapter.AssetId, out var assetId) || !chapter.ChapterIndex.HasValue)
+                    {
                         continue;
+                    }
 
                     if (!await ApiClient.DeleteAudiobookChapterTitleOverrideAsync(CurrentEntityId, assetId, chapter.ChapterIndex.Value))
                     {
@@ -1381,7 +1456,9 @@ public partial class SharedMediaEditorShell
             {
                 var parsedKey = ParseScopedKey(pendingArtwork.Key);
                 if (parsedKey.EntityId == Guid.Empty || string.IsNullOrWhiteSpace(parsedKey.ScopeId))
+                {
                     continue;
+                }
 
                 await using var stream = pendingArtwork.Value.OpenReadStream(10 * 1024 * 1024);
                 var uploaded = await ApiClient.UploadScopeArtworkVariantAsync(
@@ -1415,7 +1492,9 @@ public partial class SharedMediaEditorShell
             if (Request.Mode == SharedMediaEditorMode.Review)
             {
                 if (!await ResolveReviewCoreAsync())
+                {
                     return;
+                }
 
                 Snackbar.Add(applyMembershipMove && _pendingMembershipPreview is not null
                     ? "Changes saved, membership updated, and review resolved."
@@ -1441,7 +1520,9 @@ public partial class SharedMediaEditorShell
         Dictionary<string, string> preferenceFields)
     {
         if (Request.ActiveProfileId is not { } profileId)
+        {
             return false;
+        }
 
         if (!_profilePreferencesByWork.TryGetValue(entityId, out var baseline))
         {
@@ -1475,7 +1556,9 @@ public partial class SharedMediaEditorShell
             if (_editorContext is not null && entityId == CurrentEntityId)
             {
                 foreach (var (key, value) in result.Preferences.DisplayOverrides)
+                {
                     _editorContext.DisplayOverrides[key] = value;
+                }
             }
         }
 
@@ -1514,7 +1597,9 @@ public partial class SharedMediaEditorShell
     protected async Task ResolveReviewWithoutChangesAsync()
     {
         if (Request.Mode != SharedMediaEditorMode.Review)
+        {
             return;
+        }
 
         _saving = true;
         StateHasChanged();
@@ -1522,7 +1607,9 @@ public partial class SharedMediaEditorShell
         try
         {
             if (!await ResolveReviewCoreAsync())
+            {
                 return;
+            }
 
             Snackbar.Add("Review resolved.", Severity.Success);
             await CloseEditorAsync(applied: true);
@@ -1610,9 +1697,13 @@ public partial class SharedMediaEditorShell
         }
 
         if (_hasCommittedChanges)
+        {
             await CloseEditorAsync(applied: true);
+        }
         else
+        {
             await CloseEditorAsync(applied: false);
+        }
     }
 
     protected void ResetEditorChanges()
@@ -1637,9 +1728,13 @@ public partial class SharedMediaEditorShell
     protected async Task DiscardAndClose()
     {
         if (_hasCommittedChanges)
+        {
             await CloseEditorAsync(applied: true);
+        }
         else
+        {
             await CloseEditorAsync(applied: false);
+        }
     }
 
     private async Task CloseEditorAsync(bool applied)
@@ -1651,21 +1746,29 @@ public partial class SharedMediaEditorShell
         }
 
         if (applied)
+        {
             MudDialog?.Close(DialogResult.Ok(true));
+        }
         else
+        {
             MudDialog?.Cancel();
+        }
     }
 
     protected async Task ConfirmNavigationWithUnsavedChanges(LocationChangingContext context)
     {
         if (IsDirty && !await JS.InvokeAsync<bool>("confirm", "You have unsaved changes. Leave without saving?"))
+        {
             context.PreventNavigation();
+        }
     }
 
     protected async Task ReclassifyMediaTypeAsync()
     {
         if (!CanReclassifyMediaType || string.IsNullOrWhiteSpace(_selectedMediaType))
+        {
             return;
+        }
 
         _reclassifying = true;
         StateHasChanged();
@@ -1704,7 +1807,9 @@ public partial class SharedMediaEditorShell
 
         var scope = ArtworkScope;
         if (scope is null)
+        {
             return;
+        }
 
         var scopedKey = BuildScopedArtworkKey(scope.ScopeId, assetType);
 
@@ -1731,9 +1836,15 @@ public partial class SharedMediaEditorShell
         _pendingArtworkPreviewUrls.Remove(scopedKey);
         _artworkUploadErrors.Remove(scopedKey);
         if (string.Equals(_dragTargetArtworkType, assetType, StringComparison.OrdinalIgnoreCase))
+        {
             _dragTargetArtworkType = null;
+        }
+
         if (_zoomArtworkVariant is { IsPending: true } && string.Equals(_zoomArtworkVariant.AssetType, assetType, StringComparison.OrdinalIgnoreCase))
+        {
             CloseArtworkZoom();
+        }
+
         NormalizeArtworkSelection();
     }
 
@@ -1809,7 +1920,9 @@ public partial class SharedMediaEditorShell
     protected void ClearArtworkDragTarget(string assetType)
     {
         if (string.Equals(_dragTargetArtworkType, assetType, StringComparison.OrdinalIgnoreCase))
+        {
             _dragTargetArtworkType = null;
+        }
     }
 
     protected bool IsArtworkDragTarget(string assetType) =>
@@ -1818,7 +1931,9 @@ public partial class SharedMediaEditorShell
     private ArtworkEditorDto? GetCurrentArtworkEditor()
     {
         if (ArtworkScope is null)
+        {
             return _artwork;
+        }
 
         return _artworkStates.TryGetValue(BuildScopeStateKey(ArtworkScope.FieldEntityId, ArtworkScope.ScopeId), out var artwork)
             ? artwork
@@ -1885,7 +2000,9 @@ public partial class SharedMediaEditorShell
     {
         var items = GetArtworkGalleryItems(assetType);
         if (items.Count == 0)
+        {
             return null;
+        }
 
         return items.FirstOrDefault(item => string.Equals(item.Key, _focusedArtworkVariantKey, StringComparison.Ordinal))
                ?? items.FirstOrDefault(item => item.IsPending)
@@ -1898,7 +2015,9 @@ public partial class SharedMediaEditorShell
     protected string GetSectionNavClass(string tabId)
     {
         if (!string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase))
+        {
             return "app-selection-nav__item sme-section-nav__item";
+        }
 
         return string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
             ? "app-selection-nav__item sme-section-nav__item is-active is-group-open"
@@ -1908,7 +2027,9 @@ public partial class SharedMediaEditorShell
     protected Task OnTabChanged(int index)
     {
         if (index < 0 || index >= Tabs.Count)
+        {
             return Task.CompletedTask;
+        }
 
         return SelectTabInternalAsync(Tabs[index].Id);
     }
@@ -1954,7 +2075,9 @@ public partial class SharedMediaEditorShell
     protected async Task DeleteArtworkVariantWithConfirmationAsync(ArtworkVariantDisplayItem item)
     {
         if (item.VariantId == Guid.Empty)
+        {
             return;
+        }
 
         FocusArtworkVariant(item.Key);
         if (!IsArtworkDeleteConfirming(item))
@@ -1970,13 +2093,17 @@ public partial class SharedMediaEditorShell
     protected void CancelArtworkDelete(ArtworkVariantDisplayItem item)
     {
         if (IsArtworkDeleteConfirming(item))
+        {
             _deleteConfirmArtworkVariantKey = null;
+        }
     }
 
     protected async Task ConfirmArtworkDeleteAsync(ArtworkVariantDisplayItem item)
     {
         if (item.VariantId == Guid.Empty)
+        {
             return;
+        }
 
         _deleteConfirmArtworkVariantKey = null;
         await DeleteArtworkVariantAsync(item.VariantId);
@@ -1993,7 +2120,9 @@ public partial class SharedMediaEditorShell
     protected async Task SetPreferredArtworkVariantAsync(Guid variantId)
     {
         if (variantId == Guid.Empty)
+        {
             return;
+        }
 
         var ok = await ApiClient.SetPreferredArtworkAsync(variantId);
         if (!ok)
@@ -2009,11 +2138,15 @@ public partial class SharedMediaEditorShell
     {
         var scope = ArtworkScope;
         if (scope is null)
+        {
             return;
+        }
 
         var scopedKey = BuildScopedArtworkKey(scope.ScopeId, assetType);
         if (!_pendingArtworkFiles.TryGetValue(scopedKey, out var file))
+        {
             return;
+        }
 
         await UploadPendingArtworkAsync(scope, assetType, file, scopedKey);
     }
@@ -2023,7 +2156,9 @@ public partial class SharedMediaEditorShell
         var scope = ArtworkScope;
         var slot = SelectedArtworkSlot;
         if (scope is null || slot is null || string.IsNullOrWhiteSpace(_artworkUrlInput))
+        {
             return;
+        }
 
         _artworkUrlSubmitting = true;
         _artworkUploadErrors.Remove(BuildScopedArtworkKey(scope.ScopeId, slot.AssetType));
@@ -2062,7 +2197,9 @@ public partial class SharedMediaEditorShell
     {
         var scope = ArtworkScope;
         if (scope is null || !CanRefreshProviderArtwork(scope))
+        {
             return;
+        }
 
         _providerArtworkRefreshing = true;
         StateHasChanged();
@@ -2110,10 +2247,14 @@ public partial class SharedMediaEditorShell
     {
         var provider = string.IsNullOrWhiteSpace(result.ProviderName) ? "Provider" : result.ProviderName;
         if (result.DownloadedCount > 0)
+        {
             return $"{provider} added {result.DownloadedCount} artwork variant{(result.DownloadedCount == 1 ? string.Empty : "s")}.";
+        }
 
         if (result.Success || string.Equals(result.Status, "NoImages", StringComparison.OrdinalIgnoreCase))
+        {
             return $"{provider} checked; no new artwork was added.";
+        }
 
         return $"{provider} skipped: {FormatProviderArtworkSkipReason(result.SkippedReason)}";
     }
@@ -2190,7 +2331,9 @@ public partial class SharedMediaEditorShell
         FocusArtworkVariant(item.Key);
 
         if (item.IsPending || item.VariantId == Guid.Empty || item.IsPreferred)
+        {
             return;
+        }
 
         await SetPreferredArtworkVariantAsync(item.VariantId);
     }
@@ -2198,7 +2341,9 @@ public partial class SharedMediaEditorShell
     protected async Task DeleteArtworkVariantAsync(Guid variantId)
     {
         if (variantId == Guid.Empty)
+        {
             return;
+        }
 
         var ok = await ApiClient.DeleteArtworkAsync(variantId);
         if (!ok)
@@ -2209,7 +2354,9 @@ public partial class SharedMediaEditorShell
 
         _deleteConfirmArtworkVariantKey = null;
         if (string.Equals(_focusedArtworkVariantKey, BuildVariantKey(variantId), StringComparison.Ordinal))
+        {
             _focusedArtworkVariantKey = null;
+        }
 
         await RefreshArtworkStateAsync(notifyParent: true);
     }
@@ -2217,7 +2364,9 @@ public partial class SharedMediaEditorShell
     protected void OpenArtworkZoom(ArtworkSlotDefinition slot, ArtworkVariantDisplayItem item)
     {
         if (string.IsNullOrWhiteSpace(item.ImageUrl))
+        {
             return;
+        }
 
         _zoomArtworkSlot = slot;
         _zoomArtworkVariant = item;
@@ -2239,17 +2388,27 @@ public partial class SharedMediaEditorShell
         var parts = new List<string> { slot.Label };
 
         if (item.IsPreferred)
+        {
             parts.Add("Primary");
+        }
         else if (item.IsPending)
+        {
             parts.Add("Pending");
+        }
         else if (!string.IsNullOrWhiteSpace(item.Origin))
+        {
             parts.Add(item.Origin);
+        }
 
         if (!string.IsNullOrWhiteSpace(item.ProviderName))
+        {
             parts.Add(item.ProviderName!);
+        }
 
         if (item.CreatedAt is DateTimeOffset createdAt)
+        {
             parts.Add(createdAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture));
+        }
 
         return string.Join(" | ", parts);
     }
@@ -2257,7 +2416,9 @@ public partial class SharedMediaEditorShell
     protected async Task SearchCanonicalAsync()
     {
         if (!IsSingleItem || IsFileScope)
+        {
             return;
+        }
 
         var isWikidataSearch = IsWikidataSearchMode;
         CancelMatchSearch(isWikidataSearch);
@@ -2283,7 +2444,9 @@ public partial class SharedMediaEditorShell
                 }, searchCts.Token);
 
             if (searchCts.IsCancellationRequested)
+            {
                 return;
+            }
 
             SetMatchSearchResponse(isWikidataSearch, response);
             ClearMatchSelection(isWikidataSearch);
@@ -2312,7 +2475,9 @@ public partial class SharedMediaEditorShell
     {
         var label = GetCanonicalTargetLabel(_canonicalTargetGroup);
         if (IsWikidataSearchMode)
+        {
             return $"Search Wikidata directly for the correct {label.ToLowerInvariant()} identity.";
+        }
 
         return Request.Mode == SharedMediaEditorMode.Review
             ? $"Resolve the blocking {label.ToLowerInvariant()} identity."
@@ -2322,7 +2487,9 @@ public partial class SharedMediaEditorShell
     private static string NormalizeMultilineInput(string key, string? value)
     {
         if (string.IsNullOrEmpty(value))
+        {
             return string.Empty;
+        }
 
         var normalized = value
             .Replace("\r\n", "\n", StringComparison.Ordinal)
@@ -2337,7 +2504,9 @@ public partial class SharedMediaEditorShell
     private static string NormalizeDescriptionParagraphs(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         return string.Join("\n\n",
             value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -2364,15 +2533,23 @@ public partial class SharedMediaEditorShell
         var parts = new List<string>();
 
         if (!string.IsNullOrWhiteSpace(candidate.Author))
+        {
             parts.Add(candidate.Author);
+        }
         else if (!string.IsNullOrWhiteSpace(candidate.Director))
+        {
             parts.Add(candidate.Director);
+        }
 
         if (!string.IsNullOrWhiteSpace(candidate.Year))
+        {
             parts.Add(candidate.Year);
+        }
 
         if (!string.IsNullOrWhiteSpace(candidate.ProviderName))
+        {
             parts.Add(FormatProviderName(candidate.ProviderName, _selectedMediaType));
+        }
 
         return parts.Count > 0 ? string.Join(" · ", parts) : "Provider candidate";
     }
@@ -2382,15 +2559,23 @@ public partial class SharedMediaEditorShell
         var parts = new List<string>();
 
         if (!string.IsNullOrWhiteSpace(candidate.InstanceOf))
+        {
             parts.Add(candidate.InstanceOf);
+        }
 
         if (!string.IsNullOrWhiteSpace(candidate.Year))
+        {
             parts.Add(candidate.Year);
+        }
 
         if (!string.IsNullOrWhiteSpace(candidate.Author))
+        {
             parts.Add(candidate.Author);
+        }
         else if (!string.IsNullOrWhiteSpace(candidate.Director))
+        {
             parts.Add(candidate.Director);
+        }
 
         parts.Add("Wikidata");
 
@@ -2416,7 +2601,9 @@ public partial class SharedMediaEditorShell
         };
 
         if (!string.IsNullOrWhiteSpace(universe))
+        {
             rows.Add(("Universe / Series", universe!));
+        }
 
         return rows;
     }
@@ -2444,7 +2631,9 @@ public partial class SharedMediaEditorShell
         var links = BuildRetailIdentityLinks(provider, providerId);
 
         if (!string.IsNullOrWhiteSpace(providerId) && links.Count == 0)
+        {
             chips.Add(FormatRetailIdentifierChip(providerId!));
+        }
 
         var hasProvider = !string.IsNullOrWhiteSpace(provider);
 
@@ -2501,11 +2690,15 @@ public partial class SharedMediaEditorShell
 
         var providerId = summary?.ProviderItemId;
         if (!string.IsNullOrWhiteSpace(providerId))
+        {
             chips.Add(providerId!);
+        }
 
         var provider = GetRetailMatchDisplayName(summary);
         if (!string.IsNullOrWhiteSpace(provider))
+        {
             chips.Add(provider);
+        }
 
         return new MatchCardDisplay(
             Badge: !string.IsNullOrWhiteSpace(qid) ? "Matched" : "Not matched",
@@ -2533,7 +2726,9 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<IdentityLinkDisplay> BuildWikidataIdentityLinks(string? qid)
     {
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return [];
+        }
 
         var identifiers = BuildCurrentIdentityIdentifiers();
         identifiers["wikidata_qid"] = qid.Trim();
@@ -2564,7 +2759,9 @@ public partial class SharedMediaEditorShell
         {
             var value = GetBaselineValue(key);
             if (!string.IsNullOrWhiteSpace(value))
+            {
                 identifiers[key] = value.Trim();
+            }
         }
 
         return identifiers;
@@ -2576,12 +2773,16 @@ public partial class SharedMediaEditorShell
         string? providerItemId)
     {
         if (string.IsNullOrWhiteSpace(providerName) || string.IsNullOrWhiteSpace(providerItemId))
+        {
             return;
+        }
 
         var provider = NormalizeProviderKey(providerName);
         var id = NormalizeProviderItemId(provider, providerItemId);
         if (string.IsNullOrWhiteSpace(id))
+        {
             return;
+        }
 
         var key = provider switch
         {
@@ -2594,7 +2795,9 @@ public partial class SharedMediaEditorShell
             _ => null,
         };
         if (!string.IsNullOrWhiteSpace(key))
+        {
             identifiers.TryAdd(key, id);
+        }
     }
 
     private static string NormalizeProviderKey(string? providerName) =>
@@ -2604,9 +2807,14 @@ public partial class SharedMediaEditorShell
     {
         var id = providerItemId.Trim();
         if (providerKey == "imdb" && id.StartsWith("imdb:", StringComparison.OrdinalIgnoreCase))
+        {
             id = id[5..];
+        }
+
         if (providerKey == "tmdb" && id.StartsWith("tmdb:", StringComparison.OrdinalIgnoreCase))
+        {
             id = id[5..];
+        }
 
         return id;
     }
@@ -2614,18 +2822,32 @@ public partial class SharedMediaEditorShell
     private string? InferProviderNameFromIdentifierFields()
     {
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("tmdb_id")))
+        {
             return "tmdb";
+        }
+
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("imdb_id")))
+        {
             return "imdb";
+        }
+
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("comicvine_id")))
+        {
             return "comicvine";
+        }
+
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_release_id"))
             || !string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_release_group_id"))
             || !string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_recording_id"))
             || !string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_id")))
+        {
             return "musicbrainz";
+        }
+
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("asin")))
+        {
             return "apple_api";
+        }
 
         return null;
     }
@@ -2633,17 +2855,34 @@ public partial class SharedMediaEditorShell
     private string FormatRetailIdentifierChip(string providerItemId)
     {
         if (string.Equals(providerItemId, GetBaselineValue("isbn"), StringComparison.OrdinalIgnoreCase))
+        {
             return $"ISBN: {providerItemId}";
+        }
+
         if (string.Equals(providerItemId, GetBaselineValue("asin"), StringComparison.OrdinalIgnoreCase))
+        {
             return $"ASIN: {providerItemId}";
+        }
+
         if (string.Equals(providerItemId, GetBaselineValue("tmdb_id"), StringComparison.OrdinalIgnoreCase))
+        {
             return $"TMDB: {providerItemId}";
+        }
+
         if (string.Equals(providerItemId, GetBaselineValue("imdb_id"), StringComparison.OrdinalIgnoreCase))
+        {
             return $"IMDB: {providerItemId}";
+        }
+
         if (string.Equals(providerItemId, GetBaselineValue("comicvine_id"), StringComparison.OrdinalIgnoreCase))
+        {
             return $"ComicVine: {providerItemId}";
+        }
+
         if (string.Equals(providerItemId, GetBaselineValue("musicbrainz_id"), StringComparison.OrdinalIgnoreCase))
+        {
             return $"MusicBrainz: {providerItemId}";
+        }
 
         return providerItemId;
     }
@@ -2824,7 +3063,9 @@ public partial class SharedMediaEditorShell
     {
         candidateValue = NormalizeNamedCandidateValue(candidateValue);
         if (string.IsNullOrWhiteSpace(localValue) && string.IsNullOrWhiteSpace(candidateValue))
+        {
             return;
+        }
 
         rows.Add(BuildComparisonRow(label, localValue, candidateValue));
     }
@@ -2869,7 +3110,9 @@ public partial class SharedMediaEditorShell
     private static string? NormalizeNamedCandidateValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var trimmed = value.Trim();
         var tokens = Regex.Split(trimmed, @"\s*[,;|]\s*")
@@ -2895,15 +3138,21 @@ public partial class SharedMediaEditorShell
     private static CandidateConfidenceSignal BuildTextEvidence(string label, string? localValue, string? candidateValue)
     {
         if (string.IsNullOrWhiteSpace(localValue) || string.IsNullOrWhiteSpace(candidateValue))
+        {
             return new CandidateConfidenceSignal($"{label} unavailable", "Not compared", -1);
+        }
 
         var local = NormalizeEvidenceValue(localValue);
         var candidate = NormalizeEvidenceValue(candidateValue);
         if (string.Equals(local, candidate, StringComparison.Ordinal))
+        {
             return new CandidateConfidenceSignal($"{label} exact", "Exact", 1);
+        }
 
         if (local.Contains(candidate, StringComparison.Ordinal) || candidate.Contains(local, StringComparison.Ordinal))
+        {
             return new CandidateConfidenceSignal($"{label} close", "Close", 0.75);
+        }
 
         return new CandidateConfidenceSignal($"{label} differs", "Different", 0.2);
     }
@@ -2943,11 +3192,17 @@ public partial class SharedMediaEditorShell
                 GetBaselineValue("narrator"));
             var candidateNarrator = GetCandidateExtraValue(candidate, "narrator", "narrators");
             if (string.IsNullOrWhiteSpace(candidateNarrator))
+            {
                 signals.Add(new CandidateConfidenceSignal("Narrator not provided", "Not compared", -1));
+            }
             else if (!string.IsNullOrWhiteSpace(localNarrator))
+            {
                 signals.Add(BuildTextEvidence("Narrator", localNarrator, candidateNarrator));
+            }
             else
+            {
                 signals.Add(new CandidateConfidenceSignal("Narrator provided", candidateNarrator, 1));
+            }
         }
 
         return signals;
@@ -2958,7 +3213,9 @@ public partial class SharedMediaEditorShell
         foreach (var key in keys)
         {
             if (candidate.ExtraFields.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return value;
+            }
         }
 
         return null;
@@ -2967,7 +3224,9 @@ public partial class SharedMediaEditorShell
     protected string? GetRetailCandidateEvidenceNotice(ItemCanonicalRetailCandidateDto candidate)
     {
         if (!string.Equals(ReviewTargetResolver.NormalizeMediaType(_selectedMediaType), "Audiobooks", StringComparison.OrdinalIgnoreCase))
+        {
             return null;
+        }
 
         var candidateNarrator = GetCandidateExtraValue(candidate, "narrator", "narrators");
         return string.IsNullOrWhiteSpace(candidateNarrator)
@@ -2999,7 +3258,9 @@ public partial class SharedMediaEditorShell
     {
         var searchResponse = ActiveMatchSearchResponse;
         if (searchResponse is null)
+        {
             return;
+        }
 
         var fields = searchResponse.UnlinkedFields.Count > 0
             ? searchResponse.UnlinkedFields
@@ -3030,7 +3291,9 @@ public partial class SharedMediaEditorShell
         _retailCandidateDetail = null;
 
         if (!string.Equals(ReviewTargetResolver.NormalizeMediaType(_selectedMediaType), "Music", StringComparison.OrdinalIgnoreCase))
+        {
             return;
+        }
 
         _loadingRetailCandidateDetail = true;
         try
@@ -3103,7 +3366,9 @@ public partial class SharedMediaEditorShell
             ? "wikidata"
             : "retail";
         if (string.Equals(_activeMatchSearchMode, normalized, StringComparison.OrdinalIgnoreCase))
+        {
             return;
+        }
 
         _activeMatchSearchMode = normalized;
     }
@@ -3111,7 +3376,9 @@ public partial class SharedMediaEditorShell
     private void InitializeMatchSearchState()
     {
         if (!string.Equals(_activeTab, "links", StringComparison.OrdinalIgnoreCase))
+        {
             return;
+        }
 
         _activeMatchSearchMode = !HasCurrentCanonicalIdentity && HasCurrentRetailMatch ? "wikidata" : "retail";
     }
@@ -3122,9 +3389,13 @@ public partial class SharedMediaEditorShell
     protected void SetActiveMatchSearchQuery(string? value)
     {
         if (IsWikidataSearchMode)
+        {
             _wikidataSearchQuery = value ?? string.Empty;
+        }
         else
+        {
             _retailSearchQuery = value ?? string.Empty;
+        }
     }
 
     protected void CancelActiveMatchSearch() => CancelMatchSearch(IsWikidataSearchMode);
@@ -3175,31 +3446,45 @@ public partial class SharedMediaEditorShell
     private void SetMatchSearchCts(bool isWikidataSearch, CancellationTokenSource? cts)
     {
         if (isWikidataSearch)
+        {
             _wikidataSearchCts = cts;
+        }
         else
+        {
             _retailSearchCts = cts;
+        }
     }
 
     private void SetMatchSearchPending(bool isWikidataSearch, bool pending)
     {
         if (isWikidataSearch)
+        {
             _searchingWikidata = pending;
+        }
         else
+        {
             _searchingRetail = pending;
+        }
     }
 
     private void SetMatchSearchResponse(bool isWikidataSearch, ItemCanonicalSearchResponseDto? response)
     {
         if (isWikidataSearch)
+        {
             _wikidataSearchResponse = response;
+        }
         else
+        {
             _retailSearchResponse = response;
+        }
     }
 
     private void ClearMatchSelection(bool isWikidataSearch)
     {
         if (isWikidataSearch)
+        {
             _selectedWikidataCandidateId = null;
+        }
         else
         {
             _selectedRetailCandidateId = null;
@@ -3210,7 +3495,9 @@ public partial class SharedMediaEditorShell
     protected string FormatCandidateDuration(double? seconds)
     {
         if (seconds is not > 0)
+        {
             return "—";
+        }
 
         var duration = TimeSpan.FromSeconds(seconds.Value);
         return duration.TotalHours >= 1
@@ -3230,7 +3517,9 @@ public partial class SharedMediaEditorShell
         AddCandidateFact(facts, candidate, "Edition", "edition", "edition_type");
         AddCandidateFact(facts, candidate, "Language", "language", "language_name");
         if (!string.IsNullOrWhiteSpace(candidate.Year))
+        {
             facts.Add(("Published", candidate.Year));
+        }
 
         var includedLabels = facts.Select(fact => fact.Label).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var (key, value) in candidate.ExtraFields
@@ -3241,7 +3530,9 @@ public partial class SharedMediaEditorShell
         {
             var label = CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key.Replace('_', ' '));
             if (includedLabels.Add(label))
+            {
                 facts.Add((label, FormatCandidateFactValue(key, value)));
+            }
         }
         return facts;
     }
@@ -3250,13 +3541,17 @@ public partial class SharedMediaEditorShell
     {
         var value = GetCandidateExtraValue(candidate, keys);
         if (!string.IsNullOrWhiteSpace(value))
+        {
             facts.Add((label, FormatCandidateFactValue(keys[0], value)));
+        }
     }
 
     private string FormatCandidateFactValue(string key, string value)
     {
         if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
+        {
             return value;
+        }
 
         return key.ToLowerInvariant() switch
         {
@@ -3273,7 +3568,9 @@ public partial class SharedMediaEditorShell
     protected async Task ApplyRetailCandidateAsync(ItemCanonicalRetailCandidateDto candidate)
     {
         if (!CanApplyRetailCandidate(candidate))
+        {
             return;
+        }
 
         _matchActionPending = true;
         _matchActionStatus = $"Applying {GetCanonicalTargetLabel(_canonicalTargetGroup).ToLowerInvariant()} retail identity...";
@@ -3302,7 +3599,9 @@ public partial class SharedMediaEditorShell
     protected async Task ApplyLinkedCandidateAsync(ItemCanonicalLinkedCandidateDto candidate)
     {
         if (!CanApplyLinkedCandidate(candidate))
+        {
             return;
+        }
 
         var qid = candidate.QidFields.TryGetValue("wikidata_qid", out var qidField)
             ? qidField
@@ -3336,7 +3635,9 @@ public partial class SharedMediaEditorShell
     protected async Task MarkWikidataMissingAsync()
     {
         if (_matchActionPending)
+        {
             return;
+        }
 
         _matchActionPending = true;
         _matchActionStatus = "Updating Wikidata identity state...";
@@ -3357,7 +3658,9 @@ public partial class SharedMediaEditorShell
     protected async Task ClearWikidataMatchAsync()
     {
         if (_matchActionPending)
+        {
             return;
+        }
 
         _matchActionPending = true;
         _matchActionStatus = "Clearing Wikidata identity...";
@@ -3412,7 +3715,9 @@ public partial class SharedMediaEditorShell
             {
                 _editorContext = refreshedContext;
                 if (!_editorContext.Scopes.Any(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase)))
+                {
                     _activeScopeId = _editorContext.InitialScope;
+                }
             }
 
             _scopeStates.Clear();
@@ -3463,7 +3768,9 @@ public partial class SharedMediaEditorShell
         if (Request.Mode == SharedMediaEditorMode.Review)
         {
             if (!await ResolveReviewCoreAsync(providerName, providerItemId, qidFields.Values.FirstOrDefault()))
+            {
                 return;
+            }
 
             Snackbar.Add($"{response.Message} Review resolved.", Severity.Success);
             await CloseEditorAsync(applied: true);
@@ -3483,7 +3790,9 @@ public partial class SharedMediaEditorShell
     private string BuildHeaderSubtitle()
     {
         if (_detail is null)
+        {
             return string.Empty;
+        }
 
         var parts = new List<string>();
 
@@ -3497,13 +3806,19 @@ public partial class SharedMediaEditorShell
         };
 
         if (!string.IsNullOrWhiteSpace(creator))
+        {
             parts.Add(creator);
+        }
 
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("album")) && _detail.MediaType == "Music")
+        {
             parts.Add(GetBaselineValue("album"));
+        }
 
         if (!string.IsNullOrWhiteSpace(_detail.Year))
+        {
             parts.Add(_detail.Year);
+        }
 
         return string.Join(" | ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
@@ -3554,12 +3869,16 @@ public partial class SharedMediaEditorShell
     private string GetBaselineValue(string key)
     {
         if (IsBatchMode)
+        {
             return string.Empty;
+        }
 
         if (_profilePreferencesByWork.TryGetValue(CurrentEntityId, out var preferences))
         {
             if (string.Equals(key, "custom_tags", StringComparison.OrdinalIgnoreCase))
+            {
                 return string.Join(", ", preferences.LocalTags);
+            }
         }
 
         if (_editorContext?.DisplayOverrides.TryGetValue(key, out var overrideValue) == true)
@@ -3579,7 +3898,9 @@ public partial class SharedMediaEditorShell
         foreach (var (key, value) in values)
         {
             if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+            {
                 continue;
+            }
 
             var label = key
                 .Replace("_id", "", StringComparison.OrdinalIgnoreCase)
@@ -3593,7 +3914,9 @@ public partial class SharedMediaEditorShell
 
             var chip = $"{label}: {value}";
             if (!chips.Contains(chip, StringComparer.OrdinalIgnoreCase))
+            {
                 chips.Add(chip);
+            }
         }
     }
 
@@ -3616,7 +3939,9 @@ public partial class SharedMediaEditorShell
     private static string FormatProviderName(string? providerName, string? mediaType = null)
     {
         if (string.IsNullOrWhiteSpace(providerName))
+        {
             return "Provider";
+        }
 
         return providerName switch
         {
@@ -3637,7 +3962,9 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<(string Id, string Label, string Icon)> ResolveVisibleTabs()
     {
         if (IsBatchMode)
+        {
             return [("details", "Details", GetTabIcon("details")), ("options", "Options", GetTabIcon("options"))];
+        }
 
         return GetAvailableTabIds()
             .OrderBy(tabId => Array.IndexOf(TabDisplayOrder, tabId))
@@ -3649,7 +3976,9 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<(string Key, string Label)> ResolveQuickSearchTargets()
     {
         if (IsBatchMode)
+        {
             return _schema.QuickSearchTargets;
+        }
 
         return (_selectedMediaType, ActiveScope?.ScopeId) switch
         {
@@ -3669,7 +3998,9 @@ public partial class SharedMediaEditorShell
     private IEnumerable<string> GetVisibleFieldKeysForScope()
     {
         if (IsFileScope || ActiveScope is null)
+        {
             return [];
+        }
 
         return (_selectedMediaType, ActiveScope.ScopeId) switch
         {
@@ -3688,7 +4019,9 @@ public partial class SharedMediaEditorShell
     private string GetArtworkTabExplanation()
     {
         if (ArtworkScope is null)
+        {
             return "Artwork follows the scope selected above.";
+        }
 
         return (_selectedMediaType, ArtworkScope.ScopeId) switch
         {
@@ -3726,7 +4059,9 @@ public partial class SharedMediaEditorShell
     protected IReadOnlyList<MediaEditorScopeDto> GetArtworkReadOnlySwitchTargets()
     {
         if (_editorContext is null)
+        {
             return [];
+        }
 
         if (_selectedMediaType == "Music" && string.Equals(ArtworkScope?.ScopeId, "track", StringComparison.OrdinalIgnoreCase))
         {
@@ -3741,7 +4076,9 @@ public partial class SharedMediaEditorShell
     protected IReadOnlyList<MediaEditorScopeDto> GetRelatedArtworkScopeTargets()
     {
         if (_editorContext is null)
+        {
             return [];
+        }
 
         return (_selectedMediaType, ArtworkScope?.ScopeId) switch
         {
@@ -3762,7 +4099,9 @@ public partial class SharedMediaEditorShell
     private bool IsTabVisible(string tabId)
     {
         if (IsBatchMode)
+        {
             return tabId is "details" or "options";
+        }
 
         return GetAvailableTabIds().Contains(tabId, StringComparer.OrdinalIgnoreCase);
     }
@@ -3770,7 +4109,9 @@ public partial class SharedMediaEditorShell
     private string? GetCanonicalSearchUnavailableReason()
     {
         if (!IsSingleItem || IsFileScope || SupportsCanonicalSearch || ActiveScope is null)
+        {
             return null;
+        }
 
         return "Canonical search is not available for this selection.";
     }
@@ -3825,7 +4166,10 @@ public partial class SharedMediaEditorShell
     protected static string FormatFileSize(long? bytes)
     {
         if (!bytes.HasValue || bytes.Value < 0)
+        {
             return "Unknown";
+        }
+
         string[] units = ["B", "KB", "MB", "GB", "TB"];
         var value = (double)bytes.Value;
         var unit = 0;
@@ -3841,7 +4185,9 @@ public partial class SharedMediaEditorShell
     protected async Task RetryWritebackAsync()
     {
         if (_retryingWriteback || _detail is null)
+        {
             return;
+        }
 
         _retryingWriteback = true;
         try
@@ -3902,7 +4248,9 @@ public partial class SharedMediaEditorShell
     protected async Task RefreshTextTracksAsync()
     {
         if (_textTracksRefreshing || CurrentTextTrackAssetId is not { } assetId)
+        {
             return;
+        }
 
         _textTracksRefreshing = true;
         _textTrackRefreshMessage = null;
@@ -3929,7 +4277,9 @@ public partial class SharedMediaEditorShell
     protected async Task ImportTextTrackAsync(InputFileChangeEventArgs args)
     {
         if (_textTrackImporting || CurrentTextTrackAssetId is not { } assetId)
+        {
             return;
+        }
 
         var file = args.File;
         _textTrackImporting = true;
@@ -3963,7 +4313,9 @@ public partial class SharedMediaEditorShell
     protected async Task SetPreferredTextTrackAsync(Guid trackId)
     {
         if (_textTrackPreferencePendingId.HasValue || CurrentTextTrackAssetId is not { } assetId)
+        {
             return;
+        }
 
         _textTrackPreferencePendingId = trackId;
         try
@@ -3986,7 +4338,9 @@ public partial class SharedMediaEditorShell
     protected async Task RereadFileMetadataAsync()
     {
         if (_rereadingFileMetadata || CurrentTextTrackAssetId is not { } assetId)
+        {
             return;
+        }
 
         _rereadingFileMetadata = true;
         _fileMetadataRereadMessage = null;
@@ -4003,7 +4357,9 @@ public partial class SharedMediaEditorShell
             _fileMetadataRereadMessage = result.Message;
             Snackbar.Add(result.Message, result.Refreshed ? Severity.Success : Severity.Warning);
             if (result.Refreshed)
+            {
                 await LoadSingleItemAsync(resetEditorState: false);
+            }
         }
         finally
         {
@@ -4018,13 +4374,25 @@ public partial class SharedMediaEditorShell
     {
         var age = DateTimeOffset.Now - occurredAt;
         if (age < TimeSpan.Zero)
+        {
             age = TimeSpan.Zero;
+        }
+
         if (age.TotalMinutes < 1)
+        {
             return "just now";
+        }
+
         if (age.TotalHours < 1)
+        {
             return $"{Math.Max(1, (int)age.TotalMinutes)}m ago";
+        }
+
         if (age.TotalDays < 1)
+        {
             return $"{Math.Max(1, (int)age.TotalHours)}h ago";
+        }
+
         return $"{Math.Max(1, (int)age.TotalDays)}d ago";
     }
 
@@ -4079,7 +4447,9 @@ public partial class SharedMediaEditorShell
     protected IReadOnlyList<(string Label, string Value, string? Url)> GetSourceFacts()
     {
         if (_detail is null)
+        {
             return [];
+        }
 
         var facts = new List<(string Label, string Value, string? Url)>();
         AddSourceFact(facts, "Release", _detail.ReleaseDate ?? _detail.Year);
@@ -4121,7 +4491,9 @@ public partial class SharedMediaEditorShell
     {
         var provider = GetRetailMatchDisplayName(IdentityTargetSummary);
         if (!string.IsNullOrWhiteSpace(provider))
+        {
             return provider;
+        }
 
         var providerKey = StringHelpers.FirstNonBlank(
             InferProviderNameFromIdentifierFields(),
@@ -4135,7 +4507,9 @@ public partial class SharedMediaEditorShell
     private static string? FormatEpisodeIdentity(string? seasonNumber, string? episodeNumber)
     {
         if (string.IsNullOrWhiteSpace(seasonNumber) && string.IsNullOrWhiteSpace(episodeNumber))
+        {
             return null;
+        }
 
         return $"S{(string.IsNullOrWhiteSpace(seasonNumber) ? "?" : seasonNumber.Trim())} E{(string.IsNullOrWhiteSpace(episodeNumber) ? "?" : episodeNumber.Trim())}";
     }
@@ -4143,14 +4517,20 @@ public partial class SharedMediaEditorShell
     private static string? FormatRuntimeFact(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var normalized = value.Trim();
         if (Regex.IsMatch(normalized, @"[A-Za-z]"))
+        {
             return normalized;
+        }
 
         if (double.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes))
+        {
             return $"{minutes:0.#} min";
+        }
 
         return normalized;
     }
@@ -4158,11 +4538,15 @@ public partial class SharedMediaEditorShell
     private static string? FormatCountFact(string? value, string singular, string plural)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var normalized = value.Trim();
         if (Regex.IsMatch(normalized, @"[A-Za-z]"))
+        {
             return normalized;
+        }
 
         return long.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count)
             ? $"{count:N0} {(count == 1 ? singular : plural)}"
@@ -4172,7 +4556,9 @@ public partial class SharedMediaEditorShell
     private static void AddSourceFact(List<(string Label, string Value, string? Url)> facts, string label, string? value, string? url = null)
     {
         if (!string.IsNullOrWhiteSpace(value))
+        {
             facts.Add((label, value.Trim(), url));
+        }
     }
 
     private void AddExternalSourceFact(
@@ -4182,7 +4568,9 @@ public partial class SharedMediaEditorShell
         string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return;
+        }
 
         var link = LibraryHelpers.BuildProviderUrl(key, value.Trim(), _selectedMediaType);
         AddSourceFact(facts, label, value, link?.Url);
@@ -4209,7 +4597,9 @@ public partial class SharedMediaEditorShell
     private static string? FormatRatingValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var rating)
             ? rating.ToString("0.0", CultureInfo.InvariantCulture)
@@ -4251,7 +4641,9 @@ public partial class SharedMediaEditorShell
     protected bool IsInlineFieldReadOnly(string key)
     {
         if (!IsFieldLocked(key))
+        {
             return false;
+        }
 
         var scopedKey = BuildScopedFieldKey(key);
         return !_inlineOverrideKeys.Contains(scopedKey)
@@ -4263,7 +4655,9 @@ public partial class SharedMediaEditorShell
     {
         var scopedKey = BuildScopedFieldKey(key);
         if (!string.Equals(_fieldToFocus, scopedKey, StringComparison.OrdinalIgnoreCase))
+        {
             return false;
+        }
 
         _fieldToFocus = null;
         return true;
@@ -4272,13 +4666,19 @@ public partial class SharedMediaEditorShell
     protected string? GetInlineFieldHelpText(MediaEditorFieldDefinition field)
     {
         if (HasActiveDisplayOverride(field.Key))
+        {
             return "Local override. Revert to use the canonical value.";
+        }
 
         if (IsInlineOverrideEnabled(field.Key))
+        {
             return "Local override is enabled. Changes will be saved locally.";
+        }
 
         if (IsFieldLocked(field.Key))
+        {
             return "Canonical value. Unlock to save a local override.";
+        }
 
         return field.IdentityField ? "Used for matching and identity." : null;
     }
@@ -4286,10 +4686,14 @@ public partial class SharedMediaEditorShell
     protected string? GetInlineFieldActionIcon(string key)
     {
         if (HasActiveDisplayOverride(key))
+        {
             return Icons.Material.Outlined.Restore;
+        }
 
         if (IsInlineOverrideEnabled(key))
+        {
             return Icons.Material.Outlined.LockOpen;
+        }
 
         return IsFieldLocked(key) ? Icons.Material.Outlined.Lock : null;
     }
@@ -4320,7 +4724,10 @@ public partial class SharedMediaEditorShell
             _inlineOverrideKeys.Remove(scopedKey);
             _pendingInlineRevertKeys.Remove(scopedKey);
             if (string.Equals(_fieldToFocus, scopedKey, StringComparison.OrdinalIgnoreCase))
+            {
                 _fieldToFocus = null;
+            }
+
             return InvokeAsync(StateHasChanged);
         }
 
@@ -4379,33 +4786,49 @@ public partial class SharedMediaEditorShell
     private string GetMatchStatusLabel(MediaEditorIdentitySummaryDto? summary, bool hasProvider, bool hasQid)
     {
         if (Request.Mode == SharedMediaEditorMode.Review)
+        {
             return "Needs review";
+        }
 
         var wikidataStatus = NormalizeIdentityStatus(summary?.WikidataStatus);
         if (wikidataStatus is "user_confirmed" or "user_replaced")
+        {
             return "User reviewed";
+        }
 
         if (wikidataStatus is "auto_aligned" or "confirmed")
+        {
             return "Identified";
+        }
 
         if (wikidataStatus is "missing" or "provider_only")
+        {
             return "Provider only";
+        }
 
         if (wikidataStatus is "user_rejected")
+        {
             return "Rejected";
+        }
 
         if (!string.IsNullOrWhiteSpace(_detail?.Status))
         {
             var detailStatus = FormatDetailStatus(_detail.Status);
             if (!string.IsNullOrWhiteSpace(detailStatus))
+            {
                 return detailStatus;
+            }
         }
 
         if (hasProvider && hasQid)
+        {
             return "Identified";
+        }
 
         if (hasProvider)
+        {
             return "Pending";
+        }
 
         return "Pending";
     }
@@ -4429,7 +4852,9 @@ public partial class SharedMediaEditorShell
     {
         var providerName = NormalizeRetailProviderLabel(summary?.ProviderName);
         if (!string.IsNullOrWhiteSpace(providerName))
+        {
             return FormatProviderName(providerName, _selectedMediaType);
+        }
 
         return string.Empty;
     }
@@ -4437,7 +4862,9 @@ public partial class SharedMediaEditorShell
     private static string? NormalizeRetailProviderLabel(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var trimmed = value.Trim();
         if (string.Equals(trimmed, "provider", StringComparison.OrdinalIgnoreCase)
@@ -4474,7 +4901,9 @@ public partial class SharedMediaEditorShell
             : "Retail data is available. Wikidata identity is not confirmed yet.";
 
         if (Request.Mode == SharedMediaEditorMode.Review)
+        {
             note += " Resolve the review after confirming the match.";
+        }
 
         return note;
     }
@@ -4505,7 +4934,9 @@ public partial class SharedMediaEditorShell
     {
         var scopedKey = BuildScopedFieldKey(key);
         if (_clearedInlineOverrideKeys.Contains(scopedKey))
+        {
             return false;
+        }
 
         return HasSavedDisplayOverride(key)
                || (_editedValues.ContainsKey(scopedKey) && ShouldSaveAsDisplayOverride(scopedKey, key));
@@ -4531,11 +4962,15 @@ public partial class SharedMediaEditorShell
         foreach (var key in _editorContext?.DisplayOverrideKeys ?? [])
         {
             if (!HasActiveDisplayOverride(key))
+            {
                 continue;
+            }
 
             var label = GetDisplayOverrideLabel(key);
             if (!labels.Contains(label, StringComparer.OrdinalIgnoreCase))
+            {
                 labels.Add(label);
+            }
         }
 
         return labels;
@@ -4581,7 +5016,9 @@ public partial class SharedMediaEditorShell
     private static string? GetScopePickerTitle(MediaEditorScopeDto? scope)
     {
         if (scope is null)
+        {
             return null;
+        }
 
         if (!string.IsNullOrWhiteSpace(scope.DisplayTitle)
             && !string.Equals(scope.DisplayTitle, scope.Label, StringComparison.OrdinalIgnoreCase))
@@ -4634,7 +5071,9 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<string> GetPlacementFieldKeysForActiveScope()
     {
         if (ActiveScope is null)
+        {
             return [];
+        }
 
         return (_selectedMediaType, ActiveScope.ScopeId) switch
         {
@@ -4701,7 +5140,9 @@ public partial class SharedMediaEditorShell
         ClearDependentMembershipSelections(key);
 
         if (string.Equals(key, "season_number", StringComparison.OrdinalIgnoreCase))
+        {
             _editedValues[scopedKey] = ExtractLeadingNumber(suggestion.Label);
+        }
 
         await InvokeAsync(StateHasChanged);
     }
@@ -4725,7 +5166,9 @@ public partial class SharedMediaEditorShell
         }
 
         if (string.Equals(fieldKey, "album", StringComparison.OrdinalIgnoreCase))
+        {
             return (null, GetEditableValue("artist"));
+        }
 
         return (null, null);
     }
@@ -4742,7 +5185,9 @@ public partial class SharedMediaEditorShell
     protected async Task SearchRetailMembershipAsync(string fieldKey)
     {
         if (!CanSearchRetailMembership(fieldKey))
+        {
             return;
+        }
 
         var query = GetEditableValue(fieldKey).Trim();
         if (query.Length < 2)
@@ -4753,7 +5198,9 @@ public partial class SharedMediaEditorShell
 
         var suggestionField = GetMembershipSuggestionField(fieldKey);
         if (string.IsNullOrWhiteSpace(suggestionField))
+        {
             return;
+        }
 
         var parentContext = ResolveMembershipSuggestionParentContext(fieldKey);
         var scopedKey = BuildScopedFieldKey(fieldKey);
@@ -4788,11 +5235,15 @@ public partial class SharedMediaEditorShell
     private async Task<MediaEditorMembershipPreviewDto?> PreviewMembershipChangeAsync()
     {
         if (!IsSingleItem || ActiveScope is null)
+        {
             return null;
+        }
 
         var placementFields = GetPlacementFieldKeysForActiveScope();
         if (placementFields.Count == 0)
+        {
             return null;
+        }
 
         var hasPlacementEdit = placementFields.Any(field =>
         {
@@ -4801,7 +5252,9 @@ public partial class SharedMediaEditorShell
         });
 
         if (!hasPlacementEdit)
+        {
             return null;
+        }
 
         var preview = await ApiClient.PreviewMediaEditorMembershipAsync(CurrentEntityId, BuildMembershipPreviewRequest());
         return preview;
@@ -4841,7 +5294,9 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<MediaEditorNavigatorNodeDto> GetNavigatorChildren(Guid? parentNodeId)
     {
         if (_navigator is null)
+        {
             return [];
+        }
 
         return _navigator.Nodes
             .Where(node => node.ParentNodeId == parentNodeId)
@@ -4860,14 +5315,20 @@ public partial class SharedMediaEditorShell
     {
         var sequenceGroups = BuildSequenceEpisodeGroups();
         if (sequenceGroups.Count > 0)
+        {
             return sequenceGroups;
+        }
 
         var initialGroups = BuildInitialMediaContentGroups("episode");
         if (initialGroups.Count > 0)
+        {
             return initialGroups;
+        }
 
         if (NavigatorRootNode is null)
+        {
             return [];
+        }
 
         var looseEpisodes = new List<MediaEditorNavigatorNodeDto>();
         var groups = new List<EditorContentGroup>();
@@ -4885,11 +5346,15 @@ public partial class SharedMediaEditorShell
                 .ToList();
 
             if (episodes.Count > 0)
+            {
                 groups.Add(new EditorContentGroup(child.NodeId.ToString("D"), child.Title, child.Subtitle, DeduplicateEditorContentItems(episodes)));
+            }
         }
 
         if (looseEpisodes.Count > 0)
+        {
             MergeLooseEpisodeGroups(groups, looseEpisodes);
+        }
 
         return DeduplicateEditorContentGroups(groups);
     }
@@ -4948,7 +5413,9 @@ public partial class SharedMediaEditorShell
     {
         var year = TryParseYear(episode.Subtitle);
         if (year.HasValue && yearSeasonMap.TryGetValue(year.Value, out var seasonNumber))
+        {
             return $"Season {seasonNumber}";
+        }
 
         return "Episodes";
     }
@@ -4956,7 +5423,9 @@ public partial class SharedMediaEditorShell
     private static int? TryParseYear(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         for (var index = 0; index <= value.Length - 4; index++)
         {
@@ -4983,16 +5452,22 @@ public partial class SharedMediaEditorShell
     private static int? ParseNumberAfterMarker(string? title, string marker)
     {
         if (string.IsNullOrWhiteSpace(title))
+        {
             return null;
+        }
 
         var index = title.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
         if (index < 0)
+        {
             return null;
+        }
 
         var start = index + marker.Length;
         var end = start;
         while (end < title.Length && char.IsDigit(title[end]))
+        {
             end++;
+        }
 
         return end > start && int.TryParse(title.AsSpan(start, end - start), out var season)
             ? season
@@ -5006,21 +5481,27 @@ public partial class SharedMediaEditorShell
     {
         var initialGroups = BuildInitialMediaContentGroups("track");
         if (initialGroups.Count > 0)
+        {
             return initialGroups;
+        }
 
         var tracks = ContentRootChildren
             .Where(node => string.Equals(node.NodeKind, "track", StringComparison.OrdinalIgnoreCase) || node.IsLeaf)
             .ToList();
 
         if (tracks.Count == 0)
+        {
             return [];
+        }
 
         var discGroups = tracks
             .GroupBy(GetTrackDiscGroupTitle, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         if (discGroups.Count <= 1 && string.Equals(discGroups[0].Key, "Tracks", StringComparison.OrdinalIgnoreCase))
+        {
             return [new EditorContentGroup("tracks", "Tracks", NavigatorRootNode?.Subtitle, DeduplicateEditorContentItems(tracks))];
+        }
 
         return discGroups
             .Select(group => new EditorContentGroup(
@@ -5056,7 +5537,9 @@ public partial class SharedMediaEditorShell
     {
         var placement = Request.InitialSequencePlacement;
         if (placement is null || placement.Groups.Count == 0)
+        {
             return [];
+        }
 
         return placement.Groups
             .Where(group => group.Items.Count > 0)
@@ -5145,7 +5628,9 @@ public partial class SharedMediaEditorShell
         {
             var digits = new string(label.Skip(1).TakeWhile(char.IsDigit).ToArray());
             if (int.TryParse(digits, out var disc) && disc > 0)
+            {
                 return $"Disc {disc}";
+            }
         }
 
         return "Tracks";
@@ -5154,10 +5639,14 @@ public partial class SharedMediaEditorShell
     protected bool IsContentGroupCollapsed(EditorContentGroup group)
     {
         if (_contentGroupExpandedOverrides.TryGetValue(group.GroupId, out var expanded))
+        {
             return !expanded;
+        }
 
         if (string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase))
+        {
             return false;
+        }
 
         if (string.Equals(_activeTab, "episodes", StringComparison.OrdinalIgnoreCase)
             && Request.InitialSequencePlacement is { } placement)
@@ -5183,10 +5672,14 @@ public partial class SharedMediaEditorShell
     protected string GetContentOrdinalLabel(MediaEditorNavigatorNodeDto node, int index)
     {
         if (!string.IsNullOrWhiteSpace(node.CompactOrdinalLabel))
+        {
             return node.CompactOrdinalLabel!;
+        }
 
         if (!string.IsNullOrWhiteSpace(node.OrdinalLabel))
+        {
             return CompactOrdinalLabel(node.OrdinalLabel!);
+        }
 
         var prefix = string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "T" : "E";
         return $"{prefix}{index + 1:00}";
@@ -5196,13 +5689,19 @@ public partial class SharedMediaEditorShell
     {
         var digits = new string(ordinalLabel.Where(char.IsDigit).ToArray());
         if (!int.TryParse(digits, out var ordinal))
+        {
             return ordinalLabel;
+        }
 
         if (ordinalLabel.Contains("track", StringComparison.OrdinalIgnoreCase))
+        {
             return $"T{ordinal:00}";
+        }
 
         if (ordinalLabel.Contains("episode", StringComparison.OrdinalIgnoreCase))
+        {
             return $"E{ordinal:00}";
+        }
 
         return ordinalLabel;
     }
@@ -5210,11 +5709,15 @@ public partial class SharedMediaEditorShell
     protected string GetContentRowMeta(MediaEditorNavigatorNodeDto node)
     {
         if (!node.IsOwned)
+        {
             return string.Empty;
+        }
 
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(node.Subtitle))
+        {
             parts.Add(node.Subtitle!);
+        }
 
         return string.Join(" | ", parts.Where(part => !string.IsNullOrWhiteSpace(part)).Distinct(StringComparer.OrdinalIgnoreCase));
     }
@@ -5252,7 +5755,9 @@ public partial class SharedMediaEditorShell
     {
         var title = NormalizeTextKey(item.Title);
         if (!string.IsNullOrWhiteSpace(title))
+        {
             return title;
+        }
 
         var ordinal = NormalizeTextKey(item.OrdinalLabel);
         return string.IsNullOrWhiteSpace(ordinal) ? item.EntityId.ToString("D") : ordinal;
@@ -5261,10 +5766,14 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<MediaEditorNavigatorNodeDto> GetQuarantineTargetNodes(MediaEditorNavigatorNodeDto node)
     {
         if (_navigator is null)
+        {
             return [];
+        }
 
         if (node.IsLeaf)
+        {
             return node.CanQuarantine ? [node] : [];
+        }
 
         var descendants = new List<MediaEditorNavigatorNodeDto>();
         foreach (var child in GetNavigatorChildren(node.NodeId))
@@ -5282,10 +5791,14 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<Guid> GetQuarantineTargetEntityIds()
     {
         if (IsBatchMode || ActiveScope is null)
+        {
             return [];
+        }
 
         if (IsContainerEditor && SelectedNavigatorNode is not null)
+        {
             return GetQuarantineTargetNodes(SelectedNavigatorNode).Select(node => node.EntityId).ToList();
+        }
 
         return CurrentEntityId == Guid.Empty ? [] : [CurrentEntityId];
     }
@@ -5294,7 +5807,9 @@ public partial class SharedMediaEditorShell
     {
         _showQuarantineConfirm = !_showQuarantineConfirm;
         if (!_showQuarantineConfirm)
+        {
             return;
+        }
 
         await InvokeAsync(StateHasChanged);
     }
@@ -5303,7 +5818,9 @@ public partial class SharedMediaEditorShell
     {
         var entityIds = GetQuarantineTargetEntityIds();
         if (entityIds.Count == 0)
+        {
             return;
+        }
 
         StateHasChanged();
 
@@ -5344,13 +5861,17 @@ public partial class SharedMediaEditorShell
     {
         var currentNode = SelectedNavigatorNode;
         if (currentNode is null || _navigator is null)
+        {
             return Guid.Empty;
+        }
 
         if (currentNode.ParentNodeId is Guid parentNodeId)
         {
             var parentNode = _navigator.Nodes.FirstOrDefault(node => node.NodeId == parentNodeId);
             if (parentNode is not null)
+            {
                 return parentNode.EntityId;
+            }
         }
 
         return NavigatorRootNode?.EntityId ?? Guid.Empty;
@@ -5383,7 +5904,9 @@ public partial class SharedMediaEditorShell
     private async Task SelectTabInternalAsync(string tabId)
     {
         if (IsTabDisabled(tabId))
+        {
             return;
+        }
 
         var normalized = NormalizeTabId(tabId);
         if (string.Equals(normalized, "file", StringComparison.OrdinalIgnoreCase))
@@ -5402,7 +5925,9 @@ public partial class SharedMediaEditorShell
         await JS.InvokeVoidAsync("tuvimaEditorScrollTop");
 
         if (string.Equals(normalized, "links", StringComparison.OrdinalIgnoreCase))
+        {
             InitializeMatchSearchState();
+        }
 
         if (IsFileScope)
         {
@@ -5412,14 +5937,18 @@ public partial class SharedMediaEditorShell
                 ?.ScopeId;
 
             if (!string.IsNullOrWhiteSpace(fallbackScopeId))
+            {
                 await SelectScopeAsync(fallbackScopeId);
+            }
         }
     }
 
     private static int ParseOrdinalLabel(string? ordinalLabel)
     {
         if (string.IsNullOrWhiteSpace(ordinalLabel))
+        {
             return int.MaxValue;
+        }
 
         var digits = new string(ordinalLabel.Where(char.IsDigit).ToArray());
         return int.TryParse(digits, out var parsed) ? parsed : int.MaxValue;
@@ -5433,7 +5962,9 @@ public partial class SharedMediaEditorShell
     private static string ExtractLeadingNumber(string input)
     {
         if (string.IsNullOrWhiteSpace(input))
+        {
             return string.Empty;
+        }
 
         var digits = new string(input.Where(char.IsDigit).ToArray());
         return string.IsNullOrWhiteSpace(digits) ? input : digits;
@@ -5442,15 +5973,21 @@ public partial class SharedMediaEditorShell
     private async Task RefreshArtworkStateAsync(string? scopeId = null, bool notifyParent = false)
     {
         if (!IsSingleItem)
+        {
             return;
+        }
 
         var targetScopeId = scopeId ?? ArtworkScope?.ScopeId;
         if (string.IsNullOrWhiteSpace(targetScopeId))
+        {
             return;
+        }
 
         var targetScope = GetScopeById(targetScopeId);
         if (targetScope is null)
+        {
             return;
+        }
 
         var stateKey = BuildScopeStateKey(targetScope.FieldEntityId, targetScope.ScopeId);
 
@@ -5458,16 +5995,22 @@ public partial class SharedMediaEditorShell
         _scopeStates.Remove(stateKey);
 
         if (string.Equals(ActiveScope?.ScopeId, targetScopeId, StringComparison.OrdinalIgnoreCase))
+        {
             await LoadScopeStateAsync(forceReload: true);
+        }
         else
+        {
             await LoadArtworkStateAsync(targetScopeId, forceReload: true);
+        }
 
         CloseArtworkZoom();
         NormalizeArtworkSelection();
         StateHasChanged();
 
         if (notifyParent && Request.OnArtworkChanged is not null)
+        {
             await Request.OnArtworkChanged.Invoke();
+        }
     }
 
     private void NormalizeArtworkSelection()
@@ -5535,10 +6078,14 @@ public partial class SharedMediaEditorShell
     {
         var segments = compositeKey.Split('|', 3, StringSplitOptions.None);
         if (segments.Length == 3 && Guid.TryParse(segments[0], out var entityId))
+        {
             return (entityId, segments[1], segments[2]);
+        }
 
         if (segments.Length == 2)
+        {
             return (Guid.Empty, segments[0], segments[1]);
+        }
 
         return (Guid.Empty, string.Empty, compositeKey);
     }
@@ -5570,7 +6117,9 @@ public partial class SharedMediaEditorShell
     private string BuildBreadcrumbText()
     {
         if (_editorContext is null || ActiveScope is null)
+        {
             return string.Empty;
+        }
 
         var breadcrumbParts = _editorContext.Scopes
             .Where(scope => !string.Equals(scope.ScopeId, "file", StringComparison.OrdinalIgnoreCase)
@@ -5581,7 +6130,9 @@ public partial class SharedMediaEditorShell
             .ToList();
 
         if (IsFileScope)
+        {
             breadcrumbParts.Add("File");
+        }
 
         return string.Join(" > ", breadcrumbParts);
     }
@@ -5593,7 +6144,9 @@ public partial class SharedMediaEditorShell
         {
             var previewUrl = GetHeaderArtworkPreviewUrl(headerScope, slot.AssetType);
             if (!string.IsNullOrWhiteSpace(previewUrl))
+            {
                 return previewUrl;
+            }
         }
 
         return Request.CoverUrl;
@@ -5675,7 +6228,9 @@ public partial class SharedMediaEditorShell
         foreach (var key in keys)
         {
             if (string.Equals(key, activeKey, StringComparison.OrdinalIgnoreCase))
+            {
                 return index;
+            }
 
             index++;
         }

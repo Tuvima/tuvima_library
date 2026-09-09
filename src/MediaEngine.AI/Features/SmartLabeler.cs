@@ -32,7 +32,9 @@ public sealed class SmartLabeler : ISmartLabeler
     public async Task<CleanedSearchQuery> CleanAsync(string rawFilename, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(rawFilename))
+        {
             return new CleanedSearchQuery { Title = string.Empty, Confidence = 0 };
+        }
 
         // Short-circuit when the feature is disabled — use regex-based extraction
         // for season/episode patterns so the ingestion pipeline still gets structured
@@ -55,7 +57,9 @@ public sealed class SmartLabeler : ISmartLabeler
         // Strip extension if present.
         var stem = Path.GetFileNameWithoutExtension(rawFilename);
         if (string.IsNullOrWhiteSpace(stem))
+        {
             stem = rawFilename;
+        }
 
         try
         {
@@ -79,13 +83,22 @@ public sealed class SmartLabeler : ISmartLabeler
             // Validate year range.
             int? year = result.Year;
             if (year.HasValue && (year < 1800 || year > 2100))
+            {
                 year = null;
+            }
 
             // Validate season/episode.
             int? season = result.Season;
             int? episode = result.Episode;
-            if (season.HasValue && (season < 0 || season > 100)) season = null;
-            if (episode.HasValue && (episode < 0 || episode > 9999)) episode = null;
+            if (season.HasValue && (season < 0 || season > 100))
+            {
+                season = null;
+            }
+
+            if (episode.HasValue && (episode < 0 || episode > 9999))
+            {
+                episode = null;
+            }
 
             // Clamp confidence.
             var confidence = Math.Clamp(result.Confidence, 0.0, 1.0);
@@ -138,21 +151,27 @@ public sealed class SmartLabeler : ISmartLabeler
     {
         var m = EpisodePatterns.SeasonEpisode().Match(text);
         if (m.Success)
+        {
             return (m.Groups["series"].Value.TrimEnd('.', '-', '_', ' '),
                     int.Parse(m.Groups["season"].Value),
                     int.Parse(m.Groups["ep1"].Value));
+        }
 
         m = NxNNRegex.Match(text);
         if (m.Success)
+        {
             return (m.Groups["series"].Value.TrimEnd('.', '-', '_', ' '),
                     int.Parse(m.Groups["season"].Value),
                     int.Parse(m.Groups["ep1"].Value));
+        }
 
         m = VerboseRegex.Match(text);
         if (m.Success)
+        {
             return (m.Groups["series"].Value.TrimEnd('.', '-', '_', ' '),
                     int.Parse(m.Groups["season"].Value),
                     int.Parse(m.Groups["ep1"].Value));
+        }
 
         return (null, null, null);
     }

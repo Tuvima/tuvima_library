@@ -1356,6 +1356,39 @@ public sealed partial class EngineApiClient : IEngineApiClient, IDisposable
         }
     }
 
+    private async Task<TRes?> PutAsync<TReq, TRes>(
+        string endpointLabel,
+        string path,
+        TReq body,
+        bool logAsWarning = true,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Put, path)
+            {
+                Content = JsonContent.Create(body),
+            };
+            using var response = await _http.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpointLabel, response, ct, logAsWarning);
+                return default;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<TRes>(cancellationToken: ct);
+            ClearFailure(endpointLabel);
+            return result;
+        }
+        catch (OperationCanceledException) { return default; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "{Endpoint} failed", endpointLabel);
+            RecordExceptionFailure(endpointLabel, ex, logAsWarning);
+            return default;
+        }
+    }
+
     /// <summary>
     /// DELETE envelope matching e.g. DeleteAudiobookBookmarkAsync / DeleteAudiobookChapterTitleOverrideAsync.
     /// </summary>

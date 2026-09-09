@@ -1,81 +1,13 @@
-# Feature: Role Access Model
+# Access authority
 
-> **Mirrors:** `CLAUDE.md` §3.3 (Security) — keep both in sync per `.agent/SYNC-MAP.md`
+Updated 2026-09-09. Mirrors CLAUDE.md section 3.3. See docs/architecture/security.md and the Access execution status for the implementation and acceptance gates.
 
-> Last audited: 2026-07-16 | Auditor: Codex
+Accounts own feature/library grants and administrator eligibility. Profiles own experience, restrictions, history, and Personal Spaces. Effective administration requires the enabled account and exact active grant with AdminEnabled; optional administrator PIN protection is grant-specific. No Curator/Consumer/StandardUser role or localhost/seed-owner fallback authorizes requests.
 
----
+Applications own registered service permissions; credentials are hashed, independently revocable, and shown once. Native clients intersect live account, profile, Application, device, token, and consent. Unavailable service permissions stay unavailable with a reason.
 
-## The three roles
+Use TuvimaAuthentication, IRequestAuthorityResolver, and IAuthorizationEvaluator. Require operation policy plus resource checks on each endpoint. Filter authorized concrete assets before counts, grouping, representative artwork, and pagination. Personal writes require the exact active profile. View private, explicit administrator inspection, Shared Library, and resource-specific Gallery scopes remain separate.
 
-Tuvima Library defines three user roles with progressively wider control:
+Dashboard navigation and actions use Engine-projected authority. Metadata editing, Review, and administrator configuration require effective administration and any configured surface unlock; personal settings remain available without that unlock. Use the shared PIN gate and editor unlock prompt.
 
-| Role | Purpose | Can personalise? | Can curate? | Can administer? |
-|---|---|---|---|---|
-| **Consumer** (Viewer) | Browse and enjoy the library | Yes | No | No |
-| **Curator** | Fix metadata and confirm uncertain items | Yes | Yes | Limited |
-| **Administrator** | Full local configuration and access control | Yes | Yes | Yes |
-
----
-
-## User experience
-
-### What a Consumer sees
-
-- The full library and profile-owned My List.
-- Personal Settings: Profile and Playback & Reading.
-- Profile switching, Settings, and Help in the account menu.
-- No Needs Review row, notification count, or review-count request.
-
-### What a Curator sees
-
-- Everything a Consumer sees.
-- Needs Review and its count in the account menu.
-- Review Queue and Activity & Audit in addition to personal settings.
-
-### What an Administrator sees
-
-- Everything a Curator sees.
-- The Personal, Administration, and Advanced settings groups, including libraries, providers, users, access, diagnostics, ingestion, Local AI, and Plugins.
-- Developer Tools only when the internal-tools feature flag is enabled. Provider and Enrichment testers are reached from that page rather than duplicated in navigation.
-
-Privacy & Data is hidden for every role until its operations are backed by the Engine.
-
-Sign out is independent of role: it is shown only when OIDC or hybrid authentication is enabled. Local-only users switch profiles instead.
-
----
-
-## Business rules
-
-| # | Rule | Where enforced |
-|---|---|---|
-| RAR-01 | Consumer profiles do not request or render Needs Review. | Dashboard (`SettingsNav.IsVisible`, `TopNavAccountMenu`, `UIOrchestratorService`) |
-| RAR-02 | Settings navigation hides admin-only destinations from Consumer profiles. | Dashboard (`SettingsNav`) |
-| RAR-03 | The seed Owner profile cannot be deleted. | Engine (`ProfileService`) |
-| RAR-04 | The last Administrator cannot be deleted. | Engine (`ProfileService`) |
-| RAR-05 | Role assignment is managed through Users & Access. | Dashboard and Engine profile endpoints |
-| RAR-06 | UI visibility is not authorization; protected Engine endpoints still declare a role guard. | Engine endpoint definitions |
-
----
-
-## Platform health
-
-| Area | Status | Notes |
-|---|---|---|
-| UI navigation filtering | **PASS** | `SettingsNav` filters destinations from the active browser profile role. |
-| Account menu filtering | **PASS** | Needs Review and its count are hidden for Consumer profiles. |
-| Active role resolution | **PASS** | `ActiveProfileSessionService` persists and resolves the browser's current profile. |
-| Engine-side role enforcement | **GATING REQUIRED** | Every protected endpoint must retain an explicit authorization guard; UI filtering alone is not a security boundary. |
-| Profile CRUD | **PASS** | Seed and last-administrator protections remain in the Engine. |
-
----
-
-## What "GATING REQUIRED" means
-
-The Dashboard's permission-aware menu improves the local experience, but hiding a control does not secure its API. Before exposing Tuvima beyond the trusted local environment, verify API-key role association, endpoint guards, and the local-bypass policy for every administrative route.
-
----
-
-## Product owner summary
-
-The active local profile now drives both Settings navigation and the account menu. Consumers get a clean personal menu without review alerts, while Curators and Administrators see Needs Review when they are allowed to act on it. Engine authorization remains the security boundary.
+Protect originals. Obsolete pre-beta identity/configuration state fails fast; do not recreate legacy role schemas or compatibility key conversion. Run actual mapped-endpoint, revocation, cross-resource, and privacy regression tests before accepting a cutover.

@@ -49,7 +49,9 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
             .ToList();
 
         if (scalarValues.Count == 0)
+        {
             return;
+        }
 
         // Single transaction: atomicity + significant write-performance gain.
         await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
@@ -75,10 +77,10 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                     cv.EntityId,
                     cv.Key,
                     cv.Value,
-                    LastScoredAt      = cv.LastScoredAt.ToString("o"),
-                    IsConflicted      = cv.IsConflicted ? 1 : 0,
+                    LastScoredAt = cv.LastScoredAt.ToString("o"),
+                    IsConflicted = cv.IsConflicted ? 1 : 0,
                     cv.WinningProviderId,
-                    NeedsReview       = cv.NeedsReview ? 1 : 0,
+                    NeedsReview = cv.NeedsReview ? 1 : 0,
                 }),
                 transaction: tx);
 
@@ -307,12 +309,12 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                    )
             LIMIT  @Limit;
             """, new
-            {
-                HasField1    = hasField,
-                HasField2    = "plot_summary",
-                MissingField = missingField,
-                Limit        = limit,
-            })
+        {
+            HasField1 = hasField,
+            HasField2 = "plot_summary",
+            MissingField = missingField,
+            Limit = limit,
+        })
             .ToList();
 
         return Task.FromResult<IReadOnlyList<Guid>>(ids);
@@ -542,7 +544,9 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
         ArgumentException.ThrowIfNullOrWhiteSpace(request.InputFingerprint);
         ArgumentException.ThrowIfNullOrWhiteSpace(request.Error);
         if (request.MaxAttempts <= 0)
+        {
             throw new ArgumentOutOfRangeException(nameof(request), "Maximum attempts must be positive.");
+        }
 
         ct.ThrowIfCancellationRequested();
         return await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
@@ -658,15 +662,29 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
         ArgumentNullException.ThrowIfNull(request.ScalarValues);
 
         if (request.Confidence is < 0 or > 1)
+        {
             throw new ArgumentOutOfRangeException(nameof(request), "Confidence must be between zero and one.");
+        }
+
         if (request.PublishThreshold is < 0 or > 1)
+        {
             throw new ArgumentOutOfRangeException(nameof(request), "Publish threshold must be between zero and one.");
+        }
+
         if (request.ReviewThreshold is < 0 or > 1)
+        {
             throw new ArgumentOutOfRangeException(nameof(request), "Review threshold must be between zero and one.");
+        }
+
         if (request.ArrayValues.Keys.Any(key => !MetadataFieldConstants.IsMultiValued(key)))
+        {
             throw new ArgumentException("AI array output contains a scalar canonical key.", nameof(request));
+        }
+
         if (request.ScalarValues.Keys.Any(MetadataFieldConstants.IsMultiValued))
+        {
             throw new ArgumentException("AI scalar output contains a multi-valued canonical key.", nameof(request));
+        }
     }
 
     private static string ComputeOutputFingerprint(
@@ -678,10 +696,14 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
         {
             payload.Append("a:").Append(key.ToLowerInvariant()).Append('\n');
             foreach (var value in values)
+            {
                 payload.Append(value).Append('\n');
+            }
         }
         foreach (var (key, value) in scalars.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
+        {
             payload.Append("s:").Append(key.ToLowerInvariant()).Append('=').Append(value).Append('\n');
+        }
 
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload.ToString())));
     }
@@ -823,7 +845,9 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
     private static IReadOnlyList<string> DeserializeFieldList(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return [];
+        }
 
         try
         {
@@ -840,7 +864,9 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
     private static IReadOnlyDictionary<string, IReadOnlyList<string>> DeserializePublishedValues(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+        }
 
         try
         {
@@ -880,7 +906,10 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                     transaction: transaction).ToList();
                 if (current.Any(row => row.ValueQid is not null)
                     || !current.Select(row => row.Value).SequenceEqual(expected, StringComparer.Ordinal))
+                {
                     return false;
+                }
+
                 continue;
             }
 
@@ -896,7 +925,9 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
             if (expected.Count == 0)
             {
                 if (currentScalar is not null)
+                {
                     return false;
+                }
             }
             else if (expected.Count != 1
                      || currentScalar?.WinningProviderId != state.ProviderId
@@ -955,26 +986,26 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
     /// </summary>
     private sealed class CanonicalValueRow
     {
-        public Guid    EntityId          { get; set; }
-        public string  Key               { get; set; } = string.Empty;
-        public string  Value             { get; set; } = string.Empty;
-        public string  LastScoredAt      { get; set; } = string.Empty;
-        public int     IsConflicted      { get; set; }
-        public Guid?   WinningProviderId { get; set; }
-        public int     NeedsReview       { get; set; }
+        public Guid EntityId { get; set; }
+        public string Key { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+        public string LastScoredAt { get; set; } = string.Empty;
+        public int IsConflicted { get; set; }
+        public Guid? WinningProviderId { get; set; }
+        public int NeedsReview { get; set; }
     }
 
     private static CanonicalValue MapRow(CanonicalValueRow r)
     {
         return new CanonicalValue
         {
-            EntityId          = r.EntityId,
-            Key               = r.Key,
-            Value             = r.Value,
-            LastScoredAt      = DateTimeOffset.Parse(r.LastScoredAt),
-            IsConflicted      = r.IsConflicted == 1,
+            EntityId = r.EntityId,
+            Key = r.Key,
+            Value = r.Value,
+            LastScoredAt = DateTimeOffset.Parse(r.LastScoredAt),
+            IsConflicted = r.IsConflicted == 1,
             WinningProviderId = r.WinningProviderId,
-            NeedsReview       = r.NeedsReview == 1,
+            NeedsReview = r.NeedsReview == 1,
         };
     }
 }

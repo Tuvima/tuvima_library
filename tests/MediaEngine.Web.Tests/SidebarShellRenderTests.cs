@@ -1,3 +1,5 @@
+using System.Net;
+using System.Text;
 using Bunit;
 using MediaEngine.Web.Components.MediaHub;
 using MediaEngine.Web.Components.Pages;
@@ -7,8 +9,6 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
-using System.Net;
-using System.Text;
 using MudBlazor;
 using MudBlazor.Services;
 

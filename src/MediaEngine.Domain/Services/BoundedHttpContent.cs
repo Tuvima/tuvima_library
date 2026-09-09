@@ -15,7 +15,9 @@ public static class BoundedHttpContent
         CancellationToken ct = default)
     {
         if (content.Headers.ContentLength is > MaximumImageBytes)
+        {
             throw new RemoteContentTooLargeException(MaximumImageBytes);
+        }
 
         await using var input = await content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         using var output = new MemoryStream(
@@ -29,9 +31,15 @@ public static class BoundedHttpContent
             {
                 var read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), ct).ConfigureAwait(false);
                 if (read == 0)
+                {
                     break;
+                }
+
                 if (output.Length + read > MaximumImageBytes)
+                {
                     throw new RemoteContentTooLargeException(MaximumImageBytes);
+                }
+
                 await output.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
             }
 
@@ -50,7 +58,10 @@ public static class BoundedHttpContent
     {
         var directory = Path.GetDirectoryName(destinationPath);
         if (!string.IsNullOrWhiteSpace(directory))
+        {
             Directory.CreateDirectory(directory);
+        }
+
         var temporaryPath = $"{destinationPath}.{Guid.NewGuid():N}.tmp";
         try
         {
@@ -60,7 +71,9 @@ public static class BoundedHttpContent
         finally
         {
             if (File.Exists(temporaryPath))
+            {
                 File.Delete(temporaryPath);
+            }
         }
     }
 
@@ -71,7 +84,10 @@ public static class BoundedHttpContent
     {
         var directory = Path.GetDirectoryName(destinationPath);
         if (!string.IsNullOrWhiteSpace(directory))
+        {
             Directory.CreateDirectory(directory);
+        }
+
         var temporaryPath = $"{destinationPath}.{Guid.NewGuid():N}.tmp";
         try
         {
@@ -85,10 +101,16 @@ public static class BoundedHttpContent
                     {
                         var read = await input.ReadAsync(buffer.AsMemory(0, buffer.Length), ct).ConfigureAwait(false);
                         if (read == 0)
+                        {
                             break;
+                        }
+
                         total += read;
                         if (total > MaximumImageBytes)
+                        {
                             throw new RemoteContentTooLargeException(MaximumImageBytes);
+                        }
+
                         await output.WriteAsync(buffer.AsMemory(0, read), ct).ConfigureAwait(false);
                     }
                 }
@@ -103,7 +125,9 @@ public static class BoundedHttpContent
         finally
         {
             if (File.Exists(temporaryPath))
+            {
                 File.Delete(temporaryPath);
+            }
         }
     }
 }

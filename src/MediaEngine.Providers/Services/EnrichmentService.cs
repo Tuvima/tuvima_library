@@ -177,11 +177,15 @@ public sealed class EnrichmentService : IEnrichmentService
     {
         var workId = await _collectionRepo.GetWorkIdByMediaAssetAsync(entityId, ct);
         if (!workId.HasValue)
+        {
             return;
+        }
 
         var collectionId = await _collectionRepo.GetCollectionIdByWorkIdAsync(workId.Value, ct);
         if (!collectionId.HasValue)
+        {
             return;
+        }
 
         await _parentCollectionResolver.ResolveParentCollectionAsync(collectionId.Value, ct);
     }

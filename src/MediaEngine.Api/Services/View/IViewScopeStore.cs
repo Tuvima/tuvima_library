@@ -10,4 +10,5 @@ public interface IViewScopeStore
     Task<ViewScopeStoreEntry?> FindProfileAsync(Guid profileId, CancellationToken ct = default);
 
     Task<IReadOnlyList<ViewScopeStoreEntry>> GetProfilesAsync(CancellationToken ct = default);
+    Task<Guid?> GetSharedLibraryIdAsync(CancellationToken ct = default) => Task.FromResult<Guid?>(null);
 }

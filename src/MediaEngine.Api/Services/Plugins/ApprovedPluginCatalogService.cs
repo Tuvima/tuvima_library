@@ -96,7 +96,9 @@ public sealed class ApprovedPluginCatalogService
     private static bool IsAllowedGitHubRawUrl(string? url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
             return false;
+        }
 
         return uri.Scheme == Uri.UriSchemeHttps
             && (string.Equals(uri.Host, "raw.githubusercontent.com", StringComparison.OrdinalIgnoreCase)

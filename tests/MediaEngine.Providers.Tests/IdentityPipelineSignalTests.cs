@@ -1,10 +1,10 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Providers.Tests;
 

@@ -1,0 +1,456 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Authentication
+@using MediaEngine.Web.Services.Integration
+@inject DashboardIdentityClient Identity
+@inject DashboardSessionAccessor Session
+
+<SettingsSectionPanel Title="Applications" Description="Applications receive live service permissions. Credentials identify an application without storing its authorization." Icon="@Icons.Material.Outlined.Apps">
+    @if (!CanManage)
+    {
+        <AppAlert Severity="Severity.Warning">Administrator access is required to manage applications.</AppAlert>
+    }
+    else
+    {
+        @if (!string.IsNullOrWhiteSpace(_notice)) { <AppAlert Severity="Severity.Success" Class="access-notice">@_notice</AppAlert> }
+        <div class="access-toolbar" @ref="_returnFocus" tabindex="-1"><AppButton Label="New application" StartIcon="@Icons.Material.Outlined.Add" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" OnClick="NewApplication" /></div>
+        @if (_loading) { <MudProgressLinear Indeterminate="true" aria-label="Loading applications" /> }
+        else if (_applications.Count == 0) { <AppEmptyState Title="No applications" Message="Create an application to issue a scoped credential." /> }
+        else
+        {
+            <div class="access-applications" role="table" aria-label="Applications">
+                <div class="access-applications__header" role="row"><span role="columnheader">Application</span><span role="columnheader">Access</span><span role="columnheader">Credentials</span><span role="columnheader">Last used</span><span role="columnheader">Status</span><span role="columnheader">Actions</span></div>
+                @foreach (var app in _applications)
+                {
+                    <div class="access-applications__row" role="row" @key="app.Id">
+                        <div role="cell"><strong>@app.Name</strong><small>@TypeLabel(app.ApplicationType)</small></div>
+                        <div role="cell"><AppChip Text="@PresetLabel(app)" Tone="@(app.IsAdministrator ? AppUiTone.Warning : AppUiTone.Neutral)" /></div>
+                        <div role="cell">@app.Credentials.Count(credential => credential.RevokedAt is null) active</div>
+                        <div role="cell"><small>@(app.LastUsedAt?.ToLocalTime().ToString("g") ?? "Never")</small></div>
+                        <div role="cell"><span class="access-status @(app.IsEnabled ? "access-status--enabled" : "access-status--disabled")">@(app.IsEnabled ? "Enabled" : "Disabled")</span></div>
+                        <div class="access-applications__actions" role="cell">
+                            <AppIconButton Icon="@Icons.Material.Filled.MoreVert" AriaLabel="@($"Actions for {app.Name}")" OnClick="@(() => ToggleActions(app.Id))" />
+                            @if (_actionApplicationId == app.Id)
+                            {
+                                <div class="access-action-menu" role="menu">
+                                    <AppButton Label="Edit application" FullWidth="true" ButtonStyle="AppButtonStyle.Text" role="menuitem" OnClick="@(() => Edit(app))" />
+                                    <AppButton Label="Delete application" FullWidth="true" ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Error" role="menuitem" OnClick="@(() => ConfirmDelete(app))" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</SettingsSectionPanel>
+
+@if (_open)
+{
+<div class="access-drawer-host">
+<MudDrawer Open="true" OpenChanged="DrawerChanged" Anchor="Anchor.End" Width="580px" Overlay="true" Variant="DrawerVariant.Temporary" Class="access-drawer">
+    <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
+    <div class="access-drawer__shell" @onkeydown="HandleDrawerKeyDown">
+        <header class="access-drawer__header">
+            <div><MudText Typo="Typo.overline">Access · Applications</MudText><MudText Typo="Typo.h6">@DrawerTitle</MudText></div>
+            <AppIconButton Icon="@Icons.Material.Filled.Close" AriaLabel="Close application drawer" OnClick="Close" />
+        </header>
+        <div class="access-drawer__body">
+            @if (!string.IsNullOrWhiteSpace(_error)) { <AppAlert Severity="Severity.Error">@_error</AppAlert> }
+            @if (!string.IsNullOrWhiteSpace(_message)) { <AppAlert Severity="Severity.Info">@_message</AppAlert> }
+            @if (_deleteMode && _editing is not null)
+            {
+                <AppAlert Severity="Severity.Warning">Delete @_editing.Name? Its credentials will stop authenticating immediately.</AppAlert>
+                <p>This does not delete any media or account data.</p>
+            }
+            else
+            {
+                <section class="access-form-section">
+                    <MudText Typo="Typo.subtitle1">Application</MudText>
+                    <AppTextField @bind-Value="_name" Label="Name" FullWidth="true" />
+                    <AppTextField @bind-Value="_description" Label="Description" FullWidth="true" />
+                    <label class="access-native-label" for="application-type">Application type</label>
+                    <AppNativeSelect id="application-type" Value="@_type.ToString()" OnChange="SetType" Disabled="@_saving" aria-label="Application type">
+                        @foreach (var type in Enum.GetValues<ApplicationTypeDto>()) { <option value="@type">@TypeLabel(type)</option> }
+                    </AppNativeSelect>
+                    @if (_editing is not null) { <AppSwitchRow @bind-Value="_enabled" Disabled="@_saving" Label="Application enabled" Description="Disabling an application rejects every credential attached to it." /> }
+                    @if (_type == ApplicationTypeDto.UserClient)
+                    {
+                        <AppTextField @bind-Value="_clientIds" Label="Native client IDs" HelpText="Comma-separated registered client IDs allowed to use this application." FullWidth="true" />
+                    }
+                </section>
+
+                <section class="access-form-section">
+                    <MudText Typo="Typo.subtitle1">Permission preset</MudText>
+                    <AppNativeSelect Value="@_presetId" OnChange="ApplyPreset" Disabled="@_saving" aria-label="Permission preset">
+                        <option value="custom">Custom</option>
+                        @foreach (var preset in _presets.Where(value => !value.Id.Equals("custom", StringComparison.OrdinalIgnoreCase))) { <option value="@preset.Id">@preset.DisplayName</option> }
+                    </AppNativeSelect>
+                    @if (_administrator)
+                    {
+                        <AppAlert Severity="Severity.Warning">Administrator applications receive every currently available registered permission and automatically include newly available permissions.</AppAlert>
+                    }
+                </section>
+
+                <section class="access-form-section">
+                    <MudText Typo="Typo.subtitle1">Permissions</MudText>
+                    @foreach (var group in CompatiblePermissions.GroupBy(permission => permission.Category))
+                    {
+                        <div class="access-permission-group">
+                            <strong>@group.Key</strong>
+                            @foreach (var permission in group)
+                            {
+                                <div class="access-permission-row @(permission.IsAvailable ? null : "is-unavailable")">
+                                    <AppCheckbox Value="@_selected.Contains(permission.Id)" ValueChanged="@((bool value) => TogglePermission(permission, value))" Disabled="@(_saving || _administrator || !permission.IsAvailable)" Label="@permission.DisplayName" />
+                                    <small>@permission.Description</small>
+                                    <div><AppChip Text="@permission.Risk" Tone="@RiskTone(permission.Risk)" />@if (!permission.IsAvailable) { <AppChip Text="Unavailable" Tone="AppUiTone.Warning" /> }</div>
+                                    @if (!permission.IsAvailable) { <small>@(permission.UnavailableReason ?? "This service is not available.")</small> }
+                                </div>
+                            }
+                        </div>
+                    }
+                </section>
+
+                @if (_editing is not null)
+                {
+                    <section class="access-form-section">
+                        <MudText Typo="Typo.subtitle1">Credentials</MudText>
+                        @if (_editing.Credentials.Count == 0) { <small>No credentials issued.</small> }
+                        @foreach (var credential in _editing.Credentials)
+                        {
+                            <div class="access-credential-row">
+                                <div><strong>@credential.Name</strong><small>Created @credential.CreatedAt.ToLocalTime().ToString("g") · @(credential.RevokedAt is null ? credential.ExpiresAt is null ? "No expiration" : $"Expires {credential.ExpiresAt.Value.ToLocalTime():g}" : "Revoked")</small><small>Last used @(credential.LastUsedAt?.ToLocalTime().ToString("g") ?? "never")</small></div>
+                                <div><AppButton Label="Rotate" Size="AppControlSize.Compact" Disabled="@(_saving || credential.RevokedAt is not null)" OnClick="@(() => RotateCredential(credential))" /><AppButton Label="Revoke" Size="AppControlSize.Compact" Tone="AppUiTone.Error" Disabled="@(_saving || credential.RevokedAt is not null)" OnClick="@(() => RevokeCredential(credential))" /></div>
+                            </div>
+                        }
+                        <div class="access-credential-issue"><AppTextField @bind-Value="_credentialName" Label="Credential name" FullWidth="true" /><AppButton Label="Generate credential" Disabled="@(_saving || string.IsNullOrWhiteSpace(_credentialName))" OnClick="IssueCredential" /></div>
+                    </section>
+                }
+                @if (_plaintext is not null)
+                {
+                    <AppAlert Severity="Severity.Success" Class="access-credential-secret"><strong>Copy this credential now. It will not be shown again.</strong><code>@_plaintext</code></AppAlert>
+                }
+                @if (_editing is not null
+                    && _editing.ApplicationType is ApplicationTypeDto.ServerIntegration or ApplicationTypeDto.Automation)
+                {
+                    <ManagedApplicationWebhooks Application="@_editing" />
+                }
+            }
+        </div>
+        <footer class="access-drawer__footer">
+            <AppButton Label="Cancel" OnClick="Close" />
+            @if (_deleteMode) { <AppButton Label="Delete application" Tone="AppUiTone.Error" ButtonStyle="AppButtonStyle.Filled" Disabled="@_saving" OnClick="DeleteApplication" /> }
+            else { <AppButton Label="@(_editing is null ? "Create application" : "Save application")" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" Disabled="@(_saving || string.IsNullOrWhiteSpace(_name))" OnClick="Save" /> }
+        </footer>
+    </div>
+    </MudFocusTrap>
+</MudDrawer>
+</div>
+}
+
+@code {
+    private List<ApplicationResponse> _applications = [];
+    private List<ApplicationPermissionDefinitionDto> _permissions = [];
+    private List<ApplicationPermissionPresetDto> _presets = [];
+    private HashSet<string> _selected = new(StringComparer.Ordinal);
+    private ApplicationResponse? _editing;
+    private Guid? _actionApplicationId;
+    private ApplicationTypeDto _type = ApplicationTypeDto.UserClient;
+    private bool _loading = true;
+    private bool _open;
+    private bool _saving;
+    private bool _enabled = true;
+    private bool _administrator;
+    private bool _deleteMode;
+    private long _drawerGeneration;
+    private string _name = string.Empty;
+    private string _description = string.Empty;
+    private string _clientIds = string.Empty;
+    private string _credentialName = "Credential";
+    private string _presetId = "custom";
+    private string _error = string.Empty;
+    private string _message = string.Empty;
+    private string _notice = string.Empty;
+    private string? _plaintext;
+    private ElementReference _returnFocus;
+    private bool _restoreFocus;
+
+    private bool CanManage => Session.HasAction("applications.manage");
+    private string DrawerTitle => _deleteMode ? $"Delete · {_editing?.Name}" : _editing?.Name ?? "New application";
+    private IEnumerable<ApplicationPermissionDefinitionDto> CompatiblePermissions => _permissions.Where(permission => permission.ApplicationTypes.Contains(_type)).OrderBy(permission => permission.Category).ThenBy(permission => permission.SortOrder);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (CanManage)
+        {
+            var applications = Identity.GetApplicationsAsync();
+            var permissions = Identity.GetApplicationPermissionsAsync();
+            var presets = Identity.GetApplicationPresetsAsync();
+            await Task.WhenAll(applications, permissions, presets);
+            _applications = applications.Result;
+            _permissions = permissions.Result;
+            _presets = presets.Result;
+        }
+        _loading = false;
+    }
+
+    private void NewApplication()
+    {
+        ResetDrawer();
+        var preset = _presets.FirstOrDefault(value => value.Id.Equals("read-only", StringComparison.OrdinalIgnoreCase)) ?? _presets.FirstOrDefault(value => !value.IsAdministrator);
+        if (preset is not null) SetPreset(preset);
+        _open = true;
+    }
+
+    private void Edit(ApplicationResponse app)
+    {
+        ResetDrawer();
+        _editing = app;
+        _name = app.Name;
+        _description = app.Description ?? string.Empty;
+        _type = app.ApplicationType;
+        _enabled = app.IsEnabled;
+        _administrator = app.IsAdministrator;
+        _selected = app.PermissionIds.ToHashSet(StringComparer.Ordinal);
+        _clientIds = string.Join(", ", app.ClientIds);
+        _presetId = MatchingPreset(app)?.Id ?? "custom";
+        var excluded = app.PermissionIds.Count(id => !IsCompatible(id, app.ApplicationType));
+        if (excluded > 0)
+            _message = $"{excluded} unavailable permission(s) are retained by the Engine but cannot be submitted from this editor.";
+        _open = true;
+    }
+
+    private void ConfirmDelete(ApplicationResponse app) { Edit(app); _deleteMode = true; }
+
+    private async Task Save()
+    {
+        if (!Begin(out var generation)) return;
+        try
+        {
+            ClearMessages();
+            var wasNew = _editing is null;
+            var permissionIds = SubmittedPermissionIds();
+            DashboardAccessMutationResult<ApplicationResponse> result;
+            if (_editing is null)
+            {
+                result = await Identity.CreateApplicationResultAsync(new(_name.Trim(), NullIfWhiteSpace(_description), _type, _administrator, permissionIds));
+            }
+            else
+            {
+                var hasExcludedPermissions = _editing.PermissionIds.Any(id => !IsCompatible(id, _editing.ApplicationType));
+                if (_editing.ApplicationType != _type)
+                {
+                    var transitionPermissions = _editing.PermissionIds
+                        .Where(id => IsCompatible(id, _editing.ApplicationType) && IsCompatible(id, _type))
+                        .Order()
+                        .ToArray();
+                    var narrowed = await Identity.ReplaceApplicationPermissionsResultAsync(
+                        _editing.Id,
+                        new(transitionPermissions));
+                    if (!Current(generation)) return;
+                    if (!narrowed.Succeeded || narrowed.Value is null)
+                    {
+                        _error = $"The type change was not applied because permissions could not be prepared. {FailureMessage(narrowed.Failure)}";
+                        return;
+                    }
+                    ReplaceApplication(narrowed.Value);
+                    _editing = narrowed.Value;
+
+                    if (_editing.ApplicationType == ApplicationTypeDto.UserClient && _editing.ClientIds.Count > 0)
+                    {
+                        var clearedBindings = await Identity.SetApplicationClientBindingsResultAsync(
+                            _editing.Id,
+                            new([]));
+                        if (!Current(generation)) return;
+                        if (!clearedBindings.Succeeded || clearedBindings.Value is null)
+                        {
+                            _error = $"Permissions were narrowed, but client bindings could not be cleared. {FailureMessage(clearedBindings.Failure)}";
+                            await ReloadEditing(generation);
+                            return;
+                        }
+                        ReplaceApplication(clearedBindings.Value);
+                        _editing = clearedBindings.Value;
+                    }
+                }
+                else if (hasExcludedPermissions)
+                {
+                    var cleaned = await Identity.ReplaceApplicationPermissionsResultAsync(
+                        _editing.Id,
+                        new(permissionIds));
+                    if (!Current(generation)) return;
+                    if (!cleaned.Succeeded || cleaned.Value is null)
+                    {
+                        _error = FailureMessage(cleaned.Failure);
+                        return;
+                    }
+                }
+
+                result = await Identity.UpdateApplicationResultAsync(_editing.Id, new(_name.Trim(), NullIfWhiteSpace(_description), _type, _enabled, _administrator));
+            }
+            if (!Current(generation)) return;
+            if (!result.Succeeded || result.Value is null) { _error = FailureMessage(result.Failure); return; }
+
+            var saved = result.Value;
+            ReplaceApplication(saved);
+            _editing = saved;
+            if (!wasNew)
+            {
+                var permissions = await Identity.ReplaceApplicationPermissionsResultAsync(saved.Id, new(permissionIds));
+                if (!Current(generation)) return;
+                if (!permissions.Succeeded || permissions.Value is null)
+                {
+                    _error = $"Application details were saved, but permissions were not. {FailureMessage(permissions.Failure)}";
+                    await ReloadEditing(generation);
+                    return;
+                }
+                saved = permissions.Value;
+                ReplaceApplication(saved);
+                _editing = saved;
+            }
+            if (_type == ApplicationTypeDto.UserClient)
+            {
+                var bindings = await Identity.SetApplicationClientBindingsResultAsync(saved.Id, new(ParseClientIds()));
+                if (!Current(generation)) return;
+                if (!bindings.Succeeded || bindings.Value is null)
+                {
+                    _error = $"Application details were saved, but native client bindings were not. Retry Save application. {FailureMessage(bindings.Failure)}";
+                    await ReloadEditing(generation);
+                    return;
+                }
+                saved = bindings.Value;
+            }
+            ReplaceApplication(saved);
+            _editing = saved;
+            _notice = $"{saved.Name} was {(wasNew ? "created" : "saved")}.";
+        }
+        finally { End(generation); }
+    }
+
+    private async Task IssueCredential()
+    {
+        if (_editing is null || !Begin(out var generation)) return;
+        try
+        {
+            ClearMessages();
+            _plaintext = null;
+            var result = await Identity.IssueApplicationCredentialResultAsync(_editing.Id, new(_credentialName.Trim(), null));
+            if (!Current(generation)) return;
+            if (result.Succeeded && result.Value is not null) { _plaintext = result.Value.PlaintextCredential; _credentialName = "Credential"; await ReloadEditing(generation); }
+            else _error = FailureMessage(result.Failure);
+        }
+        finally { End(generation); }
+    }
+
+    private async Task RotateCredential(ApplicationCredentialResponse credential)
+    {
+        if (_editing is null || !Begin(out var generation)) return;
+        try
+        {
+            ClearMessages();
+            _plaintext = null;
+            var result = await Identity.RotateApplicationCredentialResultAsync(_editing.Id, credential.Id, new(credential.Name, credential.ExpiresAt));
+            if (!Current(generation)) return;
+            if (result.Succeeded && result.Value is not null) { _plaintext = result.Value.PlaintextCredential; await ReloadEditing(generation); }
+            else _error = FailureMessage(result.Failure);
+        }
+        finally { End(generation); }
+    }
+
+    private async Task RevokeCredential(ApplicationCredentialResponse credential)
+    {
+        if (_editing is null || !Begin(out var generation)) return;
+        try
+        {
+            ClearMessages();
+            var result = await Identity.RevokeApplicationCredentialResultAsync(_editing.Id, credential.Id);
+            if (!Current(generation)) return;
+            if (result.Succeeded) { _plaintext = null; await ReloadEditing(generation); }
+            else _error = FailureMessage(result.Failure);
+        }
+        finally { End(generation); }
+    }
+
+    private async Task DeleteApplication()
+    {
+        if (_editing is null || !Begin(out var generation)) return;
+        try
+        {
+            var name = _editing.Name;
+            var result = await Identity.DeleteApplicationResultAsync(_editing.Id);
+            if (!Current(generation)) return;
+            if (result.Succeeded) { _applications.RemoveAll(app => app.Id == _editing.Id); _notice = $"{name} was deleted."; Close(); }
+            else _error = FailureMessage(result.Failure);
+        }
+        finally { End(generation); }
+    }
+
+    private async Task ReloadEditing(long generation)
+    {
+        var id = _editing?.Id;
+        var applications = await Identity.GetApplicationsAsync();
+        if (!Current(generation)) return;
+        _applications = applications;
+        _editing = id is null ? null : applications.FirstOrDefault(app => app.Id == id);
+    }
+
+    private void ApplyPreset(ChangeEventArgs args)
+    {
+        var id = args.Value?.ToString() ?? "custom";
+        if (id == "custom") { _presetId = id; _administrator = false; return; }
+        var preset = _presets.FirstOrDefault(value => value.Id == id);
+        if (preset is not null) SetPreset(preset);
+    }
+
+    private void SetPreset(ApplicationPermissionPresetDto preset)
+    {
+        _presetId = preset.Id;
+        _administrator = preset.IsAdministrator;
+        _selected = preset.PermissionIds.Where(id => _permissions.Any(permission => permission.Id == id && permission.IsAvailable && permission.ApplicationTypes.Contains(_type))).ToHashSet(StringComparer.Ordinal);
+    }
+
+    private void TogglePermission(ApplicationPermissionDefinitionDto permission, bool selected)
+    {
+        if (!permission.IsAvailable || _administrator) return;
+        if (selected) _selected.Add(permission.Id); else _selected.Remove(permission.Id);
+        _presetId = "custom";
+    }
+
+    private void SetType(ChangeEventArgs args)
+    {
+        if (!Enum.TryParse<ApplicationTypeDto>(args.Value?.ToString(), out var type)) return;
+        _type = type;
+        var incompatible = _selected.Where(id => !_permissions.Any(permission => permission.Id == id && permission.IsAvailable && permission.ApplicationTypes.Contains(type))).ToArray();
+        if (incompatible.Length > 0)
+        {
+            _selected.ExceptWith(incompatible);
+            _presetId = "custom";
+            _message = $"{incompatible.Length} permission(s) incompatible with {TypeLabel(type)} were removed.";
+        }
+        if (type != ApplicationTypeDto.UserClient) _clientIds = string.Empty;
+    }
+
+    private string[] SubmittedPermissionIds() => _administrator ? [] : _selected.Where(id => _permissions.Any(permission => permission.Id == id && permission.IsAvailable && permission.ApplicationTypes.Contains(_type))).Order().ToArray();
+    private bool IsCompatible(string id, ApplicationTypeDto type) => _permissions.Any(permission => permission.Id == id && permission.IsAvailable && permission.ApplicationTypes.Contains(type));
+    private string[] ParseClientIds() => _clientIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.Ordinal).ToArray();
+    private ApplicationPermissionPresetDto? MatchingPreset(ApplicationResponse app) => _presets.FirstOrDefault(preset => preset.IsAdministrator == app.IsAdministrator && (app.IsAdministrator || preset.PermissionIds.Order().SequenceEqual(app.PermissionIds.Order())));
+    private string PresetLabel(ApplicationResponse app) => MatchingPreset(app)?.DisplayName ?? "Custom";
+    private static string TypeLabel(ApplicationTypeDto type) => type switch { ApplicationTypeDto.UserClient => "User Client", ApplicationTypeDto.ServerIntegration => "Server Integration", ApplicationTypeDto.Automation => "Automation", _ => "Other" };
+    private static AppUiTone RiskTone(string risk) => risk.Equals("Sensitive", StringComparison.OrdinalIgnoreCase) || risk.Equals("High", StringComparison.OrdinalIgnoreCase) ? AppUiTone.Warning : AppUiTone.Neutral;
+    private static string? NullIfWhiteSpace(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    private void ReplaceApplication(ApplicationResponse app) { var index = _applications.FindIndex(value => value.Id == app.Id); if (index < 0) _applications.Add(app); else _applications[index] = app; }
+    private void ToggleActions(Guid id) => _actionApplicationId = _actionApplicationId == id ? null : id;
+    private void ResetDrawer() { _drawerGeneration++; _saving = false; _editing = null; _actionApplicationId = null; _selected = new(StringComparer.Ordinal); _type = ApplicationTypeDto.UserClient; _enabled = true; _administrator = _deleteMode = false; _name = _description = _clientIds = _error = _message = string.Empty; _credentialName = "Credential"; _presetId = "custom"; _plaintext = null; }
+    private bool Begin(out long generation) { generation = _drawerGeneration; if (_saving) return false; _saving = true; return true; }
+    private bool Current(long generation) => generation == _drawerGeneration;
+    private void End(long generation) { if (Current(generation)) _saving = false; }
+    private void ClearMessages() { _error = _message = string.Empty; }
+    private void DrawerChanged(bool value) { if (value) _open = true; else Close(); }
+    private void HandleDrawerKeyDown(KeyboardEventArgs args) { if (args.Key == "Escape") Close(); }
+    private void Close() { _drawerGeneration++; _saving = false; _open = false; _actionApplicationId = null; _plaintext = null; _restoreFocus = true; }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_restoreFocus) return;
+        _restoreFocus = false;
+        await _returnFocus.FocusAsync();
+    }
+    private static string FailureMessage(DashboardAccessMutationFailure failure) => failure switch { DashboardAccessMutationFailure.Validation => "Check the values and try again.", DashboardAccessMutationFailure.Conflict => "This change conflicts with the current application state.", DashboardAccessMutationFailure.Forbidden => "You no longer have permission for this change.", DashboardAccessMutationFailure.Unauthorized => "Your session has expired.", DashboardAccessMutationFailure.NotFound => "This application or credential no longer exists.", DashboardAccessMutationFailure.Transient => "The Engine is unavailable. Try again.", _ => "The change could not be saved. Try again." };
+}

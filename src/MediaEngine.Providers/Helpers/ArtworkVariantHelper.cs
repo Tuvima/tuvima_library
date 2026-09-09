@@ -86,7 +86,9 @@ public static class ArtworkVariantHelper
             {
                 var pixel = bitmap.GetPixel(x, y);
                 if (pixel.Alpha < 32)
+                {
                     continue;
+                }
 
                 var key = ((pixel.Red >> 4) << 8) | ((pixel.Green >> 4) << 4) | (pixel.Blue >> 4);
                 buckets.TryGetValue(key, out var bucket);
@@ -99,7 +101,9 @@ public static class ArtworkVariantHelper
             .ThenByDescending(bucket => bucket.R + bucket.G + bucket.B)
             .FirstOrDefault();
         if (dominant.Count == 0)
+        {
             return "#080C12";
+        }
 
         return $"#{dominant.R / dominant.Count:X2}{dominant.G / dominant.Count:X2}{dominant.B / dominant.Count:X2}";
     }

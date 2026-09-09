@@ -1,5 +1,5 @@
-using MediaEngine.Web.Services.Playback;
 using MediaEngine.Contracts.Realtime;
+using MediaEngine.Web.Services.Playback;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -99,7 +99,9 @@ public sealed class ShellActivityState : IDisposable
             if (ended || !isPlaying)
             {
                 if (_videoPlayback?.AssetId == assetId)
+                {
                     _videoPlayback = null;
+                }
             }
             else
             {
@@ -120,7 +122,9 @@ public sealed class ShellActivityState : IDisposable
         lock (_videoGate)
         {
             if (_videoPlayback?.AssetId != assetId)
+            {
                 return;
+            }
 
             _videoPlayback = null;
         }
@@ -150,10 +154,14 @@ public sealed class ShellActivityState : IDisposable
     {
         VideoPlaybackActivity? video;
         lock (_videoGate)
+        {
             video = _videoPlayback;
+        }
 
         if (video is null || now - video.UpdatedAt > VideoActivityTtl)
+        {
             return;
+        }
 
         items.Add(new ShellActivityItem(
             $"video:{video.AssetId:D}",
@@ -203,7 +211,9 @@ public sealed class ShellActivityState : IDisposable
         }
 
         if (_universeState.IngestionProgress is not { } ingestion)
+        {
             return false;
+        }
 
         items.Add(new ShellActivityItem(
             "ingestion:live",
@@ -222,7 +232,9 @@ public sealed class ShellActivityState : IDisposable
         var enrichment = _universeState.UniverseEnrichmentProgress;
         var receivedAt = _universeState.UniverseEnrichmentProgressReceivedAt;
         if (enrichment is null || receivedAt is null || now - receivedAt > EnrichmentActivityTtl)
+        {
             return false;
+        }
 
         items.Add(new ShellActivityItem(
             $"enrichment:{enrichment.WorkQid}",
@@ -241,7 +253,9 @@ public sealed class ShellActivityState : IDisposable
         foreach (var model in _universeState.ModelDownloadActivity)
         {
             if (now - model.ReceivedAt > ModelDownloadActivityTtl)
+            {
                 continue;
+            }
 
             items.Add(new ShellActivityItem(
                 $"model:{model.Event.Role}",
@@ -259,9 +273,14 @@ public sealed class ShellActivityState : IDisposable
         {
             var kind = ToKind(operation.OperationKind);
             if (hasBatch && kind == ShellActivityKind.Ingestion)
+            {
                 continue;
+            }
+
             if (hasUniverseEnrichment && kind == ShellActivityKind.Enrichment)
+            {
                 continue;
+            }
 
             items.Add(new ShellActivityItem(
                 $"operation:{operation.Id:D}",
@@ -281,7 +300,9 @@ public sealed class ShellActivityState : IDisposable
     {
         var now = DateTimeOffset.UtcNow;
         if (kind == PlaybackChangeKind.TransportTick && now - _lastTransportNotification < TimeSpan.FromSeconds(1))
+        {
             return;
+        }
 
         _lastTransportNotification = now;
         PublishIfChanged();
@@ -292,7 +313,9 @@ public sealed class ShellActivityState : IDisposable
         var snapshot = BuildSnapshot(DateTimeOffset.UtcNow);
         var signature = string.Join('|', snapshot.Items.Select(item => $"{item.Key}:{item.ProgressPercent}:{item.Label}"));
         if (!force && string.Equals(signature, _lastSignature, StringComparison.Ordinal))
+        {
             return;
+        }
 
         _lastSignature = signature;
         Changed?.Invoke();
@@ -348,7 +371,9 @@ public sealed class ShellActivityState : IDisposable
     private static string? FriendlyStage(string? stage)
     {
         if (string.IsNullOrWhiteSpace(stage))
+        {
             return null;
+        }
 
         return string.Concat(stage
             .Replace('_', ' ')
@@ -357,10 +382,10 @@ public sealed class ShellActivityState : IDisposable
                 : character.ToString()))
             .Trim()
             .ToLowerInvariant() switch
-            {
-                var value when value.Length == 0 => null,
-                var value => char.ToUpperInvariant(value[0]) + value[1..],
-            };
+        {
+            var value when value.Length == 0 => null,
+            var value => char.ToUpperInvariant(value[0]) + value[1..],
+        };
     }
 
     private static string FriendlyRole(string role) => string.Join(' ', role

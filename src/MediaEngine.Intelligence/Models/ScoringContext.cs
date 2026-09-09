@@ -60,7 +60,8 @@ public sealed class ScoringContext
     /// Spec: Phase 8 – Field-Level Weight Matrix.
     /// </summary>
     public IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, double>>?
-        ProviderFieldWeights { get; init; }
+        ProviderFieldWeights
+    { get; init; }
 
     /// <summary>
     /// The detected media type for this entity. Used by the scoring engine to

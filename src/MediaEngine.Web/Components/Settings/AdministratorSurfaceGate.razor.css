@@ -1,0 +1,15 @@
+.administrator-protection {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.administrator-protection--entry { justify-content: flex-start; }
+
+.administrator-protection--entry ::deep input {
+    max-width: 16rem;
+    min-width: 0;
+}

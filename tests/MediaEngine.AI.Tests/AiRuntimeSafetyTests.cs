@@ -335,9 +335,14 @@ public sealed class AiRuntimeSafetyTests
                  })
         {
             if (sizeMb.HasValue)
+            {
                 definition.SizeMB = sizeMb.Value;
+            }
+
             if (sha256 is not null)
+            {
                 definition.Sha256 = sha256;
+            }
         }
     }
 

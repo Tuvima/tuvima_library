@@ -46,7 +46,11 @@ public sealed class ConfigurationHealthCheck(
     private static Dictionary<string, object> Data(bool required, params (string Key, object Value)[] values)
     {
         var data = new Dictionary<string, object> { ["category"] = "configuration", ["required"] = required };
-        foreach (var (key, value) in values) data[key] = value;
+        foreach (var (key, value) in values)
+        {
+            data[key] = value;
+        }
+
         return data;
     }
 }
@@ -74,9 +78,15 @@ public sealed class MediaRuntimeHealthCheck(IFFmpegService ffmpeg) : IHealthChec
                 ffmpegVersion = version.Output
                     .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
                     .FirstOrDefault();
-                if (version.ExitCode != 0) failures.Add("FFmpeg version probe returned a non-zero exit code.");
+                if (version.ExitCode != 0)
+                {
+                    failures.Add("FFmpeg version probe returned a non-zero exit code.");
+                }
+
                 if (!ffmpeg.HardwareCapabilities.AdaptiveHlsReady)
+                {
                     failures.Add("FFmpeg lacks an HLS muxer, H.264 encoder, or AAC encoder required for adaptive delivery.");
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -91,7 +101,10 @@ public sealed class MediaRuntimeHealthCheck(IFFmpegService ffmpeg) : IHealthChec
             using var image = SKImage.FromBitmap(bitmap);
             using var encoded = image.Encode(SKEncodedImageFormat.Png, 100);
             skiaAvailable = encoded is { Size: > 0 };
-            if (!skiaAvailable) failures.Add("SkiaSharp could not encode a probe image.");
+            if (!skiaAvailable)
+            {
+                failures.Add("SkiaSharp could not encode a probe image.");
+            }
         }
         catch (Exception ex)
         {

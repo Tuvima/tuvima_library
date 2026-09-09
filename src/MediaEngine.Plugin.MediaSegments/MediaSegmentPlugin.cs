@@ -119,13 +119,13 @@ internal static class SegmentManifestFactory
         Dictionary<string, JsonElement> settings,
         IReadOnlyList<PluginToolRequirement>? tools = null,
         IReadOnlyList<PluginAiPermission>? ai = null) => new()
-    {
-        Id = id,
-        Name = name,
-        Version = "0.1.0",
-        MinimumTuvimaApiVersion = "1.0.0",
-        Description = description,
-        Capabilities =
+        {
+            Id = id,
+            Name = name,
+            Version = "0.1.0",
+            MinimumTuvimaApiVersion = "1.0.0",
+            Description = description,
+            Capabilities =
         [
             new PluginCapabilityDescriptor
             {
@@ -134,12 +134,30 @@ internal static class SegmentManifestFactory
                 Description = "Produces playback markers for the shared Tuvima player.",
             },
         ],
-        Permissions = ["media.read", "process.execute"],
-        ToolRequirements = tools ?? FfmpegTools(),
-        AiPermissions = ai ?? [],
-        SupportedPlatforms = ["win-x64", "linux-x64", "osx-x64", "osx-arm64"],
-        DefaultSettings = settings,
-    };
+            Permissions = BuildPermissions(tools, ai),
+            ToolRequirements = tools ?? FfmpegTools(),
+            AiPermissions = ai ?? [],
+            SupportedPlatforms = ["win-x64", "linux-x64", "osx-x64", "osx-arm64"],
+            DefaultSettings = settings,
+        };
+
+    private static IReadOnlyList<string> BuildPermissions(
+        IReadOnlyList<PluginToolRequirement>? tools,
+        IReadOnlyList<PluginAiPermission>? ai)
+    {
+        var permissions = new List<string> { PluginPermissionIds.MediaRead };
+        if ((tools ?? FfmpegTools()).Count > 0)
+        {
+            permissions.Add(PluginPermissionIds.ProcessExecute);
+            permissions.Add(PluginPermissionIds.PluginStorage);
+        }
+        if (ai is { Count: > 0 })
+        {
+            permissions.Add(PluginPermissionIds.AiInfer);
+        }
+
+        return permissions;
+    }
 
     private static IReadOnlyList<PluginToolRequirement> FfmpegTools() =>
     [

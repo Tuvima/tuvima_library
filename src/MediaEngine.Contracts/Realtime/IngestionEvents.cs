@@ -31,7 +31,8 @@ public sealed record MediaAddedEvent(
     Guid WorkId,
     Guid? CollectionId,
     string MediaType,
-    string Title);
+    string Title,
+    Guid? AssetId = null);
 
 public sealed record WatchFolderActiveEvent(
     string WatchDirectory,
@@ -102,7 +103,9 @@ public sealed record ProviderActivityItemEvent(
 public sealed record MediaRemovedEvent(
     [property: JsonPropertyName("asset_id")] Guid AssetId,
     [property: JsonPropertyName("file_path")] string FilePath,
-    [property: JsonPropertyName("status")] string Status);
+    [property: JsonPropertyName("status")] string Status,
+    [property: JsonPropertyName("library_id")] Guid? LibraryId = null,
+    [property: JsonPropertyName("feature_id")] string? FeatureId = null);
 
 public sealed record ReconciliationLibraryChangedEvent(
     [property: JsonPropertyName("source")] string Source,

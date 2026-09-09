@@ -320,8 +320,8 @@ These are the most important concepts:
   - Useful when several related groups belong to one broader narrative world.
 
 - **Profile**
-  - A user/persona with a role and preferences.
-  - The Dashboard stores the active local profile in browser storage and uses that role to filter Settings navigation. The seed Owner Administrator remains the fallback.
+  - An experience identity with preferences, restrictions, history, and a Personal Space.
+  - The active profile must be backed by a live account/profile grant. Settings navigation uses Engine-projected authority; browser storage and seed profiles do not grant access.
 
 - **Review Queue**
   - The safety net for uncertain matches.
@@ -435,3 +435,7 @@ Operations and the navbar consume the same Engine batch progress definition, inc
 View uses a common library-detail header and Folders, Organization, File Handling, Sharing & Access, and Advanced Settings sections. The configurable View library root contains Shared and Profiles; Shared Library is an authorization scope distinct from the physical base. Logical personal-space/source registration never creates directories. Uploads and accepted transfers create destination folders only at actual write time. Merely visiting View or adding a profile must leave unused storage empty.
 
 The install banner records dismissal in browser/site local storage. Subsequent install events and navigation respect it. System Overview offers an independent manual installation action.
+
+## Access authority (September 2026)
+
+Accounts own feature and actual library grants; profiles retain experience and privacy identity. Effective administration requires the current enabled account and active AdminEnabled grant, plus any optional surface PIN unlock. Applications own permissions and revocable credentials; delegated native access intersects current account, grant, device, token, and consent. Check resource scope before counts, grouping, paging, artwork, streams, and personal state. Preserve distinct View scopes. Follow docs/architecture/security.md and the Access execution status; do not restore legacy roles, localhost administration, or a seed-owner fallback.

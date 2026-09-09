@@ -1,11 +1,12 @@
+using System.Globalization;
+using System.Text.Json;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Search;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Services;
-using System.Globalization;
-using System.Text.Json;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -27,7 +28,9 @@ public static class SearchEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Query))
+            {
                 return ApiErrors.BadRequest("Query is required.");
+            }
 
             var result = await searchService.SearchUniverseAsync(request, ct);
             return Results.Ok(result);
@@ -36,7 +39,7 @@ public static class SearchEndpoints
         .WithSummary("Search Wikidata for identity candidates, enriched with cover art from retail providers.")
         .Produces<SearchUniverseResult>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch);
 
         group.MapPost("/retail/detail", async (
             RetailCandidateDetailRequestDto request,
@@ -45,7 +48,9 @@ public static class SearchEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.ProviderName))
+            {
                 return ApiErrors.BadRequest("Provider name is required.");
+            }
 
             var provider = request.ProviderName.Trim().ToLowerInvariant().Replace('-', '_');
             if (provider == "musicbrainz")
@@ -62,7 +67,9 @@ public static class SearchEndpoints
             {
                 var collectionId = FirstValue(request.ExtraFields, "apple_music_collection_id", "collection_id");
                 if (string.IsNullOrWhiteSpace(collectionId))
+                {
                     return Results.Ok(UnavailableDetail(request.ProviderName, "Apple did not supply an album collection identifier for this result."));
+                }
 
                 var tracks = await apple.FetchAlbumTracksAsync(collectionId, "us", "en", ct);
                 var detail = new RetailCandidateDetailDto
@@ -85,7 +92,10 @@ public static class SearchEndpoints
                 };
                 detail.Facts["Tracks"] = detail.Items.Count.ToString(CultureInfo.InvariantCulture);
                 if (detail.Items.Count == 0)
+                {
                     detail.UnavailableMessage = "Apple Music did not supply a track list for this candidate.";
+                }
+
                 return Results.Ok(detail);
             }
 
@@ -95,7 +105,7 @@ public static class SearchEndpoints
         .WithSummary("Load provider-specific evidence, including album track lists, for a retail candidate.")
         .Produces<RetailCandidateDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch);
 
         // ── POST /search/retail ──────────────────────────────────────────────
         group.MapPost("/retail", async (
@@ -104,7 +114,9 @@ public static class SearchEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Query))
+            {
                 return ApiErrors.BadRequest("Query is required.");
+            }
 
             var result = await searchService.SearchRetailAsync(new SearchRetailRequest(
                 request.Query,
@@ -121,7 +133,7 @@ public static class SearchEndpoints
         .WithSummary("Search retail providers (TMDB, Apple Books, etc.) for cover art and basic metadata.")
         .Produces<SearchRetailResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch);
 
         // ── POST /search/resolve ─────────────────────────────────────────────
         group.MapPost("/resolve", async (
@@ -130,22 +142,24 @@ public static class SearchEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Query))
+            {
                 return ApiErrors.BadRequest("Query is required.");
+            }
 
             // Extract local title/author/year from file hints for retail scoring
             var fileHints = request.FileHints ?? [];
-            fileHints.TryGetValue("title",  out var localTitle);
+            fileHints.TryGetValue("title", out var localTitle);
             fileHints.TryGetValue("author", out var localAuthor);
-            fileHints.TryGetValue("year",   out var localYear);
+            fileHints.TryGetValue("year", out var localYear);
 
             var retailRequest = new SearchRetailRequest(
                 request.Query,
                 request.MediaType,
                 request.MaxCandidates,
-                LocalTitle:  localTitle,
+                LocalTitle: localTitle,
                 LocalAuthor: localAuthor,
-                LocalYear:   localYear,
-                FileHints:   fileHints.Count > 0
+                LocalYear: localYear,
+                FileHints: fileHints.Count > 0
                                  ? fileHints
                                  : null);
 
@@ -157,16 +171,16 @@ public static class SearchEndpoints
             var candidates = retailResults.Candidates
                 .Select(r => new SearchResolveCandidateDto
                 {
-                    ProviderName     = r.ProviderName,
-                    ProviderItemId   = r.ProviderItemId ?? "",
-                    Title            = r.Title,
-                    Author           = r.Author,
-                    Year             = r.Year,
-                    Description      = r.Description,
-                    CoverUrl         = r.CoverUrl,
-                    RetailScore      = r.Confidence,
+                    ProviderName = r.ProviderName,
+                    ProviderItemId = r.ProviderItemId ?? "",
+                    Title = r.Title,
+                    Author = r.Author,
+                    Year = r.Year,
+                    Description = r.Description,
+                    CoverUrl = r.CoverUrl,
+                    RetailScore = r.Confidence,
                     DescriptionScore = 0.0,
-                    CompositeScore   = r.CompositeScore,
+                    CompositeScore = r.CompositeScore,
                 })
                 .ToList();
 
@@ -177,7 +191,7 @@ public static class SearchEndpoints
                          "Wikidata bridge resolution runs client-side after candidate selection.")
         .Produces<SearchResolveResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch);
 
         return app;
     }
@@ -214,7 +228,9 @@ public static class SearchEndpoints
         foreach (var key in keys)
         {
             if (fields.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return value.Trim();
+            }
         }
         return null;
     }
@@ -222,7 +238,9 @@ public static class SearchEndpoints
     private static RetailCandidateDetailDto BuildMusicBrainzDetail(MusicBrainzAlbumRelease? release)
     {
         if (release is null)
+        {
             return UnavailableDetail("musicbrainz", "MusicBrainz did not supply a track list for this candidate release.");
+        }
 
         var detail = new RetailCandidateDetailDto
         {
@@ -239,7 +257,9 @@ public static class SearchEndpoints
 
         using var manifest = JsonDocument.Parse(release.ManifestJson);
         if (!manifest.RootElement.TryGetProperty("tracks", out var tracks))
+        {
             return detail;
+        }
 
         foreach (var track in tracks.EnumerateArray())
         {

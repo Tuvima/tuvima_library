@@ -10,7 +10,8 @@ namespace MediaEngine.Api.Services.LocalAssets;
 /// </summary>
 public sealed class ViewStorageService(
     IConfigurationLoader configuration,
-    IViewPersonalSpaceRepository spaces)
+    IViewPersonalSpaceRepository spaces,
+    IViewSharedLibraryRepository sharedLibrary)
 {
     private static readonly SemaphoreSlim PersonalSpaceGate = new(1, 1);
     private static readonly SemaphoreSlim ManagedSourceGate = new(1, 1);
@@ -19,23 +20,33 @@ public sealed class ViewStorageService(
     {
         var settings = configuration.LoadLibraries();
         if (!string.Equals(settings.SchemaVersion, "6.0", StringComparison.Ordinal))
+        {
             throw new InvalidOperationException("View storage requires libraries.json schema_version 6.0.");
+        }
+
         if (settings.Libraries.Any(library =>
                 string.Equals(library.Kind, LibraryKinds.Personal, StringComparison.OrdinalIgnoreCase)))
+        {
             throw new InvalidOperationException(
                 "Personal libraries are obsolete. Configure view_storage and reindex each profile's Personal Space.");
+        }
 
         var storage = settings.StorageLocations.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, settings.ViewStorage.StorageLocationId, StringComparison.OrdinalIgnoreCase))
             ?? throw new InvalidOperationException(
                 $"View storage location '{settings.ViewStorage.StorageLocationId}' is not configured.");
         if (!storage.AllowWrite)
+        {
             throw new InvalidOperationException("The configured View storage location must allow writes.");
+        }
 
         var basePath = Path.GetFullPath(storage.Path);
         var relative = settings.ViewStorage.RelativeRoot?.Trim();
         if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative))
+        {
             throw new InvalidOperationException("The View relative root must be a non-empty relative path.");
+        }
+
         var root = Path.GetFullPath(Path.Combine(basePath, relative));
         EnsureContained(basePath, root, "The View root must remain within its configured storage location.");
         return Path.TrimEndingDirectorySeparator(root);
@@ -44,23 +55,54 @@ public sealed class ViewStorageService(
     public string GetProfileRoot(ViewPersonalSpace space)
     {
         if (!ViewStorageNames.IsValid(space.StorageLabel))
+        {
             throw new InvalidOperationException("This Personal Space uses obsolete storage state. Recreate its disposable index and explicitly reimport originals; files are not relocated automatically.");
+        }
+
         return ResolveManagedRelativePath($"Profiles/{space.StorageLabel}");
     }
 
     public string GetSharedRoot() => ResolveManagedRelativePath("Shared");
+
+    public string GetSharedSourcePath(ViewSharedSource source)
+    {
+        if (source.StorageMode == ViewSourceStorageMode.Linked)
+        {
+            if (string.IsNullOrWhiteSpace(source.ExternalPath))
+            {
+                throw new InvalidOperationException($"Linked Shared source '{source.Name}' has no external path.");
+            }
+
+            return Path.TrimEndingDirectorySeparator(Path.GetFullPath(source.ExternalPath));
+        }
+
+        if (string.IsNullOrWhiteSpace(source.RelativePath))
+        {
+            throw new InvalidOperationException($"Managed Shared source '{source.Name}' has no relative path.");
+        }
+
+        var path = ResolveManagedRelativePath(source.RelativePath);
+        EnsureContained(GetSharedRoot(), path, "A managed Shared source must remain inside the Shared folder.");
+        return path;
+    }
 
     public string GetSourcePath(ViewPersonalSpace space, ViewSource source)
     {
         if (source.StorageMode == ViewSourceStorageMode.Linked)
         {
             if (string.IsNullOrWhiteSpace(source.ExternalPath))
+            {
                 throw new InvalidOperationException($"Linked View source '{source.Name}' has no external path.");
+            }
+
             return Path.TrimEndingDirectorySeparator(Path.GetFullPath(source.ExternalPath));
         }
 
         if (string.IsNullOrWhiteSpace(source.RelativePath))
+        {
             throw new InvalidOperationException($"Managed View source '{source.Name}' has no relative path.");
+        }
+
         var path = ResolveManagedRelativePath(source.RelativePath);
         EnsureContained(GetProfileRoot(space), path, "A personal source must remain inside its owning profile folder.");
         return path;
@@ -68,7 +110,11 @@ public sealed class ViewStorageService(
 
     public async Task<ViewPersonalSpace> EnsurePersonalSpaceAsync(Guid ownerProfileId, CancellationToken ct = default)
     {
-        if (ownerProfileId == Guid.Empty) throw new ArgumentException("Profile ID is required.", nameof(ownerProfileId));
+        if (ownerProfileId == Guid.Empty)
+        {
+            throw new ArgumentException("Profile ID is required.", nameof(ownerProfileId));
+        }
+
         ViewPersonalSpace space;
         await PersonalSpaceGate.WaitAsync(ct);
         try
@@ -81,8 +127,11 @@ public sealed class ViewStorageService(
 
         var policy = configuration.LoadLibraries().PersonalLibraryPolicy;
         if (policy.AllowBrowserUpload)
+        {
             await EnsureManagedSourceAsync(space, "Browser uploads", ViewSourceType.BrowserUpload,
                 "builtin:browser-uploads", ct);
+        }
+
         return space;
     }
 
@@ -112,7 +161,10 @@ public sealed class ViewStorageService(
                 : $"Profiles/{space.StorageLabel}/Folders/{ViewStorageNames.FromDisplayName(name)}";
             if (sourceType != ViewSourceType.BrowserUpload && (Directory.Exists(ResolveManagedRelativePath(relative))
                 || (await spaces.GetSourcesAsync(space.Id, ct)).Any(item => string.Equals(item.RelativePath, relative, StringComparison.OrdinalIgnoreCase))))
+            {
                 relative += "-" + id.ToString("N");
+            }
+
             var source = new ViewSource(
                 id, space.Id, sourceType, name.Trim(), sourceKey.Trim(), null, now, now,
                 ViewSourceStorageMode.Managed,
@@ -137,21 +189,34 @@ public sealed class ViewStorageService(
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         if (!configuration.LoadLibraries().PersonalLibraryPolicy.AllowExistingFolderAttachment)
+        {
             throw new InvalidOperationException("Linking an existing folder to View is disabled by policy.");
+        }
+
         var fullPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
         EnsureNoReparsePoints(fullPath);
         if (IsWithin(GetRootPath(), fullPath) || IsWithin(fullPath, GetRootPath()))
+        {
             throw new InvalidOperationException("Folders inside the managed View root are created as managed sources, not linked sources.");
+        }
+
         if (!Directory.Exists(fullPath))
+        {
             throw new DirectoryNotFoundException($"Linked View folder '{fullPath}' does not exist.");
+        }
 
         var sources = new List<ViewSource>();
         foreach (var other in await spaces.GetAllAsync(ct))
+        {
             sources.AddRange(await spaces.GetSourcesAsync(other.Id, ct));
+        }
+
         if (sources.Any(candidate => candidate.StorageMode == ViewSourceStorageMode.Linked
             && !string.IsNullOrWhiteSpace(candidate.ExternalPath)
             && (IsWithin(candidate.ExternalPath, fullPath) || IsWithin(fullPath, candidate.ExternalPath))))
+        {
             throw new InvalidOperationException("This folder overlaps an existing View source. Open the existing source rather than registering it again.");
+        }
 
         var now = DateTimeOffset.UtcNow;
         return await spaces.UpsertSourceAsync(new ViewSource(
@@ -166,7 +231,10 @@ public sealed class ViewStorageService(
         CancellationToken ct = default)
     {
         if (source.PersonalSpaceId != space.Id)
+        {
             throw new InvalidOperationException("A source cannot move between Personal Spaces.");
+        }
+
         return spaces.UpsertSourceAsync(source, ct);
     }
 
@@ -178,13 +246,21 @@ public sealed class ViewStorageService(
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
         if (!configuration.LoadLibraries().PersonalLibraryPolicy.AllowManagedStorage)
+        {
             throw new InvalidOperationException("Importing folders into managed View storage is disabled by policy.");
+        }
+
         var origin = Path.TrimEndingDirectorySeparator(Path.GetFullPath(sourcePath));
         if (!Directory.Exists(origin))
+        {
             throw new DirectoryNotFoundException($"Import folder '{origin}' does not exist.");
+        }
+
         EnsureNoReparsePoints(origin);
         if (IsWithin(GetRootPath(), origin) || IsWithin(origin, GetRootPath()))
+        {
             throw new InvalidOperationException("A folder already inside the View root does not need to be imported.");
+        }
 
         var source = await EnsureManagedSourceAsync(
             space, name, ViewSourceType.Folder, $"import:{Guid.NewGuid():N}", ct);
@@ -193,7 +269,11 @@ public sealed class ViewStorageService(
         {
             ct.ThrowIfCancellationRequested();
             var info = new FileInfo(file);
-            if ((info.Attributes & FileAttributes.ReparsePoint) != 0) continue;
+            if ((info.Attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                continue;
+            }
+
             var relative = Path.GetRelativePath(origin, file);
             var target = Path.GetFullPath(Path.Combine(destination, relative));
             EnsureContained(destination, target, "An imported file resolved outside its managed source folder.");
@@ -215,8 +295,24 @@ public sealed class ViewStorageService(
         foreach (var space in await spaces.GetAllAsync(ct))
         {
             foreach (var source in (await spaces.GetSourcesAsync(space.Id, ct)).Where(candidate => candidate.Enabled))
+            {
                 result.Add((space, source, GetSourcePath(space, source)));
+            }
         }
+        return result;
+    }
+
+    public async Task<IReadOnlyList<(Guid LibraryId, string Path, bool IncludeSubdirectories)>>
+        GetEnabledSourcePathsAsync(CancellationToken ct = default)
+    {
+        var result = (await GetEnabledSourcesAsync(ct))
+            .Select(entry => (entry.Space.LibraryId, entry.Path, entry.Source.IncludeSubdirectories))
+            .ToList();
+        foreach (var source in (await sharedLibrary.GetSourcesAsync(ct)).Where(candidate => candidate.Enabled))
+        {
+            result.Add((source.LibraryId, GetSharedSourcePath(source), source.IncludeSubdirectories));
+        }
+
         return result;
     }
 
@@ -224,7 +320,11 @@ public sealed class ViewStorageService(
     {
         var fullRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
         var fullPath = Path.GetFullPath(path);
-        if (!IsWithin(fullRoot, fullPath)) return false;
+        if (!IsWithin(fullRoot, fullPath))
+        {
+            return false;
+        }
+
         return includeSubdirectories
             || string.Equals(Path.GetDirectoryName(fullPath), fullRoot, PathComparison);
     }
@@ -232,7 +332,10 @@ public sealed class ViewStorageService(
     private string ResolveManagedRelativePath(string relative)
     {
         if (Path.IsPathRooted(relative))
+        {
             throw new InvalidOperationException("Managed View paths must be relative to the View root.");
+        }
+
         var root = GetRootPath();
         var result = Path.GetFullPath(Path.Combine(root, relative));
         EnsureContained(root, result, "Managed View paths must remain within the View root.");
@@ -243,13 +346,20 @@ public sealed class ViewStorageService(
     private static void EnsureNoReparsePoints(string path)
     {
         for (var directory = new DirectoryInfo(path); directory is not null; directory = directory.Parent)
+        {
             if (directory.Exists && (directory.Attributes & FileAttributes.ReparsePoint) != 0)
+            {
                 throw new InvalidOperationException("View storage cannot traverse symbolic links or junctions.");
+            }
+        }
     }
 
     private static void EnsureContained(string root, string path, string message)
     {
-        if (!IsWithin(root, path)) throw new InvalidOperationException(message);
+        if (!IsWithin(root, path))
+        {
+            throw new InvalidOperationException(message);
+        }
     }
 
     private static bool IsWithin(string root, string path)

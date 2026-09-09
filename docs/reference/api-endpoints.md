@@ -18,7 +18,7 @@ The Engine origin (`http://localhost:61495` in development) is an internal servi
 
 Interactive documentation: `http://localhost:61495/swagger`
 
-Administrative Engine endpoints require a first-party Dashboard session or an API key. Public v1 client endpoints use scoped bearer tokens issued to a paired device.
+Administrative Engine endpoints require live effective administrator authority (with any configured surface unlock), or the exact registered Application permission where supported. Public v1 client endpoints use scoped bearer tokens issued to a paired device. Every route also enforces its resource/profile scope; the Auth column below is a summary, not a substitute for the mapped endpoint policies. See the [Access implementation status](../plans/access-architecture-2026-09-08/execution/status.md) for final cutover gates.
 
 ## Public client API v1
 
@@ -195,7 +195,7 @@ unauthorized identifiers return the same not-found shape as missing resources.
 | GET | `/collections/catalog` | Collections hub catalog: system/user/managed collections plus broader rollups where trusted relationships connect multiple shelves | Required |
 | GET | `/collections/{id}/summary` | One Collections hub summary for a detail page without loading the full catalog | Required |
 | GET | `/collections/{id}/items` | Items for a collection detail page, including generated rollup aggregation | Required |
-| POST | `/collections/reconcile` | Dry-run or run collection shelf repair for already-ingested media. Body: `dry_run`, `batch_size`, `max_items`. Returns candidate, processed, assigned, skipped, failed, and elapsed counts. | Curator |
+| POST | `/collections/reconcile` | Dry-run or run collection shelf repair for already-ingested media. Body: `dry_run`, `batch_size`, `max_items`. Returns candidate, processed, assigned, skipped, failed, and elapsed counts. | Effective administrator or precise Application permission |
 | GET | `/collections/{collectionId}/series-manifest` | Ordered Wikidata series checklist with total, owned, missing, provisional, ambiguous counts and named entries | Required |
 | GET | `/collections/search?q=` | SQL-backed search across visible library works, canonical values, and collection names. Returns up to 20 work results. | Required |
 | GET | `/collections/personal-media/galleries` | List Galleries eligible for the administrator's Collection editor without exposing individual assets | Administrator + trusted profile |
@@ -213,7 +213,7 @@ unauthorized identifiers return the same not-found shape as missing resources.
 | GET | `/library/items` | Paginated item list for current browse/detail surfaces. Includes projection-backed fields such as `pipelineStep`, `libraryVisibility`, `isReadyForLibrary`, `artworkState`, `artworkSource`, and `artworkSettledAt`. Supports filtering by status, media type, collection, and search term. | Required |
 | GET | `/library/items/{entityId}/detail` | Full item detail including claims, canonical values, pipeline projection fields, artwork truth, and linked persons | Required |
 | GET | `/library/items/{entityId}/editor-preferences/{profileId}` | Profile-owned notes, local tags, hidden/recommendation flags, and optimistic editor revision | Required |
-| PUT | `/library/items/{entityId}/editor-preferences/{profileId}` | Atomically save supported display overrides and profile-owned editor preferences; returns `409` for a stale revision | Curator |
+| PUT | `/library/items/{entityId}/editor-preferences/{profileId}` | Atomically save supported display overrides and profile-owned editor preferences; returns `409` for a stale revision | Effective administrator or precise Application permission |
 | GET | `/library/items/counts` | Status counts for tab badges and compatibility counters such as review, auto-approved, duplicate, staging, and missing-image counts | Required |
 | GET | `/library/items/state-counts?batchId=` | Four-state counts scoped to a specific ingestion batch | Required |
 
@@ -232,15 +232,15 @@ unauthorized identifiers return the same not-found shape as missing resources.
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/metadata/claims/{entityId}` | All claims for an entity, grouped by field, with source and confidence | Required |
-| GET | `/metadata/conflicts` | All unresolved metadata conflicts across the library | Curator |
+| GET | `/metadata/conflicts` | All unresolved metadata conflicts across the library | Effective administrator or precise Application permission |
 | GET | `/metadata/{entityId}/canon-discrepancies` | Field-level mismatches between the canonical value and file-embedded metadata | Required |
-| GET | `/metadata/{entityId}/artwork` | Artwork context for the media editor, including variants by artwork type and preferred selections | Curator |
-| GET | `/metadata/{entityId}/artwork/{scopeId}` | Artwork variants for a specific editor scope | Curator |
-| POST | `/metadata/{entityId}/artwork/{scopeId}/{assetType}` | Upload a user-owned artwork variant for the selected type | Curator |
-| POST | `/metadata/{entityId}/artwork/{scopeId}/{assetType}/from-url` | Add an artwork variant from a provider or user-supplied image URL | Curator |
-| POST | `/metadata/{entityId}/artwork/{assetType}` | Compatibility upload route for an artwork type | Curator |
-| PUT | `/metadata/artwork/{variantId}/preferred` | Make an artwork variant the preferred image for its artwork type | Curator |
-| DELETE | `/metadata/artwork/{variantId}` | Remove an artwork variant from the item. Shared provider/image cache files are retained when still referenced elsewhere. | Curator |
+| GET | `/metadata/{entityId}/artwork` | Artwork context for the media editor, including variants by artwork type and preferred selections | Effective administrator or precise Application permission |
+| GET | `/metadata/{entityId}/artwork/{scopeId}` | Artwork variants for a specific editor scope | Effective administrator or precise Application permission |
+| POST | `/metadata/{entityId}/artwork/{scopeId}/{assetType}` | Upload a user-owned artwork variant for the selected type | Effective administrator or precise Application permission |
+| POST | `/metadata/{entityId}/artwork/{scopeId}/{assetType}/from-url` | Add an artwork variant from a provider or user-supplied image URL | Effective administrator or precise Application permission |
+| POST | `/metadata/{entityId}/artwork/{assetType}` | Compatibility upload route for an artwork type | Effective administrator or precise Application permission |
+| PUT | `/metadata/artwork/{variantId}/preferred` | Make an artwork variant the preferred image for its artwork type | Effective administrator or precise Application permission |
+| DELETE | `/metadata/artwork/{variantId}` | Remove an artwork variant from the item. Shared provider/image cache files are retained when still referenced elsewhere. | Effective administrator or precise Application permission |
 
 ---
 
@@ -261,10 +261,10 @@ unauthorized identifiers return the same not-found shape as missing resources.
 | POST | `/ingestion/scan` | Dry-run scan of configured library folders. Reports what would be ingested without making changes. | Administrator |
 | POST | `/ingestion/library-scan` | Scan library folders and update known file paths. Triggers ingestion for new files. | Administrator |
 | POST | `/ingestion/upload` | Upload a file to the explicit managed, writable primary destination identified by multipart `destinationLibraryId`; catalogued files retain stable intake IDs, while personal files are indexed directly into View without catalogue/provider work | Administrator |
-| GET | `/ingestion/operations` | Dashboard snapshot backed by durable ingestion operation counts, numbered `stage_progress` rows, current activity, review state, provider health, and recent batch summaries. | Curator |
-| GET | `/ingestion/batches` | Recent ingestion batches. | Curator |
-| GET | `/ingestion/batches/{batchId}` | Single ingestion batch summary. | Curator |
-| GET | `/ingestion/batches/{batchId}/items` | Durable per-file item ledger for a batch, sourced from `media_operations`. | Curator |
+| GET | `/ingestion/operations` | Dashboard snapshot backed by durable ingestion operation counts, numbered `stage_progress` rows, current activity, review state, provider health, and recent batch summaries. | Effective administrator or precise Application permission |
+| GET | `/ingestion/batches` | Recent ingestion batches. | Effective administrator or precise Application permission |
+| GET | `/ingestion/batches/{batchId}` | Single ingestion batch summary. | Effective administrator or precise Application permission |
+| GET | `/ingestion/batches/{batchId}/items` | Durable per-file item ledger for a batch, sourced from `media_operations`. | Effective administrator or precise Application permission |
 | GET | `/ingestion/watch-folder` | Returns the derived current watch folder view from configured library source folders. | Required |
 
 `/ingestion/operations.stage_progress` contains numbered ingestion stage rows with `stage_number`, `stage_key`, `label`, `completed_files`, `total_files`, `count_unit`, `percent_complete`, `active_count`, `queued_count`, `status_label`, `active_item_label`, `active_group_label`, `active_group_count`, `label_accuracy`, `artifact_label`, `artifact_count`, `detail_items`, `last_updated_time`, and `is_stale`. `count_unit` identifies what the counts measure, such as files, albums, people, artwork assets, or links, so clients do not relabel grouped work as files. `detail_items` is an optional list of `{ label, value, tone?, icon? }` rows populated by the Engine so clients do not hardcode provider math. Grouped provider work, such as batched Wikidata resolution, uses group labels instead of fake exact file labels unless per-file correlation is available.
@@ -277,13 +277,13 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/operations` | Durable work queue ordered by queue priority and position. Supports `queueName` and `limit` (default 200, capped at 250). | Curator |
-| GET | `/operations/{id}` | One operation plus its event timeline. | Curator |
-| GET | `/operations/summary` | Counts by durable operation status. | Curator |
-| POST | `/operations/{id}/retry` | Requeue a durable operation for another attempt. | Curator |
-| POST | `/operations/{id}/cancel` | Cancel a durable operation. | Curator |
-| GET | `/assets/{id}/capabilities` | Explicit capability/readiness states for one media asset. | Curator |
-| GET | `/capabilities/summary` | Counts by capability and status. | Curator |
+| GET | `/operations` | Durable work queue ordered by queue priority and position. Supports `queueName` and `limit` (default 200, capped at 250). | Effective administrator or precise Application permission |
+| GET | `/operations/{id}` | One operation plus its event timeline. | Effective administrator or precise Application permission |
+| GET | `/operations/summary` | Counts by durable operation status. | Effective administrator or precise Application permission |
+| POST | `/operations/{id}/retry` | Requeue a durable operation for another attempt. | Effective administrator or precise Application permission |
+| POST | `/operations/{id}/cancel` | Cancel a durable operation. | Effective administrator or precise Application permission |
+| GET | `/assets/{id}/capabilities` | Explicit capability/readiness states for one media asset. | Effective administrator or precise Application permission |
+| GET | `/capabilities/summary` | Counts by capability and status. | Effective administrator or precise Application permission |
 
 ---
 
@@ -291,9 +291,9 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| POST | `/search/universe` | Search Wikidata for entity candidates by title, author, and media type | Curator |
-| POST | `/search/retail` | Search configured retail providers for matching candidates | Curator |
-| POST | `/search/resolve` | Unified resolve search - queries all active providers and returns ranked candidates | Curator |
+| POST | `/search/universe` | Search Wikidata for entity candidates by title, author, and media type | Effective administrator or precise Application permission |
+| POST | `/search/retail` | Search configured retail providers for matching candidates | Effective administrator or precise Application permission |
+| POST | `/search/resolve` | Unified resolve search - queries all active providers and returns ranked candidates | Effective administrator or precise Application permission |
 
 ---
 
@@ -301,12 +301,12 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/review/pending` | All items currently in the review queue | Curator |
+| GET | `/review/pending` | All items currently in the review queue | Effective administrator or precise Application permission |
 | GET | `/review/count` | Count of pending review items. Used for media library badge. | Required |
-| GET | `/review/{id}` | Full detail for a single review item including candidates | Curator |
-| POST | `/review/{id}/resolve` | Resolve a review item by selecting a candidate or confirming corrected local metadata | Curator |
-| POST | `/review/{id}/dismiss` | Dismiss a review item without resolving it | Curator |
-| POST | `/review/{id}/skip-universe` | Accept the item without a Wikidata QID. The item can still remain browse surfaces-visible if it passes the browse readiness gate. | Curator |
+| GET | `/review/{id}` | Full detail for a single review item including candidates | Effective administrator or precise Application permission |
+| POST | `/review/{id}/resolve` | Resolve a review item by selecting a candidate or confirming corrected local metadata | Effective administrator or precise Application permission |
+| POST | `/review/{id}/dismiss` | Dismiss a review item without resolving it | Effective administrator or precise Application permission |
+| POST | `/review/{id}/skip-universe` | Accept the item without a Wikidata QID. The item can still remain browse surfaces-visible if it passes the browse readiness gate. | Effective administrator or precise Application permission |
 
 ---
 
@@ -333,7 +333,7 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 | GET | `/universe/{qid}/cast` | Characters with their linked performers, including era-correct actor data | Required |
 | GET | `/universe/{qid}/adaptations` | Adaptation chain - all works derived from or adapted into each other | Required |
 | GET | `/universe/{qid}/lore-delta` | Check for Wikidata revision changes since the last enrichment pass | Required |
-| POST | `/universe/entity/{qid}/deep-enrich` | On-demand deep enrichment of a character/entity and its immediate neighbors | Curator |
+| POST | `/universe/entity/{qid}/deep-enrich` | On-demand deep enrichment of a character/entity and its immediate neighbors | Effective administrator or precise Application permission |
 
 ---
 
@@ -352,10 +352,10 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 | POST | `/ai/benchmark` | Re-run hardware benchmark and reclassify tier | Administrator |
 | GET | `/ai/resources` | Live system resource usage - CPU load, RAM pressure, active transcoding tasks | Required |
 | GET | `/ai/enrichment/progress` | Background enrichment batch progress | Required |
-| GET | `/ai/enrich/tldr/{entityId}` | Generate a TL;DR summary for a work using its description | Curator |
-| GET | `/ai/enrich/vibes/{entityId}` | Generate vibe tags for a work | Curator |
+| GET | `/ai/enrich/tldr/{entityId}` | Generate a TL;DR summary for a work using its description | Effective administrator or precise Application permission |
+| GET | `/ai/enrich/vibes/{entityId}` | Generate vibe tags for a work | Effective administrator or precise Application permission |
 | POST | `/ai/enrich/search/intent` | Parse a natural-language search query into structured field filters | Required |
-| POST | `/ai/enrich/extract-url` | Extract metadata from a URL (book page, IMDB entry, etc.) | Curator |
+| POST | `/ai/enrich/extract-url` | Extract metadata from a URL (book page, IMDB entry, etc.) | Effective administrator or precise Application permission |
 
 `/ai/config` preserves the complete settings graph, including `models`,
 `model_catalog`, `operational_roles`, `role_requirements`, feature flags, and
@@ -368,7 +368,7 @@ clients should use that contract value rather than derive pressure from labels.
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| POST | `/metadata/pass2/trigger` | Manually trigger the optional Pass 2 deferred enrichment flow for one or more entity IDs | Curator |
+| POST | `/metadata/pass2/trigger` | Manually trigger the optional Pass 2 deferred enrichment flow for one or more entity IDs | Effective administrator or precise Application permission |
 | GET | `/metadata/pass2/status` | Current Pass 2 deferred-enrichment status, including whether two-pass mode is enabled | Required |
 
 ---
@@ -390,18 +390,18 @@ clients should use that contract value rather than derive pressure from labels.
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/plugins` | List built-in and dynamic plugins loaded by the Engine | Administrator |
-| GET | `/plugins/approved` | Fetch the approved plugin discovery catalog from the configured GitHub source | Administrator |
-| GET | `/plugins/{pluginId}` | Plugin detail, manifest metadata, settings, permissions, and load state | Administrator |
-| POST | `/plugins/{pluginId}/enable` | Enable a plugin | Administrator |
-| POST | `/plugins/{pluginId}/disable` | Disable a plugin | Administrator |
-| PUT | `/plugins/{pluginId}/settings` | Save plugin user settings JSON | Administrator |
-| GET | `/plugins/{pluginId}/manifest` | Read dynamic plugin manifest JSON. Built-in manifests are compiled and are not returned here. | Administrator |
-| PUT | `/plugins/{pluginId}/manifest` | Save dynamic plugin manifest JSON without changing plugin id | Administrator |
-| DELETE | `/plugins/{pluginId}` | Delete a dynamic plugin folder and saved plugin configuration | Administrator |
-| POST | `/plugins/{pluginId}/health` | Run plugin health checks | Administrator |
-| GET | `/plugins/{pluginId}/jobs` | List recent durable plugin operation rows for one plugin. | Administrator |
-| POST | `/plugins/jobs/segment-detection/run` | Run scheduled playback segment detector plugins immediately | Administrator |
+| GET | `/plugins` | List built-in and dynamic plugins loaded by the Engine | Administrator or application with `plugins.read` |
+| GET | `/plugins/approved` | Fetch the approved plugin discovery catalog from the configured GitHub source | Administrator or application with `plugins.read` |
+| GET | `/plugins/{pluginId}` | Plugin detail, manifest metadata, settings, permissions, and load state | Administrator or application with `plugins.read` |
+| POST | `/plugins/{pluginId}/enable` | Enable a plugin | Administrator or application with `plugins.manage` |
+| POST | `/plugins/{pluginId}/disable` | Disable a plugin | Administrator or application with `plugins.manage` |
+| PUT | `/plugins/{pluginId}/settings` | Save plugin user settings JSON | Administrator or application with `plugins.manage` |
+| GET | `/plugins/{pluginId}/manifest` | Read dynamic plugin manifest JSON. Built-in manifests are compiled and are not returned here. | Administrator or application with `plugins.read` |
+| PUT | `/plugins/{pluginId}/manifest` | Save dynamic plugin manifest JSON without changing plugin id | Administrator or application with `plugins.manage` |
+| DELETE | `/plugins/{pluginId}` | Delete a dynamic plugin folder and saved plugin configuration | Administrator or application with `plugins.manage` |
+| POST | `/plugins/{pluginId}/health` | Run plugin health checks | Administrator or application with `plugins.read` |
+| GET | `/plugins/{pluginId}/jobs` | List recent durable plugin operation rows for one plugin. | Administrator or application with `plugins.jobs.read` |
+| POST | `/plugins/jobs/segment-detection/run` | Run scheduled playback segment detector plugins immediately | Administrator or application with `plugins.jobs.run` |
 
 Plugin responses preserve manifest capabilities, permissions, tool
 requirements and per-platform artifacts, AI permissions, settings schema,
@@ -414,9 +414,6 @@ presentation types must not narrow that payload.
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/admin/api-keys` | List all API keys with labels, roles, and creation dates (keys are not returned after creation) | Administrator |
-| POST | `/admin/api-keys` | Generate a new API key with a label and role | Administrator |
-| DELETE | `/admin/api-keys/{keyId}` | Revoke an API key immediately | Administrator |
 | GET | `/admin/provider-configs` | List all provider configurations | Administrator |
 | PUT | `/admin/provider-configs/{providerId}` | Update a provider configuration | Administrator |
 | DELETE | `/admin/provider-configs/{providerId}` | Remove a provider configuration | Administrator |
@@ -440,11 +437,11 @@ presentation types must not narrow that payload.
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/profiles` | List all user profiles | Required |
-| POST | `/profiles` | Create a new profile | Administrator |
+| GET | `/profiles` | List profiles granted to the current account | Human session |
+| POST | `/access/profiles` | Create a profile and its explicit account grant | Identity users write |
 | GET | `/profiles/{id}` | Profile detail | Required |
-| PUT | `/profiles/{id}` | Update a profile | Administrator |
-| DELETE | `/profiles/{id}` | Delete a profile | Administrator |
+| PUT | `/profiles/{id}/experience` | Save name, avatar color, and navigation preferences without role fields | Exact active profile |
+| DELETE | `/access/profiles/{id}` | Delete through account/grant safety rules without deleting originals | Identity users write |
 
 ---
 
@@ -528,9 +525,9 @@ timing mode, ownership/preference/export flags, confidence, and URL.
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | POST | `/reports` | Submit a metadata quality report for an entity | Required |
-| GET | `/reports/entity/{id}` | All reports for a specific entity | Curator |
-| POST | `/reports/{id}/resolve` | Mark a report as resolved | Curator |
-| POST | `/reports/{id}/dismiss` | Dismiss a report | Curator |
+| GET | `/reports/entity/{id}` | All reports for a specific entity | Effective administrator or precise Application permission |
+| POST | `/reports/{id}/resolve` | Mark a report as resolved | Effective administrator or precise Application permission |
+| POST | `/reports/{id}/dismiss` | Dismiss a report | Effective administrator or precise Application permission |
 
 ---
 
@@ -539,11 +536,11 @@ timing mode, ownership/preference/export flags, confidence, and URL.
 | Method | Path | Description | Auth |
 |---|---|---|---|
 | GET | `/library/characters/{id}/portraits` | Portrait images for a fictional character | Required |
-| PUT | `/library/characters/{id}/portraits/{portraitId}/default` | Set the default portrait for a fictional character | Curator |
+| PUT | `/library/characters/{id}/portraits/{portraitId}/default` | Set the default portrait for a fictional character | Effective administrator or precise Application permission |
 | GET | `/library/persons/{id}/character-roles` | Characters a person has performed, linked to works | Required |
 | GET | `/library/universes/{qid}/characters` | All characters in a universe | Required |
 | GET | `/library/assets/{entityId}` | Shared assets for an entity (Cover Art, Headshot, Banner, Logo, Backdrop) | Required |
-| POST | `/library/enrichment/universe/trigger` | Trigger universe enrichment for a specific QID | Curator |
+| POST | `/library/enrichment/universe/trigger` | Trigger universe enrichment for a specific QID | Effective administrator or precise Application permission |
 
 ---
 
@@ -577,3 +574,22 @@ Available in development environments only. These endpoints are removed in produ
 - [How to Build, Test, and Verify Changes](../guides/running-tests.md)
 - [Database Schema Reference](database-schema.md)
 - [Security Architecture](../architecture/security.md)
+
+## Access, application events, and telemetry
+
+These routes belong to the Access replacement under final integration. Inbound credentials resolve the current Application; they do not carry a household role. Metadata, provider, and other outbound service secrets remain separate.
+
+| Method | Engine path | Responsibility |
+|---|---|---|
+| GET/POST/PUT | `/access/accounts` and `/{accountId}` | Managed account lifecycle and explicit account grants |
+| GET/POST/PUT/DELETE | `/access/applications` and `/{applicationId}` | Application identity and registered permissions |
+| POST/DELETE | `/access/applications/{applicationId}/credentials` and `/{credentialId}` | One-time credential issuance and revocation |
+| GET/POST/PUT/DELETE | `/access/applications/{applicationId}/webhooks` and `/{webhookId}` | Validated destinations, event selection, and delivery status |
+| POST | `/access/applications/{applicationId}/webhooks/{webhookId}/rotate` | Rotate the protected signing secret; display it once |
+| SignalR | `/application-events` | Bounded subscription/replay with current principal and resource authorization |
+| GET | `/api/v1/playback/sessions` | Current scoped playback sessions |
+| GET | `/api/v1/playback/history` | Durable scoped playback history |
+| GET | `/api/v1/analytics/playback` | Scoped playback totals |
+| GET | `/api/v1/analytics/users`, `/libraries`, `/devices` | Aggregation only after scope filtering |
+
+Telemetry read operations have separate registered permissions; cross-session control remains unavailable. Delivery mode and transformed media properties remain unknown without trustworthy observed stream facts. Webhook retries use the same signed envelope and stable delivery identity; receivers must handle repeated deliveries idempotently. A replay gap requires a fresh authorized snapshot before resuming the stream.

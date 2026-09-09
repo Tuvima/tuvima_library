@@ -19,3 +19,11 @@ public interface IDisplayProjectionReadService
         CancellationToken ct);
 
 }
+
+internal interface IRawDisplayProjectionReadService : IDisplayProjectionReadService
+{
+    Task<IReadOnlyList<DisplayHomeCollectionRow>> LoadHomeCollectionsAsync(
+        Guid? profileId,
+        IReadOnlySet<Guid> allowedWorkIds,
+        CancellationToken ct) => LoadHomeCollectionsAsync(profileId, ct);
+}

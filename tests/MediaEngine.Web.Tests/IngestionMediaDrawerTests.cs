@@ -52,7 +52,11 @@ public sealed class IngestionMediaDrawerTests : AsyncBunitContext
             nameof(IEngineApiClient.GetIngestionMediaChildrenAsync), args =>
             {
                 var groupId = (Guid)args![1]!;
-                if (groupId == first.GroupId) return slowResponse.Task;
+                if (groupId == first.GroupId)
+                {
+                    return slowResponse.Task;
+                }
+
                 secondRequested = true;
                 return Task.FromResult<PagedResponse<IngestionMediaChildDto>?>(new(Children(1, 1, "Second child"), 0, 250, false, 1));
             })));

@@ -90,7 +90,9 @@ public sealed class ItemCanonicalRepository(
 
         using var reader = cmd.ExecuteReader();
         if (!reader.Read())
+        {
             return Task.FromResult<ItemCanonicalWorkAssetContext?>(null);
+        }
 
         ItemCanonicalWorkAssetContext result = new(
             GuidSql.FromDb(reader.GetValue(0)),
@@ -113,10 +115,14 @@ public sealed class ItemCanonicalRepository(
             cancellationToken: ct));
 
         if (row is null)
+        {
             return Task.FromResult(new ItemCanonicalDisplayOverrideState(false, new(StringComparer.OrdinalIgnoreCase)));
+        }
 
         if (string.IsNullOrWhiteSpace(row.Json))
+        {
             return Task.FromResult(new ItemCanonicalDisplayOverrideState(true, new(StringComparer.OrdinalIgnoreCase)));
+        }
 
         try
         {
@@ -251,7 +257,9 @@ public sealed class ItemCanonicalRepository(
             .Distinct()
             .ToList();
         if (distinct.Count == 0)
+        {
             return Task.CompletedTask;
+        }
 
         return db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
@@ -318,12 +326,16 @@ public sealed class ItemCanonicalRepository(
             }
 
             foreach (var key in keysToRemove.Where(key => !string.IsNullOrWhiteSpace(key)))
+            {
                 identifiers.Remove(key);
+            }
 
             foreach (var (key, value) in replacements)
             {
                 if (!string.IsNullOrWhiteSpace(key) && !string.IsNullOrWhiteSpace(value))
+                {
                     identifiers[key] = value;
+                }
             }
 
             conn.Execute(new CommandDefinition(
@@ -352,7 +364,9 @@ public sealed class ItemCanonicalRepository(
             try
             {
                 foreach (var qid in JsonSerializer.Deserialize<List<string>>(state.RejectedQidsJson) ?? [])
+                {
                     rejected.Add(qid);
+                }
             }
             catch (JsonException ex)
             {
@@ -361,7 +375,9 @@ public sealed class ItemCanonicalRepository(
         }
 
         if (!string.IsNullOrWhiteSpace(rejectedQid))
+        {
             rejected.Add(rejectedQid.Trim());
+        }
 
         return Task.FromResult(
             JsonSerializer.Serialize(rejected.OrderBy(qid => qid, StringComparer.OrdinalIgnoreCase)));

@@ -56,27 +56,39 @@ public static class Mp4Builder
 
         // ©nam atom (title)
         if (!string.IsNullOrEmpty(title))
+        {
             WriteItunesStringAtom(udtaContent, "\u00A9nam", title);
+        }
 
         // ©ART atom (artist/director)
         if (!string.IsNullOrEmpty(director))
+        {
             WriteItunesStringAtom(udtaContent, "\u00A9ART", director);
+        }
 
         // ©day atom (year)
         if (year > 0)
+        {
             WriteItunesStringAtom(udtaContent, "\u00A9day", year.ToString());
+        }
 
         // tvsh atom (TV show name)
         if (!string.IsNullOrEmpty(showName))
+        {
             WriteItunesStringAtom(udtaContent, "tvsh", showName);
+        }
 
         // tvsn atom (TV season number)
         if (seasonNumber.HasValue)
+        {
             WriteItunesStringAtom(udtaContent, "tvsn", seasonNumber.Value.ToString());
+        }
 
         // tves atom (TV episode number)
         if (episodeNumber.HasValue)
+        {
             WriteItunesStringAtom(udtaContent, "tves", episodeNumber.Value.ToString());
+        }
 
         byte[] udtaData = udtaContent.ToArray();
 

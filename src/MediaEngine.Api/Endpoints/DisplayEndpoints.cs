@@ -1,12 +1,12 @@
 using System.Security.Claims;
-using MediaEngine.Contracts.Authentication;
-using MediaEngine.Contracts.Display;
-using MediaEngine.Contracts.Collections;
-using MediaEngine.Contracts.Paging;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Authentication;
+using MediaEngine.Contracts.Collections;
+using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Paging;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -15,8 +15,7 @@ public static class DisplayEndpoints
     public static IEndpointRouteBuilder MapDisplayEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v1/display")
-            .WithTags("Display")
-            .CacheOutput("display-read");
+            .WithTags("Display");
 
         group.MapGet("/home", async (bool? includeCatalog, ClaimsPrincipal user, DisplayComposerService display, CancellationToken ct) =>
             Results.Ok(await display.BuildHomeAsync(includeCatalog ?? true, ProfileId(user), ct)))

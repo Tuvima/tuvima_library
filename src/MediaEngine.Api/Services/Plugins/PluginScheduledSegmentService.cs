@@ -1,5 +1,5 @@
-using MediaEngine.Domain.Contracts;
 using MediaEngine.Contracts.Plugins;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
@@ -64,7 +64,9 @@ public sealed class PluginScheduledSegmentService : BackgroundService
             .ToList();
 
         if (enabledSegmentPlugins.Count == 0)
+        {
             return [];
+        }
 
         using var scope = _scopeFactory.CreateScope();
         var assets = await scope.ServiceProvider
@@ -124,16 +126,23 @@ public sealed class PluginScheduledSegmentService : BackgroundService
                 if (tracker is not null && operation is not null)
                 {
                     if (written > 0)
+                    {
                         await tracker.MarkSucceededAsync(operation.Id, $"Detected {written} playback segment(s) across {scanned} asset(s).", new { scanned, written }, ct).ConfigureAwait(false);
+                    }
                     else
+                    {
                         await tracker.MarkNoResultAsync(operation.Id, "No playback segments detected.", new { scanned, written }, ct).ConfigureAwait(false);
+                    }
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _jobs.Fail(job.Id, ex.Message, scanned, written);
                 if (tracker is not null && operation is not null)
+                {
                     await tracker.MarkFailedAsync(operation.Id, ex, terminal: false, ct).ConfigureAwait(false);
+                }
+
                 _logger.LogWarning(ex, "Scheduled plugin segment detection failed for {PluginId}", plugin.Manifest.Id);
             }
 
@@ -146,7 +155,9 @@ public sealed class PluginScheduledSegmentService : BackgroundService
     private static int ReadInt(IReadOnlyDictionary<string, System.Text.Json.JsonElement> settings, string key, int fallback)
     {
         if (!settings.TryGetValue(key, out var value))
+        {
             return fallback;
+        }
 
         return value.ValueKind switch
         {

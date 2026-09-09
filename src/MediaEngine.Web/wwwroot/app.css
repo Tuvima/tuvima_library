@@ -145,7 +145,10 @@ body {
     pointer-events: auto !important;
 }
 
-.mud-overlay-drawer,
+.mud-overlay-drawer {
+    z-index: calc(var(--app-z-drawer) - 1) !important;
+}
+
 .mud-drawer {
     z-index: var(--app-z-drawer) !important;
 }
@@ -2187,7 +2190,7 @@ code,
     --app-tab-text-active: var(--tl-accent-primary);
     --app-z-dropdown: var(--tl-z-dropdown);
     --app-z-sticky: var(--tl-z-sticky);
-    --app-z-drawer: var(--tl-z-sticky);
+    --app-z-drawer: calc(var(--tl-z-sticky) + 2);
     --app-z-modal: var(--tl-z-modal);
     --app-z-modal-backdrop: calc(var(--tl-z-modal) - 1);
     --app-z-context-menu: var(--tl-z-dropdown);

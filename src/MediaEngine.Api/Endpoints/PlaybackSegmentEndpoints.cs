@@ -2,6 +2,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -23,7 +24,8 @@ internal static class PlaybackSegmentEndpoints
         })
         .WithName("GetPlaybackSegments")
         .Produces<IReadOnlyList<PlaybackSegmentDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireClientScope(ApplicationPermissionIds.PlaybackRead.Value)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.PlaybackRead);
 
         group.MapPost("/{assetId:guid}/segments/detect", async (
             Guid assetId,
@@ -36,7 +38,8 @@ internal static class PlaybackSegmentEndpoints
         })
         .WithName("DetectPlaybackSegments")
         .Produces<IReadOnlyList<PlaybackSegmentDto>>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataEnrichmentRun)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.MetadataEnrichmentRun);
 
         group.MapPut("/{assetId:guid}/segments/{segmentId:guid}", async (
             Guid assetId,
@@ -47,7 +50,9 @@ internal static class PlaybackSegmentEndpoints
         {
             var existing = await segments.FindByIdAsync(segmentId, ct);
             if (existing is null || existing.AssetId != assetId)
+            {
                 return ApiErrors.NotFound($"Segment '{segmentId}' not found.");
+            }
 
             existing.Kind = request.Kind ?? existing.Kind;
             existing.StartSeconds = request.StartSeconds ?? existing.StartSeconds;
@@ -61,7 +66,8 @@ internal static class PlaybackSegmentEndpoints
         })
         .WithName("UpdatePlaybackSegment")
         .Produces<PlaybackSegmentDto>(StatusCodes.Status200OK)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PlaybackWrite)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.PlaybackWrite);
 
         group.MapDelete("/{assetId:guid}/segments/{segmentId:guid}", async (
             Guid assetId,
@@ -71,7 +77,9 @@ internal static class PlaybackSegmentEndpoints
         {
             var existing = await segments.FindByIdAsync(segmentId, ct);
             if (existing is null || existing.AssetId != assetId)
+            {
                 return ApiErrors.NotFound($"Segment '{segmentId}' not found.");
+            }
 
             existing.ReviewStatus = "hidden";
             await segments.UpdateAsync(existing, ct);
@@ -79,7 +87,8 @@ internal static class PlaybackSegmentEndpoints
         })
         .WithName("HidePlaybackSegment")
         .Produces(StatusCodes.Status204NoContent)
-        .RequireAdmin();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.PlaybackWrite)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.PlaybackWrite);
 
         return group;
     }

@@ -25,7 +25,12 @@ public static class TuvimaPlaybackServiceCollectionExtensions
         services.AddSingleton<AudiobookBookmarkRepository>();
         services.AddSingleton<AudiobookChapterTitleOverrideRepository>();
         services.AddSingleton<AudiobookChapterNamingService>();
+        services.AddSingleton<IPlaybackTelemetryRepository, PlaybackTelemetryRepository>();
+        services.AddSingleton<PlaybackTelemetryLifecycleService>();
+        services.AddScoped<PlaybackTelemetryReadService>();
+        services.AddHostedService<PlaybackTelemetryMaintenanceService>();
         services.AddSingleton<PlayerService>();
+        services.AddSingleton<MediaEngine.Api.Security.PlayerCatalogueScope>();
         services.AddSingleton<IUserPlaybackSettingsService, UserPlaybackSettingsService>();
         services.AddSingleton<IVideoMetadataExtractor, FFmpegVideoMetadataExtractor>();
         services.AddSingleton<IEpubContentService, EpubContentService>();

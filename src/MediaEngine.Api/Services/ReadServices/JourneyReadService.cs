@@ -21,24 +21,40 @@ public sealed class JourneyReadService : IJourneyReadService
         Guid userId,
         Guid? collectionId,
         int limit,
-        CancellationToken ct)
+        CancellationToken ct) => GetAuthorizedJourneyAsync(userId, collectionId, null, limit, ct);
+
+    public Task<IReadOnlyList<JourneyItemResponse>> GetAuthorizedJourneyAsync(
+        Guid userId, Guid? collectionId, IReadOnlySet<Guid>? authorizedAssetIds, int limit, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = collectionId is null
-            ? BaseSelect + "\nORDER BY us.last_accessed DESC\nLIMIT @limit;"
-            : BaseSelect + "\n  AND w.collection_id = @collectionId\nORDER BY us.last_accessed DESC\nLIMIT @limit;";
+        var assetPredicate = "";
+        if (authorizedAssetIds is not null)
+        {
+            var parameters = authorizedAssetIds.Select((id, index) => (Name: $"@asset{index}", Id: id)).ToList();
+            assetPredicate = parameters.Count == 0 ? " AND 0=1" : $" AND us.asset_id IN ({string.Join(',', parameters.Select(p => p.Name))})";
+            foreach (var parameter in parameters)
+            {
+                cmd.Parameters.Add(parameter.Name, SqliteType.Blob).Value = GuidSql.ToBlob(parameter.Id);
+            }
+        }
+        cmd.CommandText = BaseSelect + assetPredicate + (collectionId is null ? "" : " AND w.collection_id = @collectionId")
+            + "\nORDER BY us.last_accessed DESC\nLIMIT @limit;";
 
         cmd.Parameters.Add("@userId", SqliteType.Blob).Value = GuidSql.ToBlob(userId);
         cmd.Parameters.AddWithValue("@limit", limit);
         if (collectionId is not null)
+        {
             cmd.Parameters.Add("@collectionId", SqliteType.Blob).Value = GuidSql.ToBlob(collectionId.Value);
+        }
 
         using var reader = cmd.ExecuteReader();
         var results = new List<JourneyItemResponse>();
         while (reader.Read())
+        {
             results.Add(Map(reader));
+        }
 
         return Task.FromResult<IReadOnlyList<JourneyItemResponse>>(results);
     }
@@ -84,7 +100,9 @@ public sealed class JourneyReadService : IJourneyReadService
     private static int? ReadNullableInt(IDataRecord reader, int ordinal)
     {
         if (reader.IsDBNull(ordinal))
+        {
             return null;
+        }
 
         var raw = reader.GetValue(ordinal);
         return raw switch

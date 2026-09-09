@@ -21,8 +21,8 @@ public sealed class AudiobookTitleCleaningTests
     [Theory]
     [InlineData("Project Hail Mary (Unabridged)", "Project Hail Mary")]
     [InlineData("Project Hail Mary [Unabridged]", "Project Hail Mary")]
-    [InlineData("Project Hail Mary (Abridged)",   "Project Hail Mary")]
-    [InlineData("Project Hail Mary (Audiobook)",  "Project Hail Mary")]
+    [InlineData("Project Hail Mary (Abridged)", "Project Hail Mary")]
+    [InlineData("Project Hail Mary (Audiobook)", "Project Hail Mary")]
     public void CleanAudiobookTitle_RemovesParenthesizedAudiobookSuffixes(string input, string expected)
     {
         Assert.Equal(expected, Clean(input));
@@ -31,11 +31,11 @@ public sealed class AudiobookTitleCleaningTests
     // ── Subtitle patterns with separator ─────────────────────────────────────
 
     [Theory]
-    [InlineData("Dune: A Novel",                  "Dune")]
-    [InlineData("Dune - A Novel",                  "Dune")]
-    [InlineData("The Da Vinci Code: A Thriller",   "The Da Vinci Code")]
-    [InlineData("Educated: A Memoir",              "Educated")]
-    [InlineData("Becoming - A Memoir",             "Becoming")]
+    [InlineData("Dune: A Novel", "Dune")]
+    [InlineData("Dune - A Novel", "Dune")]
+    [InlineData("The Da Vinci Code: A Thriller", "The Da Vinci Code")]
+    [InlineData("Educated: A Memoir", "Educated")]
+    [InlineData("Becoming - A Memoir", "Becoming")]
     public void CleanAudiobookTitle_RemovesSubtitleSuffixesWithSeparator(string input, string expected)
     {
         Assert.Equal(expected, Clean(input));
@@ -45,7 +45,7 @@ public sealed class AudiobookTitleCleaningTests
 
     [Theory]
     [InlineData("Where the Crawdads Sing A Novel", "Where the Crawdads Sing")]
-    [InlineData("Homegoing A Novel",               "Homegoing")]
+    [InlineData("Homegoing A Novel", "Homegoing")]
     public void CleanAudiobookTitle_RemovesTrailingNovelMemoirWithoutSeparator(string input, string expected)
     {
         Assert.Equal(expected, Clean(input));

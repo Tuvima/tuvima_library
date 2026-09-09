@@ -14,10 +14,10 @@ namespace MediaEngine.Api.Services.Display;
 /// </summary>
 public sealed class ContributorShelfReadService
 {
-    private readonly DisplayWorkProjectionReader _works;
+    private readonly IDisplayProjectionReadService _works;
     private readonly IDatabaseConnection _db;
 
-    public ContributorShelfReadService(DisplayWorkProjectionReader works, IDatabaseConnection db)
+    public ContributorShelfReadService(IDisplayProjectionReadService works, IDatabaseConnection db)
     {
         _works = works;
         _db = db;
@@ -25,9 +25,11 @@ public sealed class ContributorShelfReadService
 
     public async Task<IReadOnlyList<ContributorShelfDto>> LoadAsync(CancellationToken ct)
     {
-        var works = await _works.LoadAsync(ct);
+        var works = await _works.LoadWorksAsync(ct);
         if (works.Count == 0)
+        {
             return [];
+        }
 
         var workByAsset = works.ToDictionary(work => work.AssetId);
         using var conn = _db.CreateConnection();
@@ -105,7 +107,9 @@ public sealed class ContributorShelfReadService
     {
         var definition = ShelfDefinition(work.MediaType, credit.Role);
         if (definition is null)
+        {
             return null;
+        }
 
         var isMusic = work.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase);
         return new ContributorShelfCandidate(
@@ -138,7 +142,9 @@ public sealed class ContributorShelfReadService
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
         if (items.Count < 2)
+        {
             return null;
+        }
 
         var identity = group
             .OrderByDescending(IdentityQuality)
@@ -192,34 +198,58 @@ public sealed class ContributorShelfReadService
         IReadOnlyList<string> knownQids)
     {
         if (knownQids.Count == 1)
+        {
             return $"QID:{knownQids[0].ToUpperInvariant()}";
+        }
+
         if (!string.IsNullOrWhiteSpace(candidate.WikidataQid))
+        {
             return $"QID:{candidate.WikidataQid.Trim().ToUpperInvariant()}";
+        }
+
         return $"NAME:{NormalizeIdentityName(candidate.PersonName)}";
     }
 
     private static (string Role, string Lane, string ShelfType)? ShelfDefinition(string mediaType, string role)
     {
         if (mediaType.Contains("tv", StringComparison.OrdinalIgnoreCase))
+        {
             return null;
+        }
+
         if (mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase)
             && role.Equals("Director", StringComparison.OrdinalIgnoreCase))
+        {
             return ("Director", "Watch", "MoviesByDirector");
+        }
+
         if (mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)
             && (role.Equals("Author", StringComparison.OrdinalIgnoreCase)
                 || role.Equals("Screenwriter", StringComparison.OrdinalIgnoreCase)))
+        {
             return (role.Equals("Screenwriter", StringComparison.OrdinalIgnoreCase) ? "Writer" : "Author", "Read", "ComicsByCreator");
+        }
+
         if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)
             && (role.Equals("Author", StringComparison.OrdinalIgnoreCase)
                 || role.Equals("Narrator", StringComparison.OrdinalIgnoreCase)))
+        {
             return (role, "Listen", role.Equals("Narrator", StringComparison.OrdinalIgnoreCase) ? "AudiobooksByNarrator" : "AudiobooksByAuthor");
+        }
+
         if (mediaType.Contains("book", StringComparison.OrdinalIgnoreCase)
             && role.Equals("Author", StringComparison.OrdinalIgnoreCase))
+        {
             return ("Author", "Read", "BooksByAuthor");
+        }
+
         if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
             && (role.Equals("Artist", StringComparison.OrdinalIgnoreCase)
                 || role.Equals("Performer", StringComparison.OrdinalIgnoreCase)))
+        {
             return ("Artist", "Listen", "AlbumsByArtist");
+        }
+
         return null;
     }
 

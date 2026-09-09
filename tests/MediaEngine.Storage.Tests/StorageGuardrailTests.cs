@@ -63,7 +63,9 @@ public sealed class StorageGuardrailTests
         while (dir is not null)
         {
             if (File.Exists(Path.Combine(dir.FullName, "MediaEngine.slnx")))
+            {
                 return dir.FullName;
+            }
 
             dir = dir.Parent;
         }

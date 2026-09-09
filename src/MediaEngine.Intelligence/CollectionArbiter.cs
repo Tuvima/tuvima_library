@@ -1,7 +1,7 @@
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
-using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Intelligence;
 
@@ -38,7 +38,7 @@ namespace MediaEngine.Intelligence;
 /// </summary>
 public sealed class CollectionArbiter : ICollectionArbiter
 {
-    private readonly IIdentityMatcher   _matcher;
+    private readonly IIdentityMatcher _matcher;
     private readonly ITransactionJournal _journal;
 
     public CollectionArbiter(IIdentityMatcher matcher, ITransactionJournal journal)
@@ -72,7 +72,7 @@ public sealed class CollectionArbiter : ICollectionArbiter
         var workCanonical = work.CanonicalValues;
 
         double bestScore = 0.0;
-        Guid   bestCollection   = Guid.Empty;
+        Guid bestCollection = Guid.Empty;
         string bestReason = "No Collection candidates evaluated.";
 
         foreach (var collection in collectionCandidates)
@@ -81,12 +81,18 @@ public sealed class CollectionArbiter : ICollectionArbiter
 
             // ── Circular-link guard ──────────────────────────────────────
             // Skip if the Work already belongs to this Collection — no change needed.
-            if (work.CollectionId == collection.Id) continue;
+            if (work.CollectionId == collection.Id)
+            {
+                continue;
+            }
 
             // ── Score against each Work within the Collection ───────────────────
             foreach (var collectionWork in collection.Works)
             {
-                if (collectionWork.Id == work.Id) continue;   // skip self
+                if (collectionWork.Id == work.Id)
+                {
+                    continue;   // skip self
+                }
 
                 var matchResult = await _matcher.MatchAsync(
                     workCanonical,
@@ -96,8 +102,8 @@ public sealed class CollectionArbiter : ICollectionArbiter
 
                 if (matchResult.Similarity > bestScore)
                 {
-                    bestScore  = matchResult.Similarity;
-                    bestCollection    = collection.Id;
+                    bestScore = matchResult.Similarity;
+                    bestCollection = collection.Id;
                     bestReason = BuildReason(matchResult, collection.Id, configuration);
                 }
             }
@@ -105,23 +111,23 @@ public sealed class CollectionArbiter : ICollectionArbiter
 
         // ── Apply threshold logic ────────────────────────────────────────
         var disposition = DetermineDisposition(bestScore, configuration);
-        var eventType   = DispositionToEventType(disposition);
+        var eventType = DispositionToEventType(disposition);
 
         var decision = new ArbiterDecision
         {
-            WorkId      = work.Id,
-            CollectionId       = disposition == LinkDisposition.Rejected ? Guid.Empty : bestCollection,
-            Score       = bestScore,
+            WorkId = work.Id,
+            CollectionId = disposition == LinkDisposition.Rejected ? Guid.Empty : bestCollection,
+            Score = bestScore,
             Disposition = disposition,
-            Reason      = bestReason,
-            DecidedAt   = DateTimeOffset.UtcNow,
+            Reason = bestReason,
+            DecidedAt = DateTimeOffset.UtcNow,
         };
 
         // ── Write to transaction log (spec: Phase 6 §  Failure Handling) ──
         _journal.Log(
-            eventType:  eventType,
+            eventType: eventType,
             entityType: "Work",
-            entityId:   work.Id);
+            entityId: work.Id);
 
         return decision;
     }
@@ -132,16 +138,24 @@ public sealed class CollectionArbiter : ICollectionArbiter
 
     private static LinkDisposition DetermineDisposition(double score, ScoringConfiguration config)
     {
-        if (score >= config.AutoLinkThreshold) return LinkDisposition.AutoLinked;
-        if (score >= config.ConflictThreshold) return LinkDisposition.NeedsReview;
+        if (score >= config.AutoLinkThreshold)
+        {
+            return LinkDisposition.AutoLinked;
+        }
+
+        if (score >= config.ConflictThreshold)
+        {
+            return LinkDisposition.NeedsReview;
+        }
+
         return LinkDisposition.Rejected;
     }
 
     private static string DispositionToEventType(LinkDisposition disposition) => disposition switch
     {
-        LinkDisposition.AutoLinked  => "WORK_AUTO_LINKED",
+        LinkDisposition.AutoLinked => "WORK_AUTO_LINKED",
         LinkDisposition.NeedsReview => "WORK_NEEDS_REVIEW",
-        _                           => "WORK_LINK_REJECTED",
+        _ => "WORK_LINK_REJECTED",
     };
 
     private static string BuildReason(
@@ -158,9 +172,9 @@ public sealed class CollectionArbiter : ICollectionArbiter
 
         string disposition = match.Disposition switch
         {
-            LinkDisposition.AutoLinked  => $"Auto-linked: score {match.Similarity:F3} ≥ {config.AutoLinkThreshold}",
+            LinkDisposition.AutoLinked => $"Auto-linked: score {match.Similarity:F3} ≥ {config.AutoLinkThreshold}",
             LinkDisposition.NeedsReview => $"Needs review: score {match.Similarity:F3} ∈ [{config.ConflictThreshold}, {config.AutoLinkThreshold})",
-            _                           => $"Rejected: score {match.Similarity:F3} < {config.ConflictThreshold}",
+            _ => $"Rejected: score {match.Similarity:F3} < {config.ConflictThreshold}",
         };
         return $"{disposition} → Collection {collectionHex}.";
     }

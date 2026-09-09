@@ -195,15 +195,21 @@ public sealed class LanguagePreferences
     public bool IsLanguageAccepted(string? languageCode)
     {
         if (AcceptAny || string.IsNullOrWhiteSpace(languageCode))
+        {
             return true;
+        }
 
         var normalized = languageCode.Split('-', '_')[0].ToLowerInvariant().Trim();
         if (string.IsNullOrEmpty(normalized))
+        {
             return true;
+        }
 
         var metaNorm = Metadata.Split('-', '_')[0].ToLowerInvariant().Trim();
         if (string.Equals(normalized, metaNorm, StringComparison.OrdinalIgnoreCase))
+        {
             return true;
+        }
 
         return Additional.Any(a =>
             string.Equals(a.Split('-', '_')[0].ToLowerInvariant().Trim(), normalized, StringComparison.OrdinalIgnoreCase));

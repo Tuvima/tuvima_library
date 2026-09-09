@@ -264,16 +264,24 @@ public sealed record CollectionMediaCounts(
         get
         {
             if (IsCrossMedia)
+            {
                 return "CrossMedia";
+            }
 
             if (WatchCount > 0)
+            {
                 return "Watch";
+            }
 
             if (ListenCount > 0)
+            {
                 return "Listen";
+            }
 
             if (ReadCount > 0)
+            {
                 return "Read";
+            }
 
             return "CrossMedia";
         }

@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -8,11 +7,12 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
 
@@ -112,24 +112,24 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         ArgumentNullException.ThrowIfNull(assetPathService);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _providers            = providers.ToList();
-        _claimRepo            = claimRepo;
-        _canonicalRepo        = canonicalRepo;
-        _personRepo           = personRepo;
-        _fictionalEntityRepo  = fictionalEntityRepo;
-        _relPopService        = relPopService;
-        _queue                = queue;
-        _scoringEngine        = scoringEngine;
-        _eventPublisher       = eventPublisher;
-        _configLoader         = configLoader;
-        _httpFactory          = httpFactory;
-        _imageCache           = imageCache;
+        _providers = providers.ToList();
+        _claimRepo = claimRepo;
+        _canonicalRepo = canonicalRepo;
+        _personRepo = personRepo;
+        _fictionalEntityRepo = fictionalEntityRepo;
+        _relPopService = relPopService;
+        _queue = queue;
+        _scoringEngine = scoringEngine;
+        _eventPublisher = eventPublisher;
+        _configLoader = configLoader;
+        _httpFactory = httpFactory;
+        _imageCache = imageCache;
         _imageDownloadCoordinator = imageDownloadCoordinator ?? ImageDownloadCoordinator.Shared;
-        _activityRepo         = activityRepo;
-        _qidLabelRepo         = qidLabelRepo;
-        _assetPathService     = assetPathService;
-        _timelineRepo         = timelineRepo;
-        _logger               = logger;
+        _activityRepo = activityRepo;
+        _qidLabelRepo = qidLabelRepo;
+        _assetPathService = assetPathService;
+        _timelineRepo = timelineRepo;
+        _logger = logger;
 
     }
 
@@ -182,12 +182,14 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
     private async Task ProcessOneAsync(HarvestRequest request, CancellationToken ct)
     {
         var allProviderConfigs = _configLoader.LoadAllProviders();
-        var scoring            = _configLoader.LoadScoring();
+        var scoring = _configLoader.LoadScoring();
 
         // Build per-provider endpoint map (avoids key collisions across providers).
         var providerEndpoints = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
         foreach (var pc in allProviderConfigs)
+        {
             providerEndpoints[pc.Name] = new Dictionary<string, string>(pc.Endpoints, StringComparer.OrdinalIgnoreCase);
+        }
 
         var enabledProviders = ProviderExecutionFilter.EnabledProviders(_providers, allProviderConfigs);
 
@@ -215,7 +217,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         foreach (var provider in enabledProviders)
         {
             if (!provider.CanHandle(request.MediaType) || !provider.CanHandle(request.EntityType))
+            {
                 continue;
+            }
 
             var baseUrl = ResolveBaseUrl(provider, providerEndpoints);
             var lookupRequest = BuildLookupRequest(request, provider, baseUrl, sparqlBaseUrl);
@@ -238,19 +242,21 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             }
 
             if (providerClaims.Count == 0)
+            {
                 continue;
+            }
 
             // Wrap provider claims as domain MetadataClaim rows.
             var domainClaims = providerClaims
                 .Select(pc => new MetadataClaim
                 {
-                    Id          = Guid.NewGuid(),
-                    EntityId    = request.EntityId,
-                    ProviderId  = provider.ProviderId,
-                    ClaimKey    = pc.Key,
-                    ClaimValue  = pc.Value,
-                    Confidence  = pc.Confidence,
-                    ClaimedAt   = DateTimeOffset.UtcNow,
+                    Id = Guid.NewGuid(),
+                    EntityId = request.EntityId,
+                    ProviderId = provider.ProviderId,
+                    ClaimKey = pc.Key,
+                    ClaimValue = pc.Value,
+                    Confidence = pc.Confidence,
+                    ClaimedAt = DateTimeOffset.UtcNow,
                     IsUserLocked = false,
                 })
                 .ToList();
@@ -262,20 +268,20 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             var allClaims = await _claimRepo.GetByEntityAsync(request.EntityId, ct).ConfigureAwait(false);
             var scoringConfig = new ScoringConfiguration
             {
-                AutoLinkThreshold    = scoring.AutoLinkThreshold,
-                ConflictThreshold    = scoring.ConflictThreshold,
-                ConflictEpsilon      = scoring.ConflictEpsilon,
-                StaleClaimDecayDays  = scoring.StaleClaimDecayDays,
+                AutoLinkThreshold = scoring.AutoLinkThreshold,
+                ConflictThreshold = scoring.ConflictThreshold,
+                ConflictEpsilon = scoring.ConflictEpsilon,
+                StaleClaimDecayDays = scoring.StaleClaimDecayDays,
                 StaleClaimDecayFactor = scoring.StaleClaimDecayFactor,
             };
             var scoringContext = new ScoringContext
             {
-                EntityId           = request.EntityId,
-                Claims             = allClaims,
-                ProviderWeights    = providerWeights,
+                EntityId = request.EntityId,
+                Claims = allClaims,
+                ProviderWeights = providerWeights,
                 ProviderFieldWeights = providerFieldWeights,
-                Configuration      = scoringConfig,
-                DetectedMediaType  = request.MediaType,
+                Configuration = scoringConfig,
+                DetectedMediaType = request.MediaType,
             };
 
             var scored = await _scoringEngine.ScoreEntityAsync(scoringContext, ct).ConfigureAwait(false);
@@ -286,9 +292,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                 .Where(f => !string.IsNullOrEmpty(f.WinningValue))
                 .Select(f => new CanonicalValue
                 {
-                    EntityId     = request.EntityId,
-                    Key          = f.Key,
-                    Value        = f.WinningValue!,
+                    EntityId = request.EntityId,
+                    Key = f.Key,
+                    Value = f.WinningValue!,
                     LastScoredAt = scored.ScoredAt,
                     IsConflicted = f.IsConflicted,
                     WinningProviderId = f.WinningProviderId,
@@ -340,7 +346,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
     {
         // Only Wikidata produces fictional entity enrichment claims.
         if (!string.Equals(provider.Name, "wikidata", StringComparison.OrdinalIgnoreCase))
+        {
             return;
+        }
 
         try
         {
@@ -400,9 +408,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             var entitySubType = request.Hints.GetValueOrDefault("entity_sub_type") ?? "Character";
             var actionType = entitySubType switch
             {
-                "Location"     => SystemActionType.LocationEnriched,
+                "Location" => SystemActionType.LocationEnriched,
                 "Organization" => SystemActionType.OrganizationEnriched,
-                _              => SystemActionType.CharacterEnriched,
+                _ => SystemActionType.CharacterEnriched,
             };
 
             // Log activity.
@@ -426,9 +434,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             await _activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = actionType,
-                EntityId   = request.EntityId,
+                EntityId = request.EntityId,
                 EntityType = entitySubType,
-                Detail     = $"Fictional entity \"{label}\" enriched from Wikidata",
+                Detail = $"Fictional entity \"{label}\" enriched from Wikidata",
                 IngestionRunId = request.IngestionRunId,
             }, ct).ConfigureAwait(false);
 
@@ -460,14 +468,16 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
     {
         var personSw = System.Diagnostics.Stopwatch.StartNew();
 
-        var qid         = claims.FirstOrDefault(c => c.Key == BridgeIdKeys.WikidataQid)?.Value;
+        var qid = claims.FirstOrDefault(c => c.Key == BridgeIdKeys.WikidataQid)?.Value;
         var headshotUrl = claims.FirstOrDefault(c => c.Key == "headshot_url")?.Value;
-        var biography   = claims.FirstOrDefault(c => c.Key == "biography")?.Value;
+        var biography = claims.FirstOrDefault(c => c.Key == "biography")?.Value;
         var shortDescription = claims.FirstOrDefault(c => c.Key == MetadataFieldConstants.ShortDescription)?.Value;
-        var name        = claims.FirstOrDefault(c => c.Key == "name")?.Value;
+        var name = claims.FirstOrDefault(c => c.Key == "name")?.Value;
 
         if (qid is null && headshotUrl is null && biography is null && shortDescription is null && name is null)
+        {
             return;
+        }
 
         name = await ResolvePersonDisplayNameAsync(
             qid,
@@ -569,9 +579,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                         await _activityRepo.LogAsync(new SystemActivityEntry
                         {
                             ActionType = SystemActionType.PersonMerged,
-                            EntityId   = canonicalPerson.Id,
+                            EntityId = canonicalPerson.Id,
                             EntityType = "Person",
-                            Detail     = $"Merged duplicate person \"{duplicatePerson?.Name ?? "?"}\" into canonical \"{canonicalPerson.Name}\" ({qid})",
+                            Detail = $"Merged duplicate person \"{duplicatePerson?.Name ?? "?"}\" into canonical \"{canonicalPerson.Name}\" ({qid})",
                             IngestionRunId = request.IngestionRunId,
                         }, ct).ConfigureAwait(false);
 
@@ -609,11 +619,11 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         }
 
         // Persist biographical fields from Wikidata claims.
-        var dateOfBirth  = claims.FirstOrDefault(c => c.Key == "date_of_birth")?.Value;
-        var dateOfDeath  = claims.FirstOrDefault(c => c.Key == "date_of_death")?.Value;
+        var dateOfBirth = claims.FirstOrDefault(c => c.Key == "date_of_birth")?.Value;
+        var dateOfDeath = claims.FirstOrDefault(c => c.Key == "date_of_death")?.Value;
         var placeOfBirth = claims.FirstOrDefault(c => c.Key == "place_of_birth")?.Value;
         var placeOfDeath = claims.FirstOrDefault(c => c.Key == "place_of_death")?.Value;
-        var nationality  = claims.FirstOrDefault(c => c.Key == "nationality")?.Value
+        var nationality = claims.FirstOrDefault(c => c.Key == "nationality")?.Value
             ?? claims.FirstOrDefault(c => c.Key == "country_of_citizenship")?.Value;
         // isPseudonym was computed from claims before the dedup block above.
 
@@ -628,11 +638,11 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
 
         // Social media and contact fields from Wikidata.
         var occupation = NormalizeMultiValue(claims.FirstOrDefault(c => c.Key == "occupation")?.Value);
-        var instagram  = claims.FirstOrDefault(c => c.Key == "instagram")?.Value;
-        var twitter    = claims.FirstOrDefault(c => c.Key == "twitter")?.Value;
-        var tiktok     = claims.FirstOrDefault(c => c.Key == "tiktok")?.Value;
-        var mastodon   = claims.FirstOrDefault(c => c.Key == "mastodon")?.Value;
-        var website    = claims.FirstOrDefault(c => c.Key == "website")?.Value;
+        var instagram = claims.FirstOrDefault(c => c.Key == "instagram")?.Value;
+        var twitter = claims.FirstOrDefault(c => c.Key == "twitter")?.Value;
+        var tiktok = claims.FirstOrDefault(c => c.Key == "tiktok")?.Value;
+        var mastodon = claims.FirstOrDefault(c => c.Key == "mastodon")?.Value;
+        var website = claims.FirstOrDefault(c => c.Key == "website")?.Value;
 
         if (occupation is not null || instagram is not null || twitter is not null ||
             tiktok is not null || mastodon is not null || website is not null)
@@ -705,12 +715,12 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
 
             await _activityRepo.LogAsync(new SystemActivityEntry
             {
-                ActionType  = SystemActionType.PersonHydrated,
-                EntityId    = request.EntityId,
-                EntityType  = "Person",
-                CollectionName     = personName,
+                ActionType = SystemActionType.PersonHydrated,
+                EntityId = request.EntityId,
+                EntityType = "Person",
+                CollectionName = personName,
                 ChangesJson = changesJson,
-                Detail      = $"Person \"{personName}\" enriched from Wikidata",
+                Detail = $"Person \"{personName}\" enriched from Wikidata",
                 IngestionRunId = request.IngestionRunId,
             }, ct).ConfigureAwait(false);
         }
@@ -731,13 +741,13 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             {
                 await _timelineRepo.InsertEventAsync(new EntityEvent
                 {
-                    EntityId    = request.EntityId,
-                    EntityType  = "Person",
-                    EventType   = "person_enriched",
-                    Stage       = null,
-                    Trigger     = "person_enrichment",
+                    EntityId = request.EntityId,
+                    EntityType = "Person",
+                    EventType = "person_enriched",
+                    Stage = null,
+                    Trigger = "person_enrichment",
                     ResolvedQid = qid,
-                    Detail      = $"Person \"{personName}\" enriched from Wikidata",
+                    Detail = $"Person \"{personName}\" enriched from Wikidata",
                 }, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -901,7 +911,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                     }
 
                     if (!HasCompletePersonProfile(member))
+                    {
                         hydrationRequests.Add(BuildPersonHydrationRequest(member.Id, reference));
+                    }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -916,7 +928,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             // can run on another consumer. This avoids a child write racing the
             // parent loop and leaving only the first band member linked.
             foreach (var hydrationRequest in hydrationRequests)
+            {
                 await EnqueueAsync(hydrationRequest, ct).ConfigureAwait(false);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -970,17 +984,23 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         CancellationToken ct)
     {
         if (isGroup)
+        {
             return;
+        }
 
         var groupReferences = ParsePersonQidReferences(claims, "member_of_qid");
         if (groupReferences.Count == 0)
+        {
             return;
+        }
 
         var knownGroups = await _personRepo.FindByQidsAsync(
             groupReferences.Select(reference => reference.Qid), ct).ConfigureAwait(false);
 
         foreach (var group in knownGroups.Where(person => person.IsGroup))
+        {
             await _personRepo.LinkGroupMemberAsync(group.Id, memberId, ct).ConfigureAwait(false);
+        }
     }
 
     private static IReadOnlyList<PersonQidReference> ParsePersonQidReferences(
@@ -1018,9 +1038,13 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                 existing.Id, missingQid);
 
             if (isMissingPersonPseudonym)
+            {
                 await _personRepo.LinkAliasAsync(existing.Id, existingPersonId, ct).ConfigureAwait(false);
+            }
             else
+            {
                 await _personRepo.LinkAliasAsync(existingPersonId, existing.Id, ct).ConfigureAwait(false);
+            }
 
             return;
         }
@@ -1045,7 +1069,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         };
 
         await _personRepo.CreateAsync(stub, ct).ConfigureAwait(false);
-        
+
         if (isMissingPersonPseudonym)
         {
             // The missing person is a pen name for the existing real person
@@ -1056,7 +1080,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
             // The missing person is a real person behind the existing pen name
             await _personRepo.LinkAliasAsync(existingPersonId, stubId, ct).ConfigureAwait(false);
         }
-        
+
         // Enqueue the stub for hydration
         await EnqueueAsync(new HarvestRequest
         {
@@ -1089,7 +1113,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
 
         // Both Name and QID are required to resolve a stable image path.
         if (person is null)
+        {
             return;
+        }
 
         _logger.LogDebug("Person {Name}: headshot URL found at {Url}", person.Name, headshotUrl);
 
@@ -1191,10 +1217,14 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
     {
         var resolved = ResolveBestPersonName(claimName, hintName);
         if (!string.IsNullOrWhiteSpace(resolved))
+        {
             return resolved;
+        }
 
         if (string.IsNullOrWhiteSpace(qid))
+        {
             return null;
+        }
 
         try
         {
@@ -1213,11 +1243,15 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         foreach (var candidate in candidates)
         {
             if (string.IsNullOrWhiteSpace(candidate))
+            {
                 continue;
+            }
 
             var trimmed = candidate.Trim();
             if (!IsPlaceholderPersonName(trimmed))
+            {
                 return trimmed;
+            }
         }
 
         return null;
@@ -1226,10 +1260,14 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
     internal static bool IsPlaceholderPersonName(string value)
     {
         if (value.StartsWith("Name pending (", StringComparison.OrdinalIgnoreCase))
+        {
             return true;
+        }
 
         if (value.StartsWith("Unknown Person (", StringComparison.OrdinalIgnoreCase))
+        {
             return true;
+        }
 
         return value.Length > 1
             && value[0] is 'Q'
@@ -1265,11 +1303,19 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         if (providerEndpoints.TryGetValue(provider.Name, out var endpoints))
         {
             if (endpoints.TryGetValue(provider.Name, out var url))
+            {
                 return url.TrimEnd('/');
+            }
+
             if (endpoints.TryGetValue("api", out var apiUrl))
+            {
                 return apiUrl.TrimEnd('/');
+            }
+
             if (endpoints.Count > 0)
+            {
                 return endpoints.Values.First().TrimEnd('/');
+            }
         }
         return string.Empty;
     }
@@ -1286,34 +1332,34 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         string baseUrl,
         string? sparqlBaseUrl = null)
     {
-        var h       = request.Hints;
-        var core    = _configLoader.LoadCore();
-        var lang    = string.IsNullOrWhiteSpace(core.Language.Metadata) ? "en" : core.Language.Metadata;
-        var country = string.IsNullOrWhiteSpace(core.Country)  ? "us" : core.Country.ToUpperInvariant();
+        var h = request.Hints;
+        var core = _configLoader.LoadCore();
+        var lang = string.IsNullOrWhiteSpace(core.Language.Metadata) ? "en" : core.Language.Metadata;
+        var country = string.IsNullOrWhiteSpace(core.Country) ? "us" : core.Country.ToUpperInvariant();
         return new ProviderLookupRequest
         {
-            EntityId     = request.EntityId,
-            EntityType   = request.EntityType,
-            MediaType    = request.MediaType,
-            Title        = h.GetValueOrDefault("title"),
-            Author       = h.GetValueOrDefault("author"),
-            Year         = h.GetValueOrDefault("year"),
-            Narrator     = h.GetValueOrDefault("narrator"),
-            Asin         = h.GetValueOrDefault(BridgeIdKeys.Asin),
-            Isbn         = NormalizeIsbnHint(h.GetValueOrDefault(BridgeIdKeys.Isbn)),
+            EntityId = request.EntityId,
+            EntityType = request.EntityType,
+            MediaType = request.MediaType,
+            Title = h.GetValueOrDefault("title"),
+            Author = h.GetValueOrDefault("author"),
+            Year = h.GetValueOrDefault("year"),
+            Narrator = h.GetValueOrDefault("narrator"),
+            Asin = h.GetValueOrDefault(BridgeIdKeys.Asin),
+            Isbn = NormalizeIsbnHint(h.GetValueOrDefault(BridgeIdKeys.Isbn)),
             AppleBooksId = h.GetValueOrDefault(BridgeIdKeys.AppleBooksId),
-            AudibleId    = h.GetValueOrDefault(BridgeIdKeys.AudibleId),
-            TmdbId       = h.GetValueOrDefault(BridgeIdKeys.TmdbId),
-            ImdbId       = h.GetValueOrDefault(BridgeIdKeys.ImdbId),
-            PersonName   = h.GetValueOrDefault("name"),
-            PersonRole   = h.GetValueOrDefault("role"),
+            AudibleId = h.GetValueOrDefault(BridgeIdKeys.AudibleId),
+            TmdbId = h.GetValueOrDefault(BridgeIdKeys.TmdbId),
+            ImdbId = h.GetValueOrDefault(BridgeIdKeys.ImdbId),
+            PersonName = h.GetValueOrDefault("name"),
+            PersonRole = h.GetValueOrDefault("role"),
             PreResolvedQid = request.PreResolvedQid ?? h.GetValueOrDefault(BridgeIdKeys.WikidataQid),
-            BaseUrl      = baseUrl,
+            BaseUrl = baseUrl,
             SparqlBaseUrl = sparqlBaseUrl,
-            Language     = lang,
-            Country      = country,
+            Language = lang,
+            Country = country,
             HydrationPass = request.Pass,
-            Hints        = h,
+            Hints = h,
         };
     }
 
@@ -1322,7 +1368,11 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
     /// </summary>
     private static string? NormalizeIsbnHint(string? raw)
     {
-        if (string.IsNullOrWhiteSpace(raw)) return null;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return null;
+        }
+
         var digits = new string(raw.Where(char.IsDigit).ToArray());
         return digits.Length is 10 or 13 ? digits : raw?.Trim();
     }

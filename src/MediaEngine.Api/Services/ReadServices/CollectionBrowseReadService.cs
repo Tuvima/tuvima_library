@@ -1,6 +1,5 @@
 using Dapper;
 using MediaEngine.Api.Endpoints;
-using BuiltInBrowseCollectionCatalog = MediaEngine.Api.Models.BuiltInBrowseCollectionCatalog;
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Collections;
@@ -10,6 +9,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
+using BuiltInBrowseCollectionCatalog = MediaEngine.Api.Models.BuiltInBrowseCollectionCatalog;
 
 namespace MediaEngine.Api.Services.ReadServices;
 
@@ -579,7 +579,8 @@ public sealed class CollectionBrowseReadService(
     public async Task<List<ContentGroupDto>> GetSystemViewGroupsAsync(
         string? mediaType,
         string? groupField,
-        CancellationToken ct)
+        CancellationToken ct,
+        IReadOnlySet<Guid>? allowedWorkIds = null)
     {
         var definitions = BuiltInBrowseCollectionCatalog
             .GetSystemViewDefinitions(mediaType, groupField)
@@ -606,7 +607,9 @@ public sealed class CollectionBrowseReadService(
                 collection.SortField,
                 collection.SortDirection.ToStorageValue(),
                 secondarySortField: collection.SecondarySortField,
-                secondarySortDirection: collection.SecondarySortDirection?.ToStorageValue());
+                secondarySortDirection: collection.SecondarySortDirection?.ToStorageValue())
+                .Where(workId => allowedWorkIds is null || allowedWorkIds.Contains(workId))
+                .ToList();
             var primaryMediaType = predicates
                 .FirstOrDefault(predicate => predicate.Field.Equals("media_type", StringComparison.OrdinalIgnoreCase))
                 ?.Value ?? "Unknown";
@@ -635,7 +638,9 @@ public sealed class CollectionBrowseReadService(
                   AND COALESCE(w.is_catalog_only, 0) = 0
                   AND {visibleAssetPredicate}
                 """,
-                cancellationToken: ct)).ConfigureAwait(false)).AsList();
+                cancellationToken: ct)).ConfigureAwait(false))
+                .Where(workId => allowedWorkIds is null || allowedWorkIds.Contains(workId))
+                .ToList();
             var fallbackRows = await QuerySystemViewGroupsAsync(musicWorkIds, groupField!, "Music", ct)
                 .ConfigureAwait(false);
             var fallbackPreviews = await QuerySystemViewPreviewsAsync(musicWorkIds, groupField!, "Music", ct)

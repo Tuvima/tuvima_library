@@ -31,7 +31,9 @@ public static class RetagFailureClassifier
         // TagLib throws ArgumentException with "Not-a-Number" when an MP4
         // contains a NaN duration field — the file is structurally broken.
         if (ex is ArgumentException argEx && argEx.Message.Contains("Not-a-Number", StringComparison.OrdinalIgnoreCase))
+        {
             return Outcome.Corrupt;
+        }
 
         // The OS reports a sharing violation while a player or sync app holds
         // the file open. Transient — try again in the next off-hours window.
@@ -40,14 +42,18 @@ public static class RetagFailureClassifier
             var msg = io.Message ?? string.Empty;
             if (msg.Contains("being used by another process", StringComparison.OrdinalIgnoreCase) ||
                 msg.Contains("locked", StringComparison.OrdinalIgnoreCase))
+            {
                 return Outcome.Locked;
+            }
 
             return Outcome.IoFailed;
         }
 
         // ACL or read-only file. We treat this as a hard failure after retries.
         if (ex is UnauthorizedAccessException)
+        {
             return Outcome.Locked;
+        }
 
         // TagLib generally surfaces structural problems (bad headers, truncated
         // files) as ArgumentException or its own CorruptFileException type. We
@@ -55,7 +61,9 @@ public static class RetagFailureClassifier
         // file, so we match by full type name.
         var typeName = ex.GetType().FullName ?? string.Empty;
         if (typeName.Contains("CorruptFileException", StringComparison.OrdinalIgnoreCase))
+        {
             return Outcome.Corrupt;
+        }
 
         return Outcome.Unknown;
     }

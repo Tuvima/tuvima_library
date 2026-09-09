@@ -1,5 +1,5 @@
-using System.Net;
 using System.Globalization;
+using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -104,7 +104,7 @@ public sealed class DashboardServiceCredentialProviderTests : IDisposable
 
         Assert.DoesNotContain("ConfigureEngineClient(IServiceProvider", program, StringComparison.Ordinal);
         Assert.DoesNotContain(".GetToken()", program, StringComparison.Ordinal);
-        Assert.Contains("AddHttpMessageHandler<DashboardServiceCredentialHandler>()", program, StringComparison.Ordinal);
+        Assert.Contains("AddTransient<DashboardEngineAuthenticationHandler>()", program, StringComparison.Ordinal);
         Assert.Contains("services.GetRequiredService<IActiveProfileAccessor>()));", program, StringComparison.Ordinal);
         Assert.Contains(
             ".AddHttpMessageHandler<DashboardEngineAuthenticationHandler>()\n    .AddHttpMessageHandler<ViewProfileAssertionHandler>()",
@@ -113,7 +113,7 @@ public sealed class DashboardServiceCredentialProviderTests : IDisposable
     }
 
     [Fact]
-    public async Task AuthenticationAndViewSignature_UseOneTrustedCredentialSnapshotDuringRotation()
+    public async Task Authentication_RotatesTrustedCredentialAndStripsObsoleteProfileAssertions()
     {
         var protection = CreateProtectionProvider("keys");
         var provider = CreateProvider(protection, new CountingLogger<DashboardServiceCredentialProvider>());
@@ -143,21 +143,22 @@ public sealed class DashboardServiceCredentialProviderTests : IDisposable
         using var client = new HttpClient(authentication) { BaseAddress = new Uri("http://engine.test") };
         using var request = new HttpRequestMessage(HttpMethod.Get, "/view/scopes");
         request.Headers.TryAddWithoutValidation(DashboardServiceCredentialHandler.ServiceHeader, "caller-token");
+        request.Headers.TryAddWithoutValidation(ViewProfileAssertionHandler.ProfileHeader, profileId.ToString());
+        request.Headers.TryAddWithoutValidation(ViewProfileAssertionHandler.TimestampHeader, "1750000000");
+        request.Headers.TryAddWithoutValidation(ViewProfileAssertionHandler.SignatureHeader, "caller-signature");
 
         using var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("first-token", capture.LastServiceToken);
-        Assert.Equal(
-            ExpectedSignature("first-token", profileId, 1_750_000_000, "GET", "/view/scopes"),
-            capture.LastViewSignature);
+        Assert.Null(capture.LastViewSignature);
+        Assert.False(request.Headers.Contains(ViewProfileAssertionHandler.ProfileHeader));
+        Assert.False(request.Headers.Contains(ViewProfileAssertionHandler.TimestampHeader));
 
         using var nextResponse = await client.GetAsync("/view/scopes");
         Assert.Equal(HttpStatusCode.OK, nextResponse.StatusCode);
         Assert.Equal("rotated-token", capture.LastServiceToken);
-        Assert.Equal(
-            ExpectedSignature("rotated-token", profileId, 1_750_000_000, "GET", "/view/scopes"),
-            capture.LastViewSignature);
+        Assert.Null(capture.LastViewSignature);
     }
 
     [Fact]
@@ -251,23 +252,6 @@ public sealed class DashboardServiceCredentialProviderTests : IDisposable
         }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Repository root not found.");
-    }
-
-    private static string ExpectedSignature(
-        string token,
-        Guid profileId,
-        long timestamp,
-        string method,
-        string target)
-    {
-        var canonical = string.Join(
-            '\n',
-            profileId.ToString("D"),
-            timestamp.ToString(CultureInfo.InvariantCulture),
-            method,
-            target);
-        var digest = HMACSHA256.HashData(Encoding.UTF8.GetBytes(token), Encoding.UTF8.GetBytes(canonical));
-        return Convert.ToBase64String(digest).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     }
 
     private sealed class CapturingHandler : HttpMessageHandler

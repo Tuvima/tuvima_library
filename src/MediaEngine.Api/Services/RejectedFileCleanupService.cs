@@ -25,18 +25,18 @@ namespace MediaEngine.Api.Services;
 /// </summary>
 public sealed class RejectedFileCleanupService : BackgroundService
 {
-    private readonly IDatabaseConnection          _db;
-    private readonly ISystemActivityRepository    _activityRepo;
-    private readonly IConfigurationLoader         _configLoader;
+    private readonly IDatabaseConnection _db;
+    private readonly ISystemActivityRepository _activityRepo;
+    private readonly IConfigurationLoader _configLoader;
     private readonly ILogger<RejectedFileCleanupService> _logger;
 
     /// <summary>Cron expression for the cleanup schedule. Default: 4 AM daily.</summary>
     private const string DefaultSchedule = "0 4 * * *";
 
     public RejectedFileCleanupService(
-        IDatabaseConnection          db,
-        ISystemActivityRepository    activityRepo,
-        IConfigurationLoader         configLoader,
+        IDatabaseConnection db,
+        ISystemActivityRepository activityRepo,
+        IConfigurationLoader configLoader,
         ILogger<RejectedFileCleanupService> logger)
     {
         ArgumentNullException.ThrowIfNull(db);
@@ -44,10 +44,10 @@ public sealed class RejectedFileCleanupService : BackgroundService
         ArgumentNullException.ThrowIfNull(configLoader);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _db           = db;
+        _db = db;
         _activityRepo = activityRepo;
         _configLoader = configLoader;
-        _logger       = logger;
+        _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -77,7 +77,10 @@ public sealed class RejectedFileCleanupService : BackgroundService
             {
                 var maintenanceConfig = _configLoader.LoadMaintenance();
                 cleanupSchedule = maintenanceConfig.Schedules.GetValueOrDefault("rejected_file_cleanup", DefaultSchedule);
-                if (string.IsNullOrWhiteSpace(cleanupSchedule)) cleanupSchedule = DefaultSchedule;
+                if (string.IsNullOrWhiteSpace(cleanupSchedule))
+                {
+                    cleanupSchedule = DefaultSchedule;
+                }
             }
             catch
             {
@@ -157,9 +160,9 @@ public sealed class RejectedFileCleanupService : BackgroundService
             while (reader.Read())
             {
                 expiredAssets.Add((
-                    AssetId:   GuidSql.FromDb(reader.GetValue(0)),
-                    FilePath:  reader.GetString(1),
-                    WorkId:    reader.IsDBNull(2) ? null : GuidSql.FromDb(reader.GetValue(2)),
+                    AssetId: GuidSql.FromDb(reader.GetValue(0)),
+                    FilePath: reader.GetString(1),
+                    WorkId: reader.IsDBNull(2) ? null : GuidSql.FromDb(reader.GetValue(2)),
                     CollectionId: reader.IsDBNull(3) ? null : GuidSql.FromDb(reader.GetValue(3)),
                     WorkTitle: reader.IsDBNull(4) ? null : reader.GetString(4)));
             }
@@ -189,7 +192,9 @@ public sealed class RejectedFileCleanupService : BackgroundService
                 try
                 {
                     if (File.Exists(filePath))
+                    {
                         File.Delete(filePath);
+                    }
                 }
                 catch (IOException ex)
                 {
@@ -268,12 +273,12 @@ public sealed class RejectedFileCleanupService : BackgroundService
                 // 7. Log the expiry.
                 await _activityRepo.LogAsync(new SystemActivityEntry
                 {
-                    OccurredAt  = DateTimeOffset.UtcNow,
-                    ActionType  = SystemActionType.AutoPurge,
-                    CollectionName     = workTitle,
-                    EntityId    = workId ?? Guid.Empty,
-                    EntityType  = "Work",
-                    Detail      = $"Rejected file '{workTitle ?? Path.GetFileName(filePath)}' expired after {retentionDays} days and was permanently deleted.",
+                    OccurredAt = DateTimeOffset.UtcNow,
+                    ActionType = SystemActionType.AutoPurge,
+                    CollectionName = workTitle,
+                    EntityId = workId ?? Guid.Empty,
+                    EntityType = "Work",
+                    Detail = $"Rejected file '{workTitle ?? Path.GetFileName(filePath)}' expired after {retentionDays} days and was permanently deleted.",
                     ChangesJson = $"{{\"asset_id\":\"{assetId}\",\"retention_days\":{retentionDays}}}",
                 }, ct);
 

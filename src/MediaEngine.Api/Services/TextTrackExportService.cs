@@ -1,6 +1,6 @@
-using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
@@ -26,7 +26,9 @@ public sealed class TextTrackExportService(
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(track.LocalPath) || !File.Exists(track.LocalPath))
+        {
             return Task.FromResult<string?>(null);
+        }
 
         var resolvedSource = libraryFolderResolver.ResolveSourceForPath(asset.FilePathRoot);
         if (resolvedSource is null)

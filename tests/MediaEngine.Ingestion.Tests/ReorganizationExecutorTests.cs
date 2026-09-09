@@ -36,7 +36,10 @@ public sealed class ReorganizationExecutorTests
         }
         finally
         {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
         }
     }
 
@@ -70,7 +73,10 @@ public sealed class ReorganizationExecutorTests
         }
         finally
         {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
         }
     }
 
@@ -97,7 +103,10 @@ public sealed class ReorganizationExecutorTests
         }
         finally
         {
-            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
         }
     }
 
@@ -175,13 +184,13 @@ public sealed class ReorganizationExecutorTests
         string current,
         string proposed,
         long size) => new()
-    {
-        SourceId = source.SourceId,
-        DestinationSourceId = destination.SourceId,
-        CurrentPath = current,
-        ProposedPath = proposed,
-        SizeBytes = size,
-    };
+        {
+            SourceId = source.SourceId,
+            DestinationSourceId = destination.SourceId,
+            CurrentPath = current,
+            ProposedPath = proposed,
+            SizeBytes = size,
+        };
 
     private static ReorganizationExecutor Executor(IReorganizationFileSystem? fileSystem = null)
         => new(new SourceMutationPolicyGate(), fileSystem ?? new SystemReorganizationFileSystem());
@@ -210,8 +219,15 @@ public sealed class ReorganizationExecutorTests
         public void MoveFile(string currentPath, string proposedPath)
         {
             if (string.Equals(currentPath, ThrowMoveFor, StringComparison.OrdinalIgnoreCase))
+            {
                 throw new IOException("Simulated move failure.");
-            if (_files.ContainsKey(proposedPath)) throw new IOException("Destination exists.");
+            }
+
+            if (_files.ContainsKey(proposedPath))
+            {
+                throw new IOException("Destination exists.");
+            }
+
             var length = _files[currentPath];
             _files.Remove(currentPath);
             _files.Add(proposedPath, length);

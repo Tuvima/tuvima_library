@@ -43,7 +43,9 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
         ArgumentNullException.ThrowIfNull(query);
         var libraries = Validate(query.AuthorizedLibraryIds, query.Limit, query.Cursor, query.Search);
         if (libraries.Length == 0 && !query.IncludeSharedLibraryAssets)
+        {
             return new ViewPlaceDiscoveryPage([], null, false, false);
+        }
 
         ct.ThrowIfCancellationRequested();
         var parameters = Parameters(libraries, query.Limit, query.Search, query.Cursor);
@@ -115,7 +117,11 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
             """, parameters, cancellationToken: ct)).ToList();
 
         var hasMore = rows.Count > query.Limit;
-        if (hasMore) rows.RemoveAt(rows.Count - 1);
+        if (hasMore)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
+
         var items = rows.Select(row => new ViewPlaceDiscoveryRow(
             row.Key,
             row.Name,
@@ -139,7 +145,9 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
         ArgumentNullException.ThrowIfNull(query);
         var libraries = Validate(query.AuthorizedLibraryIds, query.Limit, query.Cursor, query.Search);
         if (libraries.Length == 0 && !query.IncludeSharedLibraryAssets)
+        {
             return new ViewPeopleDiscoveryPage([], null, false, false);
+        }
 
         ct.ThrowIfCancellationRequested();
         var parameters = Parameters(libraries, query.Limit, query.Search, query.Cursor);
@@ -212,7 +220,11 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
             """, parameters, cancellationToken: ct)).ToList();
 
         var hasMore = rows.Count > query.Limit;
-        if (hasMore) rows.RemoveAt(rows.Count - 1);
+        if (hasMore)
+        {
+            rows.RemoveAt(rows.Count - 1);
+        }
+
         var items = rows.Select(row => new ViewPersonDiscoveryRow(
             row.Key,
             row.DisplayName,
@@ -238,13 +250,25 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
     {
         ArgumentNullException.ThrowIfNull(authorizedLibraryIds);
         if (limit is < 1 or > MaximumLimit)
+        {
             throw new ArgumentOutOfRangeException(nameof(limit), $"Limit must be between 1 and {MaximumLimit}.");
+        }
+
         if (authorizedLibraryIds.Any(id => id == Guid.Empty))
+        {
             throw new ArgumentException("Authorized library IDs cannot be empty.", nameof(authorizedLibraryIds));
+        }
+
         if (cursor is { AssetCount: < 1 } || cursor is { Key.Length: 0 })
+        {
             throw new ArgumentException("The discovery cursor is invalid.", nameof(cursor));
+        }
+
         if (search?.Length > 200)
+        {
             throw new ArgumentOutOfRangeException(nameof(search), "Search cannot exceed 200 characters.");
+        }
+
         return authorizedLibraryIds.Distinct().ToArray();
     }
 
@@ -262,7 +286,10 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
             CursorKey = cursor?.Key,
         });
         for (var index = 0; index < libraries.Count; index++)
+        {
             parameters.Add($"LibraryId{index}", GuidSql.ToBlob(libraries[index]), DbType.Binary);
+        }
+
         return parameters;
     }
 
@@ -271,7 +298,11 @@ public sealed class ViewDiscoveryRepository(IDatabaseConnection database) : IVie
 
     private static string? SearchPattern(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
         var escaped = value.Trim()
             .Replace("\\", "\\\\", StringComparison.Ordinal)
             .Replace("%", "\\%", StringComparison.Ordinal)

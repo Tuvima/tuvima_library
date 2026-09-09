@@ -179,35 +179,10 @@ public sealed class ProfileOverviewActivityDto
     public Guid? EntityId { get; init; }
 }
 
-public sealed class CreateProfileRequest
-{
-    [JsonPropertyName("display_name")]
-    public string DisplayName { get; init; } = string.Empty;
-
-    [JsonPropertyName("role")]
-    public string Role { get; init; } = AppRoles.RestrictedProfile;
-
-    [JsonPropertyName("avatar_color")]
-    public string AvatarColor { get; init; } = "#7C4DFF";
-
-    [JsonPropertyName("navigation_config")]
-    public string? NavigationConfig { get; init; }
-}
-
-public sealed class UpdateProfileRequest
-{
-    [JsonPropertyName("display_name")]
-    public string DisplayName { get; init; } = string.Empty;
-
-    [JsonPropertyName("role")]
-    public string Role { get; init; } = string.Empty;
-
-    [JsonPropertyName("avatar_color")]
-    public string AvatarColor { get; init; } = string.Empty;
-
-    [JsonPropertyName("navigation_config")]
-    public string? NavigationConfig { get; init; }
-}
+public sealed record UpdateProfileExperienceRequest(
+    [property: JsonPropertyName("display_name")] string DisplayName,
+    [property: JsonPropertyName("avatar_color")] string AvatarColor,
+    [property: JsonPropertyName("navigation_config")] string? NavigationConfig = null);
 
 /// <summary>
 /// Administrator-managed access policy for a profile's personal View space.

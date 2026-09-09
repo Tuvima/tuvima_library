@@ -40,7 +40,10 @@ public sealed class StructuredDiscoveryConfigurationTests
     {
         var current = new DirectoryInfo(AppContext.BaseDirectory);
         while (current is not null && !File.Exists(Path.Combine(current.FullName, "MediaEngine.slnx")))
+        {
             current = current.Parent;
+        }
+
         return current?.FullName ?? throw new DirectoryNotFoundException("Repository root was not found.");
     }
 }

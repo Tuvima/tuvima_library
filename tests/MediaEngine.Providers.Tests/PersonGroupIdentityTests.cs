@@ -1,6 +1,6 @@
+using MediaEngine.Domain.Entities;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Providers.Tests;
 

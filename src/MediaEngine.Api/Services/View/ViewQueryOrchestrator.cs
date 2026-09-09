@@ -15,7 +15,8 @@ public sealed record ViewAssetQueryRequest(
     bool IncludeHidden = false,
     bool HiddenOnly = false,
     Guid? GalleryId = null,
-    LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active);
+    LocalAssetLifecycleFilter Lifecycle = LocalAssetLifecycleFilter.Active,
+    bool AllowStaleSelectionFallback = false);
 
 /// <summary>
 /// Authorized persistence plan. Backends receive only library IDs approved by
@@ -62,11 +63,12 @@ public sealed class ViewQueryOrchestrator(
         }
 
         var decision = await authorization.AuthorizeAsync(
-            profileContext.Current,
+            await profileContext.ResolveAuthorityAsync(ct).ConfigureAwait(false),
             new ViewResourceRequest(
                 request.Scope,
                 request.GalleryId.HasValue ? ViewResourceKind.Gallery : ViewResourceKind.Search,
-                request.GalleryId),
+                request.GalleryId,
+                AllowStaleSelectionFallback: request.AllowStaleSelectionFallback),
             ct).ConfigureAwait(false);
         if (!decision.IsAllowed || decision.Scope is null)
         {
@@ -77,7 +79,10 @@ public sealed class ViewQueryOrchestrator(
         if (request.GalleryId is { } galleryId)
         {
             if (smartGalleries is null)
+            {
                 throw new InvalidOperationException("Smart Gallery query services are unavailable.");
+            }
+
             smartRule = await smartGalleries.ResolveRuleAsync(galleryId, ct).ConfigureAwait(false);
         }
 

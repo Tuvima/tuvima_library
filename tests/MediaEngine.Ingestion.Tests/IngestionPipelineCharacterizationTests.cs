@@ -111,7 +111,9 @@ public sealed class IngestionPipelineCharacterizationTests
     {
         var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFile)!);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         var root = directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
         return File.ReadAllText(Path.Combine(root, relativePath));
@@ -123,7 +125,9 @@ public sealed class IngestionPipelineCharacterizationTests
     {
         var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFile)!);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         var root = directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
         return Path.Combine(root, relativePath);

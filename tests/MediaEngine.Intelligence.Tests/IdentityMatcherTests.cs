@@ -49,7 +49,7 @@ public sealed class IdentityMatcherTests
     {
         var matcher = CreateMatcher();
 
-        var entity    = new[] { MakeCanonical("title", "Dune"), MakeCanonical("author", "Frank Herbert") };
+        var entity = new[] { MakeCanonical("title", "Dune"), MakeCanonical("author", "Frank Herbert") };
         var candidate = new[] { MakeCanonical("title", "Dune"), MakeCanonical("author", "Frank Herbert") };
 
         var result = await matcher.MatchAsync(entity, candidate, DefaultConfig);
@@ -65,7 +65,7 @@ public sealed class IdentityMatcherTests
     {
         var matcher = CreateMatcher();
 
-        var entity    = new[] { MakeCanonical("title", "Dune") };
+        var entity = new[] { MakeCanonical("title", "Dune") };
         var candidate = new[] { MakeCanonical("title", "War and Peace") };
 
         var result = await matcher.MatchAsync(entity, candidate, DefaultConfig);
@@ -82,7 +82,7 @@ public sealed class IdentityMatcherTests
         var matcher = CreateMatcher();
 
         // Same title, different author → title contributes 50%.
-        var entity    = new[] { MakeCanonical("title", "Dune"), MakeCanonical("author", "Frank Herbert") };
+        var entity = new[] { MakeCanonical("title", "Dune"), MakeCanonical("author", "Frank Herbert") };
         var candidate = new[] { MakeCanonical("title", "Dune"), MakeCanonical("author", "Completely Different") };
 
         var result = await matcher.MatchAsync(entity, candidate, DefaultConfig);
@@ -100,7 +100,7 @@ public sealed class IdentityMatcherTests
     {
         var matcher = CreateMatcher();
 
-        var entity    = new[] { MakeCanonical("title", "Dune") };
+        var entity = new[] { MakeCanonical("title", "Dune") };
         var candidate = new[] { MakeCanonical("author", "Frank Herbert") };
 
         var result = await matcher.MatchAsync(entity, candidate, DefaultConfig);
@@ -117,7 +117,7 @@ public sealed class IdentityMatcherTests
         var config = new ScoringConfiguration { AutoLinkThreshold = 0.85 };
         var matcher = CreateMatcher();
 
-        var entity    = new[] { MakeCanonical("title", "The Hobbit") };
+        var entity = new[] { MakeCanonical("title", "The Hobbit") };
         var candidate = new[] { MakeCanonical("title", "The Hobbit") };
 
         var result = await matcher.MatchAsync(entity, candidate, config);
@@ -136,7 +136,7 @@ public sealed class IdentityMatcherTests
         var matcher = CreateMatcher();
 
         // Slightly different titles → similarity around 0.6–0.85.
-        var entity    = new[] { MakeCanonical("title", "The Lord of the Rings") };
+        var entity = new[] { MakeCanonical("title", "The Lord of the Rings") };
         var candidate = new[] { MakeCanonical("title", "Lord of the Rings") };
 
         var result = await matcher.MatchAsync(entity, candidate, config);
@@ -153,9 +153,9 @@ public sealed class IdentityMatcherTests
 
     private static CanonicalValue MakeCanonical(string key, string value) => new()
     {
-        EntityId     = Guid.NewGuid(),
-        Key          = key,
-        Value        = value,
+        EntityId = Guid.NewGuid(),
+        Key = key,
+        Value = value,
         LastScoredAt = DateTimeOffset.UtcNow,
     };
 }

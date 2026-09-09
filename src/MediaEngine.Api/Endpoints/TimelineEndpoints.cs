@@ -1,6 +1,7 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Timeline;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -22,7 +23,7 @@ public static class TimelineEndpoints
 {
     public static IEndpointRouteBuilder MapTimelineEndpoints(this IEndpointRouteBuilder app)
     {
-        var grp = app.MapGroup("/timeline").WithTags("Timeline").RequireAnyRole();
+        var grp = app.MapGroup("/timeline").WithTags("Timeline");
 
         // ── GET /timeline/{entityId} ──────────────────────────────────────────
         grp.MapGet("/{entityId:guid}", async (
@@ -35,7 +36,9 @@ public static class TimelineEndpoints
         })
         .WithName("GetEntityTimeline")
         .WithSummary("Returns the full event history for an entity, newest first.")
-        .Produces<IReadOnlyList<EntityTimelineEventDto>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<EntityTimelineEventDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ApplicationPermissionIds.MetadataEnrichmentRead.Value)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         // ── GET /timeline/{entityId}/pipeline ─────────────────────────────────
         grp.MapGet("/{entityId:guid}/pipeline", async (
@@ -48,7 +51,9 @@ public static class TimelineEndpoints
         })
         .WithName("GetPipelineState")
         .WithSummary("Returns the most recent event per pipeline stage for an entity.")
-        .Produces<IReadOnlyList<EntityTimelineEventDto>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<EntityTimelineEventDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ApplicationPermissionIds.MetadataEnrichmentRead.Value)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         // ── GET /timeline/{entityId}/event/{eventId}/changes ──────────────────
         grp.MapGet("/{entityId:guid}/event/{eventId:guid}/changes", async (
@@ -57,12 +62,21 @@ public static class TimelineEndpoints
             IEntityTimelineRepository repo,
             CancellationToken ct) =>
         {
+            var ownsEvent = (await repo.GetEventsByEntityAsync(entityId, ct))
+                .Any(entityEvent => entityEvent.Id == eventId);
+            if (!ownsEvent)
+            {
+                return ApiErrors.NotFound($"Timeline event '{eventId}' was not found for entity '{entityId}'.");
+            }
+
             var changes = await repo.GetFieldChangesByEventAsync(eventId, ct);
             return Results.Ok(changes.Select(MapFieldChange).ToList());
         })
         .WithName("GetEventFieldChanges")
         .WithSummary("Returns field-level changes for a specific event.")
-        .Produces<IReadOnlyList<EntityTimelineFieldChangeDto>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<EntityTimelineFieldChangeDto>>(StatusCodes.Status200OK)
+        .RequireClientScope(ApplicationPermissionIds.MetadataEnrichmentRead.Value)
+        .RequireAnyCatalogueEntityAccess(ApplicationPermissionIds.MetadataEnrichmentRead);
 
         // ── POST /timeline/{entityId}/rematch ─────────────────────────────────
         grp.MapPost("/{entityId:guid}/rematch", async (
@@ -127,7 +141,8 @@ public static class TimelineEndpoints
         .WithSummary("Re-matches an entity through the full pipeline.")
         .Produces<RematchEntityResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrStandardUser();
+        .RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataMatch)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.MetadataMatch);
 
         return app;
     }

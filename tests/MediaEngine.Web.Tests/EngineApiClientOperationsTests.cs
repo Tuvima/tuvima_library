@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text;
-using Microsoft.Extensions.Logging.Abstractions;
 using MediaEngine.Web.Services.Integration;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Tests;
 

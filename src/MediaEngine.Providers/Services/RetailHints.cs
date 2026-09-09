@@ -34,7 +34,9 @@ public static class RetailHints
     public static string? NormalizeYear(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var match = Regex.Match(value, @"\b\d{4}\b");
         return match.Success ? match.Value : null;
@@ -156,7 +158,9 @@ public static class RetailHints
     public static string ExtractLeadingDigits(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         var match = Regex.Match(value.Trim(), @"^\D*0*(\d+)");
         return match.Success ? match.Groups[1].Value : string.Empty;
@@ -200,7 +204,9 @@ public static class RetailHints
     public static string? NormalizeQid(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
 
         var stripped = value.Contains('/') ? value.Split('/')[^1] : value;
         stripped = stripped.Split("::", 2)[0].Trim();
@@ -238,20 +244,26 @@ public static class RetailHints
     public static string NormalizeBibliographicPersonName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
+        {
             return name;
+        }
 
         var trimmed = name.Trim();
 
         // Only normalize if there's exactly one comma.
         var commaIndex = trimmed.IndexOf(',');
         if (commaIndex < 0 || commaIndex != trimmed.LastIndexOf(','))
+        {
             return trimmed;
+        }
 
         var last = trimmed[..commaIndex].Trim();
         var first = trimmed[(commaIndex + 1)..].Trim();
 
         if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(last))
+        {
             return trimmed;
+        }
 
         return $"{first} {last}";
     }

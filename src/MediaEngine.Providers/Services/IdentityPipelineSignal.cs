@@ -19,7 +19,9 @@ public sealed class IdentityPipelineSignal : IIdentityPipelineSignal
         CancellationToken ct = default)
     {
         if (fallbackDelay <= TimeSpan.Zero)
+        {
             return;
+        }
 
         var signal = _signals.GetOrAdd(kind, _ => new SemaphoreSlim(0));
         using var waitCts = CancellationTokenSource.CreateLinkedTokenSource(ct);

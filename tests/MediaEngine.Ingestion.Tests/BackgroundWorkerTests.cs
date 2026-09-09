@@ -114,7 +114,9 @@ public sealed class BackgroundWorkerTests
         while (!predicate())
         {
             if (DateTimeOffset.UtcNow > deadline)
+            {
                 throw new TimeoutException("Condition was not reached.");
+            }
 
             await Task.Delay(10);
         }

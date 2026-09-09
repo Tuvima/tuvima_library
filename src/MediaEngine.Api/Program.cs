@@ -11,6 +11,7 @@ using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.HealthChecks;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.DependencyInjection;
 using MediaEngine.Identity.Contracts;
@@ -188,7 +189,6 @@ builder.Services.AddSingleton<ProviderCredentialService>();
         "/stream",
         "/read",
         "/playback",
-        "/admin/api-keys",
     ];
 
     builder.Services.AddRateLimiter(options =>
@@ -275,10 +275,19 @@ builder.Services.AddSingleton<ProviderCredentialService>();
 }
 
 // -- Composition roots ---------------------------------------------------------
-builder.Services.AddSingleton<ApiKeyService>();
-builder.Services.AddSingleton<IApiKeyLookupCache, ApiKeyLookupCache>();
-builder.Services.AddSingleton<ILibraryAccessEvaluator, LibraryAccessEvaluator>();
 builder.Services.AddTuvimaStorage();
+builder.Services.AddSingleton<IPermissionRegistry, PermissionRegistry>();
+builder.Services.AddScoped<IRequestAuthorityResolver, RequestAuthorityResolver>();
+builder.Services.AddScoped<DashboardAuthorityProjector>();
+builder.Services.AddScoped<IAccountAccessMutationService, AccountAccessMutationService>();
+builder.Services.AddScoped<ApplicationAdministrationService>();
+builder.Services.AddScoped<IGrantAdminUnlockService, GrantAdminUnlockService>();
+builder.Services.AddScoped<IAccountAccessDecisionService, AccountAccessDecisionService>();
+builder.Services.AddScoped<ISelfServiceAuthorizationService>(sp => (AccountAccessDecisionService)sp.GetRequiredService<IAccountAccessDecisionService>());
+builder.Services.AddScoped<MediaEngine.Domain.Contracts.IAuthorizationEvaluator, MediaEngine.Api.Security.AuthorizationEvaluator>();
+builder.Services.AddScoped<CatalogueResourceAuthorizationService>();
+builder.Services.AddSingleton<IAuthorizationInvalidationService, AuthorizationInvalidationService>();
+builder.Services.AddSingleton<IAuthorizationAuditWriter, AuthorizationAuditWriter>();
 builder.Services.AddSingleton<ClientAuthorizationService>();
 builder.Services.AddSingleton(new DashboardServiceCredentialOptions(configDirectory));
 builder.Services.AddSingleton<DashboardServiceCredentialBootstrapper>();
@@ -290,13 +299,11 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy(AuthPolicies.Authenticated, policy => policy.RequireAuthenticatedUser());
     options.AddPolicy(AuthPolicies.Administrator, policy =>
-        policy.RequireAuthenticatedUser().RequireRole(MediaEngine.Domain.AppRoles.Administrator).AddRequirements(new AdministratorElevationRequirement()));
-    options.AddPolicy(AuthPolicies.AdministratorRole, policy =>
-        policy.RequireAuthenticatedUser().RequireRole(MediaEngine.Domain.AppRoles.Administrator));
-    options.AddPolicy(AuthPolicies.StandardOrAdministrator, policy =>
-        policy.RequireAuthenticatedUser().RequireRole(
-            MediaEngine.Domain.AppRoles.Administrator,
-            MediaEngine.Domain.AppRoles.StandardUser));
+        policy.RequireAuthenticatedUser().AddRequirements(new EffectiveAdministratorRequirement(true)));
+    options.AddPolicy(AuthPolicies.AdministratorEligibility, policy =>
+        policy.RequireAuthenticatedUser().AddRequirements(new EffectiveAdministratorRequirement(false)));
+    options.AddPolicy(AuthPolicies.HumanSelfService, policy =>
+        policy.RequireAuthenticatedUser().AddRequirements(new HumanSelfServiceRequirement()));
     options.AddPolicy(AuthPolicies.DashboardService, policy =>
         policy.RequireClaim(TuvimaClaimTypes.DashboardService, "true"));
     options.AddPolicy(AuthPolicies.DashboardInteractive, policy =>
@@ -308,7 +315,11 @@ builder.Services.AddAuthorization(options =>
         .RequireAuthenticatedUser()
         .Build();
 });
-builder.Services.AddScoped<IAuthorizationHandler, AdministratorElevationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, EffectiveAdministratorHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, HumanSelfServiceHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, ApplicationPermissionHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, AdministratorOrApplicationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, HumanOrApplicationPermissionHandler>();
 builder.Services.AddTuvimaPlayback();
 builder.Services.AddTuvimaNetworking();
 builder.Services.AddMediaEngineIngestion(config, configLoader);
@@ -326,6 +337,9 @@ builder.Services.AddTuvimaIntelligence();
 builder.Services.AddTuvimaProviders(configLoader);
 builder.Services.AddTuvimaAi(configLoader);
 builder.Services.AddTuvimaPlugins();
+builder.Services.AddPluginApplicationServices();
+builder.Services.AddApplicationEvents();
+builder.Services.AddApplicationWebhooks();
 builder.Services.AddTuvimaHostedServices();
 
 builder.Services.AddSingleton<StartupReadinessService>();

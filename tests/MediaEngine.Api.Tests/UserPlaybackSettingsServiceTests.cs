@@ -23,7 +23,7 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         _db.InitializeSchema();
         _db.RunStartupChecks();
         _profiles = new ProfileRepository(_db);
-        _profiles.InsertAsync(new Profile
+        ProfileTestData.InsertAsync(_db, new Profile
         {
             Id = _profileId,
             DisplayName = "Playback Test",
@@ -31,7 +31,7 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
             Role = ProfileRole.RestrictedProfile,
             CreatedAt = DateTimeOffset.UtcNow,
         }).GetAwaiter().GetResult();
-        _profiles.InsertAsync(new Profile
+        ProfileTestData.InsertAsync(_db, new Profile
         {
             Id = _otherProfileId,
             DisplayName = "Other Profile",
@@ -126,7 +126,9 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         {
             var path = _dbPath + suffix;
             if (File.Exists(path))
+            {
                 File.Delete(path);
+            }
         }
     }
 }

@@ -1,6 +1,6 @@
 using MediaEngine.Domain.Models;
-using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Providers.Services;
 using SkiaSharp;
 
 namespace MediaEngine.Providers.Tests;

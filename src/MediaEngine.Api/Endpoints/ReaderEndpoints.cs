@@ -1,6 +1,7 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Reading;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -9,12 +10,10 @@ namespace MediaEngine.Api.Endpoints;
 
 /// <summary>
 /// EPUB reader data endpoints — CRUD for bookmarks, highlights, and reading statistics.
-/// All endpoints use a hardcoded "local" user ID (multi-user deferred to Phase 16).
+/// Personal state is isolated by the authenticated account's active profile.
 /// </summary>
 public static class ReaderEndpoints
 {
-    private const string DefaultUserId = "local";
-
     public static IEndpointRouteBuilder MapReaderEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/reader")
@@ -24,19 +23,22 @@ public static class ReaderEndpoints
 
         group.MapGet("/{assetId:guid}/bookmarks", async (
             Guid assetId,
+            HttpContext context,
             IReaderBookmarkRepository repo,
             CancellationToken ct) =>
         {
-            var bookmarks = await repo.ListByAssetAsync(DefaultUserId, assetId, ct);
+            var bookmarks = await repo.ListByAssetAsync(ProfileUserId(context), assetId, ct);
             return Results.Ok(bookmarks.Select(MapBookmark).ToList());
         })
         .WithName("ListBookmarks")
         .WithSummary("Lists all bookmarks for the given asset.")
         .Produces<IReadOnlyList<ReaderBookmarkDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.ProgressRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.ProgressRead);
 
         group.MapPost("/{assetId:guid}/bookmarks", async (
             Guid assetId,
+            HttpContext context,
             CreateReaderBookmarkRequestDto request,
             IReaderBookmarkRepository repo,
             CancellationToken ct) =>
@@ -44,7 +46,7 @@ public static class ReaderEndpoints
             var bookmark = new ReaderBookmark
             {
                 Id = Guid.NewGuid(),
-                UserId = DefaultUserId,
+                UserId = ProfileUserId(context),
                 AssetId = assetId,
                 ChapterIndex = request.ChapterIndex,
                 CfiPosition = request.CfiPosition,
@@ -58,17 +60,30 @@ public static class ReaderEndpoints
         .WithName("CreateBookmark")
         .WithSummary("Creates a bookmark at the specified chapter position.")
         .Produces<ReaderBookmarkDto>(StatusCodes.Status201Created)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.ProgressWrite)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.ProgressWrite);
 
         group.MapDelete("/bookmarks/{id:guid}", async (
             Guid id,
+            HttpContext context,
             IReaderBookmarkRepository repo,
+            CatalogueResourceAuthorizationService authorization,
             CancellationToken ct) =>
         {
             var existing = await repo.FindByIdAsync(id, ct);
             if (existing is null)
             {
                 return ApiErrors.NotFound($"Bookmark '{id}' not found.");
+            }
+            if (!string.Equals(existing.UserId, ProfileUserId(context), StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiErrors.NotFound("Bookmark not found for the active profile.");
+            }
+
+            if (await authorization.EvaluateAssetAsync(
+                    context, existing.AssetId, ApplicationPermissionIds.ProgressWrite, ct) != CatalogueResourceAccess.Allowed)
+            {
+                return Results.Forbid();
             }
 
             await repo.DeleteAsync(id, ct);
@@ -78,25 +93,28 @@ public static class ReaderEndpoints
         .WithSummary("Deletes a bookmark by ID.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.ProgressWrite);
 
         // ── Highlights ──────────────────────────────────────────────────────
 
         group.MapGet("/{assetId:guid}/highlights", async (
             Guid assetId,
+            HttpContext context,
             IReaderHighlightRepository repo,
             CancellationToken ct) =>
         {
-            var highlights = await repo.ListByAssetAsync(DefaultUserId, assetId, ct);
+            var highlights = await repo.ListByAssetAsync(ProfileUserId(context), assetId, ct);
             return Results.Ok(highlights.Select(MapHighlight).ToList());
         })
         .WithName("ListHighlights")
         .WithSummary("Lists all highlights for the given asset.")
         .Produces<IReadOnlyList<ReaderHighlightDto>>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.ProgressRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.ProgressRead);
 
         group.MapPost("/{assetId:guid}/highlights", async (
             Guid assetId,
+            HttpContext context,
             CreateReaderHighlightRequestDto request,
             IReaderHighlightRepository repo,
             CancellationToken ct) =>
@@ -104,7 +122,7 @@ public static class ReaderEndpoints
             var highlight = new ReaderHighlight
             {
                 Id = Guid.NewGuid(),
-                UserId = DefaultUserId,
+                UserId = ProfileUserId(context),
                 AssetId = assetId,
                 ChapterIndex = request.ChapterIndex,
                 StartOffset = request.StartOffset,
@@ -121,18 +139,31 @@ public static class ReaderEndpoints
         .WithName("CreateHighlight")
         .WithSummary("Creates a text highlight with optional note and colour.")
         .Produces<ReaderHighlightDto>(StatusCodes.Status201Created)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.ProgressWrite)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.ProgressWrite);
 
         group.MapPut("/highlights/{id:guid}", async (
             Guid id,
+            HttpContext context,
             UpdateReaderHighlightRequestDto request,
             IReaderHighlightRepository repo,
+            CatalogueResourceAuthorizationService authorization,
             CancellationToken ct) =>
         {
             var existing = await repo.FindByIdAsync(id, ct);
             if (existing is null)
             {
                 return ApiErrors.NotFound($"Highlight '{id}' not found.");
+            }
+            if (!string.Equals(existing.UserId, ProfileUserId(context), StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiErrors.NotFound("Highlight not found for the active profile.");
+            }
+
+            if (await authorization.EvaluateAssetAsync(
+                    context, existing.AssetId, ApplicationPermissionIds.ProgressWrite, ct) != CatalogueResourceAccess.Allowed)
+            {
+                return Results.Forbid();
             }
 
             await repo.UpdateAsync(id, request.Color, request.NoteText, ct);
@@ -142,17 +173,29 @@ public static class ReaderEndpoints
         .WithSummary("Updates a highlight's colour and/or note text.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.ProgressWrite);
 
         group.MapDelete("/highlights/{id:guid}", async (
             Guid id,
+            HttpContext context,
             IReaderHighlightRepository repo,
+            CatalogueResourceAuthorizationService authorization,
             CancellationToken ct) =>
         {
             var existing = await repo.FindByIdAsync(id, ct);
             if (existing is null)
             {
                 return ApiErrors.NotFound($"Highlight '{id}' not found.");
+            }
+            if (!string.Equals(existing.UserId, ProfileUserId(context), StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiErrors.NotFound("Highlight not found for the active profile.");
+            }
+
+            if (await authorization.EvaluateAssetAsync(
+                    context, existing.AssetId, ApplicationPermissionIds.ProgressWrite, ct) != CatalogueResourceAccess.Allowed)
+            {
+                return Results.Forbid();
             }
 
             await repo.DeleteAsync(id, ct);
@@ -162,22 +205,23 @@ public static class ReaderEndpoints
         .WithSummary("Deletes a highlight by ID.")
         .Produces(StatusCodes.Status204NoContent)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.ProgressWrite);
 
         // ── Statistics ──────────────────────────────────────────────────────
 
         group.MapGet("/{assetId:guid}/statistics", async (
             Guid assetId,
+            HttpContext context,
             IReaderStatisticsRepository repo,
             CancellationToken ct) =>
         {
-            var stats = await repo.GetAsync(DefaultUserId, assetId, ct);
+            var stats = await repo.GetAsync(ProfileUserId(context), assetId, ct);
             if (stats is null)
             {
                 return Results.Ok(new ReaderStatisticsDto
                 {
                     Id = Guid.NewGuid(),
-                    UserId = DefaultUserId,
+                    UserId = ProfileUserId(context),
                     AssetId = assetId
                 });
             }
@@ -187,18 +231,20 @@ public static class ReaderEndpoints
         .WithName("GetReadingStatistics")
         .WithSummary("Returns reading statistics for the given asset (or defaults if none exist).")
         .Produces<ReaderStatisticsDto>(StatusCodes.Status200OK)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.ProgressRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.ProgressRead);
 
         group.MapPut("/{assetId:guid}/statistics", async (
             Guid assetId,
+            HttpContext context,
             UpdateReaderStatisticsRequestDto request,
             IReaderStatisticsRepository repo,
             CancellationToken ct) =>
         {
-            var stats = await repo.GetAsync(DefaultUserId, assetId, ct) ?? new ReaderStatistics
+            var stats = await repo.GetAsync(ProfileUserId(context), assetId, ct) ?? new ReaderStatistics
             {
                 Id = Guid.NewGuid(),
-                UserId = DefaultUserId,
+                UserId = ProfileUserId(context),
                 AssetId = assetId
             };
 
@@ -215,10 +261,16 @@ public static class ReaderEndpoints
         .WithName("UpdateReadingStatistics")
         .WithSummary("Upserts reading statistics (auto-saved by the reader every 30 seconds).")
         .Produces(StatusCodes.Status204NoContent)
-        .RequireAnyRole();
+        .RequireProfileOperation(ApplicationPermissionIds.ProgressWrite)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.ProgressWrite);
 
         return app;
     }
+
+    private static string ProfileUserId(HttpContext context) =>
+        context.Items.TryGetValue(ProfileOperationAccessFilter.ActiveProfileItemKey, out var value) && value is Guid profileId
+            ? profileId.ToString("D")
+            : throw new UnauthorizedAccessException("An authorized active profile is required.");
 
     private static ReaderBookmarkDto MapBookmark(ReaderBookmark bookmark) => new()
     {

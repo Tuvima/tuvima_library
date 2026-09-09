@@ -23,7 +23,9 @@ public sealed class PersonEditorReadService
     {
         var person = await _persons.FindByIdAsync(personId, ct);
         if (person is null)
+        {
             return null;
+        }
 
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
@@ -94,7 +96,9 @@ public sealed class PersonEditorReadService
                     """, new { profileId = request.ProfileId, personId }, tx) ?? 0
                 : 0;
             if (request.ProfileId.HasValue && revision != request.ExpectedRevision)
+            {
                 return new PersonEditorWriteResult(false, revision);
+            }
 
             var normalizedOverrides = request.DisplayOverrides
                 .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
@@ -147,7 +151,10 @@ public sealed class PersonEditorReadService
     private static IReadOnlyDictionary<string, string> DeserializeStringMap(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+
         try
         {
             return JsonSerializer.Deserialize<Dictionary<string, string>>(json)
@@ -162,7 +169,10 @@ public sealed class PersonEditorReadService
     private static IReadOnlyList<string> DeserializeStringList(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
+        {
             return [];
+        }
+
         try
         {
             return JsonSerializer.Deserialize<List<string>>(json) ?? [];

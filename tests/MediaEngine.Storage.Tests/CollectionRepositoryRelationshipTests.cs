@@ -303,15 +303,15 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         string relType,
         string qid,
         string label) => new()
-    {
-        Id = Guid.NewGuid(),
-        CollectionId = collectionId,
-        RelType = relType,
-        RelQid = qid,
-        RelLabel = label,
-        Confidence = 1.0,
-        DiscoveredAt = DateTimeOffset.UtcNow,
-    };
+        {
+            Id = Guid.NewGuid(),
+            CollectionId = collectionId,
+            RelType = relType,
+            RelQid = qid,
+            RelLabel = label,
+            Confidence = 1.0,
+            DiscoveredAt = DateTimeOffset.UtcNow,
+        };
 
     private static CollectionItem CreateCollectionItem(Guid collectionId, Guid workId, int sortOrder) => new()
     {

@@ -19,7 +19,7 @@ public sealed class MetadataEndpointRouteTests
         Assert.Contains("claimHistoryReadService.GetClaimHistoryAsync(entityId, ct)", route, StringComparison.Ordinal);
         Assert.DoesNotContain("IDatabaseConnection db", route, StringComparison.Ordinal);
         Assert.DoesNotContain("Query<", route, StringComparison.Ordinal);
-        Assert.Contains(".RequireAnyRole()", endpointSource, StringComparison.Ordinal);
+        Assert.Contains(".RequireAdministratorOrApplication(ApplicationPermissionIds.MetadataRead)", endpointSource, StringComparison.Ordinal);
         Assert.Contains("AddSingleton<IMetadataClaimHistoryReadService, MetadataClaimHistoryReadService>", registrations, StringComparison.Ordinal);
         Assert.Contains("SELECT ma.id", serviceSource, StringComparison.Ordinal);
     }

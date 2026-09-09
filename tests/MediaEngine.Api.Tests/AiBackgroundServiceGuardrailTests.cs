@@ -27,7 +27,9 @@ public sealed class AiBackgroundServiceGuardrailTests
         var gate = source.IndexOf("_featureGate.CanExecute", StringComparison.Ordinal);
         var scan = source.IndexOf("GetPageAsync", StringComparison.Ordinal);
         if (scan < 0)
+        {
             scan = source.IndexOf("GetEntitiesNeedingEnrichmentAsync", StringComparison.Ordinal);
+        }
 
         Assert.True(gate >= 0, $"{fileName} must use the shared feature gate.");
         Assert.True(scan < 0 || gate < scan, $"{fileName} must gate before its first scan.");

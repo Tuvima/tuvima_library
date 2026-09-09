@@ -48,6 +48,24 @@ public sealed class LibraryReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task WorkFeed_AppliesAllowedWorkScopeBeforePaging()
+    {
+        var hidden = SeedStandaloneWork("Hidden first", "QHIDDEN");
+        var allowed = SeedStandaloneWork("Allowed second", "QALLOWED");
+        var service = new LibraryWorkFeedReadService(_db);
+
+        var response = await service.GetWorksAsync(
+            new PagedRequest(0, 1),
+            CancellationToken.None,
+            new HashSet<Guid> { allowed.WorkId });
+
+        var item = Assert.Single(response.Items);
+        Assert.Equal(allowed.WorkId, item.Id);
+        Assert.DoesNotContain(response.Items, candidate => candidate.Id == hidden.WorkId);
+        Assert.False(response.HasMore);
+    }
+
+    [Fact]
     public async Task BatchTargets_RouteParentAndAssetFieldsAcrossLargeSelections()
     {
         var rootWorkId = Guid.NewGuid();
@@ -218,9 +236,15 @@ public sealed class LibraryReadServicesTests : IDisposable
         cmd.Parameters.AddWithValue("$path", $"C:/library/{assetId:N}.epub");
         cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
         if (!string.IsNullOrWhiteSpace(universeKey))
+        {
             cmd.Parameters.AddWithValue("$universeKey", universeKey);
+        }
+
         if (!string.IsNullOrWhiteSpace(universeValue))
+        {
             cmd.Parameters.AddWithValue("$universeValue", universeValue);
+        }
+
         cmd.ExecuteNonQuery();
         return (workId, assetId);
     }

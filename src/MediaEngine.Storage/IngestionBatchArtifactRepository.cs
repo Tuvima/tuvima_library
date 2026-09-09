@@ -32,13 +32,17 @@ public sealed class IngestionBatchArtifactRepository : IIngestionBatchArtifactRe
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(artifactType) || string.IsNullOrWhiteSpace(action))
+        {
             return Task.CompletedTask;
+        }
 
         using var conn = _db.CreateConnection();
         var resolvedBatchId = batchId
             ?? ResolveLatestBatchId(conn, parentEntityId, ct);
         if (!resolvedBatchId.HasValue)
+        {
             return Task.CompletedTask;
+        }
 
         conn.Execute("""
             INSERT INTO ingestion_batch_artifacts
@@ -48,20 +52,20 @@ public sealed class IngestionBatchArtifactRepository : IIngestionBatchArtifactRe
                 (@id, @batchId, @artifactType, @artifactId, @parentEntityId, @parentEntityType,
                  @action, @displayName, @providerId, @source, @detailJson, @occurredAt);
             """, new
-            {
-                id = Guid.NewGuid(),
-                batchId = resolvedBatchId.Value,
-                artifactType = artifactType.Trim(),
-                artifactId,
-                parentEntityId,
-                parentEntityType = NullIfBlank(parentEntityType),
-                action = action.Trim(),
-                displayName = NullIfBlank(displayName),
-                providerId = NullIfBlank(providerId),
-                source = NullIfBlank(source),
-                detailJson = NullIfBlank(detailJson),
-                occurredAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+        {
+            id = Guid.NewGuid(),
+            batchId = resolvedBatchId.Value,
+            artifactType = artifactType.Trim(),
+            artifactId,
+            parentEntityId,
+            parentEntityType = NullIfBlank(parentEntityType),
+            action = action.Trim(),
+            displayName = NullIfBlank(displayName),
+            providerId = NullIfBlank(providerId),
+            source = NullIfBlank(source),
+            detailJson = NullIfBlank(detailJson),
+            occurredAt = DateTimeOffset.UtcNow.ToString("O"),
+        });
         return Task.CompletedTask;
     }
 
@@ -71,7 +75,9 @@ public sealed class IngestionBatchArtifactRepository : IIngestionBatchArtifactRe
         CancellationToken ct)
     {
         if (!parentEntityId.HasValue)
+        {
             return null;
+        }
 
         ct.ThrowIfCancellationRequested();
         return conn.ExecuteScalar<Guid?>("""

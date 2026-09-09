@@ -90,7 +90,9 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
     {
         var book = await GetOrLoadBookAsync(filePath, ct).ConfigureAwait(false);
         if (book.ReadingOrder is null || chapterIndex < 0 || chapterIndex >= book.ReadingOrder.Count)
+        {
             return null;
+        }
 
         var chapter = book.ReadingOrder[chapterIndex];
         var html = RewriteResourceUrls(chapter.Content, chapter.FileName, resourceBaseUrl);
@@ -189,19 +191,27 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
     public async Task<List<EpubSearchHit>> SearchAsync(string filePath, string query, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(query) || query.Length < 2)
+        {
             return [];
+        }
 
         var book = await GetOrLoadBookAsync(filePath, ct).ConfigureAwait(false);
         var results = new List<EpubSearchHit>();
 
-        if (book.ReadingOrder is null) return results;
+        if (book.ReadingOrder is null)
+        {
+            return results;
+        }
 
         for (var i = 0; i < book.ReadingOrder.Count; i++)
         {
             ct.ThrowIfCancellationRequested();
 
             var chapter = book.ReadingOrder[i];
-            if (string.IsNullOrWhiteSpace(chapter.Content)) continue;
+            if (string.IsNullOrWhiteSpace(chapter.Content))
+            {
+                continue;
+            }
 
             // Strip HTML to plain text for searching.
             var plainText = StripHtml(chapter.Content);
@@ -211,15 +221,25 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
             while (searchIndex < plainText.Length)
             {
                 var matchIndex = plainText.IndexOf(query, searchIndex, StringComparison.OrdinalIgnoreCase);
-                if (matchIndex < 0) break;
+                if (matchIndex < 0)
+                {
+                    break;
+                }
 
                 // Build context snippet: ~25 chars before + match + ~25 chars after.
                 var snippetStart = Math.Max(0, matchIndex - 25);
                 var snippetEnd = Math.Min(plainText.Length, matchIndex + query.Length + 25);
                 var snippet = plainText[snippetStart..snippetEnd].Trim();
 
-                if (snippetStart > 0) snippet = "..." + snippet;
-                if (snippetEnd < plainText.Length) snippet += "...";
+                if (snippetStart > 0)
+                {
+                    snippet = "..." + snippet;
+                }
+
+                if (snippetEnd < plainText.Length)
+                {
+                    snippet += "...";
+                }
 
                 results.Add(new EpubSearchHit(
                     ChapterIndex: i,
@@ -341,7 +361,10 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
 
     private static int FindChapterIndex(EpubNavigationItem navItem, List<EpubTextContentFile>? readingOrder)
     {
-        if (readingOrder is null) return 0;
+        if (readingOrder is null)
+        {
+            return 0;
+        }
 
         // Try to match by HtmlContentFile reference.
         if (navItem.HtmlContentFile is not null)
@@ -349,7 +372,9 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
             for (var i = 0; i < readingOrder.Count; i++)
             {
                 if (readingOrder[i].FileName == navItem.HtmlContentFile.FileName)
+                {
                     return i;
+                }
             }
         }
 
@@ -361,7 +386,9 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
                 if (readingOrder[i].FileName == navItem.Link.ContentFileName ||
                     readingOrder[i].FileName.EndsWith(navItem.Link.ContentFileName, StringComparison.OrdinalIgnoreCase) ||
                     navItem.Link.ContentFileName.EndsWith(readingOrder[i].FileName, StringComparison.OrdinalIgnoreCase))
+                {
                     return i;
+                }
             }
         }
 
@@ -370,7 +397,10 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
 
     private static List<EpubTocEntry> BuildFlatTocFromReadingOrder(List<EpubTextContentFile>? readingOrder)
     {
-        if (readingOrder is null) return [];
+        if (readingOrder is null)
+        {
+            return [];
+        }
 
         return readingOrder.Select((chapter, index) => new EpubTocEntry
         {
@@ -390,16 +420,23 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
     /// </summary>
     private static string RewriteResourceUrls(string html, string chapterFileName, string resourceBaseUrl)
     {
-        if (string.IsNullOrEmpty(html)) return html;
+        if (string.IsNullOrEmpty(html))
+        {
+            return html;
+        }
 
         // Ensure base URL ends with /
         if (!resourceBaseUrl.EndsWith('/'))
+        {
             resourceBaseUrl += "/";
+        }
 
         // Determine the directory of the current chapter file for resolving relative paths.
         var chapterDir = Path.GetDirectoryName(chapterFileName)?.Replace('\\', '/') ?? "";
         if (chapterDir.Length > 0 && !chapterDir.EndsWith('/'))
+        {
             chapterDir += "/";
+        }
 
         // Rewrite src="..." and href="..." attributes that reference relative paths.
         // Exclude anchors (#), absolute URLs (http/https/data), and mailto links.
@@ -443,7 +480,9 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
             if (part == "..")
             {
                 if (segments.Count > 0)
+                {
                     segments.RemoveAt(segments.Count - 1);
+                }
             }
             else if (part != ".")
             {
@@ -480,7 +519,10 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
 
     private static long CountWords(EpubBook book)
     {
-        if (book.ReadingOrder is not { Count: > 0 }) return 0;
+        if (book.ReadingOrder is not { Count: > 0 })
+        {
+            return 0;
+        }
 
         long total = 0;
         foreach (var chapter in book.ReadingOrder)
@@ -492,7 +534,11 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
 
     private static int CountWordsInHtml(string? html)
     {
-        if (string.IsNullOrWhiteSpace(html)) return 0;
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return 0;
+        }
+
         var text = StripHtml(html);
         return text.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length;
     }
@@ -504,14 +550,20 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
 
     private static string? ExtractTitleFromHtml(string? html)
     {
-        if (string.IsNullOrWhiteSpace(html)) return null;
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return null;
+        }
 
         // Try <title> tag first.
         var titleMatch = Regex.Match(html, @"<title[^>]*>(.*?)</title>", RegexOptions.IgnoreCase | RegexOptions.Singleline);
         if (titleMatch.Success)
         {
             var title = StripHtml(titleMatch.Groups[1].Value).Trim();
-            if (!string.IsNullOrWhiteSpace(title)) return title;
+            if (!string.IsNullOrWhiteSpace(title))
+            {
+                return title;
+            }
         }
 
         // Try first <h1> or <h2>.
@@ -519,7 +571,10 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
         if (headingMatch.Success)
         {
             var heading = StripHtml(headingMatch.Groups[1].Value).Trim();
-            if (!string.IsNullOrWhiteSpace(heading)) return heading;
+            if (!string.IsNullOrWhiteSpace(heading))
+            {
+                return heading;
+            }
         }
 
         return null;
@@ -534,7 +589,10 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
         if (navigation is { Count: > 0 })
         {
             var navTitle = FindNavTitleForChapter(navigation, chapter.FileName);
-            if (navTitle is not null) return navTitle;
+            if (navTitle is not null)
+            {
+                return navTitle;
+            }
         }
 
         // Fall back to extracting from HTML.
@@ -561,7 +619,10 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
             if (item.NestedItems is { Count: > 0 })
             {
                 var nested = FindNavTitleForChapter(item.NestedItems, chapterFileName);
-                if (nested is not null) return nested;
+                if (nested is not null)
+                {
+                    return nested;
+                }
             }
         }
 
@@ -574,15 +635,32 @@ public sealed class EpubContentService : IEpubContentService, IDisposable
 
     private static string SniffMimeType(byte[] data)
     {
-        if (data.Length < 4) return "application/octet-stream";
+        if (data.Length < 4)
+        {
+            return "application/octet-stream";
+        }
 
-        if (data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF) return "image/jpeg";
-        if (data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47) return "image/png";
-        if (data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38) return "image/gif";
+        if (data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF)
+        {
+            return "image/jpeg";
+        }
+
+        if (data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47)
+        {
+            return "image/png";
+        }
+
+        if (data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38)
+        {
+            return "image/gif";
+        }
+
         if (data.Length >= 12 &&
             data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 &&
             data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50)
+        {
             return "image/webp";
+        }
 
         return "application/octet-stream";
     }

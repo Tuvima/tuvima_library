@@ -1,9 +1,9 @@
+using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
-using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 
@@ -128,7 +128,9 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
                 .ToList();
 
             foreach (var due in dueBatches)
+            {
                 _inlineBatches.Remove(due.BatchKey);
+            }
         }
 
         foreach (var batch in dueBatches)
@@ -206,20 +208,26 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         {
             ct.ThrowIfCancellationRequested();
             if (requests.Count >= maxItems)
+            {
                 break;
+            }
 
             var canonicals = await services.CanonicalRepository.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
             var lookup = canonicals.ToDictionary(v => v.Key, v => v.Value, StringComparer.OrdinalIgnoreCase);
 
             if (!lookup.TryGetValue("wikidata_qid", out var workQid) || string.IsNullOrWhiteSpace(workQid))
+            {
                 continue;
+            }
 
             if (lookup.TryGetValue("stage3_enriched_at", out var stage3EnrichedAt)
                 && DateTimeOffset.TryParse(stage3EnrichedAt, out var enrichedAt)
                 && enrichedAt > staleThreshold)
             {
                 if (!HasUniversePath(lookup, narrativeRoot: null))
+                {
                     continue;
+                }
 
                 var hasLinkedEntities = await HasLinkedFictionalEntitiesAsync(
                     services.FictionalEntityRepository,
@@ -227,7 +235,9 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
                     ct).ConfigureAwait(false);
 
                 if (hasLinkedEntities)
+                {
                     continue;
+                }
             }
 
             var title = GetBestTitle(lookup);
@@ -522,7 +532,9 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(workQid))
+        {
             return false;
+        }
 
         var linkedEntities = await fictionalEntityRepository.GetByWorkQidAsync(workQid, ct).ConfigureAwait(false);
         return linkedEntities.Count > 0;
@@ -568,7 +580,9 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         NarrativeRoot? narrativeRoot)
     {
         if (narrativeRoot is not null && !string.IsNullOrWhiteSpace(narrativeRoot.Qid))
+        {
             return true;
+        }
 
         return canonicalLookup.ContainsKey("fictional_universe_qid")
             || canonicalLookup.ContainsKey("franchise_qid")
@@ -580,10 +594,14 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
     private static string? GetBestTitle(IReadOnlyDictionary<string, string> lookup)
     {
         if (lookup.TryGetValue(MetadataFieldConstants.Title, out var title) && !string.IsNullOrWhiteSpace(title))
+        {
             return title;
+        }
 
         if (lookup.TryGetValue(MetadataFieldConstants.ShowName, out var showName) && !string.IsNullOrWhiteSpace(showName))
+        {
             return showName;
+        }
 
         return null;
     }
@@ -596,7 +614,9 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
     {
         var universeQid = ResolveUniverseQid(lookup, narrativeRoot);
         if (string.IsNullOrWhiteSpace(universeQid))
+        {
             return;
+        }
 
         try
         {
@@ -622,7 +642,9 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
         NarrativeRoot? narrativeRoot)
     {
         if (!string.IsNullOrWhiteSpace(narrativeRoot?.Qid))
+        {
             return narrativeRoot.Qid;
+        }
 
         foreach (var key in new[]
                  {
@@ -634,7 +656,9 @@ public sealed class UniverseEnrichmentService : BackgroundService, IUniverseEnri
                  })
         {
             if (lookup.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return value.Trim();
+            }
         }
 
         return null;

@@ -42,21 +42,29 @@ public sealed class BackgroundAiAdmissionController : IDisposable
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _disposed) != 0, this);
 
         if (!_onboarding.IsComplete)
+        {
             return Defer(role, "onboarding-incomplete");
+        }
 
         var quietPeriod = TimeSpan.FromSeconds(_settings.BackgroundQuietSeconds);
         if (_interactiveRequests.HasPressure(quietPeriod))
+        {
             return Defer(role, "interactive-traffic");
+        }
 
         var modelSize = _settings.Models.GetByRole(role).SizeMB;
         var recommendation = _resources.CanLoadModel(modelSize);
         if (!recommendation.CanLoad)
+        {
             return Defer(role, recommendation.Reason);
+        }
 
         lock (_sync)
         {
             if (_activeBackgroundWork is not null)
+            {
                 return Defer(role, "another-background-inference-is-active");
+            }
 
             _activeBackgroundWork = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
             PerformanceMetrics.BackgroundAiAdmissions.Add(1, new KeyValuePair<string, object?>("role", role.ToString()));
@@ -79,7 +87,9 @@ public sealed class BackgroundAiAdmissionController : IDisposable
         lock (_sync)
         {
             if (_activeBackgroundWork is null || _activeBackgroundWork.IsCancellationRequested)
+            {
                 return;
+            }
 
             PerformanceMetrics.BackgroundAiPreemptions.Add(1);
             _logger.LogInformation("Cancelling background AI inference because interactive work arrived");
@@ -92,7 +102,9 @@ public sealed class BackgroundAiAdmissionController : IDisposable
         lock (_sync)
         {
             if (!ReferenceEquals(_activeBackgroundWork, source))
+            {
                 return;
+            }
 
             _activeBackgroundWork = null;
         }
@@ -103,7 +115,9 @@ public sealed class BackgroundAiAdmissionController : IDisposable
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
             return;
+        }
 
         _interactiveRequests.RequestStarted -= OnInteractiveRequestStarted;
         lock (_sync)

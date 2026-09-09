@@ -1,8 +1,8 @@
 using System.Globalization;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
-using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
@@ -68,7 +68,9 @@ public sealed class TextTrackEnrichmentWorker
         var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
         var mediaType = lineage?.MediaType ?? InferMediaType(asset.FilePathRoot);
         if (!IsRelevant(kind, mediaType))
+        {
             return new("Unsupported", kind, 0, 0, null, $"{kind} are not supported for {mediaType}.");
+        }
 
         var before = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
 
@@ -156,7 +158,9 @@ public sealed class TextTrackEnrichmentWorker
             {
                 var download = await provider.DownloadAsync(candidate, ct).ConfigureAwait(false);
                 if (download is null)
+                {
                     continue;
+                }
 
                 var saved = await SaveDownloadAsync(asset, download, ct).ConfigureAwait(false);
                 if (saved is not null)
@@ -165,7 +169,10 @@ public sealed class TextTrackEnrichmentWorker
                     if (kind == TextTrackKind.Subtitles
                         && _assetPaths.ShouldKeepPreferredSubtitlesLocal
                         && _textTrackExportService is not null)
+                    {
                         await ExportPreferredSubtitleAsync(asset, saved, ct).ConfigureAwait(false);
+                    }
+
                     var afterDownload = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
                     return new("Updated", kind, before.Count, afterDownload.Count, saved.Id,
                         $"{kind} were refreshed from {candidate.Provider}.");
@@ -190,7 +197,9 @@ public sealed class TextTrackEnrichmentWorker
     private bool BypassesExternalProviders(MediaAsset asset)
     {
         if (_configurationLoader is null || string.IsNullOrWhiteSpace(asset.LibraryId))
+        {
             return false;
+        }
 
         try
         {
@@ -215,21 +224,30 @@ public sealed class TextTrackEnrichmentWorker
     {
         var asset = await _assetRepo.FindByIdAsync(assetId, ct).ConfigureAwait(false);
         if (asset is null)
+        {
             return new("AssetMissing", kind, 0, 0, null, "The owned media file could not be found.");
+        }
 
         var lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
         var mediaType = lineage?.MediaType ?? InferMediaType(asset.FilePathRoot);
         if (!IsRelevant(kind, mediaType))
+        {
             return new("Unsupported", kind, 0, 0, null, $"{kind} are not supported for {mediaType}.");
+        }
 
         var extension = Path.GetExtension(fileName).TrimStart('.').ToLowerInvariant();
         var allowed = kind == TextTrackKind.Lyrics
             ? extension is "lrc" or "txt"
             : extension is "vtt" or "srt" or "ass";
         if (!allowed)
+        {
             return new("UnsupportedFormat", kind, 0, 0, null, $".{extension} is not a supported {kind.ToString().ToLowerInvariant()} format.");
+        }
+
         if (string.IsNullOrWhiteSpace(content))
+        {
             return new("InvalidContent", kind, 0, 0, null, "The selected text-track file is empty.");
+        }
 
         var before = await _trackRepo.GetByAssetAsync(assetId, kind, ct).ConfigureAwait(false);
         var normalizedLanguage = string.IsNullOrWhiteSpace(language) || string.Equals(language, "und", StringComparison.OrdinalIgnoreCase)
@@ -275,12 +293,16 @@ public sealed class TextTrackEnrichmentWorker
     {
         var mediaPath = asset.FilePathRoot;
         if (string.IsNullOrWhiteSpace(mediaPath))
+        {
             return false;
+        }
 
         var directory = Path.GetDirectoryName(mediaPath);
         var basename = Path.GetFileNameWithoutExtension(mediaPath);
         if (string.IsNullOrWhiteSpace(directory) || string.IsNullOrWhiteSpace(basename) || !Directory.Exists(directory))
+        {
             return false;
+        }
 
         var patterns = kind == TextTrackKind.Lyrics
             ? new[] { $"{basename}.lrc", $"{basename}.txt" }
@@ -359,7 +381,9 @@ public sealed class TextTrackEnrichmentWorker
         foreach (var key in new[] { MetadataFieldConstants.SeasonNumber, MetadataFieldConstants.EpisodeNumber })
         {
             if (values.TryGetValue(key, out var value))
+            {
                 bridgeIds[key] = value;
+            }
         }
 
         return new TextTrackLookup(
@@ -432,7 +456,9 @@ public sealed class TextTrackEnrichmentWorker
         finally
         {
             if (File.Exists(temporaryPath))
+            {
                 File.Delete(temporaryPath);
+            }
         }
     }
 
@@ -441,7 +467,9 @@ public sealed class TextTrackEnrichmentWorker
         var exportPath = await _textTrackExportService!.ExportPreferredSubtitleAsync(asset, track, ct)
             .ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(exportPath))
+        {
             return;
+        }
 
         track.SidecarPath = exportPath;
         await _trackRepo.UpsertAsync(track, ct).ConfigureAwait(false);
@@ -477,19 +505,33 @@ public sealed class TextTrackEnrichmentWorker
     private static string? First(IReadOnlyDictionary<string, string> values, params string[] keys)
     {
         foreach (var key in keys)
+        {
             if (values.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+            {
                 return value;
+            }
+        }
+
         return null;
     }
 
     private static double? ParseDurationSeconds(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return null;
+        }
+
         if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+        {
             return seconds > 0 ? seconds : null;
+        }
+
         if (TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var span))
+        {
             return span.TotalSeconds;
+        }
+
         return null;
     }
 }

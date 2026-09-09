@@ -65,13 +65,13 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         {
             return new FieldMatchScores
             {
-                TitleScore      = 0.0,
-                AuthorScore     = 0.0,
-                YearScore       = 0.0,
-                FormatScore     = 0.0,
+                TitleScore = 0.0,
+                AuthorScore = 0.0,
+                YearScore = 0.0,
+                FormatScore = 0.0,
                 CrossFieldBoost = 0.0,
-                CoverArtScore   = 0.0,
-                CompositeScore  = 0.0,
+                CoverArtScore = 0.0,
+                CompositeScore = 0.0,
             };
         }
 
@@ -117,9 +117,13 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         if (!string.IsNullOrWhiteSpace(fileYear) && !string.IsNullOrWhiteSpace(candidateYear))
         {
             if (fileYear == candidateYear)
+            {
                 yearScore = 1.0;
+            }
             else if (int.TryParse(fileYear, out var fy) && int.TryParse(candidateYear, out var cy))
+            {
                 yearScore = Math.Abs(fy - cy) <= 1 ? 0.8 : 0.3;
+            }
         }
 
         // ── Format score (always 1.0 — strategies are media-type-scoped) ─
@@ -133,15 +137,19 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         if (_coverArtHash is not null)
         {
             if (extendedMetadata?.CoverArtSimilarity is > 0.8)
+            {
                 coverBoost = 0.10; // Strong visual match — same cover, likely same edition
+            }
             else if (extendedMetadata?.CoverArtSimilarity is > 0.6)
+            {
                 coverBoost = 0.05; // Moderate visual match — probably same work
+            }
         }
 
         // ── Weighted composite ───────────────────────────────────────────
-        var titleWeight  = weights.GetValueOrDefault("title",  0.45);
+        var titleWeight = weights.GetValueOrDefault("title", 0.45);
         var authorWeight = weights.GetValueOrDefault("author", 0.35);
-        var yearWeight   = weights.GetValueOrDefault("year",   0.10);
+        var yearWeight = weights.GetValueOrDefault("year", 0.10);
         var formatWeight = weights.GetValueOrDefault("format", 0.10);
 
         // When NEITHER the file NOR the candidate carries any creator data (common for
@@ -149,9 +157,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         // sides), the author weight would penalise every candidate equally and unfairly.
         // In that case, redistribute the 35% author weight proportionally to the other
         // three fields so scoring is driven entirely by title, year, and format.
-        double effectiveTitleWeight  = titleWeight;
+        double effectiveTitleWeight = titleWeight;
         double effectiveAuthorWeight = authorWeight;
-        double effectiveYearWeight   = yearWeight;
+        double effectiveYearWeight = yearWeight;
         double effectiveFormatWeight = formatWeight;
 
         bool bothLackAuthor = string.IsNullOrWhiteSpace(fileAuthor)
@@ -159,15 +167,15 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         if (bothLackAuthor)
         {
             double remaining = 1.0 - authorWeight; // 0.65
-            effectiveTitleWeight  = titleWeight  / remaining;
-            effectiveYearWeight   = yearWeight   / remaining;
+            effectiveTitleWeight = titleWeight / remaining;
+            effectiveYearWeight = yearWeight / remaining;
             effectiveFormatWeight = formatWeight / remaining;
             effectiveAuthorWeight = 0.0;
         }
 
-        var composite = (titleScore  * effectiveTitleWeight)
+        var composite = (titleScore * effectiveTitleWeight)
                       + (authorScore * effectiveAuthorWeight)
-                      + (yearScore   * effectiveYearWeight)
+                      + (yearScore * effectiveYearWeight)
                       + (formatScore * effectiveFormatWeight)
                       + crossFieldBoost
                       + coverBoost
@@ -178,13 +186,13 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
 
         return new FieldMatchScores
         {
-            TitleScore      = titleScore,
-            AuthorScore     = authorScore,
-            YearScore       = yearScore,
-            FormatScore     = formatScore,
+            TitleScore = titleScore,
+            AuthorScore = authorScore,
+            YearScore = yearScore,
+            FormatScore = formatScore,
             CrossFieldBoost = crossFieldBoost,
-            CoverArtScore   = coverBoost,
-            CompositeScore  = Math.Round(Math.Clamp(composite, 0.0, 1.0), 4),
+            CoverArtScore = coverBoost,
+            CompositeScore = Math.Round(Math.Clamp(composite, 0.0, 1.0), 4),
         };
     }
 
@@ -193,17 +201,23 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         CandidateExtendedMetadata? extendedMetadata)
     {
         if (extendedMetadata is null)
+        {
             return false;
+        }
 
         var fileSeries = fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
         var candidateSeries = extendedMetadata.Series;
         if (string.IsNullOrWhiteSpace(fileSeries) || string.IsNullOrWhiteSpace(candidateSeries))
+        {
             return false;
+        }
 
         var fileIssue = GetComicIssueHint(fileHints);
         var candidateIssue = extendedMetadata.IssueNumber;
         if (string.IsNullOrWhiteSpace(fileIssue) || string.IsNullOrWhiteSpace(candidateIssue))
+        {
             return false;
+        }
 
         return AreEquivalentComparableText(fileSeries, candidateSeries)
             && RetailHints.AreEquivalentOrdinals(fileIssue, candidateIssue);
@@ -219,21 +233,29 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         IReadOnlyDictionary<string, string> fileHints)
     {
         if (string.IsNullOrWhiteSpace(title))
+        {
             return false;
+        }
 
         var series = fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
         var issue = GetComicIssueHint(fileHints);
         if (string.IsNullOrWhiteSpace(series) || string.IsNullOrWhiteSpace(issue))
+        {
             return false;
+        }
 
         var normalizedTitle = RetailTextSimilarity.NormalizeComparableText(
             Regex.Replace(title, @"\(\d{4}\)\s*$", string.Empty));
         var normalizedSeries = RetailTextSimilarity.NormalizeComparableText(series);
         if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
+        {
             return false;
+        }
 
         if (!int.TryParse(RetailHints.ExtractLeadingDigits(issue), out var issueNumber))
+        {
             return false;
+        }
 
         var pattern = $"^{Regex.Escape(normalizedSeries)}\\s+(?:issue\\s+|no\\s+|number\\s+)?0*{issueNumber}$";
         return Regex.IsMatch(normalizedTitle, pattern, RegexOptions.IgnoreCase);
@@ -257,7 +279,10 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         MediaType mediaType,
         CandidateExtendedMetadata? ext)
     {
-        if (ext is null) return 0.0;
+        if (ext is null)
+        {
+            return 0.0;
+        }
 
         double boost = 0.0;
         var description = ext.Description;
@@ -268,7 +293,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         {
             var narrator = fileHints.GetValueOrDefault("narrator");
             if (!string.IsNullOrWhiteSpace(narrator) && descLower.Contains(narrator.ToLowerInvariant()))
+            {
                 boost += 0.10;
+            }
         }
 
         // ── Author found in description (+0.08, books/audiobooks) ────────
@@ -276,7 +303,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         {
             var author = fileHints.GetValueOrDefault("author");
             if (!string.IsNullOrWhiteSpace(author) && descLower.Contains(author.ToLowerInvariant()))
+            {
                 boost += 0.08;
+            }
         }
 
         // ── Series name found in description (+0.08) ─────────────────────
@@ -284,7 +313,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         {
             var series = fileHints.GetValueOrDefault("series");
             if (!string.IsNullOrWhiteSpace(series) && descLower.Contains(series.ToLowerInvariant()))
+            {
                 boost += 0.08;
+            }
         }
 
         // ── Publisher matches (+0.05, books) ─────────────────────────────
@@ -295,7 +326,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             {
                 var ratio = _fuzzy.ComputeTokenSetRatio(filePublisher, ext.Publisher);
                 if (ratio >= 0.85)
+                {
                     boost += 0.05;
+                }
             }
         }
 
@@ -307,7 +340,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             {
                 var diff = Math.Abs(fp - ext.PageCount.Value) / (double)Math.Max(fp, ext.PageCount.Value);
                 if (diff <= 0.10)
+                {
                     boost += 0.05;
+                }
             }
         }
 
@@ -319,9 +354,13 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             {
                 var diff = Math.Abs(fd - ext.DurationSeconds.Value) / Math.Max(fd, ext.DurationSeconds.Value);
                 if (diff <= 0.15)
+                {
                     boost += 0.05;
+                }
                 else if (diff > 0.50)
+                {
                     boost -= 0.10; // Duration wildly different — penalty
+                }
             }
         }
 
@@ -341,7 +380,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
                     .ToHashSet();
 
                 if (fileGenres.Overlaps(candidateGenres))
+                {
                     boost += 0.05;
+                }
             }
         }
 
@@ -355,9 +396,13 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
                 var candLangNorm = ext.Language.Split('-', '_')[0].ToLowerInvariant();
 
                 if (string.Equals(fileLangNorm, candLangNorm, StringComparison.Ordinal))
+                {
                     boost += 0.05;
+                }
                 else
+                {
                     boost -= 0.10;
+                }
             }
         }
 
@@ -370,12 +415,16 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         string creatorListMode)
     {
         if (HaveSameCreatorTokens(fileCreator, candidateCreator))
+        {
             return 1.0;
+        }
 
         var fileCreators = RetailHints.SplitAuthors(fileCreator);
         var candidateCreators = RetailHints.SplitAuthors(candidateCreator);
         if (fileCreators.Count == 1 && candidateCreators.Count == 1)
+        {
             return _fuzzy.ComputeTokenSetRatio(fileCreator, candidateCreator);
+        }
 
         // Creator lists must be compared member-by-member. Token-set similarity alone
         // treats a shorter list as a perfect subset of a longer one, so a candidate such
@@ -389,7 +438,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             for (int i = 0; i < candidateCreators.Count; i++)
             {
                 if (usedCandidates.Contains(i))
+                {
                     continue;
+                }
 
                 var similarity = AreEquivalentComparableText(fileCreatorPart, candidateCreators[i])
                     ? 1.0

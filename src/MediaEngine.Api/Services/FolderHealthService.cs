@@ -1,8 +1,8 @@
-using MediaEngine.Domain;
 using MediaEngine.Contracts.Realtime;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
-using Microsoft.Extensions.Options;
 using MediaEngine.Ingestion.Models;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Api.Services;
 
@@ -17,9 +17,9 @@ namespace MediaEngine.Api.Services;
 public sealed class FolderHealthService : BackgroundService
 {
     private readonly IOptionsMonitor<IngestionOptions> _options;
-    private readonly IEventPublisher                   _publisher;
-    private readonly ILogger<FolderHealthService>      _logger;
-    private readonly int                               _intervalSeconds;
+    private readonly IEventPublisher _publisher;
+    private readonly ILogger<FolderHealthService> _logger;
+    private readonly int _intervalSeconds;
 
     /// <summary>
     /// In-memory cache of the last-known health state per folder path.
@@ -29,14 +29,14 @@ public sealed class FolderHealthService : BackgroundService
 
     public FolderHealthService(
         IOptionsMonitor<IngestionOptions> options,
-        IEventPublisher                   publisher,
-        IConfiguration                    config,
-        ILogger<FolderHealthService>      logger)
+        IEventPublisher publisher,
+        IConfiguration config,
+        ILogger<FolderHealthService> logger)
     {
-        _options          = options;
-        _publisher        = publisher;
-        _logger           = logger;
-        _intervalSeconds  = config.GetValue("MediaEngine:FolderHealthIntervalSeconds", 30);
+        _options = options;
+        _publisher = publisher;
+        _logger = logger;
+        _intervalSeconds = config.GetValue("MediaEngine:FolderHealthIntervalSeconds", 30);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -67,10 +67,14 @@ public sealed class FolderHealthService : BackgroundService
         var opts = _options.CurrentValue;
 
         foreach (var watchDirectory in opts.EffectiveWatchDirectories)
+        {
             await CheckAndBroadcastAsync(watchDirectory, ct);
+        }
 
         if (!string.IsNullOrWhiteSpace(opts.LibraryRoot))
+        {
             await CheckAndBroadcastAsync(opts.LibraryRoot, ct);
+        }
     }
 
     private async Task CheckAndBroadcastAsync(string path, CancellationToken ct)
@@ -79,7 +83,9 @@ public sealed class FolderHealthService : BackgroundService
 
         // Only broadcast if state has actually changed (or first run).
         if (_lastState.TryGetValue(path, out var previous) && previous == current)
+        {
             return;
+        }
 
         _lastState[path] = current;
 
@@ -107,7 +113,9 @@ public sealed class FolderHealthService : BackgroundService
         try
         {
             if (!Directory.Exists(path))
+            {
                 return new FolderState(false, false, false);
+            }
 
             // Read probe: can we enumerate the directory?
             bool hasRead;

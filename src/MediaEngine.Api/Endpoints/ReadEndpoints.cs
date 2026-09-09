@@ -1,8 +1,9 @@
 using System.Security.Claims;
-using MediaEngine.Contracts.Authentication;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Authentication;
 using MediaEngine.Contracts.Reading;
+using MediaEngine.Domain.Authorization;
 using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -32,12 +33,16 @@ public static class ReadEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
+            {
                 return ApiErrors.NotFound($"Asset '{assetId}' not found.");
+            }
 
             if (!File.Exists(asset.FilePathRoot))
+            {
                 return Results.Problem(
                     detail: "File not found on disk.",
                     statusCode: StatusCodes.Status500InternalServerError);
+            }
 
             var metadata = await epubService.GetBookMetadataAsync(asset.FilePathRoot, ct);
             return Results.Ok(new EpubBookMetadataDto(
@@ -52,7 +57,8 @@ public static class ReadEndpoints
         .WithSummary("Returns EPUB book metadata (title, author, chapter count, word count).")
         .Produces<EpubBookMetadataDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.LibraryRead);
 
         // ── Table of Contents ────────────────────────────────────────────
 
@@ -64,12 +70,16 @@ public static class ReadEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
+            {
                 return ApiErrors.NotFound($"Asset '{assetId}' not found.");
+            }
 
             if (!File.Exists(asset.FilePathRoot))
+            {
                 return Results.Problem(
                     detail: "File not found on disk.",
                     statusCode: StatusCodes.Status500InternalServerError);
+            }
 
             var toc = await epubService.GetTableOfContentsAsync(asset.FilePathRoot, ct);
             return Results.Ok(toc.Select(MapTocEntry).ToList());
@@ -78,7 +88,8 @@ public static class ReadEndpoints
         .WithSummary("Returns the EPUB Table of Contents as a hierarchical tree.")
         .Produces<List<EpubTocEntryDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.LibraryRead);
 
         // ── Chapter content ──────────────────────────────────────────────
 
@@ -92,12 +103,16 @@ public static class ReadEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
+            {
                 return ApiErrors.NotFound($"Asset '{assetId}' not found.");
+            }
 
             if (!File.Exists(asset.FilePathRoot))
+            {
                 return Results.Problem(
                     detail: "File not found on disk.",
                     statusCode: StatusCodes.Status500InternalServerError);
+            }
 
             // Build resource base URL relative to this request.
             var scheme = ctx.Request.Scheme;
@@ -108,7 +123,9 @@ public static class ReadEndpoints
                 asset.FilePathRoot, index, resourceBaseUrl, ct);
 
             if (chapter is null)
+            {
                 return ApiErrors.NotFound($"Chapter {index} not found.");
+            }
 
             return Results.Ok(new EpubChapterContentDto(
                 chapter.Index,
@@ -120,7 +137,8 @@ public static class ReadEndpoints
         .WithSummary("Returns chapter HTML with resource URLs rewritten for the reader.")
         .Produces<EpubChapterContentDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.LibraryRead);
 
         // ── Embedded resources (images, CSS, fonts) ──────────────────────
 
@@ -133,16 +151,22 @@ public static class ReadEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
+            {
                 return ApiErrors.NotFound($"Asset '{assetId}' not found.");
+            }
 
             if (!File.Exists(asset.FilePathRoot))
+            {
                 return Results.Problem(
                     detail: "File not found on disk.",
                     statusCode: StatusCodes.Status500InternalServerError);
+            }
 
             var resource = await epubService.GetResourceAsync(asset.FilePathRoot, path, ct);
             if (resource is null)
+            {
                 return ApiErrors.NotFound($"Resource '{path}' not found in EPUB.");
+            }
 
             return Results.File(
                 resource.Data,
@@ -154,7 +178,8 @@ public static class ReadEndpoints
         .WithSummary("Serves an embedded EPUB resource (image, CSS, font).")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole()
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.LibraryRead)
         .RequireRateLimiting("streaming");
 
         // ── Full-text search ─────────────────────────────────────────────
@@ -167,16 +192,22 @@ public static class ReadEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(q) || q.Length < 2)
+            {
                 return ApiErrors.BadRequest("Search query must be at least 2 characters.");
+            }
 
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
+            {
                 return ApiErrors.NotFound($"Asset '{assetId}' not found.");
+            }
 
             if (!File.Exists(asset.FilePathRoot))
+            {
                 return Results.Problem(
                     detail: "File not found on disk.",
                     statusCode: StatusCodes.Status500InternalServerError);
+            }
 
             var hits = await epubService.SearchAsync(asset.FilePathRoot, q, ct);
             return Results.Ok(hits.Select(hit => new EpubSearchHitDto(
@@ -190,28 +221,33 @@ public static class ReadEndpoints
         .Produces<List<EpubSearchHitDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead)
+        .RequireCatalogueAssetAccess(ApplicationPermissionIds.LibraryRead);
 
         // ── Resolve Work ID to Asset ID ──────────────────────────────────
 
         group.MapGet("/resolve/{workId:guid}", async (
             Guid workId,
-            IMediaAssetRepository assetRepo,
             ClaimsPrincipal user,
+            HttpContext context,
+            CatalogueResourceAuthorizationService authorization,
             CancellationToken ct) =>
         {
             Guid? profileId = Guid.TryParse(user.FindFirstValue(TuvimaClaimTypes.ActiveProfileId), out var profile) ? profile : null;
-            var asset = await assetRepo.FindFirstByWorkIdAsync(workId, ct, profileId);
-            if (asset is null)
+            var assetId = await authorization.FindAuthorizedAssetForWorkAsync(
+                context, workId, profileId, ApplicationPermissionIds.LibraryRead, ct);
+            if (assetId is null)
+            {
                 return ApiErrors.NotFound($"No readable asset found for Work '{workId}'.");
+            }
 
-            return Results.Ok(new ResolveWorkToAssetResponse(assetId: asset.Id));
+            return Results.Ok(new ResolveWorkToAssetResponse(assetId: assetId.Value));
         })
         .WithName("ResolveWorkToAsset")
         .WithSummary("Resolves a Work ID to its primary MediaAsset ID for reading.")
         .Produces<ResolveWorkToAssetResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
+        .RequireClientScope(ClientApiScopes.LibraryRead);
 
         return app;
     }

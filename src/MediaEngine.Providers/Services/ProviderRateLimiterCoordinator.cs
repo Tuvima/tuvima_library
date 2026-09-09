@@ -164,7 +164,9 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
         private async Task WaitForTokenAsync(CancellationToken ct)
         {
             if (_requestsPerSecond <= 0)
+            {
                 return;
+            }
 
             while (true)
             {
@@ -181,7 +183,9 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
                     var missingTokens = 1 - _tokens;
                     delay = TimeSpan.FromSeconds(missingTokens / _requestsPerSecond);
                     if (delay < TimeSpan.FromMilliseconds(25))
+                    {
                         delay = TimeSpan.FromMilliseconds(25);
+                    }
                 }
 
                 await Task.Delay(delay, ct).ConfigureAwait(false);
@@ -192,7 +196,9 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
         {
             var elapsedSeconds = (now - _lastRefillUtc).TotalSeconds;
             if (elapsedSeconds <= 0)
+            {
                 return;
+            }
 
             _tokens = Math.Min(_burst, _tokens + elapsedSeconds * _requestsPerSecond);
             _lastRefillUtc = now;
@@ -201,10 +207,14 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
         private static double ResolveRatePerSecond(ProviderRateLimitConfiguration? rateLimit)
         {
             if (rateLimit?.RequestsPerSecond is > 0)
+            {
                 return rateLimit.RequestsPerSecond.Value;
+            }
 
             if (rateLimit?.RequestsPerMinute is > 0)
+            {
                 return rateLimit.RequestsPerMinute.Value / 60.0;
+            }
 
             return 0;
         }
@@ -290,10 +300,14 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
             Interlocked.Add(ref _latencyMsTotal, (long)latency.TotalMilliseconds);
 
             if (successful)
+            {
                 _lastSuccessAt = DateTimeOffset.UtcNow;
+            }
 
             if (error is null)
+            {
                 return;
+            }
 
             Interlocked.Increment(ref _errorsTotal);
             _lastError = $"{error.GetType().Name}: {error.Message}";
@@ -339,7 +353,9 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
         {
             var cutoff = now.AddMinutes(-1);
             while (queue.TryPeek(out var value) && value < cutoff)
+            {
                 queue.TryDequeue(out _);
+            }
         }
 
         private static void Trim<T>(
@@ -349,7 +365,9 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
         {
             var cutoff = now.AddMinutes(-1);
             while (queue.TryPeek(out var value) && timestampSelector(value) < cutoff)
+            {
                 queue.TryDequeue(out _);
+            }
         }
 
         private sealed record ProviderActivitySample(DateTimeOffset Timestamp, int ActiveRequests);

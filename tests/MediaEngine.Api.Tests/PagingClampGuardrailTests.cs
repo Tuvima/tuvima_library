@@ -39,9 +39,14 @@ public sealed class PagingClampGuardrailTests
             // Dev-only harnesses and debug endpoints are not part of the production
             // request surface and are excluded from this scan.
             if (relativePath.Contains("/DevSupport/", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
+
             if (Path.GetFileName(path).Contains("Debug", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             var text = File.ReadAllText(path);
             var groupPrefixMatch = GroupPrefixRegex.Match(text);
@@ -63,15 +68,21 @@ public sealed class PagingClampGuardrailTests
                 var paramSection = arrowIndex >= 0 ? chunk[..arrowIndex] : chunk;
 
                 if (!RawPagingParamRegex.IsMatch(paramSection))
+                {
                     continue;
+                }
 
                 if (chunk.Contains("PagedRequest.From", StringComparison.Ordinal))
+                {
                     continue;
+                }
 
                 var route = CombineRoute(groupPrefix, current.Groups[1].Value);
                 var key = $"{relativePath}:{route}";
                 if (allowlist.Contains(key))
+                {
                     continue;
+                }
 
                 offenders.Add(key);
             }
@@ -96,7 +107,9 @@ public sealed class PagingClampGuardrailTests
         var trimmedPrefix = prefix.TrimEnd('/');
         var trimmedSegment = segment.TrimStart('/');
         if (trimmedSegment.Length == 0)
+        {
             return trimmedPrefix.Length == 0 ? "/" : trimmedPrefix;
+        }
 
         return trimmedPrefix.Length == 0 ? "/" + trimmedSegment : trimmedPrefix + "/" + trimmedSegment;
     }
@@ -105,7 +118,9 @@ public sealed class PagingClampGuardrailTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "MediaEngine.slnx")))
+        {
             dir = dir.Parent;
+        }
 
         return dir?.FullName ?? throw new InvalidOperationException("Could not locate repository root.");
     }

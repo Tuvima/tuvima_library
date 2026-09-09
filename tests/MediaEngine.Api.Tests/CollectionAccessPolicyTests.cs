@@ -25,7 +25,6 @@ public sealed class CollectionAccessPolicyTests
         var activeProfile = new Profile
         {
             Id = OwnerProfileId,
-            Role = ProfileRole.RestrictedProfile,
         };
 
         var ownedPrivateCollection = CreateCollection(CollectionScope.User, OwnerProfileId);
@@ -38,46 +37,30 @@ public sealed class CollectionAccessPolicyTests
     }
 
     [Fact]
-    public void CanEdit_SharedCollectionsRequireCuratorOrAdministrator()
+    public void CanEdit_SharedCollectionsRequiresExplicitWriteDecision()
     {
         var sharedCollection = CreateCollection(CollectionScope.Library);
 
-        var consumer = new Profile
-        {
-            Id = OwnerProfileId,
-            Role = ProfileRole.RestrictedProfile,
-        };
-        var curator = new Profile
-        {
-            Id = OwnerProfileId,
-            Role = ProfileRole.StandardUser,
-        };
+        var activeProfile = new Profile { Id = OwnerProfileId };
 
-        Assert.False(CollectionAccessPolicy.CanEdit(sharedCollection, consumer));
-        Assert.True(CollectionAccessPolicy.CanEdit(sharedCollection, curator));
+        Assert.False(CollectionAccessPolicy.CanEdit(sharedCollection, activeProfile, hasCollectionsWrite: false));
+        Assert.True(CollectionAccessPolicy.CanEdit(sharedCollection, activeProfile, hasCollectionsWrite: true));
+        Assert.True(CollectionAccessPolicy.CanEdit(sharedCollection, activeProfile: null, hasCollectionsWrite: true));
     }
 
     [Fact]
-    public void CanEdit_CuratedCollectionsRequiresAdministrator()
+    public void CanEdit_CuratedCollectionsRequiresExplicitWriteDecision()
     {
         var curatedCollection = CreateCollection(
             CollectionScope.Library,
             collectionType: CollectionType.Custom);
-        var curator = new Profile
-        {
-            Id = OwnerProfileId,
-            Role = ProfileRole.StandardUser,
-        };
-        var administrator = new Profile
-        {
-            Id = OtherProfileId,
-            Role = ProfileRole.Administrator,
-        };
+        var activeProfile = new Profile { Id = OwnerProfileId };
 
-        Assert.False(CollectionAccessPolicy.CanManageCuratedCollections(curator));
-        Assert.False(CollectionAccessPolicy.CanEdit(curatedCollection, curator));
-        Assert.True(CollectionAccessPolicy.CanManageCuratedCollections(administrator));
-        Assert.True(CollectionAccessPolicy.CanEdit(curatedCollection, administrator));
+        Assert.False(CollectionAccessPolicy.CanManageCuratedCollections(hasCollectionsWrite: false));
+        Assert.False(CollectionAccessPolicy.CanEdit(curatedCollection, activeProfile, hasCollectionsWrite: false));
+        Assert.True(CollectionAccessPolicy.CanManageCuratedCollections(hasCollectionsWrite: true));
+        Assert.True(CollectionAccessPolicy.CanEdit(curatedCollection, activeProfile, hasCollectionsWrite: true));
+        Assert.True(CollectionAccessPolicy.CanEdit(curatedCollection, activeProfile: null, hasCollectionsWrite: true));
     }
 
     [Fact]
