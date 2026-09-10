@@ -25,7 +25,7 @@ You need:
 - [.NET 10 SDK](https://dotnet.microsoft.com/en-us/download)
 - A local copy of the repository
 - About 10 GB free disk space if you plan to use Local AI models
-- Optional provider credentials for services that require keys, such as TMDB, Comic Vine, Fanart.tv, or OpenSubtitles
+- Optional provider credentials for Comic Vine and OpenSubtitles. TMDB uses the application-managed Tuvima key, with an optional administrator override.
 
 Confirm the SDK:
 

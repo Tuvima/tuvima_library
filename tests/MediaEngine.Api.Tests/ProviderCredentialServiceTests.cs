@@ -165,6 +165,23 @@ public sealed class ProviderCredentialServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task AdministratorApiKeyOverride_IsUsedWhileProvisionedKeyRemainsFallback()
+    {
+        using var loader = CreateApplicationManagedLoader();
+        var handler = new StubHandler(HttpStatusCode.OK);
+        var service = CreateService(loader, handler);
+        var overrideKey = new string('d', 32);
+
+        var result = await service.TestAsync(
+            "contract_provider",
+            new Dictionary<string, string> { ["api_key_override"] = overrideKey });
+
+        Assert.True(result.Success);
+        Assert.Contains($"api_key={overrideKey}", handler.LastRequestUri?.Query, StringComparison.Ordinal);
+        Assert.DoesNotContain("api_key=aaaaaaaa", handler.LastRequestUri?.Query, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Loader_CreatesSecretsDirectoryWhenExistingConfigRootIsEmpty()
     {
         Directory.CreateDirectory(_root);
@@ -231,6 +248,16 @@ public sealed class ProviderCredentialServiceTests : IDisposable
             Label = "Personal client key",
             Ownership = "user_supplied",
             Purpose = "client_key",
+            Required = false,
+            MinimumLength = 32,
+            MaximumLength = 32,
+        });
+        provider.Onboarding.Credentials.Add(new ProviderCredentialFieldConfiguration
+        {
+            Key = "api_key_override",
+            Label = "Optional application key override",
+            Ownership = "user_supplied",
+            Purpose = "api_key",
             Required = false,
             MinimumLength = 32,
             MaximumLength = 32,

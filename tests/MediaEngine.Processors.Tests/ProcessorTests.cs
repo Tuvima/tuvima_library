@@ -349,6 +349,34 @@ public class ComicProcessorTests
         }
     }
 
+    [Fact]
+    public async Task ProcessAsync_ComicInfo_EmitsVolumeLanguageRolesAndScopedProviderIdentifiers()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"comic_processor_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        var issue = Path.Combine(dir, "Batman 405.cbz");
+        var cover = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x01, 0x02, 0xFF, 0xD9 };
+
+        try
+        {
+            CreateRichComicArchive(issue, cover);
+            var result = await new ComicProcessor().ProcessAsync(issue);
+
+            Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.Volume && c.Value == "2");
+            Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.Language && c.Value == "en");
+            Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.Inker && c.Value == "Inker Name");
+            Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.Colorist && c.Value == "Colorist Name");
+            Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.Translator && c.Value == "Translator Name");
+            Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.IssueSourceUrl && c.Value.StartsWith("https://comicvine.gamespot.com/batman-405/4000-123456/"));
+            Assert.Contains(result.Claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "123456");
+            Assert.Contains(result.Claims, c => c.Key == BridgeIdKeys.ComicVineVolumeId && c.Value == "654321");
+        }
+        finally
+        {
+            DeleteDirectoryWithRetry(dir);
+        }
+    }
+
     private static void CreateComicArchive(string path, string title, string series, int number, byte[] cover)
     {
         using var file = File.Create(path);
@@ -393,6 +421,35 @@ public class ComicProcessorTests
               <Title>{title}</Title>
               <Summary>{summary}</Summary>
               <PageCount>1</PageCount>
+            </ComicInfo>
+            """);
+    }
+
+    private static void CreateRichComicArchive(string path, byte[] cover)
+    {
+        using var file = File.Create(path);
+        using var archive = new ZipArchive(file, ZipArchiveMode.Create, leaveOpen: false);
+        var page = archive.CreateEntry("page_001.jpg", CompressionLevel.NoCompression);
+        using (var pageStream = page.Open())
+        {
+            pageStream.Write(cover);
+        }
+
+        var info = archive.CreateEntry("ComicInfo.xml", CompressionLevel.Fastest);
+        using var writer = new StreamWriter(info.Open(), Encoding.UTF8);
+        writer.Write("""
+            <?xml version="1.0" encoding="utf-8"?>
+            <ComicInfo>
+              <Title>Issue title</Title>
+              <Series>Batman</Series>
+              <Number>405</Number>
+              <Volume>2</Volume>
+              <LanguageISO>en</LanguageISO>
+              <Inker>Inker Name</Inker>
+              <Colorist>Colorist Name</Colorist>
+              <Translator>Translator Name</Translator>
+              <Web>https://comicvine.gamespot.com/batman-405/4000-123456/</Web>
+              <Notes>https://comicvine.gamespot.com/batman/4050-654321/</Notes>
             </ComicInfo>
             """);
     }

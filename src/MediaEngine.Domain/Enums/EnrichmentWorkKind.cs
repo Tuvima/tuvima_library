@@ -7,6 +7,6 @@ public enum EnrichmentWorkKind
 {
     RetailProvider,
     Wikidata,
-    Fanart,
+    TmdbArtwork,
     WriteBack,
 }

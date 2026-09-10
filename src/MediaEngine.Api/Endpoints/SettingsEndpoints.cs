@@ -82,10 +82,8 @@ public static class SettingsEndpoints
             ["wikidata"] = "Wikidata",
             ["wikidata_reconciliation"] = "Wikidata",
             ["local_filesystem"] = "Local Filesystem",
-            ["open_library"] = "Open Library",
             ["tmdb"] = "TMDB",
             ["musicbrainz"] = "MusicBrainz",
-            ["fanart_tv"] = "Fanart.tv",
         };
 
     // Maps provider name → key in manifest.ProviderEndpoints for the reachability probe.
@@ -95,7 +93,6 @@ public static class SettingsEndpoints
             ["apple_api"] = "apple_api",
             // audnexus removed - config file deleted as part of SPARQL cleanup
             ["wikidata"] = "wikidata_api",
-            ["open_library"] = "open_library",
             ["tmdb"] = "tmdb",
             ["musicbrainz"] = "musicbrainz",
         };
@@ -1546,7 +1543,8 @@ public static class SettingsEndpoints
             AvailableFields = provider.AvailableFields,
             MediaTypes = mediaTypes,
             RequiresApiKey = provider.RequiresApiKey,
-            HasApiKey = !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey)
+            HasApiKey = !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKeyOverride)
+                        || !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey)
                                || (string.Equals(provider.HttpClient?.ApiKeyDelivery, "basic", StringComparison.OrdinalIgnoreCase)
                                    && !string.IsNullOrWhiteSpace(provider.HttpClient?.Username)
                                    && !string.IsNullOrWhiteSpace(provider.HttpClient?.Password)),

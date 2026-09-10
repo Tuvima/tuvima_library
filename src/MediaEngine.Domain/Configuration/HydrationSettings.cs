@@ -37,10 +37,10 @@ public sealed class HydrationSettings
     public int MaxConcurrentWikidataJobs { get; set; } = 2;
 
     /// <summary>
-    /// Maximum app-wide concurrent Fanart.tv/image enrichment work items across all libraries.
+    /// Maximum app-wide concurrent TMDB artwork enrichment work items across all libraries.
     /// </summary>
-    [JsonPropertyName("max_concurrent_fanart_jobs")]
-    public int MaxConcurrentFanartJobs { get; set; } = 1;
+    [JsonPropertyName("max_concurrent_tmdb_artwork_jobs")]
+    public int MaxConcurrentTmdbArtworkJobs { get; set; } = 1;
 
     /// <summary>
     /// Maximum app-wide concurrent metadata write-back work items across all libraries.
@@ -331,7 +331,7 @@ public sealed class HydrationSettings
 
     /// <summary>
     /// Milliseconds to delay between each work during a Stage 3 sweep.
-    /// Prevents overwhelming external APIs (Wikidata, Fanart.tv).
+    /// Prevents overwhelming external APIs (Wikidata and TMDB).
     /// </summary>
     [JsonPropertyName("stage3_rate_limit_ms")]
     public int Stage3RateLimitMs { get; set; } = 3000;

@@ -18,7 +18,7 @@ applicable, and understand where the result appears.
 
 **Prerequisite:** The Engine and Dashboard are running. If not, start with [Getting Started](getting-started.md).
 
-## Step 1 - Open Library Settings
+## Step 1 - Open the Library Settings
 
 In the Dashboard, open **Settings > Libraries**.
 

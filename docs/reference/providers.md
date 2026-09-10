@@ -25,7 +25,7 @@ The provider portion of ingestion maps to the numbered stages shown on the Inges
 
 2. **Stage 4 (Wikidata):** The Wikidata Reconciliation adapter uses those bridge IDs to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code (for example, ISBN-13 maps to P212). Stage 4 is strict-gated behind Stage 3: no safe retail match means no automatic Wikidata attempt. A Stage 4 request also needs at least one real bridge ID; title and creator hints are sent as ranking context, not as a broad title-only fallback.
 
-3. **Stage 8 (Artwork):** Rich artwork providers such as Fanart.tv run later, after bridge IDs or QIDs are available. They do not provide the first cover/poster pass.
+3. **Stage 8 (Artwork):** TMDB refreshes ranked movie and TV backgrounds, title logos, poster variants, and season artwork after a TMDB bridge ID is available. It does not replace a user-selected asset.
 
 Retail providers are a **rich data source for matching** - descriptions, narrator data, ratings, and cover art similarity are all used to rank candidates against file metadata. **Wikidata is the authority** for final canonical values (title, author, year, genre, series).
 
@@ -39,7 +39,6 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 | TMDB | Movies, TV | API key query parameter | 500ms throttle, max 1 concurrent | Localized (user language) | Active (requires key) |
 | MusicBrainz | Music | None | 1 request/sec, max 1 concurrent | Source (English only) | Active music identity |
 | Comic Vine | Comics | API key | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
-| Fanart.tv | Movies, TV, Music | API key | Configured provider throttle | ID lookup | Stage 8 deep artwork only |
 | LRCLIB | Music | None | Configured provider throttle | Source | Text-track provider |
 | OpenSubtitles | Movies, TV | API key | Configured provider throttle | Source | Text-track provider, disabled by default |
 
@@ -116,10 +115,6 @@ without inventing an issue ID. Stage 4 can then roll up to a clearly scoped
 series/run Wikidata QID using `wikidata_qid_scope = series` and
 `qid_resolution_method = comic_series_rollup`.
 
-#### Fanart.tv (Stage 8 Only)
-
-Fanart.tv is not an identity provider. It runs after identity is established and uses bridge IDs to fetch additional artwork such as backgrounds, logos, banners, thumbnails, clear art, disc art, and square art.
-
 #### LRCLIB and OpenSubtitles
 
 LRCLIB and OpenSubtitles provide lyrics and subtitle/text-track data. They do not decide identity, do not unlock Wikidata resolution, and do not participate in retail candidate scoring.
@@ -129,9 +124,9 @@ LRCLIB and OpenSubtitles provide lyrics and subtitle/text-track data. They do no
 | Media type | Preferred sequence source | Artwork display source |
 |---|---|---|
 | Books/Audiobooks | Apple retail sequence when available; otherwise Wikidata manifest if the container is sequence-compatible. | Managed asset from accepted Apple/provider cover, then placeholder after artwork settles. |
-| Music | MusicBrainz recording/release identity first, then Apple album/artwork enrichment. | Managed asset from accepted Apple/Fanart source; no direct provider URL after settlement. |
-| Movies | TMDB movie collection for ordered film collections; Wikidata franchise context stays broader discovery context. | Managed poster/backdrop from TMDB/Fanart. |
-| TV | TMDB show/season/episode details. | Managed show, season, and episode art from TMDB/Fanart. |
+| Music | MusicBrainz recording/release identity first, then Apple album/artwork enrichment. | Managed asset from the accepted Apple source; no direct provider URL after settlement. |
+| Movies | TMDB movie collection for ordered film collections; Wikidata franchise context stays broader discovery context. | Managed TMDB posters, backdrops, and title logos. |
+| TV | TMDB show/season/episode details. | Managed TMDB show and season art; episode stills continue to use the existing TMDB episode retrieval. |
 | Comics | Comic Vine volume/run and issue metadata. | Managed Comic Vine cover. |
 
 Provider descriptions and long-form metadata should carry source attribution
@@ -189,7 +184,7 @@ Bridge IDs are external platform identifiers that the Wikidata Reconciliation ad
 | **Comic Vine** | Comic Vine ID | `comic_vine_id` | 0.95 | P5905 |
 | **Comic Vine** | Comic Vine Volume ID | `comic_vine_volume_id` | 0.95 | Provider/run evidence; used for scoped comic series rollup when issue QID is absent |
 | **MusicBrainz** | MusicBrainz IDs | `musicbrainz_id`, `musicbrainz_recording_id`, `musicbrainz_release_group_id` | provider-dependent | P434/P435/P436/P5813/P4404 depending on ID type |
-| **Open Library / file evidence** | ISBN and Open Library ID | `isbn`, `isbn_13`, `isbn_10`, `open_library_id` | provider-dependent | P212/P957/P648 |
+| **Embedded book/comic evidence** | ISBN and retained historical identifiers | `isbn`, `isbn_13`, `isbn_10` | provider-dependent | P212/P957; historical bridge IDs remain evidence only |
 
 ### Stage 4 Resolution Flow Per Bridge ID
 
@@ -198,7 +193,7 @@ The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v3.
 1. **Bridge request build:** The adapter converts each `WikidataResolveRequest` into a `BridgeResolutionRequest` with bridge IDs, media kind, title/creator/year/series hints, language, custom P-code mappings, and rollup preference.
 2. **Direct lookup:** The package groups `(propertyId, normalizedValue)` lookups so duplicate ISBN/TMDB/Apple/MusicBrainz/ComicVine IDs share one Wikidata query.
 3. **Edition awareness:** The package walks P629 for edition/release-to-work rollups and can return both the resolved entity QID and canonical work QID plus the relationship path.
-4. **Media-specific bridge mapping:** TMDB, Apple, TVDB, MusicBrainz, OpenLibrary, and ComicVine keys are mapped to official Wikidata properties inside the package; app config only overrides or supplies custom mappings.
+4. **Media-specific bridge mapping:** TMDB, Apple, TVDB, MusicBrainz, and ComicVine keys are mapped to official Wikidata properties inside the package; retained historical keys are evidence only and do not activate a provider.
 5. **Strict bridge gate:** If a request has no real bridge IDs, the adapter does not build a Stage 4 bridge request. Title-only automatic requests are skipped.
 6. **Claim and diagnostics follow-up:** After every successful resolution, the adapter calls `ExtendAsync` over the known bridge P-codes to populate `WikidataResolveResult.Claims` and `CollectedBridgeIds`, and it also carries `BridgeDiagnostics`, ranked candidates, and rollup details from the package result.
 
@@ -210,8 +205,8 @@ The bridge worker sends these fields to Wikidata after Stage 3 has produced a re
 
 | Media type | Bridge IDs | Hints | Media kind / filter |
 |---|---|---|---|
-| Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `open_library_id`, `goodreads_id` | Title, author, year, language | Book/literary work, edition-aware |
-| Audiobooks | `apple_books_id`, `isbn`, `asin`, `audible_id`, MusicBrainz IDs | Title, author, year, language | Audiobook, edition-aware, prefers edition |
+| Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `goodreads_id` | Title, author, year, language | Book/literary work, edition-aware |
+| Audiobooks | `apple_books_id`, `isbn`, `asin`, MusicBrainz IDs | Title, author, year, language | Audiobook, edition-aware, prefers edition |
 | Music | MusicBrainz recording/release/release-group IDs first; Apple Music IDs as secondary hints | Album, artist, composer/author fallback, track title, year, language | Recording/track when safely bridgeable; album when only release-group identity is known |
 | Movies | `tmdb_id`, `imdb_id`, Apple TV movie IDs | Title, creator if canonicalized, year, language | Movie/film |
 | TV | `tmdb_id`, `imdb_id`, `tvdb_id`, Apple TV show/episode IDs | Show name or series, creator if canonicalized, year, language | TV series |

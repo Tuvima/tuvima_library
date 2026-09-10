@@ -26,7 +26,7 @@ Metadata has two pages. **Providers** lists every user-visible provider once, re
 
 2. **Wikidata** (Stage 4: Wikidata) - runs after retail lookup, using identifiers gathered in Stage 3. Wikidata is the authority for canonical structured data: the author's full name, the official series name, genre classifications, director credits, and so on. Wikidata is always free to use and requires no key.
 
-3. **Enrichment and artwork providers** (Stages 6-8) - run after identity is known. These providers add people, relationships, fan art, synced lyrics, subtitles, and periodic refresh data. Rich artwork providers such as Fanart.tv are Stage 8, not the first cover/poster pass.
+3. **Enrichment and artwork providers** (Stages 6-8) - run after identity is known. These providers add people, relationships, TMDB movie and TV artwork variants, synced lyrics, subtitles, and periodic refresh data. Artwork refreshes preserve any asset you selected yourself.
 
 ---
 
@@ -52,7 +52,7 @@ Some providers require you to create a free account and obtain an API key before
 
 ### TMDB (The Movie Database)
 
-TMDB supplies cover art, descriptions, cast and crew, ratings, and backdrops for movies and TV.
+TMDB supplies cover art, descriptions, cast and crew, ratings, and managed poster, background, title-logo, and season-art variants for movies and TV.
 
 1. Go to `https://www.themoviedb.org/settings/api` and create a free account.
 2. Request an API key (choose "Developer" use type).
@@ -111,8 +111,8 @@ Wikidata relationship targets are classified before they become shelves. Ordered
 
 | Media type | Wikidata bridge IDs used | Hints sent with the bridge request | Wikidata media kind and filtering | Edition/rollup behavior |
 |---|---|---|---|---|
-| Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `open_library_id`, `goodreads_id` when present. | Title, author, year, language. | Book/literary work classes; excludes people, films, TV, and music classes. | Edition-aware; returns the work and edition when available. |
-| Audiobooks | `apple_books_id`, `isbn`, `asin`, `audible_id`, MusicBrainz IDs when present. | Title, author, year, language. | Audiobook and written-work classes. | Edition-aware and prefers audiobook edition identity when available. |
+| Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `goodreads_id` when present. | Title, author, year, language. | Book/literary work classes; excludes people, films, TV, and music classes. | Edition-aware; returns the work and edition when available. |
+| Audiobooks | `apple_books_id`, `isbn`, `asin`, MusicBrainz IDs when present. | Title, author, year, language. | Audiobook and written-work classes. | Edition-aware and prefers audiobook edition identity when available. |
 | Music | MusicBrainz recording, release, and release-group IDs first; Apple Music track, collection, and artist IDs as secondary hints. | Album title, artist, composer/author fallback, track title, year, language. | Track/recording QIDs when safely bridgeable; album/release-group QIDs stay on the album parent. | Edition-aware; album IDs roll up tracks to the album/work identity without forcing album QIDs onto tracks. |
 | Movies | `tmdb_id`, `imdb_id`, Apple TV movie IDs when present. | Title, author/creator if canonicalized, year, language. | Movie/film classes; TMDB maps to the movie property. | Not edition-aware in the bridge worker; returns work identity. |
 | TV | `tmdb_id`, `imdb_id`, `tvdb_id`, Apple TV show/episode IDs when present. | Show name or series as title, author/creator if canonicalized, year, language. | TV-series classes; TMDB maps to the TV-series property. | Not edition-aware in the bridge worker; resolves series/show identity. |
@@ -128,7 +128,7 @@ Open **Settings -> Metadata -> Ingestion Flow** to see the active order for each
 
 Provider execution order remains media-scoped in `config/pipelines.json`. Sequential chains run in listed order, passing bridge IDs forward. For music, the default configuration assigns MusicBrainz the `identity` role and Apple the `enrichment` role with `requires_identity: true` plus `use_as_identity_fallback: true`. Apple's `accepted_transition` points back to MusicBrainz for one reconciliation attempt only when Apple supplied the fallback identity. `max_provider_attempts` is an absolute safety budget. Query clauses, candidate paths, nested release constraints, creator-list behavior, transition hint fields, and retry counts all live in validated JSON configuration rather than provider-name branches in the worker.
 
-Wikidata appears in the same provider inventory as every other provider. Ingestion Flow shows its required canonical-identity role separately from optional post-match providers such as Fanart.tv, LRCLIB, and OpenSubtitles.
+Wikidata appears in the same provider inventory as every other provider. Ingestion Flow shows its required canonical-identity role separately from optional post-match providers such as LRCLIB and OpenSubtitles.
 
 ---
 

@@ -33,19 +33,22 @@ public sealed class ProviderOnboardingContractTests
         var entry = ProviderCatalogueEndpoints.MapToEntry(provider);
 
         Assert.NotNull(entry.Onboarding);
-        Assert.Equal("recommended", entry.Onboarding.Classification);
+        Assert.Equal("built_in", entry.Onboarding.Classification);
         Assert.Equal(["watch"], entry.Onboarding.SupportedLanes);
         Assert.NotEmpty(entry.Onboarding.SkipConsequences);
         Assert.Equal("Connect TMDB", entry.Onboarding.Intro?.Title);
         Assert.Equal(["account", "credential", "connect"], entry.Onboarding.Steps.Select(step => step.Id));
         Assert.Equal("external_link", entry.Onboarding.Steps[0].Action?.Kind);
         Assert.Contains(entry.Onboarding.Troubleshooting, item => item.Status == "invalid_credential");
-        var credential = Assert.Single(entry.Onboarding.Credentials);
-        Assert.Equal("api_key", credential.Key);
-        Assert.Equal("TMDB API Key (v3 auth)", credential.Label);
-        Assert.False(credential.Configured);
-        Assert.Equal("user_supplied", credential.Ownership);
-        Assert.Equal("api_key", credential.Purpose);
+        var applicationCredential = entry.Onboarding.Credentials.Single(field => field.Key == "api_key");
+        Assert.Equal("TMDB API Key (v3 auth)", applicationCredential.Label);
+        Assert.False(applicationCredential.Configured);
+        Assert.Equal("application_managed", applicationCredential.Ownership);
+        Assert.Equal("api_key", applicationCredential.Purpose);
+        var overrideCredential = entry.Onboarding.Credentials.Single(field => field.Key == "api_key_override");
+        Assert.False(overrideCredential.Required);
+        Assert.Equal("user_supplied", overrideCredential.Ownership);
+        Assert.Contains("api_key_override", entry.Onboarding.Steps.Single(step => step.Id == "credential").CredentialKeys);
 
         var wireJson = JsonSerializer.Serialize(entry);
         Assert.DoesNotContain("validation_pattern", wireJson, StringComparison.OrdinalIgnoreCase);
@@ -53,33 +56,29 @@ public sealed class ProviderOnboardingContractTests
     }
 
     [Fact]
-    public void FanartCatalogue_SeparatesApplicationProjectKeyFromPersonalClientKey()
+    public void OpenSubtitlesCatalogue_ExposesOptionalAccountLoginWithoutEmbeddedCredentials()
     {
-        var providerPath = Path.Combine(FindRepoRoot(), "config", "providers", "fanart_tv.json");
+        var providerPath = Path.Combine(FindRepoRoot(), "config", "providers", "opensubtitles.json");
         var provider = JsonSerializer.Deserialize<ProviderConfiguration>(
             File.ReadAllText(providerPath),
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
 
         var entry = ProviderCatalogueEndpoints.MapToEntry(provider);
 
-        Assert.Equal("https://webservice.fanart.tv/v3.2", provider.Endpoints["api"]);
-        Assert.Equal("application_managed", entry.Onboarding!.Credentials.Single(field => field.Key == "api_key").Ownership);
-        Assert.Equal("api_key", entry.Onboarding.Credentials.Single(field => field.Key == "api_key").Purpose);
-        Assert.Equal("user_supplied", entry.Onboarding.Credentials.Single(field => field.Key == "client_key").Ownership);
-        Assert.Equal("client_key", entry.Onboarding.Credentials.Single(field => field.Key == "client_key").Purpose);
-        Assert.Equal(["client_key"], entry.Onboarding.Steps.Single(step => step.Id == "credential").CredentialKeys);
-
-        var wireJson = JsonSerializer.Serialize(entry);
-        Assert.DoesNotContain("validation_pattern", wireJson, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("http_client", wireJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("optional", entry.Onboarding!.Classification);
+        Assert.Equal("user_supplied", entry.Onboarding.Credentials.Single(field => field.Key == "api_key").Ownership);
+        Assert.False(entry.Onboarding.Credentials.Single(field => field.Key == "username").Required);
+        Assert.False(entry.Onboarding.Credentials.Single(field => field.Key == "password").Required);
+        Assert.Equal(["username", "password"], entry.Onboarding.Steps.Single(step => step.Id == "account_login").CredentialKeys);
+        Assert.DoesNotContain("application_managed", entry.Onboarding.Credentials.Select(field => field.Ownership));
     }
-
     private static string FindRepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null)
         {
-            if (Directory.Exists(Path.Combine(directory.FullName, ".git")))
+            if (Directory.Exists(Path.Combine(directory.FullName, ".git"))
+                || File.Exists(Path.Combine(directory.FullName, ".git")))
             {
                 return directory.FullName;
             }

@@ -63,7 +63,7 @@ public static class IntegrationTestEndpoints
         public List<StageGatingResult> StageGatingResults { get; set; } = [];
         public List<IngestionProgressSnapshot> IngestionProgressSnapshots { get; set; } = [];
         public List<IngestionWaitStageResult> IngestionWaitStages { get; set; } = [];
-        public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
+        public List<Stage3ArtworkSummary> Stage3ArtworkSummaries { get; set; } = [];
         public List<SeriesHarnessCheckResult> SeriesHarnessChecks { get; set; } = [];
         public List<CrossMediaSeriesCheckResult> CrossMediaSeriesChecks { get; set; } = [];
         public List<PersonCoverageCheckResult> PersonCoverageChecks { get; set; } = [];
@@ -89,7 +89,7 @@ public static class IntegrationTestEndpoints
             && StageGatingResults.All(result => result.Pass)
             && IngestionProgressSnapshots.All(result => result.Pass)
             && IngestionWaitStages.All(result => result.Pass)
-            && Stage3FanartSummaries.All(result => result.Pass)
+            && Stage3ArtworkSummaries.All(result => result.Pass)
             && SeriesHarnessChecks.All(result => result.Pass)
             && CrossMediaSeriesChecks.All(result => result.Pass)
             && PersonCoverageChecks.All(result => result.Pass)
@@ -182,7 +182,7 @@ public static class IntegrationTestEndpoints
         public bool HasStoredSeasonPoster { get; set; }
         public bool HasStoredSeasonThumb { get; set; }
         public bool HasStoredEpisodeStill { get; set; }
-        public bool HasFanartBridgeId { get; set; }
+        public bool HasArtworkBridgeId { get; set; }
         public string? Detail { get; set; }
         public bool Pass =>
             FileExists
@@ -295,12 +295,12 @@ public static class IntegrationTestEndpoints
 
     // ── Reconciliation models ─────────────────────────────────────────────
 
-    /// <summary>Type-level evidence that Stage 3 fanart assets were stored.</summary>
-    private sealed class Stage3FanartSummary
+    /// <summary>Type-level evidence that Stage 3 TMDB artwork assets were stored.</summary>
+    private sealed class Stage3ArtworkSummary
     {
         public string MediaType { get; set; } = "";
         public int EligibleCount { get; set; }
-        public int WithAnyFanart { get; set; }
+        public int WithAnyArtwork { get; set; }
         public int WithBackground { get; set; }
         public int WithLogo { get; set; }
         public int WithBanner { get; set; }
@@ -309,7 +309,7 @@ public static class IntegrationTestEndpoints
         public int WithEpisodeStill { get; set; }
         public bool Pass =>
             EligibleCount == 0
-            || (WithAnyFanart > 0
+            || (WithAnyArtwork > 0
                 && (!string.Equals(MediaType, "TV", StringComparison.OrdinalIgnoreCase)
                     || WithEpisodeStill > 0));
     }
@@ -956,7 +956,7 @@ public static class IntegrationTestEndpoints
                 report.FileSystemChecks.Clear();
                 report.WatchFolderChecks.Clear();
                 await ValidateFileSystemAsync(db, options, configLoader, libraryItemRepo, report, loggerFactory, logger, ct);
-                ValidateStage3FanartAsync(report, logger);
+                ValidateStage3ArtworkAsync(report, logger);
                 await ValidateCharacterArtworkAsync(db, personCreditReadService, report, logger, ct);
                 await ValidatePersonCoverageAsync(
                     personRepo,
@@ -2114,9 +2114,9 @@ public static class IntegrationTestEndpoints
                 check.HasStoredPalette = HasArtworkPalette(preferredCoverArtwork, ownerEntityId);
                 check.HasStoredLegacyHero = File.Exists(assetPathService.GetCentralDerivedPath("Work", ownerEntityId, "hero", "hero.jpg"));
 
-                if (assetCanonicals.TryGetValue(assetId, out var fanartMetadata))
+                if (assetCanonicals.TryGetValue(assetId, out var artworkMetadata))
                 {
-                    check.HasFanartBridgeId = HasFanartBridgeId(fanartMetadata);
+                    check.HasArtworkBridgeId = HasTmdbArtworkBridgeId(artworkMetadata);
                 }
             }
 
@@ -4124,9 +4124,9 @@ public static class IntegrationTestEndpoints
             SummaryCard(sb, report.DetailRouteChecks.Count(s => s.Pass) + "/" + report.DetailRouteChecks.Count, "Detail Links", "#60A5FA");
         }
 
-        if (report.Stage3FanartSummaries.Count > 0)
+        if (report.Stage3ArtworkSummaries.Count > 0)
         {
-            SummaryCard(sb, report.Stage3FanartSummaries.Sum(s => s.WithAnyFanart) + "/" + report.Stage3FanartSummaries.Sum(s => s.EligibleCount), "Stage 3 Art", "#14B8A6");
+            SummaryCard(sb, report.Stage3ArtworkSummaries.Sum(s => s.WithAnyArtwork) + "/" + report.Stage3ArtworkSummaries.Sum(s => s.EligibleCount), "Stage 3 Art", "#14B8A6");
         }
 
         if (report.CharacterArtworkChecks.Count > 0)
@@ -4574,21 +4574,21 @@ public static class IntegrationTestEndpoints
             sb.AppendLine("</details>");
         }
 
-        if (report.Stage3FanartSummaries.Count > 0)
+        if (report.Stage3ArtworkSummaries.Count > 0)
         {
-            int fanartPass = report.Stage3FanartSummaries.Count(s => s.Pass);
-            string fanartBadge = fanartPass == report.Stage3FanartSummaries.Count
+            int artworkPass = report.Stage3ArtworkSummaries.Count(s => s.Pass);
+            string artworkBadge = artworkPass == report.Stage3ArtworkSummaries.Count
                 ? "<span class=\"badge badge-pass\">ALL PASS</span>"
-                : $"<span class=\"badge badge-warn\">{report.Stage3FanartSummaries.Count - fanartPass} ISSUES</span>";
-            sb.AppendLine($"<h2>Stage 3 Artwork Validation {fanartBadge}</h2>");
+                : $"<span class=\"badge badge-warn\">{report.Stage3ArtworkSummaries.Count - artworkPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Stage 3 Artwork Validation {artworkBadge}</h2>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th>Media Type</th><th>Eligible Fanart Items</th><th>Any Fanart</th><th>Backgrounds</th><th>Logos</th><th>Banners</th><th>Season Posters</th><th>Season Thumbs</th><th>Episode Stills</th><th>Status</th></tr>");
-            foreach (var summary in report.Stage3FanartSummaries.OrderBy(s => s.MediaType))
+            sb.AppendLine("<tr><th>Media Type</th><th>TMDB Artwork Eligible</th><th>Any Artwork</th><th>Backgrounds</th><th>Logos</th><th>Banners</th><th>Season Posters</th><th>Season Thumbs</th><th>Episode Stills</th><th>Status</th></tr>");
+            foreach (var summary in report.Stage3ArtworkSummaries.OrderBy(s => s.MediaType))
             {
                 string badge = summary.Pass
                     ? "<span class=\"badge badge-pass\">PASS</span>"
                     : "<span class=\"badge badge-fail\">FAIL</span>";
-                sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyFanart}</td><td>{summary.WithBackground}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{summary.WithSeasonPoster}</td><td>{summary.WithSeasonThumb}</td><td>{summary.WithEpisodeStill}</td><td>{badge}</td></tr>");
+                sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyArtwork}</td><td>{summary.WithBackground}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{summary.WithSeasonPoster}</td><td>{summary.WithSeasonThumb}</td><td>{summary.WithEpisodeStill}</td><td>{badge}</td></tr>");
             }
             sb.AppendLine("</table>");
         }
@@ -6032,18 +6032,18 @@ public static class IntegrationTestEndpoints
         return Path.Combine(options.LibraryRoot, relative);
     }
 
-    private static void ValidateStage3FanartAsync(TestReport report, ILogger logger)
+    private static void ValidateStage3ArtworkAsync(TestReport report, ILogger logger)
     {
-        report.Stage3FanartSummaries.Clear();
+        report.Stage3ArtworkSummaries.Clear();
 
-        foreach (var mediaType in new[] { "Movies", "TV", "Music" })
+        foreach (var mediaType in new[] { "Movies", "TV" })
         {
             var eligible = report.FileSystemChecks
                 .Where(check =>
                     string.Equals(check.MediaType, mediaType, StringComparison.OrdinalIgnoreCase)
                     && string.Equals(check.ExpectedLocation, "Library", StringComparison.OrdinalIgnoreCase)
                     && !string.IsNullOrWhiteSpace(check.WikidataQid)
-                    && check.HasFanartBridgeId
+                    && check.HasArtworkBridgeId
                     && check.FileExists
                     && check.LocationMatchesExpectation)
                 .ToList();
@@ -6053,11 +6053,11 @@ public static class IntegrationTestEndpoints
                 continue;
             }
 
-            var summary = new Stage3FanartSummary
+            var summary = new Stage3ArtworkSummary
             {
                 MediaType = mediaType,
                 EligibleCount = eligible.Count,
-                WithAnyFanart = eligible.Count(check =>
+                WithAnyArtwork = eligible.Count(check =>
                     check.HasStoredBackground
                     || check.HasStoredLogo
                     || check.HasStoredBanner
@@ -6072,11 +6072,11 @@ public static class IntegrationTestEndpoints
                 WithEpisodeStill = eligible.Count(check => check.HasStoredEpisodeStill),
             };
 
-            report.Stage3FanartSummaries.Add(summary);
+            report.Stage3ArtworkSummaries.Add(summary);
             logger.LogInformation(
-                "  Stage 3 fanart: {MediaType} {WithAny}/{Eligible} items have stored fanart evidence",
+                "  Stage 3 TMDB artwork: {MediaType} {WithAny}/{Eligible} items have stored artwork evidence",
                 summary.MediaType,
-                summary.WithAnyFanart,
+                summary.WithAnyArtwork,
                 summary.EligibleCount);
 
             if (!summary.Pass)
@@ -6086,7 +6086,7 @@ public static class IntegrationTestEndpoints
                     ? "no stored episode stills were created"
                     : "no stored optional artwork assets were created";
                 report.IssuesFound.Add(
-                    $"Stage 3 fanart: {reason} for eligible {summary.MediaType} items");
+                    $"Stage 3 TMDB artwork: {reason} for eligible {summary.MediaType} items");
             }
         }
     }
@@ -6097,7 +6097,7 @@ public static class IntegrationTestEndpoints
                 Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
                 StringComparison.OrdinalIgnoreCase);
 
-    private static bool HasFanartBridgeId(IReadOnlyDictionary<string, string> metadata)
+    private static bool HasTmdbArtworkBridgeId(IReadOnlyDictionary<string, string> metadata)
     {
         static bool HasValue(IReadOnlyDictionary<string, string> map, params string[] keys) =>
             keys.Any(key => map.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value));
@@ -6106,11 +6106,7 @@ public static class IntegrationTestEndpoints
             metadata,
             BridgeIdKeys.TmdbId,
             "tmdb_movie_id",
-            "tmdb_tv_id",
-            BridgeIdKeys.TvdbId,
-            BridgeIdKeys.MusicBrainzId,
-            "musicbrainz_artist_id",
-            BridgeIdKeys.MusicBrainzReleaseGroupId);
+            "tmdb_tv_id");
     }
 
     private static string DescribeFileSystemCheck(FileSystemCheckResult check)

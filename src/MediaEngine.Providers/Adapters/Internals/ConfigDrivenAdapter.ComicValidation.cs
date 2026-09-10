@@ -156,7 +156,7 @@ public sealed partial class ConfigDrivenAdapter
     {
 
         var baseUrl = ResolveBaseUrl(request);
-        var apiKey = _config.HttpClient?.ApiKey;
+        var apiKey = EffectiveApiKey;
         if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
         {
             return null;
@@ -222,7 +222,7 @@ public sealed partial class ConfigDrivenAdapter
     {
         var sequenceConfig = _config.SequenceManifest;
         var baseUrl = ResolveBaseUrl(request);
-        var apiKey = _config.HttpClient?.ApiKey;
+        var apiKey = EffectiveApiKey;
         if (sequenceConfig?.Enabled != true
             || string.IsNullOrWhiteSpace(baseUrl)
             || string.IsNullOrWhiteSpace(apiKey))

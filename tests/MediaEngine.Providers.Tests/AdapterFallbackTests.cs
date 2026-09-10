@@ -29,6 +29,43 @@ namespace MediaEngine.Providers.Tests;
 /// </summary>
 public sealed class AdapterFallbackTests
 {
+    [Fact]
+    public async Task AppleBooks_Audiobook_MapsDurationFromTrackTimeMillis()
+    {
+        var config = LoadExampleConfig("apple_api");
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(_ => JsonResponse("""
+                {
+                  "resultCount": 1,
+                  "results": [
+                    {
+                      "collectionId": 123,
+                      "collectionName": "Project Hail Mary",
+                      "artistName": "Andy Weir",
+                      "trackTimeMillis": 3600000,
+                      "artworkUrl100": "https://example.test/project-hail-mary.jpg"
+                    }
+                  ]
+                }
+                """)));
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Audiobooks,
+            Title = "Project Hail Mary",
+            Author = "Andy Weir",
+            BaseUrl = "https://itunes.apple.com",
+        });
+
+        Assert.Contains(claims, claim => claim.Key == MetadataFieldConstants.DurationField
+            && claim.Value == "60");
+    }
+
     // ── Apple Books — HTTP 503 ────────────────────────────────────────────────
 
     [Fact]
@@ -1723,7 +1760,12 @@ public sealed class AdapterFallbackTests
                               "name": "FX Productions",
                               "logo_path": "/fx.png"
                             }
-                          ]
+                          ],
+                          "external_ids": {
+                            "imdb_id": "tt1234567",
+                            "tvdb_id": 7654,
+                            "wikidata_id": "Q123456"
+                          }
                         }
                         """);
                 }
@@ -1764,6 +1806,12 @@ public sealed class AdapterFallbackTests
             && c.Value == "https://image.tmdb.org/t/p/original/fx.png");
         Assert.Contains(claims, c => c.Key == "production_company"
             && c.Value == "FX Productions");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ImdbId
+            && c.Value == "tt1234567");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.TvdbId
+            && c.Value == "7654");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.WikidataQid
+            && c.Value == "Q123456");
     }
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()
@@ -1786,7 +1834,7 @@ public sealed class AdapterFallbackTests
         var dir = Path.GetDirectoryName(typeof(AdapterFallbackTests).Assembly.Location);
         while (dir != null)
         {
-            if (Directory.Exists(Path.Combine(dir, ".git")))
+            if (File.Exists(Path.Combine(dir, "MediaEngine.slnx")))
             {
                 return dir;
             }

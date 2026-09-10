@@ -33,10 +33,9 @@ public sealed class ProviderCatalogueService
             [WellKnownProviders.AppleApi] = "Apple API",
             [WellKnownProviders.Wikidata] = "Wikidata",
             [WellKnownProviders.Wikipedia] = "Wikipedia",
-            [WellKnownProviders.OpenLibrary] = "Open Library",
             [WellKnownProviders.MusicBrainz] = "MusicBrainz",
             [WellKnownProviders.Tmdb] = "TMDB",
-            [WellKnownProviders.AiProvider] = "Fanart.tv",
+            [WellKnownProviders.AiProvider] = "AI-generated metadata",
             [WellKnownProviders.UserManual] = "Manual Match",
         };
 
@@ -44,13 +43,11 @@ public sealed class ProviderCatalogueService
         new Dictionary<string, ProviderFallback>(StringComparer.OrdinalIgnoreCase)
         {
             ["apple_api"] = new("Apple API", "#FF2D55", Icons.Material.Filled.MenuBook),
-            ["open_library"] = new("Open Library", "#4CAF50", Icons.Material.Filled.LocalLibrary),
             ["wikidata"] = new("Wikidata", "#339966", Icons.Material.Filled.Collections),
             ["wikidata_reconciliation"] = new("Wikidata", "#339966", Icons.Material.Filled.Collections),
             ["tmdb"] = new("TMDB", "#01B4E4", Icons.Material.Filled.Movie),
             ["comicvine"] = new("Comic Vine", "#04C8FF", Icons.Material.Filled.AutoStories),
             ["musicbrainz"] = new("MusicBrainz", "#BA478F", Icons.Material.Filled.MusicNote),
-            ["fanart_tv"] = new("Fanart.tv", "#19C1CC", Icons.Material.Filled.Image),
             ["lrclib"] = new("LRCLIB", "#3BA55D", Icons.Material.Filled.Lyrics),
             ["opensubtitles"] = new("OpenSubtitles", "#0F8BFD", Icons.Material.Filled.Subtitles),
             ["local_filesystem"] = new("Local Filesystem", "#90A4AE", Icons.Material.Filled.FolderOpen),
@@ -242,7 +239,6 @@ public sealed class ProviderCatalogueService
         {
             "tmdb" => "TMDB",
             "wikidata" => "Wikidata",
-            "openlibrary" => "Open Library",
             "apple" or "appleapi" or "applebooks" or "applemusic" => "Apple",
             "provider" or "providermatch" => "Retail match",
             _ => MediaEngine.Web.Services.Formatting.DisplayFormat.SplitWords(provider),
@@ -271,10 +267,8 @@ public sealed class ProviderCatalogueService
             "wikipedia" => "Wikipedia",
             "retail_provider" => "Retail Provider",
             "apple_api" => "Apple API",
-            "open_library" => "Open Library",
             "musicbrainz" => "MusicBrainz",
             "tmdb" => "TMDB",
-            "fanart_tv" => "Fanart.tv",
             "library_scanner" => "Library Scanner",
             _ => source,
         };

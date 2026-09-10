@@ -29,18 +29,18 @@ public sealed partial class ConfigDrivenAdapter
     {
         // Manual multi-result search — use the full requested limit.
         var url = BuildUrl(strategy, request, limit);
-        _logger.LogInformation("{Provider}/{Strategy}: SEARCH {Url}", Name, strategy.Name, url);
+        _logger.LogInformation("{Provider}/{Strategy}: SEARCH", Name, strategy.Name);
 
         using var client = _httpFactory.CreateClient(_config.Name);
         using var httpRequest = new HttpRequestMessage(HttpMethod.Get, url);
 
         // Apply bearer API key header if configured.
         if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
-            && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
+            && !string.IsNullOrWhiteSpace(EffectiveApiKey))
         {
             httpRequest.Headers.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue(
-                    "Bearer", _config.HttpClient.ApiKey);
+                    "Bearer", EffectiveApiKey);
         }
         else if (_config.HttpClient is { ApiKeyDelivery: "basic" }
             && !string.IsNullOrWhiteSpace(_config.HttpClient.Username)
@@ -390,7 +390,7 @@ public sealed partial class ConfigDrivenAdapter
         // Automatic single-result match — request only as many results as we need.
         var fetchLimit = strategy.FetchLimit > 0 ? strategy.FetchLimit : 5;
         var url = BuildUrl(strategy, request, fetchLimit);
-        _logger.LogDebug("{Provider}/{Strategy}: FETCH {Url}", Name, strategy.Name, url);
+        _logger.LogDebug("{Provider}/{Strategy}: FETCH", Name, strategy.Name);
 
         // -- Response cache check ---------------------------------------------
         var cacheKey = BuildCacheKey(url);
@@ -402,7 +402,7 @@ public sealed partial class ConfigDrivenAdapter
             if (cached is not null)
             {
                 _logger.LogDebug(
-                    "{Provider}/{Strategy}: cache HIT for {Url}", Name, strategy.Name, url);
+                    "{Provider}/{Strategy}: cache HIT", Name, strategy.Name);
 
                 var cachedJson = JsonNode.Parse(cached.ResponseJson);
                 if (cachedJson is not null)
@@ -438,11 +438,11 @@ public sealed partial class ConfigDrivenAdapter
 
         // Apply bearer API key header if configured.
         if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
-            && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
+            && !string.IsNullOrWhiteSpace(EffectiveApiKey))
         {
             httpRequest.Headers.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue(
-                    "Bearer", _config.HttpClient.ApiKey);
+                    "Bearer", EffectiveApiKey);
         }
         // Apply HTTP Basic Authentication if configured.
         else if (_config.HttpClient is { ApiKeyDelivery: "basic" }

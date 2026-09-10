@@ -89,6 +89,18 @@ public sealed partial class RetailMatchWorker
         }
 
         var genre = First(claims, MetadataFieldConstants.Genre);
+        var pageCountValue = First(claims, MetadataFieldConstants.PageCount);
+        var durationSecondsValue = First(claims, "duration_sec", "duration_seconds");
+        var durationMinutesValue = First(claims, MetadataFieldConstants.DurationField);
+
+        int? pageCount = int.TryParse(pageCountValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedPages)
+            ? parsedPages
+            : null;
+        double? durationSeconds = double.TryParse(durationSecondsValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedSeconds)
+            ? parsedSeconds
+            : double.TryParse(durationMinutesValue, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedMinutes)
+                ? parsedMinutes * 60d
+                : null;
 
         return new CandidateExtendedMetadata
         {
@@ -103,6 +115,8 @@ public sealed partial class RetailMatchWorker
             Language = First(claims, "language"),
             Series = First(claims, MetadataFieldConstants.Series),
             IssueNumber = First(claims, "issue_number", MetadataFieldConstants.SeriesPosition, "issue"),
+            PageCount = pageCount,
+            DurationSeconds = durationSeconds,
         };
     }
 

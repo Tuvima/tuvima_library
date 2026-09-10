@@ -11,6 +11,27 @@ namespace MediaEngine.Storage.Tests;
 public sealed class DatabaseStartupSafetyTests
 {
     [Fact]
+    public void FreshDatabase_AllowsManagedNetworkAndStudioLogos()
+    {
+        using var fixture = TempDatabase.Create();
+        fixture.Database.InitializeSchema();
+        fixture.Database.RunStartupChecks();
+
+        using var conn = fixture.Database.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO entity_assets (id, entity_id, entity_type, asset_type)
+            VALUES (randomblob(16), randomblob(16), 'Work', 'NetworkLogo');
+            INSERT INTO entity_assets (id, entity_id, entity_type, asset_type)
+            VALUES (randomblob(16), randomblob(16), 'Work', 'StudioLogo');
+            SELECT COUNT(*) FROM entity_assets
+            WHERE asset_type IN ('NetworkLogo', 'StudioLogo');
+            """;
+
+        Assert.Equal(2L, Convert.ToInt64(cmd.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    [Fact]
     public void FreshDatabase_InitializesRequiredTablesIndexesAndWalSettings()
     {
         using var fixture = TempDatabase.Create();

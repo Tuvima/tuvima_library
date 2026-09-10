@@ -94,60 +94,6 @@ public sealed class ProviderIntegrationTests
         await HashCoverArt(claims);
     }
 
-    // ── Open Library ─────────────────────────────────────────────────────────
-
-    [LiveProviderFact]
-    public async Task OpenLibrary_Returns_Claims_For_FellowshipOfTheRing()
-    {
-        var adapter = BuildConfigDrivenAdapter("open_library");
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset,
-            MediaType = MediaType.Books,
-            Title = "The Fellowship of the Ring",
-            Author = "J.R.R. Tolkien",
-            Isbn = "9780547928210",
-            BaseUrl = "https://openlibrary.org",
-        };
-
-        var claims = await adapter.FetchAsync(request);
-
-        LogClaims("Open Library", claims);
-        Assert.NotEmpty(claims);
-
-        // Expect title, author, isbn, year.
-        AssertHasClaim(claims, "title");
-        AssertHasClaim(claims, "author");
-        AssertHasClaim(claims, "isbn");
-
-        await HashCoverArt(claims);
-    }
-
-    // ── Open Library (ISBN-first search) ─────────────────────────────────────
-
-    [LiveProviderFact]
-    public async Task OpenLibrary_ISBN_Search_Returns_Claims()
-    {
-        var adapter = BuildConfigDrivenAdapter("open_library");
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset,
-            MediaType = MediaType.Books,
-            Title = "The Fellowship of the Ring",
-            Isbn = "9780547928210",
-            BaseUrl = "https://openlibrary.org",
-        };
-
-        var claims = await adapter.FetchAsync(request);
-
-        LogClaims("Open Library (ISBN)", claims);
-        Assert.NotEmpty(claims);
-    }
-
     // ── Search tests (multi-result SearchAsync) ─────────────────────────────
 
     [LiveProviderFact]
@@ -168,33 +114,6 @@ public sealed class ProviderIntegrationTests
         var results = await adapter.SearchAsync(request, limit: 10);
 
         _output.WriteLine($"Apple Books Search: {results.Count} results.");
-        foreach (var r in results)
-        {
-            _output.WriteLine($"  [{r.ProviderName}] \"{r.Title}\" by {r.Author} ({r.Year})");
-        }
-
-        Assert.NotEmpty(results);
-        Assert.All(results, r => Assert.False(string.IsNullOrWhiteSpace(r.Title)));
-    }
-
-    [LiveProviderFact]
-    public async Task OpenLibrary_Search_Returns_Results()
-    {
-        var adapter = BuildConfigDrivenAdapter("open_library");
-
-        var request = new ProviderLookupRequest
-        {
-            EntityId = Guid.NewGuid(),
-            EntityType = EntityType.MediaAsset,
-            MediaType = MediaType.Books,
-            Title = "The Fellowship of the Ring",
-            Author = "J.R.R. Tolkien",
-            BaseUrl = "https://openlibrary.org",
-        };
-
-        var results = await adapter.SearchAsync(request, limit: 10);
-
-        _output.WriteLine($"Open Library Search: {results.Count} results.");
         foreach (var r in results)
         {
             _output.WriteLine($"  [{r.ProviderName}] \"{r.Title}\" by {r.Author} ({r.Year})");

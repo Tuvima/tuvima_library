@@ -551,6 +551,10 @@ public sealed class HttpClientConfig
     [JsonPropertyName("api_key")]
     public string? ApiKey { get; set; }
 
+    /// <summary>Optional administrator supplied replacement for an application managed API key.</summary>
+    [JsonPropertyName("api_key_override")]
+    public string? ApiKeyOverride { get; set; }
+
     /// <summary>Optional user/client key used alongside an application API key.</summary>
     [JsonPropertyName("client_key")]
     public string? ClientKey { get; set; }

@@ -10,10 +10,90 @@ internal sealed class SchemaMigrator
         EnsureIdentitySchema(conn);
         EnsureOnboardingSchema(conn);
         EnsureAdaptiveDeliverySchema(conn);
+        EnsureExpandedArtworkAssetTypes(conn);
         EnsureCurrentColumns(conn);
         EnsureCurrentIndexes(conn);
         SeedMetadataProviders(conn);
         SeedDefaultProfile(conn);
+    }
+
+    private static void EnsureExpandedArtworkAssetTypes(SqliteConnection conn)
+    {
+        using var inspect = conn.CreateCommand();
+        inspect.CommandText = "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'entity_assets';";
+        var tableSql = inspect.ExecuteScalar() as string;
+        if (string.IsNullOrWhiteSpace(tableSql)
+            || tableSql.Contains("NetworkLogo", StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        DatabaseConnection.ExecuteStartupTransaction(conn, transaction =>
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = transaction;
+            cmd.CommandText = """
+                ALTER TABLE entity_assets RENAME TO entity_assets_legacy_asset_types;
+
+                CREATE TABLE entity_assets (
+                    id               BLOB PRIMARY KEY,
+                    entity_id        BLOB NOT NULL,
+                    entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
+                    asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','Logo','NetworkLogo','StudioLogo','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
+                    image_url        TEXT,
+                    local_image_path TEXT,
+                    local_image_path_s TEXT,
+                    local_image_path_m TEXT,
+                    local_image_path_l TEXT,
+                    source_provider  TEXT,
+                    width_px         INTEGER,
+                    height_px        INTEGER,
+                    aspect_class     TEXT NOT NULL DEFAULT 'UnsupportedRect',
+                    primary_hex      TEXT,
+                    secondary_hex    TEXT,
+                    accent_hex       TEXT,
+                    asset_class      TEXT NOT NULL DEFAULT 'Artwork',
+                    storage_location TEXT NOT NULL DEFAULT 'Central',
+                    owner_scope      TEXT NOT NULL DEFAULT 'Unknown',
+                    is_preferred     INTEGER NOT NULL DEFAULT 0,
+                    is_user_override INTEGER NOT NULL DEFAULT 0,
+                    is_locally_exported   INTEGER NOT NULL DEFAULT 0,
+                    is_preferred_exported INTEGER NOT NULL DEFAULT 0,
+                    created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+                    updated_at       TEXT
+                );
+
+                INSERT INTO entity_assets (
+                    id, entity_id, entity_type, asset_type, image_url,
+                    local_image_path, local_image_path_s, local_image_path_m, local_image_path_l,
+                    source_provider, width_px, height_px, aspect_class,
+                    primary_hex, secondary_hex, accent_hex, asset_class, storage_location, owner_scope,
+                    is_preferred, is_user_override, is_locally_exported, is_preferred_exported,
+                    created_at, updated_at)
+                SELECT
+                    id, entity_id, entity_type, asset_type, image_url,
+                    local_image_path, local_image_path_s, local_image_path_m, local_image_path_l,
+                    source_provider, width_px, height_px, aspect_class,
+                    primary_hex, secondary_hex, accent_hex, asset_class, storage_location, owner_scope,
+                    is_preferred, is_user_override, is_locally_exported, is_preferred_exported,
+                    created_at, updated_at
+                FROM entity_assets_legacy_asset_types;
+
+                DROP TABLE entity_assets_legacy_asset_types;
+
+                CREATE INDEX idx_entity_assets_entity
+                    ON entity_assets(entity_id, entity_type);
+                CREATE INDEX idx_entity_assets_type
+                    ON entity_assets(entity_id, asset_type);
+                CREATE UNIQUE INDEX ux_entity_assets_entity_type_source_url
+                    ON entity_assets(entity_id, asset_type, image_url COLLATE NOCASE)
+                    WHERE image_url IS NOT NULL AND length(trim(image_url)) > 0;
+
+                INSERT OR IGNORE INTO schema_migrations (migration_id, applied_at)
+                VALUES ('005_expanded_artwork_asset_types', strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+                """;
+            cmd.ExecuteNonQuery();
+        });
     }
 
     private static void EnsureAdaptiveDeliverySchema(SqliteConnection conn)
@@ -285,7 +365,6 @@ internal sealed class SchemaMigrator
             (WellKnownProviders.Lrclib, "lrclib", "1.0"),
             (WellKnownProviders.OpenSubtitles, "opensubtitles", "1.0"),
             (WellKnownProviders.UserManual, "user_manual", "1.0"),
-            (WellKnownProviders.FanartTv, "fanart_tv", "1.0"),
             (WellKnownProviders.AiProvider, "ai_provider", "1.0"),
         ];
 

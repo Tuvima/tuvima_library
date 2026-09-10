@@ -33,7 +33,7 @@ public sealed class EntityAsset
     /// </summary>
     public string AssetTypeValue { get; set; } = string.Empty;
 
-    /// <summary>Remote URL of the image (e.g. Fanart.tv CDN, Wikimedia Commons).</summary>
+    /// <summary>Remote URL of the image (e.g. TMDB image CDN, Wikimedia Commons).</summary>
     public string? ImageUrl { get; set; }
 
     /// <summary>Local filesystem path to the downloaded image.</summary>
@@ -50,7 +50,7 @@ public sealed class EntityAsset
 
     /// <summary>
     /// Which provider supplied this asset.
-    /// Example: <c>"fanart_tv"</c>, <c>"wikidata"</c>, <c>"tmdb"</c>, <c>"user_upload"</c>.
+    /// Example: <c>"tmdb"</c>, <c>"wikidata"</c>, <c>"user_upload"</c>.
     /// </summary>
     public string? SourceProvider { get; set; }
 

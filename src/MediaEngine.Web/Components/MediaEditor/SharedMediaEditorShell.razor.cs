@@ -2263,7 +2263,7 @@ public partial class SharedMediaEditorShell
         reason switch
         {
             "missing_bridge_id" => "provider bridge ID required.",
-            "missing_api_key" => "Fanart.tv API key is not configured.",
+            "missing_api_key" => "TMDB is not configured.",
             "provider_no_result" => "provider returned no artwork.",
             "provider_empty_response" => "provider returned an empty response.",
             "missing_representative_asset" => "no owned file was found for this scope.",
@@ -3945,8 +3945,8 @@ public partial class SharedMediaEditorShell
 
         return providerName switch
         {
-            "fanart_tv" => "Fanart.tv",
             "tmdb" => "TMDB",
+            "fanart_tv" => "Fanart.tv",
             "imdb" => "IMDb",
             "comicvine" => "Comic Vine",
             "comic_vine" => "Comic Vine",

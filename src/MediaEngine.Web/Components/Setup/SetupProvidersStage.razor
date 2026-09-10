@@ -82,7 +82,9 @@
 
     private IReadOnlyList<ProviderCatalogueDto> CredentialProviders => RelevantProviders
         .Where(provider => provider.Onboarding is not null
-            && provider.Onboarding.Credentials.Any(IsUserSupplied))
+            && provider.Onboarding.Credentials.Any(IsUserSupplied)
+            && (!IsConnected(provider)
+                || provider.Onboarding.Credentials.Any(credential => IsUserSupplied(credential) && credential.Required)))
         .ToList();
 
     private IReadOnlyList<ProviderCatalogueDto> RecommendedProviders => CredentialProviders

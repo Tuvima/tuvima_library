@@ -17,6 +17,12 @@ public enum AssetType
     /// <summary>Transparent title treatment or faction logo.</summary>
     Logo,
 
+    /// <summary>Network or streaming-service brand mark associated with a television work.</summary>
+    NetworkLogo,
+
+    /// <summary>Production studio or company brand mark associated with a work.</summary>
+    StudioLogo,
+
     /// <summary>Cinematic background image (movie or show background art).</summary>
     Background,
 

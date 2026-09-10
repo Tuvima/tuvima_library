@@ -61,6 +61,7 @@ public static class MetadataFieldConstants
     public const string MediaTypeField = "media_type";
     public const string PublisherField = "publisher";
     public const string PageCount = "page_count";
+    public const string Volume = "volume";
     public const string Language = "language";
     public const string OriginalLanguage = "original_language";
     public const string DurationField = "duration";
@@ -129,6 +130,12 @@ public static class MetadataFieldConstants
     public const string GuestStar = "guest_star";
     public const string Composer = "composer";
     public const string Screenwriter = "screenwriter";
+    public const string Inker = "inker";
+    public const string Colorist = "colorist";
+    public const string Letterer = "letterer";
+    public const string CoverArtist = "cover_artist";
+    public const string Translator = "translator";
+    public const string Editor = "editor";
 
     /// <summary>
     /// Multi-valued field keys that may contain multiple values from Wikidata
@@ -154,6 +161,12 @@ public static class MetadataFieldConstants
         "narrator",
         "director",
         "illustrator",
+        "inker",
+        "colorist",
+        "letterer",
+        "cover_artist",
+        "translator",
+        "editor",
         "nationality",
         "occupation",
         "pseudonym",
