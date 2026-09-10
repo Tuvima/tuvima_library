@@ -27,7 +27,7 @@ public sealed class CharacterPortrait
     /// </summary>
     public Guid FictionalEntityId { get; set; }
 
-    /// <summary>Remote URL of the portrait image (e.g. Fanart.tv CDN).</summary>
+    /// <summary>Remote URL of the portrait image (e.g. TMDB image CDN).</summary>
     public string? ImageUrl { get; set; }
 
     /// <summary>Local filesystem path to the downloaded portrait.</summary>
@@ -35,7 +35,7 @@ public sealed class CharacterPortrait
 
     /// <summary>
     /// Which provider supplied this portrait.
-    /// Example: <c>"fanart_tv"</c>, <c>"wikidata"</c>, <c>"user_upload"</c>.
+    /// Example: <c>"tmdb"</c>, <c>"wikidata"</c>, <c>"user_upload"</c>.
     /// </summary>
     public string? SourceProvider { get; set; }
 

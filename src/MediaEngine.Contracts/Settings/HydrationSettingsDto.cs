@@ -10,8 +10,8 @@ public sealed class HydrationSettingsDto
     [JsonPropertyName("max_concurrent_wikidata_jobs")]
     public int MaxConcurrentWikidataJobs { get; set; } = 2;
 
-    [JsonPropertyName("max_concurrent_fanart_jobs")]
-    public int MaxConcurrentFanartJobs { get; set; } = 1;
+    [JsonPropertyName("max_concurrent_tmdb_artwork_jobs")]
+    public int MaxConcurrentTmdbArtworkJobs { get; set; } = 1;
 
     [JsonPropertyName("max_concurrent_writeback_jobs")]
     public int MaxConcurrentWriteBackJobs { get; set; } = 1;

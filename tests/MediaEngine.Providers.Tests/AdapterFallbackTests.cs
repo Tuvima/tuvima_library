@@ -1723,7 +1723,12 @@ public sealed class AdapterFallbackTests
                               "name": "FX Productions",
                               "logo_path": "/fx.png"
                             }
-                          ]
+                          ],
+                          "external_ids": {
+                            "imdb_id": "tt1234567",
+                            "tvdb_id": 7654,
+                            "wikidata_id": "Q123456"
+                          }
                         }
                         """);
                 }
@@ -1764,6 +1769,12 @@ public sealed class AdapterFallbackTests
             && c.Value == "https://image.tmdb.org/t/p/original/fx.png");
         Assert.Contains(claims, c => c.Key == "production_company"
             && c.Value == "FX Productions");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.ImdbId
+            && c.Value == "tt1234567");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.TvdbId
+            && c.Value == "7654");
+        Assert.Contains(claims, c => c.Key == BridgeIdKeys.WikidataQid
+            && c.Value == "Q123456");
     }
 
     private static readonly JsonSerializerOptions s_jsonOptions = new()

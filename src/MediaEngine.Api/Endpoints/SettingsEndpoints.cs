@@ -85,7 +85,6 @@ public static class SettingsEndpoints
             ["open_library"] = "Open Library",
             ["tmdb"] = "TMDB",
             ["musicbrainz"] = "MusicBrainz",
-            ["fanart_tv"] = "Fanart.tv",
         };
 
     // Maps provider name → key in manifest.ProviderEndpoints for the reachability probe.

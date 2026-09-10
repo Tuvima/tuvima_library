@@ -26,7 +26,7 @@ Metadata has two pages. **Providers** lists every user-visible provider once, re
 
 2. **Wikidata** (Stage 4: Wikidata) - runs after retail lookup, using identifiers gathered in Stage 3. Wikidata is the authority for canonical structured data: the author's full name, the official series name, genre classifications, director credits, and so on. Wikidata is always free to use and requires no key.
 
-3. **Enrichment and artwork providers** (Stages 6-8) - run after identity is known. These providers add people, relationships, fan art, synced lyrics, subtitles, and periodic refresh data. Rich artwork providers such as Fanart.tv are Stage 8, not the first cover/poster pass.
+3. **Enrichment and artwork providers** (Stages 6-8) - run after identity is known. These providers add people, relationships, TMDB movie and TV artwork variants, synced lyrics, subtitles, and periodic refresh data. Artwork refreshes preserve any asset you selected yourself.
 
 ---
 
@@ -52,7 +52,7 @@ Some providers require you to create a free account and obtain an API key before
 
 ### TMDB (The Movie Database)
 
-TMDB supplies cover art, descriptions, cast and crew, ratings, and backdrops for movies and TV.
+TMDB supplies cover art, descriptions, cast and crew, ratings, and managed poster, background, title-logo, and season-art variants for movies and TV.
 
 1. Go to `https://www.themoviedb.org/settings/api` and create a free account.
 2. Request an API key (choose "Developer" use type).
@@ -128,7 +128,7 @@ Open **Settings -> Metadata -> Ingestion Flow** to see the active order for each
 
 Provider execution order remains media-scoped in `config/pipelines.json`. Sequential chains run in listed order, passing bridge IDs forward. For music, the default configuration assigns MusicBrainz the `identity` role and Apple the `enrichment` role with `requires_identity: true` plus `use_as_identity_fallback: true`. Apple's `accepted_transition` points back to MusicBrainz for one reconciliation attempt only when Apple supplied the fallback identity. `max_provider_attempts` is an absolute safety budget. Query clauses, candidate paths, nested release constraints, creator-list behavior, transition hint fields, and retry counts all live in validated JSON configuration rather than provider-name branches in the worker.
 
-Wikidata appears in the same provider inventory as every other provider. Ingestion Flow shows its required canonical-identity role separately from optional post-match providers such as Fanart.tv, LRCLIB, and OpenSubtitles.
+Wikidata appears in the same provider inventory as every other provider. Ingestion Flow shows its required canonical-identity role separately from optional post-match providers such as LRCLIB and OpenSubtitles.
 
 ---
 

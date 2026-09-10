@@ -5809,7 +5809,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.HlsRenditionProfil
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.HydrationSettingsDto
   MaxConcurrentRetailProviderJobs: System.Int32 | nullability=not-null | accessors=get,set
   MaxConcurrentWikidataJobs: System.Int32 | nullability=not-null | accessors=get,set
-  MaxConcurrentFanartJobs: System.Int32 | nullability=not-null | accessors=get,set
+  MaxConcurrentTmdbArtworkJobs: System.Int32 | nullability=not-null | accessors=get,set
   MaxConcurrentWriteBackJobs: System.Int32 | nullability=not-null | accessors=get,set
   Stage1TimeoutSeconds: System.Int32 | nullability=not-null | accessors=get,set
   QuickHydrationTimeoutSeconds: System.Int32 | nullability=not-null | accessors=get,set

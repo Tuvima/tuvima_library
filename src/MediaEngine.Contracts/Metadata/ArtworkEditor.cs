@@ -138,10 +138,10 @@ public sealed class ProviderArtworkRefreshDto
     }
 
     [JsonPropertyName("provider")]
-    public string Provider { get; set; } = "fanart_tv";
+    public string Provider { get; set; } = "tmdb";
 
     [JsonPropertyName("provider_name")]
-    public string ProviderName { get; set; } = "Fanart.tv";
+    public string ProviderName { get; set; } = "TMDB";
 
     [JsonPropertyName("status")]
     public string Status { get; set; } = string.Empty;

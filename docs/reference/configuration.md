@@ -325,21 +325,9 @@ One JSON file per metadata provider. All provider files are self-contained - add
 | `apple_api.json` | Apple API (books, audiobooks, music enrichment) | Stage 1 provider metadata and primary artwork; for music, configured after MusicBrainz as enrichment | `localized` |
 | `comicvine.json` | Comic Vine (comics) | Stage 1 provider metadata and primary artwork | `source` |
 | `musicbrainz.json` | MusicBrainz | Stage 1 music identity; also available to slower enrichment where configured | `source` |
-| `tmdb.json` | TMDB (movies, TV) | Stage 1 provider metadata and primary artwork | `localized` |
+| `tmdb.json` | TMDB (movies, TV) | Stage 1 provider metadata and primary artwork; Stage 8 ranked movie/TV artwork refresh | `localized` |
 | `wikidata_reconciliation.json` | Wikidata | Stage 2 Wikidata | `both` |
 | `local_filesystem.json` | Local file metadata (processors) | Stage 0 read media details | `source` |
-| `fanart_tv.json` | Fanart.tv (artwork) | Stage 3 deep artwork | `source` |
-
-### fanart_tv.json - Artwork field map
-
-`fanart_tv.json` contains the API/client settings that are loaded at runtime. Fanart.tv artwork field mapping is currently implemented in `src/MediaEngine.Providers/Services/ImageEnrichmentService.cs`, not by `ConfigDrivenAdapter`, so the reference map is documented here instead of stored as unused runtime configuration.
-
-| Media type | Fanart.tv fields used |
-|---|---|
-| Movies | `movieposter`, `moviebackground`, `hdmovielogo`, `moviebanner`, `hdmovieclearart`, `movieclearart`, `moviedisc`, `characterart` |
-| TV | `tvposter`, `showbackground`, `hdtvlogo`, `clearlogo`, `tvbanner`, `hdclearart`, `clearart`, `seasonposter`, `seasonthumb`, `tvthumb`, `characterart` |
-| Music | `albumcover`, `artistbackground`, `musiclogo`, `cdart` |
-
 Artwork config controls source access only. Display surfaces should still use
 managed artwork URLs emitted by the Engine after accepted provider art is cached
 under `.data/assets`; provider URLs are retained as provenance/source inputs,

@@ -52,28 +52,6 @@ public sealed class ProviderOnboardingContractTests
         Assert.DoesNotContain("^[A-Fa-f0-9]{32}$", wireJson, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void FanartCatalogue_SeparatesApplicationProjectKeyFromPersonalClientKey()
-    {
-        var providerPath = Path.Combine(FindRepoRoot(), "config", "providers", "fanart_tv.json");
-        var provider = JsonSerializer.Deserialize<ProviderConfiguration>(
-            File.ReadAllText(providerPath),
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true })!;
-
-        var entry = ProviderCatalogueEndpoints.MapToEntry(provider);
-
-        Assert.Equal("https://webservice.fanart.tv/v3.2", provider.Endpoints["api"]);
-        Assert.Equal("application_managed", entry.Onboarding!.Credentials.Single(field => field.Key == "api_key").Ownership);
-        Assert.Equal("api_key", entry.Onboarding.Credentials.Single(field => field.Key == "api_key").Purpose);
-        Assert.Equal("user_supplied", entry.Onboarding.Credentials.Single(field => field.Key == "client_key").Ownership);
-        Assert.Equal("client_key", entry.Onboarding.Credentials.Single(field => field.Key == "client_key").Purpose);
-        Assert.Equal(["client_key"], entry.Onboarding.Steps.Single(step => step.Id == "credential").CredentialKeys);
-
-        var wireJson = JsonSerializer.Serialize(entry);
-        Assert.DoesNotContain("validation_pattern", wireJson, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("http_client", wireJson, StringComparison.OrdinalIgnoreCase);
-    }
-
     private static string FindRepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

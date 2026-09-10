@@ -145,7 +145,6 @@ public sealed class Phase6SettingsAdminHardeningTests
         {
             "apple_books.svg",
             "comicvine.png",
-            "fanart_tv.png",
             "lrclib.png",
             "musicbrainz.svg",
             "opensubtitles.png",
@@ -164,7 +163,6 @@ public sealed class Phase6SettingsAdminHardeningTests
         {
             "apple_api.json",
             "comicvine.json",
-            "fanart_tv.json",
             "lrclib.json",
             "musicbrainz.json",
             "opensubtitles.json",
