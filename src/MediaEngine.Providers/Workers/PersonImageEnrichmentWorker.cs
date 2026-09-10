@@ -246,6 +246,11 @@ public sealed class PersonImageEnrichmentWorker
     private async Task<string?> ResolveTmdbApiKeyAsync(CancellationToken ct)
     {
         var config = _configLoader.LoadProvider(TmdbProviderName);
+        if (!string.IsNullOrWhiteSpace(config?.HttpClient?.ApiKeyOverride))
+        {
+            return config.HttpClient.ApiKeyOverride;
+        }
+
         if (!string.IsNullOrWhiteSpace(config?.HttpClient?.ApiKey))
         {
             return config.HttpClient.ApiKey;

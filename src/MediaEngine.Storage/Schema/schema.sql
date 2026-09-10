@@ -184,7 +184,7 @@ CREATE TABLE IF NOT EXISTS entity_assets (
     id               BLOB PRIMARY KEY,
     entity_id        BLOB NOT NULL,
     entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
-    asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','Logo','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
+    asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','Logo','NetworkLogo','StudioLogo','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
     image_url        TEXT,
     local_image_path TEXT,
     local_image_path_s TEXT,

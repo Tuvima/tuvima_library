@@ -122,7 +122,7 @@ Bridge identifiers are external IDs used to cross-reference Wikidata entities wi
 
 | P-code | Identifier | Notes |
 |--------|-----------|-------|
-| P4947 | TMDB ID | Used by Fanart.tv image enrichment |
+| P4947 | TMDB ID | Used for TMDB identity bridging and image enrichment |
 | P345 | IMDb ID | |
 | P9385 | JustWatch ID | |
 | P1712 | Metacritic ID | |
@@ -143,7 +143,7 @@ Bridge identifiers are external IDs used to cross-reference Wikidata entities wi
 
 | P-code | Identifier | Notes |
 |--------|-----------|-------|
-| P434 | MusicBrainz ID | Used by Fanart.tv image enrichment |
+| P434 | MusicBrainz ID | Used for music identity bridging |
 | P1902 | Spotify ID | |
 | P1953 | Discogs ID | |
 | P3398 | Audible ID | |

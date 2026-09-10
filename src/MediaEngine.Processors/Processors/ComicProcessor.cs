@@ -428,13 +428,13 @@ public sealed class ComicProcessor : IMediaProcessor
         }
 
         var path = uri.AbsolutePath;
-        var issueMatch = Regex.Match(path, @"(?:^|/)issue/4000-(?<id>\d+)(?:/|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var issueMatch = Regex.Match(path, @"(?:^|/)4000-(?<id>\d+)(?:/|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         if (issueMatch.Success && hasIssueIdentity)
         {
             claims.Add(Claim(BridgeIdKeys.ComicVineId, issueMatch.Groups["id"].Value, 0.9));
         }
 
-        var volumeMatch = Regex.Match(path, @"(?:^|/)volume/4050-(?<id>\d+)(?:/|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        var volumeMatch = Regex.Match(path, @"(?:^|/)4050-(?<id>\d+)(?:/|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         if (volumeMatch.Success)
         {
             claims.Add(Claim(BridgeIdKeys.ComicVineVolumeId, volumeMatch.Groups["id"].Value, 0.9));

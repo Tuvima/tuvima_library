@@ -48,9 +48,8 @@ The distinction matters for trust: a title or author name from Apple API is a hi
 
 | Provider | Media Types | What it contributes |
 |---|---|---|
-| TMDB | Movies, TV | Cover art (up to 2000x3000 at w500/w1280), TMDB ID, IMDb ID, network (TV only) |
+| TMDB | Movies, TV | Identity, metadata, poster/backdrop/logo/season/episode artwork, people seeds, TMDB/IMDb/TVDB/Wikidata bridge IDs, and network/studio identity |
 | Comic Vine | Comics | Cover art (super_url, ~900px), issue title/synopsis/source URL, volume/run facts, Comic Vine issue and volume IDs |
-| Fanart.tv | Movies, TV, Music | Stage 3 rich artwork after identity is known |
 | OpenSubtitles | Movies, TV | Subtitle candidates and normalized text tracks |
 
 **Copyright constraint - P18 (Image):** Wikidata P18 is exclusively for Person entities (author/director headshots from Wikimedia Commons). P18 is never fetched for media items. Media cover art comes exclusively from retail providers.
@@ -97,7 +96,7 @@ placement rules:
 | Apple API | Accepted album identity supplies the album/track manifest and track count. Low-confidence album search results must not synthesize missing tracks. |
 | TMDB | TV show/season lookups supply episode totals and specials; movie collection data supplies ordered film collection context separate from franchise context. |
 | Wikidata | Supplies canonical identity, relationships, and manifests only when the container classification is compatible with the media lane. It must not provide runtime title-specific count overrides. |
-| Fanart.tv | Supplies rich artwork variants after identity exists; it is not an identity or sequence authority. |
+| TMDB | Supplies ordered TV and movie identity facts plus rich artwork variants; Wikidata remains the cross-media relationship authority. |
 
 Provider text claims should retain attribution fields when they are surfaced as
 descriptions or long-form metadata: provider name, source title, source URL,
@@ -189,7 +188,7 @@ Quick Hydration
      v
 Stage 3: Universe + rich enrichment
   |-- People, fictional entities, narrative roots, relationships
-  `-- Fanart.tv artwork, LRCLIB lyrics, OpenSubtitles subtitles
+  `-- TMDB movie/TV artwork, LRCLIB lyrics, OpenSubtitles subtitles
 ```
 
 ### Stage 1 - RetailIdentification
@@ -591,7 +590,7 @@ Managed artwork is tracked in the database through `entity_assets` and stored un
 | Books & Audiobooks | Apple API | Up to 3000x3000 | 9999 trick in URL template |
 | Movies & TV | TMDB | Up to 2000x3000 | Backdrop available at w1280 |
 | Comics | Comic Vine | ~900px | `super_url` field |
-| Music | Apple API, then Fanart.tv in Stage 3 where IDs allow | Varies | MusicBrainz supplies identity first; Apple supplies the first managed cover pass |
+| Music | Apple API | Up to 3000x3000 | MusicBrainz supplies identity first; Apple supplies managed cover art |
 
 **Cover art timing:** Stage 1 records provider art and bridge evidence. The artwork pipeline persists accepted files under `.data/assets` and records canonical artwork flags (`cover_state`, `cover_source`, `hero_state`, `artwork_settled_at`) whether art is present, still pending, or explicitly missing. Hero banner generation (SkiaSharp blur + vignette + grain) happens later when the downstream image and organisation flow settles.
 

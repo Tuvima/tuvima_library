@@ -68,10 +68,9 @@ The active Stage 1 provider matrix is:
 | Provider | Use |
 |---|---|
 | Apple | Books, audiobooks, and music artwork/retail enrichment |
-| TMDB | Movies and TV |
+| TMDB | Movies and TV identity, metadata, people seeds, and Stage 3 artwork |
 | Comic Vine | Comics |
 | MusicBrainz | Music identity lookup before Apple enrichment |
-| Fanart.tv | Stage 3 artwork only, not Stage 1 identity |
 | LRCLIB / OpenSubtitles | Lyrics/subtitles/text tracks, not identity |
 
 For the exact lookup fields and scoring metrics used by each media type, see [How to Configure Metadata Providers](../guides/configuring-providers.md#retail-lookup-inputs-by-media-type).
@@ -159,7 +158,7 @@ Once Retail and Wikidata have done enough to identify the item, Stage 3 enrichme
 - summaries and vibe tags
 - universe and graph data
 - lyrics and subtitles from text-track providers
-- Fanart.tv artwork where bridge IDs are available
+- TMDB poster, backdrop, logo, season, episode, network, and studio artwork where TMDB IDs are available
 
 These deeper steps make the item richer, but they are not the same thing as deciding whether the item is the right match.
 

@@ -298,7 +298,7 @@
     }
   },
   "onboarding": {
-    "classification": "recommended",
+    "classification": "built_in",
     "signup_url": "https://www.themoviedb.org/settings/api",
     "help_url": "https://developer.themoviedb.org/docs/getting-started",
     "terms_url": "https://www.themoviedb.org/api-terms-of-use",

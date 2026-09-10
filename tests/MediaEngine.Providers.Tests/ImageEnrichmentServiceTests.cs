@@ -156,6 +156,57 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task EnrichWorkImagesAsync_PrefersAdministratorApiKeyOverride()
+    {
+        var provider = _configLoader.LoadProvider("tmdb")!;
+        provider.HttpClient!.ApiKeyOverride = "administrator-key";
+        _configLoader.SaveProvider(provider);
+
+        var movie = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "Override.mkv");
+        await SeedCanonicalsAsync(movie.WorkId, (BridgeIdKeys.TmdbId, "42"));
+
+        var service = CreateService(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            Assert.Contains("api_key=administrator-key", url, StringComparison.Ordinal);
+            Assert.DoesNotContain("api_key=test-key", url, StringComparison.Ordinal);
+            return JsonResponse("""{ "posters": [], "logos": [], "backdrops": [] }""");
+        });
+
+        var result = await service.EnrichWorkImagesAsync(movie.AssetId, "Q42");
+
+        Assert.Equal("NoImages", result.Status);
+    }
+
+    [Fact]
+    public async Task EnrichWorkImagesAsync_StoresNetworkAndStudioLogosAsManagedAssets()
+    {
+        var movie = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "Studio Logos.mkv");
+        await SeedCanonicalsAsync(
+            movie.WorkId,
+            (BridgeIdKeys.TmdbId, "84"),
+            ("network_logo_url", "https://image.tmdb.org/t/p/original/network.png"),
+            ("studio_logo_url", "https://image.tmdb.org/t/p/original/studio.png"));
+
+        var service = CreateService(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            return url.Contains("/movie/84/images?", StringComparison.OrdinalIgnoreCase)
+                ? JsonResponse("""{ "posters": [], "logos": [], "backdrops": [] }""")
+                : ImageResponse([1, 2, 3, 4]);
+        });
+
+        var result = await service.EnrichWorkImagesAsync(movie.AssetId, "Q84");
+
+        Assert.Equal(2, result.DownloadedCount);
+        Assert.Single(await _entityAssets.GetByEntityAsync(movie.WorkId.ToString(), AssetType.NetworkLogo.ToString()));
+        Assert.Single(await _entityAssets.GetByEntityAsync(movie.WorkId.ToString(), AssetType.StudioLogo.ToString()));
+        var canonicals = await _canonicals.GetByEntityAsync(movie.WorkId);
+        Assert.Contains(canonicals, value => value.Key == "network_logo_url" && value.Value.StartsWith("/stream/artwork/", StringComparison.Ordinal));
+        Assert.Contains(canonicals, value => value.Key == "studio_logo_url" && value.Value.StartsWith("/stream/artwork/", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task EnrichWorkImagesAsync_ReusesSharedSourceUrlAcrossWorks()
     {
         var first = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "First Shared.mkv");

@@ -485,6 +485,18 @@
       "condition": null
     },
     {
+      "claim_key": "duration",
+      "json_path": "trackTimeMillis",
+      "confidence": 0.9,
+      "transform": "milliseconds_to_minutes",
+      "transform_args": null,
+      "media_types": [
+        "Audiobooks"
+      ],
+      "source": null,
+      "condition": null
+    },
+    {
       "claim_key": "genre",
       "json_path": "primaryGenreName",
       "confidence": 0.7,

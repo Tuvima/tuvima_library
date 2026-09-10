@@ -84,6 +84,24 @@
   },
   "search_strategies": [
     {
+      "name": "issue_id_lookup",
+      "priority": 0,
+      "required_fields": [
+        "comic_vine_id"
+      ],
+      "url_template": "{base_url}/issues/?api_key={api_key}\u0026filter=id:{comic_vine_id}\u0026limit=1\u0026format=json",
+      "query_template": null,
+      "results_path": "results",
+      "result_index": 0,
+      "tolerate_404": false,
+      "max_results": 1,
+      "fetch_limit": 1,
+      "media_types": [
+        "Comics"
+      ],
+      "release_selection": null
+    },
+    {
       "name": "volume_search",
       "priority": 2,
       "required_fields": [

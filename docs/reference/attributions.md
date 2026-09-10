@@ -66,7 +66,6 @@ Model weights are downloaded separately according to configured model URLs and t
 | TMDB | Movie and TV metadata, identifiers, images, and ratings where configured |
 | Apple APIs | Book, audiobook, and music metadata where configured |
 | Comic Vine identifiers | Comics metadata and bridge identifiers where configured |
-| Fanart.tv | Artwork enrichment where configured |
 | LRCLIB | Lyrics where configured |
 | OpenSubtitles | Subtitle lookup where configured |
 

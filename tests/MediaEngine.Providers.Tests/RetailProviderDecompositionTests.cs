@@ -38,12 +38,35 @@ public sealed class RetailProviderDecompositionTests
 
         Assert.Equal("https://api.themoviedb.org/3/search/tv?query=Shogun&include_adult=false&language=en-US&page=1&api_key=key&first_air_date_year=2024", search);
         Assert.Equal("https://api.themoviedb.org/3/search/tv?query=Shogun&include_adult=false&language=en-US&page=1&api_key=key", unfiltered);
-        Assert.Equal("https://api.themoviedb.org/3/tv/456?language=en-US&append_to_response=aggregate_credits,content_ratings&api_key=key", details);
+        Assert.Equal("https://api.themoviedb.org/3/tv/456?language=en-US&append_to_response=aggregate_credits,content_ratings,external_ids&api_key=key", details);
         Assert.Equal("https://api.themoviedb.org/3/tv/456/season/2?language=en-US&api_key=key", season);
         Assert.Equal("https://image.tmdb.org/t/p/w500/path.jpg", RetailRequestBuilder.BuildTmdbImageUrl("/path.jpg"));
         Assert.Equal("https://cdn.example/image.png", RetailRequestBuilder.BuildTmdbImageUrl("https://cdn.example/image.png"));
         Assert.Equal("https://image.tmdb.org/t/p/original/path.jpg", RetailRequestBuilder.BuildTmdbEpisodeStillUrl("/path.jpg"));
         Assert.Equal("https://cdn.example/episode.png", RetailRequestBuilder.BuildTmdbEpisodeStillUrl("https://cdn.example/episode.png"));
+    }
+
+    [Fact]
+    public void ComicVineConfiguration_PrefersExactIssueIdLookup()
+    {
+        var path = Path.Combine(FindRepoRoot(), "config", "providers", "comicvine.json");
+        var strategies = JsonNode.Parse(File.ReadAllText(path))!["search_strategies"]!.AsArray();
+        var exact = strategies.Single(node => node?["name"]?.GetValue<string>() == "issue_id_lookup")!;
+
+        Assert.Equal(0, exact["priority"]!.GetValue<int>());
+        Assert.Equal("comic_vine_id", exact["required_fields"]![0]!.GetValue<string>());
+        Assert.Contains("filter=id:{comic_vine_id}", exact["url_template"]!.GetValue<string>(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConfigDrivenAdapter_DoesNotLogCredentialBearingRequestUrls()
+    {
+        var path = Path.Combine(FindRepoRoot(), "src", "MediaEngine.Providers", "Adapters", "Internals", "ConfigDrivenAdapter.SearchExecution.cs");
+        var source = File.ReadAllText(path);
+
+        Assert.DoesNotContain("SEARCH {Url}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FETCH {Url}", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("cache HIT for {Url}", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -53,6 +76,9 @@ public sealed class RetailProviderDecompositionTests
 
         Assert.Contains("AddTvAggregateCastClaims(claims, showDetails)", source, StringComparison.Ordinal);
         Assert.Contains("\"aggregate_credits\"", source, StringComparison.Ordinal);
+        Assert.Contains("BridgeIdKeys.WikidataQid", source, StringComparison.Ordinal);
+        Assert.Contains("BridgeIdKeys.ImdbId", source, StringComparison.Ordinal);
+        Assert.Contains("BridgeIdKeys.TvdbId", source, StringComparison.Ordinal);
         Assert.Contains("MetadataFieldConstants.CastMember", source, StringComparison.Ordinal);
         Assert.Contains("\"cast_member_character\"", source, StringComparison.Ordinal);
         Assert.Contains("AddTvEpisodeCrewClaims(claims, episode)", source, StringComparison.Ordinal);

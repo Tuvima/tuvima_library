@@ -367,7 +367,7 @@ public class ComicProcessorTests
             Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.Inker && c.Value == "Inker Name");
             Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.Colorist && c.Value == "Colorist Name");
             Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.Translator && c.Value == "Translator Name");
-            Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.IssueSourceUrl && c.Value.StartsWith("https://comicvine.gamespot.com/issue/4000-123456/"));
+            Assert.Contains(result.Claims, c => c.Key == MetadataFieldConstants.IssueSourceUrl && c.Value.StartsWith("https://comicvine.gamespot.com/batman-405/4000-123456/"));
             Assert.Contains(result.Claims, c => c.Key == BridgeIdKeys.ComicVineId && c.Value == "123456");
             Assert.Contains(result.Claims, c => c.Key == BridgeIdKeys.ComicVineVolumeId && c.Value == "654321");
         }
@@ -448,8 +448,8 @@ public class ComicProcessorTests
               <Inker>Inker Name</Inker>
               <Colorist>Colorist Name</Colorist>
               <Translator>Translator Name</Translator>
-              <Web>https://comicvine.gamespot.com/issue/4000-123456/batman-405/</Web>
-              <Notes>https://comicvine.gamespot.com/volume/4050-654321/batman/</Notes>
+              <Web>https://comicvine.gamespot.com/batman-405/4000-123456/</Web>
+              <Notes>https://comicvine.gamespot.com/batman/4050-654321/</Notes>
             </ComicInfo>
             """);
     }

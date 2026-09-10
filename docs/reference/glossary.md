@@ -92,7 +92,7 @@ The rules that decide which metadata source wins. User locks win first, configur
 Code that opens a file format and extracts embedded metadata, artwork, and technical facts.
 
 **Provider**  
-An external metadata source such as Apple, TMDB, MusicBrainz, Comic Vine, Fanart.tv, or Wikidata. Historical bridge identifiers may remain in records even when their original provider is no longer active.
+An external metadata source such as Apple, TMDB, MusicBrainz, Comic Vine, or Wikidata. Historical bridge identifiers may remain in records even when their original provider is no longer active.
 
 ## Q
 

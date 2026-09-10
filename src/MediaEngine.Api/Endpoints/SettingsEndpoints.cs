@@ -1543,7 +1543,8 @@ public static class SettingsEndpoints
             AvailableFields = provider.AvailableFields,
             MediaTypes = mediaTypes,
             RequiresApiKey = provider.RequiresApiKey,
-            HasApiKey = !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey)
+            HasApiKey = !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKeyOverride)
+                        || !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey)
                                || (string.Equals(provider.HttpClient?.ApiKeyDelivery, "basic", StringComparison.OrdinalIgnoreCase)
                                    && !string.IsNullOrWhiteSpace(provider.HttpClient?.Username)
                                    && !string.IsNullOrWhiteSpace(provider.HttpClient?.Password)),

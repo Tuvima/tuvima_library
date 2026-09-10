@@ -116,7 +116,9 @@ public sealed partial class RetailMatchWorker
         var tmdbConfig = providerConfigs.FirstOrDefault(p =>
             string.Equals(p.Name, "tmdb", StringComparison.OrdinalIgnoreCase));
 
-        var tmdbApiKey = tmdbConfig?.HttpClient?.ApiKey;
+        var tmdbApiKey = !string.IsNullOrWhiteSpace(tmdbConfig?.HttpClient?.ApiKeyOverride)
+            ? tmdbConfig.HttpClient.ApiKeyOverride
+            : tmdbConfig?.HttpClient?.ApiKey;
         if (!ProviderExecutionFilter.IsEnabled("tmdb", providerConfigs))
         {
             _logger.LogInformation(
@@ -751,6 +753,12 @@ public sealed partial class RetailMatchWorker
         Add(MetadataFieldConstants.Network, showDetails?["networks"]?[0]?["name"]?.GetValue<string>(), 0.85);
         Add(MetadataFieldConstants.Cover, RetailRequestBuilder.BuildTmdbImageUrl(showDetails?["poster_path"]?.GetValue<string>()) ?? fallbackPosterUrl, 0.90);
         Add(BridgeIdKeys.TmdbId, showTvId, 1.0);
+        Add(BridgeIdKeys.ImdbId, showDetails?["external_ids"]?["imdb_id"]?.GetValue<string>(), 0.98);
+        Add(BridgeIdKeys.TvdbId,
+            showDetails?["external_ids"]?["tvdb_id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture)
+            ?? showDetails?["external_ids"]?["tvdb_id"]?.GetValue<string>(),
+            0.98);
+        Add(BridgeIdKeys.WikidataQid, showDetails?["external_ids"]?["wikidata_id"]?.GetValue<string>(), 0.98);
         Add(MetadataFieldConstants.Rating, showDetails?["vote_average"]?.GetValue<double?>()?.ToString("F1"), 0.80);
         Add("content_rating", ExtractTmdbTvContentRating(showDetails), 0.88);
         Add(MetadataFieldConstants.OriginalLanguage, showDetails?["original_language"]?.GetValue<string>(), 0.85);

@@ -33,7 +33,7 @@ public sealed class ProviderOnboardingContractTests
         var entry = ProviderCatalogueEndpoints.MapToEntry(provider);
 
         Assert.NotNull(entry.Onboarding);
-        Assert.Equal("recommended", entry.Onboarding.Classification);
+        Assert.Equal("built_in", entry.Onboarding.Classification);
         Assert.Equal(["watch"], entry.Onboarding.SupportedLanes);
         Assert.NotEmpty(entry.Onboarding.SkipConsequences);
         Assert.Equal("Connect TMDB", entry.Onboarding.Intro?.Title);

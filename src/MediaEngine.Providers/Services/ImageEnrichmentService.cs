@@ -102,6 +102,16 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             preferredUpdates += processed.UpdatedPreferredCount;
         }
 
+        foreach (var mapping in BrandMappings)
+        {
+            var imageUrl = GetValue(canonicals, mapping.CanonicalKey);
+            if (string.IsNullOrWhiteSpace(imageUrl)) continue;
+
+            var processed = await ProcessRemoteImageAsync(imageUrl, mapping.AssetType, owner, ct).ConfigureAwait(false);
+            AddCount(counts, mapping.AssetType, processed.StoredCount);
+            preferredUpdates += processed.UpdatedPreferredCount;
+        }
+
         if (context.MediaType == MediaType.TV && context.SeasonWorkId.HasValue && context.SeasonNumber.HasValue)
         {
             var seasonEndpoint = $"{TmdbApiBaseUrl}/tv/{Uri.EscapeDataString(tmdbId)}/season/{context.SeasonNumber.Value}/images";
@@ -129,6 +139,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     [new("backdrops", AssetType.Background, true), new("logos", AssetType.Logo, true), new("posters", AssetType.CoverArt, false)];
     private static readonly ArtworkMapping[] SeasonMappings =
     [new("posters", AssetType.SeasonPoster, true), new("backdrops", AssetType.SeasonThumb, true)];
+    private static readonly BrandArtworkMapping[] BrandMappings =
+    [new("network_logo_url", AssetType.NetworkLogo), new("studio_logo_url", AssetType.StudioLogo)];
 
     private async Task<ImageAssetProcessingResult> ProcessRankedImagesAsync(IEnumerable<JsonNode?> imageNodes, AssetType assetType,
         Guid ownerEntityId, bool updatePreferred, CancellationToken ct)
@@ -177,6 +189,56 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         await _canonicalRepo.UpsertBatchAsync(ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(ownerEntityId, preferred, DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
         if (_assetExportService is not null) await _assetExportService.ReconcileArtworkAsync(preferred.EntityId, preferred.EntityType, preferred.AssetTypeValue, ct).ConfigureAwait(false);
         return new ImageAssetProcessingResult(preferred.LocalImagePath, stored, currentPreferred == preferred.Id ? 0 : 1);
+    }
+
+    private async Task<ImageAssetProcessingResult> ProcessRemoteImageAsync(
+        string url,
+        AssetType assetType,
+        Guid ownerEntityId,
+        CancellationToken ct)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+            return ImageAssetProcessingResult.Empty;
+
+        var variants = (await _assetRepo.GetByEntityAsync(ownerEntityId.ToString(), assetType.ToString(), ct)).ToList();
+        var currentPreferred = variants.FirstOrDefault(asset => asset.IsPreferred);
+        if (currentPreferred?.IsUserOverride == true)
+            return ImageAssetProcessingResult.Empty;
+
+        var existing = variants.FirstOrDefault(asset => string.Equals(asset.ImageUrl, url, StringComparison.OrdinalIgnoreCase));
+        var stored = 0;
+        if (existing is null || string.IsNullOrWhiteSpace(existing.LocalImagePath) || !File.Exists(existing.LocalImagePath))
+        {
+            await using var lease = await _imageDownloadCoordinator.AcquireAsync(url, ct).ConfigureAwait(false);
+            var bytes = await GetCachedOrDownloadAsync(url, ct).ConfigureAwait(false);
+            if (bytes is null || bytes.Length == 0) return ImageAssetProcessingResult.Empty;
+
+            existing ??= new EntityAsset
+            {
+                Id = Guid.NewGuid(),
+                EntityId = ownerEntityId.ToString(),
+                EntityType = "Work",
+                AssetTypeValue = assetType.ToString(),
+                ImageUrl = url,
+                SourceProvider = TmdbProviderName,
+                AssetClassValue = "Artwork",
+                StorageLocationValue = "Central",
+                OwnerScope = "Work",
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            existing.LocalImagePath ??= _assetPaths.GetCentralAssetPath(
+                "Work", ownerEntityId, assetType.ToString(), existing.Id, InferExtension(url));
+            await PersistImageAsync(bytes, existing.LocalImagePath, url, ct).ConfigureAwait(false);
+            ArtworkVariantHelper.StampMetadataAndRenditions(existing, _assetPaths);
+            await _assetRepo.UpsertAsync(existing, ct).ConfigureAwait(false);
+            stored = 1;
+        }
+
+        await _assetRepo.SetPreferredAsync(existing.Id, ct).ConfigureAwait(false);
+        await _canonicalRepo.UpsertBatchAsync(
+            ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(ownerEntityId, existing, DateTimeOffset.UtcNow),
+            ct).ConfigureAwait(false);
+        return new ImageAssetProcessingResult(existing.LocalImagePath, stored, currentPreferred?.Id == existing.Id ? 0 : 1);
     }
 
     private async Task<(JsonNode? Json, string Status, int? HttpStatusCode, string? SkippedReason, string? Message)> GetImagesAsync(string endpoint, string apiKey, CancellationToken ct)
@@ -260,6 +322,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private async Task<string?> ResolveTmdbApiKeyAsync(CancellationToken ct)
     {
         var config = _configLoader.LoadProvider(TmdbProviderName);
+        if (!string.IsNullOrWhiteSpace(config?.HttpClient?.ApiKeyOverride)) return config.HttpClient.ApiKeyOverride;
         if (!string.IsNullOrWhiteSpace(config?.HttpClient?.ApiKey)) return config.HttpClient.ApiKey;
         return await _providerConfigRepo.GetDecryptedValueAsync(WellKnownProviders.Tmdb.ToString(), "api_key", ct).ConfigureAwait(false);
     }
@@ -306,6 +369,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private static void AddCount(Dictionary<string, int> values, AssetType type, int count) { if (count > 0) values[type.ToString()] = values.GetValueOrDefault(type.ToString()) + count; }
     private static void AddDiagnostic(List<CanonicalValue> values, Guid id, string key, string? value, DateTimeOffset now) { if (!string.IsNullOrWhiteSpace(value)) values.Add(new CanonicalValue { EntityId = id, Key = key, Value = value, LastScoredAt = now, WinningProviderId = WellKnownProviders.Tmdb }); }
     private sealed record ArtworkMapping(string JsonField, AssetType AssetType, bool UpdatePreferred);
+    private sealed record BrandArtworkMapping(string CanonicalKey, AssetType AssetType);
     private sealed record ImageAssetProcessingResult(string? PreferredLocalPath, int StoredCount, int UpdatedPreferredCount) { public static readonly ImageAssetProcessingResult Empty = new(null, 0, 0); }
     private sealed record ArtworkContext(Guid AssetId, Guid SelfWorkId, Guid RootWorkId, Guid? SeasonWorkId, int? SeasonNumber, MediaType MediaType);
 }
