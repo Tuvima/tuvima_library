@@ -42,7 +42,7 @@ public enum HydrationStage
     /// Stage 3: Universe Enrichment.
     /// Runs as a scheduled background service after Stage 2 confirms Wikidata identity.
     /// Discovers fictional entities (characters, locations, organizations) via Wikidata,
-    /// populates relationships, fetches rich imagery from Fanart.tv, generates AI
+    /// populates relationships, fetches TMDB imagery, generates AI
     /// descriptions (TL;DR, vibe tags, themes), and tracks series completeness.
     /// </summary>
     UniverseEnrichment = 3,

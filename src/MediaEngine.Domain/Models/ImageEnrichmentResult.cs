@@ -2,8 +2,8 @@ namespace MediaEngine.Domain.Models;
 
 public sealed record ImageEnrichmentResult
 {
-    public string Provider { get; init; } = "fanart_tv";
-    public string ProviderName { get; init; } = "Fanart.tv";
+    public string Provider { get; init; } = "tmdb";
+    public string ProviderName { get; init; } = "TMDB";
     public string Status { get; init; } = "Skipped";
     public string? SkippedReason { get; init; }
     public string? Message { get; init; }

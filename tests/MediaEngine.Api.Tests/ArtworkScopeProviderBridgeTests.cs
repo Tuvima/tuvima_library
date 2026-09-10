@@ -27,10 +27,23 @@ public sealed class ArtworkScopeProviderBridgeTests
         var bridge = ArtworkScopeService.ResolveProviderArtworkBridge(
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["tmdb_movie_id"] = "1234",
+                [BridgeIdKeys.TmdbId] = "1234",
             },
             "Movies");
 
-        Assert.Equal(("tmdb_movie_id", "1234"), bridge);
+        Assert.Equal((BridgeIdKeys.TmdbId, "1234"), bridge);
+    }
+
+    [Fact]
+    public void Tv_UsesTmdbIdentityWithoutRequiringTvdbIdentity()
+    {
+        var bridge = ArtworkScopeService.ResolveProviderArtworkBridge(
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.TmdbId] = "9876",
+            },
+            "TV");
+
+        Assert.Equal((BridgeIdKeys.TmdbId, "9876"), bridge);
     }
 }

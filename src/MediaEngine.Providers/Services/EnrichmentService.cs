@@ -113,7 +113,7 @@ public sealed class EnrichmentService : IEnrichmentService
     public async Task RunUniverseEnhancerPassAsync(Guid entityId, string qid, CancellationToken ct = default)
     {
         await _concurrency.RunAsync(
-            EnrichmentWorkKind.Fanart,
+            EnrichmentWorkKind.TmdbArtwork,
             async token => await _images.EnrichWorkImagesAsync(entityId, qid, token),
             ct);
         await _concurrency.RunAsync(
@@ -145,7 +145,7 @@ public sealed class EnrichmentService : IEnrichmentService
                 break;
             case EnrichmentType.Images:
                 await _concurrency.RunAsync(
-                    EnrichmentWorkKind.Fanart,
+                    EnrichmentWorkKind.TmdbArtwork,
                     async token => await _images.EnrichWorkImagesAsync(entityId, qid, token),
                     ct);
                 break;

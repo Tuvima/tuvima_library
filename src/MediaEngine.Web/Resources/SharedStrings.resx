@@ -1269,10 +1269,6 @@
   <data name="Wikidata_Stage3TriggerHint" xml:space="preserve">
     <value>Manually start a Stage 3 enrichment sweep</value>
   </data>
-  <!-- Providers -->
-  <data name="Provider_FanartTv" xml:space="preserve">
-    <value>Fanart.tv</value>
-  </data>
   <!-- Universe Explorer modes -->
   <data name="Universe_ModeWeb" xml:space="preserve">
     <value>Web</value>

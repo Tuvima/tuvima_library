@@ -84,7 +84,6 @@ public static class SettingsEndpoints
             ["local_filesystem"] = "Local Filesystem",
             ["tmdb"] = "TMDB",
             ["musicbrainz"] = "MusicBrainz",
-            ["fanart_tv"] = "Fanart.tv",
         };
 
     // Maps provider name → key in manifest.ProviderEndpoints for the reachability probe.

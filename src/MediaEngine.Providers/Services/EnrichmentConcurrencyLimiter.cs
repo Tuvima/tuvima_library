@@ -22,7 +22,7 @@ public sealed class EnrichmentConcurrencyLimiter : IEnrichmentConcurrencyLimiter
         {
             [EnrichmentWorkKind.RetailProvider] = new(NormalizeLimit(settings.MaxConcurrentRetailProviderJobs), NormalizeLimit(settings.MaxConcurrentRetailProviderJobs)),
             [EnrichmentWorkKind.Wikidata] = new(NormalizeLimit(settings.MaxConcurrentWikidataJobs), NormalizeLimit(settings.MaxConcurrentWikidataJobs)),
-            [EnrichmentWorkKind.Fanart] = new(NormalizeLimit(settings.MaxConcurrentFanartJobs), NormalizeLimit(settings.MaxConcurrentFanartJobs)),
+            [EnrichmentWorkKind.TmdbArtwork] = new(NormalizeLimit(settings.MaxConcurrentTmdbArtworkJobs), NormalizeLimit(settings.MaxConcurrentTmdbArtworkJobs)),
             [EnrichmentWorkKind.WriteBack] = new(NormalizeLimit(settings.MaxConcurrentWriteBackJobs), NormalizeLimit(settings.MaxConcurrentWriteBackJobs)),
         };
     }

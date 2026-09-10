@@ -256,7 +256,7 @@ internal sealed class ArtworkScopeService(
             return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
                 status: "Skipped",
                 skippedReason: "missing_bridge_id",
-                message: "This item needs a supported provider ID before Fanart.tv artwork can be refreshed.",
+                message: "This item needs a TMDB ID before TMDB artwork can be refreshed.",
                 mediaType: scope.MediaType));
         }
 
@@ -270,16 +270,14 @@ internal sealed class ArtworkScopeService(
         var normalized = MetadataEndpoints.NormalizeEditorMediaType(mediaType);
         if (normalized == "Movies")
         {
-            var tmdb = StringHelpers.FirstNonBlankOr(string.Empty,
-                MetadataEndpoints.GetCanonicalValue(canonicals, "tmdb_movie_id"),
-                MetadataEndpoints.GetCanonicalValue(canonicals, BridgeIdKeys.TmdbId));
-            return string.IsNullOrWhiteSpace(tmdb) ? null : ("tmdb_movie_id", tmdb);
+            var tmdb = MetadataEndpoints.GetCanonicalValue(canonicals, BridgeIdKeys.TmdbId);
+            return string.IsNullOrWhiteSpace(tmdb) ? null : (BridgeIdKeys.TmdbId, tmdb);
         }
 
         if (normalized == "TV")
         {
-            var tvdb = MetadataEndpoints.GetCanonicalValue(canonicals, BridgeIdKeys.TvdbId);
-            return string.IsNullOrWhiteSpace(tvdb) ? null : (BridgeIdKeys.TvdbId, tvdb);
+            var tmdb = MetadataEndpoints.GetCanonicalValue(canonicals, BridgeIdKeys.TmdbId);
+            return string.IsNullOrWhiteSpace(tmdb) ? null : (BridgeIdKeys.TmdbId, tmdb);
         }
 
         if (normalized == "Music")
@@ -350,8 +348,8 @@ internal sealed class ArtworkScopeService(
         IReadOnlyDictionary<string, int>? storedCounts = null,
         IReadOnlyList<string>? diagnostics = null,
         DateTimeOffset? lastCheckedAt = null,
-        string provider = "fanart_tv",
-        string providerName = "Fanart.tv") =>
+        string provider = "tmdb",
+        string providerName = "TMDB") =>
         new(
             Provider: provider,
             ProviderName: providerName,
@@ -607,6 +605,7 @@ internal sealed class ArtworkScopeService(
             ? null
             : sourceProvider switch
             {
+                "tmdb" => "TMDB",
                 "fanart_tv" => "Fanart.tv",
                 "user_upload" => "Library Upload",
                 _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(sourceProvider.Replace('_', ' ')),

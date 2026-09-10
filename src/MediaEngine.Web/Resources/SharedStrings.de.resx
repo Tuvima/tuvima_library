@@ -1269,10 +1269,6 @@
   <data name="Wikidata_Stage3TriggerHint" xml:space="preserve">
     <value>Manuell einen Anreicherungslauf starten</value>
   </data>
-  <!-- Providers -->
-  <data name="Provider_FanartTv" xml:space="preserve">
-    <value>Fanart.tv</value>
-  </data>
   <!-- Universe Explorer modes -->
   <data name="Universe_ModeWeb" xml:space="preserve">
     <value>Netzwerk</value>

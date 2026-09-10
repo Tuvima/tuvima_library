@@ -285,7 +285,6 @@ internal sealed class SchemaMigrator
             (WellKnownProviders.Lrclib, "lrclib", "1.0"),
             (WellKnownProviders.OpenSubtitles, "opensubtitles", "1.0"),
             (WellKnownProviders.UserManual, "user_manual", "1.0"),
-            (WellKnownProviders.FanartTv, "fanart_tv", "1.0"),
             (WellKnownProviders.AiProvider, "ai_provider", "1.0"),
         ];
 

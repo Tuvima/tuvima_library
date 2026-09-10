@@ -25,7 +25,7 @@ The provider portion of ingestion maps to the numbered stages shown on the Inges
 
 2. **Stage 4 (Wikidata):** The Wikidata Reconciliation adapter uses those bridge IDs to resolve the item's Wikidata QID. Each bridge ID maps to a Wikidata property code (for example, ISBN-13 maps to P212). Stage 4 is strict-gated behind Stage 3: no safe retail match means no automatic Wikidata attempt. A Stage 4 request also needs at least one real bridge ID; title and creator hints are sent as ranking context, not as a broad title-only fallback.
 
-3. **Stage 8 (Artwork):** Rich artwork providers such as Fanart.tv run later, after bridge IDs or QIDs are available. They do not provide the first cover/poster pass.
+3. **Stage 8 (Artwork):** TMDB refreshes ranked movie and TV backgrounds, title logos, poster variants, and season artwork after a TMDB bridge ID is available. It does not replace a user-selected asset.
 
 Retail providers are a **rich data source for matching** - descriptions, narrator data, ratings, and cover art similarity are all used to rank candidates against file metadata. **Wikidata is the authority** for final canonical values (title, author, year, genre, series).
 
@@ -39,7 +39,6 @@ Retail providers are a **rich data source for matching** - descriptions, narrato
 | TMDB | Movies, TV | API key query parameter | 500ms throttle, max 1 concurrent | Localized (user language) | Active (requires key) |
 | MusicBrainz | Music | None | 1 request/sec, max 1 concurrent | Source (English only) | Active music identity |
 | Comic Vine | Comics | API key | 500ms, max 1 concurrent | Source (English only) | Active (requires key) |
-| Fanart.tv | Movies, TV, Music | API key | Configured provider throttle | ID lookup | Stage 8 deep artwork only |
 | LRCLIB | Music | None | Configured provider throttle | Source | Text-track provider |
 | OpenSubtitles | Movies, TV | API key | Configured provider throttle | Source | Text-track provider, disabled by default |
 
@@ -116,10 +115,6 @@ without inventing an issue ID. Stage 4 can then roll up to a clearly scoped
 series/run Wikidata QID using `wikidata_qid_scope = series` and
 `qid_resolution_method = comic_series_rollup`.
 
-#### Fanart.tv (Stage 8 Only)
-
-Fanart.tv is not an identity provider. It runs after identity is established and uses bridge IDs to fetch additional artwork such as backgrounds, logos, banners, thumbnails, clear art, disc art, and square art.
-
 #### LRCLIB and OpenSubtitles
 
 LRCLIB and OpenSubtitles provide lyrics and subtitle/text-track data. They do not decide identity, do not unlock Wikidata resolution, and do not participate in retail candidate scoring.
@@ -129,9 +124,9 @@ LRCLIB and OpenSubtitles provide lyrics and subtitle/text-track data. They do no
 | Media type | Preferred sequence source | Artwork display source |
 |---|---|---|
 | Books/Audiobooks | Apple retail sequence when available; otherwise Wikidata manifest if the container is sequence-compatible. | Managed asset from accepted Apple/provider cover, then placeholder after artwork settles. |
-| Music | MusicBrainz recording/release identity first, then Apple album/artwork enrichment. | Managed asset from accepted Apple/Fanart source; no direct provider URL after settlement. |
-| Movies | TMDB movie collection for ordered film collections; Wikidata franchise context stays broader discovery context. | Managed poster/backdrop from TMDB/Fanart. |
-| TV | TMDB show/season/episode details. | Managed show, season, and episode art from TMDB/Fanart. |
+| Music | MusicBrainz recording/release identity first, then Apple album/artwork enrichment. | Managed asset from the accepted Apple source; no direct provider URL after settlement. |
+| Movies | TMDB movie collection for ordered film collections; Wikidata franchise context stays broader discovery context. | Managed TMDB posters, backdrops, and title logos. |
+| TV | TMDB show/season/episode details. | Managed TMDB show and season art; episode stills continue to use the existing TMDB episode retrieval. |
 | Comics | Comic Vine volume/run and issue metadata. | Managed Comic Vine cover. |
 
 Provider descriptions and long-form metadata should carry source attribution
