@@ -82,7 +82,6 @@ public static class SettingsEndpoints
             ["wikidata"] = "Wikidata",
             ["wikidata_reconciliation"] = "Wikidata",
             ["local_filesystem"] = "Local Filesystem",
-            ["open_library"] = "Open Library",
             ["tmdb"] = "TMDB",
             ["musicbrainz"] = "MusicBrainz",
             ["fanart_tv"] = "Fanart.tv",
@@ -95,7 +94,6 @@ public static class SettingsEndpoints
             ["apple_api"] = "apple_api",
             // audnexus removed - config file deleted as part of SPARQL cleanup
             ["wikidata"] = "wikidata_api",
-            ["open_library"] = "open_library",
             ["tmdb"] = "tmdb",
             ["musicbrainz"] = "musicbrainz",
         };

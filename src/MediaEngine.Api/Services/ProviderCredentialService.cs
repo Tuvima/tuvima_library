@@ -300,22 +300,24 @@ public sealed class ProviderCredentialService
         }
 
         credentials.TryGetValue("api_key", out var apiKey);
+        credentials.TryGetValue("api_key_override", out var apiKeyOverride);
+        var effectiveApiKey = !string.IsNullOrWhiteSpace(apiKeyOverride) ? apiKeyOverride : apiKey;
         switch (http.ApiKeyDelivery?.ToLowerInvariant())
         {
-            case "bearer" when !string.IsNullOrWhiteSpace(apiKey):
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            case "bearer" when !string.IsNullOrWhiteSpace(effectiveApiKey):
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", effectiveApiKey);
                 break;
-            case "header" when !string.IsNullOrWhiteSpace(apiKey):
-                request.Headers.TryAddWithoutValidation(http.ApiKeyParamName ?? "Api-Key", apiKey);
+            case "header" when !string.IsNullOrWhiteSpace(effectiveApiKey):
+                request.Headers.TryAddWithoutValidation(http.ApiKeyParamName ?? "Api-Key", effectiveApiKey);
                 break;
-            case "query" when !string.IsNullOrWhiteSpace(apiKey):
+            case "query" when !string.IsNullOrWhiteSpace(effectiveApiKey):
                 var builder = new UriBuilder(request.RequestUri!);
                 var separator = string.IsNullOrEmpty(builder.Query) ? string.Empty : "&";
                 builder.Query = builder.Query.TrimStart('?')
                     + separator
                     + Uri.EscapeDataString(http.ApiKeyParamName ?? "api_key")
                     + "="
-                    + Uri.EscapeDataString(apiKey);
+                    + Uri.EscapeDataString(effectiveApiKey);
                 request.RequestUri = builder.Uri;
                 break;
             case "basic":
@@ -363,6 +365,7 @@ public sealed class ProviderCredentialService
         key.ToLowerInvariant() switch
         {
             "api_key" => provider.HttpClient?.ApiKey,
+            "api_key_override" => provider.HttpClient?.ApiKeyOverride,
             "client_key" => provider.HttpClient?.ClientKey,
             "username" => provider.HttpClient?.Username,
             "password" => provider.HttpClient?.Password,

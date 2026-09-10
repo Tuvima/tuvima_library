@@ -97,11 +97,17 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
     {
         _config.HttpClient ??= new HttpClientConfig();
         _config.HttpClient.ApiKey = credentials.GetValueOrDefault("api_key");
+        _config.HttpClient.ApiKeyOverride = credentials.GetValueOrDefault("api_key_override");
         _config.HttpClient.ClientKey = credentials.GetValueOrDefault("client_key");
         _config.HttpClient.AccessToken = credentials.GetValueOrDefault("access_token");
         _config.HttpClient.Username = credentials.GetValueOrDefault("username");
         _config.HttpClient.Password = credentials.GetValueOrDefault("password");
     }
+
+    /// <summary>Returns the configured key, preferring an administrator override.</summary>
+    private string? EffectiveApiKey => !string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKeyOverride)
+        ? _config.HttpClient.ApiKeyOverride
+        : _config.HttpClient?.ApiKey;
 
     public bool CanHandle(MediaType mediaType) =>
         _mediaTypes.Count == 0 || mediaType == MediaType.Unknown || _mediaTypes.Contains(mediaType);
@@ -127,7 +133,7 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
 
         // Short-circuit when an API key is required but not configured.
         if (_config.RequiresApiKey
-            && string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey)
+            && string.IsNullOrWhiteSpace(EffectiveApiKey)
             && (string.IsNullOrWhiteSpace(_config.HttpClient?.Username)
                 || string.IsNullOrWhiteSpace(_config.HttpClient?.Password)))
         {
@@ -284,7 +290,7 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider, IPr
 
         // Short-circuit when an API key is required but not configured.
         if (_config.RequiresApiKey
-            && string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey)
+            && string.IsNullOrWhiteSpace(EffectiveApiKey)
             && (string.IsNullOrWhiteSpace(_config.HttpClient?.Username)
                 || string.IsNullOrWhiteSpace(_config.HttpClient?.Password)))
         {

@@ -33,7 +33,6 @@ public sealed class ProviderCatalogueService
             [WellKnownProviders.AppleApi] = "Apple API",
             [WellKnownProviders.Wikidata] = "Wikidata",
             [WellKnownProviders.Wikipedia] = "Wikipedia",
-            [WellKnownProviders.OpenLibrary] = "Open Library",
             [WellKnownProviders.MusicBrainz] = "MusicBrainz",
             [WellKnownProviders.Tmdb] = "TMDB",
             [WellKnownProviders.AiProvider] = "Fanart.tv",
@@ -44,7 +43,6 @@ public sealed class ProviderCatalogueService
         new Dictionary<string, ProviderFallback>(StringComparer.OrdinalIgnoreCase)
         {
             ["apple_api"] = new("Apple API", "#FF2D55", Icons.Material.Filled.MenuBook),
-            ["open_library"] = new("Open Library", "#4CAF50", Icons.Material.Filled.LocalLibrary),
             ["wikidata"] = new("Wikidata", "#339966", Icons.Material.Filled.Collections),
             ["wikidata_reconciliation"] = new("Wikidata", "#339966", Icons.Material.Filled.Collections),
             ["tmdb"] = new("TMDB", "#01B4E4", Icons.Material.Filled.Movie),
@@ -242,7 +240,6 @@ public sealed class ProviderCatalogueService
         {
             "tmdb" => "TMDB",
             "wikidata" => "Wikidata",
-            "openlibrary" => "Open Library",
             "apple" or "appleapi" or "applebooks" or "applemusic" => "Apple",
             "provider" or "providermatch" => "Retail match",
             _ => MediaEngine.Web.Services.Formatting.DisplayFormat.SplitWords(provider),
@@ -271,7 +268,6 @@ public sealed class ProviderCatalogueService
             "wikipedia" => "Wikipedia",
             "retail_provider" => "Retail Provider",
             "apple_api" => "Apple API",
-            "open_library" => "Open Library",
             "musicbrainz" => "MusicBrainz",
             "tmdb" => "TMDB",
             "fanart_tv" => "Fanart.tv",

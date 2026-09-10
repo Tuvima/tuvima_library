@@ -6,7 +6,7 @@
   "Audiobooks": [
     "title", "author", "narrator", "series", "series_position",
     "year", "genre", "description",
-    "isbn", "asin", "audible_id", "apple_books_id", "wikidata_qid"
+    "isbn", "asin", "apple_books_id", "wikidata_qid"
   ],
   "Movies": [
     "title", "director", "year", "genre", "description",

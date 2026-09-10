@@ -15,7 +15,7 @@ The detail UI has one visual slot beneath the title, but the stored metadata rem
 | Movie | `tagline` | TMDB explicit tagline | Movie Work | Tagline |
 | TV show | `tagline` | TMDB explicit series tagline | Show/root Work | Tagline |
 | TV episode | none | — | — | No tagline |
-| Book | `subtitle` | Open Library explicit subtitle; other explicit providers later | Literary Work | Subtitle |
+| Book | `subtitle` | Apple explicit subtitle, then other explicit metadata | Literary Work | Subtitle |
 | Audiobook | `subtitle` | Edition metadata, then literary Work subtitle | Edition then Work | Subtitle |
 | Comic issue | `subtitle` | Explicit provider field only | Issue Work | Subtitle |
 | Music | none | — | — | No tagline/subtitle |

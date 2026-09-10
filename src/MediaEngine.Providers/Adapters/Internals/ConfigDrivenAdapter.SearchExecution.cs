@@ -36,11 +36,11 @@ public sealed partial class ConfigDrivenAdapter
 
         // Apply bearer API key header if configured.
         if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
-            && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
+            && !string.IsNullOrWhiteSpace(EffectiveApiKey))
         {
             httpRequest.Headers.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue(
-                    "Bearer", _config.HttpClient.ApiKey);
+                    "Bearer", EffectiveApiKey);
         }
         else if (_config.HttpClient is { ApiKeyDelivery: "basic" }
             && !string.IsNullOrWhiteSpace(_config.HttpClient.Username)
@@ -438,11 +438,11 @@ public sealed partial class ConfigDrivenAdapter
 
         // Apply bearer API key header if configured.
         if (_config.HttpClient is { ApiKeyDelivery: "bearer" }
-            && !string.IsNullOrWhiteSpace(_config.HttpClient.ApiKey))
+            && !string.IsNullOrWhiteSpace(EffectiveApiKey))
         {
             httpRequest.Headers.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue(
-                    "Bearer", _config.HttpClient.ApiKey);
+                    "Bearer", EffectiveApiKey);
         }
         // Apply HTTP Basic Authentication if configured.
         else if (_config.HttpClient is { ApiKeyDelivery: "basic" }

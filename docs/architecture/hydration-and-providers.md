@@ -373,7 +373,6 @@ Before making an HTTP call, `ConfigDrivenAdapter` computes a SHA-256 hash of the
 |---|---|---|
 | Apple API | 168 hours (7 days) | Retail data changes infrequently |
 | TMDB | 168 hours (7 days) | Retail data changes infrequently |
-| Open Library | 336 hours (14 days) | Bibliographic data is stable |
 | MusicBrainz | 336 hours (14 days) | Discography data is stable |
 | Comic Vine | 720 hours (30 days) | Strict rate limits - aggressive caching |
 

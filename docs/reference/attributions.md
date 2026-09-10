@@ -64,7 +64,6 @@ Model weights are downloaded separately according to configured model URLs and t
 | Tuvima.Wikidata | Tuvima's .NET integration library for Wikidata/Wikipedia reconciliation and graph behavior |
 | MusicBrainz | Music metadata and identifiers |
 | TMDB | Movie and TV metadata, identifiers, images, and ratings where configured |
-| Open Library | Book metadata and covers where configured |
 | Apple APIs | Book, audiobook, and music metadata where configured |
 | Comic Vine identifiers | Comics metadata and bridge identifiers where configured |
 | Fanart.tv | Artwork enrichment where configured |
