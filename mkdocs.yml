@@ -148,6 +148,7 @@ nav:
       - Durable Media Operations: architecture/durable-media-operations.md
       - Ingestion Pipeline: architecture/ingestion-pipeline.md
       - Hydration Pipeline and Providers: architecture/hydration-and-providers.md
+      - Provider Enrichment Strategy: architecture/provider-enrichment-strategy.md
       - Priority Cascade Engine: architecture/scoring-and-cascade.md
       - Dashboard UI Architecture: architecture/dashboard-ui.md
       - Inline Media Editing: architecture/inline-media-editing.md

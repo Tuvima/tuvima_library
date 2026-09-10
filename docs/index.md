@@ -164,6 +164,7 @@ The user-facing Dashboard is organized around current workflows:
 - [Libraries, Sources, and Intake](architecture/library-model-and-intake.md)
 - [View Personal Media Architecture and Static Review](architecture/view-personal-media.md)
 - [Hydration Pipeline and Providers](architecture/hydration-and-providers.md)
+- [Provider Enrichment Strategy](architecture/provider-enrichment-strategy.md)
 - [Priority Cascade Engine](architecture/scoring-and-cascade.md)
 - [Attributions](reference/attributions.md)
 
