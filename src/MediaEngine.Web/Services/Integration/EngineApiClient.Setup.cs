@@ -74,6 +74,11 @@ public sealed partial class EngineApiClient
             if (!string.IsNullOrWhiteSpace(setupSession))
             {
                 request.Headers.TryAddWithoutValidation("X-Tuvima-Setup-Session", setupSession);
+                request.Options.Set(DashboardEngineAuthenticationHandler.SuppressSessionToken, true);
+            }
+            else if (path is "/setup/v1/status" or "/setup/v1/begin")
+            {
+                request.Options.Set(DashboardEngineAuthenticationHandler.SuppressSessionToken, true);
             }
 
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);

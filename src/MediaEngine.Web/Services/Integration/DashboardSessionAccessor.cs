@@ -7,6 +7,7 @@ public sealed class DashboardSessionAccessor
 {
     private readonly object _gate = new();
     private long _refreshGeneration;
+    private bool _hasEstablishedSessionState;
     public event Action? OnAuthorityChanged;
     public string? SessionToken { get; private set; }
     public Guid? AccountId { get; private set; }
@@ -48,9 +49,9 @@ public sealed class DashboardSessionAccessor
         {
             // A circuit mutation or an earlier validation is authoritative over
             // a retained request principal.
-            if (!string.IsNullOrWhiteSpace(SessionToken))
+            if (_hasEstablishedSessionState)
             {
-                return true;
+                return !string.IsNullOrWhiteSpace(SessionToken);
             }
 
             changedHandler = SetCore(
@@ -77,6 +78,14 @@ public sealed class DashboardSessionAccessor
         lock (_gate)
         {
             return new(SessionToken, AccountId, ActiveProfileId, SessionId, Revision);
+        }
+    }
+
+    public DashboardSessionForwardingState CurrentForwardingState()
+    {
+        lock (_gate)
+        {
+            return new(SessionToken, _hasEstablishedSessionState);
         }
     }
 
@@ -154,6 +163,7 @@ public sealed class DashboardSessionAccessor
 
     private Action? SetCore(string? token, Guid? accountId, Guid? activeProfileId, Guid? sessionId, DashboardAuthorityResponse? authority)
     {
+        _hasEstablishedSessionState = true;
         _refreshGeneration++;
         var changed = !Equals(Authority, authority) || AccountId != accountId || ActiveProfileId != activeProfileId || SessionId != sessionId;
         SessionToken = token;
@@ -187,3 +197,4 @@ public sealed class DashboardSessionAccessor
 
 public sealed record DashboardSessionSnapshot(string? SessionToken, Guid? AccountId, Guid? ActiveProfileId, Guid? SessionId, long Revision);
 public sealed record DashboardSessionRefresh(DashboardSessionSnapshot Snapshot, long Generation);
+public readonly record struct DashboardSessionForwardingState(string? SessionToken, bool HasEstablishedSessionState);

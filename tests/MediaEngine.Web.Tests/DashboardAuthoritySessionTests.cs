@@ -35,6 +35,23 @@ public sealed class DashboardAuthoritySessionTests
     }
 
     [Fact]
+    public void ClearedCircuitSessionCannotBeReseededFromRetainedPrincipal()
+    {
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(DashboardEngineAuthenticationHandler.SessionTokenClaim, "stale-session"),
+        ], "cookie"));
+        var session = new DashboardSessionAccessor();
+        Assert.True(session.InitializeFromPrincipal(principal));
+        var refresh = session.SnapshotForRefresh();
+
+        Assert.True(session.ClearIfCurrent(refresh));
+
+        Assert.False(session.InitializeFromPrincipal(principal));
+        Assert.Null(session.SessionToken);
+    }
+
+    [Fact]
     public void AccountVersionChange_NotifiesTheCircuitAndReplacesCapabilities()
     {
         var session = new DashboardSessionAccessor();

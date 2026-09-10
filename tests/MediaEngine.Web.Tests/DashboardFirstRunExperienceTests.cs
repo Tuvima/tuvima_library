@@ -10,6 +10,7 @@ public sealed class DashboardFirstRunExperienceTests
     {
         var dashboard = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");
         var setup = Read("src/MediaEngine.Web/Components/Pages/SetupPage.razor");
+        var setupClient = Read("src/MediaEngine.Web/Services/Integration/EngineApiClient.Setup.cs");
         var preflight = Read("src/MediaEngine.Web/Components/Setup/SetupPreflightStage.razor");
         var engine = Read("src/MediaEngine.Api/Endpoints/AuthenticationEndpoints.cs");
         var setupSessions = Read("src/MediaEngine.Api/Services/SetupSessionService.cs");
@@ -20,6 +21,10 @@ public sealed class DashboardFirstRunExperienceTests
         Assert.DoesNotContain("Claim this server", setup, StringComparison.Ordinal);
         Assert.DoesNotContain("[Tuvima Setup] Claim token", setup, StringComparison.Ordinal);
         Assert.Contains("X-Tuvima-Setup-Session", setupSessions, StringComparison.Ordinal);
+        Assert.Contains("SuppressSessionToken", setupClient, StringComparison.Ordinal);
+        Assert.Contains("await ClearSetupSessionAsync()", setup, StringComparison.Ordinal);
+        Assert.Contains("!_setupSessionReadyForCircuit", setup, StringComparison.Ordinal);
+        Assert.Contains("_setupSessionReadyForCircuit = true", setup, StringComparison.Ordinal);
         Assert.Contains("IsAdministratorConfiguredAsync", setupSessions, StringComparison.Ordinal);
         Assert.DoesNotContain("Console.Out.WriteLineAsync", setupSessions, StringComparison.Ordinal);
         Assert.DoesNotContain("Claim token", setupSessions, StringComparison.Ordinal);

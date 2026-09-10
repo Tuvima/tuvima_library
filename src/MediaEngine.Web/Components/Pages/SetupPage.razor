@@ -98,6 +98,7 @@
     private bool _showRestore;
     private bool _showLibraryWizard;
     private bool _authenticated;
+    private bool _setupSessionReadyForCircuit;
     private string? _selectedStep;
     private bool _providersLoaded;
 
@@ -148,7 +149,7 @@
     private async Task ReloadAsync()
     {
         _status = await ApiClient.GetSetupStatusAsync();
-        if (_status?.RequiresSetupStart == true && !_authenticated && string.IsNullOrWhiteSpace(_setupSession))
+        if (_status?.RequiresSetupStart == true && !_authenticated && !_setupSessionReadyForCircuit)
         {
             var started = await ApiClient.BeginSetupAsync();
             if (started is not null)
@@ -157,6 +158,7 @@
                 await Storage.SetAsync(SetupSessionKey, _setupSession);
                 _status = started.Status;
             }
+            _setupSessionReadyForCircuit = true;
         }
         _loading = false;
         if (_status?.State == "complete")
@@ -233,7 +235,8 @@
     private void CancelRestore() { _showRestore = false; _backup = null; }
     private async Task UploadBackupAsync(InputFileChangeEventArgs args) { _busy = true; try { await using var stream = args.File.OpenReadStream(2L * 1024 * 1024 * 1024); _backup = await ApiClient.UploadSetupBackupAsync(stream, args.File.Name, _setupSession ?? string.Empty); if (_backup is null) Snackbar.Add("The backup failed validation.", Severity.Error); } finally { _busy = false; } }
     private async Task ConfirmRestoreAsync() { if (_backup is null || _setupSession is null) return; _busy = true; var result = await ApiClient.ConfirmSetupRestoreAsync(_backup.OperationId, _setupSession); _busy = false; if (result is null) Snackbar.Add("The restore could not be scheduled.", Severity.Error); else Snackbar.Add("Restore scheduled. Tuvima is restarting.", Severity.Info); }
-    private async Task CreateAdministratorAsync() { if (_setupSession is null || !PasswordsMatch) { Snackbar.Add("Enter the same password twice.", Severity.Error); return; } _busy = true; var result = await ApiClient.CreateSetupAdministratorAsync(new SetupAdministratorRequest { Email = _email, Password = _password, Pin = string.IsNullOrEmpty(_pin) ? null : _pin, DisplayName = _displayName, DeviceId = Guid.NewGuid().ToString("D"), DeviceName = "Setup browser" }, _setupSession); _busy = false; if (result is null) Snackbar.Add("The administrator could not be created.", Severity.Error); else if (result.RecoveryCodes.Count > 0) _recoveryCodes = result.RecoveryCodes; else SignIn(); }
+    private async Task CreateAdministratorAsync() { if (_setupSession is null || !PasswordsMatch) { Snackbar.Add("Enter the same password twice.", Severity.Error); return; } _busy = true; var result = await ApiClient.CreateSetupAdministratorAsync(new SetupAdministratorRequest { Email = _email, Password = _password, Pin = string.IsNullOrEmpty(_pin) ? null : _pin, DisplayName = _displayName, DeviceId = Guid.NewGuid().ToString("D"), DeviceName = "Setup browser" }, _setupSession); _busy = false; if (result is null) Snackbar.Add("The administrator could not be created.", Severity.Error); else { await ClearSetupSessionAsync(); if (result.RecoveryCodes.Count > 0) _recoveryCodes = result.RecoveryCodes; else SignIn(); } }
+    private async Task ClearSetupSessionAsync() { _setupSession = null; try { await Storage.DeleteAsync(SetupSessionKey); } catch { } }
     private async Task CopyRecoveryCodesAsync() { await JS.InvokeVoidAsync("navigator.clipboard.writeText", RecoveryCodesText); Snackbar.Add("Recovery codes copied.", Severity.Success); }
     private void SignIn() => Navigation.NavigateTo("/auth/login?returnUrl=%2Fsetup", forceLoad: true);
     private async Task ValidateMediaAsync() { _busy = true; _media = await ApiClient.ValidateSetupMediaLocationsAsync(_setupSession); _busy = false; if (_media?.Passed == true) { _readiness = null; await ReloadAsync(); } }

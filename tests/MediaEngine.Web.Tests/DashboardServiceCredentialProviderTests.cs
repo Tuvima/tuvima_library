@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net;
+using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -162,6 +163,68 @@ public sealed class DashboardServiceCredentialProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task Authentication_SuppressedSessionDoesNotReattachStaleHttpContextToken()
+    {
+        var protection = CreateProtectionProvider("keys");
+        var provider = CreateProvider(protection, new CountingLogger<DashboardServiceCredentialProvider>());
+        WriteBundle(protection, "service-token");
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(DashboardEngineAuthenticationHandler.SessionTokenClaim, "stale-session"),
+        ], "cookie"));
+        var contextAccessor = new HttpContextAccessor
+        {
+            HttpContext = new DefaultHttpContext { User = principal },
+        };
+        var capture = new CapturingHandler();
+        var authentication = new DashboardEngineAuthenticationHandler(
+            provider,
+            new DashboardSessionAccessor(),
+            contextAccessor)
+        {
+            InnerHandler = capture,
+        };
+        using var client = new HttpClient(authentication) { BaseAddress = new Uri("http://engine.test") };
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/setup/v1/administrator");
+        request.Options.Set(DashboardEngineAuthenticationHandler.SuppressSessionToken, true);
+
+        using var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("service-token", capture.LastServiceToken);
+        Assert.Null(capture.LastSessionToken);
+    }
+
+    [Fact]
+    public async Task Authentication_ClearedSessionDoesNotFallBackToRetainedHttpContextToken()
+    {
+        var protection = CreateProtectionProvider("keys");
+        var provider = CreateProvider(protection, new CountingLogger<DashboardServiceCredentialProvider>());
+        WriteBundle(protection, "service-token");
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+        [
+            new Claim(DashboardEngineAuthenticationHandler.SessionTokenClaim, "stale-session"),
+        ], "cookie"));
+        var session = new DashboardSessionAccessor();
+        Assert.True(session.InitializeFromPrincipal(principal));
+        Assert.True(session.ClearIfCurrent(session.SnapshotForRefresh()));
+        var capture = new CapturingHandler();
+        var authentication = new DashboardEngineAuthenticationHandler(
+            provider,
+            session,
+            new HttpContextAccessor { HttpContext = new DefaultHttpContext { User = principal } })
+        {
+            InnerHandler = capture,
+        };
+        using var client = new HttpClient(authentication) { BaseAddress = new Uri("http://engine.test") };
+
+        using var response = await client.GetAsync("/setup/v1/status");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null(capture.LastSessionToken);
+    }
+
+    [Fact]
     public async Task IdentityBootstrap_PreservesUnknownStateForUnavailableOrDownEngine()
     {
         using var unavailableClient = new HttpClient(new ResponseHandler(HttpStatusCode.ServiceUnavailable))
@@ -258,6 +321,7 @@ public sealed class DashboardServiceCredentialProviderTests : IDisposable
     {
         public int SendCount { get; private set; }
         public string? LastServiceToken { get; private set; }
+        public string? LastSessionToken { get; private set; }
         public string? LastViewSignature { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(
@@ -267,6 +331,9 @@ public sealed class DashboardServiceCredentialProviderTests : IDisposable
             SendCount++;
             LastServiceToken = request.Headers.TryGetValues(DashboardServiceCredentialHandler.ServiceHeader, out var values)
                 ? values.SingleOrDefault()
+                : null;
+            LastSessionToken = request.Headers.TryGetValues(DashboardEngineAuthenticationHandler.SessionHeader, out var sessions)
+                ? sessions.SingleOrDefault()
                 : null;
             LastViewSignature = request.Headers.TryGetValues(ViewProfileAssertionHandler.SignatureHeader, out var signatures)
                 ? signatures.SingleOrDefault()
