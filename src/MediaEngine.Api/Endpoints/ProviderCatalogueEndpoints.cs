@@ -174,6 +174,7 @@ public static class ProviderCatalogueEndpoints
         string key) => key.ToLowerInvariant() switch
         {
             "api_key" => !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey),
+            "api_key_override" => !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKeyOverride),
             "client_key" => !string.IsNullOrWhiteSpace(provider.HttpClient?.ClientKey),
             "username" => !string.IsNullOrWhiteSpace(provider.HttpClient?.Username),
             "password" => !string.IsNullOrWhiteSpace(provider.HttpClient?.Password),

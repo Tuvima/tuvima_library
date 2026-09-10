@@ -189,7 +189,7 @@ Bridge IDs are external platform identifiers that the Wikidata Reconciliation ad
 | **Comic Vine** | Comic Vine ID | `comic_vine_id` | 0.95 | P5905 |
 | **Comic Vine** | Comic Vine Volume ID | `comic_vine_volume_id` | 0.95 | Provider/run evidence; used for scoped comic series rollup when issue QID is absent |
 | **MusicBrainz** | MusicBrainz IDs | `musicbrainz_id`, `musicbrainz_recording_id`, `musicbrainz_release_group_id` | provider-dependent | P434/P435/P436/P5813/P4404 depending on ID type |
-| **Open Library / file evidence** | ISBN and Open Library ID | `isbn`, `isbn_13`, `isbn_10`, `open_library_id` | provider-dependent | P212/P957/P648 |
+| **Embedded book/comic evidence** | ISBN and retained historical identifiers | `isbn`, `isbn_13`, `isbn_10` | provider-dependent | P212/P957; historical bridge IDs remain evidence only |
 
 ### Stage 4 Resolution Flow Per Bridge ID
 
@@ -198,7 +198,7 @@ The Reconciliation adapter is now a thin orchestrator over `Tuvima.Wikidata` v3.
 1. **Bridge request build:** The adapter converts each `WikidataResolveRequest` into a `BridgeResolutionRequest` with bridge IDs, media kind, title/creator/year/series hints, language, custom P-code mappings, and rollup preference.
 2. **Direct lookup:** The package groups `(propertyId, normalizedValue)` lookups so duplicate ISBN/TMDB/Apple/MusicBrainz/ComicVine IDs share one Wikidata query.
 3. **Edition awareness:** The package walks P629 for edition/release-to-work rollups and can return both the resolved entity QID and canonical work QID plus the relationship path.
-4. **Media-specific bridge mapping:** TMDB, Apple, TVDB, MusicBrainz, OpenLibrary, and ComicVine keys are mapped to official Wikidata properties inside the package; app config only overrides or supplies custom mappings.
+4. **Media-specific bridge mapping:** TMDB, Apple, TVDB, MusicBrainz, and ComicVine keys are mapped to official Wikidata properties inside the package; retained historical keys are evidence only and do not activate a provider.
 5. **Strict bridge gate:** If a request has no real bridge IDs, the adapter does not build a Stage 4 bridge request. Title-only automatic requests are skipped.
 6. **Claim and diagnostics follow-up:** After every successful resolution, the adapter calls `ExtendAsync` over the known bridge P-codes to populate `WikidataResolveResult.Claims` and `CollectedBridgeIds`, and it also carries `BridgeDiagnostics`, ranked candidates, and rollup details from the package result.
 
@@ -210,8 +210,8 @@ The bridge worker sends these fields to Wikidata after Stage 3 has produced a re
 
 | Media type | Bridge IDs | Hints | Media kind / filter |
 |---|---|---|---|
-| Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `open_library_id`, `goodreads_id` | Title, author, year, language | Book/literary work, edition-aware |
-| Audiobooks | `apple_books_id`, `isbn`, `asin`, `audible_id`, MusicBrainz IDs | Title, author, year, language | Audiobook, edition-aware, prefers edition |
+| Books | `isbn`, `isbn_13`, `isbn_10`, `asin`, `apple_books_id`, `goodreads_id` | Title, author, year, language | Book/literary work, edition-aware |
+| Audiobooks | `apple_books_id`, `isbn`, `asin`, MusicBrainz IDs | Title, author, year, language | Audiobook, edition-aware, prefers edition |
 | Music | MusicBrainz recording/release/release-group IDs first; Apple Music IDs as secondary hints | Album, artist, composer/author fallback, track title, year, language | Recording/track when safely bridgeable; album when only release-group identity is known |
 | Movies | `tmdb_id`, `imdb_id`, Apple TV movie IDs | Title, creator if canonicalized, year, language | Movie/film |
 | TV | `tmdb_id`, `imdb_id`, `tvdb_id`, Apple TV show/episode IDs | Show name or series, creator if canonicalized, year, language | TV series |

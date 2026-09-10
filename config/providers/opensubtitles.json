@@ -67,7 +67,8 @@
     "steps": [
       { "id": "account", "title": "Consumer account", "description": "Create or open an OpenSubtitles API consumer.", "instructions": ["Sign in to OpenSubtitles.com.", "Open Consumers and create an API consumer if needed."], "action": { "kind": "external_link", "label": "Open OpenSubtitles Consumers", "url": "https://www.opensubtitles.com/en/consumers", "url_role": "signup" } },
       { "id": "credential", "title": "Get credential", "description": "Copy the API key assigned to your consumer application.", "instructions": ["Open the consumer application.", "Copy its API key."], "action": { "kind": "credential_entry", "label": "Enter API key" }, "credential_keys": ["api_key"] },
-      { "id": "connect", "title": "Connect", "description": "The API key enables subtitle search and anonymous download quotas. Optional account login remains an advanced setting for authenticated download quotas.", "action": { "kind": "credential_probe", "label": "Verify & connect" }, "credential_keys": ["api_key"] }
+      { "id": "account_login", "title": "Optional account login", "description": "Add your optional OpenSubtitles username and password to request an authenticated download session and its quota.", "action": { "kind": "credential_entry", "label": "Enter optional account login" }, "credential_keys": ["username", "password"] },
+      { "id": "connect", "title": "Connect", "description": "The API key enables subtitle search. Optional account login enables authenticated download quotas.", "action": { "kind": "credential_probe", "label": "Verify & connect" }, "credential_keys": ["api_key", "username", "password"] }
     ],
     "troubleshooting": [
       { "status": "invalid_credential", "title": "OpenSubtitles did not accept this key", "message": "Confirm that this is the API key for an OpenSubtitles consumer application.", "instructions": ["Open Consumers and copy the key again."], "help_url": "https://opensubtitles.stoplight.io/docs/opensubtitles-api/e3750fd63a100-getting-started" },
@@ -80,6 +81,8 @@
     ],
     "credentials": [
       { "key": "api_key", "label": "OpenSubtitles API Key", "input_type": "password", "required": true, "ownership": "user_supplied", "purpose": "api_key", "format_hint": "The API key assigned to your OpenSubtitles consumer application.", "minimum_length": 16, "maximum_length": 128, "validation_pattern": "^[A-Za-z0-9_-]+$" }
+      ,{ "key": "username", "label": "OpenSubtitles Username (optional)", "input_type": "text", "required": false, "ownership": "user_supplied", "purpose": "username" }
+      ,{ "key": "password", "label": "OpenSubtitles Password (optional)", "input_type": "password", "required": false, "ownership": "user_supplied", "purpose": "password" }
     ],
     "authentication_probe": { "path": "/infos/formats", "method": "GET", "success_status_codes": [200] }
   }

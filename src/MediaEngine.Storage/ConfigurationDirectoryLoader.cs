@@ -328,6 +328,7 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             if (config.HttpClient is null)
             {
                 var hasHttpField = root.TryGetProperty("api_key", out _)
+                    || root.TryGetProperty("api_key_override", out _)
                     || root.TryGetProperty("client_key", out _)
                     || root.TryGetProperty("access_token", out _)
                     || root.TryGetProperty("username", out _)
@@ -344,6 +345,12 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
                 if (root.TryGetProperty("api_key", out var apiKey) && apiKey.ValueKind == JsonValueKind.String)
                 {
                     config.HttpClient.ApiKey = apiKey.GetString();
+                }
+
+                if (root.TryGetProperty("api_key_override", out var apiKeyOverride)
+                    && apiKeyOverride.ValueKind == JsonValueKind.String)
+                {
+                    config.HttpClient.ApiKeyOverride = apiKeyOverride.GetString();
                 }
 
                 if (root.TryGetProperty("client_key", out var clientKey) && clientKey.ValueKind == JsonValueKind.String)
@@ -727,27 +734,6 @@ public sealed class ConfigurationDirectoryLoader : IConfigurationLoader, IDispos
             Endpoints = new() { ["api"] = "https://itunes.apple.com" },
             ThrottleMs = 300,
         });
-
-        SaveProvider(new ProviderConfiguration
-        {
-            Name = "open_library",
-            Enabled = false,
-            Weight = 0.7,
-            Domain = ProviderDomain.Ebook,
-            CapabilityTags = ["title", "author", "cover", "isbn", "year", "series"],
-            FieldWeights = new()
-            {
-                ["title"] = 0.75,
-                ["author"] = 0.8,
-                ["cover"] = 0.7,
-                ["isbn"] = 0.9,
-                ["year"] = 0.85,
-                ["series"] = 0.9,
-            },
-            Endpoints = new() { ["open_library"] = "https://openlibrary.org" },
-            ThrottleMs = 500,
-        });
-
 
         SaveProvider(new ProviderConfiguration
         {

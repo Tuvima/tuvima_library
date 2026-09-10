@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Xml.Linq;
+using System.Text.RegularExpressions;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
@@ -383,6 +384,12 @@ public sealed class ComicProcessor : IMediaProcessor
 
         AddClaimIfPresent(root, "Writer", "author", 0.8, claims);
         AddClaimIfPresent(root, "Penciller", "illustrator", 0.8, claims);
+        AddClaimIfPresent(root, "Inker", MetadataFieldConstants.Inker, 0.8, claims);
+        AddClaimIfPresent(root, "Colorist", MetadataFieldConstants.Colorist, 0.8, claims);
+        AddClaimIfPresent(root, "Letterer", MetadataFieldConstants.Letterer, 0.8, claims);
+        AddClaimIfPresent(root, "CoverArtist", MetadataFieldConstants.CoverArtist, 0.8, claims);
+        AddClaimIfPresent(root, "Translator", MetadataFieldConstants.Translator, 0.8, claims);
+        AddClaimIfPresent(root, "Editor", MetadataFieldConstants.Editor, 0.8, claims);
         AddClaimIfPresent(root, "Genre", "genre", 0.7, claims);
         AddClaimIfPresent(root, "Summary", MetadataFieldConstants.Description, 0.7, claims);
         if (hasIssueIdentity)
@@ -394,7 +401,44 @@ public sealed class ComicProcessor : IMediaProcessor
         AddClaimIfPresent(root, "Publisher", "publisher", 0.7, claims);
         AddClaimIfPresent(root, "Series", MetadataFieldConstants.Series, 0.8, claims);
         AddClaimIfPresent(root, "Number", MetadataFieldConstants.SeriesPosition, 0.8, claims);
+        AddClaimIfPresent(root, "Volume", MetadataFieldConstants.Volume, 0.8, claims);
+        AddClaimIfPresent(root, "LanguageISO", MetadataFieldConstants.Language, 0.9, claims);
         AddClaimIfPresent(root, "PageCount", "page_count", 0.9, claims);
+
+        var web = ReadElement(root, "Web");
+        if (!string.IsNullOrWhiteSpace(web))
+        {
+            AddClaimIfPresent(root, "Web", MetadataFieldConstants.IssueSourceUrl, 0.85, claims);
+            AddComicVineIdentifiers(web, claims, hasIssueIdentity);
+        }
+
+        var notes = ReadElement(root, "Notes");
+        if (!string.IsNullOrWhiteSpace(notes))
+        {
+            AddComicVineIdentifiers(notes, claims, hasIssueIdentity);
+        }
+    }
+
+    private static void AddComicVineIdentifiers(string web, List<ExtractedClaim> claims, bool hasIssueIdentity)
+    {
+        if (!Uri.TryCreate(web, UriKind.Absolute, out var uri)
+            || !uri.Host.EndsWith("comicvine.gamespot.com", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var path = uri.AbsolutePath;
+        var issueMatch = Regex.Match(path, @"(?:^|/)issue/4000-(?<id>\d+)(?:/|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (issueMatch.Success && hasIssueIdentity)
+        {
+            claims.Add(Claim(BridgeIdKeys.ComicVineId, issueMatch.Groups["id"].Value, 0.9));
+        }
+
+        var volumeMatch = Regex.Match(path, @"(?:^|/)volume/4050-(?<id>\d+)(?:/|$)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (volumeMatch.Success)
+        {
+            claims.Add(Claim(BridgeIdKeys.ComicVineVolumeId, volumeMatch.Groups["id"].Value, 0.9));
+        }
     }
 
     private static string? ReadElement(XElement root, string elementName)

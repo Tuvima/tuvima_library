@@ -43,7 +43,6 @@ Provider configs live in:
 ```
 config/providers/
   apple_api.json
-  open_library.json
   tmdb.json
   musicbrainz.json
   comicvine.json

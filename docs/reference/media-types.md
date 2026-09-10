@@ -102,7 +102,7 @@ Classification order for MP3 files:
 
 ### Providers
 
-1. Apple API - ASIN-first lookup for Audible content; cover art, narrator, series data
+1. Apple API - ISBN and title lookup for books/audiobooks; cover art, author/narrator, and series data
 2. Wikidata - Stage 2, QID resolution
 
 ### Organization template

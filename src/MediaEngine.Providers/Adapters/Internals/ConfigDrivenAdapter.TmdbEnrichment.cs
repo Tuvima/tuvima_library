@@ -30,7 +30,7 @@ public sealed partial class ConfigDrivenAdapter
         var mediaType = request.MediaType;
         if (!string.Equals(Name, "tmdb", StringComparison.OrdinalIgnoreCase)
             || mediaType is not (MediaType.Movies or MediaType.TV)
-            || string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+            || string.IsNullOrWhiteSpace(EffectiveApiKey))
         {
             return claims;
         }
@@ -47,7 +47,7 @@ public sealed partial class ConfigDrivenAdapter
         var endpoint = mediaType == MediaType.TV ? "tv" : "movie";
         var baseUrl = _config.Endpoints.GetValueOrDefault("api") ?? "https://api.themoviedb.org/3";
         var appendToResponse = mediaType == MediaType.TV ? "aggregate_credits,content_ratings" : "credits,release_dates";
-        var url = $"{baseUrl.TrimEnd('/')}/{endpoint}/{Uri.EscapeDataString(tmdbId)}?language=en-US&append_to_response={appendToResponse}&api_key={Uri.EscapeDataString(_config.HttpClient.ApiKey)}";
+        var url = $"{baseUrl.TrimEnd('/')}/{endpoint}/{Uri.EscapeDataString(tmdbId)}?language=en-US&append_to_response={appendToResponse}&api_key={Uri.EscapeDataString(EffectiveApiKey!)}";
 
         try
         {
@@ -177,13 +177,13 @@ public sealed partial class ConfigDrivenAdapter
         }
 
         var baseUrl = _config.Endpoints.GetValueOrDefault("api") ?? ResolveBaseUrl(request);
-        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(_config.HttpClient?.ApiKey))
+        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(EffectiveApiKey))
         {
             return;
         }
 
         var language = $"{request.Language.ToLowerInvariant()}-{request.Country.ToUpperInvariant()}";
-        var url = $"{baseUrl.TrimEnd('/')}/collection/{Uri.EscapeDataString(collectionId)}?language={Uri.EscapeDataString(language)}&api_key={Uri.EscapeDataString(_config.HttpClient.ApiKey)}";
+        var url = $"{baseUrl.TrimEnd('/')}/collection/{Uri.EscapeDataString(collectionId)}?language={Uri.EscapeDataString(language)}&api_key={Uri.EscapeDataString(EffectiveApiKey!)}";
 
         try
         {
@@ -588,7 +588,7 @@ public sealed partial class ConfigDrivenAdapter
         url = ReplacePlaceholder(url, "{track_number}", request.TrackNumber, encode: true);
         url = ReplacePlaceholder(url, "{series}", request.Series, encode: true);
         url = ReplacePlaceholder(url, "{genre}", request.Genre, encode: true);
-        url = ReplacePlaceholder(url, "{api_key}", _config.HttpClient?.ApiKey, encode: true);
+        url = ReplacePlaceholder(url, "{api_key}", EffectiveApiKey, encode: true);
         url = ReplacePlaceholder(url, "{client_key}", _config.HttpClient?.ClientKey, encode: true);
         url = ReplacePlaceholder(url, "{access_token}", _config.HttpClient?.AccessToken, encode: true);
         url = ReplacePlaceholder(url, "{lang}", request.Language.ToLowerInvariant(), encode: true);
