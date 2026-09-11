@@ -85,3 +85,7 @@ Currently manifest-only. Edit `tuvima_master.json` → `providers` → target pr
 5. **Accent swatch highlight** only checks `PaletteDark` — may not work correctly in light mode.
 6. **Error handling inconsistency** — settings methods in the API client log + set LastError; admin/profile methods silently swallow exceptions.
 
+
+## Shared AI paths (September 2026)
+
+AI configuration includes native_runtime_directory and models_directory, overridden by TUVIMA_AI_RUNTIME_DIR and TUVIMA_MODELS_DIR. Preserve both through contracts and settings saves, do not persist effective environment overrides, and require restart for path changes. Native dependency provisioning is separate from normal builds; see docs/guides/shared-ai-storage.md. Do not create another copy of the models or native runtime when a configured shared volume is unavailable.

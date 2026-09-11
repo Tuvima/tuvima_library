@@ -24,7 +24,14 @@ public static class TuvimaAiServiceCollectionExtensions
             settings.ModelsDirectory = modelsDirectory;
         }
 
+        var runtimeDirectory = Environment.GetEnvironmentVariable("TUVIMA_AI_RUNTIME_DIR");
+        if (!string.IsNullOrEmpty(runtimeDirectory))
+        {
+            settings.NativeRuntimeDirectory = runtimeDirectory;
+        }
+
         AiSettingsValidator.ValidateAndThrow(settings);
+        services.AddSingleton<SharedAiRuntime>();
         var gpuDetector = new GpuBackendDetector(NullLogger<GpuBackendDetector>.Instance);
         var detected = gpuDetector.Detect();
         var benchmarkStore = new AiBenchmarkStateStore(settings, NullLogger<AiBenchmarkStateStore>.Instance);

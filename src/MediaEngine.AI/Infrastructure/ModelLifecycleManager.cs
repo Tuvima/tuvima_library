@@ -32,6 +32,7 @@ public sealed class ModelLifecycleManager :
     private readonly Task _idleMonitorTask;
 
     private AiModelRole? _currentRole;
+    private FileStream? _artifactLease;
     private int _currentMemoryMB;
     private DateTimeOffset _lastAccessTime = DateTimeOffset.UtcNow;
     private int _disposeState;
@@ -224,6 +225,7 @@ public sealed class ModelLifecycleManager :
         var modelPath = _inventory.GetModelPath(role);
         _logger.LogInformation("Loading model {Role} from {Path}", role, modelPath);
 
+        _artifactLease = SharedModelArtifact.AcquireRead(modelPath);
         _inventory.SetState(role, AiModelState.Loaded);
         lock (_stateLock)
         {
@@ -253,6 +255,8 @@ public sealed class ModelLifecycleManager :
             await disposer(role.Value, ct).ConfigureAwait(false);
         }
 
+        _artifactLease?.Dispose();
+        _artifactLease = null;
         _inventory.SetState(role.Value, AiModelState.Ready);
         lock (_stateLock)
         {

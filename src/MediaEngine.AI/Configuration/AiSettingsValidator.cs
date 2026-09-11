@@ -35,6 +35,19 @@ public static partial class AiSettingsValidator
             ValidateDirectory(settings.ModelsDirectory, "models_directory", errors);
         }
 
+        if (!string.IsNullOrEmpty(settings.NativeRuntimeDirectory)
+            && settings.NativeRuntimeDirectory != "bundled")
+        {
+            if (!Path.IsPathFullyQualified(settings.NativeRuntimeDirectory))
+            {
+                Add("native_runtime_directory", "Use an absolute shared runtime path, or 'bundled' for a bundled deployment.");
+            }
+            else
+            {
+                ValidateDirectory(settings.NativeRuntimeDirectory, "native_runtime_directory", errors);
+            }
+        }
+
         if (settings.IdleUnloadSeconds <= 0)
         {
             Add("idle_unload_seconds", "Must be positive.");

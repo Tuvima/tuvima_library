@@ -106,9 +106,11 @@ internal sealed class LlamaSharpExecutionBackend : ILlamaExecutionBackend
                 return cached;
             }
 
+            var runtime = new SharedAiRuntime(_settings, Microsoft.Extensions.Logging.Abstractions.NullLogger<SharedAiRuntime>.Instance);
+            runtime.EnsureLlama();
             var modelPath = _inventory.GetModelPath(role);
             var definition = _inventory.GetDefinition(role);
-            var gpuLayers = ResolveGpuLayerCount(definition.GpuLayers);
+            var gpuLayers = runtime.LoadedBackend == "cpu" ? 0 : ResolveGpuLayerCount(definition.GpuLayers);
             var modelParams = new ModelParams(modelPath)
             {
                 ContextSize = (uint)definition.ContextLength,

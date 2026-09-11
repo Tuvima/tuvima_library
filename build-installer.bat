@@ -58,6 +58,7 @@ if exist dist\win rmdir /s /q dist\win
 echo.
 echo ── Publishing Engine (win-x64 self-contained) ───────────────────────────
 dotnet publish src\MediaEngine.Api\MediaEngine.Api.csproj ^
+    -p:TuvimaBundledAiRuntime=true ^
     --configuration Release ^
     --runtime win-x64 ^
     --self-contained true ^

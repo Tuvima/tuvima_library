@@ -439,3 +439,9 @@ The install banner records dismissal in browser/site local storage. Subsequent i
 ## Access authority (September 2026)
 
 Accounts own feature and actual library grants; profiles retain experience and privacy identity. Effective administration requires the current enabled account and active AdminEnabled grant, plus any optional surface PIN unlock. Applications own permissions and revocable credentials; delegated native access intersects current account, grant, device, token, and consent. Check resource scope before counts, grouping, paging, artwork, streams, and personal state. Preserve distinct View scopes. Follow docs/architecture/security.md and the Access execution status; do not restore legacy roles, localhost administration, or a seed-owner fallback.
+
+## Shared AI storage and workspace retention (September 2026)
+
+Local builds use external versioned AI runtimes. Configure TUVIMA_MODELS_DIR and TUVIMA_AI_RUNTIME_DIR; the workstation uses E:\Resources\AI Models and E:\Resources\AI Runtimes. Provision with tools/Install-AiRuntime.ps1. Do not restore native backend packages to ordinary app/test references, copy model weights into repositories, or remove the build-output guard. Bundled deployment assets require TuvimaBundledAiRuntime=true (Docker uses TuvimaContainerBuild=true). See docs/guides/shared-ai-storage.md.
+
+Keep only tuvima-library and tuvima-wikidata in Repos. Use the existing checkout for sequential work; necessary temporary worktrees belong outside Repos (under the user's local Tuvima/Worktrees area), with at most two active. Retire them after integration, preserving unique files first. Never create sibling task folders or nested .codex-runlogs/worktrees again. Shared models use interprocess leases; tests must use isolated temporary model files.

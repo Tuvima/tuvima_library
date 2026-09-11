@@ -16,6 +16,17 @@ public sealed class AiSettings
     [JsonPropertyName("models_directory")]
     public string ModelsDirectory { get; set; } = "/models";
 
+    /// <summary>Shared native installation root; empty uses the local application-data root.
+    /// The explicit value 'bundled' selects a deployment built with bundled native assets.</summary>
+    [JsonPropertyName("native_runtime_directory")]
+    public string NativeRuntimeDirectory { get; set; } = DefaultNativeRuntimeDirectory;
+
+#if TUVIMA_BUNDLED_AI_RUNTIME
+    public const string DefaultNativeRuntimeDirectory = "bundled";
+#else
+    public const string DefaultNativeRuntimeDirectory = "";
+#endif
+
     /// <summary>Seconds of idle time before auto-unloading a model from memory.</summary>
     [JsonPropertyName("idle_unload_seconds")]
     public int IdleUnloadSeconds { get; set; } = 300;

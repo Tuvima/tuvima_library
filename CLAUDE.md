@@ -790,3 +790,7 @@ Operations and the navbar consume the same Engine batch progress definition, inc
 View uses a common library-detail header and Folders, Organization, File Handling, Sharing & Access, and Advanced Settings sections. The configurable View library root contains Shared and Profiles; Shared Library is an authorization scope distinct from the physical base. Logical personal-space/source registration never creates directories. Uploads and accepted transfers create destination folders only at actual write time. Merely visiting View or adding a profile must leave unused storage empty.
 
 The install banner records dismissal in browser/site local storage. Subsequent install events and navigation respect it. System Overview offers an independent manual installation action.
+
+## Shared AI storage (September 2026)
+
+Local app/test builds load versioned native AI dependencies from TUVIMA_AI_RUNTIME_DIR and model weights from TUVIMA_MODELS_DIR. Provision through tools/Install-AiRuntime.ps1; do not add native package copies back to ordinary build outputs. The workstation uses E:\Resources\AI Models (llama/whisper directly beneath it) and sibling AI Runtimes. Windows installer and Docker builds explicitly bundle deployment assets. See docs/guides/shared-ai-storage.md and AGENTS.md for setup, verification and workspace retention. Repos holds only Library and Wikidata; keep at most two temporary worktrees outside Repos and retire them after integration.

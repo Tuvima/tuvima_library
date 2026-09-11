@@ -359,3 +359,7 @@ The AGPL also keeps improvements available to the community. Anyone distributing
 </div>
 
 TV episode details and shared personal status controls are being consolidated. See the [TV episode consistency plan](docs/proposals/tv-episode-consistency-plan-2026-09-05.md) for implemented behavior, fresh-ingestion requirements, and outstanding runtime validation.
+
+### Shared AI dependencies for development
+
+Provision large AI runtimes once with `tools/Install-AiRuntime.ps1` and configure `TUVIMA_MODELS_DIR` plus `TUVIMA_AI_RUNTIME_DIR`. App and test builds reuse the shared installation; runtime libraries and models are not copied into each working folder. See [shared AI storage](docs/guides/shared-ai-storage.md) for setup, CPU/CUDA verification and deployment behavior.

@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Restore-only input for Install-AiRuntime.ps1. Never referenced by app/test projects. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="LLamaSharp.Backend.Cpu" ExcludeAssets="all" PrivateAssets="all" />
+    <PackageReference Include="LLamaSharp.Backend.Cuda12" ExcludeAssets="all" PrivateAssets="all" Condition="'$(InstallCuda)' == 'true'" />
+    <PackageReference Include="Whisper.net.Runtime" ExcludeAssets="all" PrivateAssets="all" Condition="'$(InstallWhisper)' == 'true'" />
+  </ItemGroup>
+</Project>

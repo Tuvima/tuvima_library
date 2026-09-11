@@ -17,6 +17,7 @@ public sealed class AiWireContractTests
             ResourceProfile = AiResourceProfileNames.Essential,
             AudioPackEnabled = true,
             MinimumFreeDiskMB = 4096,
+            NativeRuntimeDirectory = "E:\\Resources\\AI Runtimes",
         };
 
         var contract = AiContractMapper.ToContract(settings);
@@ -27,6 +28,7 @@ public sealed class AiWireContractTests
         Assert.Equal(AiResourceProfileNames.Essential, contract.EffectiveResourceProfile);
         Assert.True(roundTrip.AudioPackEnabled);
         Assert.Equal(4096, roundTrip.MinimumFreeDiskMB);
+        Assert.Equal(settings.NativeRuntimeDirectory, roundTrip.NativeRuntimeDirectory);
         Assert.DoesNotContain("model_catalog", json, StringComparison.Ordinal);
         Assert.DoesNotContain("operational_roles", json, StringComparison.Ordinal);
         Assert.DoesNotContain("hardware_profile", json, StringComparison.Ordinal);

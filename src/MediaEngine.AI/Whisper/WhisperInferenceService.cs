@@ -22,7 +22,7 @@ public sealed class WhisperInferenceService : IAudioTranscriptionService, IAsync
         IModelLifecycleManager lifecycle,
         ModelInventory inventory,
         ILogger<WhisperInferenceService> logger)
-        : this(settings, lifecycle, inventory, logger, new WhisperExecutionBackend())
+        : this(settings, lifecycle, inventory, logger, new WhisperExecutionBackend(settings))
     {
     }
 

@@ -51,6 +51,7 @@ services:
       TUVIMA_CONFIG_DIR: /config
       TUVIMA_DB_PATH: /db/library.db
       TUVIMA_MODELS_DIR: /models
+      TUVIMA_AI_RUNTIME_DIR: bundled
       TUVIMA_BACKUP_DIR: /backups
       # The application can now explain that the visible gateway belongs to
       # Docker's bridge rather than attempting PCP/NAT-PMP/UPnP against it.

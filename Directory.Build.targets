@@ -1,0 +1,11 @@
+<Project>
+  <!-- A dependency change must not silently restore multi-GB AI copies to local builds. -->
+  <Target Name="VerifySharedAiBuildOutput" AfterTargets="Build"
+          Condition="'$(TuvimaContainerBuild)' != 'true' And '$(TuvimaBundledAiRuntime)' != 'true' And '$(TargetDir)' != ''">
+    <ItemGroup>
+      <_UnexpectedAiNative Include="$(TargetDir)**/llama.dll;$(TargetDir)**/libllama.so;$(TargetDir)**/libllama.dylib;$(TargetDir)**/ggml*.dll;$(TargetDir)**/libggml*.so;$(TargetDir)**/libggml*.dylib;$(TargetDir)**/whisper.dll;$(TargetDir)**/libwhisper.so;$(TargetDir)**/libwhisper.dylib" />
+    </ItemGroup>
+    <Error Condition="'@(_UnexpectedAiNative)' != ''"
+           Text="AI native payloads must live in the shared runtime installation. Remove obsolete bin/obj output and check native package references: @(_UnexpectedAiNative)" />
+  </Target>
+</Project>

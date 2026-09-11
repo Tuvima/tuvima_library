@@ -3,6 +3,7 @@
 `config/ai.json` is validated at startup. Unsafe file names, insecure URLs, malformed checksums, invalid concurrency, and enabled roles with missing catalog entries fail fast.
 
 - `models_directory`: managed root. Executable files resolve below explicit `llama/` or `whisper/` folders.
+- `native_runtime_directory`: absolute shared native-runtime root, or `bundled` for an explicitly bundled deployment. Empty selects the OS local-application-data `Tuvima/AI Runtimes` location. `TUVIMA_AI_RUNTIME_DIR` overrides this value; changing storage paths requires restart. See [shared AI storage](../guides/shared-ai-storage.md).
 - `max_concurrent_inferences`: must be `1`. The current single-resident local runtime enforces one inference at a time for every role, so each operational role also uses `max_concurrency: 1`.
 - `minimum_free_disk_mb`: space retained after download.
 - `models`: the five executable lifecycle definitions. File, HTTPS URL, SHA-256, context, output, temperature, GPU layers, and threads are runtime inputs.

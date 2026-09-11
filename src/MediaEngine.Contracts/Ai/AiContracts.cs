@@ -160,6 +160,9 @@ public sealed class AiConfigDto
     [JsonPropertyName("models_directory")]
     public string ModelsDirectory { get; set; } = "/models";
 
+    [JsonPropertyName("native_runtime_directory")]
+    public string NativeRuntimeDirectory { get; set; } = "";
+
     [JsonPropertyName("idle_unload_seconds")]
     public int IdleUnloadSeconds { get; set; } = 300;
 

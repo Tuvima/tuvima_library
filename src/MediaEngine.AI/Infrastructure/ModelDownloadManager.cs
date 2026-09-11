@@ -184,10 +184,12 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
 
         if (File.Exists(artifact))
         {
+            using var lease = SharedModelArtifact.AcquireWrite(artifact);
+            SharedModelArtifact.RequireManaged(artifact);
             File.Delete(artifact);
+            TryDelete(SharedModelArtifact.OwnershipPath(artifact));
         }
 
-        TryDelete(artifact + ".downloading");
         lock (_lock)
         {
             _completedDownloads.Remove(artifact);
@@ -231,7 +233,7 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
         }
         finally
         {
-            TryDelete(artifact + ".downloading");
+            if (operation.StagingPath is not null) TryDelete(operation.StagingPath);
         }
 
         lock (_lock)
@@ -255,6 +257,14 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
         DownloadOperation operation,
         CancellationToken ct)
     {
+        using var lease = SharedModelArtifact.AcquireWrite(artifact);
+        _inventory.RefreshArtifact(operation.RequestedRole);
+        if (_inventory.GetState(operation.RequestedRole) == AiModelState.Ready)
+        {
+            return; // Another process, or a prior invocation, already installed this artifact.
+        }
+        if (File.Exists(artifact)) SharedModelArtifact.RequireManaged(artifact);
+        _inventory.SetArtifactState(operation.RequestedRole, AiModelState.Downloading);
         var directory = Path.GetDirectoryName(artifact)
             ?? throw new InvalidOperationException("Model path has no parent directory.");
         Directory.CreateDirectory(directory);
@@ -281,7 +291,8 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
             _progress[artifact] = (0, totalBytes);
         }
 
-        var tempPath = artifact + ".downloading";
+        var tempPath = SharedModelArtifact.StagingPath(artifact);
+        operation.StagingPath = tempPath;
         await using var contentStream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
         await using var fileStream = new FileStream(
             tempPath,
@@ -344,6 +355,7 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
 
         await fileStream.DisposeAsync().ConfigureAwait(false);
         File.Move(tempPath, artifact, overwrite: true);
+        SharedModelArtifact.RecordOwnership(artifact);
         _inventory.RefreshArtifact(operation.RequestedRole);
         await PublishStateChangedAsync(operation.SharedRoles).ConfigureAwait(false);
     }
@@ -473,6 +485,7 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
         public TaskCompletionSource<ModelDownloadResult> Completion { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Task Execution { get; set; } = Task.CompletedTask;
+        public string? StagingPath { get; set; }
 
         public async ValueTask RequestCancellationAsync()
         {

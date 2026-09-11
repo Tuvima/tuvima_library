@@ -1,4 +1,6 @@
 using MediaEngine.Domain.Enums;
+using MediaEngine.AI.Configuration;
+using MediaEngine.AI.Infrastructure;
 using Whisper.net;
 
 namespace MediaEngine.AI.Whisper;
@@ -20,7 +22,7 @@ internal interface IWhisperExecutionBackend : IAsyncDisposable
     ValueTask DisposeModelAsync(AiModelRole role, CancellationToken cancellationToken);
 }
 
-internal sealed class WhisperExecutionBackend : IWhisperExecutionBackend
+internal sealed class WhisperExecutionBackend(AiSettings settings) : IWhisperExecutionBackend
 {
     private readonly SemaphoreSlim _factoryGate = new(1, 1);
     private WhisperFactory? _factory;
@@ -125,6 +127,7 @@ internal sealed class WhisperExecutionBackend : IWhisperExecutionBackend
             }
 
             _factory?.Dispose();
+            new SharedAiRuntime(settings, Microsoft.Extensions.Logging.Abstractions.NullLogger<SharedAiRuntime>.Instance).EnsureWhisper();
             _factory = WhisperFactory.FromPath(modelPath);
             _modelPath = modelPath;
             return _factory;

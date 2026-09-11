@@ -16,6 +16,7 @@ WORKDIR /src
 # from source so a code change doesn't bust the NuGet restore cache).
 COPY Directory.Packages.props .
 COPY Directory.Build.props .
+COPY Directory.Build.targets .
 COPY global.json .
 COPY nuget.config .
 
@@ -83,6 +84,7 @@ RUN case "$TARGETARCH" in \
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 ARG TARGETARCH
 WORKDIR /app
+ENV TUVIMA_AI_RUNTIME_DIR=bundled
 
 # FFmpeg/FFprobe provide probing, thumbnails and transcodes. libfontconfig and
 # libgomp are required by the bundled SkiaSharp and LLamaSharp CPU runtimes.

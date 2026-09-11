@@ -68,10 +68,17 @@ function Set-TuvimaEnvironment {
     foreach ($name in @(
         "TUVIMA_DB_PATH",
         "TUVIMA_WATCH_FOLDER",
-        "TUVIMA_LIBRARY_ROOT",
-        "TUVIMA_MODELS_DIR"
+        "TUVIMA_LIBRARY_ROOT"
     )) {
         Remove-Item "Env:$name" -ErrorAction SilentlyContinue
+    }
+
+    # Pick up persisted workstation storage even when this terminal predates setup.
+    foreach ($name in @("TUVIMA_MODELS_DIR", "TUVIMA_AI_RUNTIME_DIR")) {
+        if (-not [Environment]::GetEnvironmentVariable($name, 'Process')) {
+            $configured = [Environment]::GetEnvironmentVariable($name, 'User')
+            if ($configured) { [Environment]::SetEnvironmentVariable($name, $configured, 'Process') }
+        }
     }
 }
 

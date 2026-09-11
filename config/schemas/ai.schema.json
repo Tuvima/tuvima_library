@@ -13,6 +13,7 @@
   "properties": {
     "dev_skip_download": { "type": "boolean" },
     "models_directory": { "type": "string", "minLength": 1 },
+    "native_runtime_directory": { "type": "string" },
     "resource_profile": { "enum": [ "essential", "standard", "advanced" ] },
     "audio_pack_enabled": { "type": "boolean" },
     "idle_unload_seconds": { "type": "integer", "minimum": 1 },

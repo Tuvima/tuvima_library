@@ -55,7 +55,7 @@ public sealed class ConfigurationHealthCheck(
     }
 }
 
-public sealed class MediaRuntimeHealthCheck(IFFmpegService ffmpeg) : IHealthCheck
+public sealed class MediaRuntimeHealthCheck(IFFmpegService ffmpeg, SharedAiRuntime runtime) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -113,28 +113,12 @@ public sealed class MediaRuntimeHealthCheck(IFFmpegService ffmpeg) : IHealthChec
 
         try
         {
-            var libraryName = OperatingSystem.IsWindows()
-                ? "llama.dll"
-                : OperatingSystem.IsMacOS() ? "libllama.dylib" : "libllama.so";
-            var runtimeSegment = Path.Combine("runtimes", RuntimeInformation.RuntimeIdentifier);
-            var candidate = Directory
-                .EnumerateFiles(AppContext.BaseDirectory, libraryName, SearchOption.AllDirectories)
-                .FirstOrDefault(path => path.Contains(runtimeSegment, StringComparison.OrdinalIgnoreCase))
-                ?? Directory.EnumerateFiles(AppContext.BaseDirectory, libraryName, SearchOption.AllDirectories).FirstOrDefault();
-
-            if (candidate is null || !NativeLibrary.TryLoad(candidate, out var handle))
-            {
-                failures.Add($"LLamaSharp CPU native library {libraryName} could not be loaded for {RuntimeInformation.RuntimeIdentifier}.");
-            }
-            else
-            {
-                llamaAvailable = true;
-                NativeLibrary.Free(handle);
-            }
+            runtime.EnsureLlama();
+            llamaAvailable = true;
         }
         catch (Exception ex)
         {
-            failures.Add($"LLamaSharp CPU native runtime failed: {ex.Message}");
+            failures.Add($"LLamaSharp native runtime failed: {ex.Message}");
         }
 
         var required = string.Equals(
@@ -148,13 +132,16 @@ public sealed class MediaRuntimeHealthCheck(IFFmpegService ffmpeg) : IHealthChec
             ["runtime_identifier"] = RuntimeInformation.RuntimeIdentifier,
             ["ffmpeg"] = ffmpegVersion ?? "unavailable",
             ["skia"] = skiaAvailable,
-            ["llama_cpu"] = llamaAvailable,
+            ["llama_available"] = llamaAvailable,
+            ["llama_backend"] = runtime.LoadedBackend ?? "unavailable",
+            ["llama_path"] = runtime.LoadedLlamaPath ?? "unavailable",
+            ["llama_version"] = SharedAiRuntime.LlamaVersion,
             ["failures"] = string.Join(" | ", failures),
         };
 
         if (failures.Count == 0)
         {
-            return HealthCheckResult.Healthy("FFmpeg, SkiaSharp, and LLamaSharp CPU native runtimes are available.", data);
+            return HealthCheckResult.Healthy("FFmpeg, SkiaSharp, and LLamaSharp native runtimes are available.", data);
         }
 
         return required

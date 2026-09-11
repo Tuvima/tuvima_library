@@ -187,6 +187,7 @@ MediaEngine.Contracts.Admin.MediaEngine.Contracts.Admin.UpsertProviderConfigRequ
 MediaEngine.Contracts.Ai.MediaEngine.Contracts.Ai.AiConfigDto
   DevSkipDownload: System.Boolean | nullability=not-null | accessors=get,set
   ModelsDirectory: System.String | nullability=not-null | accessors=get,set
+  NativeRuntimeDirectory: System.String | nullability=not-null | accessors=get,set
   IdleUnloadSeconds: System.Int32 | nullability=not-null | accessors=get,set
   InferenceTimeoutSeconds: System.Int32 | nullability=not-null | accessors=get,set
   MaxConcurrentInferences: System.Int32 | nullability=not-null | accessors=get,set
