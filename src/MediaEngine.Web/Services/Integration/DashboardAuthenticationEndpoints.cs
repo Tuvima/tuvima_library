@@ -17,7 +17,7 @@ public static class DashboardAuthenticationEndpoints
         this WebApplication app,
         IReadOnlyList<RegisteredExternalAuthProvider> externalProviders)
     {
-        app.MapGet("/auth/login", async (HttpContext context, DashboardIdentityClient identity, PasswordResetEmailSender emailSender, IAntiforgery antiforgery, string? returnUrl) =>
+        app.MapGet("/auth/login", async (HttpContext context, DashboardIdentityClient identity, IAntiforgery antiforgery, string? returnUrl) =>
         {
             if (context.User.Identity?.IsAuthenticated == true)
             {
@@ -41,7 +41,6 @@ public static class DashboardAuthenticationEndpoints
                 LoginPage(
                     tokens.RequestToken ?? string.Empty,
                     externalProviders,
-                    emailSender.IsConfigured,
                     deviceId,
                     SafeReturnUrl(returnUrl)),
                 "text/html",
@@ -49,7 +48,7 @@ public static class DashboardAuthenticationEndpoints
         }).AllowAnonymous();
 
         app.MapPost("/auth/login", async (HttpContext context, DashboardIdentityClient identity,
-            DashboardConfigurationReader configuration, PasswordResetEmailSender emailSender, IAntiforgery antiforgery) =>
+            DashboardConfigurationReader configuration, IAntiforgery antiforgery) =>
         {
             await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);
             var form = await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);
@@ -57,47 +56,6 @@ public static class DashboardAuthenticationEndpoints
             var deviceId = EnsureDeviceCookie(context);
             var deviceName = SanitizeDeviceName(context.Request.Headers.UserAgent.ToString());
             var returnUrl = SafeReturnUrl(form["returnUrl"].ToString());
-
-            if (action.Equals("email-reset", StringComparison.OrdinalIgnoreCase))
-            {
-                var email = form["email"].ToString();
-                var resetToken = await identity.BeginPasswordResetAsync(new BeginPasswordResetRequest(
-                    email,
-                    IsLocalClient(context, configuration.LoadCore().Auth),
-                    context.Request.IsHttps), context.RequestAborted).ConfigureAwait(false);
-                if (resetToken is not null)
-                {
-                    await emailSender.SendAsync(email, resetToken, context.RequestAborted).ConfigureAwait(false);
-                }
-
-                return Results.Content(Shell("<h1>Check your email</h1><p>If that address belongs to an eligible account, a password reset link has been sent. The link expires in 30 minutes.</p><p><a href=\"/auth/login\">Return to sign in</a></p>"), "text/html", Encoding.UTF8);
-            }
-
-            if (action.Equals("recover", StringComparison.OrdinalIgnoreCase))
-            {
-                var codes = await identity.RecoverAsync(new RecoverPasswordRequest
-                {
-                    Email = form["email"].ToString(),
-                    RecoveryCode = form["recoveryCode"].ToString(),
-                    NewPassword = form["newPassword"].ToString(),
-                    OriginalClientIsLocal = IsLocalClient(context, configuration.LoadCore().Auth),
-                    OriginalClientIsHttps = context.Request.IsHttps,
-                }, context.RequestAborted).ConfigureAwait(false);
-                if (codes is null)
-                {
-                    return Results.Content(
-                        LoginFailurePage("Recovery failed. Check the email, code, and new password."),
-                        "text/html",
-                        Encoding.UTF8,
-                        StatusCodes.Status400BadRequest);
-                }
-
-                await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
-                return Results.Content(
-                    RecoveryCodesPage(codes, "/auth/login", "Continue to sign in"),
-                    "text/html",
-                    Encoding.UTF8);
-            }
 
             if (action.Equals("bootstrap", StringComparison.OrdinalIgnoreCase))
             {
@@ -144,6 +102,71 @@ public static class DashboardAuthenticationEndpoints
             }
 
             return Results.Redirect(returnUrl);
+        }).AllowAnonymous();
+
+        app.MapGet("/auth/recover", (HttpContext context, PasswordResetEmailSender emailSender, IAntiforgery antiforgery) =>
+        {
+            if (context.User.Identity?.IsAuthenticated == true)
+            {
+                return Results.Redirect("/account/security");
+            }
+
+            var token = antiforgery.GetAndStoreTokens(context).RequestToken ?? string.Empty;
+            return Results.Content(
+                PasswordRecoveryPage(token, emailSender.IsConfigured),
+                "text/html",
+                Encoding.UTF8);
+        }).AllowAnonymous();
+
+        app.MapPost("/auth/recover", async (HttpContext context, DashboardIdentityClient identity,
+            DashboardConfigurationReader configuration, PasswordResetEmailSender emailSender, IAntiforgery antiforgery) =>
+        {
+            await antiforgery.ValidateRequestAsync(context).ConfigureAwait(false);
+            var form = await context.Request.ReadFormAsync(context.RequestAborted).ConfigureAwait(false);
+            var action = form["action"].ToString();
+
+            if (action.Equals("email-reset", StringComparison.OrdinalIgnoreCase))
+            {
+                var email = form["email"].ToString();
+                var resetToken = await identity.BeginPasswordResetAsync(new BeginPasswordResetRequest(
+                    email,
+                    IsLocalClient(context, configuration.LoadCore().Auth),
+                    context.Request.IsHttps), context.RequestAborted).ConfigureAwait(false);
+                if (resetToken is not null)
+                {
+                    await emailSender.SendAsync(email, resetToken, context.RequestAborted).ConfigureAwait(false);
+                }
+
+                return Results.Content(Shell("<h1>Check your email</h1><p>If that address belongs to an eligible account, a password reset link has been sent. The link expires in 30 minutes.</p><p><a href=\"/auth/login\">Return to sign in</a></p>"), "text/html", Encoding.UTF8);
+            }
+
+            if (action.Equals("recover", StringComparison.OrdinalIgnoreCase))
+            {
+                var codes = await identity.RecoverAsync(new RecoverPasswordRequest
+                {
+                    Email = form["email"].ToString(),
+                    RecoveryCode = form["recoveryCode"].ToString(),
+                    NewPassword = form["newPassword"].ToString(),
+                    OriginalClientIsLocal = IsLocalClient(context, configuration.LoadCore().Auth),
+                    OriginalClientIsHttps = context.Request.IsHttps,
+                }, context.RequestAborted).ConfigureAwait(false);
+                if (codes is null)
+                {
+                    return Results.Content(
+                        PasswordRecoveryFailurePage("Recovery failed. Check the email, code, and new password."),
+                        "text/html",
+                        Encoding.UTF8,
+                        StatusCodes.Status400BadRequest);
+                }
+
+                await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme).ConfigureAwait(false);
+                return Results.Content(
+                    RecoveryCodesPage(codes, "/auth/login", "Continue to sign in"),
+                    "text/html",
+                    Encoding.UTF8);
+            }
+
+            return Results.Redirect("/auth/recover");
         }).AllowAnonymous();
 
         app.MapGet("/auth/reset", (HttpContext context, IAntiforgery antiforgery, string? token) =>
@@ -322,7 +345,6 @@ public static class DashboardAuthenticationEndpoints
     private static string LoginPage(
         string token,
         IReadOnlyList<RegisteredExternalAuthProvider> externalProviders,
-        bool emailResetEnabled,
         string deviceId,
         string returnUrl)
     {
@@ -330,7 +352,6 @@ public static class DashboardAuthenticationEndpoints
             string.Empty,
             externalProviders.Select(provider =>
                 $"<p><a class=\"button\" href=\"/auth/external/{Uri.EscapeDataString(provider.Id)}?returnUrl={Uri.EscapeDataString(returnUrl)}\">Continue with {H(provider.DisplayName)}</a></p>"));
-        var emailReset = emailResetEnabled ? $"<form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"email-reset\"><label>Email<input type=\"email\" name=\"email\" autocomplete=\"username\" required></label><button>Email reset link</button></form>" : "<p class=\"supporting\">Email delivery is not configured. Use a saved recovery code, or ask the server administrator to run the host recovery command.</p>";
         var passkeyScript = $$$"""
               <script>
               document.getElementById('passkey-login').addEventListener('click',async()=>{const message=document.getElementById('passkey-message');try{if(!window.PublicKeyCredential||!PublicKeyCredential.parseRequestOptionsFromJSON)throw new Error('This browser does not support passkeys.');const start=await fetch('/auth/passkeys/login/options',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('signin-email').value||null})});if(!start.ok)throw new Error('Passkey sign-in is unavailable.');const data=await start.json();const credential=await navigator.credentials.get({publicKey:PublicKeyCredential.parseRequestOptionsFromJSON(JSON.parse(data.options_json))});const finish=await fetch('/auth/passkeys/login/complete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({credential_json:JSON.stringify(credential.toJSON()),state:data.state,device_id:{{{JsonSerializer.Serialize(deviceId)}}},device_name:navigator.userAgent})});if(!finish.ok)throw new Error('Passkey sign-in failed.');location.href={{{JsonSerializer.Serialize(returnUrl)}}};}catch(error){message.textContent=error.message;}});
@@ -342,15 +363,8 @@ public static class DashboardAuthenticationEndpoints
               <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}">
               <label>Email<input id="signin-email" type="email" name="email" autocomplete="username" required autofocus></label>
               <label>Password<input type="password" name="password" autocomplete="current-password" required></label><button>Sign in</button></form>
+              <p><a href="/auth/recover">Forgot your password?</a></p>
               <button type="button" id="passkey-login">Sign in with a passkey</button><p id="passkey-message" class="supporting"></p>
-              <details><summary>Reset password or recover administrator access</summary>
-              {emailReset}
-              <p class="supporting">Use one of the one-time recovery codes saved when the account was created.</p>
-              <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="recover"><label>Email<input type="email" name="email" autocomplete="username" required></label><label>Recovery code<input name="recoveryCode" autocomplete="off" spellcheck="false" required></label><label>New password<input type="password" name="newPassword" minlength="8" autocomplete="new-password" required><small>Use at least 8 characters.</small></label><button>Reset with recovery code</button></form>
-              <h2>Local administrator recovery</h2>
-              <p class="supporting">No recovery code or email access? Open an elevated terminal on the computer running Tuvima Library and run <code>tuvima-admin auth reset-password --email you@example.com</code>. From a source checkout, run <code>dotnet run --project src/MediaEngine.Admin -- auth reset-password --email you@example.com</code>.</p>
-              <p class="supporting">This recovery command is local-only: it is not an HTTP endpoint and cannot be invoked through an externally exposed Dashboard. It revokes all sessions and replaces the recovery codes.</p>
-              </details>
               <details><summary>Sign in with a local profile</summary><form method="post"><input type="hidden" name="__RequestVerificationToken" value="{H(token)}"><input type="hidden" name="action" value="login"><input type="hidden" name="returnUrl" value="{H(returnUrl)}"><label>Profile ID<input name="profileId" required></label><label>PIN (if configured)<input type="password" inputmode="numeric" name="pin"></label><button>Continue</button></form></details>
               {externalButtons}
               {passkeyScript}
@@ -358,6 +372,29 @@ public static class DashboardAuthenticationEndpoints
 
         return Shell(form);
     }
+
+    private static string PasswordRecoveryPage(string token, bool emailResetEnabled)
+    {
+        var emailReset = emailResetEnabled
+            ? $"<h2>Email reset link</h2><p class=\"supporting\">We will send a time-limited reset link if the address belongs to an eligible account.</p><form method=\"post\"><input type=\"hidden\" name=\"__RequestVerificationToken\" value=\"{H(token)}\"><input type=\"hidden\" name=\"action\" value=\"email-reset\"><label>Email<input type=\"email\" name=\"email\" autocomplete=\"username\" required autofocus></label><button>Email reset link</button></form>"
+            : "<h2>Email reset link</h2><p class=\"supporting\">Email delivery is not configured. Use a saved recovery code, or ask the server administrator to run the local recovery command below.</p>";
+
+        return Shell($$"""
+            <p class="eyebrow">Tuvima Library</p>
+            <h1>Recover your account</h1>
+            <p><a href="/auth/login">Back to sign in</a></p>
+            {{emailReset}}
+            <h2>Use a recovery code</h2>
+            <p class="supporting">Use one of the one-time recovery codes saved when the account was created.</p>
+            <form method="post"><input type="hidden" name="__RequestVerificationToken" value="{{H(token)}}"><input type="hidden" name="action" value="recover"><label>Email<input type="email" name="email" autocomplete="username" required></label><label>Recovery code<input name="recoveryCode" autocomplete="off" spellcheck="false" required></label><label>New password<input type="password" name="newPassword" minlength="8" autocomplete="new-password" required><small>Use at least 8 characters.</small></label><button>Reset with recovery code</button></form>
+            <h2>Local administrator recovery</h2>
+            <p class="supporting">No recovery code or email access? Open an elevated terminal on the computer running Tuvima Library and run <code>tuvima-admin auth reset-password --email you@example.com</code>. From a source checkout, run <code>dotnet run --project src/MediaEngine.Admin -- auth reset-password --email you@example.com</code>.</p>
+            <p class="supporting">This recovery command is local-only: it is not an HTTP endpoint and cannot be invoked through an externally exposed Dashboard. It revokes all sessions and replaces the recovery codes.</p>
+            """);
+    }
+
+    private static string PasswordRecoveryFailurePage(string message) =>
+        Shell($"<h1>Account recovery failed</h1><p class=\"error\">{H(message)}</p><p><a href=\"/auth/recover\">Try again</a></p><p><a href=\"/auth/login\">Return to sign in</a></p>");
 
     private static string SecurityPage(AccountSelfServiceResponse? account, IReadOnlyList<DeviceSessionResponse> sessions, IReadOnlyList<AccountExternalLoginDto> linkedLogins, IReadOnlyList<PasskeyCredentialResponse> passkeys, IReadOnlyList<RegisteredExternalAuthProvider> externalProviders, string? currentId, string token, bool emailConfigured, string? emailTest)
     {

@@ -121,6 +121,11 @@ public sealed class DashboardFirstRunExperienceTests
         Assert.DoesNotContain("/auth/password/local-administrator-reset", client, StringComparison.Ordinal);
         Assert.DoesNotContain("local-administrator-reset", engine, StringComparison.Ordinal);
         Assert.DoesNotContain("ResetAdministratorPasswordFromHostAsync", publicIdentityContract, StringComparison.Ordinal);
+        Assert.Contains("app.MapGet(\"/auth/recover\"", dashboard, StringComparison.Ordinal);
+        Assert.Contains("app.MapPost(\"/auth/recover\"", dashboard, StringComparison.Ordinal);
+        Assert.Contains("href=\"/auth/recover\">Forgot your password?</a>", dashboard, StringComparison.Ordinal);
+        Assert.Contains("<h1>Recover your account</h1>", dashboard, StringComparison.Ordinal);
+        Assert.DoesNotContain("<details><summary>Reset password or recover administrator access</summary>", dashboard, StringComparison.Ordinal);
         Assert.Contains("tuvima-admin auth reset-password", dashboard, StringComparison.Ordinal);
         Assert.Contains("This recovery command is local-only", dashboard, StringComparison.Ordinal);
         Assert.Contains("cannot be invoked through an externally exposed Dashboard", dashboard, StringComparison.Ordinal);
