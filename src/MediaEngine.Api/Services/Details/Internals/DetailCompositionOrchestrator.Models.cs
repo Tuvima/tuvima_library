@@ -171,6 +171,19 @@ internal sealed partial class DetailCompositionOrchestrator
             && !string.Equals(Ownership, "Missing", StringComparison.OrdinalIgnoreCase);
     }
 
+    private sealed record SeasonArtworkPresentation(
+        string EntityId,
+        string? ArtworkSmallUrl,
+        string? ArtworkUrl,
+        string? BackgroundArtworkUrl);
+
+    private sealed class SeasonWorkArtworkRow
+    {
+        public Guid WorkId { get; init; }
+        public int? Ordinal { get; init; }
+        public string? SeasonNumber { get; init; }
+    }
+
     private sealed record AudiobookAssetRow
     {
         public Guid WorkId { get; init; }

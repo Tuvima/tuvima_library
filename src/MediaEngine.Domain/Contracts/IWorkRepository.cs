@@ -173,6 +173,18 @@ public interface IWorkRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Lists the direct child works of a container. TV artwork enrichment uses
+    /// this to discover the locally represented season works beneath a show.
+    /// </summary>
+    Task<IReadOnlyList<ChildWorkReference>> GetDirectChildrenAsync(
+        Guid parentWorkId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult<IReadOnlyList<ChildWorkReference>>([]);
+    }
+
+    /// <summary>
     /// Finds a trusted QID already assigned to an owned sibling variant in
     /// another media type. Used by Stage 2 when an audiobook/book variant has
     /// retail identity but the provider bridge does not resolve directly.
@@ -226,3 +238,9 @@ public sealed record ConfirmedSiblingWorkQid(
     string WikidataQid,
     string Title,
     string? Creator);
+
+public sealed record ChildWorkReference(
+    Guid WorkId,
+    int? Ordinal,
+    WorkKind WorkKind,
+    bool IsCatalogOnly);

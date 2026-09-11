@@ -46,6 +46,17 @@ public sealed partial class WikidataBridgeWorker
             // the final library folder.
             await _coverArt.DownloadAndPersistAsync(job.EntityId, wikidataQid: null, ct);
 
+            // A retained TMDB identity still owns show, season, and episode
+            // artwork even when Wikidata has no matching QID. Keep this in the
+            // normal ingestion path so a clean ingest produces complete art.
+            if (_imageEnrichment is not null)
+            {
+                await _concurrency.RunAsync(
+                    EnrichmentWorkKind.TmdbArtwork,
+                    token => _imageEnrichment.EnrichWorkImagesAsync(job.EntityId, workQid: null, token),
+                    ct).ConfigureAwait(false);
+            }
+
             var organized = await _postPipeline.EvaluateAndOrganizeAsync(
                 job.EntityId, job.Id, wikidataQid: null, job.IngestionRunId, ct,
                 retainedRetailIdentity: true);

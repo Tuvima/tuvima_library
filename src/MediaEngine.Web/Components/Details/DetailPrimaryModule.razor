@@ -60,7 +60,9 @@
                 <SequencePlacementPanel Placement="Model.SequencePlacement"
                                         DetailSurface="true"
                                         OnContainerSelected="OnContainerSelected"
-                                        OnEditItem="OnEditItem" />
+                                        OnEditItem="OnEditItem"
+                                        OnEditGroup="OnEditGroup"
+                                        CanEditGroup="CanEditGroup" />
             }
             else if (FilteredItems.Count == 0)
             {
@@ -106,6 +108,8 @@
     [Parameter] public bool Embedded { get; set; }
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
     [Parameter] public EventCallback<SequenceItemViewModel> OnEditItem { get; set; }
+    [Parameter] public EventCallback<SequenceGroupViewModel> OnEditGroup { get; set; }
+    [Parameter] public bool CanEditGroup { get; set; }
 
     private string _selectedLane = "all";
     private string _selectedRole = "all";

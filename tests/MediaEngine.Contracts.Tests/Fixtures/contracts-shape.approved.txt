@@ -1926,6 +1926,10 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceContainerOpt
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.SequenceGroupViewModel
   Key: System.String | nullability=not-null | accessors=get,init
   Title: System.String | nullability=not-null | accessors=get,init
+  EntityId: System.String | nullability=nullable | accessors=get,init
+  ArtworkSmallUrl: System.String | nullability=nullable | accessors=get,init
+  ArtworkUrl: System.String | nullability=nullable | accessors=get,init
+  BackgroundArtworkUrl: System.String | nullability=nullable | accessors=get,init
   TotalKnownItems: System.Int32? | nullability=nullable | accessors=get,init
   HasAuthoritativeTotal: System.Boolean | nullability=not-null | accessors=get,init
   Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.SequenceItemViewModel> | nullability=not-null | accessors=get,init

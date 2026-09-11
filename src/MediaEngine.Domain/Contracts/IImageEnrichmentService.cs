@@ -14,4 +14,11 @@ public interface IImageEnrichmentService
     /// <param name="workQid">The work's confirmed Wikidata QID when available.</param>
     /// <param name="ct">Cancellation token.</param>
     Task<ImageEnrichmentResult> EnrichWorkImagesAsync(Guid assetId, string? workQid, CancellationToken ct = default);
+
+    /// <summary>
+    /// Explicitly rechecks provider artwork, bypassing ingestion-time completed
+    /// markers. This is reserved for the administrator artwork editor.
+    /// </summary>
+    Task<ImageEnrichmentResult> RefreshWorkImagesAsync(Guid assetId, string? workQid, CancellationToken ct = default) =>
+        EnrichWorkImagesAsync(assetId, workQid, ct);
 }

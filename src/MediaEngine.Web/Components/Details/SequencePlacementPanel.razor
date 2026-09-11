@@ -13,6 +13,13 @@
 @if (DetailSurface)
 {
 <section class="tl-series-detail @MediaShapeClass" aria-label="@($"{Placement.ContainerTitle} {Placement.ItemPluralLabel}")">
+    @if (!string.IsNullOrWhiteSpace(ActiveGroup?.BackgroundArtworkUrl))
+    {
+        <AppCssElement Tag="div"
+                       Class="tl-series-detail__season-atmosphere"
+                       Css="@SeasonAtmosphereStyle"
+                       aria-hidden="true" />
+    }
     @if (HasTopControls)
     {
     <header class="tl-series-detail__header">
@@ -51,18 +58,53 @@
                                    Class="tl-series-detail__control tl-series-detail__control--group"
                                    Css="@GroupControlStyle">
                         <span class="sr-only">@(IsSeasonContainer ? "Season" : "Arc / sub-series")</span>
-                        <AppSelect Value="@SelectedGroupKey"
-                                   ValueChanged="SelectGroup"
-                                   Options="@GroupSelectOptions"
-                                   LeadingIcon="@(IsSeasonContainer ? Icons.Material.Outlined.Tv : Icons.Material.Outlined.AccountTree)"
-                                   Class="tl-series-detail__select"
-                                   PopoverClass="app-select__popover tl-series-select-popover"
-                                   aria-label="@GroupSelectorAriaLabel" />
+                        @if (IsSeasonContainer)
+                        {
+                            <AppNativeButton Type="button"
+                                             Class="@SeasonToggleClass"
+                                             OnClick="ToggleSeasonBrowser"
+                                             aria-pressed="@_seasonBrowserOpen"
+                                             aria-expanded="@_seasonBrowserOpen"
+                                             aria-controls="@_seasonStripId"
+                                             AriaLabel="@($"Choose season; {ActiveGroup?.Title ?? "current season"} selected")">
+                                <span class="tl-season-toggle__art">
+                                    @if (!string.IsNullOrWhiteSpace(ActiveGroup?.ArtworkSmallUrl))
+                                    {
+                                        <img src="@ActiveGroup.ArtworkSmallUrl" alt="" width="40" height="60" decoding="async" />
+                                    }
+                                    else
+                                    {
+                                        <span>@SeasonShortLabel(ActiveGroup)</span>
+                                    }
+                                </span>
+                                <span>@(ActiveGroup?.Title ?? "Season")</span>
+                            </AppNativeButton>
+                        }
+                        else
+                        {
+                            <AppSelect Value="@SelectedGroupKey"
+                                       ValueChanged="SelectGroup"
+                                       Options="@GroupSelectOptions"
+                                       LeadingIcon="@Icons.Material.Outlined.AccountTree"
+                                       Class="tl-series-detail__select"
+                                       PopoverClass="app-select__popover tl-series-select-popover"
+                                       aria-label="@GroupSelectorAriaLabel" />
+                        }
                     </AppCssElement>
                     }
             </div>
 
             <div class="tl-series-detail__utilities">
+                @if (CanEditActiveSeason)
+                {
+                    <AppButton Variant="Variant.Text"
+                               Color="Color.Inherit"
+                               Class="tl-series-detail__edit-season"
+                               OnClick="EditActiveSeasonAsync">
+                        <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" />
+                        <span>Edit season artwork</span>
+                    </AppButton>
+                }
                 @if (CanShowMissingToggle)
                 {
                     <div class="tl-series-detail__missing">
@@ -89,15 +131,20 @@
     </header>
     }
 
+    @if (!IsSeasonContainer || (ShowJumpSelector && !_seasonBrowserOpen))
+    {
     <div class="tl-series-detail__heading">
-        <div class="tl-series-detail__identity">
-            <MudIcon Icon="@ContainerIcon" Size="Size.Small" />
-            <div>
-                <span>@ContainerTitleDisplay</span>
-                <small>@Placement.ItemPluralLabel · @OwnedSummary</small>
+        @if (!IsSeasonContainer)
+        {
+            <div class="tl-series-detail__identity">
+                <MudIcon Icon="@ContainerIcon" Size="Size.Small" />
+                <div>
+                    <span>@ContainerTitleDisplay</span>
+                    <small>@Placement.ItemPluralLabel · @OwnedSummary</small>
+                </div>
             </div>
-        </div>
-        @if (ShowJumpSelector)
+        }
+        @if (ShowJumpSelector && !_seasonBrowserOpen)
         {
             <div class="tl-series-detail__jump">
                 <span>Jump to @ItemNoun.ToLowerInvariant()</span>
@@ -111,7 +158,61 @@
             </div>
         }
     </div>
+    }
 
+    @if (_seasonBrowserOpen && IsSeasonContainer)
+    {
+    <div class="tl-series-detail__carousel tl-season-browser">
+        <AppIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--left"
+                       Icon="@Icons.Material.Outlined.ChevronLeft"
+                       Size="Size.Large"
+                       AriaLabel="Previous seasons"
+                       OnClick="@(() => PageSeasonRailAsync(-1))" />
+        <div id="@_seasonStripId"
+             class="tl-season-browser__strip"
+             role="listbox"
+             aria-label="Choose season">
+            @for (var index = 0; index < VisibleGroups.Count; index++)
+            {
+                var season = VisibleGroups[index];
+                var selected = string.Equals(season.Key, SelectedGroupKey, StringComparison.OrdinalIgnoreCase);
+                <AppNativeButton Type="button"
+                                 Class="@(selected ? "tl-season-card is-selected" : "tl-season-card")"
+                                 OnClick="@(() => SelectSeason(season.Key))"
+                                 role="option"
+                                 aria-selected="@selected"
+                                 aria-current="@(selected ? "true" : null)"
+                                 data-sequence-index="@index">
+                    <span class="tl-season-card__art">
+                        @if (!string.IsNullOrWhiteSpace(season.ArtworkUrl))
+                        {
+                            <img src="@season.ArtworkUrl"
+                                 alt=""
+                                 width="240"
+                                 height="360"
+                                 loading="@(selected ? "eager" : "lazy")"
+                                 fetchpriority="@(selected ? "high" : "auto")"
+                                 decoding="async" />
+                        }
+                        else
+                        {
+                            <span>@SeasonShortLabel(season)</span>
+                        }
+                    </span>
+                    <strong>@season.Title</strong>
+                    <small>@SeasonOwnedSummary(season)</small>
+                </AppNativeButton>
+            }
+        </div>
+        <AppIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--right"
+                       Icon="@Icons.Material.Outlined.ChevronRight"
+                       Size="Size.Large"
+                       AriaLabel="Next seasons"
+                       OnClick="@(() => PageSeasonRailAsync(1))" />
+    </div>
+    }
+    else
+    {
     <div class="tl-series-detail__carousel">
         <AppIconButton Class="@LeftArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronLeft"
@@ -155,6 +256,7 @@
                        Disabled="@(!CanPageRight)"
                        OnClick="PageRight" />
     </div>
+    }
 
     @if (HasMoreConfiguredMissingItems)
     {
@@ -450,6 +552,8 @@ else
     [Parameter, EditorRequired] public SequencePlacementViewModel Placement { get; set; } = default!;
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
     [Parameter] public EventCallback<SequenceItemViewModel> OnEditItem { get; set; }
+    [Parameter] public EventCallback<SequenceGroupViewModel> OnEditGroup { get; set; }
+    [Parameter] public bool CanEditGroup { get; set; }
     [Parameter] public bool Compact { get; set; }
     [Parameter] public bool DetailSurface { get; set; }
 
@@ -469,10 +573,13 @@ else
     private bool _configuredShowMissingDefault;
     private bool _hasMissingPreferenceOverride;
     private bool _savingMissingPreference;
+    private bool _seasonBrowserOpen;
+    private bool _scrollToCurrentSeason;
     private Guid? _activeProfileId;
     private int _visibleMissingLimit;
     private MissingItemDisplayPolicy? _missingItemPolicy;
     private ElementReference _seriesDescriptionElement;
+    private readonly string _seasonStripId = "seasons-" + Guid.NewGuid().ToString("N");
 
     private string PanelClass => $"{MediaShapeClass}{(IsLongSequence ? " tl-series-placement--long" : string.Empty)}{(Compact ? " tl-series-placement--compact" : string.Empty)}";
     private string MediaShapeClass => Placement.CurrentItem.EntityType switch
@@ -560,6 +667,14 @@ else
         => SelectedGroupKey is null
             ? null
             : VisibleGroups.FirstOrDefault(group => group.Key == SelectedGroupKey);
+    private bool CanEditActiveSeason => IsSeasonContainer
+        && CanEditGroup
+        && OnEditGroup.HasDelegate
+        && !string.IsNullOrWhiteSpace(ActiveGroup?.EntityId);
+    private string SeasonToggleClass => $"tl-season-toggle{(_seasonBrowserOpen ? " is-open" : string.Empty)}";
+    private string? SeasonAtmosphereStyle => string.IsNullOrWhiteSpace(ActiveGroup?.BackgroundArtworkUrl)
+        ? null
+        : $"--tl-season-atmosphere:url('{ActiveGroup.BackgroundArtworkUrl.Replace("'", "%27", StringComparison.Ordinal)}');";
 
     private IReadOnlyList<SequenceItemViewModel> GroupItems
         => ShowGroupSelector
@@ -741,6 +856,8 @@ else
         {
             _placementKey = key;
             _selectedGroupKey = Placement.CurrentGroupKey;
+            _seasonBrowserOpen = false;
+            _scrollToCurrentSeason = false;
             _seriesDescriptionExpanded = false;
             _hasExpandableSeriesDescription = false;
             _needsSeriesDescriptionMeasurement = true;
@@ -783,7 +900,17 @@ else
         if (_scrollToCurrentEpisode)
         {
             _scrollToCurrentEpisode = false;
-            await Js.InvokeVoidAsync("scrollSequenceItem", _episodeStripId, _windowCenterIndex);
+            await Js.InvokeVoidAsync("scrollSequenceItem", _episodeStripId, _windowCenterIndex, "nearest", "auto");
+        }
+        if (_scrollToCurrentSeason)
+        {
+            _scrollToCurrentSeason = false;
+            var seasonIndex = VisibleGroups.ToList().FindIndex(group =>
+                string.Equals(group.Key, SelectedGroupKey, StringComparison.OrdinalIgnoreCase));
+            if (seasonIndex >= 0)
+            {
+                await Js.InvokeVoidAsync("scrollSequenceItem", _seasonStripId, seasonIndex, "center", "auto");
+            }
         }
         if (!_needsSeriesDescriptionMeasurement
             || Compact
@@ -813,6 +940,44 @@ else
         _selectedGroupKey = value;
         _visibleMissingLimit = _missingItemPolicy?.PageSize ?? 0;
         ResetWindowToCurrentItem();
+    }
+
+    private void ToggleSeasonBrowser()
+    {
+        if (!IsSeasonContainer)
+        {
+            return;
+        }
+
+        _seasonBrowserOpen = !_seasonBrowserOpen;
+        _scrollToCurrentSeason = _seasonBrowserOpen;
+    }
+
+    private void SelectSeason(string key)
+    {
+        SelectGroup(key);
+        _seasonBrowserOpen = false;
+    }
+
+    private Task PageSeasonRailAsync(int direction)
+        => Js.InvokeVoidAsync("scrollSequenceRail", _seasonStripId, direction).AsTask();
+
+    private Task EditActiveSeasonAsync()
+        => CanEditActiveSeason && ActiveGroup is { } season
+            ? OnEditGroup.InvokeAsync(season)
+            : Task.CompletedTask;
+
+    private static string SeasonShortLabel(SequenceGroupViewModel? group)
+    {
+        var value = StringHelpers.FirstNonBlank(group?.Key, group?.Title, "Season")!;
+        var number = new string(value.Where(char.IsDigit).ToArray());
+        return string.IsNullOrWhiteSpace(number) ? "S" : $"S{number}";
+    }
+
+    private static string SeasonOwnedSummary(SequenceGroupViewModel group)
+    {
+        var count = group.Items.Count(item => item.IsOwned);
+        return $"{count} owned {(count == 1 ? "episode" : "episodes")}";
     }
 
     private async Task ShowMissingChangedAsync(bool value)
@@ -967,7 +1132,7 @@ else
         _jumpSelectionValue = value;
         _windowCenterIndex = index;
         if (IsSeasonContainer)
-            await Js.InvokeVoidAsync("scrollSequenceItem", _episodeStripId, index);
+            await Js.InvokeVoidAsync("scrollSequenceItem", _episodeStripId, index, "nearest", "smooth");
     }
 
     private void PageLeft()

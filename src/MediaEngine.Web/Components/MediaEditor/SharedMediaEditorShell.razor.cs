@@ -1945,6 +1945,17 @@ public partial class SharedMediaEditorShell
             string.Equals(slot.AssetType, assetType, StringComparison.OrdinalIgnoreCase))?.Variants
         ?? [];
 
+    protected static string? GetArtworkThumbnailUrl(ArtworkVariantDisplayItem item)
+    {
+        if (string.IsNullOrWhiteSpace(item.ImageUrl)
+            || !item.ImageUrl.StartsWith("/stream/artwork/", StringComparison.OrdinalIgnoreCase))
+        {
+            return item.ImageUrl;
+        }
+
+        return $"{item.ImageUrl.Split('?')[0]}?size=m";
+    }
+
     protected ArtworkVariantDto? GetPreferredArtworkVariant(string assetType) =>
         GetArtworkVariants(assetType)
             .OrderByDescending(variant => variant.IsPreferred)
@@ -4027,6 +4038,8 @@ public partial class SharedMediaEditorShell
         {
             ("TV", "series") =>
                 "Series scope manages poster/cover, background, and logo artwork for the show. Those images are shared across episodes.",
+            ("TV", "season") =>
+                "Season scope manages the portrait season poster and wide season thumbnail. Series branding and episode stills remain in their own scopes.",
             ("TV", "episode") =>
                 "Episode scope manages only the episode still. Series and season artwork remain inherited and can be opened from this panel.",
             ("Music", "album") =>

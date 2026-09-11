@@ -209,6 +209,7 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
     [Fact]
     public void MediaSectionShell_CreatesManualContainerInlineOnEnter()
     {
+        var popovers = Render<MudPopoverProvider>();
         MediaSectionNavigationCreateEvent? received = null;
         var navigation = new[]
         {
@@ -233,7 +234,7 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
             .AddChildContent("<section>Listen content</section>"));
 
         cut.Find(".media-section-shell__create-menu .app-overflow-menu__trigger").Click();
-        cut.FindAll("button.app-menu-item").Single(button => button.TextContent.Contains("New Playlist", StringComparison.Ordinal)).Click();
+        popovers.FindAll("button.app-menu-item").Single(button => button.TextContent.Contains("New Playlist", StringComparison.Ordinal)).Click();
         var input = cut.Find(".media-section-shell__inline-create input");
         input.Input("Road Trip");
         input.KeyDown(new KeyboardEventArgs { Key = "Enter" });
@@ -246,6 +247,7 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
     [Fact]
     public void MediaSectionShell_UsesInlineDeleteConfirmationForManagedContainers()
     {
+        var popovers = Render<MudPopoverProvider>();
         var playlistId = Guid.NewGuid();
         MediaSectionNavigationManageEvent? received = null;
         var navigation = new[]
@@ -268,7 +270,7 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
             .AddChildContent("<section>Listen content</section>"));
 
         cut.Find(".media-section-shell__manage-menu .app-overflow-menu__trigger").Click();
-        cut.FindAll("button.app-menu-item").Single(button => button.TextContent.Contains("Delete", StringComparison.Ordinal)).Click();
+        popovers.FindAll("button.app-menu-item").Single(button => button.TextContent.Contains("Delete", StringComparison.Ordinal)).Click();
 
         var confirmation = cut.Find(".media-section-shell__delete-confirm");
         Assert.Contains("Delete “Road Trip”?", confirmation.TextContent, StringComparison.Ordinal);

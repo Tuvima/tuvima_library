@@ -11,15 +11,19 @@
 
         @if (HiddenGenres.Count > 0)
         {
-            <details class="tl-detail-hero-genres__overflow">
-                <summary aria-label="@($"Show {HiddenGenres.Count} more genres")">+@HiddenGenres.Count</summary>
-                <div class="tl-detail-hero-genres__menu" role="menu">
-                    @foreach (var genre in HiddenGenres)
-                    {
-                        <a href="@genre.Route" role="menuitem" title="@genre.Tooltip">@genre.Label</a>
-                    }
-                </div>
-            </details>
+            <AppOverflowMenu Label="@($"+{HiddenGenres.Count}")"
+                             ShowIcon="false"
+                             AriaLabel="@($"Show {HiddenGenres.Count} more genres")"
+                             Class="tl-detail-hero-genres__overflow"
+                             TriggerClass="tl-detail-hero-genres__overflow-trigger"
+                             PopoverClass="tl-detail-hero-genres__menu"
+                             AnchorOrigin="Origin.BottomLeft"
+                             TransformOrigin="Origin.TopLeft">
+                @foreach (var genre in HiddenGenres)
+                {
+                    <a class="app-menu-item" href="@genre.Route" role="menuitem" title="@genre.Tooltip">@genre.Label</a>
+                }
+            </AppOverflowMenu>
         }
     </div>
 }

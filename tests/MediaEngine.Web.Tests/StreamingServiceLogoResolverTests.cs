@@ -253,6 +253,7 @@ public sealed class StreamingServiceHeroRenderTests : AsyncBunitContext
     [Fact]
     public void OverflowActionMenu_InvokesEditAndClosesTheMenu()
     {
+        var popovers = Render<MudPopoverProvider>();
         DetailAction? selected = null;
         var edit = new DetailAction
         {
@@ -267,12 +268,12 @@ public sealed class StreamingServiceHeroRenderTests : AsyncBunitContext
             .Add(component => component.OnActionSelected, action => selected = action));
 
         cut.Find("button[aria-label='More actions']").Click();
-        Assert.Single(cut.FindAll("[role='menu']"));
+        Assert.Single(popovers.FindAll("[role='menu']"));
 
-        cut.Find("button[role='menuitem']").Click();
+        popovers.Find("button[role='menuitem']").Click();
 
         Assert.Same(edit, selected);
-        Assert.Empty(cut.FindAll("[role='menu']"));
+        Assert.Empty(popovers.FindAll("[role='menu']"));
     }
 
     [Theory]

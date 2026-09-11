@@ -108,7 +108,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
                 var payload = """
                     {
                       "posters": [
-                        { "file_path": "/movie-poster.jpg", "vote_average": 7.0, "vote_count": 11, "iso_639_1": "en", "width": 1000, "height": 1500 }
+                        { "file_path": "/movie-poster.jpg", "vote_average": 7.0, "vote_count": 11, "iso_639_1": null, "width": 1000, "height": 1500 }
                       ],
                       "logos": [],
                       "backdrops": []
@@ -179,6 +179,99 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task EnrichWorkImagesAsync_UsesNeutralPostersAndConfiguredLogoLanguage()
+    {
+        var core = _configLoader.LoadCore();
+        core.Language.Metadata = "de-DE";
+        _configLoader.SaveCore(core);
+        var movie = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "Language.mkv");
+        await SeedCanonicalsAsync(movie.WorkId, (BridgeIdKeys.TmdbId, "77"));
+
+        var service = CreateService(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            if (url.Contains("/movie/77/images?", StringComparison.OrdinalIgnoreCase))
+            {
+                Assert.Contains("include_image_language=de,null", url, StringComparison.Ordinal);
+                return JsonResponse("""
+                    {
+                      "posters": [
+                        { "file_path": "/poster-en.jpg", "iso_639_1": "en", "width": 1000, "height": 1500, "vote_average": 10 },
+                        { "file_path": "/poster-neutral.jpg", "iso_639_1": null, "width": 1000, "height": 1500, "vote_average": 5 }
+                      ],
+                      "logos": [
+                        { "file_path": "/logo-neutral.png", "iso_639_1": null, "width": 1200, "height": 500, "vote_average": 9 },
+                        { "file_path": "/logo-de.png", "iso_639_1": "de", "width": 1200, "height": 500, "vote_average": 4 },
+                        { "file_path": "/logo-en.png", "iso_639_1": "en", "width": 1200, "height": 500, "vote_average": 10 }
+                      ],
+                      "backdrops": [
+                        { "file_path": "/backdrop-de.jpg", "iso_639_1": "de", "width": 1920, "height": 1080, "vote_average": 10 },
+                        { "file_path": "/backdrop-neutral.jpg", "iso_639_1": null, "width": 1920, "height": 1080, "vote_average": 5 }
+                      ]
+                    }
+                    """);
+            }
+
+            return ImageResponse([1, 2, 3, 4]);
+        });
+
+        await service.EnrichWorkImagesAsync(movie.AssetId, "Q77");
+
+        var posters = await _entityAssets.GetByEntityAsync(movie.WorkId.ToString(), "CoverArt");
+        Assert.Single(posters);
+        Assert.EndsWith("/poster-neutral.jpg", posters[0].ImageUrl, StringComparison.Ordinal);
+        var preferredLogo = await _entityAssets.GetPreferredAsync(movie.WorkId.ToString(), "Logo");
+        Assert.EndsWith("/logo-de.png", preferredLogo?.ImageUrl, StringComparison.Ordinal);
+        var preferredBackdrop = await _entityAssets.GetPreferredAsync(movie.WorkId.ToString(), "Background");
+        Assert.EndsWith("/backdrop-neutral.jpg", preferredBackdrop?.ImageUrl, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EnrichWorkImagesAsync_TvEnrichesEveryRepresentedSeasonFromOneEpisode()
+    {
+        var show = await _works.InsertParentAsync(MediaType.TV, "show:all-seasons", null, null);
+        var seasonOne = await _works.InsertParentAsync(MediaType.TV, $"season:{show}:1", show, 1);
+        var seasonTwo = await _works.InsertParentAsync(MediaType.TV, $"season:{show}:2", show, 2);
+        var episode = await _works.InsertChildAsync(MediaType.TV, seasonOne, 1);
+        var asset = await SeedAssetForExistingWorkAsync(episode, Path.Combine("TV", "All Seasons", "Season 01", "s01e01.mkv"));
+        await SeedCanonicalsAsync(show, ("media_type", "TV"), (BridgeIdKeys.TmdbId, "88"));
+
+        var requestedSeasons = new HashSet<int>();
+        var rootRequestCount = 0;
+        var seasonRequestCount = 0;
+        var service = CreateService(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            if (url.Contains("/tv/88/images?", StringComparison.OrdinalIgnoreCase))
+            {
+                rootRequestCount++;
+                return JsonResponse("""{ "posters": [], "logos": [], "backdrops": [] }""");
+            }
+
+            if (url.Contains("/season/", StringComparison.OrdinalIgnoreCase))
+            {
+                var seasonNumber = url.Contains("/season/1/", StringComparison.OrdinalIgnoreCase) ? 1 : 2;
+                seasonRequestCount++;
+                requestedSeasons.Add(seasonNumber);
+                return JsonResponse($$"""
+                    { "posters": [{ "file_path": "/season-{{seasonNumber}}.jpg", "iso_639_1": null, "width": 1000, "height": 1500 }], "backdrops": [] }
+                    """);
+            }
+
+            return ImageResponse([1, 2, 3, 4]);
+        });
+
+        await service.EnrichWorkImagesAsync(asset.AssetId, "Q88");
+        await service.EnrichWorkImagesAsync(asset.AssetId, "Q88");
+
+        Assert.Equal([1, 2], requestedSeasons.OrderBy(value => value));
+        Assert.Equal(1, rootRequestCount);
+        Assert.Equal(2, seasonRequestCount);
+        Assert.Single(await _entityAssets.GetByEntityAsync(seasonOne.ToString(), "SeasonPoster"));
+        Assert.Single(await _entityAssets.GetByEntityAsync(seasonTwo.ToString(), "SeasonPoster"));
+    }
+
+    [Fact]
     public async Task EnrichWorkImagesAsync_StoresNetworkAndStudioLogosAsManagedAssets()
     {
         var movie = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "Studio Logos.mkv");
@@ -224,7 +317,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             {
                 return JsonResponse($$"""
                     {
-                      "posters": [ { "file_path": "/shared-poster.jpg", "vote_average": 7, "vote_count": 1, "iso_639_1": "en" } ],
+                      "posters": [ { "file_path": "/shared-poster.jpg", "vote_average": 7, "vote_count": 1, "iso_639_1": null } ],
                       "logos": [], "backdrops": []
                     }
                     """);
@@ -273,7 +366,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
                 return JsonResponse(payload);
             }
             if (url.Contains("/tv/54321/season/1/images?", StringComparison.OrdinalIgnoreCase))
-                return JsonResponse("""{ "posters": [{ "file_path": "/season-poster.jpg", "iso_639_1": "en", "width": 1000, "height": 1500 }], "backdrops": [{ "file_path": "/season-thumb.jpg", "iso_639_1": "en", "width": 1920, "height": 1080 }] }""");
+                return JsonResponse("""{ "posters": [{ "file_path": "/season-poster.jpg", "iso_639_1": null, "width": 1000, "height": 1500 }], "backdrops": [{ "file_path": "/season-thumb.jpg", "iso_639_1": null, "width": 1920, "height": 1080 }] }""");
 
             return ImageResponse([7, 7, 7, 7]);
         });

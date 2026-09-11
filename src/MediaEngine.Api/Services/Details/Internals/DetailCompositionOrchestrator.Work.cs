@@ -96,18 +96,6 @@ internal sealed partial class DetailCompositionOrchestrator
             foregroundArtworkUrl = backdropUrl;
         }
 
-        var artwork = BuildArtwork(
-            entityType,
-            backdropUrl,
-            bannerUrl,
-            foregroundArtworkUrl,
-            foregroundArtworkUrl,
-            null,
-            values,
-            entityType == DetailEntityType.TvEpisode ? [] : ownedCoverUrls,
-            ownedFormats.Count,
-            detail.ArtworkSource);
-
         var contributors = await BuildWorkContributorsAsync(workId, detail, entityType, ct);
         var characters = BuildCharacterGroupsFromCast(contributors.CastCredits);
         var contributorGroups = await BuildContributorGroupsAsync(workId, detail, entityType, contributors.CastCredits, values, ct);
@@ -119,6 +107,7 @@ internal sealed partial class DetailCompositionOrchestrator
             ?? ownedCoverUrls.FirstOrDefault(IsManagedArtworkUrl);
         SequencePlacementViewModel? sequencePlacement = null;
         IReadOnlyList<CreditGroupViewModel> fullContributorGroups = contributorGroups;
+        string? episodeSeriesLogoUrl = null;
         if (entityType == DetailEntityType.TvEpisode
             && Guid.TryParse(selectedContainerId, out var showId))
         {
@@ -140,6 +129,13 @@ internal sealed partial class DetailCompositionOrchestrator
             }
 
             fullContributorGroups = showModel!.FullContributorGroups;
+            episodeSeriesLogoUrl = showModel.Artwork.LogoUrl;
+        }
+
+        if (entityType == DetailEntityType.TvEpisode
+            && string.IsNullOrWhiteSpace(episodeSeriesLogoUrl))
+        {
+            episodeSeriesLogoUrl = await LoadTvSeriesLogoForEpisodeAsync(workId, ct);
         }
 
         sequencePlacement ??= await BuildSequencePlacementAsync(
@@ -150,6 +146,18 @@ internal sealed partial class DetailCompositionOrchestrator
             managedCurrentArtworkUrl,
             resolvedTitle,
             ct);
+        var artwork = BuildArtwork(
+            entityType,
+            backdropUrl,
+            bannerUrl,
+            foregroundArtworkUrl,
+            foregroundArtworkUrl,
+            null,
+            values,
+            entityType == DetailEntityType.TvEpisode ? [] : ownedCoverUrls,
+            ownedFormats.Count,
+            detail.ArtworkSource,
+            episodeSeriesLogoUrl);
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, profileId, ct);
         var heroProgress = BuildHeroProgress(entityType, detail.Runtime, ownedFormats)
             ?? BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups);
@@ -400,6 +408,37 @@ internal sealed partial class DetailCompositionOrchestrator
             LibraryStatus = hasMissingItems ? LibraryStatus.PartiallyOwned : LibraryStatus.Owned,
             IsAdminView = isAdminView,
         };
+    }
+
+    private async Task<string?> LoadTvSeriesLogoForEpisodeAsync(Guid episodeWorkId, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var rootWorkId = conn.QueryFirstOrDefault<Guid?>(
+            """
+            WITH RECURSIVE ancestors(id, parent_work_id, depth) AS (
+                SELECT id, parent_work_id, 0
+                FROM works
+                WHERE id = @episodeWorkId
+                UNION ALL
+                SELECT parent.id, parent.parent_work_id, child.depth + 1
+                FROM works parent
+                INNER JOIN ancestors child ON parent.id = child.parent_work_id
+                WHERE child.depth < 3
+            )
+            SELECT id
+            FROM ancestors
+            ORDER BY depth DESC
+            LIMIT 1;
+            """,
+            new { episodeWorkId = GuidSql.ToBlob(episodeWorkId) });
+        if (!rootWorkId.HasValue || rootWorkId.Value == episodeWorkId)
+        {
+            return null;
+        }
+
+        var logo = await _entityAssets.GetPreferredAsync(rootWorkId.Value.ToString("D"), "Logo", ct);
+        return logo is null ? null : $"/stream/artwork/{logo.Id:D}";
     }
 
 }

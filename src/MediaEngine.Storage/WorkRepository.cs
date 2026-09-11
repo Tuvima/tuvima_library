@@ -167,6 +167,37 @@ public sealed class WorkRepository : IWorkRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<ChildWorkReference>> GetDirectChildrenAsync(
+        Guid parentWorkId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var children = conn.Query<DirectChildRow>(
+            """
+            SELECT id AS WorkId,
+                   ordinal AS Ordinal,
+                   work_kind AS WorkKind,
+                   is_catalog_only AS IsCatalogOnly
+            FROM works
+            WHERE parent_work_id = @parentWorkId
+            ORDER BY COALESCE(ordinal_sort, ordinal, 2147483647), id;
+            """,
+            new { parentWorkId })
+            .Select(row => new ChildWorkReference(
+                row.WorkId,
+                row.Ordinal,
+                Enum.TryParse<WorkKind>(row.WorkKind, ignoreCase: true, out var kind)
+                    ? kind
+                    : WorkKind.Standalone,
+                row.IsCatalogOnly))
+            .ToList();
+
+        return Task.FromResult<IReadOnlyList<ChildWorkReference>>(children);
+    }
+
+    /// <inheritdoc/>
     public Task<Guid?> FindByExternalIdentifierAsync(
         string scheme,
         string value,
@@ -861,6 +892,14 @@ public sealed class WorkRepository : IWorkRepository
         public Guid RootParentWorkId { get; set; }
         public string WorkKind { get; set; } = string.Empty;
         public string MediaType { get; set; } = string.Empty;
+    }
+
+    private sealed class DirectChildRow
+    {
+        public Guid WorkId { get; set; }
+        public int? Ordinal { get; set; }
+        public string WorkKind { get; set; } = string.Empty;
+        public bool IsCatalogOnly { get; set; }
     }
 
     private sealed class SiblingQidRow

@@ -314,6 +314,9 @@ internal sealed partial class DetailCompositionOrchestrator
         var relationships = BuildCollectionRelationships(row, entityType);
         var collectionTitle = ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values);
         var sequenceCollectionId = manifest?.CollectionId ?? collectionId;
+        var seasonArtwork = entityType == DetailEntityType.TvShow
+            ? await LoadTvSeasonArtworkAsync(rootWorkId ?? collectionId, ct)
+            : null;
         var sequencePlacement = BuildCollectionSequencePlacement(
             sequenceCollectionId,
             entityType,
@@ -323,6 +326,7 @@ internal sealed partial class DetailCompositionOrchestrator
             displayWorks,
             expectedTotal,
             manifest?.AuthoritativeTotalsByContainer,
+            seasonArtwork,
             currentWorkId ?? tvPlaybackEpisodeId);
         var mediaGroups = entityType == DetailEntityType.TvShow
             ? []
@@ -834,6 +838,76 @@ internal sealed partial class DetailCompositionOrchestrator
     {
         var parsedTrackNumber = TryParseInt(trackNumber);
         return parsedTrackNumber.HasValue ? parsedTrackNumber.Value : zeroBasedIndex + 1;
+    }
+
+    private async Task<IReadOnlyDictionary<string, SeasonArtworkPresentation>> LoadTvSeasonArtworkAsync(
+        Guid rootWorkId,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var seasons = conn.Query<SeasonWorkArtworkRow>(
+            """
+            SELECT season.id AS WorkId,
+                   season.ordinal AS Ordinal,
+                   (SELECT NULLIF(CAST(value AS TEXT), '')
+                    FROM canonical_values
+                    WHERE entity_id = season.id AND key = 'season_number'
+                    LIMIT 1) AS SeasonNumber
+            FROM works season
+            WHERE season.parent_work_id = @rootWorkId
+              AND season.work_kind = 'parent'
+              AND COALESCE(season.is_catalog_only, 0) = 0
+            ORDER BY COALESCE(season.ordinal_sort, season.ordinal, 2147483647), season.id;
+            """,
+            new { rootWorkId = GuidSql.ToBlob(rootWorkId) })
+            .ToList();
+        if (seasons.Count == 0)
+        {
+            return new Dictionary<string, SeasonArtworkPresentation>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var entityIds = seasons.Select(season => season.WorkId.ToString("D")).ToList();
+        var assets = await _entityAssets.GetPreferredByEntitiesAsync(entityIds, ct);
+        var assetsByEntity = assets
+            .Where(asset => asset.AssetTypeValue is "SeasonPoster" or "SeasonThumb")
+            .GroupBy(asset => asset.EntityId, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(
+                group => group.Key,
+                group => group.ToDictionary(asset => asset.AssetTypeValue, StringComparer.OrdinalIgnoreCase),
+                StringComparer.OrdinalIgnoreCase);
+
+        var result = new Dictionary<string, SeasonArtworkPresentation>(StringComparer.OrdinalIgnoreCase);
+        foreach (var season in seasons)
+        {
+            var rawSeasonNumber = StringHelpers.FirstNonBlank(
+                season.SeasonNumber,
+                season.Ordinal?.ToString(CultureInfo.InvariantCulture));
+            var seasonKey = NormalizeEpisodeKey(rawSeasonNumber);
+            if (string.IsNullOrWhiteSpace(seasonKey))
+            {
+                continue;
+            }
+
+            assetsByEntity.TryGetValue(season.WorkId.ToString("D"), out var seasonAssets);
+            EntityAsset? poster = null;
+            EntityAsset? thumb = null;
+            seasonAssets?.TryGetValue("SeasonPoster", out poster);
+            seasonAssets?.TryGetValue("SeasonThumb", out thumb);
+            var posterSmall = poster is null ? null : $"/stream/artwork/{poster.Id:D}?size=s";
+            var posterMedium = poster is null ? null : $"/stream/artwork/{poster.Id:D}?size=m";
+            var backgroundMedium = thumb is null
+                ? posterMedium
+                : $"/stream/artwork/{thumb.Id:D}?size=m";
+
+            result[seasonKey] = new SeasonArtworkPresentation(
+                season.WorkId.ToString("D"),
+                posterSmall,
+                posterMedium,
+                backgroundMedium);
+        }
+
+        return result;
     }
 
     private async Task<CollectionDetailRow?> LoadTvShowRootDetailRowAsync(Guid rootWorkId, CancellationToken ct)

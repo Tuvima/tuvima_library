@@ -1963,6 +1963,10 @@ public sealed partial class EngineApiClient : IEngineApiClient, IDisposable
         {
             Key = group.Key,
             Title = group.Title,
+            EntityId = group.EntityId,
+            ArtworkSmallUrl = NormalizeOptionalUrl(group.ArtworkSmallUrl),
+            ArtworkUrl = NormalizeOptionalUrl(group.ArtworkUrl),
+            BackgroundArtworkUrl = NormalizeOptionalUrl(group.BackgroundArtworkUrl),
             TotalKnownItems = group.TotalKnownItems,
             HasAuthoritativeTotal = group.HasAuthoritativeTotal,
             Items = group.Items.Select(NormalizeSequenceItem).OfType<SequenceItemViewModel>().ToList(),

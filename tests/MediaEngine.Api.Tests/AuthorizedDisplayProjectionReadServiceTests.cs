@@ -210,6 +210,43 @@ public sealed class AuthorizedDisplayProjectionReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task StructuralTvArtworkUsesOwnedEpisodeLibraryAccess()
+    {
+        var accountId = Guid.NewGuid();
+        var allowedLibrary = Guid.NewGuid();
+        await CreateHumanAsync(accountId,
+            new HashSet<AccountFeatureId> { AccountFeatureId.Watch },
+            new HashSet<Guid> { allowedLibrary });
+        var episode = await InsertOwnedWorkWithIdAsync(allowedLibrary, "Owned episode", "TV");
+        var showId = Guid.NewGuid();
+        var seasonId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind, curator_state)
+                VALUES (@showId, 'TV', 'parent', 'accepted');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, curator_state)
+                VALUES (@seasonId, 'TV', 'parent', @showId, 'accepted');
+                UPDATE works
+                SET parent_work_id=@seasonId, work_kind='child'
+                WHERE id=@episodeId;
+                """,
+                new { showId, seasonId, episodeId = episode.WorkId });
+        }
+
+        var showArtwork = await InsertArtworkAsync(showId, "Work");
+        var seasonArtwork = await InsertArtworkAsync(seasonId, "Work");
+        var context = HumanContext(accountId, MediaEngine.Domain.Aggregates.Profile.SeedProfileId);
+        var service = CreateResourceService(context);
+
+        Assert.Equal(CatalogueResourceAccess.Allowed,
+            await service.EvaluateArtworkVariantAsync(context, showArtwork, ApplicationPermissionIds.ArtworkRead));
+        Assert.Equal(CatalogueResourceAccess.Allowed,
+            await service.EvaluateArtworkVariantAsync(context, seasonArtwork, ApplicationPermissionIds.ArtworkRead));
+    }
+
+    [Fact]
     public async Task PersonArtworkRequiresAnAuthorizedCreditedAsset()
     {
         var accountId = Guid.NewGuid();

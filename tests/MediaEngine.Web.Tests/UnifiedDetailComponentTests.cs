@@ -334,7 +334,7 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void SequencePlacement_UsesSeasonSelectorForTvEpisodes()
+    public void SequencePlacement_UsesArtworkSeasonBrowserForTvEpisodes()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor");
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
@@ -346,6 +346,16 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("HeadingLabel => IsSeasonContainer ? \"Season\" : \"Series\"", source);
         Assert.Contains("ActiveGroup?.Title", source);
         Assert.Contains("Choose season", source);
+        Assert.Contains("tl-season-toggle", source);
+        Assert.Contains("tl-season-browser__strip", source);
+        Assert.Contains("ArtworkSmallUrl", source);
+        Assert.Contains("BackgroundArtworkUrl", source);
+        Assert.Contains("SeasonOwnedSummary", source);
+        Assert.Contains("Edit season artwork", source);
+        Assert.Contains("OnEditGroup", source);
+        Assert.Contains("OpenSeasonEditorAsync", detailPage);
+        Assert.Contains("InitialScope = \"season\"", detailPage);
+        Assert.Contains("InitialTab = \"artwork\"", detailPage);
         Assert.Contains("item.Route", source);
         Assert.Contains("CurrentActiveTab is \"episodes\"", detailPage);
         Assert.Contains("SequencePlacementPanel", detailPage);
@@ -925,6 +935,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("grid-template-columns: 4.2rem minmax(16rem, 1fr) 5rem 7.5rem 2.5rem", audioTableStyles);
         Assert.Contains("overflow: auto", audioTableStyles);
         Assert.Contains("Show missing tracks", audioTable);
+        Assert.DoesNotContain("_showMissingItems = true", audioTable, StringComparison.Ordinal);
         Assert.Contains("item.IsOwned", audioTable);
         Assert.Contains("DurationSeconds", audioTable);
         Assert.Contains("seconds = minutes * 60d + remainingSeconds", audioTable);

@@ -74,7 +74,7 @@ public sealed class SequenceManifestProjectionTests
             BindingFlags.Static | BindingFlags.NonPublic);
 
         var claims = Assert.IsAssignableFrom<IReadOnlyList<ProviderClaim>>(
-            method!.Invoke(null, [episode, "900", "Test Show", "1", null]));
+            method!.Invoke(null, [episode, "900", "Test Show", "1"]));
 
         Assert.Contains(claims, claim => claim.Key == MetadataFieldConstants.AirDate && claim.Value == "2024-01-15");
         Assert.Contains(claims, claim => claim.Key == BridgeIdKeys.TmdbEpisodeId && claim.Value == "101");

@@ -25,6 +25,7 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Hosting.WindowsServices;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -35,6 +36,13 @@ SettingsNav.ConfigureEnvironment(builder.Environment.IsProduction());
 // Integrates with the Windows Service Control Manager when the Dashboard is
 // installed as a Windows service via the .exe installer.  No-op on Linux / Docker.
 builder.Host.UseWindowsService(options => options.ServiceName = "Tuvima Library Dashboard");
+if (!WindowsServiceHelpers.IsWindowsService())
+{
+    builder.Logging.ClearProviders();
+    builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+    builder.Logging.AddConsole();
+    builder.Logging.AddDebug();
+}
 
 // ── Blazor ────────────────────────────────────────────────────────────────────
 builder.Services.AddRazorComponents()

@@ -1375,7 +1375,7 @@
                                                         <div class="sme-art-row-stage sme-art-row-stage--@focusedPreviewClass">
                                                             @if (!string.IsNullOrWhiteSpace(focusedItem.ImageUrl))
                                                             {
-                                                                <img src="@focusedItem.ImageUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
+                                                                <img src="@GetArtworkThumbnailUrl(focusedItem)" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" loading="lazy" decoding="async" />
                                                             }
                                                             else
                                                             {
@@ -1511,7 +1511,7 @@
                                                                 <span class="sme-art-row-stage sme-art-row-stage--@itemPreviewClass">
                                                                     @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
                                                                     {
-                                                                        <img src="@item.ImageUrl" alt="" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
+                                                                        <img src="@GetArtworkThumbnailUrl(item)" alt="" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" loading="lazy" decoding="async" />
                                                                     }
                                                                 </span>
                                                             </AppNativeButton>

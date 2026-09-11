@@ -344,10 +344,18 @@ internal sealed class CatalogueResourceAuthorizationService(
         {
             "work" or "movie" or "book" or "audiobook" or "comicissue" or "tvepisode" =>
                 """
+                WITH RECURSIVE work_tree(id) AS (
+                    SELECT @entityId
+                    UNION ALL
+                    SELECT child.id
+                    FROM works child
+                    JOIN work_tree parent ON child.parent_work_id=parent.id
+                )
                 SELECT ma.id
-                FROM editions e
+                FROM work_tree member
+                JOIN editions e ON e.work_id=member.id
                 JOIN media_assets ma ON ma.edition_id=e.id
-                WHERE e.work_id=@entityId AND ma.status='Normal' AND ma.is_orphaned=0
+                WHERE ma.status='Normal' AND ma.is_orphaned=0
                 ORDER BY ma.id;
                 """,
             "edition" =>

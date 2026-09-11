@@ -38,10 +38,32 @@ window.scrollElementToTop = function (element) {
 (function installDismissibleSurfaceHandler() {
     document.addEventListener('pointerdown', function (event) {
         document.querySelectorAll('[data-app-dismissible="open"]').forEach(function (surface) {
-            if (!surface.contains(event.target)) {
+            const popover = surface.dataset.appPopoverId
+                ? document.getElementById(surface.dataset.appPopoverId)
+                : null;
+            if (!surface.contains(event.target) && !popover?.contains(event.target)) {
                 surface.querySelector('[data-app-dismiss]')?.click();
             }
         });
+    }, true);
+
+    document.addEventListener('focusin', function (event) {
+        document.querySelectorAll('[data-app-dismissible="open"]').forEach(function (surface) {
+            const popover = surface.dataset.appPopoverId
+                ? document.getElementById(surface.dataset.appPopoverId)
+                : null;
+            if (!surface.contains(event.target) && !popover?.contains(event.target)) {
+                surface.querySelector('[data-app-dismiss]')?.click();
+            }
+        });
+    }, true);
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        const openSurface = document.querySelector('[data-app-dismissible="open"]');
+        if (!openSurface) return;
+        event.preventDefault();
+        openSurface.querySelector('[data-app-dismiss-restore]')?.click();
     }, true);
 })();
 
@@ -2086,8 +2108,21 @@ window.playbackTools = window.playbackTools || {
 };
 
 // Scroll the existing episode rail without changing the rendered item set.
-window.scrollSequenceItem = (id, index) => {
+window.scrollSequenceItem = (id, index, align = 'nearest', behavior = 'smooth') => {
     const rail = document.getElementById(id);
-    const item = rail?.children[index];
-    if (item) rail.scrollTo({ left: item.offsetLeft - rail.offsetLeft, behavior: 'smooth' });
+    const item = rail?.querySelector(`[data-sequence-index="${index}"]`) ?? rail?.children[index];
+    if (!rail || !item) return;
+
+    const unclampedLeft = align === 'center'
+        ? item.offsetLeft - ((rail.clientWidth - item.clientWidth) / 2)
+        : item.offsetLeft - rail.offsetLeft;
+    const maximumLeft = Math.max(0, rail.scrollWidth - rail.clientWidth);
+    rail.scrollTo({ left: Math.max(0, Math.min(maximumLeft, unclampedLeft)), behavior });
+};
+
+window.scrollSequenceRail = (id, direction) => {
+    const rail = document.getElementById(id);
+    if (!rail) return;
+    const distance = Math.max(240, rail.clientWidth * 0.82) * (direction < 0 ? -1 : 1);
+    rail.scrollBy({ left: distance, behavior: 'smooth' });
 };

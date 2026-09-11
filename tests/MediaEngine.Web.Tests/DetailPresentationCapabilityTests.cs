@@ -36,6 +36,7 @@ public sealed class DetailPresentationCapabilityTests : AsyncBunitContext
     [Fact]
     public void HeroGenreList_ShowsTwoGenresAndKeyboardAccessibleOverflow()
     {
+        var popovers = Render<MudBlazor.MudPopoverProvider>();
         var genres = new[]
         {
             Genre("Science Fiction"),
@@ -48,10 +49,11 @@ public sealed class DetailPresentationCapabilityTests : AsyncBunitContext
             .Add(component => component.Genres, genres));
 
         Assert.Equal(2, cut.FindAll(".tl-detail-hero-genre").Count);
-        var overflow = cut.Find("summary");
+        var overflow = cut.Find(".tl-detail-hero-genres__overflow-trigger");
         Assert.Equal("+2", overflow.TextContent.Trim());
         Assert.Equal("Show 2 more genres", overflow.GetAttribute("aria-label"));
-        Assert.Equal(2, cut.FindAll("[role='menuitem']").Count);
+        overflow.Click();
+        Assert.Equal(2, popovers.FindAll("[role='menuitem']").Count);
     }
 
     [Fact]
@@ -81,7 +83,7 @@ public sealed class DetailPresentationCapabilityTests : AsyncBunitContext
         Assert.Empty(cut.FindAll(".tl-detail-metadata-row"));
         Assert.DoesNotContain("Audiobook", cut.Markup);
         Assert.Equal(2, cut.FindAll(".tl-detail-hero-genre").Count);
-        Assert.Equal("+2", cut.Find(".tl-detail-hero-genres__overflow summary").TextContent.Trim());
+        Assert.Equal("+2", cut.Find(".tl-detail-hero-genres__overflow-trigger").TextContent.Trim());
     }
 
     [Fact]

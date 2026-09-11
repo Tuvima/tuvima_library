@@ -58,6 +58,7 @@ public sealed partial class WikidataBridgeWorker
     private readonly IMediaOperationTracker? _operationTracker;
     private readonly IEntityCapabilityStateRepository? _capabilityStates;
     private readonly IRetailMatchScoringService? _retailMatchScoring;
+    private readonly IImageEnrichmentService? _imageEnrichment;
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(60);
@@ -98,7 +99,8 @@ public sealed partial class WikidataBridgeWorker
         CollectionFinalizationService? collectionFinalization = null,
         IWorkIdentityReconciliationService? workIdentityReconciliation = null,
         IPipelineExecutionSnapshotProvider? configurationSnapshots = null,
-        IRetailMatchScoringService? retailMatchScoring = null)
+        IRetailMatchScoringService? retailMatchScoring = null,
+        IImageEnrichmentService? imageEnrichment = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -129,6 +131,7 @@ public sealed partial class WikidataBridgeWorker
         _operationTracker = operationTracker;
         _capabilityStates = capabilityStates;
         _retailMatchScoring = retailMatchScoring;
+        _imageEnrichment = imageEnrichment;
 
         // Lease size is read once at construction. A restart applies any
         // config change — same lifetime as every other CoreConfiguration value.

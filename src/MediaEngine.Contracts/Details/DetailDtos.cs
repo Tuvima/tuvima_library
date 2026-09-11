@@ -410,6 +410,10 @@ public sealed class SequenceGroupViewModel
 {
     public string Key { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
+    public string? EntityId { get; init; }
+    public string? ArtworkSmallUrl { get; init; }
+    public string? ArtworkUrl { get; init; }
+    public string? BackgroundArtworkUrl { get; init; }
     public int? TotalKnownItems { get; init; }
     public bool HasAuthoritativeTotal { get; init; }
     public IReadOnlyList<SequenceItemViewModel> Items { get; init; } = [];

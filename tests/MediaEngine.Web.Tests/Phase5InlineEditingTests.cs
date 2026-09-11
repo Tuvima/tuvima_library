@@ -133,6 +133,22 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
+    public void SharedEditor_SupportsSeasonPosterAndThumbInTheSeasonScope()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var scopeService = ReadSource("src/MediaEngine.Api/Services/Metadata/ArtworkScopeService.cs");
+
+        Assert.Contains("SeasonPosterArtworkSlot", code, StringComparison.Ordinal);
+        Assert.Contains("SeasonThumbArtworkSlot", code, StringComparison.Ordinal);
+        Assert.Contains("(\"TV\", \"season\")", code, StringComparison.Ordinal);
+        Assert.Contains("\"SeasonPoster\"", scopeService, StringComparison.Ordinal);
+        Assert.Contains("\"SeasonThumb\"", scopeService, StringComparison.Ordinal);
+        Assert.Contains("GetArtworkThumbnailUrl", shell, StringComparison.Ordinal);
+        Assert.Contains("?size=m", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EditorNavigation_HighlightsEverySelectedMenuItemWithTheSharedState()
     {
         var sharedShell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");

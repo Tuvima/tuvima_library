@@ -187,7 +187,6 @@ public sealed partial class RetailMatchWorker
             groupJobs.Count);
         var showSearch = await _tmdbClient.SearchShowAsync(showName, yearHint, tmdbApiKey, lang, country, ct);
         var tvId = showSearch.TvId;
-        var showPosterPath = showSearch.PosterPath;
         var matchedShowName = showSearch.MatchedShowName;
 
         if (tvId is null)
@@ -247,7 +246,7 @@ public sealed partial class RetailMatchWorker
             try
             {
                 await ApplyTvEpisodeAsync(
-                    job, hints, allEpisodes, tvId, showPosterPath, matchedShowName, showDetails,
+                    job, hints, allEpisodes, tvId, matchedShowName, showDetails,
                     tmdbProvider, retailAcceptThreshold, retailAmbiguousThreshold, tmdbApiKey, lang, country, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -268,7 +267,6 @@ public sealed partial class RetailMatchWorker
         IReadOnlyDictionary<string, string> fileHints,
         IReadOnlyList<(string Season, JsonNode Node)> allEpisodes,
         string tvId,
-        string? showPosterPath,
         string? matchedShowName,
         JsonNode? showDetails,
         IExternalMetadataProvider? tmdbProvider,
@@ -345,9 +343,8 @@ public sealed partial class RetailMatchWorker
         var showName = fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
             ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
         var providerShowName = matchedShowName ?? showName;
-        var showPosterUrl = RetailRequestBuilder.BuildTmdbImageUrl(showPosterPath);
-        var claims = BuildTvShowClaims(showDetails, tvId, providerShowName, showPosterUrl)
-            .Concat(BuildTvEpisodeClaims(bestEpisode, tvId, providerShowName, fileSeason, showPosterUrl))
+        var claims = BuildTvShowClaims(showDetails, tvId, providerShowName)
+            .Concat(BuildTvEpisodeClaims(bestEpisode, tvId, providerShowName, fileSeason))
             .Concat(BuildTmdbSeasonManifestClaims(seasonEpisodes, tvId, providerShowName, fileSeason))
             .ToList();
 
@@ -461,7 +458,10 @@ public sealed partial class RetailMatchWorker
                 },
                 structuralAdjustment),
             BridgeIdsJson = bridgeIdsJson,
-            ImageUrl = showPosterUrl,
+            // Localized TMDB search posters frequently contain embedded title
+            // text. Managed TV artwork is selected later from /images using
+            // the language-neutral poster policy.
+            ImageUrl = null,
             Outcome = decision.Outcome,
         };
 
@@ -601,7 +601,7 @@ public sealed partial class RetailMatchWorker
     /// Includes show-level bridge ID (tmdb_id for the show) so Stage 2 can bridge to Wikidata.
     /// </summary>
     private static IReadOnlyList<ProviderClaim> BuildTvEpisodeClaims(
-        JsonNode episode, string showTvId, string? showName, string season, string? showPosterUrl = null)
+        JsonNode episode, string showTvId, string? showName, string season)
     {
         var claims = new List<ProviderClaim>();
 
@@ -614,8 +614,6 @@ public sealed partial class RetailMatchWorker
         }
 
         Add(MetadataFieldConstants.EpisodeTitle, episode["name"]?.GetValue<string>(), 0.85);
-        Add(MetadataFieldConstants.Cover, showPosterUrl, 0.90);
-
         // For TV, "title" in the system is typically the episode title.
         Add(MetadataFieldConstants.Title, episode["name"]?.GetValue<string>(), 0.80);
         Add(MetadataFieldConstants.EpisodeDescription, episode["overview"]?.GetValue<string>(), 0.85);
@@ -733,7 +731,7 @@ public sealed partial class RetailMatchWorker
     }
 
     private static IReadOnlyList<ProviderClaim> BuildTvShowClaims(
-        JsonNode? showDetails, string showTvId, string? fallbackShowName, string? fallbackPosterUrl)
+        JsonNode? showDetails, string showTvId, string? fallbackShowName)
     {
         var claims = new List<ProviderClaim>();
 
@@ -751,7 +749,6 @@ public sealed partial class RetailMatchWorker
         Add(MetadataFieldConstants.ShortDescription, showDetails?["overview"]?.GetValue<string>(), 0.84);
         Add(MetadataFieldConstants.Tagline, showDetails?["tagline"]?.GetValue<string>(), ClaimConfidence.ProviderNativeTagline);
         Add(MetadataFieldConstants.Network, showDetails?["networks"]?[0]?["name"]?.GetValue<string>(), 0.85);
-        Add(MetadataFieldConstants.Cover, RetailRequestBuilder.BuildTmdbImageUrl(showDetails?["poster_path"]?.GetValue<string>()) ?? fallbackPosterUrl, 0.90);
         Add(BridgeIdKeys.TmdbId, showTvId, 1.0);
         Add(BridgeIdKeys.ImdbId, showDetails?["external_ids"]?["imdb_id"]?.GetValue<string>(), 0.98);
         Add(BridgeIdKeys.TvdbId,

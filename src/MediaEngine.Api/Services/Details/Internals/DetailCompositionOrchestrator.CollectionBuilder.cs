@@ -546,6 +546,7 @@ internal sealed partial class DetailCompositionOrchestrator
         IReadOnlyList<CollectionWorkSummary> works,
         int? expectedTotal,
         IReadOnlyDictionary<string, int>? authoritativeTotalsByContainer,
+        IReadOnlyDictionary<string, SeasonArtworkPresentation>? seasonArtwork,
         Guid? currentWorkId = null)
     {
         if (entityType is not (DetailEntityType.TvShow
@@ -624,18 +625,28 @@ internal sealed partial class DetailCompositionOrchestrator
             ? items
                 .GroupBy(item => item.GroupKey ?? "season-1")
                 .OrderBy(group => SeasonSortOrder(group.Key))
-                .Select(group => new SequenceGroupViewModel
+                .Select(group =>
                 {
+                    var seasonKey = group.Key.Replace("season-", string.Empty, StringComparison.OrdinalIgnoreCase);
+                    SeasonArtworkPresentation? presentation = null;
+                    seasonArtwork?.TryGetValue(seasonKey, out presentation);
+                    return new SequenceGroupViewModel
+                    {
                     Key = group.Key,
                     Title = group.First().GroupTitle ?? "Season 1",
+                    EntityId = presentation?.EntityId,
+                    ArtworkSmallUrl = presentation?.ArtworkSmallUrl,
+                    ArtworkUrl = presentation?.ArtworkUrl,
+                    BackgroundArtworkUrl = presentation?.BackgroundArtworkUrl,
                     TotalKnownItems = authoritativeTotalsBySeason.TryGetValue(
-                        group.Key.Replace("season-", string.Empty, StringComparison.OrdinalIgnoreCase),
+                        seasonKey,
                         out var groupTotal)
                             ? groupTotal
                             : group.Count(),
                     HasAuthoritativeTotal = authoritativeTotalsBySeason.ContainsKey(
-                        group.Key.Replace("season-", string.Empty, StringComparison.OrdinalIgnoreCase)),
+                        seasonKey),
                     Items = group.OrderBy(item => item.PositionSort ?? double.MaxValue).ToList(),
+                    };
                 })
                 .ToList()
             : [];

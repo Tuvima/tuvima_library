@@ -329,6 +329,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("GetValue(values, \"video_quality\")", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Rating)", source);
         Assert.Contains("FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber)", source);
+        Assert.Contains("LoadTvSeriesLogoForEpisodeAsync", source);
+        Assert.Contains("episodeSeriesLogoUrl", source);
         Assert.Contains("DetailEntityType.TvEpisode => BuildWatchActions($\"/watch/player/{id}\"", source);
         Assert.Contains("SelectFirstOwnedTvEpisode", source);
         Assert.Contains("SelectInProgressTvEpisode", source);
@@ -336,6 +338,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("/watch/player/{episodeId:D}", source);
         Assert.Contains("var tvPlaybackEpisode = tvInProgressEpisode ??", source);
         Assert.Contains("var tvInProgressEpisode = entityType == DetailEntityType.TvShow", source);
+        Assert.Contains("LoadTvSeasonArtworkAsync", source);
+        Assert.Contains("ArtworkSmallUrl = presentation?.ArtworkSmallUrl", source);
         Assert.Contains("Tagline = entityType == DetailEntityType.TvShow", source);
         Assert.Contains("tvInProgressEpisode?.Description", source);
         Assert.Contains("tvInProgressEpisode?.BackgroundUrl", source);

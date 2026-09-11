@@ -783,7 +783,7 @@ public static partial class MetadataEndpoints
                     providerName: "Metadata provider"));
             }
 
-            var result = await imageEnrichment.EnrichWorkImagesAsync(
+            var result = await imageEnrichment.RefreshWorkImagesAsync(
                 representativeAssetId,
                 target.WorkQid,
                 ct);

@@ -2,26 +2,25 @@
 
 <div class="@TriggerRootClass"
      data-app-dismissible="@(_open ? "open" : null)"
+     data-app-popover-id="@(_open ? _popoverId : null)"
      @onkeydown="HandleKeyDown"
      @onclick:stopPropagation="true"
      @onpointerdown:stopPropagation="true">
-    @if (_open)
-    {
-        <button type="button"
-                class="app-overflow-menu__backdrop"
-                tabindex="-1"
-                aria-hidden="true"
-                @onclick="Close"></button>
-    }
+    <button type="button" hidden data-app-dismiss @onclick="Close"></button>
+    <button type="button" hidden data-app-dismiss-restore @onclick="CloseAndRestoreAsync"></button>
 
-    <button type="button"
+    <button @ref="_trigger"
+            type="button"
             class="@ActivatorClass"
             aria-label="@EffectiveAriaLabel"
             aria-haspopup="menu"
             aria-expanded="@_open"
             aria-controls="@(_open ? _popoverId : null)"
             @onclick="Toggle">
-        <MudIcon Icon="@Icon" />
+        @if (ShowIcon)
+        {
+            <MudIcon Icon="@Icon" />
+        }
         @if (!string.IsNullOrWhiteSpace(Label))
         {
             <span>@Label</span>
@@ -30,17 +29,25 @@
 
     @if (_open)
     {
-        <div id="@_popoverId" class="@EffectivePopoverClass" role="menu" aria-label="@EffectiveAriaLabel" @onclick="Close">
-            @ChildContent
-        </div>
+        <MudPopover Open="true"
+                    AnchorOrigin="@AnchorOrigin"
+                    TransformOrigin="@TransformOrigin"
+                    OverflowBehavior="OverflowBehavior.FlipOnOpen"
+                    Class="@EffectivePopoverClass">
+            <div id="@_popoverId" class="app-overflow-menu__content" role="menu" aria-label="@EffectiveAriaLabel" @onclick="Close">
+                @ChildContent
+            </div>
+        </MudPopover>
     }
 </div>
 
 @code {
     private bool _open;
+    private ElementReference _trigger;
     private readonly string _popoverId = $"app-context-menu-{Guid.NewGuid():N}";
 
     [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.MoreVert;
+    [Parameter] public bool ShowIcon { get; set; } = true;
     [Parameter] public string? Label { get; set; }
     [Parameter] public string? AriaLabel { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
@@ -74,9 +81,16 @@
     private void Toggle() => _open = !_open;
     private void Close() => _open = false;
 
+    private async Task CloseAndRestoreAsync()
+    {
+        _open = false;
+        await InvokeAsync(StateHasChanged);
+        await _trigger.FocusAsync();
+    }
+
     private void HandleKeyDown(KeyboardEventArgs args)
     {
         if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
-            _open = false;
+            _ = CloseAndRestoreAsync();
     }
 }

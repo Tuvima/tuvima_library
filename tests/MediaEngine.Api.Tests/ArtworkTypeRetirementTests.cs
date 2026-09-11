@@ -25,4 +25,12 @@ public sealed class ArtworkTypeRetirementTests
     {
         Assert.Null(ArtworkScopeService.NormalizeUploadedArtworkType(value));
     }
+
+    [Fact]
+    public void TvSeasonScope_ExposesOnlySeasonArtwork()
+    {
+        var slots = ArtworkScopeService.GetScopedArtworkSlots("TV", "season");
+
+        Assert.Equal(["SeasonPoster", "SeasonThumb"], slots);
+    }
 }

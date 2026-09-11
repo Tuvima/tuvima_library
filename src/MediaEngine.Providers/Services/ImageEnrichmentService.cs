@@ -62,7 +62,17 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         _logger = logger;
     }
 
-    public async Task<ImageEnrichmentResult> EnrichWorkImagesAsync(Guid assetId, string? workQid, CancellationToken ct = default)
+    public Task<ImageEnrichmentResult> EnrichWorkImagesAsync(Guid assetId, string? workQid, CancellationToken ct = default) =>
+        EnrichWorkImagesCoreAsync(assetId, workQid, forceRefresh: false, ct);
+
+    public Task<ImageEnrichmentResult> RefreshWorkImagesAsync(Guid assetId, string? workQid, CancellationToken ct = default) =>
+        EnrichWorkImagesCoreAsync(assetId, workQid, forceRefresh: true, ct);
+
+    private async Task<ImageEnrichmentResult> EnrichWorkImagesCoreAsync(
+        Guid assetId,
+        string? workQid,
+        bool forceRefresh,
+        CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         var checkedAt = DateTimeOffset.UtcNow;
@@ -83,11 +93,17 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             return await PersistDiagnosticsAsync(context, CreateResult("Skipped", checkedAt, mediaType, BridgeIdKeys.TmdbId, tmdbId,
                 skippedReason: "missing_api_key", message: "TMDB is not configured."), ct);
 
+        var metadataLanguage = ResolveMetadataLanguage();
+
         var endpoint = context.MediaType == MediaType.Movies
             ? $"{TmdbApiBaseUrl}/movie/{Uri.EscapeDataString(tmdbId)}/images"
             : $"{TmdbApiBaseUrl}/tv/{Uri.EscapeDataString(tmdbId)}/images";
-        var response = await GetImagesAsync(endpoint, apiKey, ct).ConfigureAwait(false);
-        if (response.Json is null)
+        var rootAlreadyChecked = !forceRefresh
+            && !string.IsNullOrWhiteSpace(GetValue(canonicals, "tmdb_artwork_last_checked_at"));
+        var response = rootAlreadyChecked
+            ? (Json: (JsonNode?)null, Status: "Completed", HttpStatusCode: (int?)null, SkippedReason: (string?)null, Message: (string?)null)
+            : await GetImagesAsync(endpoint, apiKey, metadataLanguage, ct).ConfigureAwait(false);
+        if (!rootAlreadyChecked && response.Json is null)
             return await PersistDiagnosticsAsync(context, CreateResult(response.Status, checkedAt, mediaType, BridgeIdKeys.TmdbId, tmdbId,
                 endpoint, response.HttpStatusCode, response.SkippedReason, response.Message), ct);
 
@@ -96,8 +112,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         var owner = context.MediaType == MediaType.TV ? context.RootWorkId : context.SelfWorkId;
         foreach (var mapping in RootMappings)
         {
-            var processed = await ProcessRankedImagesAsync(response.Json[mapping.JsonField]?.AsArray() ?? [], mapping.AssetType,
-                owner, mapping.UpdatePreferred, ct).ConfigureAwait(false);
+            var processed = await ProcessRankedImagesAsync(response.Json?[mapping.JsonField]?.AsArray() ?? [], mapping.AssetType,
+                owner, mapping.UpdatePreferred, metadataLanguage, ct).ConfigureAwait(false);
             AddCount(counts, mapping.AssetType, processed.StoredCount);
             preferredUpdates += processed.UpdatedPreferredCount;
         }
@@ -112,19 +128,48 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             preferredUpdates += processed.UpdatedPreferredCount;
         }
 
-        if (context.MediaType == MediaType.TV && context.SeasonWorkId.HasValue && context.SeasonNumber.HasValue)
+        if (context.MediaType == MediaType.TV)
         {
-            var seasonEndpoint = $"{TmdbApiBaseUrl}/tv/{Uri.EscapeDataString(tmdbId)}/season/{context.SeasonNumber.Value}/images";
-            var seasonResponse = await GetImagesAsync(seasonEndpoint, apiKey, ct).ConfigureAwait(false);
-            if (seasonResponse.Json is not null)
+            foreach (var season in await ResolveRepresentedSeasonsAsync(context, ct).ConfigureAwait(false))
             {
+                var seasonCanonicals = await _canonicalRepo.GetByEntityAsync(season.WorkId, ct).ConfigureAwait(false);
+                if (!forceRefresh && seasonCanonicals.Any(value =>
+                        string.Equals(value.Key, "tmdb_season_artwork_last_checked_at", StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                var seasonEndpoint = $"{TmdbApiBaseUrl}/tv/{Uri.EscapeDataString(tmdbId)}/season/{season.SeasonNumber}/images";
+                var seasonResponse = await GetImagesAsync(seasonEndpoint, apiKey, metadataLanguage, ct).ConfigureAwait(false);
+                if (seasonResponse.Json is null)
+                {
+                    continue;
+                }
+
                 foreach (var mapping in SeasonMappings)
                 {
-                    var processed = await ProcessRankedImagesAsync(seasonResponse.Json[mapping.JsonField]?.AsArray() ?? [], mapping.AssetType,
-                        context.SeasonWorkId.Value, updatePreferred: true, ct).ConfigureAwait(false);
+                    var processed = await ProcessRankedImagesAsync(
+                        seasonResponse.Json[mapping.JsonField]?.AsArray() ?? [],
+                        mapping.AssetType,
+                        season.WorkId,
+                        updatePreferred: true,
+                        metadataLanguage,
+                        ct).ConfigureAwait(false);
                     AddCount(counts, mapping.AssetType, processed.StoredCount);
                     preferredUpdates += processed.UpdatedPreferredCount;
                 }
+
+                await _canonicalRepo.UpsertBatchAsync(
+                [
+                    new CanonicalValue
+                    {
+                        EntityId = season.WorkId,
+                        Key = "tmdb_season_artwork_last_checked_at",
+                        Value = checkedAt.ToString("O", CultureInfo.InvariantCulture),
+                        LastScoredAt = checkedAt,
+                        WinningProviderId = WellKnownProviders.Tmdb,
+                    },
+                ], ct).ConfigureAwait(false);
             }
         }
 
@@ -136,18 +181,19 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     }
 
     private static readonly ArtworkMapping[] RootMappings =
-    [new("backdrops", AssetType.Background, true), new("logos", AssetType.Logo, true), new("posters", AssetType.CoverArt, false)];
+    [new("backdrops", AssetType.Background, true), new("logos", AssetType.Logo, true), new("posters", AssetType.CoverArt, true)];
     private static readonly ArtworkMapping[] SeasonMappings =
     [new("posters", AssetType.SeasonPoster, true), new("backdrops", AssetType.SeasonThumb, true)];
     private static readonly BrandArtworkMapping[] BrandMappings =
     [new("network_logo_url", AssetType.NetworkLogo), new("studio_logo_url", AssetType.StudioLogo)];
 
     private async Task<ImageAssetProcessingResult> ProcessRankedImagesAsync(IEnumerable<JsonNode?> imageNodes, AssetType assetType,
-        Guid ownerEntityId, bool updatePreferred, CancellationToken ct)
+        Guid ownerEntityId, bool updatePreferred, string metadataLanguage, CancellationToken ct)
     {
         var ranked = imageNodes.Where(node => node is not null && !string.IsNullOrWhiteSpace(node!["file_path"]?.GetValue<string>()))
             .Where(node => IsCompatibleImage(node!, assetType))
-            .OrderByDescending(node => LanguageRank(node!["iso_639_1"]?.GetValue<string>(), assetType))
+            .Where(node => IsAllowedLanguage(node!["iso_639_1"]?.GetValue<string>(), assetType, metadataLanguage))
+            .OrderByDescending(node => LanguageRank(node!["iso_639_1"]?.GetValue<string>(), assetType, metadataLanguage))
             .ThenByDescending(node => node!["vote_average"]?.GetValue<double?>() ?? 0)
             .ThenByDescending(node => node!["vote_count"]?.GetValue<int?>() ?? 0)
             .ThenByDescending(node => (node!["width"]?.GetValue<int?>() ?? 0) * (node!["height"]?.GetValue<int?>() ?? 0))
@@ -241,9 +287,13 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         return new ImageAssetProcessingResult(existing.LocalImagePath, stored, currentPreferred?.Id == existing.Id ? 0 : 1);
     }
 
-    private async Task<(JsonNode? Json, string Status, int? HttpStatusCode, string? SkippedReason, string? Message)> GetImagesAsync(string endpoint, string apiKey, CancellationToken ct)
+    private async Task<(JsonNode? Json, string Status, int? HttpStatusCode, string? SkippedReason, string? Message)> GetImagesAsync(
+        string endpoint,
+        string apiKey,
+        string metadataLanguage,
+        CancellationToken ct)
     {
-        var url = $"{endpoint}?include_image_language=en,null&api_key={Uri.EscapeDataString(apiKey)}";
+        var url = $"{endpoint}?include_image_language={Uri.EscapeDataString(metadataLanguage)},null&api_key={Uri.EscapeDataString(apiKey)}";
         try
         {
             using var client = _httpFactory.CreateClient(TmdbProviderName);
@@ -319,6 +369,59 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         return values;
     }
 
+    private async Task<IReadOnlyList<SeasonArtworkTarget>> ResolveRepresentedSeasonsAsync(
+        ArtworkContext context,
+        CancellationToken ct)
+    {
+        var targets = new Dictionary<Guid, SeasonArtworkTarget>();
+        foreach (var child in await _workRepo.GetDirectChildrenAsync(context.RootWorkId, ct).ConfigureAwait(false))
+        {
+            if (child.IsCatalogOnly || child.WorkKind != WorkKind.Parent)
+            {
+                continue;
+            }
+
+            var seasonNumber = child.Ordinal;
+            if (!seasonNumber.HasValue)
+            {
+                var canonicals = await _canonicalRepo.GetByEntityAsync(child.WorkId, ct).ConfigureAwait(false);
+                var value = canonicals.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Key, MetadataFieldConstants.SeasonNumber, StringComparison.OrdinalIgnoreCase))?.Value;
+                seasonNumber = int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                    ? parsed
+                    : null;
+            }
+
+            if (seasonNumber.HasValue)
+            {
+                targets[child.WorkId] = new SeasonArtworkTarget(child.WorkId, seasonNumber.Value);
+            }
+        }
+
+        if (context.SeasonWorkId is { } currentSeasonId
+            && context.SeasonNumber is { } currentSeasonNumber)
+        {
+            targets.TryAdd(currentSeasonId, new SeasonArtworkTarget(currentSeasonId, currentSeasonNumber));
+        }
+
+        return targets.Values.OrderBy(target => target.SeasonNumber).ToList();
+    }
+
+    private string ResolveMetadataLanguage()
+    {
+        var configured = _configLoader.LoadCore().Language.Metadata;
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            return "en";
+        }
+
+        return configured.Split('-', '_')[0].Trim().ToLowerInvariant() switch
+        {
+            "" => "en",
+            var language => language,
+        };
+    }
+
     private async Task<string?> ResolveTmdbApiKeyAsync(CancellationToken ct)
     {
         var config = _configLoader.LoadProvider(TmdbProviderName);
@@ -361,7 +464,26 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         var ratio = width / (double)height;
         return assetType switch { AssetType.Background or AssetType.SeasonThumb => ratio >= 1.35, AssetType.CoverArt or AssetType.SeasonPoster => ratio <= .9, _ => true };
     }
-    private static int LanguageRank(string? language, AssetType type) => string.Equals(language, "en", StringComparison.OrdinalIgnoreCase) ? 3 : string.IsNullOrWhiteSpace(language) ? (type == AssetType.Logo ? 2 : 1) : 0;
+    private static bool IsAllowedLanguage(string? language, AssetType type, string metadataLanguage) =>
+        type switch
+        {
+            AssetType.CoverArt or AssetType.SeasonPoster => string.IsNullOrWhiteSpace(language),
+            AssetType.Logo or AssetType.Background or AssetType.SeasonThumb =>
+                string.IsNullOrWhiteSpace(language)
+                || string.Equals(language, metadataLanguage, StringComparison.OrdinalIgnoreCase),
+            _ => true,
+        };
+
+    private static int LanguageRank(string? language, AssetType type, string metadataLanguage) =>
+        type switch
+        {
+            AssetType.Logo when string.Equals(language, metadataLanguage, StringComparison.OrdinalIgnoreCase) => 3,
+            AssetType.Logo when string.IsNullOrWhiteSpace(language) => 2,
+            AssetType.Background or AssetType.SeasonThumb when string.IsNullOrWhiteSpace(language) => 3,
+            AssetType.Background or AssetType.SeasonThumb when string.Equals(language, metadataLanguage, StringComparison.OrdinalIgnoreCase) => 2,
+            AssetType.CoverArt or AssetType.SeasonPoster when string.IsNullOrWhiteSpace(language) => 3,
+            _ => 0,
+        };
     private static string BuildImageUrl(string filePath) => $"{TmdbImageBaseUrl}/{filePath.TrimStart('/')}";
     private static string InferExtension(string url) => url.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? ".png" : ".jpg";
     private static string OwnerScope(AssetType type) => type is AssetType.SeasonPoster or AssetType.SeasonThumb ? "Season" : "Work";
@@ -372,4 +494,5 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private sealed record BrandArtworkMapping(string CanonicalKey, AssetType AssetType);
     private sealed record ImageAssetProcessingResult(string? PreferredLocalPath, int StoredCount, int UpdatedPreferredCount) { public static readonly ImageAssetProcessingResult Empty = new(null, 0, 0); }
     private sealed record ArtworkContext(Guid AssetId, Guid SelfWorkId, Guid RootWorkId, Guid? SeasonWorkId, int? SeasonNumber, MediaType MediaType);
+    private sealed record SeasonArtworkTarget(Guid WorkId, int SeasonNumber);
 }

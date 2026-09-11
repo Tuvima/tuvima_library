@@ -4974,21 +4974,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     z-index: var(--tl-z-popover, 1600);
 }
 
-.app-overflow-menu__backdrop {
-    position: fixed;
-    z-index: calc(var(--tl-z-popover, 1600) - 1);
-    inset: 0;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    cursor: default;
-}
-
 .app-overflow-menu__popover {
-    position: absolute;
-    z-index: var(--tl-z-popover, 1600);
-    top: calc(100% + 0.42rem);
-    right: 0;
     width: max-content;
     min-width: 8.75rem;
     max-width: min(16rem, calc(100vw - 1rem));
@@ -5001,9 +4987,15 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     backdrop-filter: blur(16px) saturate(115%);
 }
 
-.app-overflow-menu__popover--left {
-    right: auto;
-    left: 0;
+.app-overflow-menu__content {
+    display: grid;
+    min-width: inherit;
+}
+
+.tl-detail-hero-genres__menu.mud-popover {
+    min-width: 12rem !important;
+    max-height: min(18rem, 38svh) !important;
+    overflow-y: auto !important;
 }
 
 .app-menu-popover .mud-paper,
