@@ -1,0 +1,2135 @@
+[
+  {
+    "name": "book-dune",
+    "path": "/details/work/c4305a9b-46cf-4b32-8b13-9a82bc6ad31f?context=read",
+    "finalUrl": "http://localhost:5016/details/work/c4305a9b-46cf-4b32-8b13-9a82bc6ad31f?context=read",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-book-dune.png",
+    "navigationError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "responseErrors": [],
+    "title": "Dune - Tuvima Library",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\n\nDUNE · BOOK 1\n\nDune\nAUTHOR\nFrank Herbert\n1965\n·\n4.5\nsoft science fiction\nplanetary romance\n+9\nRead\nMy List\nRate\nMore\n\nDune is a 1965 epic science fiction novel by American author Frank Herbert, originally published as two separate serials (1963–64 novel Dune World and 1965 novel Prophet of Dune) in Analog magazine. It tied with Roger Zelazny's This Immortal for the Hugo Award for Best Novel and won the inaugural Nebula Award for Best Novel in 1966. It is the first installment of the Dune Chronicles. It is one of the world's best-selling science fiction novels.\n\n(more in overview)\nOverview\nCredits\nUniverse\nRelated\nDetails\nShow missing\nDUNE\n1\nDune\n1975\n1 owned\nOVERVIEW\n\nDune is a 1965 epic science fiction novel by American author Frank Herbert, originally published as two separate serials (1963–64 novel Dune World and 1965 novel Prophet of Dune) in Analog magazine. It tied with Roger Zelazny's This Immortal for the Hugo Award for Best Novel and won the inaugural Nebula Award for Best Novel in 1966. It is the first installment of the Dune Chronicles. It is one of the world's best-selling science fiction novels.\n\nDune is set in the distant future in a feudal interstellar society, descended from terrestrial humans, in which various noble houses control planetary fiefs. It tells the story of young Paul Atreides, whose family reluctantly accepts the stewardship of the planet Arrakis. While the planet is an inhospitable and sparsely populated desert wasteland, it is the only source of melange or \"spice\", an enormously valuable drug that extends life and enhances mental abilities. Melange is also necessary for space navigation, which requires a kind of multidimensional awareness and foresight that only the drug provides. As melange can only be produced on Arrakis, control of the planet is a coveted and dangerous undertaking. The story explores the multilayered interactions of politics, religion, ecology, technology, and human emotion as the factions of the empire confront each other in a struggle for the control of Arrakis and its spice.\n\nHerbert wrote five sequels: Dune Messiah, Children of Dune, God Emperor of Dune, Heretics of Dune, and Chapterhouse: Dune. Following Herbert's death in 1986, his son Brian Herbert and author Kevin J. Anderson continued the series in over a dozen additional novels since 1999.\n\nAdaptations of the novel to cinema have been notoriously difficult and complicated. In the 1970s, cult filmmaker Alejandro Jodorowsky attempted to make a film based on the novel. After three years of development, the project was canceled due to a constantly growing budget. In 1984, a film adaptation directed by David Lynch was released to mostly negative responses from critics and failure at the box office, although it later developed a cult following. The book was also adapted into the 2000 Sci-Fi Channel miniseries Frank Herbert's Dune. A second film adaptation, directed by Denis Villeneuve, was released on October 21, 2021, to positive reviews. It went on to be nominated for ten Academy Awards, including Best Picture, ultimately winning six. Villeneuve's film covers roughly the first half of the original novel; a sequel, which covers the second half, was released on March 1, 2024, to critical acclaim. A third film is set to release on December 18, 2026, based on Dune Messiah, the sequel to Dune.\n\nWikipedia: article text\ntext is available under\nCC BY-SA 4.0\n;\nadditional terms may apply.\nRetrieved Sep 10, 2026.\n\nCREDITS\nView full credits\nAUTHORS\nFrank Herbert\nAuthor",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "https://is1-ssl.mzstatic.com/image/thumb/Publication122/v4/85/70/2f/85702f34-2982-e2ee-d883-b5ffc3ae0897/9781101658055.d.jpg/9999x9999bb.jpg",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-media-stage__cover"
+      },
+      {
+        "alt": "Dune",
+        "src": "http://localhost:5016/engine-image/stream/1716a783-0c40-4666-8ec9-d13341a83bf9/cover",
+        "naturalWidth": 1466,
+        "naturalHeight": 2625,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Frank Herbert",
+        "src": "http://localhost:5016/engine-image/persons/857c9756-8144-45b4-8f6f-b3bac018d494/headshot",
+        "naturalWidth": 827,
+        "naturalHeight": 827,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg app-bg--cinematic",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-appbar mud-appbar-dense mud-appbar-fixed-top mud-elevation-0 layout-shell__appbar layout-shell__appbar--cinematic",
+        "backgroundImage": "linear-gradient(rgba(3, 6, 12, 0.7) 0%, rgba(3, 6, 12, 0.34) 62%, rgba(0, 0, 0, 0) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page",
+        "backgroundImage": "radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), rgba(0, 0, 0, 0) 420px), radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), rgba(0, 0, 0, 0) 336px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage tl-detail-stage--with-primary tl-detail-stage--primary-after-navigation tl-detail-stage--bookish",
+        "backgroundImage": "radial-gradient(circle at 76% 34%, color(srgb 0.545098 0.360784 0.964706 / 0.18), rgba(0, 0, 0, 0) 532px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage tl-detail-hero__stage tl-detail-media-stage--artwork-fallback tl-detail-media-stage--cover-fallback tl-detail-media-stage--book",
+        "backgroundImage": "radial-gradient(circle at 72% 42%, rgba(139, 92, 246, 0.11), rgba(0, 0, 0, 0) 434px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__cover-atmosphere tl-detail-media-stage__cover-atmosphere",
+        "backgroundImage": "url(\"https://is1-ssl.mzstatic.com/image/thumb/Publication122/v4/85/70/2f/85702f34-2982-e2ee-d883-b5ffc3ae0897/9781101658055.d.jpg/9999x9999bb.jpg\")",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__overlays tl-detail-media-stage__overlay",
+        "backgroundImage": "linear-gradient(to right, rgba(4, 7, 12, 0.96) 0%, rgba(4, 7, 12, 0.88) 22%, rgba(4, 7, 12, 0.62) 42%, rgba(4, 7, 12, 0.28) 62%, rgba(4, 7, 12, 0.08) 78%, rgba(0, 0, 0, 0) 100%), radial-gradient(at 72% 42%, rgba(139, 92, 246, 0.28) 0%, rgba(139, 92, 246, 0.14) 24%, rgba(139, 92, 246, 0.04) 48%, rgba(0, 0, 0, 0) 72%), linear-gradient(rgba(0, 0, 0, 0) 45%, rgba(4, 7, 12, 0.52) 76%, rgba(4, 7, 12, 0.95) 100%), radial-gradient(rgba(0, 0, 0, 0) 42%, rgba(4, 7, 12, 0.28) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage__book-pages",
+        "backgroundImage": "repeating-linear-gradient(90deg, rgb(244, 239, 226) 0px, rgb(244, 239, 226) 2px, rgb(217, 208, 189) 2px, rgb(217, 208, 189) 4px), linear-gradient(90deg, rgb(239, 231, 215), rgb(184, 173, 153))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage__book-spine",
+        "backgroundImage": "linear-gradient(90deg, rgba(0, 0, 0, 0.36), rgba(0, 0, 0, 0))",
+        "displayed": true
+      },
+      {
+        "className": "tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--read ",
+        "backgroundImage": "radial-gradient(circle at 22% 8%, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0) 42%), linear-gradient(135deg, color(srgb 0.558902 0.378353 0.964706) 0%, rgb(139, 92, 246) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage__navigation",
+        "backgroundImage": "linear-gradient(rgba(5, 8, 14, 0.16), rgba(5, 8, 14, 0.54))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page__primary-content",
+        "backgroundImage": "radial-gradient(circle at 72% 5%, color(srgb 0.545098 0.360784 0.964706 / 0.09), rgba(0, 0, 0, 0) 616px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-body",
+        "backgroundImage": "linear-gradient(rgb(8, 13, 20), rgb(7, 11, 17) 560px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 137, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 83, 113), rgb(51, 25, 67))",
+        "displayed": true
+      }
+    ],
+    "brokenImages": [
+      {
+        "alt": "",
+        "src": "https://is1-ssl.mzstatic.com/image/thumb/Publication122/v4/85/70/2f/85702f34-2982-e2ee-d883-b5ffc3ae0897/9781101658055.d.jpg/9999x9999bb.jpg",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-media-stage__cover"
+      }
+    ]
+  },
+  {
+    "name": "audiobook-dune",
+    "path": "/details/work/ed9f91ae-da4d-43db-848d-ea81ad4fa2d4?context=listen",
+    "finalUrl": "http://localhost:5016/details/work/ed9f91ae-da4d-43db-848d-ea81ad4fa2d4?context=listen",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-audiobook-dune.png",
+    "navigationError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "responseErrors": [],
+    "title": "Dune - Tuvima Library",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\n\nDUNE · AUDIOBOOK 1\n\nDune\nAUTHOR\nFrank Herbert\nNARRATOR\nSimon Vance\n1965\nAudiobook\nListen\nMy List\nRate\nMore\n\nDune is a 1965 epic science fiction novel by American author Frank Herbert, originally published as two separate serials (1963–64 novel Dune World and 1965 novel Prophet of Dune) in Analog magazine. It tied with Roger Zelazny's This Immortal for the Hugo Award for Best Novel and won the inaugural Nebula Award for Best Novel in 1966. It is the first installment of the Dune Chronicles. It is one of the world's best-selling science fiction novels.\n\n(more in overview)\nOverview\nTracks\nDetails\nShow missing\nDUNE\n1\nDune\n2007\n1 owned\nOVERVIEW\n\nDune is a 1965 epic science fiction novel by American author Frank Herbert, originally published as two separate serials (1963–64 novel Dune World and 1965 novel Prophet of Dune) in Analog magazine. It tied with Roger Zelazny's This Immortal for the Hugo Award for Best Novel and won the inaugural Nebula Award for Best Novel in 1966. It is the first installment of the Dune Chronicles. It is one of the world's best-selling science fiction novels.\n\nDune is set in the distant future in a feudal interstellar society, descended from terrestrial humans, in which various noble houses control planetary fiefs. It tells the story of young Paul Atreides, whose family reluctantly accepts the stewardship of the planet Arrakis. While the planet is an inhospitable and sparsely populated desert wasteland, it is the only source of melange or \"spice\", an enormously valuable drug that extends life and enhances mental abilities. Melange is also necessary for space navigation, which requires a kind of multidimensional awareness and foresight that only the drug provides. As melange can only be produced on Arrakis, control of the planet is a coveted and dangerous undertaking. The story explores the multilayered interactions of politics, religion, ecology, technology, and human emotion as the factions of the empire confront each other in a struggle for the control of Arrakis and its spice.\n\nHerbert wrote five sequels: Dune Messiah, Children of Dune, God Emperor of Dune, Heretics of Dune, and Chapterhouse: Dune. Following Herbert's death in 1986, his son Brian Herbert and author Kevin J. Anderson continued the series in over a dozen additional novels since 1999.\n\nAdaptations of the novel to cinema have been notoriously difficult and complicated. In the 1970s, cult filmmaker Alejandro Jodorowsky attempted to make a film based on the novel. After three years of development, the project was canceled due to a constantly growing budget. In 1984, a film adaptation directed by David Lynch was released to mostly negative responses from critics and failure at the box office, although it later developed a cult following. The book was also adapted into the 2000 Sci-Fi Channel miniseries Frank Herbert's Dune. A second film adaptation, directed by Denis Villeneuve, was released on October 21, 2021, to positive reviews. It went on to be nominated for ten Academy Awards, including Best Picture, ultimately winning six. Villeneuve's film covers roughly the first half of the original novel; a sequel, which covers the second half, was released on March 1, 2024, to critical acclaim. A third film is set to release on December 18, 2026, based on Dune Messiah, the sequel to Dune.\n\nWikipedia: article text\ntext is available under\nCC BY-SA 4.0\n;\nadditional terms may apply.\nRetrieved Sep 10, 2026.\n\nCREDITS\nAUTHORS\nFrank Herbert\nAuthor\nNARRATORS\nSimon Vance\nNarrator",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/6a/c7/3a/6ac73abf-9b1c-0869-b9f0-3cc93de3f805/9781427201447.jpg/9999x9999bb.jpg",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-media-stage__cover"
+      },
+      {
+        "alt": "Dune",
+        "src": "http://localhost:5016/engine-image/stream/3907609b-8a60-4364-92cc-a58f3f605ff8/cover",
+        "naturalWidth": 3000,
+        "naturalHeight": 3000,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Frank Herbert",
+        "src": "http://localhost:5016/engine-image/persons/857c9756-8144-45b4-8f6f-b3bac018d494/headshot",
+        "naturalWidth": 827,
+        "naturalHeight": 827,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Simon Vance",
+        "src": "http://localhost:5016/engine-image/persons/ecca5a57-ffae-4863-8ab5-f20c5f7952b2/headshot",
+        "naturalWidth": 480,
+        "naturalHeight": 640,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg app-bg--cinematic",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-appbar mud-appbar-dense mud-appbar-fixed-top mud-elevation-0 layout-shell__appbar layout-shell__appbar--cinematic",
+        "backgroundImage": "linear-gradient(rgba(3, 6, 12, 0.7) 0%, rgba(3, 6, 12, 0.34) 62%, rgba(0, 0, 0, 0) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page",
+        "backgroundImage": "radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), rgba(0, 0, 0, 0) 420px), radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), rgba(0, 0, 0, 0) 336px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage tl-detail-stage--with-primary tl-detail-stage--primary-after-navigation tl-detail-stage--audiobook",
+        "backgroundImage": "radial-gradient(circle at 76% 34%, color(srgb 0.545098 0.360784 0.964706 / 0.18), rgba(0, 0, 0, 0) 532px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage tl-detail-hero__stage tl-detail-media-stage--artwork-fallback tl-detail-media-stage--cover-fallback tl-detail-media-stage--audiobook",
+        "backgroundImage": "radial-gradient(circle at 72% 42%, rgba(139, 92, 246, 0.11), rgba(0, 0, 0, 0) 434px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__cover-atmosphere tl-detail-media-stage__cover-atmosphere",
+        "backgroundImage": "url(\"https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/6a/c7/3a/6ac73abf-9b1c-0869-b9f0-3cc93de3f805/9781427201447.jpg/9999x9999bb.jpg\")",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__overlays tl-detail-media-stage__overlay",
+        "backgroundImage": "linear-gradient(to right, rgba(4, 7, 12, 0.96) 0%, rgba(4, 7, 12, 0.88) 22%, rgba(4, 7, 12, 0.62) 42%, rgba(4, 7, 12, 0.28) 62%, rgba(4, 7, 12, 0.08) 78%, rgba(0, 0, 0, 0) 100%), radial-gradient(at 72% 42%, rgba(139, 92, 246, 0.28) 0%, rgba(139, 92, 246, 0.14) 24%, rgba(139, 92, 246, 0.04) 48%, rgba(0, 0, 0, 0) 72%), linear-gradient(rgba(0, 0, 0, 0) 45%, rgba(4, 7, 12, 0.52) 76%, rgba(4, 7, 12, 0.95) 100%), radial-gradient(rgba(0, 0, 0, 0) 42%, rgba(4, 7, 12, 0.28) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--listen ",
+        "backgroundImage": "radial-gradient(circle at 22% 8%, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0) 42%), linear-gradient(135deg, color(srgb 0.558902 0.378353 0.964706) 0%, rgb(139, 92, 246) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage__navigation",
+        "backgroundImage": "linear-gradient(rgba(5, 8, 14, 0.16), rgba(5, 8, 14, 0.54))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page__primary-content",
+        "backgroundImage": "radial-gradient(circle at 72% 5%, color(srgb 0.545098 0.360784 0.964706 / 0.09), rgba(0, 0, 0, 0) 616px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-body",
+        "backgroundImage": "linear-gradient(rgb(8, 13, 20), rgb(7, 11, 17) 560px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 137, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 83, 113), rgb(51, 25, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 235, 190, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 113, 42), rgb(25, 57, 67))",
+        "displayed": true
+      }
+    ],
+    "brokenImages": [
+      {
+        "alt": "",
+        "src": "https://is1-ssl.mzstatic.com/image/thumb/Music122/v4/6a/c7/3a/6ac73abf-9b1c-0869-b9f0-3cc93de3f805/9781427201447.jpg/9999x9999bb.jpg",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-media-stage__cover"
+      }
+    ]
+  },
+  {
+    "name": "comic-akira",
+    "path": "/details/comicseries/c01a01d6-043d-4fbc-b791-0778470c6b46?context=comics",
+    "finalUrl": "http://localhost:5016/details/comicseries/c01a01d6-043d-4fbc-b791-0778470c6b46?context=comics",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-comic-akira.png",
+    "navigationError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "responseErrors": [],
+    "title": "Akira - Tuvima Library",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\nAkira\nShuffle\nMore\n\nAkira (Japanese: アキラ; stylized as AKIRA) is a Japanese manga series written and illustrated by Katsuhiro Otomo. It was serialized biweekly in Kodansha's seinen manga magazine Young Magazine from December 20, 1982, to June 25, 1990, with its 120 chapters collected into six tankōbon volumes. It was initially published in the United States by Marvel Comics under its Epic imprint, becoming one of the first manga works to be translated in its entirety into English.\n\n(more in overview)\nOverview\nUniverse\nDetails\nShow missing\nAKIRA\n1\nAkira Vol 1\n1984\n1 owned\nOVERVIEW\n\nAkira (Japanese: アキラ; stylized as AKIRA) is a Japanese manga series written and illustrated by Katsuhiro Otomo. It was serialized biweekly in Kodansha's seinen manga magazine Young Magazine from December 20, 1982, to June 25, 1990, with its 120 chapters collected into six tankōbon volumes. It was initially published in the United States by Marvel Comics under its Epic imprint, becoming one of the first manga works to be translated in its entirety into English. It is currently published by Kodansha USA in North America.\n\nSet in the a post-apocalyptic and futuristic city of Neo-Tokyo, more than three decades after a mysterious explosion destroyed the city, the story centers on teenage biker gang leader Shotaro Kaneda, militant revolutionary Kei, a trio of Espers, and Neo-Tokyo military leader Colonel Shikishima, who attempt to prevent Tetsuo Shima, Kaneda's mentally unbalanced childhood friend, from using his unstable and destructive telekinetic abilities to ravage the city and awaken a mysterious entity with powerful psychic abilities named \"Akira\". Otomo uses conventions of the cyberpunk genre to detail a saga of political turmoil, social isolation, corruption, and power. Widely regarded as a landmark work in cyberpunk and credited with pioneering the Japanese cyberpunk subgenre, Akira received universal acclaim from readers and critics, with Otomo's artwork, storytelling, characters, and exploration of mature themes and concepts subject to particular praise. The manga also achieved international commercial success, selling millions of copies worldwide.\n\nConsidered a watershed title for the medium, the manga spawned the seminal 1988 anime film adaptation Akira and the greater franchise. The anime film condensed the plot considerably, but retained many of the manga's primary characters and plot elements alongside additional scenes, settings, and motifs. The film was similarly lauded and had a significant influence to the anime industry and sci-fi media as a whole. The adaptation also marked Otomo's transition from a career primarily in manga to one almost exclusively in anime.\n\nAkira was instrumental in the surge in popularity of manga outside Japan, especially in the United States and France. The manga won several awards, including the Kodansha Manga Award, a Harvey Award, and four Eisner Awards.",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/485a4431-ed23-4522-89ca-f8eca0f6325f/cover",
+        "naturalWidth": 2033,
+        "naturalHeight": 2978,
+        "displayed": true,
+        "className": "media-artwork-group-preview__artwork is-slot-1 is-portrait-art"
+      },
+      {
+        "alt": "Akira Vol 1",
+        "src": "http://localhost:5016/engine-image/stream/485a4431-ed23-4522-89ca-f8eca0f6325f/cover",
+        "naturalWidth": 2033,
+        "naturalHeight": 2978,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg app-bg--cinematic",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-appbar mud-appbar-dense mud-appbar-fixed-top mud-elevation-0 layout-shell__appbar layout-shell__appbar--cinematic",
+        "backgroundImage": "linear-gradient(rgba(3, 6, 12, 0.7) 0%, rgba(3, 6, 12, 0.34) 62%, rgba(0, 0, 0, 0) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page",
+        "backgroundImage": "radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), rgba(0, 0, 0, 0) 420px), radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), rgba(0, 0, 0, 0) 336px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage tl-detail-stage--with-primary tl-detail-stage--primary-after-navigation",
+        "backgroundImage": "radial-gradient(circle at 76% 34%, color(srgb 0.545098 0.360784 0.964706 / 0.18), rgba(0, 0, 0, 0) 532px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage tl-detail-hero__stage tl-detail-media-stage--placeholder tl-detail-media-stage--book",
+        "backgroundImage": "radial-gradient(at 72% 44%, rgba(139, 92, 246, 0.2) 0%, rgba(14, 18, 24, 0.72) 52%, rgb(4, 7, 12) 100%), linear-gradient(135deg, rgb(4, 7, 12), rgb(14, 18, 24))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__placeholder tl-detail-media-stage__placeholder",
+        "backgroundImage": "radial-gradient(at 72% 44%, rgba(139, 92, 246, 0.2) 0%, rgba(14, 18, 24, 0.72) 52%, rgb(4, 7, 12) 100%), linear-gradient(135deg, rgb(4, 7, 12), rgb(14, 18, 24))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__overlays tl-detail-media-stage__overlay",
+        "backgroundImage": "linear-gradient(to right, rgba(4, 7, 12, 0.86) 0%, rgba(4, 7, 12, 0.74) 22%, rgba(4, 7, 12, 0.5) 42%, rgba(4, 7, 12, 0.22) 62%, rgba(4, 7, 12, 0.06) 78%, rgba(0, 0, 0, 0) 100%), radial-gradient(at 72% 42%, color(srgb 0.545098 0.360784 0.964706 / 0.3) 0%, color(srgb 0.545098 0.360784 0.964706 / 0.14) 28%, rgba(0, 0, 0, 0) 70%), linear-gradient(rgba(0, 0, 0, 0) 45%, rgba(4, 7, 12, 0.52) 76%, rgba(4, 7, 12, 0.95) 100%), radial-gradient(rgba(0, 0, 0, 0) 42%, rgba(4, 7, 12, 0.28) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--shuffle-collection ",
+        "backgroundImage": "radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.22), rgba(0, 0, 0, 0) 34%), linear-gradient(rgb(139, 92, 246) 0%, rgb(118, 82, 214) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage__navigation",
+        "backgroundImage": "linear-gradient(rgba(5, 8, 14, 0.16), rgba(5, 8, 14, 0.54))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page__primary-content",
+        "backgroundImage": "radial-gradient(circle at 72% 5%, color(srgb 0.545098 0.360784 0.964706 / 0.09), rgba(0, 0, 0, 0) 616px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-body",
+        "backgroundImage": "linear-gradient(rgb(8, 13, 20), rgb(7, 11, 17) 560px)",
+        "displayed": true
+      }
+    ],
+    "brokenImages": []
+  },
+  {
+    "name": "music-help",
+    "path": "/details/musicalbum/9764cf13-0e6f-460b-8bd4-72930afefc06?context=listen",
+    "finalUrl": "http://localhost:5016/details/musicalbum/9764cf13-0e6f-460b-8bd4-72930afefc06?context=listen",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-music-help.png",
+    "navigationError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "responseErrors": [],
+    "title": "Help! - Tuvima Library",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\nHelp!\n\nThe Beatles\n\n1965\n·\n14 tracks\n·\n32m\nRock\nPlay\nShuffle\nMy List\nRate\nMore\nOverview\nDetails\nTracks\n14 tracks\nShow missing tracks\n1\nHelp!\n2:19\nMissing\n2\nThe Night Before\n2:35\nMissing\n3\nYou've Got to Hide Your Love Away\n2:09\nMissing\n4\nI Need You\n2:29\nMissing\n5\nAnother Girl\n2:05\nMissing\n6\nYou're Going to Lose That Girl\n2:19\nMissing\n7\nTicket to Ride\n3:10\nMissing\n8\nAct Naturally\n2:30\nMissing\n9\nIt's Only Love\n1:56\nMissing\n10\nYou Like Me Too Much\n2:37\nMissing\n11\nTell Me What You See\n2:38\nMissing\n12\nI've Just Seen a Face\n2:05\nMissing\n13\nYesterday\n0:02\nOwned\n14\nDizzy Miss Lizzy\n2:55\nMissing\nCredits\nArtists\nThe Beatles\nArtist\nMore by The Beatles\nView profile\n1\n2015",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/d3b46c7d-a29c-4d37-8e15-7c7b78494c16/cover",
+        "naturalWidth": 3600,
+        "naturalHeight": 3600,
+        "displayed": true,
+        "className": "tl-detail-hero__artwork tl-detail-media-stage__background"
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/d3b46c7d-a29c-4d37-8e15-7c7b78494c16/cover",
+        "naturalWidth": 600,
+        "naturalHeight": 600,
+        "displayed": true,
+        "className": "tl-detail-media-stage__cover"
+      },
+      {
+        "alt": "The Beatles",
+        "src": "http://localhost:5016/engine-image/persons/3255706a-d9f6-4624-9ecf-228aaec60dcd/headshot",
+        "naturalWidth": 400,
+        "naturalHeight": 309,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/d88fab00-5ffe-4863-adf3-da2175f1c40b/cover",
+        "naturalWidth": 600,
+        "naturalHeight": 600,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg app-bg--cinematic",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-appbar mud-appbar-dense mud-appbar-fixed-top mud-elevation-0 layout-shell__appbar layout-shell__appbar--cinematic",
+        "backgroundImage": "linear-gradient(rgba(3, 6, 12, 0.7) 0%, rgba(3, 6, 12, 0.34) 62%, rgba(0, 0, 0, 0) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page",
+        "backgroundImage": "radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), rgba(0, 0, 0, 0) 420px), radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), rgba(0, 0, 0, 0) 336px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage tl-detail-stage--identity-only tl-detail-stage--music-album",
+        "backgroundImage": "radial-gradient(circle at 76% 34%, color(srgb 0.545098 0.360784 0.964706 / 0.18), rgba(0, 0, 0, 0) 532px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage tl-detail-hero__stage tl-detail-media-stage--background tl-detail-media-stage--music-cover-background tl-detail-media-stage--square",
+        "backgroundImage": "radial-gradient(at 76% 42%, color(srgb 0.545098 0.360784 0.964706 / 0.34) 0%, rgba(0, 0, 0, 0) 58%), linear-gradient(120deg, color(srgb 0.123843 0.103529 0.231529) 0%, rgb(8, 12, 18) 52%, rgb(8, 12, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__overlays tl-detail-media-stage__overlay",
+        "backgroundImage": "linear-gradient(90deg, rgba(5, 8, 17, 0.94) 0%, rgba(6, 9, 19, 0.72) 32%, rgba(8, 10, 23, 0.16) 62%, rgba(7, 9, 19, 0.34) 100%), linear-gradient(rgba(5, 7, 15, 0.66) 0%, rgba(7, 8, 18, 0.03) 27%, rgba(6, 8, 17, 0.22) 64%, rgba(5, 7, 15, 0.97) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage__vinyl",
+        "backgroundImage": "radial-gradient(circle, rgba(139, 92, 246, 0.75) 0px, rgba(139, 92, 246, 0.75) 7%, rgb(20, 22, 28) 7%, rgb(20, 22, 28) 13%, rgba(255, 255, 255, 0.08) 13%, rgba(255, 255, 255, 0.08) 14%, rgb(4, 5, 7) 14%, rgb(4, 5, 7) 100%), repeating-radial-gradient(circle, rgba(255, 255, 255, 0.09) 0px, rgba(255, 255, 255, 0.09) 1px, rgba(0, 0, 0, 0) 1px, rgba(0, 0, 0, 0) 5px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--play-album ",
+        "backgroundImage": "radial-gradient(circle at 22% 8%, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0) 42%), linear-gradient(135deg, color(srgb 0.558902 0.378353 0.964706) 0%, rgb(139, 92, 246) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage__navigation",
+        "backgroundImage": "linear-gradient(rgba(5, 8, 14, 0.16), rgba(5, 8, 14, 0.54))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-body",
+        "backgroundImage": "linear-gradient(rgb(8, 13, 20), rgb(7, 11, 17) 560px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--md",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 235, 139, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(74, 113, 40), rgb(25, 67, 56))",
+        "displayed": true
+      },
+      {
+        "className": "tl-credit-card__body",
+        "backgroundImage": "linear-gradient(to top, rgba(6, 9, 12, 0.96), rgba(6, 9, 12, 0.78) 58%, rgba(6, 9, 12, 0))",
+        "displayed": true
+      }
+    ],
+    "brokenImages": []
+  },
+  {
+    "name": "movie-dune",
+    "path": "/details/work/c7505260-e6f3-4710-90cd-cef4c2238e69?context=watch",
+    "finalUrl": "http://localhost:5016/details/work/c7505260-e6f3-4710-90cd-cef4c2238e69?context=watch",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-movie-dune.png",
+    "navigationError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "responseErrors": [],
+    "title": "Dune - Tuvima Library",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\n\nDUNE · MOVIE 1\n\nPG-13\n·\n2021\n·\n2h 35m\n·\n7.8\nscience fiction film\naction film\n+4\nWatch\nMy List\nRate\nMore\n\nIt begins.\n\nOverview\nCast\nUniverse\nRelated\nDetails\nShow missing\nDUNE\n1\nDune\n2021\n2\nDune: Part Two\n2024\n2 owned\n1 missing\n3 total\nOVERVIEW\n\nDune (titled on-screen as Dune: Part One) is a 2021 American epic space opera film co-produced and directed by Denis Villeneuve, who co-wrote the screenplay with Jon Spaihts and Eric Roth. It is the first of a two-part adaptation of the 1965 novel by Frank Herbert and the first installment in Villeneuve's Dune film trilogy. The cast includes Timothée Chalamet, Rebecca Ferguson, Oscar Isaac, Josh Brolin, Stellan Skarsgård, Dave Bautista, Stephen McKinley Henderson, Zendaya, Chang Chen, Sharon Duncan-Brewster, Charlotte Rampling, Jason Momoa, and Javier Bardem. Set in the distant future, the film follows Paul Atreides (Chalamet) as his family, the aristocratic House Atreides, is thrust into a war for the inhospitable desert planet Arrakis.\n\nThe film is the third adaptation of Dune, following David Lynch's 1984 film and John Harrison's 2000 television miniseries. After an unsuccessful attempt by Paramount Pictures to produce a new adaptation, Legendary Pictures acquired the Dune film and television rights in 2016, with Villeneuve signing on as director in February 2017. Production contracts were secured only for the first film, relying on its success before a sequel would be produced. Principal photography took place from March to July 2019 in Hungary, Jordan, Norway, the United Arab Emirates, and other locations.\n\nDune was scheduled for a late 2020 release, but was delayed due to the COVID-19 pandemic. The film premiered at the 78th Venice International Film Festival on September 3, 2021, before its international release on September 15, 2021; it was then released in United States theaters and via streaming on HBO Max on October 22, 2021. Dune grossed $411 million on a $165 million budget and received positive reviews from critics and audiences. It won six awards at the 94th Academy Awards and was nominated in four other categories, in addition to receiving numerous other accolades.\n\nA sequel, Dune: Part Two, was released on March 1, 2024, covering the novel's second half, and another sequel, Dune: Part Three, based on Herbert's 1969 novel Dune Messiah, is scheduled to be released on December 18, 2026.\n\nWikipedia: article text\ntext is available under\nCC BY-SA 4.0\n;\nadditional terms may apply.\nRetrieved Sep 10, 2026.\n\nCAST\nView full cast\nDIRECTOR\nDenis Villeneuve\nDirector\nCAST\nTimothée Chalamet\nPaul Atreides\nRebecca Ferguson\nLady Jessica\nJosh Brolin\nGurney Halleck\nOscar Isaac\nLeto I Atreides\nJason Momoa\nDuncan Idaho\nJavier Bardem\nStilgar\nDave Bautista\nGlossu Rabban\nZendaya\nChani",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/artwork/515ddf84-992d-4126-ac7f-8465d0cf8246?size=l",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-hero__artwork tl-detail-media-stage__background"
+      },
+      {
+        "alt": "Dune",
+        "src": "http://localhost:5016/engine-image/stream/artwork/a4908b20-8b82-40d4-a572-372a927b089e",
+        "naturalWidth": 4309,
+        "naturalHeight": 919,
+        "displayed": true,
+        "className": "tl-detail-hero__logo"
+      },
+      {
+        "alt": "Dune",
+        "src": "http://localhost:5016/engine-image/stream/cde0d8d2-573c-42fb-b3fa-49ebf03d34b3/cover",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Dune: Part Two",
+        "src": "http://localhost:5016/engine-image/stream/a4b2095e-7c19-4169-bfbb-80f2463877c2/cover",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Denis Villeneuve",
+        "src": "http://localhost:5016/engine-image/persons/f9723f9c-9247-4a8e-b55c-6706b073d668/headshot",
+        "naturalWidth": 472,
+        "naturalHeight": 708,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Timothée Chalamet",
+        "src": "http://localhost:5016/engine-image/persons/e3876f76-6570-4ef9-bdbd-6c211122fcdc/headshot",
+        "naturalWidth": 709,
+        "naturalHeight": 1063,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Rebecca Ferguson",
+        "src": "http://localhost:5016/engine-image/persons/1d0825ec-adb3-4647-9321-d4407cfec4b5/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Josh Brolin",
+        "src": "http://localhost:5016/engine-image/persons/e525c30c-ff51-4529-8ecb-e174eafb40de/headshot",
+        "naturalWidth": 1200,
+        "naturalHeight": 1800,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Oscar Isaac",
+        "src": "http://localhost:5016/engine-image/persons/2d57370c-e6ea-41bd-bd17-8885b1d0eb32/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Jason Momoa",
+        "src": "http://localhost:5016/engine-image/persons/36dd26db-4b16-4eaa-a142-85136c3bc3f3/headshot",
+        "naturalWidth": 2000,
+        "naturalHeight": 3000,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Javier Bardem",
+        "src": "http://localhost:5016/engine-image/persons/31d691d5-7fcd-4441-b0ce-11abf790fd71/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Dave Bautista",
+        "src": "http://localhost:5016/engine-image/persons/d500ea68-5c50-4242-a77f-311ddc7fec9c/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Zendaya",
+        "src": "http://localhost:5016/engine-image/persons/709f5a17-5728-4daf-ae0e-d1ef852cd438/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg app-bg--cinematic",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-appbar mud-appbar-dense mud-appbar-fixed-top mud-elevation-0 layout-shell__appbar layout-shell__appbar--cinematic",
+        "backgroundImage": "linear-gradient(rgba(3, 6, 12, 0.7) 0%, rgba(3, 6, 12, 0.34) 62%, rgba(0, 0, 0, 0) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page",
+        "backgroundImage": "radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), rgba(0, 0, 0, 0) 420px), radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), rgba(0, 0, 0, 0) 336px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage tl-detail-stage--with-primary tl-detail-stage--primary-after-navigation tl-detail-stage--watch",
+        "backgroundImage": "radial-gradient(circle at 76% 34%, color(srgb 0.545098 0.360784 0.964706 / 0.18), rgba(0, 0, 0, 0) 532px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage tl-detail-hero__stage tl-detail-media-stage--background tl-detail-media-stage--backdrop-with-logo tl-detail-media-stage--landscape",
+        "backgroundImage": "radial-gradient(at 76% 42%, color(srgb 0.545098 0.360784 0.964706 / 0.34) 0%, rgba(0, 0, 0, 0) 58%), linear-gradient(120deg, color(srgb 0.123843 0.103529 0.231529) 0%, rgb(8, 12, 18) 52%, rgb(8, 12, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__overlays tl-detail-media-stage__overlay",
+        "backgroundImage": "linear-gradient(to right, rgba(8, 12, 18, 0.92) 0%, rgba(8, 12, 18, 0.8) 16%, rgba(8, 12, 18, 0.58) 29%, rgba(8, 12, 18, 0.32) 41%, rgba(8, 12, 18, 0.12) 51%, rgba(8, 12, 18, 0.03) 61%, rgba(0, 0, 0, 0) 72%), radial-gradient(at 72% 42%, color(srgb 0.545098 0.360784 0.964706 / 0.26) 0%, color(srgb 0.545098 0.360784 0.964706 / 0.11) 30%, rgba(0, 0, 0, 0) 72%), linear-gradient(rgba(4, 7, 12, 0.58) 0%, rgba(4, 7, 12, 0.08) 15%, rgba(0, 0, 0, 0) 44%, rgba(4, 7, 12, 0.35) 56%, rgba(4, 7, 12, 0.8) 79%, rgba(4, 7, 12, 0.99) 100%), radial-gradient(rgba(0, 0, 0, 0) 38%, rgba(4, 7, 12, 0.32) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--watch ",
+        "backgroundImage": "radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.22), rgba(0, 0, 0, 0) 34%), linear-gradient(rgb(139, 92, 246) 0%, rgb(118, 82, 214) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage__navigation",
+        "backgroundImage": "linear-gradient(rgba(5, 8, 14, 0.16), rgba(5, 8, 14, 0.54))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page__primary-content",
+        "backgroundImage": "radial-gradient(circle at 72% 5%, color(srgb 0.545098 0.360784 0.964706 / 0.09), rgba(0, 0, 0, 0) 616px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-series-detail__ownership-progress-fill",
+        "backgroundImage": "linear-gradient(90deg, rgb(95, 143, 255), rgb(139, 92, 246))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-body",
+        "backgroundImage": "linear-gradient(rgb(8, 13, 20), rgb(7, 11, 17) 560px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 235, 151, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(65, 113, 40), rgb(25, 67, 61))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(192, 235, 132, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(113, 105, 40), rgb(25, 67, 28))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(172, 132, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 51, 113), rgb(67, 25, 65))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(235, 132, 202, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(97, 40, 113), rgb(67, 25, 25))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(160, 132, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 59, 113), rgb(64, 25, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 189, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 113, 107), rgb(30, 25, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 134, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 80, 113), rgb(52, 25, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(187, 235, 132, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(113, 108, 40), rgb(25, 67, 30))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(148, 132, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 68, 113), rgb(59, 25, 67))",
+        "displayed": true
+      }
+    ],
+    "brokenImages": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/artwork/515ddf84-992d-4126-ac7f-8465d0cf8246?size=l",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-hero__artwork tl-detail-media-stage__background"
+      },
+      {
+        "alt": "Dune",
+        "src": "http://localhost:5016/engine-image/stream/cde0d8d2-573c-42fb-b3fa-49ebf03d34b3/cover",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Dune: Part Two",
+        "src": "http://localhost:5016/engine-image/stream/a4b2095e-7c19-4169-bfbb-80f2463877c2/cover",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Rebecca Ferguson",
+        "src": "http://localhost:5016/engine-image/persons/1d0825ec-adb3-4647-9321-d4407cfec4b5/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Oscar Isaac",
+        "src": "http://localhost:5016/engine-image/persons/2d57370c-e6ea-41bd-bd17-8885b1d0eb32/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Javier Bardem",
+        "src": "http://localhost:5016/engine-image/persons/31d691d5-7fcd-4441-b0ce-11abf790fd71/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Dave Bautista",
+        "src": "http://localhost:5016/engine-image/persons/d500ea68-5c50-4242-a77f-311ddc7fec9c/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Zendaya",
+        "src": "http://localhost:5016/engine-image/persons/709f5a17-5728-4daf-ae0e-d1ef852cd438/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ]
+  },
+  {
+    "name": "tv-breaking-bad",
+    "path": "/details/tvshow/f8887413-99f8-4926-8355-53877ed70ed8?context=watch",
+    "finalUrl": "http://localhost:5016/details/tvshow/f8887413-99f8-4926-8355-53877ed70ed8?context=watch",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-tv-breaking-bad.png",
+    "navigationError": null,
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "pageErrors": [],
+    "responseErrors": [
+      {
+        "status": 404,
+        "url": "http://localhost:5016/engine-image/stream/artwork/4381879b-bd95-482b-974c-36d57ff17d5d"
+      }
+    ],
+    "title": "Breaking Bad - Tuvima Library",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\nTV-MA\n·\n2008\n·\n5 episodes\n·\n59m\n·\n8.5\ncrime television series\ndrama television series\nWatch S1 E1\nMy List\nRate\nMore\n\nWalter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live. He becomes filled with a sense of fearlessness and an unrelenting desire to secure his family's financial future at any cost as he enters the dangerous world of drugs and crime.\n\nOverview\nCast\nUniverse\nDetails\nSEASON\nSeason 1\nShow missing\nBREAKING BAD\nE1: Pilot\nJan 20, 2008\n59m\n\nWhen an unassuming high school chemistry teacher discovers he has a rare form of lung cancer, he decides to team up with a former student and create a top of the line crystal meth in a used RV, to provide for his family once he is gone.\n\nE2: Cat's in the Bag...\nJan 27, 2008\n49m\n\nWalt and Jesse attempt to tie up loose ends. The desperate situation gets more complicated with the flip of a coin. Walt's wife, Skyler, becomes suspicious of Walt's strange behavior.\n\nNOT IN LIBRARY\nE3: ...And the Bag's in the River\nFeb 10, 2008\n49m\nNOT IN LIBRARY\nE4: Cancer Man\nFeb 17, 2008\n49m\nNOT IN LIBRARY\nE5: Gray Matter\nFeb 24, 2008\n49m\nNOT IN LIBRARY\nE6: Crazy Handful of Nothin'\nMar 2, 2008\n49m\nNOT IN LIBRARY\nE7: A No Rough Stuff Type Deal\nMar 9, 2008\n48m\n2 owned\n5 missing\n7 total\nOVERVIEW\n\nWalter White, a New Mexico chemistry teacher, is diagnosed with Stage III cancer and given a prognosis of only two years left to live. He becomes filled with a sense of fearlessness and an unrelenting desire to secure his family's financial future at any cost as he enters the dangerous world of drugs and crime.\n\nTMDB: Series synopsis\ntext is available under\n;\nadditional terms may apply.\n\nCAST\nView full cast\nDIRECTOR\nAdam Bernstein\nDirector\nBryan Cranston\nDirector\nCAST\nAaron Paul\nJesse Pinkman\nAnna Gunn\nSkyler White\nRJ Mitte\nWalter White Jr.\nDean Norris\nHank Schrader\nBetsy Brandt\nMarie Schrader\nGiancarlo Esposito\nGustavo Fring\nBob Odenkirk\nSaul Goodman",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/artwork/d0727ca8-1cfc-470b-b67f-68a3d7810ff8?size=l",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-hero__artwork tl-detail-media-stage__background"
+      },
+      {
+        "alt": "AMC",
+        "src": "http://localhost:5016/images/streaming-services/amc-plus.png",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Breaking Bad",
+        "src": "http://localhost:5016/engine-image/stream/artwork/4381879b-bd95-482b-974c-36d57ff17d5d",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-hero__logo"
+      },
+      {
+        "alt": "Pilot",
+        "src": "http://localhost:5016/engine-image/stream/artwork/88886ff4-d6b8-4e9b-8099-73d5c95a1460",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Cat's in the Bag...",
+        "src": "http://localhost:5016/engine-image/stream/artwork/92d0364d-40bf-4f04-9bea-ffe0721629de",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Adam Bernstein",
+        "src": "http://localhost:5016/engine-image/persons/5bf3afe1-cff5-4fb6-8ce7-8630cd3bb89f/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Bryan Cranston",
+        "src": "http://localhost:5016/engine-image/persons/febf36e1-ef2a-4d79-a166-aa4583936d82/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Aaron Paul",
+        "src": "http://localhost:5016/engine-image/persons/ec6d3a29-8d53-4690-a480-3bd3a70c1e2a/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Anna Gunn",
+        "src": "http://localhost:5016/engine-image/persons/2fe33321-d3f8-4e5d-b4ed-6e5ad6c93550/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "RJ Mitte",
+        "src": "http://localhost:5016/engine-image/persons/4ff38fae-57e4-4d58-8990-544be5dd4da3/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Dean Norris",
+        "src": "http://localhost:5016/engine-image/persons/359c8ab7-cc16-4a4a-8722-a1d4b3a91fef/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Betsy Brandt",
+        "src": "http://localhost:5016/engine-image/persons/917a662d-cb9f-445b-b054-f39d73d8acf0/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Giancarlo Esposito",
+        "src": "http://localhost:5016/engine-image/persons/63d1c3c7-1475-4b61-bc27-32075231609d/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Bob Odenkirk",
+        "src": "http://localhost:5016/engine-image/persons/e0b057f8-9278-4c28-a667-5b757b7623b3/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg app-bg--cinematic",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-appbar mud-appbar-dense mud-appbar-fixed-top mud-elevation-0 layout-shell__appbar layout-shell__appbar--cinematic",
+        "backgroundImage": "linear-gradient(rgba(3, 6, 12, 0.7) 0%, rgba(3, 6, 12, 0.34) 62%, rgba(0, 0, 0, 0) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page",
+        "backgroundImage": "radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), rgba(0, 0, 0, 0) 420px), radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), rgba(0, 0, 0, 0) 336px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage tl-detail-stage--with-primary tl-detail-stage--primary-after-navigation tl-detail-stage--watch",
+        "backgroundImage": "radial-gradient(circle at 76% 34%, color(srgb 0.545098 0.360784 0.964706 / 0.18), rgba(0, 0, 0, 0) 532px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage tl-detail-hero__stage tl-detail-media-stage--background tl-detail-media-stage--backdrop-with-logo tl-detail-media-stage--landscape",
+        "backgroundImage": "radial-gradient(at 76% 42%, color(srgb 0.545098 0.360784 0.964706 / 0.34) 0%, rgba(0, 0, 0, 0) 58%), linear-gradient(120deg, color(srgb 0.123843 0.103529 0.231529) 0%, rgb(8, 12, 18) 52%, rgb(8, 12, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__overlays tl-detail-media-stage__overlay",
+        "backgroundImage": "linear-gradient(to right, rgba(8, 12, 18, 0.92) 0%, rgba(8, 12, 18, 0.8) 16%, rgba(8, 12, 18, 0.58) 29%, rgba(8, 12, 18, 0.32) 41%, rgba(8, 12, 18, 0.12) 51%, rgba(8, 12, 18, 0.03) 61%, rgba(0, 0, 0, 0) 72%), radial-gradient(at 72% 42%, color(srgb 0.545098 0.360784 0.964706 / 0.26) 0%, color(srgb 0.545098 0.360784 0.964706 / 0.11) 30%, rgba(0, 0, 0, 0) 72%), linear-gradient(rgba(4, 7, 12, 0.58) 0%, rgba(4, 7, 12, 0.08) 15%, rgba(0, 0, 0, 0) 44%, rgba(4, 7, 12, 0.35) 56%, rgba(4, 7, 12, 0.8) 79%, rgba(4, 7, 12, 0.99) 100%), radial-gradient(rgba(0, 0, 0, 0) 38%, rgba(4, 7, 12, 0.32) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--watch ",
+        "backgroundImage": "radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.22), rgba(0, 0, 0, 0) 34%), linear-gradient(rgb(139, 92, 246) 0%, rgb(118, 82, 214) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage__navigation",
+        "backgroundImage": "linear-gradient(rgba(5, 8, 14, 0.16), rgba(5, 8, 14, 0.54))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page__primary-content",
+        "backgroundImage": "radial-gradient(circle at 72% 5%, color(srgb 0.545098 0.360784 0.964706 / 0.09), rgba(0, 0, 0, 0) 616px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-series-item__missing-art",
+        "backgroundImage": "linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)), repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0px, rgba(255, 255, 255, 0.035) 6.3px, rgba(0, 0, 0, 0) 6.3px, rgba(0, 0, 0, 0) 12.6px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-series-item__missing-art",
+        "backgroundImage": "linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)), repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0px, rgba(255, 255, 255, 0.035) 6.3px, rgba(0, 0, 0, 0) 6.3px, rgba(0, 0, 0, 0) 12.6px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-series-item__missing-art",
+        "backgroundImage": "linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)), repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0px, rgba(255, 255, 255, 0.035) 6.3px, rgba(0, 0, 0, 0) 6.3px, rgba(0, 0, 0, 0) 12.6px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-series-item__missing-art",
+        "backgroundImage": "linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)), repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0px, rgba(255, 255, 255, 0.035) 6.3px, rgba(0, 0, 0, 0) 6.3px, rgba(0, 0, 0, 0) 12.6px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-series-item__missing-art",
+        "backgroundImage": "linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01)), repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.035) 0px, rgba(255, 255, 255, 0.035) 6.3px, rgba(0, 0, 0, 0) 6.3px, rgba(0, 0, 0, 0) 12.6px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-series-detail__ownership-progress-fill",
+        "backgroundImage": "linear-gradient(90deg, rgb(95, 143, 255), rgb(139, 92, 246))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-body",
+        "backgroundImage": "linear-gradient(rgb(8, 13, 20), rgb(7, 11, 17) 560px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 177, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 111, 113), rgb(35, 25, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 226, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 113, 80), rgb(25, 35, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 235, 146, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(69, 113, 40), rgb(25, 67, 59))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(220, 235, 132, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(113, 85, 40), rgb(33, 67, 25))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(235, 132, 163, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(113, 40, 101), rgb(67, 40, 25))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(221, 132, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(64, 40, 113), rgb(67, 25, 44))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 148, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 90, 113), rgb(47, 25, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(235, 175, 132, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(113, 40, 48), rgb(63, 67, 25))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 235, 144, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(70, 113, 40), rgb(25, 67, 58))",
+        "displayed": true
+      }
+    ],
+    "brokenImages": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/artwork/d0727ca8-1cfc-470b-b67f-68a3d7810ff8?size=l",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-hero__artwork tl-detail-media-stage__background"
+      },
+      {
+        "alt": "AMC",
+        "src": "http://localhost:5016/images/streaming-services/amc-plus.png",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Breaking Bad",
+        "src": "http://localhost:5016/engine-image/stream/artwork/4381879b-bd95-482b-974c-36d57ff17d5d",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-hero__logo"
+      },
+      {
+        "alt": "Pilot",
+        "src": "http://localhost:5016/engine-image/stream/artwork/88886ff4-d6b8-4e9b-8099-73d5c95a1460",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Cat's in the Bag...",
+        "src": "http://localhost:5016/engine-image/stream/artwork/92d0364d-40bf-4f04-9bea-ffe0721629de",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Adam Bernstein",
+        "src": "http://localhost:5016/engine-image/persons/5bf3afe1-cff5-4fb6-8ce7-8630cd3bb89f/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Bryan Cranston",
+        "src": "http://localhost:5016/engine-image/persons/febf36e1-ef2a-4d79-a166-aa4583936d82/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Aaron Paul",
+        "src": "http://localhost:5016/engine-image/persons/ec6d3a29-8d53-4690-a480-3bd3a70c1e2a/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Anna Gunn",
+        "src": "http://localhost:5016/engine-image/persons/2fe33321-d3f8-4e5d-b4ed-6e5ad6c93550/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "RJ Mitte",
+        "src": "http://localhost:5016/engine-image/persons/4ff38fae-57e4-4d58-8990-544be5dd4da3/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Dean Norris",
+        "src": "http://localhost:5016/engine-image/persons/359c8ab7-cc16-4a4a-8722-a1d4b3a91fef/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Betsy Brandt",
+        "src": "http://localhost:5016/engine-image/persons/917a662d-cb9f-445b-b054-f39d73d8acf0/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Giancarlo Esposito",
+        "src": "http://localhost:5016/engine-image/persons/63d1c3c7-1475-4b61-bc27-32075231609d/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Bob Odenkirk",
+        "src": "http://localhost:5016/engine-image/persons/e0b057f8-9278-4c28-a667-5b757b7623b3/headshot",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ]
+  },
+  {
+    "name": "episode-breaking-bad",
+    "path": "/details/work/cc6e6659-74ad-4adf-8da1-f9587d7e0bf6?context=watch",
+    "finalUrl": "http://localhost:5016/details/work/cc6e6659-74ad-4adf-8da1-f9587d7e0bf6?context=watch",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-episode-breaking-bad.png",
+    "navigationError": null,
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "pageErrors": [],
+    "responseErrors": [
+      {
+        "status": 404,
+        "url": "http://localhost:5016/engine-image/stream/artwork/4381879b-bd95-482b-974c-36d57ff17d5d"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/engine-image/persons/cfbac308-e5b4-470e-ad67-9dddda99c5e1/headshot"
+      }
+    ],
+    "title": "Pilot - Tuvima Library",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\nLive updates are paused.\nRetry\nTV-MA\n·\n2008\n·\n59m\n·\n8.5\ncrime television series\ndrama television series\n+3\nWatch S1 E1\nMy List\nRate\nMore\nS1 E1: Pilot\n\nWhen an unassuming high school chemistry teacher discovers he has a rare form of lung cancer, he decides to team up with a former student and create a top of the line crystal meth in a used RV, to provide for his family once he is gone.\n\nOverview\nCast\nUniverse\nRelated\nDetails\nARC / SUB-SERIES\nSeason 1\nBREAKING BAD · SEASON 1\nE1\nPilot\nE2\nCat's in the Bag...\n2 owned\nOVERVIEW\n\nWhen an unassuming high school chemistry teacher discovers he has a rare form of lung cancer, he decides to team up with a former student and create a top of the line crystal meth in a used RV, to provide for his family once he is gone.\n\nWikipedia: article text\ntext is available under\nCC BY-SA 4.0\n;\nadditional terms may apply.\nRetrieved Sep 10, 2026.\n\nCAST\nView full cast\nDIRECTOR\nVince Gilligan\nDirector\nCAST\nBryan Cranston\nWalter White\nAaron Paul\nJesse Pinkman\nAnna Gunn\nSkyler White\nRJ Mitte\nWalter White Jr.\nDean Norris\nHank Schrader\nBetsy Brandt\nMarie Schrader\nSteven Michael Quezada\nSteven Gomez\nAH\nAaron Hill\nJock",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/artwork/88886ff4-d6b8-4e9b-8099-73d5c95a1460?size=l",
+        "naturalWidth": 1706,
+        "naturalHeight": 960,
+        "displayed": true,
+        "className": "tl-detail-hero__artwork tl-detail-media-stage__background"
+      },
+      {
+        "alt": "Pilot",
+        "src": "http://localhost:5016/engine-image/stream/artwork/4381879b-bd95-482b-974c-36d57ff17d5d",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-hero__logo"
+      },
+      {
+        "alt": "Pilot",
+        "src": "http://localhost:5016/engine-image/stream/artwork/88886ff4-d6b8-4e9b-8099-73d5c95a1460",
+        "naturalWidth": 1920,
+        "naturalHeight": 1080,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Cat's in the Bag...",
+        "src": "http://localhost:5016/engine-image/stream/artwork/92d0364d-40bf-4f04-9bea-ffe0721629de",
+        "naturalWidth": 2100,
+        "naturalHeight": 1182,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Vince Gilligan",
+        "src": "http://localhost:5016/engine-image/persons/b1f9a395-62e2-4d05-afc6-69d9ca334b11/headshot",
+        "naturalWidth": 933,
+        "naturalHeight": 1400,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Bryan Cranston",
+        "src": "http://localhost:5016/engine-image/persons/febf36e1-ef2a-4d79-a166-aa4583936d82/headshot",
+        "naturalWidth": 1369,
+        "naturalHeight": 2048,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Aaron Paul",
+        "src": "http://localhost:5016/engine-image/persons/ec6d3a29-8d53-4690-a480-3bd3a70c1e2a/headshot",
+        "naturalWidth": 600,
+        "naturalHeight": 900,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Anna Gunn",
+        "src": "http://localhost:5016/engine-image/persons/2fe33321-d3f8-4e5d-b4ed-6e5ad6c93550/headshot",
+        "naturalWidth": 1000,
+        "naturalHeight": 1500,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "RJ Mitte",
+        "src": "http://localhost:5016/engine-image/persons/4ff38fae-57e4-4d58-8990-544be5dd4da3/headshot",
+        "naturalWidth": 960,
+        "naturalHeight": 1440,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Dean Norris",
+        "src": "http://localhost:5016/engine-image/persons/359c8ab7-cc16-4a4a-8722-a1d4b3a91fef/headshot",
+        "naturalWidth": 1300,
+        "naturalHeight": 1949,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Betsy Brandt",
+        "src": "http://localhost:5016/engine-image/persons/917a662d-cb9f-445b-b054-f39d73d8acf0/headshot",
+        "naturalWidth": 1000,
+        "naturalHeight": 1500,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Steven Michael Quezada",
+        "src": "http://localhost:5016/engine-image/persons/a79a2c9a-5a4e-4197-b2b4-66b1b0b0a9cb/headshot",
+        "naturalWidth": 1714,
+        "naturalHeight": 2571,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg app-bg--cinematic",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-appbar mud-appbar-dense mud-appbar-fixed-top mud-elevation-0 layout-shell__appbar layout-shell__appbar--cinematic",
+        "backgroundImage": "linear-gradient(rgba(3, 6, 12, 0.7) 0%, rgba(3, 6, 12, 0.34) 62%, rgba(0, 0, 0, 0) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page",
+        "backgroundImage": "radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), rgba(0, 0, 0, 0) 420px), radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), rgba(0, 0, 0, 0) 336px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage tl-detail-stage--with-primary tl-detail-stage--primary-after-navigation tl-detail-stage--watch",
+        "backgroundImage": "radial-gradient(circle at 76% 34%, color(srgb 0.545098 0.360784 0.964706 / 0.18), rgba(0, 0, 0, 0) 532px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage tl-detail-hero__stage tl-detail-media-stage--background tl-detail-media-stage--backdrop-with-logo tl-detail-media-stage--landscape",
+        "backgroundImage": "radial-gradient(at 76% 42%, color(srgb 0.545098 0.360784 0.964706 / 0.34) 0%, rgba(0, 0, 0, 0) 58%), linear-gradient(120deg, color(srgb 0.123843 0.103529 0.231529) 0%, rgb(8, 12, 18) 52%, rgb(8, 12, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__overlays tl-detail-media-stage__overlay",
+        "backgroundImage": "linear-gradient(to right, rgba(8, 12, 18, 0.92) 0%, rgba(8, 12, 18, 0.8) 16%, rgba(8, 12, 18, 0.58) 29%, rgba(8, 12, 18, 0.32) 41%, rgba(8, 12, 18, 0.12) 51%, rgba(8, 12, 18, 0.03) 61%, rgba(0, 0, 0, 0) 72%), radial-gradient(at 72% 42%, color(srgb 0.545098 0.360784 0.964706 / 0.26) 0%, color(srgb 0.545098 0.360784 0.964706 / 0.11) 30%, rgba(0, 0, 0, 0) 72%), linear-gradient(rgba(4, 7, 12, 0.58) 0%, rgba(4, 7, 12, 0.08) 15%, rgba(0, 0, 0, 0) 44%, rgba(4, 7, 12, 0.35) 56%, rgba(4, 7, 12, 0.8) 79%, rgba(4, 7, 12, 0.99) 100%), radial-gradient(rgba(0, 0, 0, 0) 38%, rgba(4, 7, 12, 0.32) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--watch ",
+        "backgroundImage": "radial-gradient(circle at 35% 22%, rgba(255, 255, 255, 0.22), rgba(0, 0, 0, 0) 34%), linear-gradient(rgb(139, 92, 246) 0%, rgb(118, 82, 214) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage__navigation",
+        "backgroundImage": "linear-gradient(rgba(5, 8, 14, 0.16), rgba(5, 8, 14, 0.54))",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page__primary-content",
+        "backgroundImage": "radial-gradient(circle at 72% 5%, color(srgb 0.545098 0.360784 0.964706 / 0.09), rgba(0, 0, 0, 0) 616px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-body",
+        "backgroundImage": "linear-gradient(rgb(8, 13, 20), rgb(7, 11, 17) 560px)",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 235, 172, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(51, 113, 40), rgb(25, 65, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 226, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 113, 80), rgb(25, 35, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 235, 146, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(69, 113, 40), rgb(25, 67, 59))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(220, 235, 132, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(113, 85, 40), rgb(33, 67, 25))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(235, 132, 163, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(113, 40, 101), rgb(67, 40, 25))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(221, 132, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(64, 40, 113), rgb(67, 25, 44))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(132, 148, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(40, 90, 113), rgb(47, 25, 67))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(235, 173, 132, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(113, 40, 50), rgb(64, 67, 25))",
+        "displayed": true
+      },
+      {
+        "className": "tl-person-avatar tl-person-avatar--sm",
+        "backgroundImage": "radial-gradient(circle at 30% 20%, rgba(213, 132, 235, 0.42), rgba(0, 0, 0, 0) 58%), linear-gradient(145deg, rgb(58, 40, 113), rgb(67, 25, 48))",
+        "displayed": true
+      }
+    ],
+    "brokenImages": [
+      {
+        "alt": "Pilot",
+        "src": "http://localhost:5016/engine-image/stream/artwork/4381879b-bd95-482b-974c-36d57ff17d5d",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": "tl-detail-hero__logo"
+      }
+    ]
+  },
+  {
+    "name": "person-denis-villeneuve",
+    "path": "/details/person/f9723f9c-9247-4a8e-b55c-6706b073d668",
+    "finalUrl": "http://localhost:5016/details/person/f9723f9c-9247-4a8e-b55c-6706b073d668",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-person-denis-villeneuve.png",
+    "navigationError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "responseErrors": [],
+    "title": "Details - Tuvima Library",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\nLive updates are paused.\nRetry\nLoading details",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg app-bg--cinematic",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-appbar mud-appbar-dense mud-appbar-fixed-top mud-elevation-0 layout-shell__appbar layout-shell__appbar--cinematic",
+        "backgroundImage": "linear-gradient(rgba(3, 6, 12, 0.7) 0%, rgba(3, 6, 12, 0.34) 62%, rgba(0, 0, 0, 0) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page tl-detail-route-state",
+        "backgroundImage": "radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), rgba(0, 0, 0, 0) 420px), radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), rgba(0, 0, 0, 0) 336px), none",
+        "displayed": true
+      }
+    ],
+    "brokenImages": []
+  },
+  {
+    "name": "person-bryan-cranston",
+    "path": "/details/person/febf36e1-ef2a-4d79-a166-aa4583936d82",
+    "finalUrl": "http://localhost:5016/details/person/febf36e1-ef2a-4d79-a166-aa4583936d82",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-person-bryan-cranston.png",
+    "navigationError": null,
+    "consoleErrors": [],
+    "pageErrors": [],
+    "responseErrors": [],
+    "title": "Bryan Cranston - Tuvima Library",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\nLive updates are paused.\nRetry\nBryan Cranston\nROLE\nActor; Director\n1956\nHollywood\n2 titles in library\nWikipedia\nInstagram\nX\nMore\nWORKS IN YOUR LIBRARY\nAll roles\nActor\nDirector\nTV SERIES\nBreaking Bad\nWalter White · 2008\nMOVIE\nDrive\nActor · 2011\nBIOGRAPHY\n\nBryan Lee Cranston (born March 7, 1956) is an American actor. He established himself as a leading actor in both comedic and dramatic works on stage and screen. His accolades include seven Primetime Emmy Awards, two Tony Awards, a Laurence Olivier Award, and a Golden Globe Award, as well as nominations for an Academy Award and a British Academy Film Award.\n\nCranston first gained prominence playing Hal in the Fox sitcom Malcolm in the Middle (2000–2006) for which he was nominated for the Primetime Emmy Award for Outstanding Supporting Actor in a Comedy Series. He gained stardom for his dramatic leading role playing Walter White in the AMC crime drama series Breaking Bad (2008–2013) for which he won the Outstanding Lead Actor in a Drama Series four times (2008, 2009, 2010, and 2014). He was Emmy-nominated for All the Way (2016) and Curb Your Enthusiasm (2018). Cranston co-developed and appeared in the crime drama series Sneaky Pete (2015–2019) and starred in the drama series Your Honor (2020–2023).\n\nOn stage, he earned a Tony Award for Best Actor in a Play for his portrayal of President Lyndon B. Johnson in the Broadway play All the Way (2014), a role he reprised in the 2016 HBO film of the same name. He received the Laurence Olivier Award for Best Actor and his second Tony Award for portraying Howard Beale in the play Network on the West End and Broadway, respectively.\n\nIn film, Cranston earned nominations for the Academy Award and the BAFTA Award for Best Actor for portraying Dalton Trumbo in the Hollywood blacklist drama Trumbo (2015). Other notable films include Saving Private Ryan (1998), Little Miss Sunshine (2006), Drive (2011), Contagion (2011), Argo (2012), Godzilla (2014), The Infiltrator (2016), The Upside (2017), Last Flag Flying (2017), Isle of Dogs (2018), Asteroid City (2023), and The Phoenician Scheme (2025). He has voiced roles in Madagascar 3 (2012), Kung Fu Panda 3 (2016), and Kung Fu Panda 4 (2024).\n\nWikipedia: article text\ntext is available under\nCC BY-SA 4.0\n;\nadditional terms may apply.\n\nDETAILS\nBORN\n1956 (Age 70)\nHollywood\nOCCUPATION\nfilm actor\nROLES\nActor, Director\nNATIONALITY\nUnited States",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "https://image.tmdb.org/t/p/original/npIIZJGSrcJIJ6yHdmbqO6Jzo5I.jpg",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": false,
+        "className": "tl-detail-media-stage__cover"
+      },
+      {
+        "alt": "Bryan Cranston",
+        "src": "https://image.tmdb.org/t/p/original/npIIZJGSrcJIJ6yHdmbqO6Jzo5I.jpg",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/artwork/960406b7-d5b0-4ed6-93db-9c1547fdded9",
+        "naturalWidth": 1920,
+        "naturalHeight": 1080,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/engine-image/stream/74a3c647-ade9-4bb1-86c1-4a803d594b7d/cover",
+        "naturalWidth": 500,
+        "naturalHeight": 750,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg app-bg--cinematic",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-appbar mud-appbar-dense mud-appbar-fixed-top mud-elevation-0 layout-shell__appbar layout-shell__appbar--cinematic",
+        "backgroundImage": "linear-gradient(rgba(3, 6, 12, 0.7) 0%, rgba(3, 6, 12, 0.34) 62%, rgba(0, 0, 0, 0) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page",
+        "backgroundImage": "radial-gradient(circle at 80% 8%, rgba(71, 53, 122, 0.26), rgba(0, 0, 0, 0) 420px), radial-gradient(circle at 12% 20%, rgba(194, 135, 48, 0.18), rgba(0, 0, 0, 0) 336px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-stage tl-detail-stage--with-primary tl-detail-stage--primary-after-navigation tl-detail-stage--person",
+        "backgroundImage": "radial-gradient(circle at 76% 34%, color(srgb 0.545098 0.360784 0.964706 / 0.18), rgba(0, 0, 0, 0) 532px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-media-stage tl-detail-hero__stage tl-detail-media-stage--artwork-fallback tl-detail-media-stage--cover-fallback tl-detail-media-stage--portrait",
+        "backgroundImage": "radial-gradient(circle at 72% 42%, rgba(139, 92, 246, 0.11), rgba(0, 0, 0, 0) 434px), none",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__cover-atmosphere tl-detail-media-stage__cover-atmosphere",
+        "backgroundImage": "url(\"https://image.tmdb.org/t/p/original/npIIZJGSrcJIJ6yHdmbqO6Jzo5I.jpg\")",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-hero__overlays tl-detail-media-stage__overlay",
+        "backgroundImage": "linear-gradient(to right, rgba(4, 7, 12, 0.96) 0%, rgba(4, 7, 12, 0.88) 22%, rgba(4, 7, 12, 0.62) 42%, rgba(4, 7, 12, 0.28) 62%, rgba(4, 7, 12, 0.08) 78%, rgba(0, 0, 0, 0) 100%), radial-gradient(at 72% 42%, rgba(139, 92, 246, 0.28) 0%, rgba(139, 92, 246, 0.14) 24%, rgba(139, 92, 246, 0.04) 48%, rgba(0, 0, 0, 0) 72%), linear-gradient(rgba(0, 0, 0, 0) 45%, rgba(4, 7, 12, 0.52) 76%, rgba(4, 7, 12, 0.95) 100%), radial-gradient(rgba(0, 0, 0, 0) 42%, rgba(4, 7, 12, 0.28) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-page__primary-content",
+        "backgroundImage": "radial-gradient(circle at 72% 5%, color(srgb 0.545098 0.360784 0.964706 / 0.09), rgba(0, 0, 0, 0) 616px), none",
+        "displayed": true
+      },
+      {
+        "className": "app-segmented-control__item is-selected",
+        "backgroundImage": "linear-gradient(135deg, rgb(139, 92, 246) 0%, rgb(118, 82, 214) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "tl-detail-body",
+        "backgroundImage": "linear-gradient(rgb(8, 13, 20), rgb(7, 11, 17) 560px)",
+        "displayed": true
+      }
+    ],
+    "brokenImages": [
+      {
+        "alt": "Bryan Cranston",
+        "src": "https://image.tmdb.org/t/p/original/npIIZJGSrcJIJ6yHdmbqO6Jzo5I.jpg",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ]
+  },
+  {
+    "name": "view-photos",
+    "path": "/view",
+    "finalUrl": "http://localhost:5016/view",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-view-photos.png",
+    "navigationError": null,
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "pageErrors": [],
+    "responseErrors": [
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlOGdJduqfR92yddC6i9ENmAEBAAAAAGqiXeE.7HoJD0WWU_34eaztIhEm-foOhocjzLfJM0JYulgchi0"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlaU-McHpqQCCO9mBl4cN8rgEBAAAAAGqiXeE.nZ3XnpgnUommkhGBfxsF6vkb8Li5PSG7BDmvSdjHTXM"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlsXhEu7E5RnOJLY5FxgCUagEBAAAAAGqiXeE.U0FT4rxZ1-0R3D557TuhMlD2HJIG5wEJUMv8446io8E"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeE.qgw-YMBthGavBgVYKd6egYpkeW8BHPxTn22YiWA8VZI"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml8aX_YPx2TZmHBqk1PvNZMAEBAAAAAGqiXeE.aiy4SXzz0-zriJDiDfzwlZArh0UvkcWhg7zczyurn-c"
+      }
+    ],
+    "title": "Photos - Tuvima",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\nLive updates are paused.\nRetry\nVIEW\nPhotos\nFolders\nGalleries\nPeople\nPlaces\nGALLERIES\nVIEW\nPhotos\n\nYour private photo and video timeline.\n\nScope\nValidation Administrator\nDensity\nCompact\nComfortable\nRelaxed\nContributions\nAdd media\nAll\nFavorites\nVideos\nArchive\nFilters\nJanuary 2021\nFriday, Jan 15\nSelect 1\nKhwairakpam Chaoba portrait\nImphal, India\n0:00\nNovember 2019\nSunday, Nov 3\nSelect 1\nShibuya street\nTokyo, Japan\n0:00\nSeptember 2018\nFriday, Sep 21\nSelect 1\nChicago skyline at sunset\nChicago, United States\n0:00\nJune 2016\nFriday, Jun 10\nSelect 1\nEiffel Tower\nParis, France\n0:00\nApril 2015\nThursday, Apr 2\nSelect 1\nFamily posing outdoors\nSeattle, United States\n0:00",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "Khwairakpam Chaoba portrait",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlaU-McHpqQCCO9mBl4cN8rgEBAAAAAGqiXeE.nZ3XnpgnUommkhGBfxsF6vkb8Li5PSG7BDmvSdjHTXM",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Shibuya street",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlOGdJduqfR92yddC6i9ENmAEBAAAAAGqiXeE.7HoJD0WWU_34eaztIhEm-foOhocjzLfJM0JYulgchi0",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Chicago skyline at sunset",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml8aX_YPx2TZmHBqk1PvNZMAEBAAAAAGqiXeE.aiy4SXzz0-zriJDiDfzwlZArh0UvkcWhg7zczyurn-c",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Eiffel Tower",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlsXhEu7E5RnOJLY5FxgCUagEBAAAAAGqiXeE.U0FT4rxZ1-0R3D557TuhMlD2HJIG5wEJUMv8446io8E",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Family posing outdoors",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeE.qgw-YMBthGavBgVYKd6egYpkeW8BHPxTn22YiWA8VZI",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-main-content main-content-with-topbar",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "media-section-shell media-section-shell--nested media-section-shell--has-mobile-nav",
+        "backgroundImage": "radial-gradient(circle at 52% 0%, rgba(91, 33, 182, 0.1), rgba(0, 0, 0, 0) 30%), linear-gradient(rgb(7, 11, 20) 0%, rgb(5, 7, 12) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-control app-native-select",
+        "backgroundImage": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23f4f7ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E\")",
+        "displayed": true
+      },
+      {
+        "className": "app-control app-native-select",
+        "backgroundImage": "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23f4f7ff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E\")",
+        "displayed": true
+      },
+      {
+        "className": "view-add-media",
+        "backgroundImage": "linear-gradient(135deg, rgb(124, 58, 237), rgb(91, 33, 182))",
+        "displayed": true
+      },
+      {
+        "className": "view-kind-tab is-active",
+        "backgroundImage": "linear-gradient(135deg, rgb(124, 58, 237), rgb(91, 33, 182))",
+        "displayed": true
+      },
+      {
+        "className": "view-tile__gradient",
+        "backgroundImage": "linear-gradient(rgba(0, 0, 0, 0), rgba(2, 6, 23, 0.92))",
+        "displayed": true
+      },
+      {
+        "className": "view-tile__gradient",
+        "backgroundImage": "linear-gradient(rgba(0, 0, 0, 0), rgba(2, 6, 23, 0.92))",
+        "displayed": true
+      },
+      {
+        "className": "view-tile__gradient",
+        "backgroundImage": "linear-gradient(rgba(0, 0, 0, 0), rgba(2, 6, 23, 0.92))",
+        "displayed": true
+      },
+      {
+        "className": "view-tile__gradient",
+        "backgroundImage": "linear-gradient(rgba(0, 0, 0, 0), rgba(2, 6, 23, 0.92))",
+        "displayed": true
+      },
+      {
+        "className": "view-tile__gradient",
+        "backgroundImage": "linear-gradient(rgba(0, 0, 0, 0), rgba(2, 6, 23, 0.92))",
+        "displayed": true
+      }
+    ],
+    "brokenImages": [
+      {
+        "alt": "Khwairakpam Chaoba portrait",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlaU-McHpqQCCO9mBl4cN8rgEBAAAAAGqiXeE.nZ3XnpgnUommkhGBfxsF6vkb8Li5PSG7BDmvSdjHTXM",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Shibuya street",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlOGdJduqfR92yddC6i9ENmAEBAAAAAGqiXeE.7HoJD0WWU_34eaztIhEm-foOhocjzLfJM0JYulgchi0",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Chicago skyline at sunset",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml8aX_YPx2TZmHBqk1PvNZMAEBAAAAAGqiXeE.aiy4SXzz0-zriJDiDfzwlZArh0UvkcWhg7zczyurn-c",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Eiffel Tower",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlsXhEu7E5RnOJLY5FxgCUagEBAAAAAGqiXeE.U0FT4rxZ1-0R3D557TuhMlD2HJIG5wEJUMv8446io8E",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "Family posing outdoors",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeE.qgw-YMBthGavBgVYKd6egYpkeW8BHPxTn22YiWA8VZI",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ]
+  },
+  {
+    "name": "view-people",
+    "path": "/view/people",
+    "finalUrl": "http://localhost:5016/view/people",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-view-people.png",
+    "navigationError": null,
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "pageErrors": [],
+    "responseErrors": [
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlaU-McHpqQCCO9mBl4cN8rgEBAAAAAGqiXeY.QPYHqAJHSYgFA9BLPAdZoc7yqp7Rfw3lqA-wAr-oeRs"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeY.TYbNQaRuglCr-sMUgI4EZz5b9pShHQ8ybJWQ2_6GcWw"
+      }
+    ],
+    "title": "People - Tuvima",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\nLive updates are paused.\nRetry\nVIEW\nPhotos\nFolders\nGalleries\nPeople\nPlaces\nGALLERIES\nVIEW\nPeople\n\nBrowse named and reviewed people evidence stored with your personal media.\n\nHarness Person A\n1 media items\nReviewed identity\nHarness Person B\n1 media items\nReviewed identity\nKhwairakpam Chaoba\n1 media items\nReviewed identity",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeY.TYbNQaRuglCr-sMUgI4EZz5b9pShHQ8ybJWQ2_6GcWw",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeY.TYbNQaRuglCr-sMUgI4EZz5b9pShHQ8ybJWQ2_6GcWw",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlaU-McHpqQCCO9mBl4cN8rgEBAAAAAGqiXeY.QPYHqAJHSYgFA9BLPAdZoc7yqp7Rfw3lqA-wAr-oeRs",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-main-content main-content-with-topbar",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "media-section-shell media-section-shell--nested media-section-shell--has-mobile-nav",
+        "backgroundImage": "radial-gradient(circle at 52% 0%, rgba(91, 33, 182, 0.1), rgba(0, 0, 0, 0) 30%), linear-gradient(rgb(7, 11, 20) 0%, rgb(5, 7, 12) 100%)",
+        "displayed": true
+      }
+    ],
+    "brokenImages": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeY.TYbNQaRuglCr-sMUgI4EZz5b9pShHQ8ybJWQ2_6GcWw",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeY.TYbNQaRuglCr-sMUgI4EZz5b9pShHQ8ybJWQ2_6GcWw",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlaU-McHpqQCCO9mBl4cN8rgEBAAAAAGqiXeY.QPYHqAJHSYgFA9BLPAdZoc7yqp7Rfw3lqA-wAr-oeRs",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ]
+  },
+  {
+    "name": "view-places",
+    "path": "/view/places",
+    "finalUrl": "http://localhost:5016/view/places",
+    "screenshot": "C:\\Users\\shaya\\OneDrive\\Documents\\Source\\Repos\\tuvima-library\\tools\\reports\\visual-view-places.png",
+    "navigationError": null,
+    "consoleErrors": [
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)",
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    ],
+    "pageErrors": [],
+    "responseErrors": [
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml8aX_YPx2TZmHBqk1PvNZMAEBAAAAAGqiXeo.lWGbWqKfGfiIoaooBUcJ9WJPnSP5n0cAXeFPed-h5DM"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlsXhEu7E5RnOJLY5FxgCUagEBAAAAAGqiXeo.dlw_7L_DHOWzm-tOvEbt88rSUKfrzh-cvq2oBSdCSGM"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeo.WXnaVRGKFYKnadJaHMJFX_cealNniOa7rnCHeIY7BLE"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlaU-McHpqQCCO9mBl4cN8rgEBAAAAAGqiXeo.ZZ1KPsdTAdJXYRqqgvWQvAuDghnHMF5aYibCXpP6YtE"
+      },
+      {
+        "status": 404,
+        "url": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlOGdJduqfR92yddC6i9ENmAEBAAAAAGqiXeo.03bRqYleyOuooNiSLrTpwWnARTC7wOR8EWtD7nEnEbk"
+      }
+    ],
+    "title": "Places - Tuvima",
+    "bodyText": "Skip to main content\nREAD\nWATCH\nLISTEN\nVIEW\nCOLLECTIONS\nV\nValidation Administrator\nLive updates are paused.\nRetry\nVIEW\nPhotos\nFolders\nGalleries\nPeople\nPlaces\nGALLERIES\nVIEW\nPlaces\n\nExplore personal media using location metadata already stored in its files.\n\nLocation clusters\n\nThis coordinate overview uses only metadata from your files; no third-party map tiles are loaded.\n\nChicago, United States 41.88, -87.63 · 1\nImphal, India 24.82, 93.94 · 1\nParis, France 48.86, 2.3 · 1\nSeattle, United States 47.61, -122.33 · 1\nTokyo, Japan 35.66, 139.7 · 1\nTop Places\nChicago, United States\n1 media items\n41.878, -87.63\nImphal, India\n1 media items\n24.817, 93.937\nParis, France\n1 media items\n48.858, 2.295\nSeattle, United States\n1 media items\n47.606, -122.332\nTokyo, Japan\n1 media items\n35.66, 139.701",
+    "images": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/images/library.svg",
+        "naturalWidth": 300,
+        "naturalHeight": 73,
+        "displayed": true,
+        "className": "layout-shell__brand-lockup"
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml8aX_YPx2TZmHBqk1PvNZMAEBAAAAAGqiXeo.lWGbWqKfGfiIoaooBUcJ9WJPnSP5n0cAXeFPed-h5DM",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlaU-McHpqQCCO9mBl4cN8rgEBAAAAAGqiXeo.ZZ1KPsdTAdJXYRqqgvWQvAuDghnHMF5aYibCXpP6YtE",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlsXhEu7E5RnOJLY5FxgCUagEBAAAAAGqiXeo.dlw_7L_DHOWzm-tOvEbt88rSUKfrzh-cvq2oBSdCSGM",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeo.WXnaVRGKFYKnadJaHMJFX_cealNniOa7rnCHeIY7BLE",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlOGdJduqfR92yddC6i9ENmAEBAAAAAGqiXeo.03bRqYleyOuooNiSLrTpwWnARTC7wOR8EWtD7nEnEbk",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ],
+    "backgrounds": [
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "app-dark",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-layout app-bg",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "mud-main-content main-content-with-topbar",
+        "backgroundImage": "radial-gradient(circle at 18% 0%, rgba(139, 92, 246, 0.18), rgba(0, 0, 0, 0) 30%), radial-gradient(circle at 82% 8%, rgba(56, 189, 248, 0.12), rgba(0, 0, 0, 0) 28%), linear-gradient(rgb(7, 10, 18) 0%, rgb(11, 16, 32) 46%, rgb(7, 10, 18) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "media-section-shell media-section-shell--nested media-section-shell--has-mobile-nav",
+        "backgroundImage": "radial-gradient(circle at 52% 0%, rgba(91, 33, 182, 0.1), rgba(0, 0, 0, 0) 30%), linear-gradient(rgb(7, 11, 20) 0%, rgb(5, 7, 12) 100%)",
+        "displayed": true
+      },
+      {
+        "className": "view-place-clusters",
+        "backgroundImage": "radial-gradient(circle at 25% 60%, rgba(124, 58, 237, 0.32), rgba(0, 0, 0, 0) 18%), radial-gradient(circle at 70% 35%, rgba(124, 58, 237, 0.22), rgba(0, 0, 0, 0) 14%), none",
+        "displayed": true
+      },
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle, rgba(124, 58, 237, 0.25), rgba(15, 23, 42, 0.9))",
+        "displayed": true
+      },
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle, rgba(124, 58, 237, 0.25), rgba(15, 23, 42, 0.9))",
+        "displayed": true
+      },
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle, rgba(124, 58, 237, 0.25), rgba(15, 23, 42, 0.9))",
+        "displayed": true
+      },
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle, rgba(124, 58, 237, 0.25), rgba(15, 23, 42, 0.9))",
+        "displayed": true
+      },
+      {
+        "className": "",
+        "backgroundImage": "radial-gradient(circle, rgba(124, 58, 237, 0.25), rgba(15, 23, 42, 0.9))",
+        "displayed": true
+      }
+    ],
+    "brokenImages": [
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml8aX_YPx2TZmHBqk1PvNZMAEBAAAAAGqiXeo.lWGbWqKfGfiIoaooBUcJ9WJPnSP5n0cAXeFPed-h5DM",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlaU-McHpqQCCO9mBl4cN8rgEBAAAAAGqiXeo.ZZ1KPsdTAdJXYRqqgvWQvAuDghnHMF5aYibCXpP6YtE",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlsXhEu7E5RnOJLY5FxgCUagEBAAAAAGqiXeo.dlw_7L_DHOWzm-tOvEbt88rSUKfrzh-cvq2oBSdCSGM",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqml3nwKA4snR_my3ynFZYx8DwEBAAAAAGqiXeo.WXnaVRGKFYKnadJaHMJFX_cealNniOa7rnCHeIY7BLE",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      },
+      {
+        "alt": "",
+        "src": "http://localhost:5016/view-media/AQAAAAAAAAAAAAAAAAAAAAG0zT5-A6VDRI6soX3BLqmlOGdJduqfR92yddC6i9ENmAEBAAAAAGqiXeo.03bRqYleyOuooNiSLrTpwWnARTC7wOR8EWtD7nEnEbk",
+        "naturalWidth": 0,
+        "naturalHeight": 0,
+        "displayed": true,
+        "className": ""
+      }
+    ]
+  }
+]

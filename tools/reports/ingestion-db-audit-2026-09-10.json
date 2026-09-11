@@ -1,0 +1,5814 @@
+{
+  "database": "C:\\temp\\tuvima-library\\.data\\database\\library.db",
+  "database_size_bytes": 61636608,
+  "all_table_counts": {
+    "account_credentials": 1,
+    "account_external_logins": 0,
+    "account_feature_grants": 4,
+    "account_invitations": 0,
+    "account_library_grants": 0,
+    "account_passkeys": 0,
+    "account_profile_grants": 1,
+    "accounts": 1,
+    "adaptive_hls_packages": 2,
+    "ai_feature_artifacts": 0,
+    "alignment_jobs": 0,
+    "application_client_bindings": 4,
+    "application_credentials": 0,
+    "application_events": 1699,
+    "application_permission_grants": 10,
+    "application_webhook_deliveries": 0,
+    "application_webhooks": 0,
+    "applications": 1,
+    "audio_fingerprints": 0,
+    "audiobook_bookmarks": 0,
+    "audiobook_chapter_title_overrides": 0,
+    "audiobook_listen_active_segments": 0,
+    "audiobook_listen_history": 0,
+    "auth_sessions": 2,
+    "authorization_audit_events": 0,
+    "bridge_ids": 370,
+    "canonical_value_arrays": 2882,
+    "canonical_values": 19559,
+    "character_performer_links": 140,
+    "character_portraits": 0,
+    "client_devices": 0,
+    "client_tokens": 0,
+    "collection_items": 41,
+    "collection_placements": 0,
+    "collection_relationships": 33,
+    "collection_view_sources": 0,
+    "collections": 55,
+    "consumption_history": 0,
+    "deferred_enrichment_queue": 0,
+    "device_pairing_requests": 0,
+    "editions": 113,
+    "encode_jobs": 0,
+    "enrichment_refresh_schedule": 521,
+    "entity_assets": 907,
+    "entity_capability_states": 4213,
+    "entity_events": 1205,
+    "entity_field_changes": 0,
+    "entity_relationships": 0,
+    "fictional_entities": 229,
+    "fictional_entity_work_links": 348,
+    "file_hash_cache": 113,
+    "grant_admin_protections": 0,
+    "grant_admin_unlocks": 0,
+    "identity_audit_events": 2,
+    "identity_jobs": 139,
+    "image_cache": 1350,
+    "image_cache_sources": 1350,
+    "ingestion_batch_artifacts": 227,
+    "ingestion_batches": 1,
+    "ingestion_log": 226,
+    "local_file_sources": 5,
+    "local_files": 5,
+    "local_item_annotations": 3,
+    "local_item_files": 5,
+    "local_item_metadata": 5,
+    "local_item_search": 5,
+    "local_item_search_config": 1,
+    "local_item_search_content": 5,
+    "local_item_search_data": 17,
+    "local_item_search_docsize": 5,
+    "local_item_search_idx": 15,
+    "local_item_search_keys": 5,
+    "local_item_tags": 15,
+    "local_items": 5,
+    "media_assets": 113,
+    "media_operation_events": 2680,
+    "media_operations": 241,
+    "metadata_claims": 46675,
+    "metadata_providers": 13,
+    "music_play_active_segments": 0,
+    "music_play_stats": 0,
+    "narrative_roots": 29,
+    "offline_variants": 0,
+    "onboarding_restore_operations": 0,
+    "onboarding_sessions": 4,
+    "onboarding_steps": 5,
+    "onboarding_workflows": 1,
+    "password_recovery_codes": 10,
+    "password_reset_challenges": 0,
+    "pending_person_signals": 0,
+    "person_aliases": 6,
+    "person_group_members": 25,
+    "person_media_links": 1392,
+    "person_roles": 791,
+    "personal_status_commands": 0,
+    "persons": 823,
+    "playback_inspection_cache": 2,
+    "playback_segments": 0,
+    "playback_telemetry_sessions": 0,
+    "player_queue_items": 0,
+    "player_sessions": 0,
+    "plugin_lore_entities": 0,
+    "plugin_lore_relationships": 0,
+    "plugin_lore_sources": 0,
+    "profile_credentials": 0,
+    "profile_person_preferences": 0,
+    "profile_sequence_preferences": 0,
+    "profile_view_policies": 0,
+    "profile_view_preferences": 0,
+    "profile_work_preferences": 0,
+    "profiles": 1,
+    "provider_config": 0,
+    "provider_health": 4,
+    "provider_response_cache": 1470,
+    "qid_labels": 851,
+    "reader_bookmarks": 0,
+    "reader_highlights": 0,
+    "reader_statistics": 0,
+    "resolver_cache": 0,
+    "retail_match_candidates": 144,
+    "review_queue": 53,
+    "schema_migrations": 1,
+    "search_index": 0,
+    "search_index_config": 1,
+    "search_index_content": 0,
+    "search_index_data": 2,
+    "search_index_docsize": 0,
+    "search_index_idx": 0,
+    "search_results_cache": 0,
+    "series_manifest_hydrations": 32,
+    "series_manifest_items": 1104,
+    "series_members": 0,
+    "service_credentials": 1,
+    "sqlite_sequence": 4,
+    "sqlite_stat1": 7,
+    "storage_metadata": 3,
+    "system_activity": 2137,
+    "text_tracks": 0,
+    "transaction_log": 0,
+    "tv_episode_credits": 11,
+    "ui_settings_cache": 6,
+    "user_playback_settings": 0,
+    "user_states": 0,
+    "user_taste_profiles": 0,
+    "view_devices": 0,
+    "view_folder_pins": 0,
+    "view_folder_timeline_policies": 0,
+    "view_galleries": 0,
+    "view_gallery_items": 0,
+    "view_gallery_shares": 0,
+    "view_personal_spaces": 1,
+    "view_shared_assets": 0,
+    "view_shared_contribution_events": 0,
+    "view_shared_contribution_items": 0,
+    "view_shared_contributions": 0,
+    "view_shared_library": 1,
+    "view_shared_transfers": 0,
+    "view_source_policies": 1,
+    "view_sources": 1,
+    "view_storage_labels": 1,
+    "wikidata_bridge_candidates": 119,
+    "works": 174
+  },
+  "tables": {
+    "bridge_ids": {
+      "count": 370,
+      "columns": [
+        "id",
+        "entity_id",
+        "id_type",
+        "id_value",
+        "wikidata_property",
+        "provider_id",
+        "created_at"
+      ],
+      "groups": [
+        {
+          "id_type": "asin",
+          "count": 34
+        },
+        {
+          "id_type": "apple_books_id",
+          "count": 33
+        },
+        {
+          "id_type": "musicbrainz_recording_id",
+          "count": 31
+        },
+        {
+          "id_type": "imdb_id",
+          "count": 30
+        },
+        {
+          "id_type": "apple_music_id",
+          "count": 26
+        },
+        {
+          "id_type": "musicbrainz_release_group_id",
+          "count": 26
+        },
+        {
+          "id_type": "open_library_id",
+          "count": 26
+        },
+        {
+          "id_type": "musicbrainz_work_id",
+          "count": 25
+        },
+        {
+          "id_type": "musicbrainz_release_id",
+          "count": 24
+        },
+        {
+          "id_type": "comic_vine_id",
+          "count": 23
+        },
+        {
+          "id_type": "apple_artist_id",
+          "count": 20
+        },
+        {
+          "id_type": "apple_music_collection_id",
+          "count": 20
+        },
+        {
+          "id_type": "tmdb_id",
+          "count": 19
+        },
+        {
+          "id_type": "isrc",
+          "count": 16
+        },
+        {
+          "id_type": "tmdb_episode_id",
+          "count": 11
+        },
+        {
+          "id_type": "isbn_13",
+          "count": 3
+        },
+        {
+          "id_type": "isbn_10",
+          "count": 2
+        },
+        {
+          "id_type": "goodreads_id",
+          "count": 1
+        }
+      ]
+    },
+    "canonical_value_arrays": {
+      "count": 2882,
+      "columns": [
+        "entity_id",
+        "key",
+        "ordinal",
+        "value",
+        "value_qid"
+      ],
+      "groups": [
+        {
+          "key": "cast_member",
+          "count": 347
+        },
+        {
+          "key": "genre",
+          "count": 277
+        },
+        {
+          "key": "characters",
+          "count": 274
+        },
+        {
+          "key": "director",
+          "count": 236
+        },
+        {
+          "key": "producer",
+          "count": 228
+        },
+        {
+          "key": "guest_star",
+          "count": 199
+        },
+        {
+          "key": "author",
+          "count": 136
+        },
+        {
+          "key": "award_nominated",
+          "count": 118
+        },
+        {
+          "key": "screenwriter",
+          "count": 110
+        },
+        {
+          "key": "award_received",
+          "count": 107
+        },
+        {
+          "key": "narrative_location",
+          "count": 99
+        },
+        {
+          "key": "main_subject",
+          "count": 88
+        },
+        {
+          "key": "language",
+          "count": 81
+        },
+        {
+          "key": "country_of_origin",
+          "count": 72
+        },
+        {
+          "key": "filming_location",
+          "count": 64
+        },
+        {
+          "key": "artist",
+          "count": 46
+        },
+        {
+          "key": "nomination_family",
+          "count": 44
+        },
+        {
+          "key": "original_language",
+          "count": 42
+        },
+        {
+          "key": "composer",
+          "count": 41
+        },
+        {
+          "key": "production_company",
+          "count": 41
+        },
+        {
+          "key": "award_family",
+          "count": 40
+        },
+        {
+          "key": "album_artist",
+          "count": 39
+        },
+        {
+          "key": "publisher",
+          "count": 35
+        },
+        {
+          "key": "enrichment_providers",
+          "count": 25
+        },
+        {
+          "key": "set_in_period",
+          "count": 22
+        },
+        {
+          "key": "illustrator",
+          "count": 20
+        },
+        {
+          "key": "fictional_universe",
+          "count": 16
+        },
+        {
+          "key": "narrator",
+          "count": 15
+        },
+        {
+          "key": "based_on",
+          "count": 12
+        },
+        {
+          "key": "network",
+          "count": 8
+        }
+      ]
+    },
+    "canonical_values": {
+      "count": 19559,
+      "columns": [
+        "entity_id",
+        "key",
+        "value",
+        "last_scored_at",
+        "is_conflicted",
+        "winning_provider_id",
+        "needs_review"
+      ],
+      "groups": [
+        {
+          "key": "instance_of",
+          "count": 1052
+        },
+        {
+          "key": "instance_of_qid",
+          "count": 1052
+        },
+        {
+          "key": "wikidata_qid",
+          "count": 902
+        },
+        {
+          "key": "occupation_qid",
+          "count": 807
+        },
+        {
+          "key": "name",
+          "count": 801
+        },
+        {
+          "key": "nationality_qid",
+          "count": 711
+        },
+        {
+          "key": "date_of_birth",
+          "count": 704
+        },
+        {
+          "key": "wikipedia_url",
+          "count": 700
+        },
+        {
+          "key": "place_of_birth",
+          "count": 674
+        },
+        {
+          "key": "place_of_birth_qid",
+          "count": 674
+        },
+        {
+          "key": "biography",
+          "count": 630
+        },
+        {
+          "key": "headshot_url",
+          "count": 542
+        },
+        {
+          "key": "tmdb_artwork_downloaded_count",
+          "count": 271
+        },
+        {
+          "key": "tmdb_artwork_last_checked_at",
+          "count": 271
+        },
+        {
+          "key": "tmdb_artwork_status",
+          "count": 271
+        },
+        {
+          "key": "twitter",
+          "count": 247
+        },
+        {
+          "key": "instagram",
+          "count": 239
+        },
+        {
+          "key": "tmdb_artwork_skipped_reason",
+          "count": 221
+        },
+        {
+          "key": "cover_state",
+          "count": 201
+        },
+        {
+          "key": "hero_state",
+          "count": 201
+        },
+        {
+          "key": "member_of",
+          "count": 197
+        },
+        {
+          "key": "member_of_qid",
+          "count": 197
+        },
+        {
+          "key": "title",
+          "count": 185
+        },
+        {
+          "key": "gender",
+          "count": 179
+        },
+        {
+          "key": "gender_qid",
+          "count": 179
+        },
+        {
+          "key": "present_in_work",
+          "count": 179
+        },
+        {
+          "key": "present_in_work_qid",
+          "count": 179
+        },
+        {
+          "key": "website",
+          "count": 174
+        },
+        {
+          "key": "stage3_enhanced_at",
+          "count": 168
+        },
+        {
+          "key": "stage3_enriched_at",
+          "count": 156
+        },
+        {
+          "key": "year",
+          "count": 139
+        },
+        {
+          "key": "creator",
+          "count": 132
+        },
+        {
+          "key": "creator_qid",
+          "count": 132
+        },
+        {
+          "key": "media_type",
+          "count": 113
+        },
+        {
+          "key": "artwork_settled_at",
+          "count": 99
+        },
+        {
+          "key": "cover_source",
+          "count": 99
+        },
+        {
+          "key": "artwork_accent_hex",
+          "count": 98
+        },
+        {
+          "key": "artwork_primary_hex",
+          "count": 98
+        },
+        {
+          "key": "artwork_secondary_hex",
+          "count": 98
+        },
+        {
+          "key": "cover_url",
+          "count": 98
+        },
+        {
+          "key": "dominant_color",
+          "count": 98
+        },
+        {
+          "key": "original_release_year",
+          "count": 93
+        },
+        {
+          "key": "container",
+          "count": 90
+        },
+        {
+          "key": "date_of_death",
+          "count": 88
+        },
+        {
+          "key": "cover_accent_hex",
+          "count": 87
+        },
+        {
+          "key": "cover_aspect_class",
+          "count": 87
+        },
+        {
+          "key": "cover_height_px",
+          "count": 87
+        },
+        {
+          "key": "cover_primary_hex",
+          "count": 87
+        },
+        {
+          "key": "cover_secondary_hex",
+          "count": 87
+        },
+        {
+          "key": "cover_url_l",
+          "count": 87
+        },
+        {
+          "key": "cover_url_m",
+          "count": 87
+        },
+        {
+          "key": "cover_url_s",
+          "count": 87
+        },
+        {
+          "key": "cover_width_px",
+          "count": 87
+        },
+        {
+          "key": "identity_provider",
+          "count": 86
+        },
+        {
+          "key": "cover",
+          "count": 83
+        },
+        {
+          "key": "qid_resolution_method",
+          "count": 79
+        },
+        {
+          "key": "album",
+          "count": 76
+        },
+        {
+          "key": "place_of_death",
+          "count": 72
+        },
+        {
+          "key": "place_of_death_qid",
+          "count": 72
+        },
+        {
+          "key": "original_release_date",
+          "count": 71
+        },
+        {
+          "key": "description",
+          "count": 70
+        },
+        {
+          "key": "narrative_scope",
+          "count": 68
+        },
+        {
+          "key": "asin",
+          "count": 60
+        },
+        {
+          "key": "plot_summary",
+          "count": 59
+        },
+        {
+          "key": "series",
+          "count": 59
+        },
+        {
+          "key": "tmdb_artwork_bridge_id",
+          "count": 56
+        },
+        {
+          "key": "tmdb_artwork_http_status",
+          "count": 56
+        },
+        {
+          "key": "sequence_total",
+          "count": 50
+        },
+        {
+          "key": "sequence_total_scope",
+          "count": 50
+        },
+        {
+          "key": "father",
+          "count": 49
+        },
+        {
+          "key": "father_qid",
+          "count": 49
+        },
+        {
+          "key": "duration_sec",
+          "count": 46
+        },
+        {
+          "key": "rating",
+          "count": 46
+        },
+        {
+          "key": "spouse",
+          "count": 46
+        },
+        {
+          "key": "spouse_qid",
+          "count": 46
+        },
+        {
+          "key": "child",
+          "count": 45
+        },
+        {
+          "key": "child_qid",
+          "count": 45
+        },
+        {
+          "key": "mother",
+          "count": 41
+        },
+        {
+          "key": "mother_qid",
+          "count": 41
+        },
+        {
+          "key": "alternate_title",
+          "count": 36
+        },
+        {
+          "key": "fandom_article_id",
+          "count": 36
+        },
+        {
+          "key": "track_number",
+          "count": 36
+        },
+        {
+          "key": "wikidata_qid_scope",
+          "count": 36
+        },
+        {
+          "key": "educated_at",
+          "count": 35
+        },
+        {
+          "key": "educated_at_qid",
+          "count": 35
+        },
+        {
+          "key": "apple_books_id",
+          "count": 34
+        },
+        {
+          "key": "sibling",
+          "count": 34
+        },
+        {
+          "key": "sibling_qid",
+          "count": 34
+        },
+        {
+          "key": "series_position",
+          "count": 33
+        },
+        {
+          "key": "imdb_id",
+          "count": 32
+        },
+        {
+          "key": "child_entities_json",
+          "count": 31
+        },
+        {
+          "key": "musicbrainz_recording_id",
+          "count": 31
+        },
+        {
+          "key": "residence",
+          "count": 31
+        },
+        {
+          "key": "residence_qid",
+          "count": 31
+        },
+        {
+          "key": "musicbrainz_work_id",
+          "count": 30
+        },
+        {
+          "key": "tiktok",
+          "count": 30
+        },
+        {
+          "key": "isbn_13",
+          "count": 29
+        },
+        {
+          "key": "narrative_root_label",
+          "count": 29
+        },
+        {
+          "key": "narrative_root_qid",
+          "count": 29
+        },
+        {
+          "key": "open_library_id",
+          "count": 29
+        },
+        {
+          "key": "has_edition_or_translation",
+          "count": 28
+        },
+        {
+          "key": "has_edition_or_translation_qid",
+          "count": 28
+        },
+        {
+          "key": "goodreads_id",
+          "count": 27
+        },
+        {
+          "key": "series_membership_source",
+          "count": 27
+        },
+        {
+          "key": "apple_music_id",
+          "count": 26
+        },
+        {
+          "key": "cast_member_profile_url",
+          "count": 26
+        },
+        {
+          "key": "cast_member_tmdb_id",
+          "count": 26
+        },
+        {
+          "key": "content_rating",
+          "count": 26
+        },
+        {
+          "key": "director_tmdb_id",
+          "count": 26
+        },
+        {
+          "key": "disc_count",
+          "count": 26
+        },
+        {
+          "key": "disc_number",
+          "count": 26
+        },
+        {
+          "key": "duration",
+          "count": 26
+        },
+        {
+          "key": "musicbrainz_release_group_id",
+          "count": 26
+        },
+        {
+          "key": "runtime",
+          "count": 26
+        },
+        {
+          "key": "screenwriter_tmdb_id",
+          "count": 26
+        },
+        {
+          "key": "director_profile_url",
+          "count": 25
+        },
+        {
+          "key": "isbn_10",
+          "count": 25
+        },
+        {
+          "key": "track_count",
+          "count": 25
+        },
+        {
+          "key": "musicbrainz_release_id",
+          "count": 24
+        },
+        {
+          "key": "partner",
+          "count": 24
+        },
+        {
+          "key": "partner_qid",
+          "count": 24
+        },
+        {
+          "key": "comic_vine_id",
+          "count": 23
+        },
+        {
+          "key": "screenwriter_profile_url",
+          "count": 23
+        },
+        {
+          "key": "word_count",
+          "count": 23
+        },
+        {
+          "key": "date",
+          "count": 22
+        },
+        {
+          "key": "isbn",
+          "count": 21
+        },
+        {
+          "key": "position_held",
+          "count": 21
+        },
+        {
+          "key": "position_held_qid",
+          "count": 21
+        },
+        {
+          "key": "series_qid",
+          "count": 21
+        },
+        {
+          "key": "apple_artist_id",
+          "count": 20
+        },
+        {
+          "key": "apple_music_collection_id",
+          "count": 20
+        },
+        {
+          "key": "located_in",
+          "count": 20
+        },
+        {
+          "key": "located_in_qid",
+          "count": 20
+        },
+        {
+          "key": "producer_tmdb_id",
+          "count": 20
+        },
+        {
+          "key": "show_name",
+          "count": 20
+        },
+        {
+          "key": "audiobook_part_count",
+          "count": 19
+        },
+        {
+          "key": "audiobook_part_number",
+          "count": 19
+        },
+        {
+          "key": "background",
+          "count": 19
+        },
+        {
+          "key": "background_accent_hex",
+          "count": 19
+        },
+        {
+          "key": "background_aspect_class",
+          "count": 19
+        },
+        {
+          "key": "background_height_px",
+          "count": 19
+        },
+        {
+          "key": "background_primary_hex",
+          "count": 19
+        },
+        {
+          "key": "background_secondary_hex",
+          "count": 19
+        },
+        {
+          "key": "background_url",
+          "count": 19
+        },
+        {
+          "key": "background_url_l",
+          "count": 19
+        },
+        {
+          "key": "background_url_m",
+          "count": 19
+        },
+        {
+          "key": "background_url_s",
+          "count": 19
+        },
+        {
+          "key": "background_width_px",
+          "count": 19
+        },
+        {
+          "key": "cast_member_character",
+          "count": 19
+        },
+        {
+          "key": "logo",
+          "count": 19
+        },
+        {
+          "key": "logo_aspect_class",
+          "count": 19
+        },
+        {
+          "key": "logo_url",
+          "count": 19
+        },
+        {
+          "key": "short_description",
+          "count": 19
+        },
+        {
+          "key": "tagline",
+          "count": 19
+        },
+        {
+          "key": "tmdb_id",
+          "count": 19
+        },
+        {
+          "key": "tmdb_tv_id",
+          "count": 19
+        },
+        {
+          "key": "audio_bitrate",
+          "count": 18
+        },
+        {
+          "key": "coordinate_location",
+          "count": 18
+        },
+        {
+          "key": "logo_accent_hex",
+          "count": 18
+        },
+        {
+          "key": "logo_height_px",
+          "count": 18
+        },
+        {
+          "key": "logo_primary_hex",
+          "count": 18
+        },
+        {
+          "key": "logo_secondary_hex",
+          "count": 18
+        },
+        {
+          "key": "logo_width_px",
+          "count": 18
+        },
+        {
+          "key": "sequence_manifest_json",
+          "count": 18
+        },
+        {
+          "key": "part_of",
+          "count": 17
+        },
+        {
+          "key": "part_of_qid",
+          "count": 17
+        },
+        {
+          "key": "producer_profile_url",
+          "count": 17
+        },
+        {
+          "key": "isrc",
+          "count": 16
+        },
+        {
+          "key": "conflict",
+          "count": 15
+        },
+        {
+          "key": "conflict_qid",
+          "count": 15
+        },
+        {
+          "key": "tmdb_movie_id",
+          "count": 15
+        },
+        {
+          "key": "episode",
+          "count": 14
+        },
+        {
+          "key": "episode_number",
+          "count": 14
+        },
+        {
+          "key": "season",
+          "count": 14
+        },
+        {
+          "key": "season_number",
+          "count": 14
+        },
+        {
+          "key": "air_date",
+          "count": 13
+        },
+        {
+          "key": "apple_tv_movie_id",
+          "count": 13
+        },
+        {
+          "key": "apple_tv_show_id",
+          "count": 13
+        },
+        {
+          "key": "composer_profile_url",
+          "count": 13
+        },
+        {
+          "key": "composer_tmdb_id",
+          "count": 13
+        },
+        {
+          "key": "episode_description",
+          "count": 13
+        },
+        {
+          "key": "episode_title",
+          "count": 13
+        },
+        {
+          "key": "franchise",
+          "count": 13
+        },
+        {
+          "key": "franchise_qid",
+          "count": 13
+        },
+        {
+          "key": "guest_star_character",
+          "count": 13
+        },
+        {
+          "key": "guest_star_profile_url",
+          "count": 13
+        },
+        {
+          "key": "guest_star_tmdb_id",
+          "count": 13
+        },
+        {
+          "key": "studio",
+          "count": 13
+        },
+        {
+          "key": "tmdb_episode_id",
+          "count": 13
+        },
+        {
+          "key": "apple_itunes_id",
+          "count": 12
+        },
+        {
+          "key": "studio_logo",
+          "count": 12
+        },
+        {
+          "key": "studio_logo_accent_hex",
+          "count": 12
+        },
+        {
+          "key": "studio_logo_aspect_class",
+          "count": 12
+        },
+        {
+          "key": "studio_logo_height_px",
+          "count": 12
+        },
+        {
+          "key": "studio_logo_primary_hex",
+          "count": 12
+        },
+        {
+          "key": "studio_logo_secondary_hex",
+          "count": 12
+        },
+        {
+          "key": "studio_logo_url",
+          "count": 12
+        },
+        {
+          "key": "studio_logo_width_px",
+          "count": 12
+        },
+        {
+          "key": "episode_still",
+          "count": 11
+        },
+        {
+          "key": "episode_still_accent_hex",
+          "count": 11
+        },
+        {
+          "key": "episode_still_aspect_class",
+          "count": 11
+        },
+        {
+          "key": "episode_still_height_px",
+          "count": 11
+        },
+        {
+          "key": "episode_still_primary_hex",
+          "count": 11
+        },
+        {
+          "key": "episode_still_secondary_hex",
+          "count": 11
+        },
+        {
+          "key": "episode_still_url",
+          "count": 11
+        },
+        {
+          "key": "episode_still_url_l",
+          "count": 11
+        },
+        {
+          "key": "episode_still_url_m",
+          "count": 11
+        },
+        {
+          "key": "episode_still_url_s",
+          "count": 11
+        },
+        {
+          "key": "episode_still_width_px",
+          "count": 11
+        },
+        {
+          "key": "issue_description",
+          "count": 11
+        },
+        {
+          "key": "issue_title",
+          "count": 11
+        },
+        {
+          "key": "page_count",
+          "count": 11
+        },
+        {
+          "key": "issue_number",
+          "count": 10
+        },
+        {
+          "key": "issue_source_url",
+          "count": 10
+        },
+        {
+          "key": "has_parts",
+          "count": 8
+        },
+        {
+          "key": "has_parts_qid",
+          "count": 8
+        },
+        {
+          "key": "sequence_format",
+          "count": 8
+        },
+        {
+          "key": "tmdb_collection_id",
+          "count": 8
+        },
+        {
+          "key": "tmdb_collection_name",
+          "count": 8
+        },
+        {
+          "key": "episode_count",
+          "count": 6
+        },
+        {
+          "key": "first_air_date",
+          "count": 6
+        },
+        {
+          "key": "opponent",
+          "count": 6
+        },
+        {
+          "key": "opponent_qid",
+          "count": 6
+        },
+        {
+          "key": "season_count",
+          "count": 6
+        },
+        {
+          "key": "tvdb_id",
+          "count": 6
+        },
+        {
+          "key": "comic_vine_volume_id",
+          "count": 4
+        },
+        {
+          "key": "edition_qid",
+          "count": 4
+        },
+        {
+          "key": "edition_release_year",
+          "count": 4
+        },
+        {
+          "key": "series_start_year",
+          "count": 4
+        },
+        {
+          "key": "student_of",
+          "count": 4
+        },
+        {
+          "key": "student_of_qid",
+          "count": 4
+        },
+        {
+          "key": "book_title",
+          "count": 3
+        },
+        {
+          "key": "mastodon",
+          "count": 3
+        },
+        {
+          "key": "series_end_year",
+          "count": 3
+        },
+        {
+          "key": "sidecar_chapter_count",
+          "count": 3
+        },
+        {
+          "key": "allegiance",
+          "count": 2
+        },
+        {
+          "key": "allegiance_qid",
+          "count": 2
+        },
+        {
+          "key": "edition_release_date",
+          "count": 2
+        },
+        {
+          "key": "affiliation",
+          "count": 1
+        },
+        {
+          "key": "affiliation_qid",
+          "count": 1
+        },
+        {
+          "key": "performer",
+          "count": 1
+        },
+        {
+          "key": "performer_qid",
+          "count": 1
+        }
+      ]
+    },
+    "collection_items": {
+      "count": 41,
+      "columns": [
+        "id",
+        "collection_id",
+        "work_id",
+        "sort_order",
+        "progress_state",
+        "progress_position",
+        "added_at"
+      ],
+      "groups": []
+    },
+    "collections": {
+      "count": 55,
+      "columns": [
+        "id",
+        "universe_id",
+        "parent_collection_id",
+        "display_name",
+        "collection_type",
+        "description",
+        "icon_name",
+        "scope",
+        "profile_id",
+        "is_enabled",
+        "is_featured",
+        "min_items",
+        "rule_json",
+        "refresh_schedule",
+        "last_refreshed_at",
+        "modified_at",
+        "wikidata_qid",
+        "universe_status",
+        "created_at",
+        "resolution",
+        "rule_hash",
+        "group_by_field",
+        "match_mode",
+        "sort_field",
+        "sort_direction",
+        "secondary_sort_field",
+        "secondary_sort_direction",
+        "cover_artwork_path",
+        "cover_artwork_mime_type",
+        "background_artwork_path",
+        "background_artwork_mime_type",
+        "banner_artwork_path",
+        "banner_artwork_mime_type",
+        "logo_artwork_path",
+        "logo_artwork_mime_type"
+      ],
+      "groups": [
+        {
+          "collection_type": "ContentGroup",
+          "count": 52
+        },
+        {
+          "collection_type": "Universe",
+          "count": 3
+        }
+      ]
+    },
+    "editions": {
+      "count": 113,
+      "columns": [
+        "id",
+        "work_id",
+        "format_label",
+        "wikidata_qid"
+      ],
+      "groups": []
+    },
+    "entity_assets": {
+      "count": 907,
+      "columns": [
+        "id",
+        "entity_id",
+        "entity_type",
+        "asset_type",
+        "image_url",
+        "local_image_path",
+        "local_image_path_s",
+        "local_image_path_m",
+        "local_image_path_l",
+        "source_provider",
+        "width_px",
+        "height_px",
+        "aspect_class",
+        "primary_hex",
+        "secondary_hex",
+        "accent_hex",
+        "asset_class",
+        "storage_location",
+        "owner_scope",
+        "is_preferred",
+        "is_user_override",
+        "is_locally_exported",
+        "is_preferred_exported",
+        "created_at",
+        "updated_at"
+      ],
+      "groups": [
+        {
+          "asset_type": "Headshot",
+          "source_provider": "tmdb",
+          "count": 617
+        },
+        {
+          "asset_type": "CoverArt",
+          "source_provider": "provider",
+          "count": 76
+        },
+        {
+          "asset_type": "Background",
+          "source_provider": "tmdb",
+          "count": 57
+        },
+        {
+          "asset_type": "CoverArt",
+          "source_provider": "tmdb",
+          "count": 57
+        },
+        {
+          "asset_type": "Logo",
+          "source_provider": "tmdb",
+          "count": 56
+        },
+        {
+          "asset_type": "CoverArt",
+          "source_provider": "embedded",
+          "count": 21
+        },
+        {
+          "asset_type": "StudioLogo",
+          "source_provider": "tmdb",
+          "count": 12
+        },
+        {
+          "asset_type": "EpisodeStill",
+          "source_provider": "tmdb",
+          "count": 11
+        }
+      ]
+    },
+    "identity_jobs": {
+      "count": 139,
+      "columns": [
+        "id",
+        "entity_id",
+        "entity_type",
+        "media_type",
+        "ingestion_run_id",
+        "state",
+        "pass",
+        "attempt_count",
+        "poison_attempt_count",
+        "last_outcome_category",
+        "lease_owner",
+        "lease_expires_at",
+        "selected_candidate_id",
+        "resolved_qid",
+        "last_error",
+        "next_retry_at",
+        "created_at",
+        "updated_at"
+      ],
+      "groups": [
+        {
+          "state": "ReadyWithoutUniverse",
+          "pass": "Universe",
+          "last_outcome_category": null,
+          "media_type": "Music",
+          "count": 20
+        },
+        {
+          "state": "ReadyWithoutUniverse",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Music",
+          "count": 18
+        },
+        {
+          "state": "ReadyWithoutUniverse",
+          "pass": "Quick",
+          "last_outcome_category": "TransientDependencyFailure",
+          "media_type": "Music",
+          "count": 14
+        },
+        {
+          "state": "ReadyWithoutUniverse",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Books",
+          "count": 13
+        },
+        {
+          "state": "Ready",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "TV",
+          "count": 11
+        },
+        {
+          "state": "Ready",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Movies",
+          "count": 10
+        },
+        {
+          "state": "ReadyWithoutUniverse",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Comics",
+          "count": 10
+        },
+        {
+          "state": "ReadyWithoutUniverse",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Audiobooks",
+          "count": 9
+        },
+        {
+          "state": "Ready",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Books",
+          "count": 7
+        },
+        {
+          "state": "Ready",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Audiobooks",
+          "count": 5
+        },
+        {
+          "state": "Ready",
+          "pass": "Universe",
+          "last_outcome_category": null,
+          "media_type": "TV",
+          "count": 4
+        },
+        {
+          "state": "ReadyWithoutUniverse",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Movies",
+          "count": 3
+        },
+        {
+          "state": "RetailNoMatch",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Audiobooks",
+          "count": 3
+        },
+        {
+          "state": "ReadyWithoutUniverse",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "TV",
+          "count": 2
+        },
+        {
+          "state": "ReadyWithoutUniverse",
+          "pass": "Universe",
+          "last_outcome_category": null,
+          "media_type": "TV",
+          "count": 2
+        },
+        {
+          "state": "RetailNoMatch",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Books",
+          "count": 2
+        },
+        {
+          "state": "RetailNoMatch",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Comics",
+          "count": 1
+        },
+        {
+          "state": "RetailNoMatch",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Movies",
+          "count": 1
+        },
+        {
+          "state": "RetailNoMatch",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "Music",
+          "count": 1
+        },
+        {
+          "state": "RetailNoMatch",
+          "pass": "Quick",
+          "last_outcome_category": null,
+          "media_type": "TV",
+          "count": 1
+        },
+        {
+          "state": "RetailNoMatch",
+          "pass": "Quick",
+          "last_outcome_category": "TransientDependencyFailure",
+          "media_type": "Audiobooks",
+          "count": 1
+        },
+        {
+          "state": "RetailNoMatch",
+          "pass": "Quick",
+          "last_outcome_category": "TransientDependencyFailure",
+          "media_type": "Books",
+          "count": 1
+        }
+      ]
+    },
+    "ingestion_batches": {
+      "count": 1,
+      "columns": [
+        "id",
+        "status",
+        "source_path",
+        "category",
+        "files_total",
+        "files_processed",
+        "files_registered",
+        "files_review",
+        "files_no_match",
+        "files_failed",
+        "started_at",
+        "completed_at",
+        "created_at",
+        "updated_at"
+      ],
+      "groups": [
+        {
+          "status": "completed",
+          "count": 1
+        }
+      ]
+    },
+    "ingestion_log": {
+      "count": 226,
+      "columns": [
+        "id",
+        "file_path",
+        "media_asset_id",
+        "content_hash",
+        "status",
+        "media_type",
+        "confidence_score",
+        "detected_title",
+        "normalized_title",
+        "wikidata_qid",
+        "error_detail",
+        "ingestion_run_id",
+        "created_at",
+        "updated_at"
+      ],
+      "groups": [
+        {
+          "status": "queued_identity",
+          "count": 113
+        },
+        {
+          "status": "same_path_redetected",
+          "count": 113
+        }
+      ]
+    },
+    "local_file_sources": {
+      "count": 5,
+      "columns": [
+        "id",
+        "file_id",
+        "library_id",
+        "source_id",
+        "device_id",
+        "file_path",
+        "modified_at",
+        "indexed_at"
+      ],
+      "groups": []
+    },
+    "local_files": {
+      "count": 5,
+      "columns": [
+        "id",
+        "content_hash",
+        "byte_size",
+        "mime_type",
+        "extension",
+        "created_at"
+      ],
+      "groups": []
+    },
+    "local_item_annotations": {
+      "count": 3,
+      "columns": [
+        "id",
+        "item_id",
+        "annotation_kind",
+        "annotation_value",
+        "confidence",
+        "source",
+        "model_name",
+        "model_version",
+        "provenance_json",
+        "created_at",
+        "reviewed_at"
+      ],
+      "groups": [
+        {
+          "source": "tuvima-dev-harness:reviewed-fixture",
+          "count": 3
+        }
+      ]
+    },
+    "local_item_files": {
+      "count": 5,
+      "columns": [
+        "item_id",
+        "file_id",
+        "role",
+        "derivative_kind",
+        "position",
+        "added_at"
+      ],
+      "groups": [
+        {
+          "role": "primary",
+          "count": 5
+        }
+      ]
+    },
+    "local_item_metadata": {
+      "count": 5,
+      "columns": [
+        "item_id",
+        "width",
+        "height",
+        "duration_seconds",
+        "page_count",
+        "device_make",
+        "device_model",
+        "latitude",
+        "longitude",
+        "location_name",
+        "document_text",
+        "metadata_json",
+        "updated_at"
+      ],
+      "groups": []
+    },
+    "local_item_tags": {
+      "count": 15,
+      "columns": [
+        "item_id",
+        "tag",
+        "added_at"
+      ],
+      "groups": []
+    },
+    "local_items": {
+      "count": 5,
+      "columns": [
+        "id",
+        "scope_kind",
+        "personal_space_id",
+        "owner_profile_id",
+        "library_id",
+        "media_kind",
+        "title",
+        "primary_file_name",
+        "primary_mime_type",
+        "captured_at",
+        "created_at",
+        "updated_at",
+        "favorite",
+        "hidden",
+        "archived_at",
+        "trashed_at"
+      ],
+      "groups": []
+    },
+    "media_assets": {
+      "count": 113,
+      "columns": [
+        "id",
+        "edition_id",
+        "content_hash",
+        "file_path_root",
+        "presented_at",
+        "status",
+        "writeback_fields_hash",
+        "writeback_status",
+        "writeback_last_error",
+        "writeback_attempts",
+        "writeback_next_retry_at",
+        "library_id",
+        "is_orphaned",
+        "orphaned_at"
+      ],
+      "groups": [
+        {
+          "status": "Normal",
+          "count": 113
+        }
+      ]
+    },
+    "media_operations": {
+      "count": 241,
+      "columns": [
+        "id",
+        "operation_type",
+        "operation_kind",
+        "entity_id",
+        "entity_kind",
+        "batch_id",
+        "source_path",
+        "content_hash",
+        "capability_id",
+        "capability_version",
+        "sub_key",
+        "plugin_id",
+        "plugin_version",
+        "provider_id",
+        "model_id",
+        "status",
+        "stage",
+        "priority",
+        "queue_name",
+        "position_key",
+        "attempt_count",
+        "poison_attempt_count",
+        "lease_owner",
+        "lease_expires_at",
+        "heartbeat_at",
+        "next_retry_at",
+        "progress_percent",
+        "items_total",
+        "items_completed",
+        "items_failed",
+        "result_summary",
+        "last_error",
+        "last_outcome_category",
+        "missing_reason",
+        "created_at",
+        "started_at",
+        "updated_at",
+        "completed_at",
+        "idempotency_key"
+      ],
+      "groups": [
+        {
+          "status": "succeeded",
+          "operation_type": "identity.wikidata_bridge",
+          "count": 119
+        },
+        {
+          "status": "succeeded",
+          "operation_type": "ingestion.file",
+          "count": 113
+        },
+        {
+          "status": "no_result",
+          "operation_type": "identity.wikidata_bridge",
+          "count": 9
+        }
+      ]
+    },
+    "metadata_claims": {
+      "count": 46675,
+      "columns": [
+        "id",
+        "entity_id",
+        "provider_id",
+        "decision_source_provider_id",
+        "observation_set_id",
+        "claim_key",
+        "claim_value",
+        "confidence",
+        "claimed_at",
+        "is_user_locked",
+        "is_current",
+        "superseded_at"
+      ],
+      "groups": []
+    },
+    "metadata_providers": {
+      "count": 13,
+      "columns": [
+        "id",
+        "name",
+        "version",
+        "is_enabled"
+      ],
+      "groups": [
+        {
+          "name": "ai_provider",
+          "count": 1
+        },
+        {
+          "name": "apple_api",
+          "count": 1
+        },
+        {
+          "name": "comicvine",
+          "count": 1
+        },
+        {
+          "name": "library_scanner",
+          "count": 1
+        },
+        {
+          "name": "local_processor",
+          "count": 1
+        },
+        {
+          "name": "lrclib",
+          "count": 1
+        },
+        {
+          "name": "musicbrainz",
+          "count": 1
+        },
+        {
+          "name": "open_library",
+          "count": 1
+        },
+        {
+          "name": "opensubtitles",
+          "count": 1
+        },
+        {
+          "name": "tmdb",
+          "count": 1
+        },
+        {
+          "name": "user_manual",
+          "count": 1
+        },
+        {
+          "name": "wikidata",
+          "count": 1
+        },
+        {
+          "name": "wikipedia",
+          "count": 1
+        }
+      ]
+    },
+    "person_media_links": {
+      "count": 1392,
+      "columns": [
+        "media_asset_id",
+        "person_id",
+        "role"
+      ],
+      "groups": [
+        {
+          "role": "Actor",
+          "count": 729
+        },
+        {
+          "role": "Director",
+          "count": 208
+        },
+        {
+          "role": "Producer",
+          "count": 139
+        },
+        {
+          "role": "Screenwriter",
+          "count": 96
+        },
+        {
+          "role": "Author",
+          "count": 73
+        },
+        {
+          "role": "Composer",
+          "count": 69
+        },
+        {
+          "role": "Performer",
+          "count": 68
+        },
+        {
+          "role": "Narrator",
+          "count": 10
+        }
+      ]
+    },
+    "persons": {
+      "count": 823,
+      "columns": [
+        "id",
+        "name",
+        "wikidata_qid",
+        "headshot_url",
+        "biography",
+        "occupation",
+        "instagram",
+        "twitter",
+        "tiktok",
+        "mastodon",
+        "website",
+        "local_headshot_path",
+        "date_of_birth",
+        "date_of_death",
+        "place_of_birth",
+        "place_of_death",
+        "nationality",
+        "display_overrides_json",
+        "is_pseudonym",
+        "created_at",
+        "enriched_at",
+        "is_group"
+      ],
+      "groups": []
+    },
+    "review_queue": {
+      "count": 53,
+      "columns": [
+        "id",
+        "entity_id",
+        "entity_type",
+        "trigger",
+        "status",
+        "proposed_collection_id",
+        "confidence_score",
+        "candidates_json",
+        "detail",
+        "created_at",
+        "resolved_at",
+        "resolved_by",
+        "source_operation_id",
+        "source_capability_id",
+        "source_capability_sub_key",
+        "review_ready_at",
+        "automation_completed_at"
+      ],
+      "groups": [
+        {
+          "status": "Resolved",
+          "count": 42
+        },
+        {
+          "status": "Pending",
+          "count": 11
+        }
+      ]
+    },
+    "works": {
+      "count": 174,
+      "columns": [
+        "id",
+        "collection_id",
+        "media_type",
+        "work_kind",
+        "parent_work_id",
+        "ordinal",
+        "ordinal_sort",
+        "is_catalog_only",
+        "external_identifiers",
+        "display_overrides_json",
+        "parent_key",
+        "ownership",
+        "universe_mismatch",
+        "universe_mismatch_at",
+        "wikidata_status",
+        "wikidata_checked_at",
+        "wikidata_qid",
+        "curator_state",
+        "rejected_at",
+        "provisional_metadata_json",
+        "match_level",
+        "wikidata_match_source",
+        "wikidata_match_locked",
+        "wikidata_rejected_qids_json"
+      ],
+      "groups": [
+        {
+          "media_type": "Music",
+          "curator_state": null,
+          "count": 59
+        },
+        {
+          "media_type": "Audiobooks",
+          "curator_state": null,
+          "count": 32
+        },
+        {
+          "media_type": "TV",
+          "curator_state": null,
+          "count": 30
+        },
+        {
+          "media_type": "Books",
+          "curator_state": null,
+          "count": 23
+        },
+        {
+          "media_type": "Comics",
+          "curator_state": null,
+          "count": 16
+        },
+        {
+          "media_type": "Movies",
+          "curator_state": null,
+          "count": 14
+        }
+      ]
+    }
+  },
+  "media_type_summary": [
+    {
+      "media_type": "Audiobooks",
+      "work_count": 32,
+      "qid_count": 0,
+      "catalog_only_count": 0,
+      "edition_count": 18,
+      "owned_asset_count": 18
+    },
+    {
+      "media_type": "Books",
+      "work_count": 23,
+      "qid_count": 0,
+      "catalog_only_count": 0,
+      "edition_count": 23,
+      "owned_asset_count": 23
+    },
+    {
+      "media_type": "Comics",
+      "work_count": 16,
+      "qid_count": 0,
+      "catalog_only_count": 0,
+      "edition_count": 11,
+      "owned_asset_count": 11
+    },
+    {
+      "media_type": "Movies",
+      "work_count": 14,
+      "qid_count": 0,
+      "catalog_only_count": 0,
+      "edition_count": 14,
+      "owned_asset_count": 14
+    },
+    {
+      "media_type": "Music",
+      "work_count": 59,
+      "qid_count": 0,
+      "catalog_only_count": 0,
+      "edition_count": 33,
+      "owned_asset_count": 33
+    },
+    {
+      "media_type": "TV",
+      "work_count": 30,
+      "qid_count": 0,
+      "catalog_only_count": 0,
+      "edition_count": 14,
+      "owned_asset_count": 14
+    }
+  ],
+  "canonical_key_coverage": [
+    {
+      "media_type": "Audiobooks",
+      "key": "tmdb_artwork_downloaded_count",
+      "entity_count": 18
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "tmdb_artwork_last_checked_at",
+      "entity_count": 18
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "tmdb_artwork_skipped_reason",
+      "entity_count": 18
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "tmdb_artwork_status",
+      "entity_count": 18
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "artwork_accent_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "artwork_primary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "artwork_secondary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "artwork_settled_at",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_accent_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_aspect_class",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_height_px",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_primary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_secondary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_source",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_state",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_url",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_url_l",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_url_m",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_url_s",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "cover_width_px",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "dominant_color",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "hero_state",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "narrative_root_label",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "narrative_root_qid",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "series",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "series_qid",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "title",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "franchise",
+      "entity_count": 2
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "franchise_qid",
+      "entity_count": 2
+    },
+    {
+      "media_type": "Books",
+      "key": "artwork_accent_hex",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "artwork_primary_hex",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "artwork_secondary_hex",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "artwork_settled_at",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_accent_hex",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_aspect_class",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_height_px",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_primary_hex",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_secondary_hex",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_source",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_state",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_url",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_url_l",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_url_m",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_url_s",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "cover_width_px",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "dominant_color",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "hero_state",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "title",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "tmdb_artwork_downloaded_count",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "tmdb_artwork_last_checked_at",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "tmdb_artwork_skipped_reason",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "tmdb_artwork_status",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "narrative_root_label",
+      "entity_count": 8
+    },
+    {
+      "media_type": "Books",
+      "key": "narrative_root_qid",
+      "entity_count": 8
+    },
+    {
+      "media_type": "Books",
+      "key": "series",
+      "entity_count": 7
+    },
+    {
+      "media_type": "Books",
+      "key": "series_qid",
+      "entity_count": 7
+    },
+    {
+      "media_type": "Books",
+      "key": "franchise",
+      "entity_count": 3
+    },
+    {
+      "media_type": "Books",
+      "key": "franchise_qid",
+      "entity_count": 3
+    },
+    {
+      "media_type": "Books",
+      "key": "musicbrainz_release_group_id",
+      "entity_count": 2
+    },
+    {
+      "media_type": "Comics",
+      "key": "tmdb_artwork_downloaded_count",
+      "entity_count": 14
+    },
+    {
+      "media_type": "Comics",
+      "key": "tmdb_artwork_last_checked_at",
+      "entity_count": 14
+    },
+    {
+      "media_type": "Comics",
+      "key": "tmdb_artwork_skipped_reason",
+      "entity_count": 14
+    },
+    {
+      "media_type": "Comics",
+      "key": "tmdb_artwork_status",
+      "entity_count": 14
+    },
+    {
+      "media_type": "Comics",
+      "key": "artwork_accent_hex",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "artwork_primary_hex",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "artwork_secondary_hex",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "artwork_settled_at",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_accent_hex",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_aspect_class",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_height_px",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_primary_hex",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_secondary_hex",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_source",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_state",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_url",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_url_l",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_url_m",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_url_s",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "cover_width_px",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "dominant_color",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "hero_state",
+      "entity_count": 11
+    },
+    {
+      "media_type": "Comics",
+      "key": "comic_vine_volume_id",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Comics",
+      "key": "description",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Comics",
+      "key": "sequence_manifest_json",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Comics",
+      "key": "sequence_total",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Comics",
+      "key": "sequence_total_scope",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Comics",
+      "key": "series",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Comics",
+      "key": "series_start_year",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Comics",
+      "key": "title",
+      "entity_count": 4
+    },
+    {
+      "media_type": "Movies",
+      "key": "artwork_accent_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "artwork_primary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "artwork_secondary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "artwork_settled_at",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_accent_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_aspect_class",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_height_px",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_primary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_secondary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_url",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_url_l",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_url_m",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_url_s",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "background_width_px",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cast_member_character",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_accent_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_aspect_class",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_height_px",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_primary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_secondary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_source",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_state",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_url",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_url_l",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_url_m",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_url_s",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "cover_width_px",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "description",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "dominant_color",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "hero_state",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "logo",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "logo_accent_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "logo_aspect_class",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "logo_height_px",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "logo_primary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "logo_secondary_hex",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "logo_url",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "logo_width_px",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "runtime",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "short_description",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "studio",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "tagline",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "title",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "tmdb_artwork_bridge_id",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "tmdb_artwork_downloaded_count",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "tmdb_artwork_http_status",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "tmdb_artwork_last_checked_at",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "tmdb_artwork_status",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "year",
+      "entity_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "studio_logo",
+      "entity_count": 12
+    },
+    {
+      "media_type": "Movies",
+      "key": "studio_logo_accent_hex",
+      "entity_count": 12
+    },
+    {
+      "media_type": "Movies",
+      "key": "studio_logo_aspect_class",
+      "entity_count": 12
+    },
+    {
+      "media_type": "Movies",
+      "key": "studio_logo_height_px",
+      "entity_count": 12
+    },
+    {
+      "media_type": "Movies",
+      "key": "studio_logo_primary_hex",
+      "entity_count": 12
+    },
+    {
+      "media_type": "Movies",
+      "key": "studio_logo_secondary_hex",
+      "entity_count": 12
+    },
+    {
+      "media_type": "Movies",
+      "key": "studio_logo_url",
+      "entity_count": 12
+    },
+    {
+      "media_type": "Movies",
+      "key": "studio_logo_width_px",
+      "entity_count": 12
+    },
+    {
+      "media_type": "Movies",
+      "key": "comic_vine_id",
+      "entity_count": 10
+    },
+    {
+      "media_type": "Movies",
+      "key": "narrative_root_label",
+      "entity_count": 10
+    },
+    {
+      "media_type": "Movies",
+      "key": "narrative_root_qid",
+      "entity_count": 10
+    },
+    {
+      "media_type": "Movies",
+      "key": "series",
+      "entity_count": 9
+    },
+    {
+      "media_type": "Movies",
+      "key": "sequence_manifest_json",
+      "entity_count": 8
+    },
+    {
+      "media_type": "Movies",
+      "key": "sequence_total",
+      "entity_count": 8
+    },
+    {
+      "media_type": "Movies",
+      "key": "sequence_total_scope",
+      "entity_count": 8
+    },
+    {
+      "media_type": "Movies",
+      "key": "series_qid",
+      "entity_count": 7
+    },
+    {
+      "media_type": "Movies",
+      "key": "franchise",
+      "entity_count": 5
+    },
+    {
+      "media_type": "Movies",
+      "key": "franchise_qid",
+      "entity_count": 5
+    },
+    {
+      "media_type": "Music",
+      "key": "tmdb_artwork_downloaded_count",
+      "entity_count": 47
+    },
+    {
+      "media_type": "Music",
+      "key": "tmdb_artwork_last_checked_at",
+      "entity_count": 47
+    },
+    {
+      "media_type": "Music",
+      "key": "tmdb_artwork_skipped_reason",
+      "entity_count": 47
+    },
+    {
+      "media_type": "Music",
+      "key": "tmdb_artwork_status",
+      "entity_count": 47
+    },
+    {
+      "media_type": "Music",
+      "key": "album",
+      "entity_count": 25
+    },
+    {
+      "media_type": "Music",
+      "key": "artwork_settled_at",
+      "entity_count": 25
+    },
+    {
+      "media_type": "Music",
+      "key": "child_entities_json",
+      "entity_count": 25
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_source",
+      "entity_count": 25
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_state",
+      "entity_count": 25
+    },
+    {
+      "media_type": "Music",
+      "key": "hero_state",
+      "entity_count": 25
+    },
+    {
+      "media_type": "Music",
+      "key": "title",
+      "entity_count": 25
+    },
+    {
+      "media_type": "Music",
+      "key": "track_count",
+      "entity_count": 25
+    },
+    {
+      "media_type": "Music",
+      "key": "artwork_accent_hex",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "artwork_primary_hex",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "artwork_secondary_hex",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_accent_hex",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_aspect_class",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_height_px",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_primary_hex",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_secondary_hex",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_url",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_url_l",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_url_m",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_url_s",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "cover_width_px",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "dominant_color",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "musicbrainz_release_group_id",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "musicbrainz_release_id",
+      "entity_count": 24
+    },
+    {
+      "media_type": "Music",
+      "key": "year",
+      "entity_count": 23
+    },
+    {
+      "media_type": "Music",
+      "key": "apple_artist_id",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Music",
+      "key": "apple_music_collection_id",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Music",
+      "key": "cover",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Music",
+      "key": "original_release_year",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Music",
+      "key": "qid_resolution_method",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Music",
+      "key": "stage3_enhanced_at",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Music",
+      "key": "wikidata_qid",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Music",
+      "key": "wikidata_qid_scope",
+      "entity_count": 20
+    },
+    {
+      "media_type": "Music",
+      "key": "original_release_date",
+      "entity_count": 18
+    },
+    {
+      "media_type": "Music",
+      "key": "narrative_scope",
+      "entity_count": 17
+    },
+    {
+      "media_type": "Music",
+      "key": "stage3_enriched_at",
+      "entity_count": 17
+    },
+    {
+      "media_type": "Music",
+      "key": "asin",
+      "entity_count": 8
+    },
+    {
+      "media_type": "Music",
+      "key": "narrative_root_label",
+      "entity_count": 3
+    },
+    {
+      "media_type": "Music",
+      "key": "narrative_root_qid",
+      "entity_count": 3
+    },
+    {
+      "media_type": "Music",
+      "key": "series",
+      "entity_count": 3
+    },
+    {
+      "media_type": "Music",
+      "key": "series_membership_source",
+      "entity_count": 3
+    },
+    {
+      "media_type": "Music",
+      "key": "series_qid",
+      "entity_count": 3
+    },
+    {
+      "media_type": "Music",
+      "key": "musicbrainz_work_id",
+      "entity_count": 1
+    },
+    {
+      "media_type": "TV",
+      "key": "artwork_accent_hex",
+      "entity_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "artwork_primary_hex",
+      "entity_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "artwork_secondary_hex",
+      "entity_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "dominant_color",
+      "entity_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "tmdb_artwork_bridge_id",
+      "entity_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "tmdb_artwork_downloaded_count",
+      "entity_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "tmdb_artwork_http_status",
+      "entity_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "tmdb_artwork_last_checked_at",
+      "entity_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "tmdb_artwork_status",
+      "entity_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_accent_hex",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_aspect_class",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_height_px",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_primary_hex",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_secondary_hex",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_url",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_url_l",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_url_m",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_url_s",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_still_width_px",
+      "entity_count": 11
+    },
+    {
+      "media_type": "TV",
+      "key": "artwork_settled_at",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_accent_hex",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_aspect_class",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_height_px",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_primary_hex",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_secondary_hex",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_url",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_url_l",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_url_m",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_url_s",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "background_width_px",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cast_member_character",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "child_entities_json",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_accent_hex",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_aspect_class",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_height_px",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_primary_hex",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_secondary_hex",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_source",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_state",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_url",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_url_l",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_url_m",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_url_s",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "cover_width_px",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "description",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "episode_count",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "first_air_date",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "hero_state",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "imdb_id",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "logo",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "logo_aspect_class",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "logo_url",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "qid_resolution_method",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "season_count",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "sequence_manifest_json",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "short_description",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "show_name",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "stage3_enhanced_at",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "stage3_enriched_at",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "tagline",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "title",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "tmdb_artwork_skipped_reason",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "tmdb_id",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "tmdb_tv_id",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "tvdb_id",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "wikidata_qid",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "wikidata_qid_scope",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "wikipedia_url",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "year",
+      "entity_count": 6
+    },
+    {
+      "media_type": "TV",
+      "key": "logo_accent_hex",
+      "entity_count": 5
+    },
+    {
+      "media_type": "TV",
+      "key": "logo_height_px",
+      "entity_count": 5
+    },
+    {
+      "media_type": "TV",
+      "key": "logo_primary_hex",
+      "entity_count": 5
+    },
+    {
+      "media_type": "TV",
+      "key": "logo_secondary_hex",
+      "entity_count": 5
+    },
+    {
+      "media_type": "TV",
+      "key": "logo_width_px",
+      "entity_count": 5
+    },
+    {
+      "media_type": "TV",
+      "key": "apple_tv_show_id",
+      "entity_count": 4
+    },
+    {
+      "media_type": "TV",
+      "key": "fandom_article_id",
+      "entity_count": 4
+    },
+    {
+      "media_type": "TV",
+      "key": "narrative_root_label",
+      "entity_count": 4
+    },
+    {
+      "media_type": "TV",
+      "key": "narrative_root_qid",
+      "entity_count": 4
+    },
+    {
+      "media_type": "TV",
+      "key": "plot_summary",
+      "entity_count": 4
+    },
+    {
+      "media_type": "TV",
+      "key": "alternate_title",
+      "entity_count": 3
+    },
+    {
+      "media_type": "TV",
+      "key": "comic_vine_id",
+      "entity_count": 3
+    },
+    {
+      "media_type": "TV",
+      "key": "franchise",
+      "entity_count": 3
+    },
+    {
+      "media_type": "TV",
+      "key": "franchise_qid",
+      "entity_count": 3
+    },
+    {
+      "media_type": "TV",
+      "key": "series_end_year",
+      "entity_count": 3
+    },
+    {
+      "media_type": "TV",
+      "key": "narrative_scope",
+      "entity_count": 2
+    },
+    {
+      "media_type": "TV",
+      "key": "asin",
+      "entity_count": 1
+    },
+    {
+      "media_type": "TV",
+      "key": "musicbrainz_work_id",
+      "entity_count": 1
+    },
+    {
+      "media_type": "TV",
+      "key": "tmdb_movie_id",
+      "entity_count": 1
+    }
+  ],
+  "canonical_array_coverage": [
+    {
+      "media_type": "Audiobooks",
+      "key": "author",
+      "entity_count": 20,
+      "value_count": 26,
+      "qid_value_count": 21
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "genre",
+      "entity_count": 13,
+      "value_count": 32,
+      "qid_value_count": 26
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "characters",
+      "entity_count": 7,
+      "value_count": 76,
+      "qid_value_count": 76
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "country_of_origin",
+      "entity_count": 7,
+      "value_count": 8,
+      "qid_value_count": 8
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "award_nominated",
+      "entity_count": 5,
+      "value_count": 10,
+      "qid_value_count": 10
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "main_subject",
+      "entity_count": 5,
+      "value_count": 13,
+      "qid_value_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "nomination_family",
+      "entity_count": 5,
+      "value_count": 8,
+      "qid_value_count": 8
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "narrative_location",
+      "entity_count": 4,
+      "value_count": 12,
+      "qid_value_count": 12
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "award_received",
+      "entity_count": 3,
+      "value_count": 7,
+      "qid_value_count": 7
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "award_family",
+      "entity_count": 2,
+      "value_count": 4,
+      "qid_value_count": 4
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "fictional_universe",
+      "entity_count": 2,
+      "value_count": 2,
+      "qid_value_count": 2
+    },
+    {
+      "media_type": "Audiobooks",
+      "key": "set_in_period",
+      "entity_count": 2,
+      "value_count": 3,
+      "qid_value_count": 3
+    },
+    {
+      "media_type": "Books",
+      "key": "author",
+      "entity_count": 20,
+      "value_count": 26,
+      "qid_value_count": 26
+    },
+    {
+      "media_type": "Books",
+      "key": "genre",
+      "entity_count": 20,
+      "value_count": 64,
+      "qid_value_count": 64
+    },
+    {
+      "media_type": "Books",
+      "key": "country_of_origin",
+      "entity_count": 19,
+      "value_count": 21,
+      "qid_value_count": 21
+    },
+    {
+      "media_type": "Books",
+      "key": "characters",
+      "entity_count": 14,
+      "value_count": 117,
+      "qid_value_count": 117
+    },
+    {
+      "media_type": "Books",
+      "key": "main_subject",
+      "entity_count": 11,
+      "value_count": 25,
+      "qid_value_count": 25
+    },
+    {
+      "media_type": "Books",
+      "key": "narrative_location",
+      "entity_count": 11,
+      "value_count": 42,
+      "qid_value_count": 42
+    },
+    {
+      "media_type": "Books",
+      "key": "award_nominated",
+      "entity_count": 10,
+      "value_count": 25,
+      "qid_value_count": 25
+    },
+    {
+      "media_type": "Books",
+      "key": "award_received",
+      "entity_count": 10,
+      "value_count": 30,
+      "qid_value_count": 30
+    },
+    {
+      "media_type": "Books",
+      "key": "nomination_family",
+      "entity_count": 10,
+      "value_count": 20,
+      "qid_value_count": 20
+    },
+    {
+      "media_type": "Books",
+      "key": "publisher",
+      "entity_count": 9,
+      "value_count": 11,
+      "qid_value_count": 11
+    },
+    {
+      "media_type": "Books",
+      "key": "award_family",
+      "entity_count": 7,
+      "value_count": 15,
+      "qid_value_count": 15
+    },
+    {
+      "media_type": "Books",
+      "key": "fictional_universe",
+      "entity_count": 4,
+      "value_count": 4,
+      "qid_value_count": 4
+    },
+    {
+      "media_type": "Books",
+      "key": "set_in_period",
+      "entity_count": 4,
+      "value_count": 6,
+      "qid_value_count": 6
+    },
+    {
+      "media_type": "Comics",
+      "key": "country_of_origin",
+      "entity_count": 4,
+      "value_count": 4,
+      "qid_value_count": 4
+    },
+    {
+      "media_type": "Comics",
+      "key": "publisher",
+      "entity_count": 4,
+      "value_count": 4,
+      "qid_value_count": 0
+    },
+    {
+      "media_type": "Comics",
+      "key": "author",
+      "entity_count": 3,
+      "value_count": 5,
+      "qid_value_count": 5
+    },
+    {
+      "media_type": "Comics",
+      "key": "award_received",
+      "entity_count": 3,
+      "value_count": 3,
+      "qid_value_count": 3
+    },
+    {
+      "media_type": "Comics",
+      "key": "characters",
+      "entity_count": 3,
+      "value_count": 10,
+      "qid_value_count": 10
+    },
+    {
+      "media_type": "Comics",
+      "key": "genre",
+      "entity_count": 3,
+      "value_count": 6,
+      "qid_value_count": 6
+    },
+    {
+      "media_type": "Comics",
+      "key": "illustrator",
+      "entity_count": 2,
+      "value_count": 2,
+      "qid_value_count": 2
+    },
+    {
+      "media_type": "Comics",
+      "key": "award_family",
+      "entity_count": 1,
+      "value_count": 1,
+      "qid_value_count": 1
+    },
+    {
+      "media_type": "Movies",
+      "key": "cast_member",
+      "entity_count": 13,
+      "value_count": 247,
+      "qid_value_count": 187
+    },
+    {
+      "media_type": "Movies",
+      "key": "country_of_origin",
+      "entity_count": 13,
+      "value_count": 32,
+      "qid_value_count": 32
+    },
+    {
+      "media_type": "Movies",
+      "key": "director",
+      "entity_count": 13,
+      "value_count": 16,
+      "qid_value_count": 16
+    },
+    {
+      "media_type": "Movies",
+      "key": "genre",
+      "entity_count": 13,
+      "value_count": 77,
+      "qid_value_count": 77
+    },
+    {
+      "media_type": "Movies",
+      "key": "production_company",
+      "entity_count": 13,
+      "value_count": 36,
+      "qid_value_count": 36
+    },
+    {
+      "media_type": "Movies",
+      "key": "award_nominated",
+      "entity_count": 12,
+      "value_count": 49,
+      "qid_value_count": 49
+    },
+    {
+      "media_type": "Movies",
+      "key": "award_received",
+      "entity_count": 12,
+      "value_count": 43,
+      "qid_value_count": 43
+    },
+    {
+      "media_type": "Movies",
+      "key": "filming_location",
+      "entity_count": 12,
+      "value_count": 51,
+      "qid_value_count": 51
+    },
+    {
+      "media_type": "Movies",
+      "key": "narrative_location",
+      "entity_count": 12,
+      "value_count": 28,
+      "qid_value_count": 28
+    },
+    {
+      "media_type": "Movies",
+      "key": "main_subject",
+      "entity_count": 11,
+      "value_count": 48,
+      "qid_value_count": 48
+    },
+    {
+      "media_type": "Movies",
+      "key": "award_family",
+      "entity_count": 9,
+      "value_count": 13,
+      "qid_value_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "key": "based_on",
+      "entity_count": 8,
+      "value_count": 8,
+      "qid_value_count": 8
+    },
+    {
+      "media_type": "Movies",
+      "key": "characters",
+      "entity_count": 8,
+      "value_count": 46,
+      "qid_value_count": 46
+    },
+    {
+      "media_type": "Movies",
+      "key": "nomination_family",
+      "entity_count": 8,
+      "value_count": 11,
+      "qid_value_count": 11
+    },
+    {
+      "media_type": "Movies",
+      "key": "fictional_universe",
+      "entity_count": 7,
+      "value_count": 7,
+      "qid_value_count": 7
+    },
+    {
+      "media_type": "Movies",
+      "key": "set_in_period",
+      "entity_count": 5,
+      "value_count": 11,
+      "qid_value_count": 11
+    },
+    {
+      "media_type": "Music",
+      "key": "album_artist",
+      "entity_count": 24,
+      "value_count": 24,
+      "qid_value_count": 0
+    },
+    {
+      "media_type": "Music",
+      "key": "genre",
+      "entity_count": 20,
+      "value_count": 20,
+      "qid_value_count": 0
+    },
+    {
+      "media_type": "TV",
+      "key": "cast_member",
+      "entity_count": 6,
+      "value_count": 100,
+      "qid_value_count": 100
+    },
+    {
+      "media_type": "TV",
+      "key": "composer",
+      "entity_count": 6,
+      "value_count": 8,
+      "qid_value_count": 8
+    },
+    {
+      "media_type": "TV",
+      "key": "country_of_origin",
+      "entity_count": 6,
+      "value_count": 7,
+      "qid_value_count": 7
+    },
+    {
+      "media_type": "TV",
+      "key": "genre",
+      "entity_count": 6,
+      "value_count": 22,
+      "qid_value_count": 22
+    },
+    {
+      "media_type": "TV",
+      "key": "network",
+      "entity_count": 6,
+      "value_count": 8,
+      "qid_value_count": 8
+    },
+    {
+      "media_type": "TV",
+      "key": "original_language",
+      "entity_count": 6,
+      "value_count": 8,
+      "qid_value_count": 8
+    },
+    {
+      "media_type": "TV",
+      "key": "director",
+      "entity_count": 5,
+      "value_count": 45,
+      "qid_value_count": 45
+    },
+    {
+      "media_type": "TV",
+      "key": "award_family",
+      "entity_count": 4,
+      "value_count": 7,
+      "qid_value_count": 7
+    },
+    {
+      "media_type": "TV",
+      "key": "award_received",
+      "entity_count": 4,
+      "value_count": 24,
+      "qid_value_count": 24
+    },
+    {
+      "media_type": "TV",
+      "key": "based_on",
+      "entity_count": 4,
+      "value_count": 4,
+      "qid_value_count": 4
+    },
+    {
+      "media_type": "TV",
+      "key": "filming_location",
+      "entity_count": 4,
+      "value_count": 13,
+      "qid_value_count": 13
+    },
+    {
+      "media_type": "TV",
+      "key": "narrative_location",
+      "entity_count": 4,
+      "value_count": 17,
+      "qid_value_count": 17
+    },
+    {
+      "media_type": "TV",
+      "key": "production_company",
+      "entity_count": 4,
+      "value_count": 5,
+      "qid_value_count": 5
+    },
+    {
+      "media_type": "TV",
+      "key": "screenwriter",
+      "entity_count": 4,
+      "value_count": 20,
+      "qid_value_count": 20
+    },
+    {
+      "media_type": "TV",
+      "key": "characters",
+      "entity_count": 3,
+      "value_count": 25,
+      "qid_value_count": 25
+    },
+    {
+      "media_type": "TV",
+      "key": "fictional_universe",
+      "entity_count": 3,
+      "value_count": 3,
+      "qid_value_count": 3
+    },
+    {
+      "media_type": "TV",
+      "key": "award_nominated",
+      "entity_count": 2,
+      "value_count": 34,
+      "qid_value_count": 34
+    },
+    {
+      "media_type": "TV",
+      "key": "set_in_period",
+      "entity_count": 2,
+      "value_count": 2,
+      "qid_value_count": 2
+    },
+    {
+      "media_type": "TV",
+      "key": "main_subject",
+      "entity_count": 1,
+      "value_count": 2,
+      "qid_value_count": 2
+    },
+    {
+      "media_type": "TV",
+      "key": "nomination_family",
+      "entity_count": 1,
+      "value_count": 5,
+      "qid_value_count": 5
+    }
+  ],
+  "bridge_id_coverage": [
+    {
+      "media_type": "Audiobooks",
+      "id_type": "apple_books_id",
+      "provider": "b1000001-e000-4000-8000-000000000001",
+      "entity_count": 13,
+      "id_count": 13
+    },
+    {
+      "media_type": "Audiobooks",
+      "id_type": "open_library_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 6,
+      "id_count": 6
+    },
+    {
+      "media_type": "Audiobooks",
+      "id_type": "isbn_13",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 3,
+      "id_count": 3
+    },
+    {
+      "media_type": "Audiobooks",
+      "id_type": "musicbrainz_work_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 3,
+      "id_count": 3
+    },
+    {
+      "media_type": "Audiobooks",
+      "id_type": "asin",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 2,
+      "id_count": 2
+    },
+    {
+      "media_type": "Audiobooks",
+      "id_type": "isbn_10",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 2,
+      "id_count": 2
+    },
+    {
+      "media_type": "Audiobooks",
+      "id_type": "goodreads_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 1,
+      "id_count": 1
+    },
+    {
+      "media_type": "Books",
+      "id_type": "apple_books_id",
+      "provider": "b1000001-e000-4000-8000-000000000001",
+      "entity_count": 20,
+      "id_count": 20
+    },
+    {
+      "media_type": "Books",
+      "id_type": "open_library_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 20,
+      "id_count": 20
+    },
+    {
+      "media_type": "Books",
+      "id_type": "musicbrainz_work_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 14,
+      "id_count": 14
+    },
+    {
+      "media_type": "Books",
+      "id_type": "musicbrainz_release_group_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 2,
+      "id_count": 2
+    },
+    {
+      "media_type": "Books",
+      "id_type": "asin",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 1,
+      "id_count": 1
+    },
+    {
+      "media_type": "Comics",
+      "id_type": "comic_vine_id",
+      "provider": "b9000009-0000-4000-8000-000000000014",
+      "entity_count": 10,
+      "id_count": 10
+    },
+    {
+      "media_type": "Movies",
+      "id_type": "imdb_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 13,
+      "id_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "id_type": "tmdb_id",
+      "provider": "b7000007-0000-4000-8000-000000000008",
+      "entity_count": 13,
+      "id_count": 13
+    },
+    {
+      "media_type": "Movies",
+      "id_type": "comic_vine_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 10,
+      "id_count": 10
+    },
+    {
+      "media_type": "Movies",
+      "id_type": "asin",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 6,
+      "id_count": 6
+    },
+    {
+      "media_type": "Movies",
+      "id_type": "musicbrainz_work_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 3,
+      "id_count": 3
+    },
+    {
+      "media_type": "Music",
+      "id_type": "musicbrainz_recording_id",
+      "provider": "b6000006-0000-4000-8000-000000000007",
+      "entity_count": 31,
+      "id_count": 31
+    },
+    {
+      "media_type": "Music",
+      "id_type": "apple_music_id",
+      "provider": "b1000001-e000-4000-8000-000000000001",
+      "entity_count": 26,
+      "id_count": 26
+    },
+    {
+      "media_type": "Music",
+      "id_type": "musicbrainz_release_id",
+      "provider": "b6000006-0000-4000-8000-000000000007",
+      "entity_count": 24,
+      "id_count": 24
+    },
+    {
+      "media_type": "Music",
+      "id_type": "asin",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 22,
+      "id_count": 22
+    },
+    {
+      "media_type": "Music",
+      "id_type": "apple_artist_id",
+      "provider": "b1000001-e000-4000-8000-000000000001",
+      "entity_count": 20,
+      "id_count": 20
+    },
+    {
+      "media_type": "Music",
+      "id_type": "musicbrainz_release_group_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 19,
+      "id_count": 19
+    },
+    {
+      "media_type": "Music",
+      "id_type": "isrc",
+      "provider": "b6000006-0000-4000-8000-000000000007",
+      "entity_count": 16,
+      "id_count": 16
+    },
+    {
+      "media_type": "Music",
+      "id_type": "apple_music_collection_id",
+      "provider": "b1000001-e000-4000-8000-000000000001",
+      "entity_count": 14,
+      "id_count": 14
+    },
+    {
+      "media_type": "Music",
+      "id_type": "apple_music_collection_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 6,
+      "id_count": 6
+    },
+    {
+      "media_type": "Music",
+      "id_type": "musicbrainz_release_group_id",
+      "provider": "b6000006-0000-4000-8000-000000000007",
+      "entity_count": 5,
+      "id_count": 5
+    },
+    {
+      "media_type": "Music",
+      "id_type": "musicbrainz_work_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 3,
+      "id_count": 3
+    },
+    {
+      "media_type": "TV",
+      "id_type": "imdb_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 17,
+      "id_count": 17
+    },
+    {
+      "media_type": "TV",
+      "id_type": "tmdb_episode_id",
+      "provider": "b7000007-0000-4000-8000-000000000008",
+      "entity_count": 11,
+      "id_count": 11
+    },
+    {
+      "media_type": "TV",
+      "id_type": "tmdb_id",
+      "provider": "b7000007-0000-4000-8000-000000000008",
+      "entity_count": 6,
+      "id_count": 6
+    },
+    {
+      "media_type": "TV",
+      "id_type": "asin",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 3,
+      "id_count": 3
+    },
+    {
+      "media_type": "TV",
+      "id_type": "comic_vine_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 3,
+      "id_count": 3
+    },
+    {
+      "media_type": "TV",
+      "id_type": "musicbrainz_work_id",
+      "provider": "b3000003-d000-4000-8000-000000000004",
+      "entity_count": 2,
+      "id_count": 2
+    }
+  ],
+  "claim_provider_coverage": [
+    {
+      "media_type": "Audiobooks",
+      "provider": "wikidata",
+      "entity_count": 8,
+      "claim_count": 382
+    },
+    {
+      "media_type": "Audiobooks",
+      "provider": "apple_api",
+      "entity_count": 13,
+      "claim_count": 26
+    },
+    {
+      "media_type": "Books",
+      "provider": "wikidata",
+      "entity_count": 20,
+      "claim_count": 871
+    },
+    {
+      "media_type": "Books",
+      "provider": "apple_api",
+      "entity_count": 20,
+      "claim_count": 60
+    },
+    {
+      "media_type": "Comics",
+      "provider": "wikidata",
+      "entity_count": 4,
+      "claim_count": 133
+    },
+    {
+      "media_type": "Comics",
+      "provider": "comicvine",
+      "entity_count": 4,
+      "claim_count": 56
+    },
+    {
+      "media_type": "Movies",
+      "provider": "wikidata",
+      "entity_count": 13,
+      "claim_count": 1417
+    },
+    {
+      "media_type": "Movies",
+      "provider": "tmdb",
+      "entity_count": 13,
+      "claim_count": 1197
+    },
+    {
+      "media_type": "Music",
+      "provider": "apple_api",
+      "entity_count": 20,
+      "claim_count": 256
+    },
+    {
+      "media_type": "Music",
+      "provider": "musicbrainz",
+      "entity_count": 24,
+      "claim_count": 225
+    },
+    {
+      "media_type": "Music",
+      "provider": "wikidata",
+      "entity_count": 20,
+      "claim_count": 216
+    },
+    {
+      "media_type": "TV",
+      "provider": "wikidata",
+      "entity_count": 6,
+      "claim_count": 1786
+    },
+    {
+      "media_type": "TV",
+      "provider": "tmdb",
+      "entity_count": 6,
+      "claim_count": 938
+    }
+  ],
+  "work_title_samples": [
+    {
+      "id": "b'\\xed\\x9f\\x91\\xae\\xdaMC\\xdb\\x84\\x8d\\xea\\x81\\xadO\\xa2\\xd4'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xe7D\\xa6\\x83N]A\\xd8\\x88m\\xfb\\xb6\\x13t&\\xa4'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x97\\x88\\\\\\x98`\\x9dA\\xfd\\xbd\\xd4C4\\xda\\xbc\\xed\\xf4'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x88*,\\xfc^\\xafA\\xf8\\xb2\\x99\\xd2n\\x07^\\x9f\\x8e'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xfb\\x9a\\x0f\\x9b\\x8ceK\\xbf\\x93\\xf6C]:\\x93\\xe5+'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xc4\\x1f\\xf0\\x07\\x08\\xafNM\\x99\\x0e\\xb7g\\x85\\xf5\\x00\\xbc'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xc0\\x12\\x84\\xb7\\x9f\\xbcJ(\\x91qw\\xaeG\\xb0\\x80\\x1b'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xb3\\xa7q\\xf4\\xbbuK\\xcb\\x92Q\\xba\\xdepC\\x1fN'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'^\\xf9\\x8b\\x0c\\xc9\\xd8B\\x01\\x9eF\\x84\\xd7\\xa5\\xcc\\xe4\\xa1'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x84# \\xa7X\\xac@J\\x88ZI\\x10\\x876\\x12\\x98'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'>f\\x00\\xd1,\\xbaDz\\xaf\\x9a\\x92\\xf9\\xc3\\xd9\\xd2\\xe6'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'b@1\\xe0O\\xf8N\\xd9\\xaa\\xfd\\x8cT\\x1a7\\xbdh'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xa4EF\\xba\\xb6=B\\xde\\xb8r4\\x94w1\\xb60'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xa2\\xb9\\xcd\\xd8^`N\\xd1\\x8f\\xf9\\x1f\\xc5]\\x9f\\xc9\\x9d'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xb2\\xc1&B\\x1b\\xccL:\\x85\\x9a\\x12\\xc3\\x0fCT\\xc5'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x885\\xdbW\\xf2\\x05L\\xf6\\xa2NU\\xbc\\x1d\\xb9\\xacl'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'yd\\x19\\xc5\\xe8\\xd3I\\xf6\\xb5\\xfb\\xd2\\xc0\\x18J\\xbfe'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xe5\\x81\\x01p\\xfa\\xebF\\xd7\\x82\\x92\\xc8\\xf0\\x0e1\\x94\\xba'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b')\\x83^mu\\x18L\\xde\\x99s\\x06\\x08;\\x8b\\x91\\xe6'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b\" \\xd1x\\x1f\\x13'K\\xee\\xa4@\\xa3-I\\xb9\\x99\\x1b\"",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x9d\\x97\\xb4\\x87\\xd4&O\\x86\\xafQ\\x94\\xbdc=\\x8b\\xca'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'df\\x01\\x9fE\\xf3IK\\xbc\\x07\\xf6\\xc0\\x91\\x0c\\xe41'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x96\\x04~cO@Ih\\x87 \\xdc\\xb6\\xef\\xc1\\x14K'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x91q\\xccp2IK\\xb2\\x9ea\\xe3\\xbd\\x8b\\t\\x138'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x80J\\xd6@\\x1bH@K\\xa8\\xe3>\\x04\\xb6\\xa6\\xca\\xbb'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b's\\xc7r\\xbe\\x91\\x99Iq\\xa5\\xb3_Q\\xf5\\x85\\xb5\\xce'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'[\\x99\\xb4\\x83C\\xd4J\\x9b\\xb0\\x94\\xbfD\\xc0F\\xfd\\xc2'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xe5 \\x1a\\x9aj(G\\xa8\\xb0\\xdb\\xde\\xd9\\x1a\\x8f\\x98\\xe9'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'0\\xd20\\xc0LYDy\\xa5 \\xf9p:[\\x9e '",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": "Dune"
+    },
+    {
+      "id": "b'8\\xc7\\x92V\\xf6(Jw\\x98\\xdd\\x17\\xca\\xf3\\x8b\\x05S'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": "Harry Potter"
+    },
+    {
+      "id": "b'\\xfb@\\xdc\\x87F\\x89N\\xa5\\xa3\\xb15\\x15\\xcb\\x02\\xefL'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": "The Expanse"
+    },
+    {
+      "id": "b'-\\x16\\x0f\\x95\\x0fhC\\xad\\xbf\\x16\\x9d\\x05e/f\\x85'",
+      "media_type": "Audiobooks",
+      "wikidata_qid": null,
+      "title": "The Lord of the Rings"
+    },
+    {
+      "id": "b'\\x84\\xfa/\\xf9R+A\\x15\\xbe\\xff\\x17\\x92\\x04\\xc2k\\x87'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xf6i\\xd4\\x82e\\x81ND\\xa3]\\x86\\xc8ID\\xcex'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xec\\xc3\\xd5\\xb0c\\x91I\\xbe\\x84\\x14\\xd1\\x17\\x99\\x87\\x9a\\xd3'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x17\\x00%\\x93\\xcd\\xa3H\\x8f\\xa8\\xd5\\xc9<Gf\\xb0t'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "1Q84"
+    },
+    {
+      "id": "b'>H\\x15\\xf9O\\x10I=\\xa4\\x07\\xa1\\xbdg\\xb33\\xa3'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Caliban's War"
+    },
+    {
+      "id": "b'\\xc40Z\\x9bF\\xcfK2\\x8b\\x13\\x9a\\x82\\xbcj\\xd3\\x1f'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Dune"
+    },
+    {
+      "id": "b'\\x80\\x8f\\xa90\\xddUNW\\x9b}<\\x8c\\n\\x92\\xc1\\xce'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Frankenstein; or, The Modern Prometheus"
+    },
+    {
+      "id": "b'\\xa7\\x9f\\xe0\\xe2&\\x8d@\\xbc\\x90\\xce\\xb7\\x81\\xdd\\xb4\\x08\\xe3'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Good Omens"
+    },
+    {
+      "id": "b'I\\x17\\x89\\x8d\\xd4\\x9bN\\x0c\\x81 K\\x8a\\xc4H\\x1c\\x80'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Harry Potter and the Chamber of Secrets"
+    },
+    {
+      "id": "b'~\\xcd\\x8c\\n\\xa6\\x9cK\\xdf\\xb2\\x1ah&\\x85\\x90[\\x10'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Harry Potter and the Philosopher's Stone"
+    },
+    {
+      "id": "b'\\xfdme\\x9d\\x0b\\x84K\\xe3\\xae\\x0c\\x1a|L\\xaf,\\xcc'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Leviathan Wakes"
+    },
+    {
+      "id": "b'\\xc5\\xd2\\x97v\\x85\\xf0D\\x0f\\xae/l\\x97\\xa4KU\\xc8'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Neuromancer"
+    },
+    {
+      "id": "b'\\xba\\x0b\\x02\\xa4\\xa1\\xdaGX\\xa5\\xfd}\\xe7\\xc8`\\xc2\\xf6'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Norwegian Wood"
+    },
+    {
+      "id": "b'P\\xe4\\x9cH\\x11\\xd7@U\\x85\\xae@\\xbeI\\xb8\\xf8\\x90'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "One Hundred Years of Solitude"
+    },
+    {
+      "id": "b'&\\x85\\x1c\\x18u\\xc6I\\xa7\\xa9\\xd6@\\x1f\\n\\xca\\xfbP'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "Project Hail Mary"
+    },
+    {
+      "id": "b'\\x05\\x8fVJ\\xba\\xa7J\\x9d\\x86\\xe6\\xb6\\xbfL\\xbd\\x87C'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "The Fellowship of the Ring"
+    },
+    {
+      "id": "b\"\\xb3Y\\x80\\xa9}`@\\xab\\x87\\x1c'\\xb3\\xa2\\xa6\\xe2W\"",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "The Hobbit"
+    },
+    {
+      "id": "b'H+\\xcaj\\x8a\\xe6Dk\\xa7E\\xd4\\xc09h\\x1b\\xdf'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "The Little Prince"
+    },
+    {
+      "id": "b'ha\\xb7\\xdaTaK\\xd6\\x86\\xe7a<z\\x84\\xa1\\xaa'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "The Long Walk"
+    },
+    {
+      "id": "b'A\\x19pW-vL+\\x8a\\x8d\\xdd1\\xf8Q**'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "The Metamorphosis"
+    },
+    {
+      "id": "b'0\\x8e\\xb8v\\xc6\\xdfD\\x9e\\xbal\\x01\\xcc\\x0f%\\x87,'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "The Road"
+    },
+    {
+      "id": "b'\\x05c\\x95\\xfa\\\\CN\\xdc\\xb2\\xbb\\x1fT\\xacX\\xd2\\xf2'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "The Shining"
+    },
+    {
+      "id": "b'\\xac\\xbe\\xd8\\xf3^\\xcdJ-\\x98\\x8c\\xa4K\\x88\\xbf\\x0b\\x95'",
+      "media_type": "Books",
+      "wikidata_qid": null,
+      "title": "The Talisman"
+    },
+    {
+      "id": "b'\\xc4\\xa6o=\\x0b\\x87H\\x9f\\x90\\x8f\\xd6\\xac\\x06B#<'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xc5#\\xf2\\xbdQ6MP\\x91\\xca\\xb5\\xd3m\\xdc\\x06\\x9c'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x89\\xf5\\n\\xa7\\xe2@F\\xa0\\x91\\xff\\xf4\\x92\\xf9&\\xa7\\xe8'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x1d@\\x1d\\x14\\xae\\xf4H\\x0e\\xa4\\xc9\\x1b\\x9a\\xaemW\\x95'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'j\\x1e\\x00A\\xd9aC\\x9f\\xacW\\xe8\\xe6\\x96 d2'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x12\\xe3\\xd2\\xb0C\\xadN\\xb5\\xaf\\xc8\\x16L\\x02l\\xef\\xbf'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xfd\\xa5H\\x9b\\x06\\xbfF\\xfe\\x95\\xb2\\xeb@\\x81\\xf5\\xa6\\xb9'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xfc.>>*7D\\x14\\xbf\\xac\\x98\\tH\\xd4\\x9f\\xd7'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'X\\\\\\x7fJ>\\xc2L\\xd8\\x81i\\x83\\x8f\\x1d\\xc8=|'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x9e\\xae\\x93\\x88j\\xa5I\\x82\\x8f\\xd7\\xfd\\xc2\\x7f\\xf8m\\xe2'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'F}WwA\\xe0O\\x88\\x95\\xecn\\xca\\xc0\\x1a\\xd6\\xfa'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xe4U\\xb5\\xbe\\x8a/K\\xa2\\xab\\xd1\\xa2\\x83\\xe5\\xd4\\x9f\\x89'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'$\\xa9\\xa5\\xd99,H\\x8e\\x83\\x8a\\x96\\xa4\\x11\\xf75\\xa7'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": "Akira"
+    },
+    {
+      "id": "b'\\x93\\x03\\\\l;OI\\xb8\\xb2\\xd1K\\x1f\\x8a\\xb6s~'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": "Batman"
+    },
+    {
+      "id": "b'\\n\\xd7\\xc4E\\xb3\\xb3A\\xe9\\xab\\xb0\\x9b\\xbb\\xa2\\x8ep\\x0b'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": "Saga"
+    },
+    {
+      "id": "b'C\\xe2\\xee\\x02\\x18mB\\xb8\\xb2\\xd8>\\x13(\\x02\\x13\\xc9'",
+      "media_type": "Comics",
+      "wikidata_qid": null,
+      "title": "The Sandman"
+    },
+    {
+      "id": "b'\\x9f\\xb2\\xa8\\xf0\\x97\\x96GY\\xbe\\xec\\x17\\xcc6\\xa5Xp'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b\"\\x92\\x0c\\x03X4EB\\x87\\xa8w\\x8fN\\x8d\\x8c\\x1f'\"",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Arrival"
+    },
+    {
+      "id": "b'|Wt{\\xebQDQ\\xa0\\xaa\\x94\\x8b\\xdd\\xcd@\\xfe'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Batman Begins"
+    },
+    {
+      "id": "b'B\\xcd\\xbfX\\xfd\\xffO\\x96\\xb4\\x11\\xb0W\\x0f\\xa3&L'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Blade Runner 2049"
+    },
+    {
+      "id": "b'8\\x0c\\xabk\\xc5\\xf0Hu\\xa0\\x12)\\x9b\\x92\\x1a\\xbf\\xd2'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Drive"
+    },
+    {
+      "id": "b'\\xc7PR`\\xe6\\xf3G\\x10\\x90\\xcd\\xce\\xf4\\xc2#\\x8ei'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Dune"
+    },
+    {
+      "id": "b'\\xd7\"\\x89\\x8a\\xebSM#\\xb6\\xf4\\x1f_\\xd3\\x96q\\x81'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Dune: Part Two"
+    },
+    {
+      "id": "b'@b\\xaf2\\xc4\\x1dF\\xe3\\x95G6\\xac6\\xd4\\xdb@'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Interstellar"
+    },
+    {
+      "id": "b'\\xab)\\x0c\\xf4>\\xbeM>\\xb0<[\\xd9\\xafx\\xa6\\xa1'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Rise of the Planet of the Apes"
+    },
+    {
+      "id": "b'\\xa5\\xd6R\\xb0\\xdf\\xe1L\\x8e\\xbbR\\xda\\x7f]%@h'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Spider-Man: Into the Spider-Verse"
+    },
+    {
+      "id": "b'{\\xd4\\x81\\x846kI\\xc1\\xba^\\xd2\\xbb\\x01\\xc7\\xad6'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "Spirited Away"
+    },
+    {
+      "id": "b'\\xdc\\xdb\\xb1\\x19\\xeb\\xb6B\\x18\\xba\\xe7\\x95\\n\\xb7\\x80\\xe3\\xde'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "The Dark Knight"
+    },
+    {
+      "id": "b\"\\x12\\xa0\\xac'\\x92sJ\\x06\\x99\\xd7\\x99|'\\xeem_\"",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "The Matrix"
+    },
+    {
+      "id": "b'`tX\\x9c\\x02\\x0fJ\\xa8\\x80\\x9fk\\x0e\\xbe\\xa2\\xd0\\x08'",
+      "media_type": "Movies",
+      "wikidata_qid": null,
+      "title": "The Shawshank Redemption"
+    },
+    {
+      "id": "b'k\\x12FoCiC\\x83\\x96i\\xa2\\x9cy\\xb4^\\r'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x01N^o\\x1f\\x9aD\\xc4\\x88\\x07\\xad\\x84\\xee5\\xbb\\x14'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'@\\x7f\\xe5A\\x96\\xc8F\\xe1\\xa4\\xc1Jz\\xbc.\\xa3\\t'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x93\\x8a\\xcb\\x1fQ\\xc8O:\\xb4\\xce\\xfb\\xbe`\\x06\\xf4;'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x99\\x17H\\xd4pRD\\x0c\\xb5\\xb2\"\\xb9\\xe8`\\xdb\\x0e'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b't\\x90d/\\xde\\xa2H\\xdd\\x84\\xd5\\xdc\\xe2\\x97\\xf1g\\xc2'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'dx\\x1d\\x10:\\xb8KP\\xb2@\\x01\\xb88\\xd1\\xeeW'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x8f\\x01\\x0f\\xb1\\xf7TM\\xae\\x9d\\xda\\xb9\\xa9%~U\\x05'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xfb/X\\xd0\\xb9\\x9dG\\x85\\xb7\\xb3V4\\x8c\\x94XJ'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xafh\\xca\\xa8~\\xdd@\\x9a\\xadk\\x94\\xb1T\\xcf\\xff\\xc0'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'&\\xa7\\x02}%CJ\"\\x94/)\\x93VM \\xf9'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'f\\xba \\xff\\xbe-D\\xbe\\x8c\\x9c\\xb9!\\xc2\\x89+}'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xeem\\xc9c\\xa9\\xbaEO\\x8e\\xba\\xa4\\xbb\\x95^\\xc1\\xf2'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xef\\x8c\\xe1;\\x99\\xfdM\\xbb\\x86\\xa9\\x00+\\xce\\x7f\\x074'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\n$\"\\x1f\\x02]B\\xd4\\xb8\\xf1f\\xa2R/P\\xb4'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x14B<\\x8d\\xe6\\xfeB\\\\\\x95p\\xd6.\\\\|E\\x7f'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'[\\x1ah\\x10\\xe7xE9\\x9au^T\\xc8\\x19\\xc1\\xd3'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\\\\\xe1g\\xab\\x010@\\xcb\\xb8p\\xc1^\\xc3\\xf3ji'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xd1\\x98\\xc0H\\xcd A\\xdb\\x82\\x8e3\\x96ZmV\\xdb'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xce\\xcd\\xa9\\xf0\\xab4FM\\xa66d\"f\\xc31\\x88'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b';\\xf7zLx\\x9bC\\x1a\\x89\\xe0!\\xfb\\xce\\x13M\\xa5'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xfb\\xfbOi\\x18\\xe4C\\xb5\\x86\\xdd\\xde\\xa0}p\\xf8\\xd0'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xf9I(\\\\\\x9fHI2\\x9ar\\xf2\\xcfMK\\xcb,'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x83\\xd2,\\xc1K\\x84M\\xff\\x90w)\\x8f|\\xb1\\xfa\\xcb'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'Pz\\xfd\\xcd(\\xa4B\\xbb\\xb5\\xdcG/\\x02P\\xeb@'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xca\\xca\\xb0\\xb4!\\xd6LU\\x83\\x1d\\xe3\\xeaU\\xb8\\x82.'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b\"7>l\\x00\\xba\\xe6On\\xb3\\x99b\\xb3\\x88'$\\xe9\"",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xf2\\x8b\\x9a?.yDb\\x81\\xc3:\\xe3\\xf4\\x82z^'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x9a\\xde\\x07\\xc0\\xa5\\xa4O\\xd1\\x86d\\x9c#\\xa7\\xc6\\xef\\x18'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xba!\\x82_\\x157I\\x9a\\x8b\\xde\\xe5A\\xf1\\xcb\\xd6\\x99'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xf7[mc]\\xd1C\\xd7\\xad\\xbf\\xdc\\x8e\\x05\\xber\\xaf'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x9f\\x8eu\\xbfVIMW\\x83\\xf8\\xc9\\xc7XH\\x06\\xe9'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x8f\\xeb\\x16\\x10\\x15\\x1dN\\x90\\xa7\\x938>\\x02\\xf7[\\x0b'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xc2O\\xf6\\xf1^pAc\\x98D\\x16`T\\xc8\\x92\\x0c'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'_k}f\\xda\\x03B\\xaa\\x9c\\x13\\xd1i\\r\\x05\\xc7x'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "1"
+    },
+    {
+      "id": "b'\\r\\xc2\\xa4~\\xb2PO\\x18\\x95tp\\xd7F\\xce)7'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "4'33''"
+    },
+    {
+      "id": "b'\\xf2\\x81u[\\x8c\\x8aK\\x8d\\xbc#+4\\x80\\xf6uX'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "8 Mile: Music From and Inspired by the Motion Picture"
+    },
+    {
+      "id": "b'\\xa4j\\x7fKg\\x88EA\\x86\\x8b\\xe8\\xbc\\x97\\x83\\xb1\\x1b'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "99 Red Balloons / 99 Luftballons"
+    },
+    {
+      "id": "b')\\xdc\\xc3\\x80\\xa9\\x01A>\\x8b\\x11\\xdc\\x90\\xa8=\\x07\\xca'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "DAMN."
+    },
+    {
+      "id": "b'\\x97d\\xcf\\x13\\x0eoF\\x0b\\x8b\\xd4r\\x93\\n\\xfe\\xfc\\x06'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Help!"
+    },
+    {
+      "id": "b\"}R'\\x89P\\x7fKu\\xb0\\x92\\x94\\xf3\\xd2Hc>\"",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Hot Space"
+    },
+    {
+      "id": "b'\\x99A\\x94O\\x1d\\xfaJA\\xaa\\x7f\\xb6d\\x950\\xa1\\xeb'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Imagine"
+    },
+    {
+      "id": "b'\\xfb\\xcb\\x0f\\x12doF0\\xaf\\x96}\\x93\\x1e\\xcb\\xd2i'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Inception"
+    },
+    {
+      "id": "b'\\x8b\\xdb\\x83\\xb7\\xe6/@\\xa6\\xb61f\\xc9\\x8d\\xc8\\xabs'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Interstellar"
+    },
+    {
+      "id": "b'\\x8c\\xb0c\\x84\\xf1\\xafO\\t\\xbdX\\xe2{\\xdark\\xcf'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "J. Christopher Pardini and Friends"
+    },
+    {
+      "id": "b'O\\xaf\\xb5\\r%\\xe4E<\\xa43S;\\xe3\\x93~]'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "La Vie en rose"
+    },
+    {
+      "id": "b'\\xda\\x8a\\xe6V\\xb5\\xaaN\\xcb\\x8c\\xe3\\x8c\\x1e\\xcb!\\xb0\\xaa'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Live Aid"
+    },
+    {
+      "id": "b'\\xab\\xa9\\x9d\\xf5UeD\\xce\\xa8\\xc9\\x7f/\\xdcH\\xc6Z'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Middle of Nowhere"
+    },
+    {
+      "id": "b'i\\x9f*\\xc6;\\x8aN\\x12\\xa6\\xc6\\xc77!\\xa2o8'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Nevermind"
+    },
+    {
+      "id": "b'Q\\x11\\xd7G\\xa3\\x08IT\\x81;\\xe1-\\xda\\xf9YI'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "News of the World"
+    },
+    {
+      "id": "b'\\x93\\xf00\\xe7\\xb8JB\\x03\\x91\\x8dq%:\\x03\\xe61'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Star Wars Episode II: Attack Of The Clones"
+    },
+    {
+      "id": "b'\\x8ef\\xb4\\xa1\\xca\\xc9G\\xc2\\x88\\xb5U\\xd7\\x11\\xb4#J'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Star Wars: The Empire Strikes Back (Original Motion Picture Soundtrack)"
+    },
+    {
+      "id": "b'@h\\xf7\\x15\\x13\\xfeM\\x83\\xa2\\r\\xce\\x04\\\\\\xa1\\x0e\\xa3'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "The Marshall Mathers LP"
+    },
+    {
+      "id": "b'>\\xb1\\xac\\x8ec6OM\\x85\\xa3\\xf5\\xe6\\xd4\\x1b\\x10]'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "The Rise and Fall of Ziggy Stardust and the Spiders From Mars"
+    },
+    {
+      "id": "b'\\xcd\\xd5A\\xf5\\xc5rCK\\x98V\\x95\\xb7\\xad\\xaa\\xfd\\xf4'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "The Ultimate Classical Collection"
+    },
+    {
+      "id": "b'l\\x14W\\xb85\\x9cJ\\x1d\\xbf\\x0eS\\xf3\\xed\\x87\\xfd\\xc8'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "The Ultimate Classical Collection"
+    },
+    {
+      "id": "b'aa\\x0e\\xcdK\\xccH\\x95\\xb0\\xfdWe\\xeb\\xc6PH'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Time Out"
+    },
+    {
+      "id": "b\"\\xf3\\xbb\\x13\\xb4\\xc4\\xd5C\\xec\\x94r'\\xd4\\x8a\\xefz\\x0e\"",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "Una mattina"
+    },
+    {
+      "id": "b'\\x1a\\x10\\xe7\\x81\\x02\\xf7D\\x1b\\xb8\\xf2\\xe7\\xb6\\xe5c\\xdd\\x15'",
+      "media_type": "Music",
+      "wikidata_qid": null,
+      "title": "\u201cHeroes\u201d"
+    },
+    {
+      "id": "b'A\\xa6\\xa0/\\xaaj@>\\x94\\x8c}\\x88\\x05\\x93\\x17\\xce'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xccnfYt\\xadJ\\xdf\\x8d\\xa1\\xf9X}~\\x0b\\xf6'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x9d\\xad\\xc3\\xf4O(K\\xb9\\x90V}\\x92\\xc3\\xb8\\xd6\\x15'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'}]\\x11\\xeaa\\xc2L\\x93\\x95\\xb8\\x16?4\\xba\\xab\\xfa'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xc2_mzo\\xd2E\\xae\\x988\\x8bR\\xccdP6'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x93\\xe6\\x95\\xaaO$K\\xaa\\x91&\\xa2\\xe4\\x7f\\x87\\x03\\x14'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b\"\\xa7\\xcc\\x1f6S\\xedC'\\x83\\x9c\\x07\\x88F\\xac\\xc8\\xb6\"",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xe1\\xbdZ\\x04\\xef\\xbbKg\\x9d\\xc1\\x19\\xf9>\\xf3M='",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'C\\xd5\\xe6\\xff\\x84\\x83D\\xa6\\xbd\\x85\\xe3k\\xa5l\\xd5D'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'7\\x0c\\xec\\x93Y\\xe8J\\x98\\xae\\xe5\\xb4\\x12\\x8b\\xa9\\x03V'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'm\\x03\\x05\\xce\\x7f\\x8eL<\\xb30\\xdb\\xec\\xaa\\x1ec\\r'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'u\\x8f\\xf7*\\\\\\xcdF\\xe3\\x8a?\\xa3h\\xafd\\xc7E'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'K\\xd2\\xbe\\x94+\\xdcO\\t\\xb7\\xf2d\\xe0\\x9e\\xbd\\xfe\\xfd'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'_\\x17W\\xce\\xad\\xd9Ak\\xa1\\xc8\\x7f\\xb6E.\\xf6\\xbc'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'C\\xf3\\x86:\\x1e\\xf5Na\\x88\\xf9f\\xd9I\\xb1k\\xe5'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x8c>Tj\\xc0\\x1fE\\xde\\xad\\xbf\\x11\\xbe\\xc8\\xe6\\xa2\\xb1'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'x\\xcbw\\x8e1\\xb7@t\\x9eH\\x13B\\x15(\\xcak'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xef\\n\\xda\\x0f`\\x8eI~\\x9e<\\xba.\\x1f\\x9f\\xc0D'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b' \\xd2\\xb8\\x98\"\\xecC\\x83\\xb7a\\xb0\\xe9\\xc0\\x1e\\xe2\\xc0'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x8a\\xa3\\xadaq\\x08O\\xd7\\xb0gt\\xdd\\xe9\\xb6\\xb3)'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x9a\\x07\\xff\\xef.\\x8aN\\xfe\\x95s\\xac\\xe2K\\xa2\\xcc\\xe8'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xa9 \\xfe*\\xcf\\x8eN\\xa4\\xaf\\x8d\\xc5\\x93\\x18\\xd8\\x8d1'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xe3\\xf2\\x1b\\x1e\\xb9\\x0cIZ\\xa30\\x98\\xa5\\x8f\\xb8\\xccA'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\x04#Xn\\xecrCi\\xb1\\x17C\\xd9\\xc1n\\x90\\xf8'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": null
+    },
+    {
+      "id": "b'\\xf8\\x88t\\x13\\x99\\xf8I&\\x83US\\x87~\\xd7\\x0e\\xd8'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": "Breaking Bad"
+    },
+    {
+      "id": "b\"\\xeb\\x9a\\xba\\x0e\\xe4\\tB\\xd3\\xb6\\xff\\x91R'?e\\x14\"",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": "Foundation"
+    },
+    {
+      "id": "b'\\xce\\xdbU\\xbc\\x89\\\\@\\xcf\\x84\\xcb\\x9f\\x9a\\x1a\\xf9f\\xd2'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": "Severance"
+    },
+    {
+      "id": "b'\\x9c\\xc0}\\x12\\xca_A\\xef\\x88\\x81\\x84/\\x89|\\xf2J'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": "Sh\u014dgun"
+    },
+    {
+      "id": "b'[\\xf7\\xfa\\n~\\x8bI\\xd7\\xa0\\xae\\xff)%G-P'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": "The Expanse"
+    },
+    {
+      "id": "b'o\\xb7\\xf6\\x8b;\\xb7N\\x8f\\x9cscT\\xf15\\xbf\\x99'",
+      "media_type": "TV",
+      "wikidata_qid": null,
+      "title": "The Mandalorian"
+    }
+  ],
+  "integrity": {
+    "foreign_key_violations": [],
+    "invalid_work_qids": [],
+    "duplicate_bridge_ids": []
+  },
+  "metadata_providers": [
+    {
+      "name": "ai_provider",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "apple_api",
+      "version": "2.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "comicvine",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "library_scanner",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "local_processor",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "lrclib",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "musicbrainz",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "open_library",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "opensubtitles",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "tmdb",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "user_manual",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "wikidata",
+      "version": "1.0",
+      "is_enabled": 1
+    },
+    {
+      "name": "wikipedia",
+      "version": "1.0",
+      "is_enabled": 1
+    }
+  ],
+  "artwork_summary": [
+    {
+      "entity_type": "Person",
+      "asset_type": "Headshot",
+      "source_provider": "tmdb",
+      "asset_count": 617,
+      "locally_managed_count": 617,
+      "dimensioned_count": 617,
+      "preferred_count": 617
+    },
+    {
+      "entity_type": "Work",
+      "asset_type": "Background",
+      "source_provider": "tmdb",
+      "asset_count": 57,
+      "locally_managed_count": 57,
+      "dimensioned_count": 57,
+      "preferred_count": 19
+    },
+    {
+      "entity_type": "Work",
+      "asset_type": "CoverArt",
+      "source_provider": "embedded",
+      "asset_count": 21,
+      "locally_managed_count": 21,
+      "dimensioned_count": 21,
+      "preferred_count": 11
+    },
+    {
+      "entity_type": "Work",
+      "asset_type": "CoverArt",
+      "source_provider": "provider",
+      "asset_count": 76,
+      "locally_managed_count": 76,
+      "dimensioned_count": 76,
+      "preferred_count": 76
+    },
+    {
+      "entity_type": "Work",
+      "asset_type": "CoverArt",
+      "source_provider": "tmdb",
+      "asset_count": 57,
+      "locally_managed_count": 57,
+      "dimensioned_count": 57,
+      "preferred_count": 0
+    },
+    {
+      "entity_type": "Work",
+      "asset_type": "EpisodeStill",
+      "source_provider": "tmdb",
+      "asset_count": 11,
+      "locally_managed_count": 11,
+      "dimensioned_count": 11,
+      "preferred_count": 11
+    },
+    {
+      "entity_type": "Work",
+      "asset_type": "Logo",
+      "source_provider": "tmdb",
+      "asset_count": 56,
+      "locally_managed_count": 56,
+      "dimensioned_count": 53,
+      "preferred_count": 19
+    },
+    {
+      "entity_type": "Work",
+      "asset_type": "StudioLogo",
+      "source_provider": "tmdb",
+      "asset_count": 12,
+      "locally_managed_count": 12,
+      "dimensioned_count": 12,
+      "preferred_count": 12
+    }
+  ],
+  "legacy_provider_asset_count": 0,
+  "managed_artwork_files": {
+    "checked_path_count": 3460,
+    "missing_or_empty_count": 0,
+    "examples": []
+  },
+  "people_summary": {
+    "person_count": 823,
+    "qid_count": 823,
+    "biography_count": 630,
+    "managed_headshot_count": 704,
+    "pseudonym_count": 3,
+    "group_count": 6
+  },
+  "collection_summary": [
+    {
+      "collection_type": "ContentGroup",
+      "scope": "library",
+      "collection_count": 52,
+      "qid_count": 17
+    },
+    {
+      "collection_type": "Universe",
+      "scope": "library",
+      "collection_count": 3,
+      "qid_count": 3
+    }
+  ],
+  "view_summary": {
+    "items_by_kind": [
+      {
+        "media_kind": "image",
+        "item_count": 5
+      }
+    ],
+    "scope_counts": [
+      {
+        "scope_kind": "personal",
+        "item_count": 5
+      }
+    ],
+    "metadata": {
+      "metadata_rows": 5,
+      "dimensioned_items": 5,
+      "geocoded_items": 5,
+      "named_location_items": 5,
+      "structured_metadata_items": 5
+    },
+    "annotations": [
+      {
+        "annotation_kind": "person_name",
+        "source": "tuvima-dev-harness:reviewed-fixture",
+        "annotation_count": 3,
+        "provenance_count": 3
+      }
+    ],
+    "tag_count": 15,
+    "file_count": 5,
+    "file_link_count": 5,
+    "source_link_count": 5,
+    "source_files": {
+      "checked_count": 5,
+      "missing_or_empty_count": 0,
+      "examples": []
+    }
+  },
+  "entity_asset_files": {
+    "path_column": "local_image_path",
+    "missing_or_empty_count": 0,
+    "examples": []
+  }
+}
