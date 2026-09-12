@@ -2448,6 +2448,10 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionMediaGr
   CoverUrl: System.String | nullability=nullable | accessors=get,set
   Availability: System.String | nullability=not-null | accessors=get,set
   StatusLabel: System.String | nullability=not-null | accessors=get,set
+  ProgressPercent: System.Int32? | nullability=nullable | accessors=get,set
+  CurrentGateKey: System.String | nullability=nullable | accessors=get,set
+  CurrentGateLabel: System.String | nullability=nullable | accessors=get,set
+  ProgressGates: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionProgressGateDto> | nullability=not-null | accessors=get,set
   ChildCompleted: System.Int32 | nullability=not-null | accessors=get,set
   FileCount: System.Int32 | nullability=not-null | accessors=get,set
   ChildExpected: System.Int32? | nullability=nullable | accessors=get,set
@@ -2570,6 +2574,14 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionPresent
   Attention: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionAttentionItemDto> | nullability=not-null | accessors=get,set
   RecentDays: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionRecentDayDto> | nullability=not-null | accessors=get,set
   GeneratedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionProgressGateDto
+  Key: System.String | nullability=not-null | accessors=get,set
+  Label: System.String | nullability=not-null | accessors=get,set
+  State: System.String | nullability=not-null | accessors=get,set
+  CompletedUnits: System.Int32 | nullability=not-null | accessors=get,set
+  TotalUnits: System.Int32 | nullability=not-null | accessors=get,set
+  Detail: System.String | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionProviderActivityDto
   ProviderName: System.String | nullability=not-null | accessors=get,set
@@ -6636,6 +6648,11 @@ MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupStepStatusDto
   CompletedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Setup.MediaEngine.Contracts.Setup.SetupWorkflow
+
+MediaEngine.Contracts.Startup.MediaEngine.Contracts.Startup.ProcessInstanceLease
+  IsAcquired: System.Boolean | nullability=not-null | accessors=get
+
+MediaEngine.Contracts.Startup.MediaEngine.Contracts.Startup.StartupFailureClassifier
 
 MediaEngine.Contracts.System.MediaEngine.Contracts.System.BackupArchiveDto
   FileName: System.String | nullability=not-null | accessors=get,init

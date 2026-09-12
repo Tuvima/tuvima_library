@@ -23,7 +23,8 @@ public sealed class SettingsNavTests
         Assert.Contains("<MediaSectionShell Title=\"Settings\"", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("AccordionNavigation=\"true\"", settingsSource, StringComparison.Ordinal);
         Assert.Contains("settings-mobile-navigation", settingsSource, StringComparison.Ordinal);
-        Assert.Contains("Meta: _reviewCount > 0", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("<IngestionSettingsTab", settingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SettingsReviewQueueTab", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<SettingsSubsectionNav", settingsSource, StringComparison.Ordinal);
         Assert.Contains("<SidebarPageHeader", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<SidebarPageShell", settingsSource, StringComparison.Ordinal);
@@ -296,8 +297,7 @@ public sealed class SettingsNavTests
         Assert.Equal([
             "System Overview",
             "Libraries",
-            "Operations",
-            "Needs Review",
+            "Ingestion",
             "Metadata",
             "Network & Remote Access",
             "Playback & Delivery",
@@ -377,7 +377,7 @@ public sealed class SettingsNavTests
         Assert.True(resolution.IsKnownRoute);
         Assert.Equal(SettingsSection.Ingestion, resolution.Section);
         Assert.Equal("/settings/ingestion", resolution.CanonicalRoute);
-        Assert.Contains(SettingsNav.AllItems, item => item.Label == "Operations");
+        Assert.Contains(SettingsNav.AllItems, item => item.Label == "Ingestion");
     }
 
     [Fact]

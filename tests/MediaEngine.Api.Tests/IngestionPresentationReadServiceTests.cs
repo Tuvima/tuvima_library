@@ -49,7 +49,7 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         var snapshot = await service.GetSnapshotAsync();
 
         Assert.Equal(5, page.TotalCount);
-        Assert.Equal(5, snapshot.CurrentMediaTotal);
+        Assert.Equal(0, snapshot.CurrentMediaTotal); // Settled groups leave the live tile rail.
         Assert.Equal(5, snapshot.ReadyGroups);
         var one = Assert.Single(page.Items, item => item.GroupId == completeAlbum);
         Assert.Equal(17, one.ChildCompleted);
@@ -516,6 +516,64 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         Assert.Equal(2, (await service.GetSnapshotAsync()).ReadyGroups);
     }
 
+    [Fact]
+    public async Task LiveSnapshot_WaitsForRootCoverAndNeverUsesEpisodeStill()
+    {
+        var batch = AddBatch("running", 1, 1);
+        var show = AddContainer("TV", "Root Show");
+        var season = AddContainer("TV", "Season 1", show);
+        AddChildren(batch, season, "TV", "Episode", 1, "episode_number", seasonNumber: 1);
+        using var conn = _db.CreateConnection();
+        var child = conn.QuerySingle<Guid>("SELECT id FROM works WHERE parent_work_id=@season", new { season });
+        var asset = conn.QuerySingle<Guid>("SELECT ma.id FROM media_assets ma JOIN editions e ON e.id=ma.edition_id WHERE e.work_id=@child", new { child });
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        conn.Execute("DELETE FROM entity_assets;");
+        conn.Execute("""
+            INSERT INTO identity_jobs (id,entity_id,entity_type,media_type,ingestion_run_id,state,pass,created_at,updated_at)
+            VALUES (@job,@asset,'MediaAsset','TV',@batch,'Hydrating','Quick',@now,@now);
+            INSERT INTO entity_assets (id,entity_id,entity_type,asset_type,local_image_path,aspect_class,asset_class,storage_location,owner_scope,is_preferred,created_at)
+            VALUES (@still,@child,'Work','EpisodeStill','C:/test/still.jpg','Landscape','Artwork','Central','Work',1,@now);
+            """, new { job = Guid.NewGuid(), asset, batch, child, still = Guid.NewGuid(), now });
+
+        var service = new IngestionPresentationReadService(_db);
+        Assert.Empty((await service.GetSnapshotAsync()).CurrentMedia);
+
+        var cover = Guid.NewGuid();
+        conn.Execute("""
+            INSERT INTO entity_assets (id,entity_id,entity_type,asset_type,local_image_path,aspect_class,asset_class,storage_location,owner_scope,is_preferred,created_at)
+            VALUES (@cover,@show,'Work','CoverArt','C:/test/show-cover.jpg','Portrait','Artwork','Central','Work',1,@now);
+            """, new { cover, show, now });
+
+        var tile = Assert.Single((await service.GetSnapshotAsync()).CurrentMedia);
+        Assert.Contains(cover.ToString("D"), tile.CoverUrl);
+        Assert.Equal(50, tile.ProgressPercent);
+        Assert.Equal("enriched", tile.CurrentGateKey);
+        Assert.Equal(["Identified", "Matched metadata", "Enriching details", "Ready in library"], tile.ProgressGates.Select(gate => gate.Label));
+    }
+
+    [Fact]
+    public async Task LiveSnapshot_UsesThreeEqualGatesWhenMatchingDoesNotApply()
+    {
+        var batch = AddBatch("running", 1, 1);
+        var work = AddStandalone(batch, "Books", "Locally identified book");
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        using var conn = _db.CreateConnection();
+        conn.Execute("""
+            INSERT INTO media_operations (
+                id, operation_type, operation_kind, entity_id, entity_kind, batch_id,
+                status, stage, position_key, created_at, updated_at, idempotency_key)
+            VALUES (
+                @id, 'ingestion.enrichment', 'enrichment', @work, 'Work', @batch,
+                'running', 'artwork', 1, @now, @now, @key);
+            """, new { id = Guid.NewGuid(), work, batch, now, key = $"three-gates-{work:N}" });
+
+        var tile = Assert.Single((await new IngestionPresentationReadService(_db).GetSnapshotAsync()).CurrentMedia);
+
+        Assert.Equal(33, tile.ProgressPercent);
+        Assert.Equal("enriched", tile.CurrentGateKey);
+        Assert.Equal(["Identified", "Enriching details", "Ready in library"], tile.ProgressGates.Select(gate => gate.Label));
+    }
+
     [Theory]
     [InlineData("abandoned", "UniverseEnriching", false)]
     [InlineData("interrupted", "Hydrating", true)]
@@ -634,6 +692,10 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         using var conn = _db.CreateConnection();
         conn.Execute("INSERT INTO works (id, media_type, work_kind, parent_work_id) VALUES (@id, @mediaType, 'parent', @parentId);", new { id, mediaType, parentId });
         conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@id, 'title', @title, @now);", new { id, title, now });
+        conn.Execute("""
+            INSERT INTO entity_assets (id,entity_id,entity_type,asset_type,local_image_path,aspect_class,asset_class,storage_location,owner_scope,is_preferred,created_at)
+            VALUES (@artId,@id,'Work','CoverArt','C:/test/cover.jpg','Portrait','Artwork','Central','Work',1,@now);
+            """, new { artId = Guid.NewGuid(), id, now });
         if (expectedKey is not null && expectedValue is not null)
         {
             conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@id, @expectedKey, @expectedValue, @now);", new { id, expectedKey, expectedValue, now });
@@ -700,6 +762,10 @@ public sealed class IngestionPresentationReadServiceTests : IDisposable
         conn.Execute("INSERT INTO editions (id, work_id, format_label) VALUES (@editionId, @workId, 'Test');", new { editionId, workId });
         conn.Execute("INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, presented_at) VALUES (@assetId, @editionId, @hash, @path, @presentedAt);", new { assetId, editionId, hash = $"hash-{assetId:N}", path = $"C:/watch/{assetId:N}.media", presentedAt = presented ? now : null });
         conn.Execute("INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES (@workId, 'title', @title, @now);", new { workId, title, now });
+        conn.Execute("""
+            INSERT INTO entity_assets (id,entity_id,entity_type,asset_type,local_image_path,aspect_class,asset_class,storage_location,owner_scope,is_preferred,created_at)
+            VALUES (@artId,@workId,'Work','CoverArt','C:/test/cover.jpg','Portrait','Artwork','Central','Work',1,@now);
+            """, new { artId = Guid.NewGuid(), workId, now });
         InsertLog(conn, logId, batchId, assetId, mediaType, title, now);
         return workId;
     }

@@ -884,7 +884,7 @@ public sealed partial class EngineApiClient
 
     public Task<PagedResponse<IngestionMediaGroupDto>?> GetRecentIngestionAdditionsAsync(
         string? search = null, string? lane = null, DateTimeOffset? start = null, DateTimeOffset? end = null,
-        int offset = 0, int limit = 50, CancellationToken ct = default)
+        int offset = 0, int limit = 50, string? sort = null, CancellationToken ct = default)
     {
         var values = new List<string>
         {
@@ -909,6 +909,11 @@ public sealed partial class EngineApiClient
         if (end.HasValue)
         {
             values.Add($"end={Uri.EscapeDataString(end.Value.ToString("O"))}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(sort) && !sort.Equals("newest", StringComparison.OrdinalIgnoreCase))
+        {
+            values.Add($"sort={Uri.EscapeDataString(sort)}");
         }
 
         return GetPresentationPageAsync($"ingestion/recent-additions?{string.Join('&', values)}", ct);

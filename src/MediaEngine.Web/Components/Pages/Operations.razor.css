@@ -1,0 +1,10 @@
+.operations-page-canvas {
+    min-width: 0;
+    padding: 1.25rem clamp(1rem, 2.5vw, 2.25rem) 3rem;
+}
+
+@media (max-width: 700px) {
+    .operations-page-canvas {
+        padding: .8rem .75rem 2rem;
+    }
+}

@@ -11,7 +11,7 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.DoesNotContain("System Status", source, StringComparison.Ordinal);
         Assert.Contains("Recent Activity", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<BackupRecoveryPanel", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/ingestion", source, StringComparison.Ordinal);
+        Assert.Contains("/operations/ingestion", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Operational Snapshot", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Recent Ingestion Runs", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Run ID", source, StringComparison.Ordinal);

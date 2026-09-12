@@ -47,7 +47,7 @@ public sealed class IngestionBatchDisplayTests
         Assert.True(IngestionBatchDisplay.HasMedia(batch));
         Assert.Equal("5 library items added", IngestionBatchDisplay.AddedOutcome(batch));
         Assert.Equal(
-            "/settings/ingestion?runId=83000000-0000-0000-0000-000000000001&view=all",
+            "/operations/ingestion?runId=83000000-0000-0000-0000-000000000001&view=all",
             IngestionBatchDisplay.MediaHref(batch));
     }
 }

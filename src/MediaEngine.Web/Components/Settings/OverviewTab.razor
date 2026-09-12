@@ -108,7 +108,7 @@
                     <div><strong>@AttentionTitle</strong><p>These items could not be identified confidently.</p></div>
                 </div>
                     <div class="admin-card-actions">
-                        <AppButton Href="/settings/review"
+                        <AppButton Href="/operations/recently-added?review=expanded"
                                    Label="Review items"
                                    ButtonStyle="AppButtonStyle.Filled"
                                    Tone="AppUiTone.Primary" />
@@ -134,7 +134,7 @@
                     }
                     @if (_currentRun.Failed > 0)
                     {
-                        <a class="admin-system-status__row" role="listitem" href="/settings/ingestion">
+                        <a class="admin-system-status__row" role="listitem" href="/operations/ingestion">
                             <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.SyncProblem" /></span>
                             <span><strong>Media processing</strong><small>@IngestionStatusDetail</small></span>
                             <AppStatusBadge Text="Needs attention" Tone="AppUiTone.Warning" />
@@ -157,7 +157,7 @@
     <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-recent-activity">
         <div class="admin-overview-card__header">
             <MudText Typo="Typo.h6">Recent Activity</MudText>
-            <AppButton Href="/settings/ingestion" Label="View operations" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+            <AppButton Href="/operations/ingestion" Label="View operations" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
         </div>
         @if (_recentActivity.Count == 0)
         {
@@ -352,7 +352,7 @@
     {
         "models" => "/settings/ai/models",
         "providers" => "/settings/metadata/providers",
-        "workers" => "/settings/ingestion",
+        "workers" => "/operations/ingestion",
         "storage" => "/settings/libraries",
         "configuration" => "/settings/libraries",
         "database" => "/settings/backup-recovery",

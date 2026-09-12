@@ -67,24 +67,6 @@
                            Actions="@HeaderActions" />
         }
 
-        @if (IsOperationsWorkspace)
-        {
-            <nav class="settings-operations-navigation" aria-label="Operations views">
-                <a href="/settings/ingestion"
-                   class="@(IsOperationsView(SettingsSection.Ingestion) ? "is-active" : null)"
-                   aria-current="@(IsOperationsView(SettingsSection.Ingestion) ? "page" : null)">Ingestion</a>
-                <a href="/settings/review"
-                   class="@(IsOperationsView(SettingsSection.Review) ? "is-active" : null)"
-                   aria-current="@(IsOperationsView(SettingsSection.Review) ? "page" : null)">
-                    Needs Review
-                    @if (_reviewCount > 0)
-                    {
-                        <span class="settings-operations-navigation__count">@_reviewCount</span>
-                    }
-                </a>
-            </nav>
-        }
-
         <div @key="DeviceContext.DeviceClass" class="@PageCanvasClass">
             <AdministratorSurfaceGate Required="@(_profileRoleLoaded && SettingsNav.GetItem(_activeSection).AdminOnly)">
             @if (ShouldDeferForRoleResolution)
@@ -145,7 +127,7 @@
                             }
                             break;
                         case SettingsSection.Ingestion:
-                            <IngestionTasksTab View="@IngestionView" RunId="@IngestionRunId" ItemId="@IngestionItemId" />
+                            <IngestionSettingsTab />
                             break;
                         case SettingsSection.DevHarness:
                             @RenderInternalTool(
@@ -172,9 +154,6 @@
                             break;
                         case SettingsSection.Server:
                             <BackupRecoveryPanel />
-                            break;
-                        case SettingsSection.Review:
-                            <SettingsReviewQueueTab />
                             break;
                         case SettingsSection.ProviderTester:
                             @RenderInternalTool("MediaEngine.Web.Components.Settings.ProviderTesterToolTab")
@@ -213,6 +192,7 @@
     private bool _profileRoleLoaded;
 
     private int _reviewCount;
+    private bool _legacyRedirectIssued;
     private SystemStatusViewModel? _systemStatus;
     private bool _shellStateLoading = true;
 
@@ -244,12 +224,8 @@
             .ToList();
 
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
-    private RenderFragment? HeaderActions => _activeSection == SettingsSection.Ingestion && IngestionRunId is null
-        ? @<IngestionScanAction />
-        : null;
+    private RenderFragment? HeaderActions => null;
     private IReadOnlyList<SettingsBreadcrumb> Breadcrumbs => BuildBreadcrumbs();
-    private bool IsOperationsSection => _activeSection is SettingsSection.Ingestion or SettingsSection.Review;
-    private bool IsOperationsWorkspace => IsOperationsSection && SettingsNav.IsVisible(SettingsSection.Ingestion, CanManageAdministration);
     private string BrowserTitle => _activeSection == SettingsSection.Libraries
         ? $"{(string.IsNullOrWhiteSpace(_activeSubsection) ? "Libraries" : _activeSubsection == "new" ? "Add Library" : _activeSubsection == "view" ? "View" : _libraryBreadcrumbName ?? "Library")} - Tuvima Library"
         : string.IsNullOrWhiteSpace(_activeSubsection)
@@ -420,6 +396,35 @@
 
     private void ResolveSectionAndNormalize()
     {
+        if (!_legacyRedirectIssued
+            && Section is not null
+            && (Section.Equals("review", StringComparison.OrdinalIgnoreCase)
+                || Section.Equals("activity", StringComparison.OrdinalIgnoreCase)
+                || Section.Equals("timeline", StringComparison.OrdinalIgnoreCase)
+                || Section.Equals("recently-added", StringComparison.OrdinalIgnoreCase)))
+        {
+            _legacyRedirectIssued = true;
+            Nav.NavigateTo(Section.Equals("review", StringComparison.OrdinalIgnoreCase)
+                ? "/operations/recently-added?review=expanded"
+                : "/operations/recently-added", replace: true);
+            return;
+        }
+
+        if (!_legacyRedirectIssued
+            && string.Equals(Section, "ingestion", StringComparison.OrdinalIgnoreCase)
+            && (IngestionRunId.HasValue || IngestionItemId.HasValue || !string.IsNullOrWhiteSpace(IngestionView)))
+        {
+            _legacyRedirectIssued = true;
+            var target = Nav.GetUriWithQueryParameters("/operations/ingestion", new Dictionary<string, object?>
+            {
+                ["runId"] = IngestionRunId,
+                ["itemId"] = IngestionItemId,
+                ["view"] = IngestionView,
+            });
+            Nav.NavigateTo(target, replace: true);
+            return;
+        }
+
         var resolution = SettingsNav.ResolveRoute(Section, CanManageAdministration);
         _activeSection = resolution.Section;
 
@@ -544,7 +549,7 @@
     private IReadOnlyList<SettingsItemDef> GetVisibleTreeItems(SettingsTreeGroupDef group) =>
         SettingsNav.FilteredTreeItems(group, CanManageAdministration)
             .Where(item => !DeviceContext.IsMobile || SettingsNav.IsVisibleOnMobile(item.Value))
-            .Where(item => item.Value is not SettingsSection.Review || !SettingsNav.IsVisible(SettingsSection.Ingestion, CanManageAdministration))
+            .Where(item => item.Value is not SettingsSection.Review)
             .Where(IsItemEnabledByUiSettings)
             .ToList();
 
@@ -552,18 +557,6 @@
 
     private MediaSectionNavigationItem BuildNavigationItem(SettingsItemDef item)
     {
-        if (item.Value == SettingsSection.Ingestion)
-        {
-            return new(
-                "Operations",
-                SettingsNav.RouteFor(IsOperationsWorkspace ? _activeSection : SettingsSection.Ingestion),
-                Icons.Material.Outlined.SettingsSuggest,
-                Meta: _reviewCount > 0
-                    ? _reviewCount.ToString(System.Globalization.CultureInfo.InvariantCulture)
-                    : null,
-                Exact: true);
-        }
-
         return new(
             item.Label,
             SettingsNav.RouteFor(item.Value),
@@ -629,26 +622,6 @@
         breadcrumbs.Add(new SettingsBreadcrumb(
             CurrentGroup.Label,
             SettingsNav.RouteFor(CurrentGroup.DefaultSection)));
-
-        if (IsOperationsSection)
-        {
-            breadcrumbs.Add(new SettingsBreadcrumb("Operations", "/settings/ingestion"));
-            if (_activeSection == SettingsSection.Review)
-            {
-                breadcrumbs.Add(new SettingsBreadcrumb("Needs Review", null));
-            }
-            else if (IngestionRunId.HasValue)
-            {
-                breadcrumbs.Add(new SettingsBreadcrumb("Ingestion", "/settings/ingestion"));
-                breadcrumbs.Add(new SettingsBreadcrumb(_batchBreadcrumbLabel ?? "Selected batch", null));
-            }
-            else
-            {
-                breadcrumbs.Add(new SettingsBreadcrumb("Ingestion", null));
-            }
-
-            return breadcrumbs;
-        }
 
         if (_activeSection == SettingsSection.Libraries)
         {
@@ -726,14 +699,6 @@
 
     private string GetHeroTitle()
     {
-        if (IsOperationsWorkspace)
-            return _activeSection switch
-            {
-                SettingsSection.Ingestion => "Ingestion",
-                SettingsSection.Review => "Needs Review",
-                _ => "Operations",
-            };
-
         if (_activeSection != SettingsSection.Providers || string.IsNullOrWhiteSpace(Detail))
             return SettingsNav.GetItem(_activeSection).Label;
         return "Provider Configuration";
@@ -750,7 +715,7 @@
         SettingsSection.Privacy => "Personal history and export controls are not yet available.",
         SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",
         SettingsSection.Libraries => "Manage structured libraries and storage roots.",
-        SettingsSection.Ingestion => "See what is being added now and what recently entered the library.",
+        SettingsSection.Ingestion => "Configure how Tuvima discovers, processes, retries, and adds media to your library.",
         SettingsSection.Network => "Manage how devices reach Tuvima at home and away without exposing unnecessary technical detail.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
         SettingsSection.Providers => GetMetadataDescription(),

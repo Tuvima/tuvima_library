@@ -26,6 +26,16 @@ public sealed class IngestionMediaCardTests : AsyncBunitContext
             MediaType = "Music",
             Availability = "finishing",
             StatusLabel = "Adding lyrics",
+            ProgressPercent = 50,
+            CurrentGateKey = "enriched",
+            CurrentGateLabel = "Enriching details",
+            ProgressGates =
+            [
+                new() { Key = "identified", Label = "Identified", State = "complete" },
+                new() { Key = "matched", Label = "Matched metadata", State = "complete" },
+                new() { Key = "enriched", Label = "Enriching details", State = "active" },
+                new() { Key = "ready", Label = "Ready in library", State = "pending" },
+            ],
             ChildUnit = "tracks",
             ChildCompleted = 5,
             FileCount = 6,
@@ -37,24 +47,21 @@ public sealed class IngestionMediaCardTests : AsyncBunitContext
             .Add(component => component.Item, item)
             .Add(component => component.OnOpen, value => opened = value));
 
-        Assert.Equal("Adding lyrics", cut.Find(".ingestion-media-card__activity").TextContent.Trim());
         Assert.Equal(item.Title, cut.Find(".ingestion-media-card__title").TextContent);
-        Assert.Equal("Queen", cut.Find(".ingestion-media-card__contributor").TextContent);
-        Assert.Equal("Album", cut.Find(".ingestion-media-card__type").TextContent.Trim());
-        Assert.Equal("5 tracks added · 6 files", cut.Find(".ingestion-media-card__count").TextContent);
-        Assert.DoesNotContain("Ready to browse", cut.Markup);
-        Assert.Single(cut.FindAll(".ingestion-facet__spinner"));
-        Assert.Equal(2, cut.FindAll(".ingestion-facets__slot").Count);
-        Assert.Equal(2, cut.FindAll(".ingestion-facet").Count);
+        Assert.Single(cut.FindAll(".ingestion-media-card__progress"));
+        Assert.Contains("Enriching details", cut.Find("button.ingestion-media-card").GetAttribute("title"));
+        Assert.DoesNotContain("Queen", cut.Markup);
+        Assert.DoesNotContain("tracks added", cut.Markup);
+        Assert.DoesNotContain("ingestion-facet", cut.Markup);
         cut.Find("button.ingestion-media-card").Click();
         Assert.Same(item, opened);
     }
 
     [Theory]
-    [InlineData("ready", "Ready", "Ready to browse")]
-    [InlineData("review", "Needs review", "Needs review")]
-    [InlineData("failed", "Failed", "Failed")]
-    public void MissingContributor_PreservesTheRowAndDoesNotInventMetadata(string availability, string status, string expected)
+    [InlineData("ready", "Ready")]
+    [InlineData("review", "Needs review")]
+    [InlineData("failed", "Failed")]
+    public void MissingContributor_DoesNotInventPersistentTileMetadata(string availability, string status)
     {
         var cut = Render<IngestionMediaCard>(parameters => parameters.Add(component => component.Item, new()
         {
@@ -66,12 +73,10 @@ public sealed class IngestionMediaCardTests : AsyncBunitContext
             FileCount = 1,
         }));
 
-        Assert.Equal(expected, cut.Find(".ingestion-media-card__activity").TextContent.Trim());
-        Assert.Empty(cut.Find(".ingestion-media-card__contributor").TextContent);
-        Assert.Equal("Book", cut.Find(".ingestion-media-card__type").TextContent.Trim());
-        Assert.Equal("1 file", cut.Find(".ingestion-media-card__count").TextContent);
-        Assert.Single(cut.FindAll(".ingestion-facets"));
-        Assert.Empty(cut.FindAll(".ingestion-facet"));
+        Assert.Equal("The Quiet Mind", cut.Find(".ingestion-media-card__title").TextContent);
+        Assert.DoesNotContain("Books", cut.Markup);
+        Assert.DoesNotContain("1 file", cut.Markup);
+        Assert.DoesNotContain("ingestion-facet", cut.Markup);
     }
 
     [Fact]
@@ -87,7 +92,7 @@ public sealed class IngestionMediaCardTests : AsyncBunitContext
             ChildCompleted = 0,
         }));
 
-        Assert.Equal("8 files", cut.Find(".ingestion-media-card__count").TextContent);
+        Assert.DoesNotContain("8 files", cut.Markup);
         Assert.DoesNotContain("8 tracks added", cut.Markup);
     }
 

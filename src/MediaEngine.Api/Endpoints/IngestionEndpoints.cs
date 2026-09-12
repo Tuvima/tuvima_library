@@ -71,12 +71,13 @@ public static class IngestionEndpoints
             string? lane,
             DateTimeOffset? start,
             DateTimeOffset? end,
+            string? sort,
             int? offset,
             int? limit,
             CancellationToken ct) =>
         {
             var page = PagedRequest.From(offset, limit, 50, 100);
-            return Results.Ok(await readService.GetRecentAdditionsAsync(search, lane, start, end, page.Offset, page.Limit, ct));
+            return Results.Ok(await readService.GetRecentAdditionsAsync(search, lane, start, end, page.Offset, page.Limit, sort, ct));
         })
         .WithName("GetRecentIngestionAdditions")
         .WithSummary("Returns paged, event-scoped media additions across completed runs.")

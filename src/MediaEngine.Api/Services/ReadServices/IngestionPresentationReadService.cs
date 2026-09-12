@@ -36,11 +36,15 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         recentDayLimit = Math.Clamp(recentDayLimit, 1, 7);
         recentItemsPerDay = Math.Clamp(recentItemsPerDay, 1, 12);
 
-        var currentPage = await LoadCurrentGroupPageAsync(PagedRequest.From(0, currentLimit, currentLimit, 20), ct).ConfigureAwait(false);
+        var currentPage = await LoadCurrentGroupPageAsync(PagedRequest.From(0, currentLimit, currentLimit, 20), ct, eligibleOnly: true).ConfigureAwait(false);
         var current = currentPage.Items;
         var currentFacts = await ReadCurrentGroupFactsAsync(ct).ConfigureAwait(false);
-        var recentDays = await LoadRecentDaysAsync(recentDayLimit, recentItemsPerDay, ct).ConfigureAwait(false);
         var batchFacts = await ReadCurrentBatchFactsAsync(ct).ConfigureAwait(false);
+        var recentDays = await LoadRecentDaysAsync(
+            recentDayLimit,
+            recentItemsPerDay,
+            batchFacts.IsRunning ? batchFacts.BatchId : null,
+            ct).ConfigureAwait(false);
         var operationFacts = await ReadCurrentOperationFactsAsync(ct).ConfigureAwait(false);
         var reviewCount = await ReadPendingReviewCountAsync(ct).ConfigureAwait(false);
 
@@ -53,7 +57,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Count = reviewCount,
                 Label = $"{reviewCount:N0} {Pluralize("title", reviewCount)} need review",
                 Description = "Missing or uncertain metadata",
-                Route = "/settings/review",
+                Route = "/operations/recently-added?review=expanded",
             });
         }
 
@@ -65,7 +69,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Count = operationFacts.RetryWaiting,
                 Label = $"{operationFacts.RetryWaiting:N0} {Pluralize("item", operationFacts.RetryWaiting)} waiting on provider data",
                 Description = "Tuvima will retry automatically",
-                Route = batchFacts.BatchId is { } batchId ? $"/settings/ingestion?runId={batchId:D}&view=all" : "/settings/ingestion",
+                Route = batchFacts.BatchId is { } batchId ? $"/operations/ingestion?runId={batchId:D}&view=all" : "/operations/ingestion",
             });
         }
 
@@ -77,7 +81,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Count = operationFacts.TextTrackWaiting,
                 Label = $"{operationFacts.TextTrackWaiting:N0} lyrics or subtitles in queue",
                 Description = "Fetching from providers",
-                Route = batchFacts.BatchId is { } batchId ? $"/settings/ingestion?runId={batchId:D}&view=all" : "/settings/ingestion",
+                Route = batchFacts.BatchId is { } batchId ? $"/operations/ingestion?runId={batchId:D}&view=all" : "/operations/ingestion",
             });
         }
 
@@ -100,7 +104,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             StartedAt = batchFacts.StartedAt,
             LastActivityAt = batchFacts.LastActivityAt ?? recentDays.FirstOrDefault()?.Items.FirstOrDefault()?.AddedAt,
             CurrentMedia = current.ToList(),
-            CurrentMediaTotal = currentFacts.TotalGroups,
+            CurrentMediaTotal = currentPage.TotalCount ?? current.Count,
             Attention = attention,
             RecentDays = recentDays,
             GeneratedAt = DateTimeOffset.UtcNow,
@@ -113,7 +117,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         CancellationToken ct = default)
     {
         var request = PagedRequest.From(offset, limit, 50, 100);
-        return await LoadCurrentGroupPageAsync(request, ct).ConfigureAwait(false);
+        return await LoadCurrentGroupPageAsync(request, ct, eligibleOnly: false).ConfigureAwait(false);
     }
 
     public async Task<PagedResponse<IngestionMediaGroupDto>> GetRecentAdditionsAsync(
@@ -123,10 +127,11 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         DateTimeOffset? end,
         int offset,
         int limit,
+        string? sort = null,
         CancellationToken ct = default)
     {
         var request = PagedRequest.From(offset, limit, 50, 100);
-        return await LoadHistoryGroupPageAsync(search, lane, start, end, request, ct).ConfigureAwait(false);
+        return await LoadHistoryGroupPageAsync(search, lane, start, end, sort, request, ct).ConfigureAwait(false);
     }
 
     public async Task<IngestionMediaGroupDto?> GetMediaGroupAsync(
@@ -258,7 +263,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Kind = "review",
                 Count = batch.ReviewCount,
                 Label = $"{batch.ReviewCount:N0} {Pluralize("item", batch.ReviewCount)} need review",
-                Route = "/settings/review",
+                Route = "/operations/recently-added?review=expanded",
             });
         }
         if (batch.FailureCount > 0)
@@ -268,7 +273,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Kind = "failure",
                 Count = batch.FailureCount,
                 Label = $"{batch.FailureCount:N0} {Pluralize("item", batch.FailureCount)} failed",
-                Route = $"/settings/ingestion?runId={batchId:D}&view=all",
+                Route = $"/operations/ingestion?runId={batchId:D}&view=all",
             });
         }
 
@@ -402,9 +407,10 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
 
     private async Task<PagedResponse<IngestionMediaGroupDto>> LoadCurrentGroupPageAsync(
         PagedRequest request,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool eligibleOnly)
     {
-        var keys = await LoadCurrentGroupKeysAsync(request.Offset, request.Limit + 1, ct).ConfigureAwait(false);
+        var keys = await LoadCurrentGroupKeysAsync(request.Offset, request.Limit + 1, eligibleOnly, ct).ConfigureAwait(false);
         var pageKeys = keys.Take(request.Limit).ToList();
         var groups = pageKeys.Count == 0
             ? []
@@ -436,6 +442,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
     private async Task<List<IngestionRecentDayDto>> LoadRecentDaysAsync(
         int dayLimit,
         int itemLimit,
+        Guid? currentBatchId,
         CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
@@ -479,7 +486,8 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
                 LEFT JOIN latest_file_operations lfo
                   ON lfo.batch_id = ll.ingestion_run_id AND lfo.entity_id = ll.media_asset_id
-                WHERE NOT {IngestionBatchActivitySql.IsActive}
+                WHERE ((@currentBatchId IS NULL AND NOT {IngestionBatchActivitySql.IsActive})
+                       OR (@currentBatchId IS NOT NULL AND b.id = @currentBatchId))
                   AND {AdditionBatchPredicate}
                   AND {PresentationTitleSql}
                 GROUP BY ll.ingestion_run_id, {PresentationGroupSql}
@@ -505,7 +513,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             FROM ranked
             WHERE DayRank <= @dayLimit AND GroupRank <= @itemLimit
             ORDER BY LocalDate DESC, GroupRank;
-            """, new { dayLimit, itemLimit }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
+            """, new { dayLimit, itemLimit, currentBatchId }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
 
         if (keys.Count == 0)
         {
@@ -542,8 +550,10 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
     private async Task<List<PresentationGroupKeyRow>> LoadCurrentGroupKeysAsync(
         int offset,
         int limit,
+        bool eligibleOnly,
         CancellationToken ct)
     {
+        var eligibilityFilter = eligibleOnly ? "WHERE HasPrimaryCover = 1 AND ActivityRank < 3" : string.Empty;
         using var conn = _db.CreateConnection();
         return (await conn.QueryAsync<PresentationGroupKeyRow>(new CommandDefinition($"""
             WITH current_batches AS (
@@ -597,6 +607,20 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                                WHEN ij.state = 'Queued' THEN 2 ELSE 3 END)
                                FROM identity_jobs ij WHERE ij.ingestion_run_id = ll.ingestion_run_id
                                  AND ij.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id)), 3)) AS ActivityRank
+                       ,EXISTS (
+                           SELECT 1
+                           FROM entity_assets ea
+                           WHERE ea.asset_type = 'CoverArt'
+                             AND (
+                                 (LOWER(COALESCE(w.media_type,'')) IN ('tv','television','tv show','tv shows') AND ea.entity_id = COALESCE(gp.id,p.id,w.id))
+                                 OR (LOWER(COALESCE(w.media_type,'')) IN ('music','track','song','album') AND ea.entity_id = COALESCE(p.id,w.id))
+                                 OR (LOWER(COALESCE(w.media_type,'')) IN ('comic','comics','cbz','cbr') AND ea.entity_id IN (w.id,p.id))
+                                 OR (LOWER(COALESCE(w.media_type,'')) LIKE '%audiobook%' AND ea.entity_id = COALESCE(p.id,w.id))
+                                 OR (LOWER(COALESCE(w.media_type,'')) NOT IN ('tv','television','tv show','tv shows','music','track','song','album','comic','comics','cbz','cbr')
+                                     AND LOWER(COALESCE(w.media_type,'')) NOT LIKE '%audiobook%'
+                                     AND ea.entity_id = w.id)
+                             )
+                       ) AS HasPrimaryCover
                 FROM latest_logs ll
                 JOIN media_assets ma ON ma.id = ll.media_asset_id
                 JOIN editions e ON e.id = ma.edition_id
@@ -608,7 +632,9 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 WHERE {PresentationTitleSql}
             ),
             grouped AS (
-                SELECT BatchId, GroupId, MAX(UpdatedAt) AS UpdatedAt, MIN(ActivityRank) AS ActivityRank
+                SELECT BatchId, GroupId, MAX(UpdatedAt) AS UpdatedAt,
+                       MIN(ActivityRank) AS ActivityRank,
+                       MAX(HasPrimaryCover) AS HasPrimaryCover
                 FROM scoped
                 GROUP BY BatchId, GroupId
             )
@@ -616,6 +642,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                    GroupId,
                    COUNT(*) OVER () AS TotalCount
             FROM grouped
+            {eligibilityFilter}
             ORDER BY ActivityRank, UpdatedAt DESC, HEX(BatchId), HEX(GroupId)
             LIMIT @limit OFFSET @offset;
             """, new { offset, limit }, cancellationToken: ct)).ConfigureAwait(false)).AsList();
@@ -626,6 +653,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         string? lane,
         DateTimeOffset? start,
         DateTimeOffset? end,
+        string? sort,
         PagedRequest request,
         CancellationToken ct)
     {
@@ -636,6 +664,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             end,
             request.Offset,
             request.Limit + 1,
+            sort,
             ct).ConfigureAwait(false);
         var pageKeys = keys.Take(request.Limit).ToList();
         var batchIds = pageKeys.Select(key => key.BatchId).Distinct().ToArray();
@@ -675,6 +704,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         DateTimeOffset? end,
         int offset,
         int limit,
+        string? sort,
         CancellationToken ct)
     {
         var searchFilter = string.IsNullOrWhiteSpace(search) ? "" : $"AND {HistorySearchSql}";
@@ -683,10 +713,23 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             "read" => $"AND {NormalizedMediaTypeSql} IN ('book','books','ebook','ebooks','epub','pdf','comic','comics')",
             "watch" => $"AND {NormalizedMediaTypeSql} IN ('tv','television','tv shows','show','shows','movie','movies','film','films')",
             "listen" => $"AND ({NormalizedMediaTypeSql} IN ('music','album','albums','track','tracks','song','songs','audiobook','audiobooks') OR ({NormalizedMediaTypeSql} LIKE '%audio%' AND {NormalizedMediaTypeSql} LIKE '%book%'))",
+            "movies" => $"AND {NormalizedMediaTypeSql} IN ('movie','movies','film','films')",
+            "tv" => $"AND {NormalizedMediaTypeSql} IN ('tv','television','tv shows','show','shows')",
+            "music" => $"AND {NormalizedMediaTypeSql} IN ('music','album','albums','track','tracks','song','songs')",
+            "books" => $"AND {NormalizedMediaTypeSql} IN ('book','books','ebook','ebooks','epub','pdf')",
+            "audiobooks" => $"AND ({NormalizedMediaTypeSql} IN ('audiobook','audiobooks') OR ({NormalizedMediaTypeSql} LIKE '%audio%' AND {NormalizedMediaTypeSql} LIKE '%book%'))",
+            "comics" => $"AND {NormalizedMediaTypeSql} IN ('comic','comics','cbz','cbr')",
             _ => "",
         };
         var startFilter = start.HasValue ? $"AND julianday({AddedAtSql}) >= julianday(@start)" : "";
         var endFilter = end.HasValue ? $"AND julianday({AddedAtSql}) <= julianday(@end)" : "";
+        var orderBy = NormalizeHistorySort(sort) switch
+        {
+            "oldest" => "UpdatedAt ASC, HEX(BatchId), HEX(GroupId)",
+            "title" => "SortTitle ASC, UpdatedAt DESC, HEX(BatchId), HEX(GroupId)",
+            "media" => "SortMediaType ASC, UpdatedAt DESC, HEX(BatchId), HEX(GroupId)",
+            _ => "UpdatedAt DESC, HEX(BatchId), HEX(GroupId)",
+        };
 
         using var conn = _db.CreateConnection();
         return (await conn.QueryAsync<PresentationGroupKeyRow>(new CommandDefinition($"""
@@ -718,6 +761,16 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             scoped AS (
                 SELECT ll.ingestion_run_id AS BatchId,
                        {PresentationGroupSql} AS GroupId,
+                       LOWER(COALESCE(
+                           (SELECT cv.value
+                            FROM canonical_values cv
+                            WHERE cv.entity_id = {PresentationGroupSql}
+                              AND cv.key IN ('title','episode_title','issue_title','album','show_name','series','book_title')
+                            ORDER BY CASE cv.key WHEN 'title' THEN 0 WHEN 'album' THEN 1 WHEN 'show_name' THEN 2 ELSE 3 END
+                            LIMIT 1),
+                           ll.detected_title,
+                           '')) AS SortTitle,
+                       {NormalizedMediaTypeSql} AS SortMediaType,
                        COALESCE(lfo.updated_at, ll.updated_at, ll.created_at) AS UpdatedAt
                 FROM latest_logs ll
                 JOIN ingestion_batches b ON b.id = ll.ingestion_run_id
@@ -737,7 +790,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                   {endFilter}
             ),
             grouped AS (
-                SELECT BatchId, GroupId, MAX(UpdatedAt) AS UpdatedAt
+                SELECT BatchId, GroupId, MIN(SortTitle) AS SortTitle, MIN(SortMediaType) AS SortMediaType, MAX(UpdatedAt) AS UpdatedAt
                 FROM scoped
                 GROUP BY BatchId, GroupId
             )
@@ -745,7 +798,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                    GroupId,
                    COUNT(*) OVER () AS TotalCount
             FROM grouped
-            ORDER BY UpdatedAt DESC, HEX(BatchId), HEX(GroupId)
+            ORDER BY {orderBy}
             LIMIT @limit OFFSET @offset;
             """, new
         {
@@ -1042,6 +1095,9 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 (SELECT value FROM canonical_values WHERE entity_id IN (ll.media_asset_id,w.id) AND key IN ('duration','runtime') LIMIT 1) AS DurationLabel,
                 EXISTS (SELECT 1 FROM identity_jobs ij WHERE ij.ingestion_run_id = ll.ingestion_run_id
                     AND ij.entity_id = ll.media_asset_id AND ij.state IN ('Ready','ReadyWithoutUniverse')) AS IdentityReady,
+                (SELECT ij.state FROM identity_jobs ij
+                 WHERE ij.ingestion_run_id = ll.ingestion_run_id AND ij.entity_id = ll.media_asset_id
+                 ORDER BY ij.updated_at DESC, ij.created_at DESC LIMIT 1) AS IdentityState,
                 ll.status AS LogStatus,
                 lfo.status AS OperationStatus,
                 lfo.stage AS OperationStage,
@@ -1051,16 +1107,24 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 (SELECT COUNT(*) FROM review_queue rq WHERE rq.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id) AND rq.status = 'Pending' AND rq.review_ready_at IS NOT NULL) AS ReviewCount,
                 (SELECT COUNT(*) FROM person_media_links pml WHERE pml.media_asset_id = ll.media_asset_id) AS PeopleCount,
                 (SELECT COUNT(*) FROM text_tracks tt WHERE tt.asset_id = ll.media_asset_id) AS TextTrackCount,
-                COALESCE(
-                (SELECT ea.id FROM entity_assets ea
-                 WHERE ea.entity_id IN (ll.media_asset_id,w.id) AND ea.asset_type = 'CoverArt'
-                   AND LOWER(COALESCE(w.media_type,'')) NOT IN ('tv','television')
-                 ORDER BY COALESCE(ea.is_user_override,0) DESC, COALESCE(ea.is_preferred,0) DESC, COALESCE(ea.updated_at,ea.created_at) DESC LIMIT 1),
-                (SELECT ea.id FROM entity_assets ea
-                 WHERE ea.entity_id IN (ll.media_asset_id,w.id,p.id,gp.id)
-                   AND ea.asset_type IN ('CoverArt','SeasonPoster','EpisodeStill')
-                 ORDER BY CASE ea.asset_type WHEN 'CoverArt' THEN 0 WHEN 'SeasonPoster' THEN 1 ELSE 2 END, COALESCE(ea.is_preferred,0) DESC, COALESCE(ea.updated_at,ea.created_at) DESC
-                 LIMIT 1)) AS CoverAssetId
+                CASE
+                    WHEN LOWER(COALESCE(w.media_type,'')) IN ('tv','television','tv show','tv shows') THEN
+                        (SELECT ea.id FROM entity_assets ea WHERE ea.entity_id = COALESCE(gp.id,p.id,w.id) AND ea.asset_type = 'CoverArt'
+                         ORDER BY COALESCE(ea.is_user_override,0) DESC, COALESCE(ea.is_preferred,0) DESC, COALESCE(ea.updated_at,ea.created_at) DESC LIMIT 1)
+                    WHEN LOWER(COALESCE(w.media_type,'')) IN ('music','track','song','album')
+                         OR LOWER(COALESCE(w.media_type,'')) LIKE '%audiobook%' THEN
+                        (SELECT ea.id FROM entity_assets ea WHERE ea.entity_id = COALESCE(p.id,w.id) AND ea.asset_type = 'CoverArt'
+                         ORDER BY COALESCE(ea.is_user_override,0) DESC, COALESCE(ea.is_preferred,0) DESC, COALESCE(ea.updated_at,ea.created_at) DESC LIMIT 1)
+                    WHEN LOWER(COALESCE(w.media_type,'')) IN ('comic','comics','cbz','cbr') THEN
+                        COALESCE(
+                            (SELECT ea.id FROM entity_assets ea WHERE ea.entity_id = w.id AND ea.asset_type = 'CoverArt'
+                             ORDER BY COALESCE(ea.is_user_override,0) DESC, COALESCE(ea.is_preferred,0) DESC, COALESCE(ea.updated_at,ea.created_at) DESC LIMIT 1),
+                            (SELECT ea.id FROM entity_assets ea WHERE ea.entity_id = p.id AND ea.asset_type = 'CoverArt'
+                             ORDER BY COALESCE(ea.is_user_override,0) DESC, COALESCE(ea.is_preferred,0) DESC, COALESCE(ea.updated_at,ea.created_at) DESC LIMIT 1))
+                    ELSE
+                        (SELECT ea.id FROM entity_assets ea WHERE ea.entity_id = w.id AND ea.asset_type = 'CoverArt'
+                         ORDER BY COALESCE(ea.is_user_override,0) DESC, COALESCE(ea.is_preferred,0) DESC, COALESCE(ea.updated_at,ea.created_at) DESC LIMIT 1)
+                END AS CoverAssetId
             FROM latest_logs ll
             JOIN ingestion_batches b ON b.id = ll.ingestion_run_id
             JOIN media_assets ma ON ma.id = ll.media_asset_id
@@ -1143,6 +1207,10 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         var intakeComplete = rows.All(row => row.IdentityReady || row.PresentedAt.HasValue || IsTerminalSuccess(row.LogStatus, row.OperationStatus));
         var availability = needsReview ? "review" : terminalFailure ? "failed" : intakeComplete ? hasBackgroundWork ? "finishing" : "ready" : "adding";
 
+        var progressGates = BuildProgressGates(availability, scopedOps, rows, cover.HasValue);
+        var completedGates = progressGates.Count(gate => gate.State == "complete");
+        var currentGate = progressGates.FirstOrDefault(gate => gate.State != "complete");
+
         return new IngestionMediaGroupDto
         {
             GroupId = groupId,
@@ -1155,6 +1223,12 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             CoverUrl = cover is { } coverId ? $"/stream/artwork/{coverId:D}" : null,
             Availability = availability,
             StatusLabel = GroupStatus(availability, scopedOps),
+            ProgressPercent = progressGates.Count == 0
+                ? null
+                : (int)Math.Round(completedGates * 100d / progressGates.Count, MidpointRounding.AwayFromZero),
+            CurrentGateKey = currentGate?.Key,
+            CurrentGateLabel = currentGate?.Label,
+            ProgressGates = progressGates,
             ChildCompleted = completed,
             FileCount = rows.Select(row => row.AssetId).Distinct().Count(),
             ChildExpected = null,
@@ -1169,6 +1243,168 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             UpdatedAt = scopedOps.Select(operation => operation.UpdatedAt).Append(rows.Max(row => row.UpdatedAt)).Max(),
         };
     }
+
+    private static List<IngestionProgressGateDto> BuildProgressGates(
+        string availability,
+        IReadOnlyList<PresentationOperationRow> operations,
+        IReadOnlyList<MediaPresentationRow> rows,
+        bool hasPrimaryCover)
+    {
+        var matching = operations.Where(IsMatchingOperation).ToList();
+        var enrichment = operations
+            .Where(operation => !IsFileIntake(operation.OperationType) && !IsMatchingOperation(operation))
+            .ToList();
+        var identityStates = rows
+            .Select(row => row.IdentityState)
+            .Where(state => !string.IsNullOrWhiteSpace(state))
+            .Select(state => state!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var gates = new List<IngestionProgressGateDto>
+        {
+            Gate("identified", "Identified", "complete", "Media type and library identity are known."),
+        };
+
+        if (matching.Count > 0 || identityStates.Count > 0)
+        {
+            gates.Add(Gate(
+                "matched",
+                "Matched metadata",
+                ResolveMatchingGateState(matching, identityStates, availability),
+                "Canonical identity and provider matching."));
+        }
+
+        var enrichmentState = identityStates.Any(IsIdentityEnriching)
+            ? "active"
+            : identityStates.Any(IsIdentityBeforeEnrichment)
+                ? "pending"
+            : !hasPrimaryCover
+            ? ResolveGateState(enrichment, availability, defaultState: "active")
+            : ResolveGateState(enrichment, availability, defaultState: "complete");
+        if (hasPrimaryCover && enrichmentState == "complete")
+        {
+            enrichmentState = enrichment.Any(operation => !IsSettledOperation(operation.Status))
+                ? ResolveGateState(enrichment, availability)
+                : "complete";
+        }
+
+        gates.Add(Gate(
+            "enriched",
+            hasPrimaryCover ? "Enriching details" : "Finding cover art",
+            enrichmentState,
+            hasPrimaryCover
+                ? "Primary cover art is ready; remaining required enrichment is settling."
+                : "Waiting for the correct group-level primary cover."));
+
+        gates.Add(Gate(
+            "ready",
+            "Ready in library",
+            availability == "ready" ? "complete"
+                : availability is "review" or "failed" ? "blocked"
+                : "pending",
+            "Organized and available in the library."));
+
+        // Gates may execute concurrently underneath the UI, but progress must not
+        // claim a later gate as complete while an earlier required gate is open.
+        var priorGateOpen = false;
+        foreach (var gate in gates)
+        {
+            if (priorGateOpen && gate.State == "complete")
+            {
+                gate.State = "pending";
+                gate.CompletedUnits = 0;
+            }
+
+            priorGateOpen |= gate.State != "complete";
+        }
+
+        return gates;
+    }
+
+    private static string ResolveMatchingGateState(
+        IReadOnlyCollection<PresentationOperationRow> matching,
+        IReadOnlyCollection<string> identityStates,
+        string availability)
+    {
+        if (availability is "review" or "failed") return "blocked";
+        if (matching.Any(operation => operation.Status is "retry_waiting" or "failed_retryable" or "interrupted")) return "retry";
+        if (identityStates.Any(state => state.Equals("Queued", StringComparison.OrdinalIgnoreCase)
+                                        || state.Equals("RetailSearching", StringComparison.OrdinalIgnoreCase)
+                                        || state.Equals("BridgeSearching", StringComparison.OrdinalIgnoreCase))) return "active";
+        if (identityStates.Any(state => state.Equals("RetailMatched", StringComparison.OrdinalIgnoreCase)
+                                        || state.Equals("QidResolved", StringComparison.OrdinalIgnoreCase)
+                                        || IsIdentityEnriching(state)
+                                        || state.Equals("Ready", StringComparison.OrdinalIgnoreCase)
+                                        || state.Equals("ReadyWithoutUniverse", StringComparison.OrdinalIgnoreCase))) return "complete";
+        return ResolveGateState(matching, availability);
+    }
+
+    private static bool IsIdentityEnriching(string state) =>
+        state.Equals("Hydrating", StringComparison.OrdinalIgnoreCase)
+        || state.Equals("UniverseEnriching", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsIdentityBeforeEnrichment(string state) =>
+        state.Equals("Queued", StringComparison.OrdinalIgnoreCase)
+        || state.Equals("RetailSearching", StringComparison.OrdinalIgnoreCase)
+        || state.Equals("BridgeSearching", StringComparison.OrdinalIgnoreCase)
+        || state.Equals("RetailMatched", StringComparison.OrdinalIgnoreCase);
+
+    private static IngestionProgressGateDto Gate(string key, string label, string state, string detail) => new()
+    {
+        Key = key,
+        Label = label,
+        State = state,
+        CompletedUnits = state == "complete" ? 1 : 0,
+        TotalUnits = 1,
+        Detail = detail,
+    };
+
+    private static string ResolveGateState(
+        IReadOnlyCollection<PresentationOperationRow> operations,
+        string availability,
+        string defaultState = "pending")
+    {
+        if (availability is "review" or "failed"
+            || operations.Any(operation => operation.Status is "failed_terminal" or "dead_lettered" or "blocked"))
+        {
+            return "blocked";
+        }
+
+        if (operations.Any(operation => operation.Status is "retry_waiting" or "failed_retryable" or "interrupted"))
+        {
+            return "retry";
+        }
+
+        if (operations.Any(operation => IsActive(operation.Status)))
+        {
+            return "active";
+        }
+
+        if (operations.Count > 0 && operations.All(operation => IsSettledOperation(operation.Status)))
+        {
+            return "complete";
+        }
+
+        return defaultState;
+    }
+
+    private static bool IsMatchingOperation(PresentationOperationRow operation)
+    {
+        var value = $"{operation.OperationType} {operation.CapabilityId} {operation.Stage}".ToLowerInvariant();
+        return value.Contains("retail_match")
+               || value.Contains("wikidata_bridge")
+               || value.Contains("retailsearch")
+               || value.Contains("retailmatched")
+               || value.Contains("bridgesearch")
+               || value.Contains("qidresolved")
+               || value.Contains("qidnomatch")
+               || value.Contains("qidneedsreview");
+    }
+
+    private static bool IsSettledOperation(string? status) => status?.ToLowerInvariant() is
+        "complete" or "completed" or "succeeded" or "ready" or "readywithoutuniverse"
+        or "no_result" or "not_applicable" or "missing_confirmed" or "skipped";
 
     private static IngestionFacetStateDto Facet(
         string label,
@@ -1811,6 +2047,15 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
             ? null
             : value.Trim().ToLowerInvariant();
 
+    private static string NormalizeHistorySort(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            "oldest" => "oldest",
+            "title" => "title",
+            "media" => "media",
+            _ => "newest",
+        };
+
     private static bool IsPlaceholderTitle(string? value) => value is null
         || value.Equals("Identifying media", StringComparison.OrdinalIgnoreCase)
         || value.Equals("Identifying show", StringComparison.OrdinalIgnoreCase)
@@ -1947,6 +2192,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
         public string? AudiobookPartCount { get; set; }
         public string? DurationLabel { get; set; }
         public bool IdentityReady { get; set; }
+        public string? IdentityState { get; set; }
         public string? LogStatus { get; set; }
         public string? OperationStatus { get; set; }
         public string? OperationStage { get; set; }

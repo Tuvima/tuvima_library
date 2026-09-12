@@ -194,7 +194,7 @@
                 <span><small>Total folders</small><strong>@(_viewSummary is null ? "Unavailable" : ((_configuration?.Libraries.Sum(library => library.Sources.Count) ?? 0) + _viewSummary.Sources).ToString())</strong><em>Watched by their library</em></span>
             </AppPanel>
             <AppPanel Density="AppSurfaceDensity.Compact" Class="libraries-metric libraries-metric--link">
-                <a href="/settings/review" aria-label="Open items needing review"></a>
+                <a href="/operations/recently-added?review=expanded" aria-label="Open items needing review"></a>
                 <span class="libraries-metric__icon libraries-metric__icon--warning"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></span>
                 <span><small>Items needing review</small><strong>@(_ingestionSnapshot?.Summary.ItemsNeedingReview.ToString() ?? "Unavailable")</strong><em>Catalogued media only</em></span>
             </AppPanel>

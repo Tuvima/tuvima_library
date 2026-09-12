@@ -142,7 +142,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.Contains("@if (CanViewReview)", accountSource);
         Assert.Contains("TopBar_NeedsReview", accountSource);
         Assert.Contains("ShowSignOut", accountSource);
-        Assert.Contains("href=\"/settings/review\"", accountSource);
+        Assert.Contains("href=\"/operations/recently-added?review=expanded\"", accountSource);
         Assert.Contains("href=\"/settings\"", accountSource);
         Assert.DoesNotContain("<MudMenu", accountSource);
         Assert.DoesNotContain("SettingsSelected", accountSource);
@@ -344,27 +344,11 @@ public sealed class UiShellRenderTests : AsyncBunitContext
     }
 
     [Fact]
-    public void SettingsReviewPage_RendersDedicatedReviewList()
+    public void LegacySettingsReviewPage_RedirectsToRecentlyAddedReviewSection()
     {
-        var cut = Render(builder =>
-        {
-            builder.OpenComponent<MudPopoverProvider>(0);
-            builder.CloseComponent();
-            builder.OpenComponent<MudDialogProvider>(1);
-            builder.CloseComponent();
-            builder.OpenComponent<MudSnackbarProvider>(2);
-            builder.CloseComponent();
-            builder.OpenComponent<Settings>(3);
-            builder.AddAttribute(4, nameof(Settings.Section), "review");
-            builder.CloseComponent();
-        });
-
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Contains("Needs Review", cut.Markup);
-            Assert.Contains("Unmatched Album", cut.Markup);
-            Assert.Contains("Review", cut.Markup);
-        });
+        var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "Settings.razor"));
+        Assert.Contains("\"/operations/recently-added?review=expanded\"", source, StringComparison.Ordinal);
+        Assert.Contains("Section.Equals(\"review\"", source, StringComparison.Ordinal);
     }
 
     [Fact]

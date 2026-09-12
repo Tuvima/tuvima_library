@@ -25,7 +25,8 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionMediaCard", source, StringComparison.Ordinal);
-        Assert.Contains("<IngestionBatchHistory", source, StringComparison.Ordinal);
+        Assert.Contains("<IngestionRecentlyAddedPreview", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<IngestionBatchHistory", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionMediaDrawer", source, StringComparison.Ordinal);
         Assert.Contains("RefreshPinnedDrawerAsync", source, StringComparison.Ordinal);
         Assert.Contains("_selectedItem.BatchId == batchId", source, StringComparison.Ordinal);
@@ -37,7 +38,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Contains("ingestion-summary-breathe", styles, StringComparison.Ordinal);
         Assert.Contains("ingestion-progress-shimmer", styles, StringComparison.Ordinal);
         Assert.Contains("prefers-reduced-motion: reduce", styles, StringComparison.Ordinal);
-        Assert.Contains("Batch history", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor")), StringComparison.Ordinal);
+        Assert.Contains("Items completed in this ingestion run.", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Settings\IngestionRecentlyAddedPreview.razor")), StringComparison.Ordinal);
         Assert.DoesNotContain("Processing details", source, StringComparison.Ordinal);
         Assert.Contains("Dashboard.BatchProgress", source, StringComparison.Ordinal);
         Assert.DoesNotContain("file checks complete", source, StringComparison.Ordinal);
@@ -2234,7 +2235,7 @@ public sealed class IngestionDashboardRenderTests : AsyncBunitContext
         Assert.Contains("Active - started", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Complete -", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Open the full activity log for Update 830000", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("href=\"/settings/ingestion?runId=83000000-0000-0000-0000-000000000001&amp;view=all\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("href=\"/operations/ingestion?runId=83000000-0000-0000-0000-000000000001&amp;view=all\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("/settings/activity", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("through pipeline", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("+2 this batch", cut.Markup, StringComparison.Ordinal);

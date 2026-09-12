@@ -37,7 +37,10 @@ public static class ReviewEndpoints
             IReviewQueueReadService reviewReadService,
             CancellationToken ct) =>
         {
-            var paged = PagedRequest.From(null, limit, defaultLimit: 50);
+            // Recently Added owns the complete unresolved queue. The caller first
+            // reads the exact count, then requests that many rows; unlike history,
+            // this intentionally is not paged in the UI.
+            var paged = PagedRequest.From(null, limit, defaultLimit: 50, maxLimit: int.MaxValue);
             var dtos = await reviewReadService.GetPendingAsync(paged.Limit, ct);
             return Results.Ok(dtos);
         })

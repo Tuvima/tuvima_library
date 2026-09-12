@@ -3,7 +3,7 @@ namespace MediaEngine.Web.Tests;
 public sealed class IngestionBatchHistoryGuardrailTests
 {
     [Fact]
-    public void Ingestion_ComposesOnePagedBatchHistoryAndDetailRoute()
+    public void Ingestion_UsesItemPreviewAndRetainsPagedBatchDiagnostics()
     {
         var ingestion = Read(@"src\MediaEngine.Web\Components\Settings\IngestionTasksTab.razor");
         var history = Read(@"src\MediaEngine.Web\Components\Settings\IngestionBatchHistory.razor");
@@ -16,7 +16,8 @@ public sealed class IngestionBatchHistoryGuardrailTests
         var settings = Read(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
         var settingsNav = Read(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
 
-        Assert.Contains("<IngestionBatchHistory", ingestion, StringComparison.Ordinal);
+        Assert.Contains("<IngestionRecentlyAddedPreview", ingestion, StringComparison.Ordinal);
+        Assert.DoesNotContain("<IngestionBatchHistory", ingestion, StringComparison.Ordinal);
         Assert.Contains("Mode=\"batch\"", ingestion, StringComparison.Ordinal);
         Assert.Contains("runId", ingestion, StringComparison.Ordinal);
         Assert.Contains("GetActivityBatchesAsync", history, StringComparison.Ordinal);
@@ -30,7 +31,7 @@ public sealed class IngestionBatchHistoryGuardrailTests
         Assert.Contains("ButtonStyle=\"AppButtonStyle.Filled\"", history, StringComparison.Ordinal);
         Assert.Contains("Label=\"Open batch\"", history, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Review items\"", history, StringComparison.Ordinal);
-        Assert.Contains("/settings/ingestion?runId=", batchDisplay, StringComparison.Ordinal);
+        Assert.Contains("/operations/ingestion?runId=", batchDisplay, StringComparison.Ordinal);
         Assert.Contains("view=all", batchDisplay, StringComparison.Ordinal);
         Assert.Contains("GetActivityBatchMediaGroupsAsync", pagedMedia, StringComparison.Ordinal);
         Assert.Contains("DisplayMode=\"list\"", pagedMedia, StringComparison.Ordinal);

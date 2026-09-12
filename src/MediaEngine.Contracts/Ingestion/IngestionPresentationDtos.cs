@@ -94,6 +94,22 @@ public sealed class IngestionMediaGroupDto
     [JsonPropertyName("status_label")]
     public string StatusLabel { get; set; } = "Adding";
 
+    /// <summary>
+    /// Progress through the applicable, durable ingestion gates for this recognizable
+    /// library object. Null means the object is not yet eligible for a truthful tile.
+    /// </summary>
+    [JsonPropertyName("progress_percent")]
+    public int? ProgressPercent { get; set; }
+
+    [JsonPropertyName("current_gate_key")]
+    public string? CurrentGateKey { get; set; }
+
+    [JsonPropertyName("current_gate_label")]
+    public string? CurrentGateLabel { get; set; }
+
+    [JsonPropertyName("progress_gates")]
+    public List<IngestionProgressGateDto> ProgressGates { get; set; } = [];
+
     [JsonPropertyName("child_completed")]
     public int ChildCompleted { get; set; }
 
@@ -130,6 +146,28 @@ public sealed class IngestionMediaGroupDto
 
     [JsonPropertyName("updated_at")]
     public DateTimeOffset UpdatedAt { get; set; }
+}
+
+public sealed class IngestionProgressGateDto
+{
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = "identified";
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = "Identified";
+
+    /// <summary>complete, active, retry, blocked, or pending.</summary>
+    [JsonPropertyName("state")]
+    public string State { get; set; } = "pending";
+
+    [JsonPropertyName("completed_units")]
+    public int CompletedUnits { get; set; }
+
+    [JsonPropertyName("total_units")]
+    public int TotalUnits { get; set; }
+
+    [JsonPropertyName("detail")]
+    public string? Detail { get; set; }
 }
 
 public sealed class IngestionFacetStateDto

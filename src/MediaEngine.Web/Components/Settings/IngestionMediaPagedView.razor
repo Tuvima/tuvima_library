@@ -13,7 +13,7 @@
         <div><h2 id="ingestion-paged-title">@Title</h2><p>@Subtitle</p></div>
         @if (Mode.Equals("current", StringComparison.OrdinalIgnoreCase))
         {
-            <AppButton Href="/settings/ingestion" Label="Back to Ingestion" StartIcon="@Icons.Material.Outlined.ArrowBack" />
+            <AppButton Href="/operations/ingestion" Label="Back to Ingestion" StartIcon="@Icons.Material.Outlined.ArrowBack" />
         }
     </header>
     @if (!Mode.Equals("current", StringComparison.OrdinalIgnoreCase))
@@ -144,7 +144,7 @@
             {
                 "current" => await Api.GetCurrentIngestionMediaAsync(offset, 50, ct),
                 "batch" when BatchId.HasValue => await Api.GetActivityBatchMediaGroupsAsync(BatchId.Value, offset, 50, _search, _lane, _sort, ct),
-                _ => await Api.GetRecentIngestionAdditionsAsync(_search, _lane, Date?.ToDateTime(TimeOnly.MinValue), Date?.ToDateTime(TimeOnly.MaxValue), offset, 50, ct),
+                _ => await Api.GetRecentIngestionAdditionsAsync(_search, _lane, Date?.ToDateTime(TimeOnly.MinValue), Date?.ToDateTime(TimeOnly.MaxValue), offset, 50, _sort, ct),
             };
             if (revision == _revision) _page = page;
         }
