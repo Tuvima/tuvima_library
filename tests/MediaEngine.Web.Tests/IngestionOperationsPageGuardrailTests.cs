@@ -2235,7 +2235,7 @@ public sealed class IngestionDashboardRenderTests : AsyncBunitContext
         Assert.Contains("Active - started", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Complete -", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Open the full activity log for Update 830000", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("href=\"/operations/ingestion?runId=83000000-0000-0000-0000-000000000001&amp;view=all\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("href=\"/settings/ingestion?runId=83000000-0000-0000-0000-000000000001&amp;view=all\"", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("/settings/activity", cut.Markup, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("through pipeline", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("+2 this batch", cut.Markup, StringComparison.Ordinal);

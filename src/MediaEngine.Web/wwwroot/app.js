@@ -12,6 +12,22 @@ window.tuvimaPrefersReducedMotion = function () {
     return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 };
 
+window.tuvimaPasskeys = {
+    createCredential: async function (optionsJson) {
+        if (!window.PublicKeyCredential || !PublicKeyCredential.parseCreationOptionsFromJSON) {
+            throw new Error("This browser does not support passkeys.");
+        }
+
+        const publicKey = PublicKeyCredential.parseCreationOptionsFromJSON(JSON.parse(optionsJson));
+        const credential = await navigator.credentials.create({ publicKey });
+        if (!credential || typeof credential.toJSON !== "function") {
+            throw new Error("The browser did not return a usable passkey credential.");
+        }
+
+        return JSON.stringify(credential.toJSON());
+    }
+};
+
 window.tuvimaEditorFocus = function (selector) {
     if (!selector) return;
     window.requestAnimationFrame(function () {

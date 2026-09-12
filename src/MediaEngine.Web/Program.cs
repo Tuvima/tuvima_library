@@ -157,6 +157,7 @@ var authentication = builder.Services
     });
 
 var registeredExternalProviders = authentication.AddTuvimaExternalProviders(configuredExternalProviders);
+builder.Services.AddSingleton<IReadOnlyList<RegisteredExternalAuthProvider>>(registeredExternalProviders);
 
 builder.Services.AddAuthorization(options =>
 {

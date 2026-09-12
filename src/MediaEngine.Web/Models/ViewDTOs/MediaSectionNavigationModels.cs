@@ -8,7 +8,8 @@ public sealed record MediaSectionNavigationItem(
     bool Exact = false,
     MediaSectionNavigationDropTarget? DropTarget = null,
     IReadOnlyList<MediaSectionNavigationItem>? Children = null,
-    MediaSectionNavigationItemManagement? Management = null);
+    MediaSectionNavigationItemManagement? Management = null,
+    bool SectionBreakBefore = false);
 
 public sealed record MediaSectionNavigationGroup(
     string Label,

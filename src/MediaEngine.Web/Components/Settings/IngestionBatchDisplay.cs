@@ -61,7 +61,7 @@ public static class IngestionBatchDisplay
     }
 
     public static string MediaHref(ActivityBatchSummaryDto batch) =>
-        $"/operations/ingestion?runId={batch.BatchId:D}&view=all";
+        $"/settings/ingestion?runId={batch.BatchId:D}&view=all";
 
     private static string LaneFor(string media) => media.ToLowerInvariant() switch
     {

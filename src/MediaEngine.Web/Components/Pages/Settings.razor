@@ -21,6 +21,7 @@
 
 <MediaSectionShell Title="Settings"
                    NavigationGroups="@SettingsNavigationGroups"
+                   AccordionNavigation="true"
                    ShowMobileNavigation="false">
     <div class="settings-shell-content" @ref="_contentElement">
         <nav class="settings-mobile-navigation" aria-label="Settings page selector">
@@ -59,13 +60,10 @@
             }
         </AppBreadcrumbs>
 
-        @if (_activeSection != SettingsSection.Libraries)
-        {
         <SidebarPageHeader Eyebrow="@GetHeroEyebrow()"
                            Title="@GetHeroTitle()"
                            Subtitle="@GetSectionDescription(_activeSection)"
                            Actions="@HeaderActions" />
-        }
 
         <div @key="DeviceContext.DeviceClass" class="@PageCanvasClass">
             <AdministratorSurfaceGate Required="@(_profileRoleLoaded && SettingsNav.GetItem(_activeSection).AdminOnly)">
@@ -105,7 +103,7 @@
                             <UserOverviewTab />
                             break;
                         case SettingsSection.Account:
-                            <AccountSettingsTab />
+                            <AccountSettingsTab EmailTest="@AccountEmailTest" />
                             break;
                         case SettingsSection.AdminOverview:
                             <OverviewTab ReviewCount="_reviewCount" Subsection="@_activeSubsection" />
@@ -127,7 +125,10 @@
                             }
                             break;
                         case SettingsSection.Ingestion:
-                            <IngestionSettingsTab />
+                            <IngestionTasksTab View="@IngestionView" RunId="@IngestionRunId" ItemId="@IngestionItemId" />
+                            break;
+                        case SettingsSection.RecentlyAdded:
+                            <RecentlyAddedPageContent ReviewState="@ReviewState" InitialSearch="@RecentSearch" />
                             break;
                         case SettingsSection.DevHarness:
                             @RenderInternalTool(
@@ -185,6 +186,9 @@
     [SupplyParameterFromQuery(Name = "view")] public string? IngestionView { get; set; }
     [SupplyParameterFromQuery(Name = "itemId")] public Guid? IngestionItemId { get; set; }
     [SupplyParameterFromQuery(Name = "runId")] public Guid? IngestionRunId { get; set; }
+    [SupplyParameterFromQuery(Name = "review")] public string? ReviewState { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? RecentSearch { get; set; }
+    [SupplyParameterFromQuery(Name = "emailTest")] public string? AccountEmailTest { get; set; }
 
     private SettingsSection _activeSection = SettingsSection.Overview;
     private string _activeSubsection = string.Empty;
@@ -212,19 +216,21 @@
         VisibleTreeGroups
             .Select(group => new MediaSectionNavigationGroup(
                 group.Label,
-                GetVisibleTreeItems(group)
-                    .Select(BuildNavigationItem)
-                    .ToList()))
+                BuildTreeNavigationItems(group)))
             .ToList();
 
     private IReadOnlyList<AppSelectOption> MobileNavigationOptions =>
         SettingsNavigationGroups
             .SelectMany(group => group.Items)
+            .SelectMany(item => item.Children is { Count: > 0 } ? item.Children : [item])
             .Select(item => new AppSelectOption(item.Route, item.Label, item.Icon))
             .ToList();
 
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
-    private RenderFragment? HeaderActions => null;
+    private RenderFragment? HeaderActions =>
+        _activeSection == SettingsSection.Ingestion && IngestionRunId is null
+            ? @<IngestionScanAction />
+            : null;
     private IReadOnlyList<SettingsBreadcrumb> Breadcrumbs => BuildBreadcrumbs();
     private string BrowserTitle => _activeSection == SettingsSection.Libraries
         ? $"{(string.IsNullOrWhiteSpace(_activeSubsection) ? "Libraries" : _activeSubsection == "new" ? "Add Library" : _activeSubsection == "view" ? "View" : _libraryBreadcrumbName ?? "Library")} - Tuvima Library"
@@ -400,28 +406,12 @@
             && Section is not null
             && (Section.Equals("review", StringComparison.OrdinalIgnoreCase)
                 || Section.Equals("activity", StringComparison.OrdinalIgnoreCase)
-                || Section.Equals("timeline", StringComparison.OrdinalIgnoreCase)
-                || Section.Equals("recently-added", StringComparison.OrdinalIgnoreCase)))
+                || Section.Equals("timeline", StringComparison.OrdinalIgnoreCase)))
         {
             _legacyRedirectIssued = true;
             Nav.NavigateTo(Section.Equals("review", StringComparison.OrdinalIgnoreCase)
-                ? "/operations/recently-added?review=expanded"
-                : "/operations/recently-added", replace: true);
-            return;
-        }
-
-        if (!_legacyRedirectIssued
-            && string.Equals(Section, "ingestion", StringComparison.OrdinalIgnoreCase)
-            && (IngestionRunId.HasValue || IngestionItemId.HasValue || !string.IsNullOrWhiteSpace(IngestionView)))
-        {
-            _legacyRedirectIssued = true;
-            var target = Nav.GetUriWithQueryParameters("/operations/ingestion", new Dictionary<string, object?>
-            {
-                ["runId"] = IngestionRunId,
-                ["itemId"] = IngestionItemId,
-                ["view"] = IngestionView,
-            });
-            Nav.NavigateTo(target, replace: true);
+                ? "/settings/recently-added?review=expanded"
+                : "/settings/recently-added", replace: true);
             return;
         }
 
@@ -553,6 +543,35 @@
             .Where(IsItemEnabledByUiSettings)
             .ToList();
 
+    private IReadOnlyList<MediaSectionNavigationItem> BuildTreeNavigationItems(SettingsTreeGroupDef group)
+    {
+        var items = new List<MediaSectionNavigationItem>();
+        var childGroups = SettingsNav.FilteredChildTreeGroups(group, CanManageAdministration).ToList();
+
+        foreach (var item in GetVisibleTreeItems(group))
+        {
+            items.Add(BuildNavigationItem(item));
+            foreach (var childGroup in childGroups.Where(child => child.InsertAfter == item.Value))
+            {
+                items.Add(BuildNavigationBranch(childGroup));
+            }
+        }
+
+        foreach (var childGroup in childGroups.Where(child => child.InsertAfter is null))
+        {
+            items.Add(BuildNavigationBranch(childGroup));
+        }
+
+        return items;
+    }
+
+    private MediaSectionNavigationItem BuildNavigationBranch(SettingsTreeGroupDef group) => new(
+        group.Label,
+        SettingsNav.RouteFor(group.DefaultSection),
+        group.Icon,
+        Exact: true,
+        Children: GetVisibleTreeItems(group).Select(BuildNavigationItem).ToList());
+
     private void OnDeviceContextChanged() => InvokeAsync(StateHasChanged);
 
     private MediaSectionNavigationItem BuildNavigationItem(SettingsItemDef item)
@@ -561,7 +580,8 @@
             item.Label,
             SettingsNav.RouteFor(item.Value),
             item.Icon,
-            Exact: true);
+            Exact: true,
+            SectionBreakBefore: item.SectionBreakBefore);
     }
 
     private bool IsItemEnabledByUiSettings(SettingsItemDef item) => item.Value switch
@@ -711,11 +731,13 @@
     private string GetSectionDescription(SettingsSection section) => section switch
     {
         SettingsSection.Overview => "Manage your profile and see your personal library activity.",
+        SettingsSection.Account => "Manage your sign-in methods, recovery options, and active sessions.",
         SettingsSection.Playback => "Set the defaults that shape how you watch, listen, and read.",
         SettingsSection.Privacy => "Personal history and export controls are not yet available.",
         SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",
         SettingsSection.Libraries => "Manage structured libraries and storage roots.",
         SettingsSection.Ingestion => "Configure how Tuvima discovers, processes, retries, and adds media to your library.",
+        SettingsSection.RecentlyAdded => "Review new library additions and resolve anything that needs your attention.",
         SettingsSection.Network => "Manage how devices reach Tuvima at home and away without exposing unnecessary technical detail.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
         SettingsSection.Providers => GetMetadataDescription(),

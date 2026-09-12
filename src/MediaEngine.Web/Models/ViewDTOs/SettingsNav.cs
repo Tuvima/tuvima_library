@@ -15,6 +15,7 @@ public enum SettingsSection
     AdminOverview,
     Libraries,
     Ingestion,
+    RecentlyAdded,
     DevHarness,
     Providers,
     LocalAi,
@@ -63,7 +64,8 @@ public sealed record SettingsItemDef(
     string Source = "mixed",
     bool Placeholder = false,
     SettingsStatusKind Status = SettingsStatusKind.Planned,
-    SettingsMobileAvailability MobileAvailability = SettingsMobileAvailability.Full);
+    SettingsMobileAvailability MobileAvailability = SettingsMobileAvailability.Full,
+    bool SectionBreakBefore = false);
 
 public sealed record LaunchFeatureEvidence(
     bool Implemented,
@@ -90,7 +92,8 @@ public sealed record SettingsTreeGroupDef(
     bool Expandable,
     SettingsSection DefaultSection,
     IReadOnlyList<SettingsSection> Sections,
-    string? ParentKey = null);
+    string? ParentKey = null,
+    SettingsSection? InsertAfter = null);
 
 /// <summary>
 /// Result of resolving a route segment into a settings destination.
@@ -122,6 +125,7 @@ public static class SettingsNav
             [SettingsSection.AdminOverview] = Complete(),
             [SettingsSection.Libraries] = Complete(),
             [SettingsSection.Ingestion] = Complete(),
+            [SettingsSection.RecentlyAdded] = Complete(),
             [SettingsSection.Providers] = Complete(),
             [SettingsSection.Review] = Complete(),
             [SettingsSection.Network] = Complete(),
@@ -140,7 +144,7 @@ public static class SettingsNav
 
     public static readonly SettingsGroupDef[] AllGroups =
     [
-        new("personal", "Personal", Icons.Material.Outlined.Person, false, SettingsSection.Overview),
+        new("personal", "Account", Icons.Material.Outlined.Person, false, SettingsSection.Overview),
         new("administration", "Administration", Icons.Material.Outlined.AdminPanelSettings, true, SettingsSection.AdminOverview),
         new("advanced", "Advanced", Icons.Material.Outlined.Tune, true, SettingsSection.LocalAi),
     ];
@@ -148,14 +152,15 @@ public static class SettingsNav
     public static readonly SettingsItemDef[] AllItems =
     [
         new(SettingsSection.Overview, "personal", "profile", Icons.Material.Outlined.Person, "Profile", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
-        new(SettingsSection.Account, "personal", "account", Icons.Material.Outlined.ManageAccounts, "Account & Security", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
+        new(SettingsSection.Account, "personal", "account", Icons.Material.Outlined.ManageAccounts, "Security", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Playback, "personal", "playback", Icons.Material.Outlined.PlayCircleOutline, "Playback & Reading", false, null, [], "sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Privacy, "personal", "privacy", Icons.Material.Outlined.Lock, "Privacy & Data", false, null, [], "unavailable", Placeholder: true),
 
         new(SettingsSection.AdminOverview, "administration", "system", Icons.Material.Outlined.Dashboard, "System Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
-        new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.VideoLibrary, "Libraries", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
-        new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.SettingsSuggest, "Ingestion", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
-        new(SettingsSection.Providers, "administration", "metadata", Icons.Material.Outlined.Storage, "Metadata", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.VideoLibrary, "Libraries", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly, SectionBreakBefore: true),
+        new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.Sync, "Live Ingestion", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
+        new(SettingsSection.RecentlyAdded, "administration", "recently-added", Icons.Material.Outlined.History, "Recently Added", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.Full),
+        new(SettingsSection.Providers, "administration", "metadata", Icons.Material.Outlined.Storage, "Metadata Providers", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.DesktopOnly),
         new(SettingsSection.Network, "administration", "network", Icons.Material.Outlined.WifiTethering, "Network & Remote Access", true, null, [], "json+runtime", Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
         new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Live, MobileAvailability: SettingsMobileAvailability.SummaryOnly),
@@ -176,14 +181,18 @@ public static class SettingsNav
         new("administration", "Administration", Icons.Material.Outlined.AdminPanelSettings, true, false, SettingsSection.AdminOverview,
             [
                 SettingsSection.AdminOverview,
-                SettingsSection.Libraries,
-                SettingsSection.Ingestion,
-                SettingsSection.Providers,
                 SettingsSection.Network,
                 SettingsSection.Delivery,
                 SettingsSection.Access,
                 SettingsSection.Server,
             ]),
+        new("library-ingestion", "Library & Ingestion", Icons.Material.Outlined.VideoLibrary, true, true, SettingsSection.Ingestion,
+            [
+                SettingsSection.Ingestion,
+                SettingsSection.RecentlyAdded,
+                SettingsSection.Libraries,
+                SettingsSection.Providers,
+            ], ParentKey: "administration", InsertAfter: SettingsSection.AdminOverview),
         new("advanced", "Advanced", Icons.Material.Outlined.Tune, true, false, SettingsSection.LocalAi,
             [SettingsSection.LocalAi, SettingsSection.Plugins, SettingsSection.DevHarness]),
     ];
@@ -204,6 +213,7 @@ public static class SettingsNav
             [SettingsSection.AdminOverview] = [],
             [SettingsSection.Libraries] = [],
             [SettingsSection.Ingestion] = [],
+            [SettingsSection.RecentlyAdded] = [],
             [SettingsSection.DevHarness] =
             [
                 new("options", "Run Options", Icons.Material.Outlined.Tune),
@@ -280,6 +290,7 @@ public static class SettingsNav
         SettingsSection.AdminOverview,
         SettingsSection.Libraries,
         SettingsSection.Ingestion,
+        SettingsSection.RecentlyAdded,
         SettingsSection.Review,
         SettingsSection.Delivery,
         SettingsSection.Access,

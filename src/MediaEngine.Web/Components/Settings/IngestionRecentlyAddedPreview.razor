@@ -5,7 +5,7 @@
 <section class="ingestion-recent-preview" aria-labelledby="ingestion-recent-preview-title">
     <header>
         <div><h2 id="ingestion-recent-preview-title">Recently Added</h2><p>Items completed in this ingestion run.</p></div>
-        <AppButton Href="/operations/recently-added" Label="View all" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ArrowForward" />
+        <AppButton Href="/settings/recently-added" Label="View all" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ArrowForward" />
     </header>
     @if (Items.Count == 0)
     {
@@ -27,7 +27,7 @@
                         {
                             <AppMenuItem Label="Open details" Icon="@Icons.Material.Outlined.OpenInNew" OnClick="@(() => Nav.NavigateTo(item.DetailRoute!))" />
                         }
-                        <AppMenuItem Label="View ingestion run" Icon="@Icons.Material.Outlined.ReceiptLong" OnClick="@(() => Nav.NavigateTo($"/operations/ingestion?runId={item.BatchId:D}&view=all"))" />
+                        <AppMenuItem Label="View ingestion run" Icon="@Icons.Material.Outlined.ReceiptLong" OnClick="@(() => Nav.NavigateTo($"/settings/ingestion?runId={item.BatchId:D}&view=all"))" />
                     </AppOverflowMenu>
                 </article>
             }

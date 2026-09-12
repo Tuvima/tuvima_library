@@ -10,10 +10,6 @@
 @implements IDisposable
 
 <div class="recently-added-page">
-    <SidebarPageHeader Eyebrow="Operations"
-                       Title="Recently Added"
-                       Subtitle="All new content, updates, and items that need your attention." />
-
     <section class="recently-added-filters" aria-label="Recently added filters">
         <AppTextField Value="@_search"
                       ValueChanged="OnSearchChanged"
@@ -71,7 +67,7 @@
                                 <AppButton Label="Review" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Size="AppControlSize.Compact" Disabled="@_busyReviewIds.Contains(item.Id)" OnClick="@(() => OpenReviewEditorAsync(item))" />
                                 <AppOverflowMenu AriaLabel="@($"More actions for {DisplayTitle(item)}")" Size="AppControlSize.Compact">
                                     <AppMenuItem Label="Review" Icon="@Icons.Material.Outlined.ManageSearch" OnClick="@(() => OpenReviewEditorAsync(item))" />
-                                    <AppMenuItem Label="Find in recent history" Icon="@Icons.Material.Outlined.ReceiptLong" OnClick="@(() => Nav.NavigateTo($"/operations/recently-added?q={Uri.EscapeDataString(DisplayTitle(item))}"))" />
+                                    <AppMenuItem Label="Find in recent history" Icon="@Icons.Material.Outlined.ReceiptLong" OnClick="@(() => Nav.NavigateTo($"/settings/recently-added?q={Uri.EscapeDataString(DisplayTitle(item))}"))" />
                                     @if (IsWikidataReview(item.Trigger))
                                     {
                                         <AppMenuItem Label="Keep provider match" Icon="@Icons.Material.Outlined.Link" OnClick="@(() => SkipUniverseAsync(item))" />
@@ -122,7 +118,7 @@
                                 {
                                     <AppMenuItem Label="Open details" Icon="@Icons.Material.Outlined.OpenInNew" OnClick="@(() => Nav.NavigateTo(item.DetailRoute!))" />
                                 }
-                                <AppMenuItem Label="View ingestion run" Icon="@Icons.Material.Outlined.ReceiptLong" OnClick="@(() => Nav.NavigateTo($"/operations/ingestion?runId={item.BatchId:D}&view=all"))" />
+                                <AppMenuItem Label="View ingestion run" Icon="@Icons.Material.Outlined.ReceiptLong" OnClick="@(() => Nav.NavigateTo($"/settings/ingestion?runId={item.BatchId:D}&view=all"))" />
                             </AppOverflowMenu>
                         </article>
                     }

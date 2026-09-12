@@ -1,0 +1,125 @@
+.account-security-settings__content {
+    display: grid;
+    gap: var(--tl-space-5, 20px);
+    width: min(100%, 1100px);
+}
+
+.account-security-settings__rows {
+    display: grid;
+}
+
+.account-security-settings__row {
+    display: grid;
+    grid-template-columns: minmax(220px, 1.15fr) minmax(180px, 1fr) auto;
+    align-items: center;
+    gap: var(--tl-space-4, 16px);
+    min-height: 64px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--tl-divider, var(--tl-border-subtle));
+}
+
+.account-security-settings__row:last-child {
+    border-bottom: 0;
+}
+
+.account-security-settings__row > div,
+.account-security-settings__value {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.account-security-settings__row strong {
+    color: var(--tl-text-primary);
+    font-size: 15px;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+}
+
+.account-security-settings__row span,
+.account-security-settings__empty {
+    margin: 0;
+    color: var(--tl-text-muted);
+    font-size: 14px;
+    line-height: 1.45;
+}
+
+.account-security-settings__form-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--tl-space-4, 16px);
+}
+
+.account-security-settings__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--tl-space-4, 16px);
+}
+
+.account-security-settings__recovery {
+    display: grid;
+    grid-template-columns: minmax(220px, 360px) auto;
+    align-items: end;
+    gap: var(--tl-space-4, 16px);
+}
+
+.account-security-settings__codes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: var(--tl-space-3, 12px);
+}
+
+.account-security-settings__codes code {
+    padding: 8px 10px;
+    color: var(--tl-text-primary);
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: var(--tl-radius-sm);
+    background: var(--tl-bg-surface-raised);
+    font-size: 14px;
+}
+
+@media (max-width: 900px) {
+    .account-security-settings__row {
+        grid-template-columns: minmax(180px, 1fr) minmax(160px, 1fr);
+    }
+
+    .account-security-settings__row > ::deep .app-button {
+        grid-column: 2;
+        justify-self: start;
+    }
+
+    .account-security-settings__form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 640px) {
+    .account-security-settings__row,
+    .account-security-settings__form-grid,
+    .account-security-settings__recovery {
+        grid-template-columns: 1fr;
+    }
+
+    .account-security-settings__row {
+        align-items: stretch;
+        gap: 8px;
+        padding: 14px 0;
+    }
+
+    .account-security-settings__row > ::deep .app-button {
+        grid-column: 1;
+        justify-self: stretch;
+    }
+
+    .account-security-settings__actions,
+    .account-security-settings__actions ::deep .app-button,
+    .account-security-settings__recovery ::deep .app-button {
+        width: 100%;
+    }
+
+    .account-security-settings__codes {
+        grid-template-columns: 1fr;
+    }
+}

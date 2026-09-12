@@ -31,7 +31,7 @@ public sealed class IngestionBatchHistoryGuardrailTests
         Assert.Contains("ButtonStyle=\"AppButtonStyle.Filled\"", history, StringComparison.Ordinal);
         Assert.Contains("Label=\"Open batch\"", history, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Review items\"", history, StringComparison.Ordinal);
-        Assert.Contains("/operations/ingestion?runId=", batchDisplay, StringComparison.Ordinal);
+        Assert.Contains("/settings/ingestion?runId=", batchDisplay, StringComparison.Ordinal);
         Assert.Contains("view=all", batchDisplay, StringComparison.Ordinal);
         Assert.Contains("GetActivityBatchMediaGroupsAsync", pagedMedia, StringComparison.Ordinal);
         Assert.Contains("DisplayMode=\"list\"", pagedMedia, StringComparison.Ordinal);

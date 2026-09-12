@@ -105,28 +105,35 @@
                         var active = IsActive(item);
                         var expanded = IsExpanded(item);
                         <div @key="item.Route" class="media-section-shell__rail-branch @(active ? "is-active" : null) @(expanded ? "is-expanded" : null)">
-                            <a id="@ItemId(item)"
-                               href="@item.Route"
-                               class="media-section-shell__rail-item media-section-shell__rail-item--parent @(active ? "is-active" : null) @(DropClass(item))"
-                               aria-expanded="@(expanded ? "true" : "false")"
-                               aria-controls="@ChildrenId(item)"
-                               aria-current="@(IsOwnRouteActive(item, forceExact: true) ? "page" : null)"
-                               @ondragenter="@(() => ExpandDropBranch(item))"
-                               @ondragover:preventDefault="@(item.DropTarget is not null)"
-                               @ondrop:preventDefault="@(item.DropTarget is not null)"
-                               @ondrop="@(() => DropOnNavigationItemAsync(item))"
-                               @onclick="@(() => ToggleBranch(item))"
-                               @onclick:preventDefault="true">
-                                <MudIcon Icon="@item.Icon" />
-                                <span>@item.Label</span>
-                                @if (!string.IsNullOrWhiteSpace(item.Meta))
-                                {
-                                    <span class="media-section-shell__rail-meta">@item.Meta</span>
-                                }
-                                <MudIcon Icon="@(expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
-                                         Class="media-section-shell__rail-chevron"
-                                         aria-hidden="true" />
-                            </a>
+                            <div class="media-section-shell__rail-parent-row"
+                                 @ondragenter="@(() => ExpandDropBranch(item))"
+                                 @ondragover:preventDefault="@(item.DropTarget is not null)"
+                                 @ondrop:preventDefault="@(item.DropTarget is not null)"
+                                 @ondrop="@(() => DropOnNavigationItemAsync(item))">
+                                <a id="@ItemId(item)"
+                                   href="@item.Route"
+                                   class="media-section-shell__rail-item media-section-shell__rail-item--parent @(IsParentRouteCurrent(item) ? "is-active" : active ? "is-branch-active" : null) @(DropClass(item))"
+                                   aria-current="@(IsParentRouteCurrent(item) ? "page" : null)"
+                                   @onclick="@(() => NavigateBranch(item))"
+                                   @onclick:preventDefault="true">
+                                    <MudIcon Icon="@item.Icon" />
+                                    <span>@item.Label</span>
+                                    @if (!string.IsNullOrWhiteSpace(item.Meta))
+                                    {
+                                        <span class="media-section-shell__rail-meta">@item.Meta</span>
+                                    }
+                                </a>
+                                <AppNativeButton Type="button"
+                                                 Class="media-section-shell__rail-chevron-button"
+                                                 AriaLabel="@(expanded ? $"Collapse {item.Label}" : $"Expand {item.Label}")"
+                                                 aria-expanded="@(expanded ? "true" : "false")"
+                                                 aria-controls="@ChildrenId(item)"
+                                                 OnClick="@(_ => ToggleBranch(item))">
+                                    <MudIcon Icon="@(expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
+                                             Class="media-section-shell__rail-chevron"
+                                             aria-hidden="true" />
+                                </AppNativeButton>
+                            </div>
 
                             @if (expanded)
                             {
@@ -227,7 +234,7 @@
                                             <a @key="child.Route"
                                                id="@ItemId(child)"
                                                href="@child.Route"
-                                               class="media-section-shell__rail-item media-section-shell__rail-item--child @(childActive ? "is-active" : null) @(DropClass(child))"
+                                               class="media-section-shell__rail-item media-section-shell__rail-item--child @(childActive ? "is-active" : null) @(SectionBreakClass(child)) @(DropClass(child))"
                                                @ondragover:preventDefault="@(child.DropTarget is not null)"
                                                @ondrop:preventDefault="@(child.DropTarget is not null)"
                                                @ondrop="@(() => DropOnNavigationItemAsync(child))"
@@ -340,7 +347,7 @@
                         <a @key="item.Route"
                            id="@ItemId(item)"
                            href="@item.Route"
-                           class="media-section-shell__rail-item @(active ? "is-active" : null) @(DropClass(item))"
+                           class="media-section-shell__rail-item @(active ? "is-active" : null) @(SectionBreakClass(item)) @(DropClass(item))"
                            @ondragover:preventDefault="@(item.DropTarget is not null)"
                            @ondrop:preventDefault="@(item.DropTarget is not null)"
                            @ondrop="@(() => DropOnNavigationItemAsync(item))"
@@ -482,6 +489,34 @@
     private bool IsExpanded(MediaSectionNavigationItem item) =>
         _expandedRoutes.Contains(item.Route);
 
+    private bool IsParentRouteCurrent(MediaSectionNavigationItem item) =>
+        IsOwnRouteActive(item, forceExact: true)
+        && item.Children?.Any(child => IsOwnRouteActive(child, forceExact: true)) != true;
+
+    private void ExpandBranch(MediaSectionNavigationItem item)
+    {
+        if (IsExpanded(item))
+        {
+            return;
+        }
+
+        if (AccordionNavigation)
+        {
+            _expandedRoutes.Clear();
+        }
+
+        _expandedRoutes.Add(item.Route);
+    }
+
+    private void NavigateBranch(MediaSectionNavigationItem item)
+    {
+        ExpandBranch(item);
+        if (!IsOwnRouteActive(item, forceExact: true))
+        {
+            Nav.NavigateTo(item.Route);
+        }
+    }
+
     private void ToggleBranch(MediaSectionNavigationItem item)
     {
         if (_expandedRoutes.Remove(item.Route))
@@ -495,10 +530,6 @@
         }
 
         _expandedRoutes.Add(item.Route);
-        if (!IsActive(item))
-        {
-            Nav.NavigateTo(item.Route);
-        }
     }
 
     private void ExpandDropBranch(MediaSectionNavigationItem item)
@@ -604,6 +635,9 @@
 
     private static string? DropClass(MediaSectionNavigationItem item) =>
         item.DropTarget is null ? null : "is-drop-target";
+
+    private static string? SectionBreakClass(MediaSectionNavigationItem item) =>
+        item.SectionBreakBefore ? "media-section-shell__rail-item--section-break" : null;
 
     private Task DropOnNavigationItemAsync(MediaSectionNavigationItem item) =>
         item.DropTarget is { } target && OnNavigationItemDrop.HasDelegate

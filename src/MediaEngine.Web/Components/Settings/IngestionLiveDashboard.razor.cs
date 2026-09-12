@@ -991,8 +991,8 @@ public partial class IngestionLiveDashboard
 
     private static string BatchHistoryHref(IngestionOperationsBatchDto batch) =>
         batch.BatchId == Guid.Empty
-            ? "/operations/ingestion"
-            : $"/operations/ingestion?runId={batch.BatchId:D}&view=all";
+            ? "/settings/ingestion"
+            : $"/settings/ingestion?runId={batch.BatchId:D}&view=all";
 
     private string BatchCardClass(IngestionOperationsBatchDto batch)
     {

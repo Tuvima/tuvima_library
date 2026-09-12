@@ -14,7 +14,8 @@ public sealed class SettingsBreadcrumbGuardrailTests
         Assert.Contains("[SupplyParameterFromQuery(Name = \"runId\")]", settings, StringComparison.Ordinal);
         Assert.Contains("IngestionBatchDisplay.Title(batch)", settings, StringComparison.Ordinal);
         Assert.Contains("SettingsSection.Ingestion => \"Configure how Tuvima discovers", settings, StringComparison.Ordinal);
-        Assert.Contains("<IngestionSettingsTab", settings, StringComparison.Ordinal);
+        Assert.Contains("<IngestionTasksTab", settings, StringComparison.Ordinal);
+        Assert.Contains("<RecentlyAddedPageContent", settings, StringComparison.Ordinal);
         Assert.Contains("focus-visible", settingsCss, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppBreadcrumbs>", metadata, StringComparison.Ordinal);
     }

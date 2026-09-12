@@ -183,6 +183,6 @@
     private static string MediaIcon(string? mediaType){var v=(mediaType??"").ToLowerInvariant();return v.Contains("music")?Icons.Material.Outlined.MusicNote:v.Contains("audio")?Icons.Material.Outlined.Headphones:v.Contains("tv")?Icons.Material.Outlined.Tv:v.Contains("movie")?Icons.Material.Outlined.Movie:v.Contains("comic")?Icons.Material.Outlined.AutoStories:Icons.Material.Outlined.MenuBook;}
     private static bool IsWikidataReview(string? trigger)=>trigger is "WikidataBridgeFailed" or "MissingQid" or "MultipleQidMatches" or "QidNoMatch";
     private static string WaitingAge(DateTimeOffset createdAt){var age=DateTimeOffset.UtcNow-createdAt;return age.TotalDays>=1?$"{Math.Max(1,(int)age.TotalDays)}d":age.TotalHours>=1?$"{Math.Max(1,(int)age.TotalHours)}h":$"{Math.Max(1,(int)age.TotalMinutes)}m";}
-    private static string BatchHistoryHref(ReviewItemViewModel item) => $"/operations/recently-added?q={Uri.EscapeDataString(DisplayTitle(item))}";
+    private static string BatchHistoryHref(ReviewItemViewModel item) => $"/settings/recently-added?q={Uri.EscapeDataString(DisplayTitle(item))}";
     private sealed record ReviewCategory(string Key, string Label, int Count, string Icon);
 }

@@ -13,7 +13,7 @@
         <div><h2 id="ingestion-paged-title">@Title</h2><p>@Subtitle</p></div>
         @if (Mode.Equals("current", StringComparison.OrdinalIgnoreCase))
         {
-            <AppButton Href="/operations/ingestion" Label="Back to Ingestion" StartIcon="@Icons.Material.Outlined.ArrowBack" />
+            <AppButton Href="/settings/ingestion" Label="Back to Live Ingestion" StartIcon="@Icons.Material.Outlined.ArrowBack" />
         }
     </header>
     @if (!Mode.Equals("current", StringComparison.OrdinalIgnoreCase))

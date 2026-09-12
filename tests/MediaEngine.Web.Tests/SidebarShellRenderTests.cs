@@ -115,7 +115,7 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
 
         Assert.Contains("media-section-shell--nested", cut.Find(".media-section-shell").ClassList);
         Assert.Equal("A", localAi.TagName);
-        Assert.Equal("true", localAi.GetAttribute("aria-expanded"));
+        Assert.Equal("true", cut.Find("#media-section-nav-settings-ai + button").GetAttribute("aria-expanded"));
         Assert.Equal("page", models.GetAttribute("aria-current"));
         Assert.Contains("is-active", models.ClassList);
         Assert.Equal(2, cut.FindAll(".media-section-shell__rail-item--child").Count);
@@ -135,8 +135,8 @@ public sealed class SidebarShellRenderTests : AsyncBunitContext
 
         cut.Find("#media-section-nav-settings-providers").Click();
 
-        Assert.Equal("false", cut.Find("#media-section-nav-settings-ai").GetAttribute("aria-expanded"));
-        Assert.Equal("true", cut.Find("#media-section-nav-settings-providers").GetAttribute("aria-expanded"));
+        Assert.Equal("false", cut.Find("#media-section-nav-settings-ai + button").GetAttribute("aria-expanded"));
+        Assert.Equal("true", cut.Find("#media-section-nav-settings-providers + button").GetAttribute("aria-expanded"));
         Assert.EndsWith("/settings/providers", navigationManager.Uri, StringComparison.Ordinal);
         Assert.Single(cut.FindAll(".media-section-shell__rail-children"));
     }

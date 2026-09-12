@@ -50,6 +50,28 @@ public sealed class AuthenticationSettingsUiTests
             contracts[requestStart..requestEnd]);
     }
 
+    [Fact]
+    public void PersonalSecurity_UsesTheResponsiveSettingsSurfaceWithoutServerAdministration()
+    {
+        var account = Read("src/MediaEngine.Web/Components/Settings/AccountSettingsTab.razor");
+        var accountCss = Read("src/MediaEngine.Web/Components/Settings/AccountSettingsTab.razor.css");
+        var endpoints = Read("src/MediaEngine.Web/Services/Integration/DashboardAuthenticationEndpoints.cs");
+
+        Assert.Contains("Sign-in identity", account, StringComparison.Ordinal);
+        Assert.Contains("Passkeys & Windows Hello", account, StringComparison.Ordinal);
+        Assert.Contains("Connected providers", account, StringComparison.Ordinal);
+        Assert.Contains("Devices & sessions", account, StringComparison.Ordinal);
+        Assert.Contains("Recovery codes", account, StringComparison.Ordinal);
+        Assert.Contains("GetSessionsAsync", account, StringComparison.Ordinal);
+        Assert.Contains("GetPasskeysAsync", account, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateAuthSettingsAsync", account, StringComparison.Ordinal);
+        Assert.DoesNotContain("Administrator access", account, StringComparison.Ordinal);
+        Assert.Contains("width: min(100%, 1100px)", accountCss, StringComparison.Ordinal);
+        Assert.Contains("@media (max-width: 640px)", accountCss, StringComparison.Ordinal);
+        Assert.Contains("/settings/account", endpoints, StringComparison.Ordinal);
+        Assert.DoesNotContain("private static string SecurityPage", endpoints, StringComparison.Ordinal);
+    }
+
     private static string Read(string relativePath) => File.ReadAllText(Path.Combine(
         FindRepoRoot(), relativePath.Replace('/', Path.DirectorySeparatorChar)));
 

@@ -7,55 +7,26 @@
 @namespace MediaEngine.Web.Components.Pages
 @inject NavigationManager Nav
 
-<PageTitle>@PageTitleText - Tuvima Library</PageTitle>
-
-<MediaSectionShell Title="Operations" NavigationGroups="@NavigationGroups">
-    <div class="operations-page-canvas">
-        <AdministratorSurfaceGate Required="true">
-            @if (IsRecentlyAdded)
-            {
-                <RecentlyAddedPageContent ReviewState="@ReviewState" InitialSearch="@Search" />
-            }
-            else
-            {
-                <SidebarPageHeader Eyebrow="Operations"
-                                   Title="Ingestion"
-                                   Subtitle="Monitor media being added to your library in real time."
-                                   Actions="@IngestionActions" />
-                <IngestionTasksTab View="@View" RunId="@RunId" ItemId="@ItemId" />
-            }
-        </AdministratorSurfaceGate>
-    </div>
-</MediaSectionShell>
-
 @code {
-    [SupplyParameterFromQuery(Name = "view")] public string? View { get; set; }
-    [SupplyParameterFromQuery(Name = "runId")] public Guid? RunId { get; set; }
-    [SupplyParameterFromQuery(Name = "itemId")] public Guid? ItemId { get; set; }
-    [SupplyParameterFromQuery(Name = "review")] public string? ReviewState { get; set; }
-    [SupplyParameterFromQuery(Name = "q")] public string? Search { get; set; }
-
-    private bool IsRecentlyAdded => !Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath
-        .Equals("/operations/ingestion", StringComparison.OrdinalIgnoreCase);
-    private string PageTitleText => IsRecentlyAdded ? "Recently Added" : "Ingestion";
-    private RenderFragment? IngestionActions => RunId is null ? @<IngestionScanAction /> : null;
-
     protected override void OnInitialized()
     {
-        var path = Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath;
-        if (path.Contains("needs-review", StringComparison.OrdinalIgnoreCase))
-            Nav.NavigateTo("/operations/recently-added?review=expanded", replace: true);
-        else if (!path.Equals("/operations/ingestion", StringComparison.OrdinalIgnoreCase)
-                 && !path.Equals("/operations/recently-added", StringComparison.OrdinalIgnoreCase))
-            Nav.NavigateTo("/operations/recently-added", replace: true);
-    }
+        var current = Nav.ToAbsoluteUri(Nav.Uri);
+        var target = current.AbsolutePath.ToLowerInvariant() switch
+        {
+            "/operations/ingestion" => "/settings/ingestion",
+            "/operations/needs-review" => "/settings/recently-added",
+            _ => "/settings/recently-added",
+        };
 
-    private static readonly IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups =
-    [
-        new("Operations",
-        [
-            new("Ingestion", "/operations/ingestion", Icons.Material.Outlined.Sync, Exact: true),
-            new("Recently Added", "/operations/recently-added", Icons.Material.Outlined.History, Exact: true),
-        ]),
-    ];
+        var query = current.Query;
+        if (current.AbsolutePath.Equals("/operations/needs-review", StringComparison.OrdinalIgnoreCase)
+            && !query.Contains("review=", StringComparison.OrdinalIgnoreCase))
+        {
+            query = string.IsNullOrWhiteSpace(query)
+                ? "?review=expanded"
+                : $"{query}&review=expanded";
+        }
+
+        Nav.NavigateTo($"{target}{query}", replace: true);
+    }
 }

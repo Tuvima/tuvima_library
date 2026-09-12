@@ -21,9 +21,10 @@ public sealed class SettingsNavTests
         var mediaShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaHub\MediaSectionShell.razor"));
 
         Assert.Contains("<MediaSectionShell Title=\"Settings\"", settingsSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("AccordionNavigation=\"true\"", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("AccordionNavigation=\"true\"", settingsSource, StringComparison.Ordinal);
         Assert.Contains("settings-mobile-navigation", settingsSource, StringComparison.Ordinal);
-        Assert.Contains("<IngestionSettingsTab", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("<IngestionTasksTab", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("<RecentlyAddedPageContent", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<SettingsReviewQueueTab", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<SettingsSubsectionNav", settingsSource, StringComparison.Ordinal);
         Assert.Contains("<SidebarPageHeader", settingsSource, StringComparison.Ordinal);
@@ -154,6 +155,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Playback, "/settings/playback")]
     [InlineData(SettingsSection.Libraries, "/settings/libraries")]
     [InlineData(SettingsSection.Ingestion, "/settings/ingestion")]
+    [InlineData(SettingsSection.RecentlyAdded, "/settings/recently-added")]
     [InlineData(SettingsSection.DevHarness, "/settings/developer/options")]
     [InlineData(SettingsSection.Providers, "/settings/metadata/providers")]
     [InlineData(SettingsSection.LocalAi, "/settings/ai")]
@@ -288,7 +290,7 @@ public sealed class SettingsNavTests
             .Select(item => item.Label)
             .ToArray();
 
-        Assert.Equal(["Profile", "Account & Security", "Playback & Reading"], userLabels);
+        Assert.Equal(["Profile", "Security", "Playback & Reading"], userLabels);
 
         var adminLabels = SettingsNav.FilteredTreeItems(SettingsNav.TreeGroups.Single(group => group.Key == "administration"), true)
             .Select(item => item.Label)
@@ -296,9 +298,6 @@ public sealed class SettingsNavTests
 
         Assert.Equal([
             "System Overview",
-            "Libraries",
-            "Ingestion",
-            "Metadata",
             "Network & Remote Access",
             "Playback & Delivery",
             "Users & Access",
@@ -308,9 +307,16 @@ public sealed class SettingsNavTests
         var adminGroup = SettingsNav.TreeGroups.Single(group => group.Key == "administration");
         var childGroups = SettingsNav.FilteredChildTreeGroups(adminGroup, true).Select(group => group.Key).ToArray();
 
-        Assert.Empty(childGroups);
-        Assert.DoesNotContain(SettingsNav.TreeGroups, group => string.Equals(group.Key, "library-operations", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(SettingsNav.AllGroups, group => string.Equals(group.Label, "Library Operations", StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(["library-ingestion"], childGroups);
+        var libraryIngestion = SettingsNav.TreeGroups.Single(group => group.Key == "library-ingestion");
+        Assert.Equal("Library & Ingestion", libraryIngestion.Label);
+        Assert.Equal(SettingsSection.Ingestion, libraryIngestion.DefaultSection);
+        Assert.Equal([
+            "Live Ingestion",
+            "Recently Added",
+            "Libraries",
+            "Metadata Providers",
+        ], SettingsNav.FilteredTreeItems(libraryIngestion, true).Select(item => item.Label));
 
         Assert.DoesNotContain("Reg" + "istry", adminLabels);
         Assert.DoesNotContain("Maintenance", adminLabels);
@@ -377,7 +383,7 @@ public sealed class SettingsNavTests
         Assert.True(resolution.IsKnownRoute);
         Assert.Equal(SettingsSection.Ingestion, resolution.Section);
         Assert.Equal("/settings/ingestion", resolution.CanonicalRoute);
-        Assert.Contains(SettingsNav.AllItems, item => item.Label == "Ingestion");
+        Assert.Contains(SettingsNav.AllItems, item => item.Label == "Live Ingestion");
     }
 
     [Fact]

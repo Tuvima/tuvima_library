@@ -57,7 +57,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Count = reviewCount,
                 Label = $"{reviewCount:N0} {Pluralize("title", reviewCount)} need review",
                 Description = "Missing or uncertain metadata",
-                Route = "/operations/recently-added?review=expanded",
+                Route = "/settings/recently-added?review=expanded",
             });
         }
 
@@ -69,7 +69,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Count = operationFacts.RetryWaiting,
                 Label = $"{operationFacts.RetryWaiting:N0} {Pluralize("item", operationFacts.RetryWaiting)} waiting on provider data",
                 Description = "Tuvima will retry automatically",
-                Route = batchFacts.BatchId is { } batchId ? $"/operations/ingestion?runId={batchId:D}&view=all" : "/operations/ingestion",
+                Route = batchFacts.BatchId is { } batchId ? $"/settings/ingestion?runId={batchId:D}&view=all" : "/settings/ingestion",
             });
         }
 
@@ -81,7 +81,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Count = operationFacts.TextTrackWaiting,
                 Label = $"{operationFacts.TextTrackWaiting:N0} lyrics or subtitles in queue",
                 Description = "Fetching from providers",
-                Route = batchFacts.BatchId is { } batchId ? $"/operations/ingestion?runId={batchId:D}&view=all" : "/operations/ingestion",
+                Route = batchFacts.BatchId is { } batchId ? $"/settings/ingestion?runId={batchId:D}&view=all" : "/settings/ingestion",
             });
         }
 
@@ -263,7 +263,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Kind = "review",
                 Count = batch.ReviewCount,
                 Label = $"{batch.ReviewCount:N0} {Pluralize("item", batch.ReviewCount)} need review",
-                Route = "/operations/recently-added?review=expanded",
+                Route = "/settings/recently-added?review=expanded",
             });
         }
         if (batch.FailureCount > 0)
@@ -273,7 +273,7 @@ public sealed class IngestionPresentationReadService : IIngestionPresentationRea
                 Kind = "failure",
                 Count = batch.FailureCount,
                 Label = $"{batch.FailureCount:N0} {Pluralize("item", batch.FailureCount)} failed",
-                Route = $"/operations/ingestion?runId={batchId:D}&view=all",
+                Route = $"/settings/ingestion?runId={batchId:D}&view=all",
             });
         }
 

@@ -1,24 +1,426 @@
 @namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Authentication
+@using MediaEngine.Web.Services.Integration
+@inject DashboardIdentityClient Identity
+@inject DashboardSessionAccessor Session
+@inject PasswordResetEmailSender PasswordResetEmails
+@inject IReadOnlyList<RegisteredExternalAuthProvider> ExternalProviders
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@implements IAsyncDisposable
 
-<div class="tl-page">
-    <SettingsSectionPanel Title="Account & Security"
-                          Description="Your account proves who may sign in. Profiles separately control display name, preferences, history, and library identity."
-                          Icon="@Icons.Material.Outlined.ManageAccounts">
-        <SettingsAdvancedLinkRow Title="Email, password & recovery"
-                                 Description="Review your sign-in email, change your password, and manage recovery options."
-                                 Href="/account/security"
-                                 ActionLabel="Manage" />
-        <SettingsAdvancedLinkRow Title="Passkeys & Windows Hello"
-                                 Description="Add phishing-resistant passkeys backed by this device, Windows Hello, or a password manager."
-                                 Href="/account/security"
-                                 ActionLabel="Manage" />
-        <SettingsAdvancedLinkRow Title="Connected providers"
-                                 Description="Connect or disconnect Google, Microsoft, GitHub, Facebook, and configured OpenID Connect providers."
-                                 Href="/account/security"
-                                 ActionLabel="Manage" />
-        <SettingsAdvancedLinkRow Title="Administrator access"
-                                 Description="Administrator settings are unlocked only for the active profile grant, according to its configured protection."
-                                 Href="/settings/access/users"
-                                 ActionLabel="Manage" />
-    </SettingsSectionPanel>
+<div class="tl-page account-security-settings">
+    @if (_loading)
+    {
+        <AppPageState Kind="AppPageStateKind.Loading" Title="Loading account security" />
+    }
+    else if (_account is null)
+    {
+        <AppPageState Kind="AppPageStateKind.Error"
+                      Icon="@Icons.Material.Outlined.CloudOff"
+                      Title="Account security is unavailable"
+                      Message="Tuvima could not load your account details. Your saved settings have not been changed." />
+    }
+    else
+    {
+        <div class="account-security-settings__content">
+            <SettingsSectionPanel Title="Sign-in identity"
+                                  Description="The account used to sign in to this Tuvima server."
+                                  Icon="@Icons.Material.Outlined.AlternateEmail">
+                @if (EmailTest is "sent" or "failed")
+                {
+                    <AppAlert Tone="@(EmailTest == "sent" ? AppUiTone.Success : AppUiTone.Error)" Class="mb-3">
+                        @(EmailTest == "sent" ? "Test email sent." : "The test email could not be sent. Check the server email configuration or logs.")
+                    </AppAlert>
+                }
+                <div class="account-security-settings__rows">
+                    <div class="account-security-settings__row">
+                        <div><strong>Email</strong><span>Your current sign-in identity.</span></div>
+                        <div class="account-security-settings__value">
+                            <strong>@AccountEmail</strong>
+                            <span>@(_account.IsLocalOnly ? "Local-only account" : "Account email")</span>
+                        </div>
+                        @if (PasswordResetEmails.IsConfigured && !_account.IsLocalOnly && !string.IsNullOrWhiteSpace(_account.Email))
+                        {
+                            <AppButton Label="@(_testingEmail ? "Sending…" : "Send test email")"
+                                       Size="AppControlSize.Compact"
+                                       Disabled="@_testingEmail"
+                                       OnClick="SendTestEmailAsync" />
+                        }
+                    </div>
+                    <div class="account-security-settings__row">
+                        <div><strong>Sign-in methods</strong><span>Methods currently attached to this account.</span></div>
+                        <div class="account-security-settings__value"><strong>@AuthenticationMethods</strong></div>
+                    </div>
+                </div>
+            </SettingsSectionPanel>
+
+            <SettingsSectionPanel Title="Password"
+                                  Description="Changing your password signs this browser out when the change succeeds."
+                                  Icon="@Icons.Material.Outlined.Password">
+                <div class="account-security-settings__form-grid">
+                    <AppTextField T="string" @bind-Value="_currentPassword" Label="Current password" InputType="InputType.Password" autocomplete="current-password" />
+                    <AppTextField T="string" @bind-Value="_newPassword" Label="New password" InputType="InputType.Password" autocomplete="new-password" HelpText="Use at least 8 characters." />
+                    <AppTextField T="string" @bind-Value="_confirmPassword" Label="Confirm new password" InputType="InputType.Password" autocomplete="new-password" />
+                </div>
+                <div class="account-security-settings__actions">
+                    <AppButton Label="@(_changingPassword ? "Changing…" : "Change password")"
+                               ButtonStyle="AppButtonStyle.Filled"
+                               Tone="AppUiTone.Primary"
+                               Disabled="@(!CanChangePassword)"
+                               OnClick="ChangePasswordAsync" />
+                </div>
+            </SettingsSectionPanel>
+
+            <SettingsSectionPanel Title="Passkeys & Windows Hello"
+                                  Description="Use a device or password manager for phishing-resistant sign-in."
+                                  Icon="@Icons.Material.Outlined.Fingerprint">
+                @if (_passkeys.Count == 0)
+                {
+                    <p class="account-security-settings__empty">No passkeys are registered.</p>
+                }
+                else
+                {
+                    <div class="account-security-settings__rows">
+                        @foreach (var passkey in _passkeys)
+                        {
+                            <div class="account-security-settings__row" @key="passkey.CredentialId">
+                                <div><strong>@passkey.Name</strong><span>Added @FormatDate(passkey.CreatedAt)@BackupStatus(passkey)</span></div>
+                                <span></span>
+                                <AppButton Label="@(_confirmPasskeyId == passkey.CredentialId ? "Confirm remove" : "Remove")"
+                                           Size="AppControlSize.Compact"
+                                           Tone="@(_confirmPasskeyId == passkey.CredentialId ? AppUiTone.Error : AppUiTone.Neutral)"
+                                           Disabled="@_busy"
+                                           OnClick="@(() => RemovePasskeyAsync(passkey))" />
+                            </div>
+                        }
+                    </div>
+                }
+                <div class="account-security-settings__actions">
+                    <AppButton Label="@(_registeringPasskey ? "Waiting for device…" : "Add passkey")"
+                               StartIcon="@Icons.Material.Outlined.Add"
+                               Disabled="@(_busy || _registeringPasskey)"
+                               OnClick="RegisterPasskeyAsync" />
+                </div>
+            </SettingsSectionPanel>
+
+            <SettingsSectionPanel Title="Connected providers"
+                                  Description="External accounts that can sign in to this Tuvima account."
+                                  Icon="@Icons.Material.Outlined.Link">
+                <div class="account-security-settings__rows">
+                    @foreach (var provider in ExternalProviders)
+                    {
+                        var login = FindLogin(provider.Id);
+                        <div class="account-security-settings__row" @key="provider.Id">
+                            <div><strong>@provider.DisplayName</strong><span>@(login is null ? "Not connected" : LoginDescription(login))</span></div>
+                            <div class="account-security-settings__value"><strong>@(login is null ? "Available" : "Connected")</strong></div>
+                            @if (login is null)
+                            {
+                                <AppButton Href="@($"/account/security/external/{Uri.EscapeDataString(provider.Id)}")"
+                                           Label="Connect"
+                                           Size="AppControlSize.Compact" />
+                            }
+                            else
+                            {
+                                <AppButton Label="@(_confirmExternalLoginId == login.Id ? "Confirm disconnect" : "Disconnect")"
+                                           Size="AppControlSize.Compact"
+                                           Tone="@(_confirmExternalLoginId == login.Id ? AppUiTone.Error : AppUiTone.Neutral)"
+                                           Disabled="@_busy"
+                                           OnClick="@(() => UnlinkExternalLoginAsync(login))" />
+                            }
+                        </div>
+                    }
+                    @foreach (var login in UnmatchedLogins)
+                    {
+                        <div class="account-security-settings__row" @key="login.Id">
+                            <div><strong>@login.Provider</strong><span>@LoginDescription(login)</span></div>
+                            <div class="account-security-settings__value"><strong>Connected</strong></div>
+                            <AppButton Label="@(_confirmExternalLoginId == login.Id ? "Confirm disconnect" : "Disconnect")"
+                                       Size="AppControlSize.Compact"
+                                       Tone="@(_confirmExternalLoginId == login.Id ? AppUiTone.Error : AppUiTone.Neutral)"
+                                       Disabled="@_busy"
+                                       OnClick="@(() => UnlinkExternalLoginAsync(login))" />
+                        </div>
+                    }
+                    @if (ExternalProviders.Count == 0 && _externalLogins.Count == 0)
+                    {
+                        <p class="account-security-settings__empty">No external sign-in providers are configured for this server.</p>
+                    }
+                </div>
+            </SettingsSectionPanel>
+
+            <SettingsSectionPanel Title="Devices & sessions"
+                                  Description="Review signed-in devices and end sessions you no longer recognize."
+                                  Icon="@Icons.Material.Outlined.Devices">
+                @if (_sessions.Count == 0)
+                {
+                    <p class="account-security-settings__empty">No active sessions were returned.</p>
+                }
+                else
+                {
+                    <div class="account-security-settings__rows">
+                        @foreach (var session in OrderedSessions)
+                        {
+                            var current = Session.SessionId == session.Id;
+                            <div class="account-security-settings__row" @key="session.Id">
+                                <div>
+                                    <strong>@DeviceName(session) @(current ? "· This device" : string.Empty)</strong>
+                                    <span>@SessionDescription(session)</span>
+                                </div>
+                                <div class="account-security-settings__value">
+                                    <strong>@(current ? "Active now" : $"Last used {RelativeTime(session.LastSeenAt)}")</strong>
+                                    <span>Expires @FormatDate(session.ExpiresAt)</span>
+                                </div>
+                                @if (!current)
+                                {
+                                    <AppButton Label="@(_confirmSessionId == session.Id ? "Confirm sign out" : "Sign out")"
+                                               Size="AppControlSize.Compact"
+                                               Tone="@(_confirmSessionId == session.Id ? AppUiTone.Error : AppUiTone.Neutral)"
+                                               Disabled="@_busy"
+                                               OnClick="@(() => RevokeSessionAsync(session))" />
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </SettingsSectionPanel>
+
+            <SettingsSectionPanel Title="Recovery codes"
+                                  Description="Generating a new set immediately invalidates every previous recovery code."
+                                  Icon="@Icons.Material.Outlined.Key">
+                <div class="account-security-settings__recovery">
+                    <AppTextField T="string" @bind-Value="_recoveryPassword" Label="Current password" InputType="InputType.Password" autocomplete="current-password" />
+                    <AppButton Label="@(_generatingRecoveryCodes ? "Generating…" : "Generate new recovery codes")"
+                               Tone="AppUiTone.Warning"
+                               Disabled="@(_busy || _generatingRecoveryCodes || string.IsNullOrWhiteSpace(_recoveryPassword))"
+                               OnClick="GenerateRecoveryCodesAsync" />
+                </div>
+                @if (_recoveryCodes.Count > 0)
+                {
+                    <AppAlert Tone="AppUiTone.Warning" Class="mt-4">
+                        Save these one-time codes now. They will not be shown again.
+                    </AppAlert>
+                    <div class="account-security-settings__codes" aria-label="New recovery codes">
+                        @foreach (var recoveryCode in _recoveryCodes)
+                        {
+                            <code>@recoveryCode</code>
+                        }
+                    </div>
+                }
+            </SettingsSectionPanel>
+        </div>
+    }
 </div>
+
+@code {
+    [Parameter] public string? EmailTest { get; set; }
+
+    private readonly CancellationTokenSource _lifetime = new();
+    private AccountSelfServiceResponse? _account;
+    private List<DeviceSessionResponse> _sessions = [];
+    private List<AccountExternalLoginDto> _externalLogins = [];
+    private List<PasskeyCredentialResponse> _passkeys = [];
+    private IReadOnlyList<string> _recoveryCodes = [];
+    private string _currentPassword = string.Empty;
+    private string _newPassword = string.Empty;
+    private string _confirmPassword = string.Empty;
+    private string _recoveryPassword = string.Empty;
+    private Guid? _confirmSessionId;
+    private Guid? _confirmExternalLoginId;
+    private string? _confirmPasskeyId;
+    private bool _loading = true;
+    private bool _busy;
+    private bool _testingEmail;
+    private bool _changingPassword;
+    private bool _registeringPasskey;
+    private bool _generatingRecoveryCodes;
+    private bool _disposed;
+
+    private string AccountEmail => string.IsNullOrWhiteSpace(_account?.Email) ? "Local-only account" : _account.Email;
+    private string AuthenticationMethods => _account?.AuthenticationMethods.Count > 0
+        ? string.Join(", ", _account.AuthenticationMethods.Select(FormatAuthenticationMethod))
+        : "Local profile";
+    private bool CanChangePassword => !_busy && !_changingPassword
+        && !string.IsNullOrWhiteSpace(_currentPassword)
+        && _newPassword.Length >= 8
+        && string.Equals(_newPassword, _confirmPassword, StringComparison.Ordinal);
+    private IEnumerable<DeviceSessionResponse> OrderedSessions => _sessions
+        .OrderByDescending(session => Session.SessionId == session.Id)
+        .ThenByDescending(session => session.LastSeenAt);
+    private IEnumerable<AccountExternalLoginDto> UnmatchedLogins => _externalLogins
+        .Where(login => ExternalProviders.All(provider => !provider.Id.Equals(login.Provider, StringComparison.OrdinalIgnoreCase)));
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            var accountTask = Identity.GetAccountAsync(_lifetime.Token);
+            var sessionsTask = Identity.GetSessionsAsync(_lifetime.Token);
+            var loginsTask = Identity.GetExternalLoginsAsync(_lifetime.Token);
+            var passkeysTask = Identity.GetPasskeysAsync(_lifetime.Token);
+            await Task.WhenAll(accountTask, sessionsTask, loginsTask, passkeysTask);
+            _account = await accountTask;
+            _sessions = await sessionsTask;
+            _externalLogins = await loginsTask;
+            _passkeys = await passkeysTask;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        catch { _account = null; }
+        finally { _loading = false; }
+    }
+
+    private async Task SendTestEmailAsync()
+    {
+        if (_testingEmail || _disposed) return;
+        _testingEmail = true;
+        try
+        {
+            var sent = await DashboardAuthenticationEndpoints.SendCurrentAccountTestEmailAsync(Identity, PasswordResetEmails, _lifetime.Token);
+            Snackbar.Add(sent ? "Test email sent." : "The test email could not be sent.", sent ? Severity.Success : Severity.Error);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        finally { _testingEmail = false; }
+    }
+
+    private async Task ChangePasswordAsync()
+    {
+        if (!CanChangePassword || _disposed) return;
+        _busy = _changingPassword = true;
+        try
+        {
+            var changed = await Identity.ChangePasswordAsync(new ChangePasswordRequest { CurrentPassword = _currentPassword, NewPassword = _newPassword }, _lifetime.Token);
+            if (!changed)
+            {
+                Snackbar.Add("The password could not be changed. Check your current password.", Severity.Error);
+                return;
+            }
+            Nav.NavigateTo("/auth/login", forceLoad: true);
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        finally { _busy = _changingPassword = false; }
+    }
+
+    private async Task RegisterPasskeyAsync()
+    {
+        if (_busy || _registeringPasskey || _disposed) return;
+        _busy = _registeringPasskey = true;
+        try
+        {
+            var options = await Identity.GetPasskeyRegistrationOptionsAsync(_lifetime.Token);
+            if (options is null)
+            {
+                Snackbar.Add("Passkey registration could not start.", Severity.Error);
+                return;
+            }
+            var credentialJson = await JS.InvokeAsync<string>("tuvimaPasskeys.createCredential", _lifetime.Token, options.OptionsJson);
+            var saved = await Identity.CompletePasskeyRegistrationAsync(new CompletePasskeyRegistrationRequest(credentialJson, options.State, "Passkey"), _lifetime.Token);
+            if (!saved)
+            {
+                Snackbar.Add("The passkey could not be registered.", Severity.Error);
+                return;
+            }
+            _passkeys = await Identity.GetPasskeysAsync(_lifetime.Token);
+            Snackbar.Add("Passkey added.", Severity.Success);
+        }
+        catch (JSException exception) { Snackbar.Add(exception.Message, Severity.Error); }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        finally { _busy = _registeringPasskey = false; }
+    }
+
+    private async Task RemovePasskeyAsync(PasskeyCredentialResponse passkey)
+    {
+        if (_confirmPasskeyId != passkey.CredentialId) { _confirmPasskeyId = passkey.CredentialId; return; }
+        _busy = true;
+        try
+        {
+            if (await Identity.RemovePasskeyAsync(passkey.CredentialId, _lifetime.Token))
+            {
+                _passkeys.RemoveAll(item => item.CredentialId == passkey.CredentialId);
+                Snackbar.Add("Passkey removed.", Severity.Success);
+            }
+            else Snackbar.Add("The passkey could not be removed.", Severity.Error);
+        }
+        finally { _confirmPasskeyId = null; _busy = false; }
+    }
+
+    private async Task UnlinkExternalLoginAsync(AccountExternalLoginDto login)
+    {
+        if (_confirmExternalLoginId != login.Id) { _confirmExternalLoginId = login.Id; return; }
+        _busy = true;
+        try
+        {
+            if (await Identity.UnlinkExternalLoginAsync(login.Id, _lifetime.Token))
+            {
+                _externalLogins.RemoveAll(item => item.Id == login.Id);
+                Snackbar.Add("Sign-in provider disconnected.", Severity.Success);
+            }
+            else Snackbar.Add("The sign-in provider could not be disconnected.", Severity.Error);
+        }
+        finally { _confirmExternalLoginId = null; _busy = false; }
+    }
+
+    private async Task RevokeSessionAsync(DeviceSessionResponse session)
+    {
+        if (_confirmSessionId != session.Id) { _confirmSessionId = session.Id; return; }
+        _busy = true;
+        try
+        {
+            if (await Identity.RevokeSessionAsync(session.Id, _lifetime.Token))
+            {
+                _sessions.RemoveAll(item => item.Id == session.Id);
+                Snackbar.Add("Session signed out.", Severity.Success);
+            }
+            else Snackbar.Add("The session could not be signed out.", Severity.Error);
+        }
+        finally { _confirmSessionId = null; _busy = false; }
+    }
+
+    private async Task GenerateRecoveryCodesAsync()
+    {
+        if (_busy || _generatingRecoveryCodes || string.IsNullOrWhiteSpace(_recoveryPassword) || _disposed) return;
+        _busy = _generatingRecoveryCodes = true;
+        try
+        {
+            var codes = await Identity.RegenerateRecoveryCodesAsync(_recoveryPassword, _lifetime.Token);
+            if (codes is null)
+            {
+                Snackbar.Add("Recovery codes could not be generated. Check your current password.", Severity.Error);
+                return;
+            }
+            _recoveryCodes = codes;
+            _recoveryPassword = string.Empty;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
+        finally { _busy = _generatingRecoveryCodes = false; }
+    }
+
+    private AccountExternalLoginDto? FindLogin(string providerId) => _externalLogins.FirstOrDefault(login => login.Provider.Equals(providerId, StringComparison.OrdinalIgnoreCase));
+    private static string LoginDescription(AccountExternalLoginDto login) => StringHelpers.FirstNonBlankOr(login.Provider, login.Email, login.DisplayName);
+    private static string DeviceName(DeviceSessionResponse session) => StringHelpers.FirstNonBlankOr("Unknown device", session.DeviceName, session.Client);
+    private static string SessionDescription(DeviceSessionResponse session) => string.Join(" · ", new[] { FormatAuthenticationMethod(session.AuthenticationMethod), session.Client }.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase));
+    private static string FormatAuthenticationMethod(string value) => string.IsNullOrWhiteSpace(value) ? "Unknown method" : System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(value.Replace('-', ' ').Replace('_', ' '));
+    private static string FormatDate(DateTimeOffset value) => value.ToLocalTime().ToString("MMM d, yyyy");
+    private static string BackupStatus(PasskeyCredentialResponse passkey) => passkey.BackedUp ? " · Synced" : string.Empty;
+    private static string RelativeTime(DateTimeOffset value)
+    {
+        var elapsed = DateTimeOffset.UtcNow - value.ToUniversalTime();
+        if (elapsed.TotalMinutes < 1) return "just now";
+        if (elapsed.TotalHours < 1) return $"{Math.Max(1, (int)elapsed.TotalMinutes)}m ago";
+        if (elapsed.TotalDays < 1) return $"{Math.Max(1, (int)elapsed.TotalHours)}h ago";
+        if (elapsed.TotalDays < 30) return $"{Math.Max(1, (int)elapsed.TotalDays)}d ago";
+        return FormatDate(value);
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        if (_disposed) return ValueTask.CompletedTask;
+        _disposed = true;
+        _lifetime.Cancel();
+        _lifetime.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}
