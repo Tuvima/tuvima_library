@@ -191,7 +191,11 @@ body {
     padding: 0 16px 10px !important;
     border-radius: 0 !important;
     color: var(--app-text-muted) !important;
-    font-weight: 700 !important;
+    font-family: var(--font-ui) !important;
+    font-size: var(--tl-control-font-size-md) !important;
+    font-weight: var(--tl-control-font-weight) !important;
+    line-height: var(--tl-control-line-height) !important;
+    letter-spacing: var(--tl-control-letter-spacing) !important;
     text-transform: none !important;
     white-space: nowrap !important;
     max-width: 180px !important;
@@ -256,9 +260,10 @@ body {
 .collection-primary-cta-label {
     font-family: var(--font-ui);
     font-size: clamp(0.90rem, 1vw, 1.1rem);
-    font-weight: 700;
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
     color: var(--tl-text-on-accent);
-    letter-spacing: 0.01em;
+    letter-spacing: var(--tl-control-letter-spacing);
     white-space: nowrap;
 }
 
@@ -652,8 +657,11 @@ body {
     padding: 0 16px 10px !important;
     border-radius: 0 !important;
     color: var(--app-text-muted) !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
+    font-family: var(--font-ui) !important;
+    font-size: var(--tl-control-font-size-md) !important;
+    font-weight: var(--tl-control-font-weight) !important;
+    line-height: var(--tl-control-line-height) !important;
+    letter-spacing: var(--tl-control-letter-spacing) !important;
     text-transform: none !important;
     white-space: nowrap !important;
     max-width: 180px !important;
@@ -693,9 +701,11 @@ body {
 
 .mud-button-root {
     border-radius: var(--app-radius-sm) !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    line-height: 1.5 !important;
+    font-family: var(--font-ui) !important;
+    font-size: var(--tl-control-font-size-md) !important;
+    font-weight: var(--tl-control-font-weight) !important;
+    line-height: var(--tl-control-line-height) !important;
+    letter-spacing: var(--tl-control-letter-spacing) !important;
     text-transform: none !important;
     box-shadow: none !important;
 }
@@ -765,8 +775,9 @@ body {
     border: 1px solid rgba(255, 255, 255, .2);
     border-radius: .52rem;
     font-family: var(--font-ui);
-    font-weight: 700;
-    line-height: 1;
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     cursor: pointer;
     transition: background .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .16s ease;
 }
@@ -958,7 +969,11 @@ body {
 
 .settings-admin-panel .settings-section-card__header .mud-typography {
     font-size: 1.08rem !important;
-    font-weight: 700 !important;
+    font-family: var(--font-ui) !important;
+    font-size: var(--tl-control-font-size-md) !important;
+    font-weight: var(--tl-control-font-weight) !important;
+    line-height: var(--tl-control-line-height) !important;
+    letter-spacing: var(--tl-control-letter-spacing) !important;
     line-height: 1.25 !important;
 }
 
@@ -1544,9 +1559,11 @@ body {
     border-radius: var(--app-radius-sm);
     color: var(--app-text-muted);
     background: var(--app-surface-2);
-    font: inherit;
+    font-family: var(--font-ui);
     font-size: 0.85rem;
-    font-weight: 700;
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     cursor: pointer;
 }
 
@@ -3143,8 +3160,11 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     border-radius: var(--tl-control-radius) !important;
     padding-inline: var(--tl-control-padding-x) !important;
     text-transform: none !important;
-    font-weight: 700 !important;
-    letter-spacing: 0 !important;
+    font-family: var(--font-ui) !important;
+    font-size: var(--tl-control-font-size-md) !important;
+    font-weight: var(--tl-control-font-weight) !important;
+    line-height: var(--tl-control-line-height) !important;
+    letter-spacing: var(--tl-control-letter-spacing) !important;
 }
 
 .tl-button-sm,
@@ -3484,9 +3504,11 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     border-radius: 0.32rem;
     color: #f4f7fb;
     background: transparent;
-    font: inherit;
+    font-family: var(--font-ui);
     font-size: 0.86rem;
-    font-weight: 700;
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     text-align: left;
     cursor: pointer;
 }
@@ -3988,8 +4010,23 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     min-height: var(--app-control-height, var(--tl-control-height-md)) !important;
     border-radius: var(--tl-control-radius) !important;
     padding-inline: var(--tl-control-padding-x) !important;
-    font-weight: 700 !important;
+    font-family: var(--font-ui) !important;
+    font-weight: var(--tl-control-font-weight) !important;
+    line-height: var(--tl-control-line-height) !important;
+    letter-spacing: var(--tl-control-letter-spacing) !important;
     text-transform: none !important;
+}
+
+.app-button.app-control--compact {
+    font-size: var(--tl-control-font-size-sm) !important;
+}
+
+.app-button.app-control--normal {
+    font-size: var(--tl-control-font-size-md) !important;
+}
+
+.app-button.app-control--large {
+    font-size: var(--tl-control-font-size-lg) !important;
 }
 
 .app-button__spinner {
@@ -4177,8 +4214,11 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     border-radius: var(--tl-radius-md);
     color: var(--tl-text-secondary);
     background: var(--tl-bg-surface-raised);
-    font-size: 0.76rem;
-    font-weight: 700;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-sm);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
 }
 
 .app-status-badge {
@@ -4195,9 +4235,11 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     border-color: rgba(148, 163, 184, 0.24);
     color: var(--tl-text-secondary);
     background: rgba(7, 12, 27, 0.56);
-    font-size: 0.82rem;
-    font-weight: 700;
-    line-height: 1;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-sm);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     box-sizing: border-box;
 }
 
@@ -4418,8 +4460,11 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     border-radius: var(--tl-radius-md);
     color: var(--tl-text-secondary);
     background: transparent;
-    font: inherit;
-    font-weight: 700;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-md);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     cursor: pointer;
 }
 

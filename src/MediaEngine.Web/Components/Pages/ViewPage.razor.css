@@ -186,9 +186,11 @@
     border: 1px solid transparent;
     border-radius: calc(var(--tl-radius-md) - 2px);
     background: transparent;
-    font: inherit;
-    font-size: 0.84rem;
-    font-weight: 700;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-md);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     cursor: pointer;
 }
 
@@ -203,8 +205,11 @@
     border: 1px solid rgba(148, 163, 184, 0.18);
     border-radius: var(--tl-radius-md);
     background: rgba(24, 35, 54, 0.76);
-    font: inherit;
-    font-weight: 700;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-md);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     cursor: pointer;
 }
 

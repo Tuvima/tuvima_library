@@ -84,6 +84,64 @@ public sealed partial class UiConsistencyGuardrailTests
             Assert.Contains(expected, Read(path), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SharedActionControls_UseTheSemanticTypographyContract()
+    {
+        var tokens = Read("src/MediaEngine.Web/wwwroot/tuvima.tokens.css");
+        Assert.Contains("--tl-control-font-size-sm: 0.8125rem;", tokens, StringComparison.Ordinal);
+        Assert.Contains("--tl-control-font-size-md: 0.875rem;", tokens, StringComparison.Ordinal);
+        Assert.Contains("--tl-control-font-size-lg: 0.9375rem;", tokens, StringComparison.Ordinal);
+        Assert.Contains("--tl-control-font-weight: var(--tl-font-weight-semibold);", tokens, StringComparison.Ordinal);
+        Assert.Contains("--tl-control-line-height: 1.25;", tokens, StringComparison.Ordinal);
+        Assert.Contains("--tl-control-letter-spacing: 0;", tokens, StringComparison.Ordinal);
+
+        var css = Read("src/MediaEngine.Web/wwwroot/app.css");
+        var buttonRule = CssRule(css, ".app-button.mud-button-root");
+        Assert.Contains("font-family: var(--font-ui)", buttonRule, StringComparison.Ordinal);
+        Assert.Contains("font-weight: var(--tl-control-font-weight)", buttonRule, StringComparison.Ordinal);
+        Assert.Contains("line-height: var(--tl-control-line-height)", buttonRule, StringComparison.Ordinal);
+        Assert.Contains("letter-spacing: var(--tl-control-letter-spacing)", buttonRule, StringComparison.Ordinal);
+        Assert.DoesNotContain("font-weight: 700", buttonRule, StringComparison.Ordinal);
+
+        Assert.Contains(".app-button.app-control--compact", css, StringComparison.Ordinal);
+        Assert.Contains("font-size: var(--tl-control-font-size-sm)", css, StringComparison.Ordinal);
+        Assert.Contains(".app-button.app-control--normal", css, StringComparison.Ordinal);
+        Assert.Contains("font-size: var(--tl-control-font-size-md)", css, StringComparison.Ordinal);
+        Assert.Contains(".app-button.app-control--large", css, StringComparison.Ordinal);
+        Assert.Contains("font-size: var(--tl-control-font-size-lg)", css, StringComparison.Ordinal);
+
+        var segmentedRule = CssRule(css, ".app-segmented-control__item");
+        Assert.Contains("font-family: var(--font-ui)", segmentedRule, StringComparison.Ordinal);
+        Assert.Contains("font-size: var(--tl-control-font-size-md)", segmentedRule, StringComparison.Ordinal);
+        Assert.Contains("font-weight: var(--tl-control-font-weight)", segmentedRule, StringComparison.Ordinal);
+        Assert.Contains("line-height: var(--tl-control-line-height)", segmentedRule, StringComparison.Ordinal);
+        Assert.Contains("letter-spacing: var(--tl-control-letter-spacing)", segmentedRule, StringComparison.Ordinal);
+        Assert.DoesNotContain("font-weight: 700", segmentedRule, StringComparison.Ordinal);
+
+        var tabRule = CssRule(css, "\n.mud-tab {");
+        Assert.Contains("font-weight: var(--tl-control-font-weight)", tabRule, StringComparison.Ordinal);
+        Assert.DoesNotContain("font-weight: 700", tabRule, StringComparison.Ordinal);
+
+        var chipRule = CssRule(css, "\n.app-chip {");
+        Assert.Contains("font-weight: var(--tl-control-font-weight)", chipRule, StringComparison.Ordinal);
+        Assert.DoesNotContain("font-weight: 700", chipRule, StringComparison.Ordinal);
+
+        var scopedControlRules = new Dictionary<string, string>
+        {
+            ["src/MediaEngine.Web/Components/Browse/BrowseShellStyles.razor.css"] = ".browse-shell__tabs-frame .mud-tab {",
+            ["src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor.css"] = ".browse-shell__tabs-frame ::deep .mud-tab {",
+            ["src/MediaEngine.Web/Components/Pages/ViewPage.razor.css"] = "::deep .view-kind-tab {",
+            ["src/MediaEngine.Web/Components/Shared/AppSortableHeader.razor.css"] = ".app-sortable-header {",
+        };
+
+        foreach (var (path, selector) in scopedControlRules)
+        {
+            var rule = CssRule(Read(path), selector);
+            Assert.Contains("font-weight: var(--tl-control-font-weight)", rule, StringComparison.Ordinal);
+            Assert.DoesNotContain("font-weight: 700", rule, StringComparison.Ordinal);
+        }
+    }
+
     private static IEnumerable<string> RazorFiles() =>
         Directory.EnumerateFiles(
             Path.Combine(RepoRoot, "src", "MediaEngine.Web"),
@@ -104,6 +162,16 @@ public sealed partial class UiConsistencyGuardrailTests
 
     private static string Relative(string path) =>
         Path.GetRelativePath(RepoRoot, path).Replace('\\', '/');
+
+    private static string CssRule(string css, string selector)
+    {
+        var selectorStart = css.IndexOf(selector, StringComparison.Ordinal);
+        Assert.True(selectorStart >= 0, $"Missing CSS selector: {selector}");
+        var declarationStart = css.IndexOf('{', selectorStart);
+        var declarationEnd = css.IndexOf('}', declarationStart);
+        Assert.True(declarationStart >= 0 && declarationEnd > declarationStart, $"Malformed CSS rule: {selector}");
+        return css[declarationStart..(declarationEnd + 1)];
+    }
 
     [GeneratedRegex("<App(?:Icon)?Button\\b[^>]*>", RegexOptions.IgnoreCase)]
     private static partial Regex AppButtonTag();

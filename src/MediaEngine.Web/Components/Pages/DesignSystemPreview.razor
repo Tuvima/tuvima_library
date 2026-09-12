@@ -56,6 +56,14 @@
                     <AppButton Label="Learn more" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Text" />
                 </div>
             </div>
+            <div class="design-system-preview__action-group" aria-label="Action sizes">
+                <span>Typography sizes · 13px / 14px / 15px</span>
+                <div class="design-system-preview__row">
+                    <AppButton Label="Compact" Size="AppControlSize.Compact" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" />
+                    <AppButton Label="Normal" Size="AppControlSize.Normal" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" />
+                    <AppButton Label="Large" Size="AppControlSize.Large" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" />
+                </div>
+            </div>
             <div class="design-system-preview__action-group" aria-label="Destructive and system states">
                 <span>States</span>
                 <div class="design-system-preview__row">
@@ -111,6 +119,7 @@
         </AppCard>
 
         <AppCard Title="Navigation" Description="Tabs, segmented controls, breadcrumbs, and steps are centralized.">
+            <AppSegmentedControl Options="@LibraryLaneOptions" Value="all" AriaLabel="Library lanes" />
             <AppSegmentedControl Options="@SegmentOptions" Value="providers" AriaLabel="Preview segment" />
             <AppTabs>
                 <AppTabPanel Text="Providers" Icon="@Icons.Material.Outlined.Hub">
@@ -243,6 +252,15 @@
         new("providers", "Providers", Icons.Material.Outlined.Hub),
         new("artwork", "Artwork", Icons.Material.Outlined.Image),
         new("review", "Review", Icons.Material.Outlined.RateReview),
+    ];
+
+    private static readonly IReadOnlyList<AppSelectOption> LibraryLaneOptions =
+    [
+        new("all", "All"),
+        new("read", "Read"),
+        new("watch", "Watch"),
+        new("listen", "Listen"),
+        new("view", "View"),
     ];
 
     private static readonly IReadOnlyList<AppStepIndicator.AppStep> Steps =

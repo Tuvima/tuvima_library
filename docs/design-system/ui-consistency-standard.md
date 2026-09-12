@@ -36,6 +36,20 @@ The purple filled **Scan now** action on Ingestion is intentional because it sta
 
 Do not use a smaller font to solve layout pressure. Shorten copy, allow wrapping, widen the region, or change the information density instead.
 
+### Control typography
+
+Buttons, segmented controls, tabs, and other shared action controls use the interface font and one consistent semibold weight. Visual priority comes from fill, border, and color—not heavier label text.
+
+- Font family: `--font-ui` (`Segoe UI Variable`, `Segoe UI`, then system UI fallbacks).
+- Font weight: `--tl-control-font-weight` (600) for primary, secondary, tertiary, selected, and unselected labels alike.
+- Compact size: `--tl-control-font-size-sm` (13px).
+- Normal size: `--tl-control-font-size-md` (14px).
+- Large size: `--tl-control-font-size-lg` (15px).
+- Line height: `--tl-control-line-height` (1.25).
+- Letter spacing: `--tl-control-letter-spacing` (0).
+
+Do not use 700 weight, all caps, or extra tracking to make a button primary or a segmented option selected. Purpose-built display identities, headings, status badges, table headers, numeric metrics, and reader content may retain their intentional typography when they are not acting as shared controls.
+
 ## Intentional exceptions
 
 - Playback controls use the orange playback token family so media transport remains distinct from product chrome.

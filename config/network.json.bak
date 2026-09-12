@@ -10,7 +10,7 @@
   },
   "remote": {
     "enabled": false,
-    "connection_mode": "local-only",
+    "connection_mode": "tailscale",
     "automatic_router_configuration": false,
     "external_port": null,
     "tls_termination_port": null,

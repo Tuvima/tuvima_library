@@ -81,6 +81,12 @@
     --tl-line-height-body: 1.5;
     --tl-line-height-relaxed: 1.625;
     --tl-letter-spacing-label: 0.08em;
+    --tl-control-font-size-sm: 0.8125rem;
+    --tl-control-font-size-md: 0.875rem;
+    --tl-control-font-size-lg: 0.9375rem;
+    --tl-control-font-weight: var(--tl-font-weight-semibold);
+    --tl-control-line-height: 1.25;
+    --tl-control-letter-spacing: 0;
     --media-identity-font-family: var(--font-ui);
     --media-identity-title-weight: 600;
     --media-identity-title-line-height: 1.05;

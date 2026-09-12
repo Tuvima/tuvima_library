@@ -144,9 +144,11 @@
     overflow: hidden;
     background: transparent !important;
     color: var(--tl-text-secondary) !important;
-    font-size: 0.95rem;
-    font-weight: 700;
-    line-height: 1 !important;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-md);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height) !important;
+    letter-spacing: var(--tl-control-letter-spacing);
     text-transform: none;
 }
 
@@ -166,8 +168,11 @@
 .browse-shell__back,
 .browse-shell__load-more-button {
     border-radius: var(--tl-radius-sm);
-    font-size: 0.85rem;
-    font-weight: 700;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-md);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     text-transform: none;
     white-space: nowrap;
 }
@@ -766,10 +771,11 @@
     border-radius: 999px;
     background: rgba(8, 14, 30, 0.46);
     color: var(--tl-text-secondary);
-    font: inherit;
-    font-size: 0.82rem;
-    font-weight: 700;
-    line-height: 1;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-sm);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     cursor: pointer;
 }
 
@@ -819,9 +825,11 @@
     border-radius: calc(var(--tl-radius-md) - 3px);
     background: transparent;
     color: var(--tl-text-secondary);
-    font: inherit;
-    font-size: 0.84rem;
-    font-weight: 700;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-sm);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     cursor: pointer;
 }
 

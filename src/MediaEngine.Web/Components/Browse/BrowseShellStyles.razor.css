@@ -127,9 +127,11 @@
     overflow: hidden;
     background: transparent !important;
     color: var(--tl-text-secondary) !important;
-    font-size: 0.95rem;
-    font-weight: 700;
-    line-height: 1 !important;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-md);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height) !important;
+    letter-spacing: var(--tl-control-letter-spacing);
     text-transform: none;
 }
 
@@ -184,9 +186,11 @@
     border: 1px solid rgba(148, 163, 184, 0.24) !important;
     background: rgba(7, 12, 27, 0.56) !important;
     color: var(--tl-text-secondary) !important;
-    font-size: 0.82rem;
-    font-weight: 700;
-    line-height: 1 !important;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-sm);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height) !important;
+    letter-spacing: var(--tl-control-letter-spacing);
     box-sizing: border-box;
 }
 
@@ -226,9 +230,11 @@
     border-radius: calc(var(--tl-radius-md) - 3px);
     background: transparent;
     color: var(--tl-text-secondary);
-    font: inherit;
-    font-size: 0.86rem;
-    font-weight: 700;
+    font-family: var(--font-ui);
+    font-size: var(--tl-control-font-size-sm);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     cursor: pointer;
 }
 

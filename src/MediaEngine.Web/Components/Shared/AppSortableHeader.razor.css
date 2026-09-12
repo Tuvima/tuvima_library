@@ -7,8 +7,10 @@
     border: 0;
     color: inherit;
     background: transparent;
-    font: inherit;
-    font-weight: 700;
+    font-family: var(--font-ui);
+    font-weight: var(--tl-control-font-weight);
+    line-height: var(--tl-control-line-height);
+    letter-spacing: var(--tl-control-letter-spacing);
     text-align: left;
     cursor: pointer;
 }
