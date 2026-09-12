@@ -454,7 +454,9 @@ public static class PersonEndpoints
             }
 
             var credits = await personCreditReadService.GetLibraryCreditsAsync(id, ct);
-            return Results.Ok(FilterCredits(credits, await display.LoadWorksAsync(ct)));
+            return Results.Ok(PersonLibraryCreditAuthorizationPolicy.Filter(
+                credits,
+                await display.LoadWorksAsync(ct)));
         })
         .WithName("GetPersonLibraryCredits")
         .WithSummary("Owned work credits for a person, grouped client-side by role and media type.")
@@ -643,37 +645,6 @@ public static class PersonEndpoints
         .RequireClientScope(ClientApiScopes.LibraryRead);
 
         return app;
-    }
-
-    private static IReadOnlyList<PersonLibraryCreditDto> FilterCredits(
-        IEnumerable<PersonLibraryCreditDto> credits,
-        IReadOnlyList<DisplayWorkRow> visibleWorks)
-    {
-        var visibleByWork = visibleWorks
-            .GroupBy(work => work.WorkId)
-            .ToDictionary(group => group.Key, group => group.First());
-        return credits
-            .Where(credit => visibleByWork.ContainsKey(credit.WorkId))
-            .Select(credit =>
-            {
-                var visible = visibleByWork[credit.WorkId];
-                return new PersonLibraryCreditDto
-                {
-                    WorkId = credit.WorkId,
-                    CollectionId = credit.CollectionId,
-                    MediaType = credit.MediaType,
-                    Title = credit.Title,
-                    CoverUrl = visible.CoverUrl,
-                    Year = credit.Year,
-                    Role = credit.Role,
-                    AssociationType = credit.AssociationType,
-                    ViaGroupId = credit.ViaGroupId,
-                    ViaGroupName = credit.ViaGroupName,
-                    AssociationIsInferred = credit.AssociationIsInferred,
-                    Characters = credit.Characters,
-                };
-            })
-            .ToList();
     }
 
     private static MediaEngine.Contracts.Collections.CollectionDto FilterCollection(

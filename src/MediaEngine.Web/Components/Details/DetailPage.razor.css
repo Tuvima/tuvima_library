@@ -11183,9 +11183,20 @@
 }
 
 .tl-detail-stage ::deep .tl-detail-person-links {
+    --tl-detail-person-action-height: 2.7rem;
     order: 3;
     align-items: center;
     gap: 0.55rem;
+}
+
+/* AppOverflowMenu is compact by default, so its labeled trigger otherwise
+   overrides the person-link height with the smaller compact-control height. */
+.tl-detail-stage ::deep .tl-detail-person-links > a.tl-detail-person-link,
+.tl-detail-stage ::deep .tl-detail-person-links .app-overflow-menu__trigger--labeled.tl-detail-person-link {
+    height: var(--tl-detail-person-action-height) !important;
+    min-height: var(--tl-detail-person-action-height) !important;
+    padding: 0 1rem !important;
+    box-sizing: border-box;
 }
 
 .tl-detail-stage ::deep .tl-detail-hero__synopsis {

@@ -12,7 +12,7 @@
 
 @if (DetailSurface)
 {
-<section class="tl-series-detail @MediaShapeClass" aria-label="@($"{Placement.ContainerTitle} {Placement.ItemPluralLabel}")">
+<section class="@DetailSurfaceClass" aria-label="@($"{Placement.ContainerTitle} {Placement.ItemPluralLabel}")">
     @if (!string.IsNullOrWhiteSpace(ActiveGroup?.BackgroundArtworkUrl))
     {
         <AppCssElement Tag="div"
@@ -176,42 +176,32 @@
             {
                 var season = VisibleGroups[index];
                 var selected = string.Equals(season.Key, SelectedGroupKey, StringComparison.OrdinalIgnoreCase);
-                <div class="tl-season-card-shell" data-sequence-index="@index">
-                    <AppNativeButton Type="button"
-                                     Class="@(selected ? "tl-season-card is-selected" : "tl-season-card")"
-                                     OnClick="@(() => SelectSeason(season.Key))"
-                                     role="option"
-                                     aria-selected="@selected"
-                                     aria-current="@(selected ? "true" : null)">
-                        <span class="tl-season-card__art">
-                            @if (!string.IsNullOrWhiteSpace(season.ArtworkUrl))
-                            {
-                                <img src="@season.ArtworkUrl"
-                                     alt=""
-                                     width="240"
-                                     height="360"
-                                     loading="@(selected ? "eager" : "lazy")"
-                                     fetchpriority="@(selected ? "high" : "auto")"
-                                     decoding="async" />
-                            }
-                            else
-                            {
-                                <span>@SeasonShortLabel(season)</span>
-                            }
-                        </span>
-                        <strong>@season.Title</strong>
-                        <small>@SeasonOwnedSummary(season)</small>
-                    </AppNativeButton>
-                    @if (CanEditSeason(season))
-                    {
-                        <AppIconButton Class="tl-season-card__edit"
-                                       Icon="@Icons.Material.Outlined.Edit"
-                                       Size="Size.Small"
-                                       AriaLabel="@($"Edit artwork for {season.Title}")"
-                                       Tooltip="Edit season artwork"
-                                       OnClick="@(() => EditSeasonAsync(season))" />
-                    }
-                </div>
+                <AppNativeButton Type="button"
+                                 Class="@(selected ? "tl-season-card is-selected" : "tl-season-card")"
+                                 OnClick="@(() => SelectSeason(season.Key))"
+                                 data-sequence-index="@index"
+                                 role="option"
+                                 aria-selected="@selected"
+                                 aria-current="@(selected ? "true" : null)">
+                    <span class="tl-season-card__art">
+                        @if (!string.IsNullOrWhiteSpace(season.ArtworkUrl))
+                        {
+                            <img src="@season.ArtworkUrl"
+                                 alt=""
+                                 width="280"
+                                 height="420"
+                                 loading="@(selected ? "eager" : "lazy")"
+                                 fetchpriority="@(selected ? "high" : "auto")"
+                                 decoding="async" />
+                        }
+                        else
+                        {
+                            <span>@SeasonShortLabel(season)</span>
+                        }
+                    </span>
+                    <strong>@season.Title</strong>
+                    <small>@SeasonOwnedSummary(season)</small>
+                </AppNativeButton>
             }
         </div>
         <AppIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--right"
@@ -592,6 +582,7 @@ else
     private readonly string _seasonStripId = "seasons-" + Guid.NewGuid().ToString("N");
 
     private string PanelClass => $"{MediaShapeClass}{(IsLongSequence ? " tl-series-placement--long" : string.Empty)}{(Compact ? " tl-series-placement--compact" : string.Empty)}";
+    private string DetailSurfaceClass => $"tl-series-detail {MediaShapeClass}{(IsSeasonContainer ? " is-season-container" : string.Empty)}";
     private string MediaShapeClass => Placement.CurrentItem.EntityType switch
     {
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",
@@ -979,11 +970,6 @@ else
            && CanEditGroup
            && OnEditGroup.HasDelegate
            && !string.IsNullOrWhiteSpace(season.EntityId);
-
-    private Task EditSeasonAsync(SequenceGroupViewModel season)
-        => CanEditSeason(season)
-            ? OnEditGroup.InvokeAsync(season)
-            : Task.CompletedTask;
 
     private static string SeasonShortLabel(SequenceGroupViewModel? group)
     {

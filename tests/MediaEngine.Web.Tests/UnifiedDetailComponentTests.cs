@@ -352,8 +352,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("BackgroundArtworkUrl", source);
         Assert.Contains("SeasonOwnedSummary", source);
         Assert.Contains("Edit season artwork", source);
-        Assert.Contains("Edit artwork for {season.Title}", source);
-        Assert.Contains("tl-season-card__edit", source);
+        Assert.DoesNotContain("Edit artwork for {season.Title}", source);
+        Assert.DoesNotContain("tl-season-card__edit", source);
         Assert.Contains("OnEditGroup", source);
         Assert.Contains("OpenSeasonEditorAsync", detailPage);
         Assert.Contains("InitialScope = \"season\"", detailPage);
@@ -363,6 +363,19 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("SequencePlacementPanel", detailPage);
         Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/EpisodesTab.razor")));
         Assert.Contains("var(--tl-accent-primary, #8b5cf6)", styles);
+    }
+
+    [Fact]
+    public void SequencePlacement_EnlargesSeasonArtworkWithoutGrowingTheBrowserRow()
+    {
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor.css");
+
+        Assert.Contains("grid-auto-columns: clamp(10rem, 13vw, 12.5rem)", styles);
+        Assert.Contains("padding: 0.45rem 0.45rem 0.35rem", styles);
+        Assert.Contains(".tl-series-detail.is-season-container .tl-series-detail__ownership", styles);
+        Assert.Contains("min-height: 1.65rem", styles);
+        Assert.Contains("padding-top: 0.15rem", styles);
+        Assert.DoesNotContain(".tl-season-card__edit", styles);
     }
 
     [Fact]
@@ -486,6 +499,19 @@ public sealed class UnifiedDetailComponentTests
         var detailStyles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
         Assert.Contains("--tl-primary-action-height", detailStyles);
         Assert.Contains("max-height: var(--tl-primary-action-height) !important", detailStyles);
+    }
+
+    [Fact]
+    public void PersonHeroExternalLinksAndMoreTriggerShareOneHeight()
+    {
+        var detailStyles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+
+        Assert.Contains("--tl-detail-person-action-height: 2.7rem", detailStyles);
+        Assert.Contains(
+            ".tl-detail-person-links .app-overflow-menu__trigger--labeled.tl-detail-person-link",
+            detailStyles);
+        Assert.Contains("height: var(--tl-detail-person-action-height) !important", detailStyles);
+        Assert.Contains("min-height: var(--tl-detail-person-action-height) !important", detailStyles);
     }
 
     [Fact]

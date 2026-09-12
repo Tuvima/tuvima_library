@@ -78,7 +78,7 @@ internal sealed partial class DetailCompositionOrchestrator
         if (authorizedWorks is not null)
         {
             var visibleWorkIds = authorizedWorks.Select(work => work.WorkId).ToHashSet();
-            credits = FilterAuthorizedPersonCredits(credits, authorizedWorks);
+            credits = PersonLibraryCreditAuthorizationPolicy.Filter(credits, authorizedWorks);
             characterRoles = characterRoles
                 .Where(role => role.WorkId.HasValue && visibleWorkIds.Contains(role.WorkId.Value))
                 .ToList();
@@ -149,38 +149,6 @@ internal sealed partial class DetailCompositionOrchestrator
             LibraryStatus = credits.Count > 0 ? LibraryStatus.Owned : LibraryStatus.Unknown,
             IsAdminView = isAdminView,
         };
-    }
-
-    private static List<PersonLibraryCreditDto> FilterAuthorizedPersonCredits(
-        IEnumerable<PersonLibraryCreditDto> credits,
-        IReadOnlyList<DisplayWorkRow> authorizedWorks)
-    {
-        var visibleByWork = authorizedWorks
-            .GroupBy(work => work.WorkId)
-            .ToDictionary(group => group.Key, group => group.First());
-
-        return credits
-            .Where(credit => visibleByWork.ContainsKey(credit.WorkId))
-            .Select(credit =>
-            {
-                var visible = visibleByWork[credit.WorkId];
-                return new PersonLibraryCreditDto
-                {
-                    WorkId = credit.WorkId,
-                    CollectionId = credit.CollectionId,
-                    MediaType = credit.MediaType,
-                    Title = credit.Title,
-                    CoverUrl = visible.CoverUrl,
-                    Year = credit.Year,
-                    Role = credit.Role,
-                    AssociationType = credit.AssociationType,
-                    ViaGroupId = credit.ViaGroupId,
-                    ViaGroupName = credit.ViaGroupName,
-                    AssociationIsInferred = credit.AssociationIsInferred,
-                    Characters = credit.Characters,
-                };
-            })
-            .ToList();
     }
 
     private async Task<DetailPageViewModel?> BuildCharacterAsync(

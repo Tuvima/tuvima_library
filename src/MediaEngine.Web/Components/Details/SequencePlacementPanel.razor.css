@@ -154,6 +154,11 @@
     display: none;
 }
 
+.tl-series-detail.is-season-container .tl-series-detail__ownership {
+    min-height: 1.65rem;
+    padding-top: 0.15rem;
+}
+
 /* TV season navigation --------------------------------------------------- */
 .tl-series-detail {
     position: relative;
@@ -241,20 +246,14 @@
 .tl-season-browser__strip {
     display: grid;
     grid-auto-flow: column;
-    grid-auto-columns: clamp(9rem, 12vw, 11.5rem);
+    grid-auto-columns: clamp(10rem, 13vw, 12.5rem);
     gap: 1rem;
     min-width: 0;
-    padding: 0.8rem 0.45rem 1rem;
+    padding: 0.45rem 0.45rem 0.35rem;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
     scroll-snap-type: x mandatory;
     scrollbar-width: thin;
-}
-
-.tl-season-card-shell {
-    position: relative;
-    min-width: 0;
-    scroll-snap-align: center;
 }
 
 ::deep .tl-season-card {
@@ -262,36 +261,15 @@
     grid-template-rows: auto auto auto;
     gap: 0.35rem;
     width: 100%;
-    padding: 0.35rem;
+    min-width: 0;
+    padding: 0.22rem;
     border: 1px solid transparent;
     border-radius: 0.72rem;
     color: rgba(244, 241, 251, 0.94);
     background: rgba(8, 12, 22, 0.46);
     text-align: left;
     cursor: pointer;
-}
-
-::deep .tl-season-card__edit {
-    position: absolute;
-    z-index: 2;
-    top: 0.7rem;
-    right: 0.7rem;
-    width: 2.2rem;
-    min-width: 2.2rem;
-    height: 2.2rem;
-    min-height: 2.2rem;
-    border: 1px solid rgba(218, 203, 255, 0.55);
-    border-radius: 999px;
-    color: rgba(250, 248, 255, 0.98);
-    background: rgba(8, 11, 20, 0.82);
-    box-shadow: 0 0.45rem 1.2rem rgba(0, 0, 0, 0.42);
-    backdrop-filter: blur(12px);
-}
-
-::deep .tl-season-card__edit:hover,
-::deep .tl-season-card__edit:focus-visible {
-    border-color: rgba(190, 161, 255, 0.95);
-    background: rgba(92, 58, 166, 0.92);
+    scroll-snap-align: center;
 }
 
 ::deep .tl-season-card:hover,
@@ -347,7 +325,7 @@
     }
 
     .tl-season-browser__strip {
-        grid-auto-columns: min(42vw, 10rem);
+        grid-auto-columns: min(46vw, 11rem);
         padding-inline: 0.2rem;
     }
 

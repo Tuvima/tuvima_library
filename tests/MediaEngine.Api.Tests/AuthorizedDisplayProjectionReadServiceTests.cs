@@ -549,6 +549,86 @@ public sealed class AuthorizedDisplayProjectionReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task PersonDetailUsesShowPosterInsteadOfAuthorizedEpisodeStill()
+    {
+        var personId = Guid.NewGuid();
+        var libraryId = Guid.NewGuid();
+        var collectionId = Guid.NewGuid();
+        var showWorkId = Guid.NewGuid();
+        var episodeWorkId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var episodeAssetId = Guid.NewGuid();
+        var showCoverId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO persons (id, name, created_at)
+                VALUES (@personId, 'Series Actor', CURRENT_TIMESTAMP);
+                INSERT INTO collections (id, display_name, collection_type, created_at)
+                VALUES (@collectionId, 'Root Artwork Show', 'Series', CURRENT_TIMESTAMP);
+                INSERT INTO works (id, collection_id, media_type, work_kind, curator_state)
+                VALUES (@showWorkId, @collectionId, 'TV', 'parent', 'accepted');
+                INSERT INTO works (id, parent_work_id, collection_id, media_type, work_kind, ordinal, curator_state)
+                VALUES (@episodeWorkId, @showWorkId, @collectionId, 'TV', 'child', 1, 'accepted');
+                INSERT INTO editions (id, work_id) VALUES (@editionId, @episodeWorkId);
+                INSERT INTO media_assets
+                    (id, edition_id, content_hash, file_path_root, presented_at, library_id)
+                VALUES
+                    (@episodeAssetId, @editionId, @hash, @path, CURRENT_TIMESTAMP, @libraryId);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@episodeAssetId, 'title', 'Pilot', CURRENT_TIMESTAMP);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@episodeAssetId, 'cast_member', 0, 'Series Actor');
+                INSERT INTO entity_assets
+                    (id, entity_id, entity_type, asset_type, aspect_class, is_preferred, created_at)
+                VALUES
+                    (@showCoverId, @showWorkId, 'Work', 'CoverArt', 'Portrait', 1, CURRENT_TIMESTAMP);
+                """,
+                new
+                {
+                    personId,
+                    libraryId = libraryId.ToString("D"),
+                    collectionId,
+                    showWorkId,
+                    episodeWorkId,
+                    editionId,
+                    episodeAssetId,
+                    showCoverId,
+                    hash = Guid.NewGuid().ToString("N"),
+                    path = $"C:/library/{episodeAssetId:N}.mkv",
+                });
+        }
+
+        var detail = await CreateComposer().BuildAuthorizedAsync(
+            MediaEngine.Contracts.Details.DetailEntityType.Person,
+            personId,
+            MediaEngine.Contracts.Details.DetailPresentationContext.Default,
+            CancellationToken.None,
+            selectedContainerId: null,
+            MediaEngine.Domain.Aggregates.Profile.SeedProfileId,
+            default(DetailActionAuthorizationContext),
+            authorizedAssetIds: null,
+            authorizedWorks:
+            [
+                new DisplayWorkRow
+                {
+                    WorkId = episodeWorkId,
+                    AssetId = episodeAssetId,
+                    MediaType = "TV",
+                    CoverUrl = "/episode-still.jpg",
+                },
+            ]);
+
+        Assert.NotNull(detail);
+        var item = Assert.Single(detail!.MediaGroups.SelectMany(group => group.Items));
+        Assert.Equal(collectionId.ToString("D"), item.Id);
+        Assert.Equal("Root Artwork Show", item.Title);
+        Assert.Equal($"/stream/artwork/{showCoverId:D}", item.ArtworkUrl);
+        Assert.DoesNotContain("episode-still", item.ArtworkUrl, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task UniverseDetailFiltersCharactersByVisibleWorkProvenance()
     {
         var collectionId = Guid.NewGuid();
