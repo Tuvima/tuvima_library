@@ -159,11 +159,6 @@
     padding-top: 0.15rem;
 }
 
-.tl-series-detail__season-count {
-    justify-content: flex-end;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
-}
-
 /* TV season navigation --------------------------------------------------- */
 .tl-series-detail {
     position: relative;
@@ -264,8 +259,7 @@
     grid-auto-columns: clamp(11.5rem, 15vw, 14rem);
     gap: 1rem;
     min-width: 0;
-    justify-content: center;
-    justify-content: safe center;
+    justify-content: start;
     padding: 0.25rem 0.45rem 0.15rem;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
@@ -326,6 +320,12 @@
 
 .tl-series-detail.tl-series-panel--landscape .tl-season-browser ::deep .tl-series-carousel__arrow {
     display: inline-flex;
+}
+
+@media (min-width: 721px) {
+    .tl-series-detail.is-season-container .tl-series-detail__carousel {
+        min-height: clamp(24rem, 58svh, 30rem);
+    }
 }
 
 @media (max-width: 720px) {

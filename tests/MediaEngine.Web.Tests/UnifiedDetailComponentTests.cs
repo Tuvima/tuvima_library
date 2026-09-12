@@ -361,7 +361,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("(\"TV\", \"season\", true)", editor);
         Assert.Contains("tl-season-toggle__chevron", source);
         Assert.Contains("Icons.Material.Outlined.ExpandMore", source);
-        Assert.Contains("SeasonCountSummary", source);
+        Assert.DoesNotContain("SeasonCountSummary", source);
+        Assert.Contains("aria-label=\"@OwnershipSummaryLabel\"", source);
         Assert.Contains("item.Route", source);
         Assert.Contains("CurrentActiveTab is \"episodes\"", detailPage);
         Assert.Contains("SequencePlacementPanel", detailPage);
@@ -375,7 +376,10 @@ public sealed class UnifiedDetailComponentTests
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor.css");
 
         Assert.Contains("grid-auto-columns: clamp(11.5rem, 15vw, 14rem)", styles);
-        Assert.Contains("justify-content: safe center", styles);
+        Assert.Contains("justify-content: start", styles);
+        Assert.Contains("text-align: center", styles);
+        Assert.Contains(".tl-series-detail.is-season-container .tl-series-detail__carousel", styles);
+        Assert.Contains("min-height: clamp(24rem, 58svh, 30rem)", styles);
         Assert.Contains("padding: 0.25rem 0.45rem 0.15rem", styles);
         Assert.Contains(".tl-series-detail.is-season-container .tl-series-detail__ownership", styles);
         Assert.Contains("min-height: 1.65rem", styles);

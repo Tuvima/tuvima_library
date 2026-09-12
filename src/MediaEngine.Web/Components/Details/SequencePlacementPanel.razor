@@ -259,37 +259,27 @@
         </AppNativeButton>
     }
 
-    @if (_seasonBrowserOpen && IsSeasonContainer)
-    {
-        <footer class="tl-series-detail__ownership tl-series-detail__season-count"
-                aria-label="@SeasonCountSummary">
-            <span>@SeasonCountSummary</span>
-        </footer>
-    }
-    else
-    {
-        <footer class="tl-series-detail__ownership"
-                aria-label="@OwnershipSummaryLabel">
-            <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
-            <strong>@OwnedCount owned</strong>
-            @if (ShowCoverageBar)
-            {
-                <span class="tl-series-detail__ownership-separator" aria-hidden="true"></span>
-                <span>@MissingCount missing</span>
-                <span class="tl-series-detail__ownership-progress"
-                      role="progressbar"
-                      aria-label="@OwnershipSummaryLabel"
-                      aria-valuemin="0"
-                      aria-valuemax="@TotalItems"
-                      aria-valuenow="@OwnedCount">
-                    <AppCssElement Tag="span"
-                                   Class="tl-series-detail__ownership-progress-fill"
-                                   Css="@OwnershipProgressStyle" />
-                </span>
-                <span>@TotalItems total</span>
-            }
-        </footer>
-    }
+    <footer class="tl-series-detail__ownership"
+            aria-label="@OwnershipSummaryLabel">
+        <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
+        <strong>@OwnedCount owned</strong>
+        @if (ShowCoverageBar)
+        {
+            <span class="tl-series-detail__ownership-separator" aria-hidden="true"></span>
+            <span>@MissingCount missing</span>
+            <span class="tl-series-detail__ownership-progress"
+                  role="progressbar"
+                  aria-label="@OwnershipSummaryLabel"
+                  aria-valuemin="0"
+                  aria-valuemax="@TotalItems"
+                  aria-valuenow="@OwnedCount">
+                <AppCssElement Tag="span"
+                               Class="tl-series-detail__ownership-progress-fill"
+                               Css="@OwnershipProgressStyle" />
+            </span>
+            <span>@TotalItems total</span>
+        }
+    </footer>
 </section>
 }
 else
@@ -669,7 +659,6 @@ else
             ? null
             : VisibleGroups.FirstOrDefault(group => group.Key == SelectedGroupKey);
     private string SeasonToggleClass => $"tl-season-toggle{(_seasonBrowserOpen ? " is-open" : string.Empty)}";
-    private string SeasonCountSummary => $"{VisibleGroups.Count} {(VisibleGroups.Count == 1 ? "season" : "seasons")}";
     private string? SeasonAtmosphereStyle => string.IsNullOrWhiteSpace(ActiveGroup?.BackgroundArtworkUrl)
         ? null
         : $"--tl-season-atmosphere:url('{ActiveGroup.BackgroundArtworkUrl.Replace("'", "%27", StringComparison.Ordinal)}');";
