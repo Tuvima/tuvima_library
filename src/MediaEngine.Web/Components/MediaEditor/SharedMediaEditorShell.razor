@@ -1399,10 +1399,22 @@
                                                             }
                                                             @if (IsArtworkDeleteConfirming(focusedItem))
                                                             {
-                                                                <div class="sme-artwork-delete-confirm">
-                                                                    <span>@GetArtworkRemovalQuestion(focusedItem)</span>
-                                                                    <AppButton Label="Cancel" OnClick="@(() => CancelArtworkDelete(focusedItem))" />
-                                                                    <AppButton Label="@GetArtworkRemovalLabel(focusedItem)" Tone="AppUiTone.Error" OnClick="@(() => ConfirmArtworkDeleteAsync(focusedItem))" />
+                                                                <div class="sme-artwork-delete-confirm"
+                                                                     role="group"
+                                                                     aria-label="@GetArtworkRemovalQuestion(focusedItem)">
+                                                                    <AppIconButton Icon="@Icons.Material.Outlined.Check"
+                                                                                   Size="Size.Small"
+                                                                                   Tone="AppUiTone.Error"
+                                                                                   Class="sme-artwork-delete-confirm__action sme-artwork-delete-confirm__action--accept"
+                                                                                   Tooltip="@GetArtworkRemovalConfirmLabel(focusedItem)"
+                                                                                   AriaLabel="@GetArtworkRemovalConfirmLabel(focusedItem)"
+                                                                                   OnClick="@(() => ConfirmArtworkDeleteAsync(focusedItem))" />
+                                                                    <AppIconButton Icon="@Icons.Material.Outlined.Close"
+                                                                                   Size="Size.Small"
+                                                                                   Class="sme-artwork-delete-confirm__action sme-artwork-delete-confirm__action--cancel"
+                                                                                   Tooltip="Cancel"
+                                                                                   AriaLabel="Cancel artwork removal"
+                                                                                   OnClick="@(() => CancelArtworkDelete(focusedItem))" />
                                                                 </div>
                                                             }
                                                         </div>

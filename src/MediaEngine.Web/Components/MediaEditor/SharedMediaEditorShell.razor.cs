@@ -2680,6 +2680,11 @@ public partial class SharedMediaEditorShell
             ? "Delete this uploaded image from Tuvima Library?"
             : "Remove this provider artwork from the item? The shared cached file may remain available.";
 
+    protected static string GetArtworkRemovalConfirmLabel(ArtworkVariantDisplayItem item) =>
+        string.Equals(item.Origin, "Uploaded", StringComparison.OrdinalIgnoreCase)
+            ? "Confirm delete uploaded image"
+            : "Confirm remove from item";
+
     protected async Task SearchCanonicalAsync()
     {
         if (!IsSingleItem || IsFileScope)

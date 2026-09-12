@@ -26,7 +26,9 @@ public sealed class UniverseStateContainer : IDisposable
     private UniverseViewModel? _universe;
     private bool _loaded;
     private IngestionProgressEvent? _ingestionProgress;
+    private DateTimeOffset? _ingestionProgressReceivedAt;
     private BatchProgressEvent? _batchProgress;
+    private DateTimeOffset? _batchProgressReceivedAt;
     private readonly Dictionary<Guid, LiveIngestionItemProgress> _ingestionItemProgress = new();
     private UniverseEnrichmentProgressEvent? _universeEnrichmentProgress;
     private DateTimeOffset? _universeEnrichmentProgressReceivedAt;
@@ -67,6 +69,7 @@ public sealed class UniverseStateContainer : IDisposable
     /// Null when no ingestion is in progress or the circuit is freshly created.
     /// </summary>
     public IngestionProgressEvent? IngestionProgress => _ingestionProgress;
+    public DateTimeOffset? IngestionProgressReceivedAt => _ingestionProgressReceivedAt;
 
     /// <summary>
     /// Latest batch progress snapshot pushed via SignalR.
@@ -74,6 +77,7 @@ public sealed class UniverseStateContainer : IDisposable
     /// Null when no batch is active.
     /// </summary>
     public BatchProgressEvent? BatchProgress => _batchProgress;
+    public DateTimeOffset? BatchProgressReceivedAt => _batchProgressReceivedAt;
     public IReadOnlyList<LiveIngestionItemProgress> IngestionItemProgress =>
         _ingestionItemProgress.Values
             .OrderByDescending(item => item.ReceivedAt)
@@ -180,6 +184,7 @@ public sealed class UniverseStateContainer : IDisposable
         _universe = null;
         _loaded = false;
         _ingestionProgress = null;
+        _ingestionProgressReceivedAt = null;
         // Note: _activeLaneMediaTypes is NOT cleared on invalidate
         // so the user's lane selection persists across data refreshes.
         NotifyStateChanged(requiresSnapshotRefresh);
@@ -193,9 +198,9 @@ public sealed class UniverseStateContainer : IDisposable
     /// </summary>
     public void PushIngestionProgress(IngestionProgressEvent ev)
     {
-        _ingestionProgress = string.Equals(ev.Stage, "Complete", StringComparison.OrdinalIgnoreCase)
-            ? null
-            : ev;
+        var complete = string.Equals(ev.Stage, "Complete", StringComparison.OrdinalIgnoreCase);
+        _ingestionProgress = complete ? null : ev;
+        _ingestionProgressReceivedAt = complete ? null : DateTimeOffset.UtcNow;
 
         // Only log stage transitions (Scanning/Complete), not every tick.
         if (ev.Stage is "Scanning" or "Complete")
@@ -208,7 +213,6 @@ public sealed class UniverseStateContainer : IDisposable
                 "sync", summary));
         }
 
-        var complete = string.Equals(ev.Stage, "Complete", StringComparison.OrdinalIgnoreCase);
         NotifyStateChanged(requiresSnapshotRefresh: complete, throttle: !complete);
     }
 
@@ -230,6 +234,7 @@ public sealed class UniverseStateContainer : IDisposable
     public void PushBatchProgress(BatchProgressEvent ev)
     {
         _batchProgress = ev.IsComplete ? null : ev;
+        _batchProgressReceivedAt = ev.IsComplete ? null : DateTimeOffset.UtcNow;
 
         if (!string.IsNullOrWhiteSpace(ev.CurrentFileTitle) && !string.IsNullOrWhiteSpace(ev.CurrentStage))
         {

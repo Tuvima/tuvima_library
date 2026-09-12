@@ -758,6 +758,8 @@ public sealed class IngestionOperationsPageGuardrailTests
             IsComplete: true));
 
         Assert.True(state.LastStateChangeRequiresSnapshotRefresh);
+        Assert.Null(state.BatchProgress);
+        Assert.Null(state.BatchProgressReceivedAt);
     }
 
     [Fact]

@@ -30,8 +30,10 @@ public sealed record ShellActivitySnapshot(IReadOnlyList<ShellActivityItem> Item
 public sealed class ShellActivityState : IDisposable
 {
     private static readonly TimeSpan VideoActivityTtl = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan LiveIngestionActivityTtl = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan EnrichmentActivityTtl = TimeSpan.FromSeconds(35);
     private static readonly TimeSpan ModelDownloadActivityTtl = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan SystemActivityRefreshInterval = TimeSpan.FromSeconds(10);
 
     private readonly UniverseStateContainer _universeState;
     private readonly PlaybackSessionController _playback;
@@ -42,6 +44,9 @@ public sealed class ShellActivityState : IDisposable
     private VideoPlaybackActivity? _videoPlayback;
     private string _lastSignature = string.Empty;
     private DateTimeOffset _lastTransportNotification = DateTimeOffset.MinValue;
+    private long _lastSystemActivityRefreshTicks;
+    private int _systemActivityRefreshInFlight;
+    private bool _disposed;
 
     public ShellActivityState(
         UniverseStateContainer universeState,
@@ -56,7 +61,7 @@ public sealed class ShellActivityState : IDisposable
 
         _universeState.OnStateChanged += OnUniverseStateChanged;
         _playback.Changed += OnPlaybackChanged;
-        _expiryTimer = new Timer(_ => PublishIfChanged(), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
+        _expiryTimer = new Timer(_ => OnTimerTick(), null, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(2));
     }
 
     public event Action? Changed;
@@ -65,9 +70,33 @@ public sealed class ShellActivityState : IDisposable
 
     public async Task InitializeAsync(CancellationToken ct = default)
     {
+        await RefreshSystemActivityAsync(force: true, ct);
+    }
+
+    private async Task RefreshSystemActivityAsync(bool force = false, CancellationToken ct = default)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var lastRefreshTicks = Interlocked.Read(ref _lastSystemActivityRefreshTicks);
+        if (!force && lastRefreshTicks != 0
+            && now - new DateTimeOffset(lastRefreshTicks, TimeSpan.Zero) < SystemActivityRefreshInterval)
+        {
+            return;
+        }
+
+        if (Interlocked.CompareExchange(ref _systemActivityRefreshInFlight, 1, 0) != 0)
+        {
+            return;
+        }
+
+        Interlocked.Exchange(ref _lastSystemActivityRefreshTicks, now.UtcTicks);
         try
         {
             var activeOperations = await _api.GetSystemActivityOperationsAsync(ct);
+            if (_disposed)
+            {
+                return;
+            }
+
             _universeState.SetMediaOperationActivity(activeOperations.Select(operation =>
                 new MediaOperationChangedEvent(
                     operation.Id,
@@ -82,7 +111,11 @@ public sealed class ShellActivityState : IDisposable
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to load the initial shell activity snapshot.");
+            _logger.LogDebug(ex, "Failed to reconcile the shell activity snapshot.");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _systemActivityRefreshInFlight, 0);
         }
     }
 
@@ -193,7 +226,9 @@ public sealed class ShellActivityState : IDisposable
 
     private bool AddIngestion(List<ShellActivityItem> items, DateTimeOffset now)
     {
-        if (_universeState.BatchProgress is { } batch)
+        if (_universeState.BatchProgress is { IsComplete: false } batch
+            && _universeState.BatchProgressReceivedAt is { } batchReceivedAt
+            && now - batchReceivedAt <= LiveIngestionActivityTtl)
         {
             var label = string.IsNullOrWhiteSpace(batch.CurrentFileTitle)
                 ? "Processing library files"
@@ -206,11 +241,14 @@ public sealed class ShellActivityState : IDisposable
                 batch.IsComplete || batch.ProgressPercent < 100
                     ? Math.Clamp(batch.ProgressPercent, 0, 100)
                     : null,
-                now));
+                batchReceivedAt));
             return true;
         }
 
-        if (_universeState.IngestionProgress is not { } ingestion)
+        if (_universeState.IngestionProgress is not { } ingestion
+            || _universeState.IngestionProgressReceivedAt is not { } ingestionReceivedAt
+            || now - ingestionReceivedAt > LiveIngestionActivityTtl
+            || string.Equals(ingestion.Stage, "Complete", StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }
@@ -223,7 +261,7 @@ public sealed class ShellActivityState : IDisposable
             ingestion.TotalCount > 0
                 ? Math.Clamp((int)Math.Round(ingestion.ProcessedCount * 100d / ingestion.TotalCount), 0, 100)
                 : null,
-            now));
+            ingestionReceivedAt));
         return true;
     }
 
@@ -294,7 +332,33 @@ public sealed class ShellActivityState : IDisposable
         }
     }
 
-    private void OnUniverseStateChanged() => PublishIfChanged();
+    private void OnUniverseStateChanged()
+    {
+        PublishIfChanged();
+        if (_universeState.LastStateChangeRequiresSnapshotRefresh)
+        {
+            _ = RefreshSystemActivityAsync(force: true);
+        }
+    }
+
+    private void OnTimerTick()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        PublishIfChanged();
+        var now = DateTimeOffset.UtcNow;
+        var hasFreshBatch = _universeState.BatchProgressReceivedAt is { } batchReceivedAt
+            && now - batchReceivedAt <= LiveIngestionActivityTtl;
+        var hasFreshIngestion = _universeState.IngestionProgressReceivedAt is { } ingestionReceivedAt
+            && now - ingestionReceivedAt <= LiveIngestionActivityTtl;
+        if (_universeState.MediaOperationActivity.Count > 0 || hasFreshBatch || hasFreshIngestion)
+        {
+            _ = RefreshSystemActivityAsync();
+        }
+    }
 
     private void OnPlaybackChanged(PlaybackChangeKind kind)
     {
@@ -394,6 +458,7 @@ public sealed class ShellActivityState : IDisposable
 
     public void Dispose()
     {
+        _disposed = true;
         _universeState.OnStateChanged -= OnUniverseStateChanged;
         _playback.Changed -= OnPlaybackChanged;
         _expiryTimer.Dispose();

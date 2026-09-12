@@ -120,6 +120,12 @@ public sealed class UiShellRenderTests : AsyncBunitContext
 
         Assert.Contains("await Orchestrator.StartSignalRAsync();", source);
         Assert.Contains("await Activity.InitializeAsync();", source);
+        var activityState = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Services", "Integration", "ShellActivityState.cs"));
+        Assert.Contains("LiveIngestionActivityTtl", activityState);
+        Assert.Contains("RefreshSystemActivityAsync", activityState);
+        Assert.Contains("LastStateChangeRequiresSnapshotRefresh", activityState);
+        Assert.Contains("BatchProgressReceivedAt", activityState);
+        Assert.Contains("IngestionProgressReceivedAt", activityState);
         Assert.Contains("<TopNavAccountMenu", source);
         Assert.Contains("<SystemActivityIndicator", source);
         Assert.Contains("ShellActivityKind.Ingestion or ShellActivityKind.Enrichment", activityIndicator);
