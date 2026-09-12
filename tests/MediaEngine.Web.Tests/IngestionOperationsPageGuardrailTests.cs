@@ -48,7 +48,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.DoesNotContain("Follow current stage", source, StringComparison.Ordinal);
         Assert.DoesNotContain("OverallProgressPercent", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Overall run progress", source, StringComparison.Ordinal);
-        Assert.Single(Regex.Matches(scanAction, "Label=\"Scan All Folders\""));
+        Assert.Single(Regex.Matches(scanAction, "Label=\"Scan now\""));
         Assert.DoesNotContain("Label=\"Refresh\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<EnrichmentRefreshSchedulePanel", source, StringComparison.Ordinal);
         Assert.DoesNotContain("settings/ingestion?view=history", source, StringComparison.Ordinal);
@@ -1770,7 +1770,7 @@ public sealed class IngestionDashboardRenderTests : AsyncBunitContext
         Assert.Contains("Overall progress", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Recent batches", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Refresh", cut.Markup, StringComparison.Ordinal);
-        Assert.Contains("Scan Now", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Scan now", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Files Found", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Processed", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Need Review", cut.Markup, StringComparison.Ordinal);

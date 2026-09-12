@@ -45,7 +45,7 @@
 
 .collection-setup-header__icon ::deep .mud-icon-root { font-size: 1.75rem; }
 .collection-setup-header__copy { flex: 1 1 auto; min-width: 0; }
-.collection-setup-header__kicker { margin-bottom: 5px; color: rgba(196, 181, 253, 0.8); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; }
+.collection-setup-header__kicker { margin-bottom: 5px; color: rgba(196, 181, 253, 0.8); font-size: var(--tl-font-size-xs); font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; }
 .collection-setup-header h2 { margin: 0; color: rgba(248, 250, 252, 0.98); font-size: 1.72rem; line-height: 1.12; }
 .collection-setup-header p { margin: 6px 0 0; color: rgba(203, 213, 225, 0.68); font-size: 0.9rem; }
 
@@ -281,7 +281,7 @@
 
 .collection-wizard__eyebrow {
     color: var(--wizard-accent);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -382,7 +382,7 @@
 }
 
 .collection-wizard__manual-item-copy strong { font-size: 0.86rem; }
-.collection-wizard__manual-item-copy small { color: rgba(226, 232, 240, 0.56); font-size: 0.72rem; }
+.collection-wizard__manual-item-copy small { color: rgba(226, 232, 240, 0.56); font-size: var(--tl-font-size-xs); }
 .collection-wizard__manual-item-state { display: inline-flex; color: rgba(226, 232, 240, 0.5); }
 .collection-wizard__manual-item.is-selected .collection-wizard__manual-item-state { color: var(--wizard-accent); }
 
@@ -517,7 +517,7 @@
 
 .collection-wizard__review-items span {
     overflow: hidden;
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     white-space: nowrap;
     text-overflow: ellipsis;
 }

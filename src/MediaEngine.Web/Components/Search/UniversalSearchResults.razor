@@ -36,14 +36,14 @@
                     </div>
                     <div class="universal-results__top-actions">
                         <AppButton Href="@Response.TopResult.DetailRoute"
-                                   Variant="Variant.Filled"
-                                   Color="Color.Primary"
+                                   ButtonStyle="AppButtonStyle.Filled"
+                                   Tone="AppUiTone.Primary"
                                    StartIcon="@PrimaryIcon(Response.TopResult)">
                             @Response.TopResult.PrimaryActionLabel
                         </AppButton>
                         <AppButton Href="@Response.TopResult.DetailRoute"
-                                   Variant="Variant.Outlined"
-                                   Color="Color.Default">
+                                   ButtonStyle="AppButtonStyle.Outlined"
+                                   Tone="AppUiTone.Neutral">
                             Open details
                         </AppButton>
                     </div>
@@ -124,15 +124,15 @@
                     }
                 </dl>
                 <AppButton Href="@ActiveResult.DetailRoute"
-                           Variant="Variant.Filled"
-                           Color="Color.Primary"
+                           ButtonStyle="AppButtonStyle.Filled"
+                           Tone="AppUiTone.Primary"
                            FullWidth="true"
                            StartIcon="@PrimaryIcon(ActiveResult)">
                     @ActiveResult.PrimaryActionLabel
                 </AppButton>
                 <AppButton Href="@ActiveResult.DetailRoute"
-                           Variant="Variant.Outlined"
-                           Color="Color.Default"
+                           ButtonStyle="AppButtonStyle.Outlined"
+                           Tone="AppUiTone.Neutral"
                            FullWidth="true">
                     Open details
                 </AppButton>

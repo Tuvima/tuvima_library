@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 <div class="pathfinder-panel">
@@ -23,7 +23,7 @@
                 <MudText Typo="Typo.caption" Class="tl-u-color-hex-e0e0e0 tl-u-max-width-100px tl-u-overflow-hidden tl-u-text-overflow-ellipsis tl-u-white-space-nowrap">
                     @_startLabel
                 </MudText>
-                <AppIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                <AppIconButton Icon="@Icons.Material.Filled.Close" Size="AppControlSize.Compact"
                                Class="tl-u-color-hex-888" OnClick="ClearStart" />
             }
         </div>
@@ -42,7 +42,7 @@
                 <MudText Typo="Typo.caption" Class="tl-u-color-hex-e0e0e0 tl-u-max-width-100px tl-u-overflow-hidden tl-u-text-overflow-ellipsis tl-u-white-space-nowrap">
                     @_endLabel
                 </MudText>
-                <AppIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                <AppIconButton Icon="@Icons.Material.Filled.Close" Size="AppControlSize.Compact"
                                Class="tl-u-color-hex-888" OnClick="ClearEnd" />
             }
         </div>
@@ -50,16 +50,16 @@
 
     @* Controls *@
     <MudStack Row="true" Spacing="2" Class="mb-4">
-        <AppButton Variant="Variant.Filled"
-                   Color="Color.Warning"
+        <AppButton ButtonStyle="AppButtonStyle.Filled"
+                   Tone="AppUiTone.Warning"
                    Disabled="@(_startQid is null || _endQid is null || _loading)"
                    OnClick="FindPath"
                    StartIcon="@Icons.Material.Filled.Route">
             @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
             else { <span>Find Path</span> }
         </AppButton>
-        <AppButton Variant="Variant.Outlined"
-                   Color="Color.Default"
+        <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                   Tone="AppUiTone.Neutral"
                    OnClick="Clear"
                    Disabled="@(_startQid is null && _endQid is null)">
             Clear

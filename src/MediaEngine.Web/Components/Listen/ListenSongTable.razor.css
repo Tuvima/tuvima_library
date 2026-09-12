@@ -14,7 +14,7 @@
 .listen-song-table__head {
     padding: 0 8px 10px;
     color: var(--tl-text-muted);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     border-bottom: 1px solid var(--tl-divider);
 }
@@ -249,7 +249,7 @@
 ::deep .listen-song-table__head {
     padding: 0 8px 10px;
     color: var(--tl-text-muted);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     border-bottom: 1px solid var(--tl-divider);
 }

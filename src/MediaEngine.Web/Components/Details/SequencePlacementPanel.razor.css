@@ -59,7 +59,7 @@
     min-height: 2.5rem;
     padding: 0.7rem 0.25rem 0;
     color: rgba(226, 232, 240, 0.58);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     font-variant-numeric: tabular-nums;
 }
 
@@ -218,7 +218,7 @@
     border-radius: 0.32rem;
     color: rgba(241, 235, 255, 0.9);
     background: linear-gradient(145deg, rgba(126, 87, 194, 0.58), rgba(27, 36, 62, 0.88));
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
 }
 

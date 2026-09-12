@@ -17,6 +17,57 @@ $EngineProject = Join-Path $RepoRoot "src/MediaEngine.Api/MediaEngine.Api.csproj
 $DashboardProject = Join-Path $RepoRoot "src/MediaEngine.Web/MediaEngine.Web.csproj"
 $EngineDll = Join-Path $RepoRoot "src/MediaEngine.Api/bin/Debug/net10.0/MediaEngine.Api.dll"
 $DashboardDll = Join-Path $RepoRoot "src/MediaEngine.Web/bin/Debug/net10.0/MediaEngine.Web.dll"
+$LauncherMutex = $null
+
+function Enter-TuvimaLauncher {
+    $script:LauncherMutex = [System.Threading.Mutex]::new($false, "Local\TuvimaLibrary.DevLauncher")
+    try {
+        if (-not $script:LauncherMutex.WaitOne(0)) {
+            Write-Host "A Tuvima Library launcher is already starting or supervising the app."
+            Write-Host "Dashboard: http://localhost:5016"
+            exit 0
+        }
+    }
+    catch [System.Threading.AbandonedMutexException] {
+        # The previous launcher terminated. This invocation now owns the lease.
+    }
+}
+
+function Exit-TuvimaLauncher {
+    if ($script:LauncherMutex) {
+        try { $script:LauncherMutex.ReleaseMutex() } catch [System.ApplicationException] { }
+        $script:LauncherMutex.Dispose()
+        $script:LauncherMutex = $null
+    }
+}
+
+function Test-TcpPortOpen([int]$Port) {
+    $client = [System.Net.Sockets.TcpClient]::new()
+    try {
+        $connect = $client.ConnectAsync([System.Net.IPAddress]::Loopback, $Port)
+        return $connect.Wait(250) -and $client.Connected
+    }
+    catch {
+        return $false
+    }
+    finally {
+        $client.Dispose()
+    }
+}
+
+function Wait-ForTuvimaPortRelease {
+    $ports = @(61494, 61495, 5016)
+    $deadline = [DateTimeOffset]::Now.AddSeconds(15)
+    while ([DateTimeOffset]::Now -lt $deadline) {
+        $occupied = @($ports | Where-Object { Test-TcpPortOpen $_ })
+        if ($occupied.Count -eq 0) {
+            return
+        }
+        Start-Sleep -Milliseconds 250
+    }
+
+    throw "Tuvima ports are still occupied after stopping the prior runtime: $($occupied -join ', ')."
+}
 
 function Stop-TuvimaProcesses {
     $processes = @()
@@ -55,8 +106,11 @@ function Stop-TuvimaProcesses {
 
     foreach ($process in @($processes | Sort-Object Id -Unique)) {
         Stop-Process -Id $process.Id -Force
+        $process.WaitForExit(10000) | Out-Null
         Write-Host "Stopped PID $($process.Id)"
     }
+
+    Wait-ForTuvimaPortRelease
 }
 
 function Set-TuvimaEnvironment {
@@ -181,85 +235,92 @@ function Wait-ForDashboard {
 }
 
 if ($Role -eq "Both") {
-    if (-not $NoStop) {
-        Stop-TuvimaProcesses
-    }
-
-    Set-TuvimaEnvironment
-    New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
-
-    Write-Host "Starting Tuvima Library from repo config."
-    Write-Host "Config dir: $ConfigDir"
-    Write-Host "Engine:     http://localhost:61495"
-    Write-Host "Dashboard:  http://localhost:5016"
-
-    Build-Project $EngineProject
-    Build-Project $DashboardProject
-
-    $engineOut = Join-Path $LogDir "codex-run-engine.out.log"
-    $engineErr = Join-Path $LogDir "codex-run-engine.err.log"
-    $dashboardOut = Join-Path $LogDir "codex-run-dashboard.out.log"
-    $dashboardErr = Join-Path $LogDir "codex-run-dashboard.err.log"
-    Remove-Item -LiteralPath $engineOut, $engineErr, $dashboardOut, $dashboardErr -Force -ErrorAction SilentlyContinue
-
-    $env:ASPNETCORE_URLS = "https://localhost:61494;http://localhost:61495"
-    $engineProcess = Start-Process -FilePath "dotnet" `
-        -ArgumentList @($EngineDll) `
-        -PassThru `
-        -WindowStyle Hidden `
-        -RedirectStandardOutput $engineOut `
-        -RedirectStandardError $engineErr `
-        -WorkingDirectory $RepoRoot
-    $dashboardProcess = $null
+    Enter-TuvimaLauncher
 
     try {
-        Wait-ForEngine -Process $engineProcess -OutputLog $engineOut -ErrorLog $engineErr
+        if (-not $NoStop) {
+            Stop-TuvimaProcesses
+        }
 
-        $env:TUVIMA_ENGINE_URL = "http://localhost:61495"
-        $env:ASPNETCORE_URLS = "http://localhost:5016"
-        $dashboardProcess = Start-Process -FilePath "dotnet" `
-            -ArgumentList @($DashboardDll) `
+        Set-TuvimaEnvironment
+        New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+
+        Write-Host "Starting Tuvima Library from repo config."
+        Write-Host "Config dir: $ConfigDir"
+        Write-Host "Engine:     http://localhost:61495"
+        Write-Host "Dashboard:  http://localhost:5016"
+
+        Build-Project $EngineProject
+        Build-Project $DashboardProject
+
+        $engineOut = Join-Path $LogDir "codex-run-engine.out.log"
+        $engineErr = Join-Path $LogDir "codex-run-engine.err.log"
+        $dashboardOut = Join-Path $LogDir "codex-run-dashboard.out.log"
+        $dashboardErr = Join-Path $LogDir "codex-run-dashboard.err.log"
+        Remove-Item -LiteralPath $engineOut, $engineErr, $dashboardOut, $dashboardErr -Force -ErrorAction SilentlyContinue
+
+        $env:ASPNETCORE_URLS = "https://localhost:61494;http://localhost:61495"
+        $engineProcess = Start-Process -FilePath "dotnet" `
+            -ArgumentList @($EngineDll) `
             -PassThru `
             -WindowStyle Hidden `
-            -RedirectStandardOutput $dashboardOut `
-            -RedirectStandardError $dashboardErr `
+            -RedirectStandardOutput $engineOut `
+            -RedirectStandardError $engineErr `
             -WorkingDirectory $RepoRoot
+        $dashboardProcess = $null
 
-        Wait-ForDashboard -Process $dashboardProcess -OutputLog $dashboardOut -ErrorLog $dashboardErr
+        try {
+            Wait-ForEngine -Process $engineProcess -OutputLog $engineOut -ErrorLog $engineErr
 
-        Write-Host ""
-        Write-Host "Tuvima Library is ready."
-        Write-Host "Engine:    http://localhost:61495"
-        Write-Host "Dashboard: http://localhost:5016"
-        Write-Host "Logs:      $LogDir"
-        Write-Host "Stop this command to stop both services."
-        Write-Host ""
+            $env:TUVIMA_ENGINE_URL = "http://localhost:61495"
+            $env:ASPNETCORE_URLS = "http://localhost:5016"
+            $dashboardProcess = Start-Process -FilePath "dotnet" `
+                -ArgumentList @($DashboardDll) `
+                -PassThru `
+                -WindowStyle Hidden `
+                -RedirectStandardOutput $dashboardOut `
+                -RedirectStandardError $dashboardErr `
+                -WorkingDirectory $RepoRoot
 
-        if (-not $NoBrowser) {
-            Start-Process "http://localhost:5016"
+            Wait-ForDashboard -Process $dashboardProcess -OutputLog $dashboardOut -ErrorLog $dashboardErr
+
+            Write-Host ""
+            Write-Host "Tuvima Library is ready."
+            Write-Host "Engine:    http://localhost:61495"
+            Write-Host "Dashboard: http://localhost:5016"
+            Write-Host "Logs:      $LogDir"
+            Write-Host "Stop this command to stop both services."
+            Write-Host ""
+
+            if (-not $NoBrowser) {
+                Start-Process "http://localhost:5016"
+            }
+
+            while (-not $engineProcess.HasExited -and -not $dashboardProcess.HasExited) {
+                Start-Sleep -Seconds 1
+            }
+
+            if ($engineProcess.HasExited) {
+                Write-Host "Engine stopped unexpectedly. Exit code: $($engineProcess.ExitCode)"
+                exit $engineProcess.ExitCode
+            }
+
+            Write-Host "Dashboard stopped unexpectedly. Exit code: $($dashboardProcess.ExitCode)"
+            exit $dashboardProcess.ExitCode
         }
-
-        while (-not $engineProcess.HasExited -and -not $dashboardProcess.HasExited) {
-            Start-Sleep -Seconds 1
+        finally {
+            if ($dashboardProcess -and -not $dashboardProcess.HasExited) {
+                Stop-Process -Id $dashboardProcess.Id -Force -ErrorAction SilentlyContinue
+                Write-Host "Stopped Dashboard PID $($dashboardProcess.Id)"
+            }
+            if ($engineProcess -and -not $engineProcess.HasExited) {
+                Stop-Process -Id $engineProcess.Id -Force -ErrorAction SilentlyContinue
+                Write-Host "Stopped Engine PID $($engineProcess.Id)"
+            }
         }
-
-        if ($engineProcess.HasExited) {
-            Write-Host "Engine stopped unexpectedly. Exit code: $($engineProcess.ExitCode)"
-            exit $engineProcess.ExitCode
-        }
-
-        Write-Host "Dashboard stopped unexpectedly. Exit code: $($dashboardProcess.ExitCode)"
-        exit $dashboardProcess.ExitCode
     }
     finally {
-        if ($dashboardProcess -and -not $dashboardProcess.HasExited) {
-            Stop-Process -Id $dashboardProcess.Id -Force -ErrorAction SilentlyContinue
-            Write-Host "Stopped Dashboard PID $($dashboardProcess.Id)"
-        }
-        if ($engineProcess -and -not $engineProcess.HasExited) {
-            Stop-Process -Id $engineProcess.Id -Force -ErrorAction SilentlyContinue
-            Write-Host "Stopped Engine PID $($engineProcess.Id)"
-        }
+        Exit-TuvimaLauncher
     }
 }
 

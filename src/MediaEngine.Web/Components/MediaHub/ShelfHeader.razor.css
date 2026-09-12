@@ -33,7 +33,7 @@
 .shelf-header__count {
     color: rgba(148, 163, 184, 0.82);
     font-family: var(--font-ui);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 500;
 }
 

@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 <div class="cast-panel">
@@ -48,7 +48,7 @@
                     </MudText>
                     @if (!string.IsNullOrWhiteSpace(character.Description))
                     {
-                        <MudText Typo="Typo.caption" Class="tl-u-color-hex-888 tl-u-font-size-11px tl-u-overflow-hidden tl-u-display-webkit-box tl-u-webkit-line-clamp-2 tl-u-webkit-box-orient-vertical tl-u-max-width-160px">
+                        <MudText Typo="Typo.caption" Class="tl-u-color-hex-888 tl-u-font-size-xs tl-u-overflow-hidden tl-u-display-webkit-box tl-u-webkit-line-clamp-2 tl-u-webkit-box-orient-vertical tl-u-max-width-160px">
                             @character.Description
                         </MudText>
                     }
@@ -56,7 +56,7 @@
                     @* Performer chips *@
                     @if (character.Performers.Count > 0)
                     {
-                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-accent-primary tl-u-margin-top-8px tl-u-margin-bottom-4px tl-u-font-size-11px tl-u-font-weight-600">
+                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-accent-primary tl-u-margin-top-8px tl-u-margin-bottom-4px tl-u-font-size-xs tl-u-font-weight-600">
                             PERFORMERS (@character.Performers.Count)
                         </MudText>
                         <div class="performer-row">
@@ -73,7 +73,7 @@
                                             @(performer.Name.Length > 0 ? performer.Name[0].ToString() : "?")
                                         </MudAvatar>
                                     }
-                                    <MudText Typo="Typo.caption" Class="tl-u-font-size-11px tl-u-white-space-nowrap tl-u-overflow-hidden tl-u-text-overflow-ellipsis tl-u-max-width-80px">
+                                    <MudText Typo="Typo.caption" Class="tl-u-font-size-xs tl-u-white-space-nowrap tl-u-overflow-hidden tl-u-text-overflow-ellipsis tl-u-max-width-80px">
                                         @performer.Name
                                     </MudText>
                                 </div>
@@ -82,7 +82,7 @@
                     }
                     else
                     {
-                        <MudText Typo="Typo.caption" Class="tl-u-color-hex-444 tl-u-margin-top-8px tl-u-font-size-11px">
+                        <MudText Typo="Typo.caption" Class="tl-u-color-hex-444 tl-u-margin-top-8px tl-u-font-size-xs">
                             No performers linked
                         </MudText>
                     }

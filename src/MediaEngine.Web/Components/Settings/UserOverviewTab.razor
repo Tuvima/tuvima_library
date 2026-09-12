@@ -30,8 +30,8 @@
             <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-profile-card">
                 <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="user-overview-profile-layout">
                         <MudStack Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-avatar-wrap">
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Inherit"
+                            <AppButton ButtonStyle="AppButtonStyle.Text"
+                                       Tone="AppUiTone.Neutral"
                                        Class="user-overview-avatar-button"
                                        Disabled="@_avatarDialogBusy"
                                        OnClick="@OpenAvatarDialog"
@@ -67,14 +67,14 @@
                                                   Class="user-overview-name-field"
                                                   aria-label="Display name" />
                                     <AppIconButton Icon="@Icons.Material.Outlined.Check"
-                                                   Color="Color.Success"
-                                                   Size="Size.Small"
+                                                   Tone="AppUiTone.Success"
+                                                   Size="AppControlSize.Compact"
                                                    Disabled="@(_savingProfile || string.IsNullOrWhiteSpace(_displayName) || !ProfileDirty)"
                                                    OnClick="@SaveProfileAsync"
                                                    aria-label="Save display name" />
                                     <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                                                   Color="Color.Default"
-                                                   Size="Size.Small"
+                                                   Tone="AppUiTone.Neutral"
+                                                   Size="AppControlSize.Compact"
                                                    Disabled="_savingProfile"
                                                    OnClick="@CancelNameEdit"
                                                    aria-label="Cancel display name edit" />
@@ -85,8 +85,8 @@
                                 <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-name-row">
                                     <MudText Typo="Typo.h5" Class="user-overview-profile-name">@profile.DisplayName</MudText>
                                     <AppIconButton Icon="@Icons.Material.Outlined.Edit"
-                                                   Size="Size.Small"
-                                                   Color="Color.Default"
+                                                   Size="AppControlSize.Compact"
+                                                   Tone="AppUiTone.Neutral"
                                                    Class="user-overview-inline-edit"
                                                    OnClick="@StartNameEdit"
                                                    aria-label="Edit display name" />
@@ -196,8 +196,8 @@
         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="user-overview-photo-dialog-title">
             <MudText Typo="Typo.h6">Change photo</MudText>
             <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                           Size="Size.Small"
-                           Color="Color.Default"
+                           Size="AppControlSize.Compact"
+                           Tone="AppUiTone.Neutral"
                            OnClick="@CloseAvatarDialog"
                            aria-label="Close change photo dialog" />
         </MudStack>
@@ -264,9 +264,9 @@
                                    MaximumFileCount="1"
                                    Disabled="@_avatarDialogBusy">
                         <CustomContent>
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Primary"
-                                       Size="Size.Small"
+                            <AppButton ButtonStyle="AppButtonStyle.Text"
+                                       Tone="AppUiTone.Primary"
+                                       Size="AppControlSize.Compact"
                                        StartIcon="@Icons.Material.Outlined.AddPhotoAlternate"
                                        Disabled="@_avatarDialogBusy"
                                        OnClick="@context.OpenFilePickerAsync">
@@ -279,9 +279,9 @@
 
                     @if (CanRemoveAvatarInDialog)
                     {
-                        <AppButton Variant="Variant.Text"
-                                   Color="@(_confirmRemoveAvatar ? Color.Error : Color.Primary)"
-                                   Size="Size.Small"
+                        <AppButton ButtonStyle="AppButtonStyle.Text"
+                                   Tone="@(_confirmRemoveAvatar ? AppUiTone.Error : AppUiTone.Primary)"
+                                   Size="AppControlSize.Compact"
                                    StartIcon="@Icons.Material.Outlined.DeleteOutline"
                                    Disabled="@_avatarDialogBusy"
                                    OnClick="@RequestRemoveAvatar">
@@ -294,8 +294,8 @@
     </DialogContent>
     <DialogActions>
         <AppButton OnClick="@CloseAvatarDialog" Disabled="@_avatarDialogBusy">Cancel</AppButton>
-        <AppButton Variant="Variant.Filled"
-                   Color="Color.Primary"
+        <AppButton ButtonStyle="AppButtonStyle.Filled"
+                   Tone="AppUiTone.Primary"
                    Disabled="@(!CanSaveAvatarDialog)"
                    OnClick="@SaveAvatarDialogAsync">
             @(_avatarDialogBusy ? "Saving" : "Save")

@@ -336,7 +336,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("MediaTileArtworkUrl.Sized(coverUrl, \"s\")", editor, StringComparison.Ordinal);
         Assert.Contains("collection-editor-item-art--placeholder", editor, StringComparison.Ordinal);
         Assert.Contains("FormatMatchSummary(_previewResult)", editor, StringComparison.Ordinal);
-        Assert.Contains("Variant=\"Variant.Filled\" Color=\"Color.Error\"", editor, StringComparison.Ordinal);
+        Assert.Contains("ButtonStyle=\"AppButtonStyle.Filled\" Tone=\"AppUiTone.Error\"", editor, StringComparison.Ordinal);
         Assert.Contains("OpenItemPickerAsync", editor, StringComparison.Ordinal);
         Assert.Contains("item(s) in this collection", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-editor-column-title\">Available", editor, StringComparison.Ordinal);

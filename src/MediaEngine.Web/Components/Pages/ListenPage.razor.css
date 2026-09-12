@@ -9,7 +9,7 @@
 .listen-browse-mode > span,
 .audiobooks-segmented > span {
     color: rgba(215, 224, 240, 0.72);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -88,7 +88,7 @@
 .listen-kicker,
 .listen-rail__label {
     color: rgba(255, 255, 255, 0.42);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -112,7 +112,7 @@
     padding: 8px 12px;
     background: transparent;
     color: rgba(255, 255, 255, 0.78);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-align: left;
@@ -192,7 +192,7 @@
     gap: 4px;
     min-width: 0;
     padding: 4px 2px;
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .listen-rail__delete-confirm > span {
@@ -223,7 +223,7 @@
     color: #c4b5fd;
     border: 1px solid rgba(167, 139, 250, 0.35);
     border-radius: 999px;
-    font-size: 0.58rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
     line-height: 1.45;
     text-transform: uppercase;
@@ -317,7 +317,7 @@
     padding: 8px 12px;
     background: transparent;
     color: rgba(255, 255, 255, 0.78);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-align: left;
@@ -816,7 +816,7 @@
 .listen-display-group__eyebrow {
     grid-column: 1 / -1;
     color: rgba(215, 224, 240, 0.72);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -985,7 +985,7 @@
 .listen-card__meta--label {
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .listen-card__actions {
@@ -1205,7 +1205,7 @@
 .listen-playlist-track-list__head {
     padding: 0 8px 10px;
     color: var(--tl-text-muted);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     border-bottom: 1px solid var(--tl-divider);
 }
@@ -1698,7 +1698,7 @@
 .audiobooks-filter-group > span,
 .audiobooks-toolbar__eyebrow {
     color: rgba(215, 224, 240, 0.72);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -2092,7 +2092,7 @@
     padding: 4px 8px;
     background: rgba(148, 163, 184, 0.16);
     color: rgba(226, 232, 240, 0.78);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
 }
 

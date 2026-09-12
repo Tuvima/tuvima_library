@@ -226,8 +226,8 @@
 
                         @if (UseListLayout && _selectedItems.Count > 1 && !IsContainerGrouping)
                         {
-                            <AppButton Variant="Variant.Outlined"
-                                       Color="Color.Default"
+                            <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                                       Tone="AppUiTone.Neutral"
                                        StartIcon="@Icons.Material.Outlined.Edit"
                                        OnClick="OpenBatchEditorAsync"
                                        Class="browse-shell__batch-edit">
@@ -312,8 +312,8 @@
             <p>@EmptyStateMessage</p>
             @if (string.IsNullOrWhiteSpace(_searchText) && !IsPlaylistGrouping)
             {
-                <AppButton Variant="Variant.Text"
-                           Color="Color.Default"
+                <AppButton ButtonStyle="AppButtonStyle.Text"
+                           Tone="AppUiTone.Neutral"
                            StartIcon="@Icons.Material.Outlined.PendingActions"
                            Href="/settings/ingestion">
                     Open ingestion activity
@@ -343,8 +343,8 @@
     @if (_hasMore && !IsContainerGrouping)
     {
         <div class="browse-shell__load-more">
-            <AppButton Variant="Variant.Filled"
-                       Color="Color.Primary"
+            <AppButton ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
                        OnClick="LoadMoreAsync"
                        Class="browse-shell__load-more-button">
                 Load more

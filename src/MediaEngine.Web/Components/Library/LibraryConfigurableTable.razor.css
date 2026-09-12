@@ -49,7 +49,7 @@
 
     .vmt-th {
         padding: 8px 16px;
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         color: rgba(255, 255, 255, 0.60);
         text-transform: uppercase;
@@ -238,7 +238,7 @@
     }
 
     .vmt-subtitle {
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         color: var(--tl-text-muted);
         text-transform: uppercase;
@@ -248,7 +248,7 @@
 
     .vmt-show-badge {
         display: inline-block;
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         color: var(--tl-accent-primary);
         background: rgba(201, 146, 46, 0.12);
@@ -262,7 +262,7 @@
     }
 
     .vmt-creator-link {
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
@@ -283,12 +283,12 @@
     }
 
     .vmt-creator-sep {
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         color: var(--tl-text-faint);
     }
 
     .vmt-review-reason {
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 600;
         color: var(--tl-status-warning);
         margin-top: 4px;
@@ -296,7 +296,7 @@
     }
 
     .vmt-provider-waiting {
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 600;
         color: #38BDF8;
         margin-top: 4px;
@@ -309,7 +309,7 @@
     }
 
     .vmt-universe-linked {
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
@@ -317,7 +317,7 @@
     }
 
     .vmt-universe-standalone {
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         letter-spacing: 0.05em;
         text-transform: uppercase;
@@ -361,7 +361,7 @@
     }
 
     .vmt-group-label {
-        font-size: 10px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         color: var(--tl-text-muted);
         text-transform: uppercase;
@@ -397,7 +397,7 @@
         background: none;
         border: none;
         color: var(--tl-text-faint);
-        font-size: 9px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
@@ -539,13 +539,13 @@
         }
 
         .vmt-subtitle {
-            font-size: 9px;
+            font-size: var(--tl-font-size-xs);
         }
     }
 
 
     .media-type-badge {
-        font-size: 9px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.15em;
@@ -649,7 +649,7 @@
     }
 
     .vmt-original-title-sub {
-        font-size: 0.7rem;
+        font-size: var(--tl-font-size-xs);
         color: var(--tl-text-muted);
         white-space: nowrap;
         overflow: hidden;

@@ -168,7 +168,7 @@
                         <AppTextField @bind-Value="_profileName" Label="Profile name" FullWidth="true" />
                         <AppTextField @bind-Value="_profileColor" Label="Avatar color" FullWidth="true" />
                         <AppSwitchRow @bind-Value="_newProfileDefault" Label="Make this the default profile" />
-                        <AppButton Label="Create profile" Disabled="@(_saving || string.IsNullOrWhiteSpace(_profileName))" OnClick="CreateProfile" />
+                        <AppButton Label="Create profile" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(_saving || string.IsNullOrWhiteSpace(_profileName))" OnClick="CreateProfile" />
                     </section>
                     @if (GrantableProfiles.Count > 0)
                     {
@@ -177,7 +177,7 @@
                             <AppNativeSelect Value="@_grantProfile" OnChange="@(value => _grantProfile = value.Value?.ToString() ?? string.Empty)" aria-label="Add existing profile">
                                 <option value="">Select a profile</option>@foreach (var profile in GrantableProfiles) { <option value="@profile.Id">@profile.DisplayName</option> }
                             </AppNativeSelect>
-                            <AppButton Label="Grant profile" Disabled="@(_saving || string.IsNullOrWhiteSpace(_grantProfile))" OnClick="GrantProfile" />
+                            <AppButton Label="Grant profile" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(_saving || string.IsNullOrWhiteSpace(_grantProfile))" OnClick="GrantProfile" />
                         </section>
                     }
                 }

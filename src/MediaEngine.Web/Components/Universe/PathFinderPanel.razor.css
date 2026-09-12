@@ -44,5 +44,5 @@
     }
     .hop-arrow {
         color: #555;
-        font-size: 11px;
+        font-size: var(--tl-font-size-xs);
     }

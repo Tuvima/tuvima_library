@@ -72,7 +72,7 @@
 
 .sme-tag-editor > small {
     color: rgba(207, 218, 236, 0.48);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 ::deep .sme-tag-editor__chip {

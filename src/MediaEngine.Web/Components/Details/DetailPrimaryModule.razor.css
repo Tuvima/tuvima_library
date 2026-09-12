@@ -143,7 +143,7 @@
 }
 
 .tl-detail-primary-module--works .tl-detail-primary-module__copy small {
-    font-size: 0.66rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .tl-detail-primary-module__header {
@@ -156,7 +156,7 @@
 
 .tl-detail-primary-module__eyebrow {
     color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 72%, #fff);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -212,7 +212,7 @@
     border: 1px solid rgba(255, 255, 255, 0.16);
     border-radius: 999px;
     color: rgba(255, 255, 255, 0.62);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .tl-detail-primary-module__role-filter {
@@ -223,7 +223,7 @@
 
 .tl-detail-primary-module__role-filter > span {
     color: rgba(255, 255, 255, 0.48);
-    font-size: 0.65rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.1em;
     text-transform: uppercase;
 }
@@ -318,7 +318,7 @@
 
 .tl-detail-primary-module__copy small {
     color: rgba(255, 255, 255, 0.56);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .tl-detail-primary-module__empty {
@@ -430,7 +430,7 @@
     background: rgba(5, 9, 17, 0.82);
     box-shadow: 0 0.25rem 0.8rem rgba(0, 0, 0, 0.28);
     color: rgba(255, 255, 255, 0.92);
-    font-size: 0.62rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.07em;
     line-height: 1;
@@ -638,7 +638,7 @@
     border-radius: 999px;
     background: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 13%, transparent);
     color: inherit;
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-variant-numeric: tabular-nums;
 }
 
@@ -793,11 +793,11 @@
     }
 
     .tl-detail-primary-module--works .tl-detail-primary-module__copy strong {
-        font-size: 0.64rem;
+        font-size: var(--tl-font-size-xs);
     }
 
     .tl-detail-primary-module--works .tl-detail-primary-module__copy small {
-        font-size: 0.58rem;
+        font-size: var(--tl-font-size-xs);
     }
 }
 

@@ -30,18 +30,18 @@ else if (IsEmpty)
         </p>
 
         <div class="home-discovery-empty-actions">
-            <AppButton Variant="Variant.Outlined"
-                       Color="Color.Default"
-                       Size="MudBlazor.Size.Large"
+            <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                       Tone="AppUiTone.Neutral"
+                       Size="AppControlSize.Large"
                        StartIcon="@Icons.Material.Outlined.FolderOpen"
                        Href="/settings/libraries">
                 Configure folders
             </AppButton>
             @if (_canScan)
             {
-                <AppButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Size="MudBlazor.Size.Large"
+                <AppButton ButtonStyle="AppButtonStyle.Filled"
+                           Tone="AppUiTone.Primary"
+                           Size="AppControlSize.Large"
                            StartIcon="@Icons.Material.Outlined.PlayArrow"
                            Disabled="@_scanStarting"
                            OnClick="HandleScanNowAsync">
@@ -56,9 +56,9 @@ else if (IsEmpty)
                     }
                 </AppButton>
             }
-            <AppButton Variant="Variant.Text"
-                       Color="Color.Default"
-                       Size="MudBlazor.Size.Large"
+            <AppButton ButtonStyle="AppButtonStyle.Text"
+                       Tone="AppUiTone.Neutral"
+                       Size="AppControlSize.Large"
                        StartIcon="@Icons.Material.Outlined.PendingActions"
                        Href="/settings/ingestion">
                 Open ingestion activity
@@ -69,10 +69,10 @@ else if (IsEmpty)
         {
             <div class="home-discovery-dev-tools">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">Development tools</MudText>
-                <AppButton Variant="Variant.Outlined"
-                           Color="Color.Warning"
+                <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                           Tone="AppUiTone.Warning"
                            StartIcon="@Icons.Material.Filled.AutoStories"
-                           Size="MudBlazor.Size.Medium"
+                           Size="AppControlSize.Normal"
                            OnClick="HandleSeedLibraryAsync"
                            Disabled="@_seeding"
                            Class="home-discovery-seed-button">

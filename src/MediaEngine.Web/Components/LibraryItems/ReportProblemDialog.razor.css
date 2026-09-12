@@ -28,7 +28,7 @@
 
     .rpd-item-eyebrow {
         color: rgba(255,255,255,0.40);
-        font-size: 11px;
+        font-size: var(--tl-font-size-xs);
     }
 
     .rpd-item-title {

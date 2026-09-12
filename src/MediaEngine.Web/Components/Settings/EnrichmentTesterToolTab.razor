@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using System.Net.Http.Json
 @using System.Text.Json
 @using MediaEngine.Contracts.Development
@@ -44,8 +44,8 @@
                 </AppSelect>
             </MudItem>
             <MudItem xs="12" sm="2" Class="d-flex align-center">
-                <AppButton Variant="Variant.Filled"
-                           Color="Color.Primary"
+                <AppButton ButtonStyle="AppButtonStyle.Filled"
+                           Tone="AppUiTone.Primary"
                            FullWidth="true"
                            OnClick="@Search"
                            Disabled="@(_loading || string.IsNullOrWhiteSpace(_title))"
@@ -110,13 +110,13 @@
                                   @onclick="() => SelectCandidate(candidate)">
                             <div class="d-flex align-center gap-2 mb-2">
                                 <AppChip T="string" Size="Size.Small" Color="Color.Primary"
-                                         Class="tl-u-height-20px tl-u-font-size-0-7rem">
+                                         Class="tl-u-height-20px tl-u-font-size-xs">
                                     @candidate.Qid
                                 </AppChip>
                                 @if (candidate.Match)
                                 {
                                     <AppChip T="string" Size="Size.Small" Color="Color.Success"
-                                             Class="tl-u-height-20px tl-u-font-size-0-65rem">
+                                             Class="tl-u-height-20px tl-u-font-size-xs">
                                         Auto-match
                                     </AppChip>
                                 }
@@ -134,7 +134,7 @@
                             {
                                 <a href="@candidate.WikidataUrl" target="_blank"
                                    @onclick:stopPropagation="true"
-                                   class="tl-u-color-tl-status-info tl-u-font-size-0-72rem tl-u-text-decoration-none tl-u-display-inline-block tl-u-margin-top-4px">
+                                   class="tl-u-color-tl-status-info tl-u-font-size-xs tl-u-text-decoration-none tl-u-display-inline-block tl-u-margin-top-4px">
                                     View on Wikidata ^
                                 </a>
                             }
@@ -154,7 +154,7 @@
         @* Back button + selected candidate header + Enrich Universe *@
         <div class="d-flex align-center gap-3 mb-4">
             <AppIconButton Icon="@Icons.Material.Outlined.ArrowBack"
-                           Color="Color.Default"
+                           Tone="AppUiTone.Neutral"
                            OnClick="@BackToSearch" />
             <AppChip T="string" Color="Color.Primary" Size="Size.Small">
                 @_selectedCandidate.Qid
@@ -163,12 +163,12 @@
                 @_selectedCandidate.Label
             </MudText>
             <MudSpacer />
-            <AppButton Variant="Variant.Outlined"
-                       Color="Color.Secondary"
+            <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                       Tone="AppUiTone.Info"
                        OnClick="@EnrichUniverse"
                        Disabled="@_enrichingUniverse"
                        StartIcon="@Icons.Material.Outlined.Collections"
-                       Size="Size.Small">
+                       Size="AppControlSize.Compact">
                 @if (_enrichingUniverse)
                 {
                     <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
@@ -271,7 +271,7 @@
                                         <AppCssElement Tag="td" Css="@($"color: {ConfidenceColor(claim.Confidence)};")">
                                             @claim.Confidence.ToString("P0")
                                         </AppCssElement>
-                                        <td class="tl-u-color-tl-text-muted tl-u-font-size-0-72rem tl-u-font-family-monospace">
+                                        <td class="tl-u-color-tl-text-muted tl-u-font-size-xs tl-u-font-family-monospace">
                                             @claim.ProviderId
                                         </td>
                                     </tr>
@@ -301,7 +301,7 @@
                                 <MudItem xs="12" sm="6" md="4">
                                     <div>
                                         <MudText Typo="Typo.caption"
-                                                 Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-font-size-0-65rem tl-u-letter-spacing-0-05em">
+                                                 Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-font-size-xs tl-u-letter-spacing-0-05em">
                                             @group.FieldKey
                                         </MudText>
                                         <MudText Typo="Typo.body2"
@@ -323,7 +323,7 @@
             {
                 <AppPanel Elevation="0" Class="pa-4 mb-4 tl-u-background-tl-divider tl-u-border-1px-solid-tl-border-subtle tl-u-border-radius-10px"
                           >
-                    <MudText Typo="Typo.caption" Class="mb-3 tl-u-color-tl-text-muted tl-u-font-size-0-7rem"
+                    <MudText Typo="Typo.caption" Class="mb-3 tl-u-color-tl-text-muted tl-u-font-size-xs"
                              >
                         These bridge IDs would flow to Stage 2 retail providers for precise lookups (cover art, ratings).
                     </MudText>
@@ -354,7 +354,7 @@
                                         @foreach (var provider in hint.TargetProviders)
                                         {
                                             <AppChip T="string" Size="Size.Small" Color="Color.Primary"
-                                                     Class="tl-u-height-18px tl-u-font-size-0-6rem tl-u-margin-1px">
+                                                     Class="tl-u-height-18px tl-u-font-size-xs tl-u-margin-1px">
                                                 @provider
                                             </AppChip>
                                         }
@@ -410,20 +410,20 @@
                                         </MudText>
                                         <div class="d-flex gap-2">
                                             <AppChip T="string" Size="Size.Small" Color="Color.Default"
-                                                     Class="tl-u-height-18px tl-u-font-size-0-65rem">
+                                                     Class="tl-u-height-18px tl-u-font-size-xs">
                                                 @person.Role
                                             </AppChip>
                                             @if (person.Qid is not null)
                                             {
                                                 <AppChip T="string" Size="Size.Small" Color="Color.Primary"
-                                                         Class="tl-u-height-18px tl-u-font-size-0-65rem">
+                                                         Class="tl-u-height-18px tl-u-font-size-xs">
                                                     @person.Qid
                                                 </AppChip>
                                             }
                                             @if (!string.IsNullOrEmpty(person.Occupation))
                                             {
                                                 <AppChip T="string" Size="Size.Small" Color="Color.Default"
-                                                         Class="tl-u-height-18px tl-u-font-size-0-65rem tl-u-color-tl-text-secondary">
+                                                         Class="tl-u-height-18px tl-u-font-size-xs tl-u-color-tl-text-secondary">
                                                     @person.Occupation
                                                 </AppChip>
                                             }
@@ -500,7 +500,7 @@
                                     </td>
                                     <td>
                                         <AppChip T="string" Size="Size.Small" Color="Color.Secondary"
-                                                 Class="tl-u-height-18px tl-u-font-size-0-65rem">
+                                                 Class="tl-u-height-18px tl-u-font-size-xs">
                                             @entity.EntityType
                                         </AppChip>
                                     </td>
@@ -546,14 +546,14 @@
                                         @rel.SubjectLabel
                                         @if (!string.IsNullOrEmpty(rel.SubjectQid))
                                         {
-                                            <span class="tl-u-color-tl-text-muted tl-u-font-size-0-72rem tl-u-margin-left-4px">
+                                            <span class="tl-u-color-tl-text-muted tl-u-font-size-xs tl-u-margin-left-4px">
                                                 (@rel.SubjectQid)
                                             </span>
                                         }
                                     </td>
                                     <td>
                                         <AppChip T="string" Size="Size.Small" Color="Color.Info"
-                                                 Class="tl-u-height-18px tl-u-font-size-0-65rem">
+                                                 Class="tl-u-height-18px tl-u-font-size-xs">
                                             @rel.RelationshipType
                                         </AppChip>
                                     </td>
@@ -561,7 +561,7 @@
                                         @rel.ObjectLabel
                                         @if (!string.IsNullOrEmpty(rel.ObjectQid))
                                         {
-                                            <span class="tl-u-color-tl-text-muted tl-u-font-size-0-72rem tl-u-margin-left-4px">
+                                            <span class="tl-u-color-tl-text-muted tl-u-font-size-xs tl-u-margin-left-4px">
                                                 (@rel.ObjectQid)
                                             </span>
                                         }
@@ -616,7 +616,7 @@
                                             <AppCssElement Tag="td" Css="@($"color: {ConfidenceColor(claim.Confidence)};")">
                                                 @claim.Confidence.ToString("P0")
                                             </AppCssElement>
-                                            <td class="tl-u-color-rgba-248-248-248-0-40 tl-u-font-family-monospace tl-u-font-size-0-70rem">
+                                            <td class="tl-u-color-rgba-248-248-248-0-40 tl-u-font-family-monospace tl-u-font-size-xs">
                                                 @claim.ProviderId
                                             </td>
                                         </tr>

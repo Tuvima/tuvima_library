@@ -5043,10 +5043,10 @@ public partial class SharedMediaEditorShell
             ? $"Remove local override for {label}"
             : $"Use local override for {label}";
 
-    protected Color GetInlineFieldActionColor(string key) =>
+    protected AppUiTone GetInlineFieldActionTone(string key) =>
         HasActiveDisplayOverride(key)
-            ? Color.Warning
-            : IsInlineOverrideEnabled(key) ? Color.Warning : Color.Default;
+            ? AppUiTone.Warning
+            : IsInlineOverrideEnabled(key) ? AppUiTone.Warning : AppUiTone.Neutral;
 
     protected Task HandleInlineFieldActionAsync(string key, string label)
     {

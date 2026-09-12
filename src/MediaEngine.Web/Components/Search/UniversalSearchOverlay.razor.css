@@ -155,7 +155,7 @@
 
 .universal-search-overlay__empty section > span {
     color: var(--tl-text-muted);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }

@@ -12,7 +12,7 @@
 
 <PageTitle>Galleries - Tuvima</PageTitle>
 <ViewSectionShell @ref="_sectionShell">
-<div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>Galleries</h1><p>Organize personal photos and videos without changing their source files.</p></div><AppButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateManualGalleryAsync"><MudIcon Icon="@Icons.Material.Outlined.Add" /> New Gallery</AppButton></header>
+<div class="view-feature-page"><header class="view-feature-page__header"><div><span>View</span><h1>Galleries</h1><p>Organize personal photos and videos without changing their source files.</p></div><AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="CreateManualGalleryAsync"><MudIcon Icon="@Icons.Material.Outlined.Add" /> New Gallery</AppButton></header>
 @if (_loading) { <AppPageState Kind="AppPageStateKind.Loading" Title="Loading Galleries" Message="Opening your Galleries." /> }
 else if (Workspace.OwnedGalleries.Count == 0 && Workspace.SharedGalleries.Count == 0) { <AppPageState Kind="AppPageStateKind.Empty" Title="No Galleries yet" Message="Create a Manual Gallery or a rule-driven Smart Gallery." /> }
 else
@@ -24,7 +24,7 @@ else
 {
     <section class="view-gallery-editor" role="dialog" aria-modal="true" aria-labelledby="gallery-editor-title"><h2 id="gallery-editor-title">New Smart Gallery</h2><p>Name the Gallery and choose the rules that keep it updated.</p><label>Name <AppNativeInput Value="@_name" ValueChanged="@(v => _name = v?.ToString() ?? "")" AriaLabel="Smart Gallery name" /></label><ViewRuleBuilder Definition="@_rules" DefinitionChanged="RulesChanged" />
         @if (!string.IsNullOrWhiteSpace(_error)) { <p role="alert">@_error</p> }
-        <div><AppButton Variant="Variant.Text" OnClick="@(() => _editing = false)">Cancel</AppButton><AppButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_saving" OnClick="SaveAsync">Create Gallery</AppButton></div>
+        <div><AppButton ButtonStyle="AppButtonStyle.Text" OnClick="@(() => _editing = false)">Cancel</AppButton><AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@_saving" OnClick="SaveAsync">Create Gallery</AppButton></div>
     </section>
 }
 </div>

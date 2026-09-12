@@ -27,8 +27,8 @@
             </div>
             <div class="collection-editor-header-actions">
                 <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                               Size="Size.Small"
-                               Color="Color.Inherit"
+                               Size="AppControlSize.Compact"
+                               Tone="AppUiTone.Neutral"
                                Class="sme-close"
                                Tooltip="Close editor"
                                AriaLabel="Close editor"
@@ -42,8 +42,8 @@
                 {
                     var tabIndex = index;
                     var tab = VisibleTabs[index];
-                    <AppButton Variant="Variant.Text"
-                               Color="Color.Inherit"
+                    <AppButton ButtonStyle="AppButtonStyle.Text"
+                               Tone="AppUiTone.Neutral"
                                Class="@TabClass(tab.Id)"
                                aria-current="@(IsTabSelected(tab.Id) ? "page" : null)"
                                OnClick="@(() => OnTabChanged(tabIndex))">
@@ -57,8 +57,8 @@
                             @foreach (var artworkTab in ArtworkTabs)
                             {
                                 var isSelected = string.Equals(artworkTab.Slot, _activeArtworkSlot, StringComparison.OrdinalIgnoreCase);
-                                <AppButton Variant="Variant.Text"
-                                           Color="Color.Inherit"
+                                <AppButton ButtonStyle="AppButtonStyle.Text"
+                                           Tone="AppUiTone.Neutral"
                                            Class="@(isSelected ? "app-selection-nav__item sme-section-nav__nested-item is-active" : "app-selection-nav__item sme-section-nav__nested-item")"
                                            aria-current="@(isSelected ? "page" : null)"
                                            OnClick="@(() => SelectArtworkTab(artworkTab))">
@@ -75,7 +75,7 @@
                     <div class="collection-editor-rail-footer">
                         @if (CanDeleteCollection)
                         {
-                            <AppButton Variant="Variant.Filled" Color="Color.Error"
+                            <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Error"
                                        Class="collection-editor-delete-button"
                                        StartIcon="@Icons.Material.Outlined.DeleteOutline"
                                        OnClick="DeleteCollectionAsync" Disabled="@_saving">Delete collection</AppButton>
@@ -126,14 +126,14 @@
                 <footer class="sme-footer collection-editor-footer">
                     <div class="collection-editor-footer-copy" aria-live="polite">@FooterSummary</div>
                     <div class="collection-editor-footer-actions">
-                        <AppButton Variant="Variant.Text"
-                                   Color="Color.Inherit"
+                        <AppButton ButtonStyle="AppButtonStyle.Text"
+                                   Tone="AppUiTone.Neutral"
                                    OnClick="Cancel"
                                    Disabled="@_saving">
                             Cancel
                         </AppButton>
-                        <AppButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
+                        <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                   Tone="AppUiTone.Primary"
                                    StartIcon="@Icons.Material.Outlined.Save"
                                    OnClick="SaveCollection"
                                    Disabled="@_saving">
@@ -1202,8 +1202,8 @@
                         <span>@(SupportsManualItems
                             ? "Items are explicitly included and can be reordered."
                             : "Items are resolved automatically from the active rules.")</span>
-                        <AppButton Variant="Variant.Outlined"
-                                   Color="Color.Primary"
+                        <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                                   Tone="AppUiTone.Primary"
                                    StartIcon="@(SupportsManualItems ? Icons.Material.Outlined.Inventory2 : Icons.Material.Outlined.FilterAlt)"
                                    OnClick="@(() => SetActiveTab(SupportsManualItems ? "items" : "rules"))">
                             @(SupportsManualItems ? "Manage contents" : "Edit rules")
@@ -1279,7 +1279,7 @@
                 </label>
                 @if (!string.IsNullOrWhiteSpace(CurrentArtworkUrl) && EditingCollection is not null)
                 {
-                    <AppButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Restore"
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Error" StartIcon="@Icons.Material.Outlined.Restore"
                                OnClick="RemoveArtworkAsync">@(_activeArtworkSlot == "poster" ? "Use Automatic stacked" : "Remove artwork")</AppButton>
                 }
                 <div class="collection-editor-artwork-tip">
@@ -1368,8 +1368,8 @@
                         </div>
                         @if (EditingCollection is not null && !_showItemPicker)
                         {
-                            <AppButton Variant="Variant.Outlined"
-                                       Color="Color.Primary"
+                            <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                                       Tone="AppUiTone.Primary"
                                        StartIcon="@Icons.Material.Outlined.Add"
                                        OnClick="OpenItemPickerAsync">
                                 Add items
@@ -1404,9 +1404,9 @@
                                         <div class="collection-editor-item-title">@item.Title</div>
                                         <div class="collection-editor-item-meta">@FormatManualItemMeta(item)</div>
                                     </div>
-                                    <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowUp" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Min(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, -1))" aria-label="Move item up" />
-                                    <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Max(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, 1))" aria-label="Move item down" />
-                                    <AppIconButton Icon="@Icons.Material.Outlined.RemoveCircle" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveManualItemAsync(item))" aria-label="Remove item" />
+                                    <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowUp" Size="AppControlSize.Compact" Disabled="@(item.SortOrder == _manualItems.Min(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, -1))" aria-label="Move item up" />
+                                    <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown" Size="AppControlSize.Compact" Disabled="@(item.SortOrder == _manualItems.Max(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, 1))" aria-label="Move item down" />
+                                    <AppIconButton Icon="@Icons.Material.Outlined.RemoveCircle" Size="AppControlSize.Compact" Tone="AppUiTone.Error" OnClick="@(() => RemoveManualItemAsync(item))" aria-label="Remove item" />
                                 </div>
                             }
                         </div>
@@ -1420,7 +1420,7 @@
                                     <strong>Add items</strong>
                                     <span>Search the library and add titles to this collection.</span>
                                 </div>
-                                <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="CloseItemPicker">Done</AppButton>
+                                <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="CloseItemPicker">Done</AppButton>
                             </div>
                             <AppTextField T="string"
                                           Value="@_itemSearchText"
@@ -1454,7 +1454,7 @@
                                                 <div class="collection-editor-item-title">@work.Title</div>
                                                 <div class="collection-editor-item-meta">@FormatWorkMeta(work)</div>
                                             </div>
-                                            <AppButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="@(() => AddManualItemAsync(work))">Add</AppButton>
+                                            <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="@(() => AddManualItemAsync(work))">Add</AppButton>
                                         </div>
                                     }
                                 </div>
@@ -1469,7 +1469,7 @@
                     <div class="collection-editor-note collection-editor-note--tight">
                         <span>The preview below shows what currently matches these rules.</span>
                     </div>
-                    <AppButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="RunPreview">Refresh preview</AppButton>
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Primary" OnClick="RunPreview">Refresh preview</AppButton>
                 </div>
 
                 @if (_previewResult is null)

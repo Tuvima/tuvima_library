@@ -233,8 +233,8 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("ConfirmingAction", source, StringComparison.Ordinal);
         Assert.Contains("OnConfirmAction.InvokeAsync()", source, StringComparison.Ordinal);
         Assert.Contains("OnCancelAction.InvokeAsync()", source, StringComparison.Ordinal);
-        Assert.Contains("Color=\"Color.Success\"", source, StringComparison.Ordinal);
-        Assert.Contains("Color=\"Color.Error\"", source, StringComparison.Ordinal);
+        Assert.Contains("Tone=\"AppUiTone.Success\"", source, StringComparison.Ordinal);
+        Assert.Contains("Tone=\"AppUiTone.Error\"", source, StringComparison.Ordinal);
         Assert.Contains("Unlocked", source, StringComparison.Ordinal);
         var styles = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor.css");
         Assert.Contains("flex-direction: row", styles, StringComparison.Ordinal);
@@ -520,7 +520,7 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("Override in use", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Override in use", code, StringComparison.Ordinal);
         Assert.Contains("Icons.Material.Outlined.LockOpen", code, StringComparison.Ordinal);
-        Assert.Contains("IsInlineOverrideEnabled(key) ? Color.Warning : Color.Default", code, StringComparison.Ordinal);
+        Assert.Contains("IsInlineOverrideEnabled(key) ? AppUiTone.Warning : AppUiTone.Neutral", code, StringComparison.Ordinal);
         Assert.Contains("(\"Universe\", string.IsNullOrWhiteSpace(summary?.UniverseName) ? \"-\"", code, StringComparison.Ordinal);
         Assert.Contains("tl-field-grid--override", styles, StringComparison.Ordinal);
         Assert.Contains("box-shadow: inset 0 -2px 0 var(--tl-status-warning) !important", styles, StringComparison.Ordinal);

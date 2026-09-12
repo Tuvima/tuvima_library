@@ -19,7 +19,7 @@ Design system for **Tuvima Library** - a unified media intelligence platform tha
 - **Source repo:** `Tuvima/tuvima_library` (https://github.com/Tuvima/tuvima_library) - .NET 10 / Blazor + MudBlazor 9 codebase. The Dashboard ships as `src/MediaEngine.Web`.
 - **Core stylesheet referenced:** `src/MediaEngine.Web/wwwroot/app.css`
 - **Icon system:** FontAwesome solid SVGs copied from `src/MediaEngine.Web/wwwroot/icons/fontawesome/solid/`
-- **Fonts:** Montserrat (variable), Merriweather, JetBrains Mono - all self-hosted in `src/MediaEngine.Web/wwwroot/fonts/`
+- **Fonts:** Segoe UI Variable/system UI for interface text, with self-hosted Montserrat for brand/media identity, Merriweather for reading, and JetBrains Mono for technical values.
 - **Logos:** `assets/images/library.svg` for the Dashboard navbar; `tuvima-logo.svg`, `tuvima-logo-dark.svg`, and `tuvima-icon.svg` for broader brand surfaces.
 - **Screenshots:** `assets/screenshots/epub-reader.png`
 
@@ -70,7 +70,7 @@ The voice is **warm, literary, and a little reverent** - it treats a media colle
 
 **Palette** - dark-only, cinematic. Deep navy base (`#0B1220 -> #111827`) with soft radial glows of blue (`rgba(59,130,246,.12)`) top-left and cyan (`rgba(14,165,233,.10)`) top-right. Every card is a **glassmorphic** layer over this base: `rgba(255,255,255,0.02)` fill, `rgba(255,255,255,0.06)` border. The single product chrome accent is purple (`#8B5CF6`) - used for active nav, primary CTAs, in-progress indicators, and nothing else. Media-type accents (books indigo, audiobooks blue, movies pink, TV emerald, music amber, comics orange) are reserved for provider badges and media-type chips, never page chrome. EPUB reader highlight colors remain reader-specific.
 
-**Typography** - **Montserrat** (variable) is the UI face, set tight (letter-spacing `-0.02em` on headings). Weights used: 400 body, 500 labels, 600 card titles, 700 section headings, 800 page titles / small-caps labels. **Merriweather** serif is scoped to the EPUB reader surface only. **JetBrains Mono** for inline code / technical values. Small-caps metadata labels are a signature: `font-weight: 800; font-size: 10px; letter-spacing: 0.10em; text-transform: uppercase; color: rgba(248,248,248,0.35)`.
+**Typography** - **Segoe UI Variable** is the interface face, with system UI fallbacks. Weights used: 400 body, 500 labels, 600 card titles, and 700 section headings. **Montserrat** is scoped to brand and deliberate media-identity treatments. **Merriweather** is scoped to the EPUB reading surface. **JetBrains Mono** is used for paths, URLs, identifiers, and code. Compact metadata never falls below 12px; use letter spacing and weight, not undersized text, to create small-caps hierarchy.
 
 **Spacing** - roughly 8pt: `4 / 8 / 12 / 16 / 20 / 24 / 32 / 40 / 48 / 64`. Page gutters are generous (`padding: 24px` min). Swimlanes use tight horizontal gaps (`gap: 12px`) so covers feel like a continuous shelf.
 

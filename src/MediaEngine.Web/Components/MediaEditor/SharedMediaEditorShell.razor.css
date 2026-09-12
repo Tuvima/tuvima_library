@@ -257,7 +257,7 @@
 }
 
 .sme-kicker {
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     margin-bottom: 8px;
@@ -483,7 +483,7 @@
 
 .sme-scope-switcher ::deep .sme-scope-chip .mud-button-label > span {
     color: rgba(205, 213, 231, 0.68);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.075em;
     line-height: 1.2;
@@ -536,7 +536,7 @@
 }
 
 .sme-scope-picker-kicker {
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: rgba(255,255,255,0.48);
@@ -576,7 +576,7 @@
 .sme-scope-chip small {
     max-width: 180px;
     color: rgba(255,255,255,0.48);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 500;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -794,7 +794,7 @@
 .sme-section-nav__footer small {
     padding-inline: 0.75rem;
     color: var(--tl-text-muted);
-    font-size: 0.66rem;
+    font-size: var(--tl-font-size-xs);
     line-height: 1.35;
 }
 
@@ -881,7 +881,7 @@
 
 .sme-navigator-title {
     margin-bottom: 14px;
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: rgba(255,255,255,0.44);
@@ -943,7 +943,7 @@
 }
 
 .sme-nav-label {
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: rgba(255,255,255,0.44);
@@ -970,7 +970,7 @@
     padding: 0 8px;
     border-radius: var(--app-radius-sm);
     background: var(--tl-border-subtle);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
 }
 
@@ -987,7 +987,7 @@
 }
 
 .sme-selection-kicker {
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: rgba(255,255,255,0.44);
@@ -1460,7 +1460,7 @@
 }
 .sme-content-inspector__facts > span { display: grid; gap: 0.22rem; padding: 0.65rem; background: rgba(255,255,255,0.025); border-radius: 0.45rem; }
 .sme-content-inspector__facts > span.is-wide { grid-column: 1 / -1; }
-.sme-content-inspector__facts small { color: rgba(207,218,236,0.52); font-size: 0.7rem; }
+.sme-content-inspector__facts small { color: rgba(207,218,236,0.52); font-size: var(--tl-font-size-xs); }
 .sme-content-inspector__facts strong { color: rgba(247,249,253,0.9); font-size: 0.84rem; }
 
 .sme-content-inspector__artwork-note {
@@ -2480,7 +2480,7 @@
     border-radius: var(--app-radius-sm);
     background: var(--tl-status-danger-soft);
     color: rgba(255,255,255,0.86);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -2971,7 +2971,7 @@
     padding: 3px 8px;
     background: rgba(255,255,255,0.055);
     color: rgba(255,255,255,0.64);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     white-space: nowrap;
 }
@@ -3213,7 +3213,7 @@
     padding: 4px 8px;
     border: 1px solid var(--tl-border-subtle);
     color: rgba(255,255,255,0.66);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     white-space: nowrap;
 }
 
@@ -3225,7 +3225,7 @@
 
 .sme-art-row-pending-name {
     color: rgba(255,255,255,0.52);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     line-height: 1.35;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -3378,7 +3378,7 @@
     border-radius: var(--app-radius-sm);
     background: var(--tl-status-danger);
     color: rgba(255,255,255,0.96);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.01em;
 }
@@ -3413,7 +3413,7 @@
 
 .sme-art-row-empty-copy {
     color: rgba(255,255,255,0.56);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     text-align: center;
     max-width: 150px;
     line-height: 1.4;
@@ -3577,7 +3577,7 @@
 }
 
 ::deep .sme-artwork-owner-switcher .app-tabs__label {
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -3618,7 +3618,7 @@
 }
 
 .sme-artwork-owner-chip-label {
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--tl-text-muted);
@@ -3700,7 +3700,7 @@
 }
 
 ::deep .sme-artwork-rail .app-selector-nav__description {
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     color: var(--tl-text-muted);
 }
 
@@ -3787,7 +3787,7 @@
 
 .sme-artwork-rail-meta {
     color: var(--tl-text-muted);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     line-height: 1.3;
     text-transform: none;
     letter-spacing: 0;
@@ -3807,7 +3807,7 @@
     border: 1px solid var(--tl-border-subtle);
     background: var(--tl-divider);
     color: rgba(255,255,255,0.68);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-artwork-rail-item--active .sme-artwork-rail-count {
@@ -3885,7 +3885,7 @@
 }
 
 .sme-artwork-stage-kicker {
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: rgba(255,255,255,0.48);
@@ -4036,7 +4036,7 @@
 
 .sme-artwork-variant-caption {
     color: var(--tl-text-secondary);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 600;
 }
 
@@ -4622,7 +4622,7 @@
     min-height: 26px;
     padding: 0 8px;
     border-radius: 7px;
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     text-transform: none;
 }
@@ -5053,7 +5053,7 @@
 
 .sme-match-result-confidence small {
     color: rgba(209, 219, 238, 0.5);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-match-result-evidence {
@@ -5062,7 +5062,7 @@
     gap: 0.55rem 1.1rem;
     margin-top: 0.45rem;
     color: rgba(220, 230, 244, 0.62);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-match-result-evidence span {
@@ -5109,7 +5109,7 @@
 }
 
 .sme-file-format-icon small {
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
 }
 
@@ -5211,7 +5211,7 @@
 .sme-file-fact-grid dt {
     margin-bottom: 0.35rem;
     color: rgba(207, 218, 236, 0.55);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-file-fact-grid dd {
@@ -5377,7 +5377,7 @@
 
 .sme-history-summary-facts small {
     color: rgba(207, 218, 236, 0.5);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.045em;
     text-transform: uppercase;
 }
@@ -5403,7 +5403,7 @@
 .sme-history-date {
     margin: 0.75rem 0 0.6rem;
     color: #bba0ff;
-    font-size: 0.73rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -5445,7 +5445,7 @@
 
 .sme-history-row--timeline .sme-history-time small {
     color: rgba(207, 218, 236, 0.48);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-history-row--timeline .sme-history-icon {
@@ -5475,7 +5475,7 @@
 .sme-history-event-card > span {
     flex: 0 0 auto;
     color: rgba(207, 218, 236, 0.48);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-history-event-card > span strong {
@@ -5488,7 +5488,7 @@
 
 .sme-history-event-card .sme-history-detail {
     margin-top: 0.18rem;
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-artwork-context {
@@ -5708,7 +5708,7 @@
 .sme-artwork-details-panel dt {
     margin-bottom: 0.25rem;
     color: rgba(207, 218, 236, 0.5);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-artwork-details-panel dd {
@@ -6030,7 +6030,7 @@
 
 .sme-content-media-summary__facts small {
     color: rgba(207, 218, 236, 0.5);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-content-media-summary__facts strong {
@@ -6083,7 +6083,7 @@
     border-top: 1px solid rgba(151, 170, 205, 0.1);
     border-bottom: 1px solid rgba(151, 170, 205, 0.1);
     color: rgba(207, 218, 236, 0.5);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     letter-spacing: 0.04em;
     text-transform: uppercase;
 }
@@ -6133,7 +6133,7 @@
     border-radius: 0.45rem;
     background: rgba(255, 255, 255, 0.055);
     color: rgba(219, 227, 241, 0.7);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 ::deep .sme-audiobook-chapter > span:last-child.is-override {
@@ -6160,7 +6160,7 @@
 .sme-chapter-editor-panel > label,
 .sme-chapter-time-grid label {
     color: rgba(207, 218, 236, 0.56);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .sme-chapter-editor-panel > label {
@@ -6205,7 +6205,7 @@
     border: 1px solid rgba(151, 170, 205, 0.12);
     border-radius: 0.5rem;
     color: rgba(209, 219, 238, 0.58);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     line-height: 1.45;
 }
 
@@ -6566,7 +6566,7 @@
     gap: 0.35rem;
     min-width: 0;
     color: rgba(177, 154, 255, 0.92);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
@@ -6721,7 +6721,7 @@
 
 .sme-shell--hero ::deep .sme-scope-chip .mud-button-label > span {
     color: rgba(205, 213, 231, 0.62);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.075em;
     line-height: 1.2;
@@ -7260,17 +7260,17 @@
 .sme-candidate-description p { margin: 0; color: var(--tl-text-secondary); font-size: .82rem; line-height: 1.55; }
 .sme-candidate-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0; background: var(--tl-border-subtle); }
 .sme-candidate-facts div { min-width: 0; padding: .55rem .7rem; background: var(--tl-bg-surface); }
-.sme-candidate-facts dt { color: var(--tl-text-secondary); font-size: .68rem; }
+.sme-candidate-facts dt { color: var(--tl-text-secondary); font-size: var(--tl-font-size-xs); }
 .sme-candidate-facts dd { overflow-wrap: anywhere; margin: .2rem 0 0; color: var(--tl-text-primary); font-size: .76rem; }
 .sme-candidate-detail-loading { display: grid; gap: .45rem; color: var(--tl-text-secondary); font-size: .76rem; }
 .sme-candidate-provider-detail { display: grid; gap: .6rem; }
 .sme-candidate-provider-detail__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
-.sme-candidate-provider-detail__heading span { color: var(--tl-text-secondary); font-size: .7rem; }
+.sme-candidate-provider-detail__heading span { color: var(--tl-text-secondary); font-size: var(--tl-font-size-xs); }
 .sme-candidate-unavailable { margin: 0; color: var(--tl-text-secondary); font-size: .78rem; }
 .sme-candidate-track-list { max-height: 18rem; overflow-y: auto; border: 1px solid var(--tl-border-subtle); border-radius: .55rem; }
 .sme-candidate-track-list__header,
 .sme-candidate-track { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) 4.25rem; align-items: center; gap: .6rem; min-height: 2.15rem; padding: 0 .7rem; }
-.sme-candidate-track-list__header { position: sticky; top: 0; z-index: 1; color: var(--tl-text-secondary); font-size: .67rem; text-transform: uppercase; background: var(--tl-bg-surface-elevated); }
+.sme-candidate-track-list__header { position: sticky; top: 0; z-index: 1; color: var(--tl-text-secondary); font-size: var(--tl-font-size-xs); text-transform: uppercase; background: var(--tl-bg-surface-elevated); }
 .sme-candidate-track { border-top: 1px solid var(--tl-border-subtle); color: var(--tl-text-secondary); font-size: .75rem; }
 .sme-candidate-track strong { overflow: hidden; color: var(--tl-text-primary); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .sme-candidate-track > span:last-child { text-align: right; font-variant-numeric: tabular-nums; }

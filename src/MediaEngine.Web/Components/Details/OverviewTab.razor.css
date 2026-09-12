@@ -22,7 +22,7 @@
 .tl-overview-credit-group h3 {
     margin: 0;
     color: #efc77a;
-    font-size: 0.67rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.12em;
     line-height: 1;
@@ -100,7 +100,7 @@
 .tl-overview-credit-rows ::deep .tl-credit-card__role {
     margin-top: 0.18rem;
     color: rgba(225, 231, 241, 0.58);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 /* The overview is a peek, not a claim of billing order. Keep every person at

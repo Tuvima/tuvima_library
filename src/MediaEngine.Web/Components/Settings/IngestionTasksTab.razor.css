@@ -114,7 +114,7 @@
 
 .ingestion-current__progress > span {
     color: var(--mud-palette-text-secondary);
-    font-size: .73rem;
+    font-size: var(--tl-font-size-xs);
     white-space: nowrap;
 }
 
@@ -216,7 +216,7 @@
 
 .ingestion-attention > a small {
     color: var(--mud-palette-text-secondary);
-    font-size: .71rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .ingestion-section {

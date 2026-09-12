@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.MediaEditor
+@namespace MediaEngine.Web.Components.MediaEditor
 @using System.Globalization
 @using Microsoft.AspNetCore.Components
 @using MudBlazor
@@ -33,9 +33,9 @@
                     <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="sme-local-chip-box-icon" />
                 </div>
                 <div class="sme-local-add-actions">
-                    <AppButton Variant="Variant.Outlined"
-                               Color="Color.Inherit"
-                               Size="Size.Small"
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                               Tone="AppUiTone.Neutral"
+                               Size="AppControlSize.Compact"
                                StartIcon="@Icons.Material.Outlined.Add"
                                Class="sme-local-add-button"
                                OnClick="AddGenreAsync">
@@ -43,9 +43,9 @@
                     </AppButton>
                     @if (_addingGenre)
                     {
-                        <AppButton Variant="Variant.Text"
-                                   Color="Color.Inherit"
-                                   Size="Size.Small"
+                        <AppButton ButtonStyle="AppButtonStyle.Text"
+                                   Tone="AppUiTone.Neutral"
+                                   Size="AppControlSize.Compact"
                                    Class="sme-local-cancel-button"
                                    OnClick="CancelGenreAdd">
                             Cancel
@@ -83,9 +83,9 @@
                     <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="sme-local-chip-box-icon" />
                 </div>
                 <div class="sme-local-add-actions">
-                    <AppButton Variant="Variant.Outlined"
-                               Color="Color.Inherit"
-                               Size="Size.Small"
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                               Tone="AppUiTone.Neutral"
+                               Size="AppControlSize.Compact"
                                StartIcon="@Icons.Material.Outlined.Add"
                                Class="sme-local-add-button"
                                OnClick="AddTagAsync">
@@ -93,9 +93,9 @@
                     </AppButton>
                     @if (_addingTag)
                     {
-                        <AppButton Variant="Variant.Text"
-                                   Color="Color.Inherit"
-                                   Size="Size.Small"
+                        <AppButton ButtonStyle="AppButtonStyle.Text"
+                                   Tone="AppUiTone.Neutral"
+                                   Size="AppControlSize.Compact"
                                    Class="sme-local-cancel-button"
                                    OnClick="CancelTagAdd">
                             Cancel
@@ -113,17 +113,17 @@
                     {
                         var capturedScore = score;
                         <AppIconButton Icon="@GetStarIcon(score)"
-                                       Size="Size.Small"
-                                       Color="Color.Inherit"
+                                       Size="AppControlSize.Compact"
+                                       Tone="AppUiTone.Neutral"
                                        Class="sme-local-star-button"
                                        aria-label="@($"Set rating to {score}")"
                                        OnClick="@(() => SetRatingAsync(capturedScore))" />
                     }
                 </div>
                 <span class="sme-local-rating-text">@RatingLabel</span>
-                <AppButton Variant="Variant.Outlined"
-                           Color="Color.Inherit"
-                           Size="Size.Small"
+                <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                           Tone="AppUiTone.Neutral"
+                           Size="AppControlSize.Compact"
                            Class="sme-local-clear-button"
                            OnClick="@(() => RatingValueChanged.InvokeAsync(string.Empty))">
                     Clear

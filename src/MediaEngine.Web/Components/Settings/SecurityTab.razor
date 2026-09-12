@@ -140,7 +140,7 @@
                                       HelpText="Space-separated scopes. OIDC requires openid." />
                     </div>
                     <div class="security-settings__provider-actions">
-                        <AppButton Label="Save provider" Tone="AppUiTone.Primary"
+                        <AppButton Label="Save provider" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled"
                                    Disabled="@_saving" OnClick="() => SaveProviderAsync(provider)" />
                         @if (provider.Persisted)
                         {
@@ -157,7 +157,7 @@
             </AppAlert>
             <div class="security-settings__actions mt-5">
                 <AppButton Label="@(_saving ? "Saving…" : "Save authentication settings")"
-                           Disabled="@_saving" Tone="AppUiTone.Primary" OnClick="SaveAsync" />
+                           Disabled="@_saving" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" Loading="@_saving" OnClick="SaveAsync" />
             </div>
         }
     </SettingsSectionPanel>

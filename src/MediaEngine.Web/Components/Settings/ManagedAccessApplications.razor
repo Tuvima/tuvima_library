@@ -122,7 +122,7 @@
                                 <div><AppButton Label="Rotate" Size="AppControlSize.Compact" Disabled="@(_saving || credential.RevokedAt is not null)" OnClick="@(() => RotateCredential(credential))" /><AppButton Label="Revoke" Size="AppControlSize.Compact" Tone="AppUiTone.Error" Disabled="@(_saving || credential.RevokedAt is not null)" OnClick="@(() => RevokeCredential(credential))" /></div>
                             </div>
                         }
-                        <div class="access-credential-issue"><AppTextField @bind-Value="_credentialName" Label="Credential name" FullWidth="true" /><AppButton Label="Generate credential" Disabled="@(_saving || string.IsNullOrWhiteSpace(_credentialName))" OnClick="IssueCredential" /></div>
+                        <div class="access-credential-issue"><AppTextField @bind-Value="_credentialName" Label="Credential name" FullWidth="true" /><AppButton Label="Generate credential" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(_saving || string.IsNullOrWhiteSpace(_credentialName))" OnClick="IssueCredential" /></div>
                     </section>
                 }
                 @if (_plaintext is not null)

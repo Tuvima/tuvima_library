@@ -58,7 +58,7 @@
 }
 
 .browse-shell__title-eyebrow {
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;

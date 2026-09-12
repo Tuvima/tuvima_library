@@ -32,9 +32,9 @@
         </div>
         @if (_dirty)
         {
-            <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="ResetChanges">Reset changes</AppButton>
+            <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="ResetChanges">Reset changes</AppButton>
         }
-        <AppButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!_dirty || _saving)" OnClick="SaveAsync">
+        <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(!_dirty || _saving)" OnClick="SaveAsync">
             @(_saving ? "Saving..." : "Save Changes")
         </AppButton>
         <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close editor" AriaLabel="Close editor" OnClick="Close" />
@@ -45,8 +45,8 @@
             @foreach (var tab in Tabs)
             {
                 var captured = tab;
-                <AppButton Variant="Variant.Text"
-                           Color="Color.Inherit"
+                <AppButton ButtonStyle="AppButtonStyle.Text"
+                           Tone="AppUiTone.Neutral"
                            Class="@GetPersonTabClass(captured.Id)"
                            aria-current="@(string.Equals(captured.Id, _activeTab, StringComparison.OrdinalIgnoreCase) ? "page" : null)"
                            OnClick="@(() => SelectPersonTabAsync(captured.Id))">
@@ -59,8 +59,8 @@
                         @foreach (var slot in PersonArtworkSlots)
                         {
                             var isActive = string.Equals(slot.AssetType, SelectedPersonArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Inherit"
+                            <AppButton ButtonStyle="AppButtonStyle.Text"
+                                       Tone="AppUiTone.Neutral"
                                        Class="@(isActive ? "app-selection-nav__item person-editor__nav-nested-item is-active" : "app-selection-nav__item person-editor__nav-nested-item")"
                                        aria-current="@(isActive ? "page" : null)"
                                        OnClick="@(() => SelectPersonArtworkSlot(slot.AssetType))">
@@ -73,8 +73,8 @@
             }
 
             <div class="person-editor__nav-footer">
-                    <AppButton Variant="Variant.Text"
-                               Color="Color.Inherit"
+                    <AppButton ButtonStyle="AppButtonStyle.Text"
+                               Tone="AppUiTone.Neutral"
                                StartIcon="@Icons.Material.Outlined.Sync"
                                Disabled="@_queueing"
                                OnClick="RefreshNowAsync">
@@ -174,7 +174,7 @@
                                     <h3>@FormatArtworkType(selectedSlot.AssetType) artwork</h3>
                                     <p>@GetArtworkHelp(selectedSlot.AssetType)</p>
                                 </div>
-                                <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="person-editor__artwork-upload-button">
+                                <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="person-editor__artwork-upload-button">
                                     Upload
                                     <span class="person-editor__artwork-file-shell">
                                         <InputFile class="person-editor__artwork-file-input"
@@ -198,7 +198,7 @@
                                                 }
                                                 <div class="person-editor__artwork-image-actions">
                                                     <AppIconButton Icon="@Icons.Material.Outlined.ZoomIn"
-                                                                   Size="Size.Small"
+                                                                   Size="AppControlSize.Compact"
                                                                    Class="person-editor__artwork-image-action"
                                                                    Tooltip="Preview artwork"
                                                                    AriaLabel="Preview artwork"
@@ -206,7 +206,7 @@
                                                     @if (selectedVariant.CanDelete)
                                                     {
                                                         <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
-                                                                       Size="Size.Small"
+                                                                       Size="AppControlSize.Compact"
                                                                        Tone="AppUiTone.Error"
                                                                        Class="person-editor__artwork-image-action person-editor__artwork-image-action--delete"
                                                                        Tooltip="Remove artwork"
@@ -237,7 +237,7 @@
                                         <strong>Add artwork</strong>
                                         <span>Upload a new @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant() image.</span>
                                         <small>JPG or PNG, up to 20 MB</small>
-                                        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="person-editor__artwork-upload-button">
+                                        <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="person-editor__artwork-upload-button">
                                             Upload file
                                             <span class="person-editor__artwork-file-shell">
                                                 <InputFile class="person-editor__artwork-file-input"

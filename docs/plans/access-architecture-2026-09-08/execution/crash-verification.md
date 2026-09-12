@@ -1,5 +1,15 @@
 # Crash verification before Access refactoring
 
+## Duplicate-launch hardening — 2026-09-12
+
+Windows Application event 1026 at 11:51:07 confirmed the recurring Engine process termination was an unhandled socket error 10048: a second `MediaEngine.Api` process tried to bind `https://127.0.0.1:61494` while an existing process still owned the address. Earlier validation logs recorded the same conflict on Dashboard port 5016.
+
+The Engine and Dashboard now take separate operating-system process leases before host construction. A duplicate copy exits normally with an explicit already-running message and leaves the active copy alone. The local combined launcher also takes a launcher lease, waits for stopped processes to exit, and verifies ports 61494, 61495, and 5016 are released before starting replacements. An unrelated process occupying a configured port is still a real configuration error, but it is caught and reported without becoming an unhandled .NET process crash.
+
+Regression evidence: the focused launcher/lease suite passed 5/5, the complete solution build passed with zero warnings and zero errors, and a live rebuilt Engine/Dashboard pair returned HTTP 200 from both liveness/readiness endpoints. While that pair was running, direct duplicate Engine and Dashboard launches both exited 0 with the already-running message; a second combined launcher invocation reported the existing supervisor and did not stop or replace either host. Both normal stderr logs remained empty, their checked logs contained no address-conflict/fatal/unhandled matches, and Windows recorded no new MediaEngine `.NET Runtime` crash event during the test.
+
+Plain English: starting Tuvima twice no longer makes the second copy crash or disturb the copy that is already working. The launcher now also waits until an old copy has fully released its network ports before replacing it.
+
 ## Final integrated regression checkpoint — 2026-09-09
 
 The final Access source through `4d1b1ffe`, including the accepted credential-recovery and ingestion changes, passed the complete solution suite: **3,632 passed, 37 existing provider skips, zero failed**. The warnings-as-errors build and full formatting/coverage gates pass. Evidence: `logs/access-complete-build.log`, `logs/access-complete-verified.log`, and its adjacent TRX/Cobertura directory in the integration checkout.

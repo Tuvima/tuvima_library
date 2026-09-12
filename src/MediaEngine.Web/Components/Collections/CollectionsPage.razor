@@ -27,8 +27,8 @@
         <Actions>
             @if (CanManageCuratedCollections)
             {
-                <AppButton Variant="Variant.Filled"
-                           Color="Color.Primary"
+                <AppButton ButtonStyle="AppButtonStyle.Filled"
+                           Tone="AppUiTone.Primary"
                            StartIcon="@Icons.Material.Filled.Add"
                            OnClick="OpenCollectionBuilder">
                     New Collection
@@ -86,8 +86,8 @@
                                 <h1>Browse People</h1>
                                 <p>Find the authors, directors, artists, narrators, and other primary contributors represented in your library.</p>
                             </div>
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Default"
+                            <AppButton ButtonStyle="AppButtonStyle.Text"
+                                       Tone="AppUiTone.Neutral"
                                        Href="/collections/people"
                                        EndIcon="@Icons.Material.Outlined.ArrowForward">
                                 View all
@@ -280,8 +280,8 @@
                     @if (_peopleHasMore)
                     {
                         <div class="collections-load-more">
-                            <AppButton Variant="Variant.Filled"
-                                       Color="Color.Primary"
+                            <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                       Tone="AppUiTone.Primary"
                                        OnClick="LoadMorePeopleAsync"
                                        Disabled="@_loadingMorePeople">
                                 @(_loadingMorePeople ? "Loading..." : "Load more people")
@@ -329,8 +329,8 @@
                     @if (VisibleTiles.Count < ActiveTiles.Count)
                     {
                         <div class="collections-load-more">
-                            <AppButton Variant="Variant.Filled"
-                                       Color="Color.Primary"
+                            <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                       Tone="AppUiTone.Primary"
                                        OnClick="ShowMoreTiles">
                                 Load more
                             </AppButton>

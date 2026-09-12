@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Shared
+@namespace MediaEngine.Web.Components.Shared
 
 <div class="@RowClass">
     <div class="tl-field-label-cell">
@@ -44,15 +44,15 @@
         {
             <div class="tl-field-confirm-actions">
                 <AppIconButton Icon="@Icons.Material.Outlined.Check"
-                               Size="Size.Small"
-                               Color="Color.Success"
+                               Size="AppControlSize.Compact"
+                               Tone="AppUiTone.Success"
                                Tooltip="@ConfirmLabel"
                                aria-label="@ConfirmLabel"
                                OnClick="@(() => OnConfirmAction.InvokeAsync())"
                                Class="tl-field-confirm-button tl-field-confirm-button--accept" />
                 <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                               Size="Size.Small"
-                               Color="Color.Error"
+                               Size="AppControlSize.Compact"
+                               Tone="AppUiTone.Error"
                                Tooltip="@CancelLabel"
                                aria-label="@CancelLabel"
                                OnClick="@(() => OnCancelAction.InvokeAsync())"
@@ -62,8 +62,8 @@
         else if (!string.IsNullOrWhiteSpace(ActionIcon))
         {
             <AppIconButton Icon="@ActionIcon"
-                           Size="Size.Small"
-                           Color="@ActionColor"
+                           Size="AppControlSize.Compact"
+                           Tone="@ActionTone"
                            Tooltip="@ActionLabel"
                            aria-label="@ActionLabel"
                            Disabled="@ActionDisabled"
@@ -89,7 +89,7 @@
     [Parameter] public string? Badge { get; set; }
     [Parameter] public string? ActionIcon { get; set; }
     [Parameter] public string ActionLabel { get; set; } = "";
-    [Parameter] public Color ActionColor { get; set; } = Color.Default;
+    [Parameter] public AppUiTone ActionTone { get; set; } = AppUiTone.Neutral;
     [Parameter] public bool ActionDisabled { get; set; }
     [Parameter] public EventCallback OnAction { get; set; }
     [Parameter] public bool ConfirmingAction { get; set; }

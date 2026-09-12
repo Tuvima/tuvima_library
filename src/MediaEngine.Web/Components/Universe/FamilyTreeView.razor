@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 @inject IEngineApiClient ApiClient
 <div class="family-tree-panel">
     <MudText Typo="Typo.subtitle1" Class="mb-3 tl-u-color-tl-accent-primary tl-u-font-weight-600" >
@@ -19,7 +19,7 @@
         <AppNumericField T="int" @bind-Value="_generations" Label="Generations"
                          Min="1" Max="5" Class="tl-u-max-width-100px" Margin="Margin.Dense"
                          Variant="Variant.Outlined" />
-        <AppButton Variant="Variant.Filled" Color="Color.Warning"
+        <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Warning"
                    OnClick="LoadTree" Disabled="@(string.IsNullOrEmpty(_selectedCharQid) || _loading)"
                    StartIcon="@Icons.Material.Filled.AccountTree">
             @if (_loading) { <MudProgressCircular Size="Size.Small" Indeterminate="true" /> }
@@ -65,7 +65,7 @@
                                 </MudText>
                                 @if (!string.IsNullOrWhiteSpace(member.Relationship))
                                 {
-                                    <MudText Typo="Typo.caption" Class="tl-u-color-hex-888 tl-u-font-size-10px tl-u-text-align-center">
+                                    <MudText Typo="Typo.caption" Class="tl-u-color-hex-888 tl-u-font-size-xs tl-u-text-align-center">
                                         @member.Relationship
                                     </MudText>
                                 }

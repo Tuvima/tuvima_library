@@ -42,7 +42,7 @@
 .compact-continue__copy span {
     overflow: hidden;
     color: rgba(203, 213, 225, 0.58);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -108,7 +108,7 @@
 
 .compact-continue__percent {
     color: rgba(203, 213, 225, 0.66);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 @media (max-width: 1100px) {

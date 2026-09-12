@@ -1,4 +1,4 @@
-﻿@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
 @using MediaEngine.Contracts.Reports
@@ -40,9 +40,9 @@
         </div>
     </DialogContent>
     <DialogActions>
-        <AppButton OnClick="Cancel" Variant="Variant.Text" Size="Size.Small"
+        <AppButton OnClick="Cancel" ButtonStyle="AppButtonStyle.Text" Size="AppControlSize.Compact"
                    Class="rpd-cancel">Cancel</AppButton>
-        <AppButton OnClick="Submit" Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
+        <AppButton OnClick="Submit" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Warning" Size="AppControlSize.Compact"
                    Disabled="@(string.IsNullOrEmpty(_category) || _submitting)">
             @if (_submitting)
             {

@@ -48,7 +48,7 @@
 
 .network-test-dialog__check span {
     color: var(--tl-text-muted);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .network-test-dialog__check.is-passed ::deep > .mud-icon-root {

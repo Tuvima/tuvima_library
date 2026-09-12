@@ -92,7 +92,7 @@
 }
 
 .playback-relative-skip ::deep .playback-relative-skip__number--three-digit {
-    font-size: 11.2px;
+    font-size: var(--tl-font-size-xs);
 }
 
 @media (max-width: 640px) {

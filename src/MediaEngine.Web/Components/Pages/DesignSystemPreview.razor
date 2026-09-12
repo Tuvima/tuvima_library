@@ -47,7 +47,24 @@
             <AppCheckbox Label="Select this row" Value="true" />
         </AppCard>
 
-        <AppCard Title="Actions" Description="Buttons and icon buttons share size, tone, and variant mapping.">
+        <AppCard Title="Actions" Description="One visual hierarchy applies everywhere: filled primary, outlined secondary, and text tertiary.">
+            <div class="design-system-preview__action-group" aria-label="Action hierarchy">
+                <span>Hierarchy</span>
+                <div class="design-system-preview__row">
+                    <AppButton Label="Save changes" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" />
+                    <AppButton Label="Test connection" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Outlined" />
+                    <AppButton Label="Learn more" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Text" />
+                </div>
+            </div>
+            <div class="design-system-preview__action-group" aria-label="Destructive and system states">
+                <span>States</span>
+                <div class="design-system-preview__row">
+                    <AppButton Label="Delete" Tone="AppUiTone.Error" ButtonStyle="AppButtonStyle.Outlined" />
+                    <AppButton Label="Confirm delete" Tone="AppUiTone.Error" ButtonStyle="AppButtonStyle.Filled" />
+                    <AppButton Label="Unavailable" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" Disabled="true" />
+                    <AppButton Label="Saving" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" Loading="true" />
+                </div>
+            </div>
             @foreach (var tone in Tones)
             {
                 <div class="design-system-preview__row">
@@ -66,6 +83,31 @@
                 <AppButton Label="Cancel" />
                 <AppButton Label="Save" Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" />
             </AppActionBar>
+        </AppCard>
+
+        <AppCard Title="Typography" Description="Segoe UI Variable carries the interface; specialized faces are scoped to identity, reading, and technical values.">
+            <div class="design-system-preview__type-stack">
+                <div>
+                    <span>Interface · 14px</span>
+                    <p class="design-system-preview__type-ui">Clear labels and body copy for everyday navigation and settings.</p>
+                </div>
+                <div>
+                    <span>Caption · 12px minimum</span>
+                    <p class="design-system-preview__type-caption">Metadata stays compact without becoming difficult to read.</p>
+                </div>
+                <div>
+                    <span>Brand and media identity</span>
+                    <p class="design-system-preview__type-brand">Tuvima Library</p>
+                </div>
+                <div>
+                    <span>Reader</span>
+                    <p class="design-system-preview__type-reader">A literary serif remains reserved for long-form reading.</p>
+                </div>
+                <div>
+                    <span>Technical</span>
+                    <code class="design-system-preview__type-code">http://localhost:61495</code>
+                </div>
+            </div>
         </AppCard>
 
         <AppCard Title="Navigation" Description="Tabs, segmented controls, breadcrumbs, and steps are centralized.">

@@ -30,7 +30,7 @@
                 <div class="network-server-name-control">
                     <AppTextField T="string" @bind-Value="Settings.Local.PreferredServerName" Label="Server name" HideLabel="true" />
                     <span>.local</span>
-                    <AppButton Label="Save" OnClick="SaveRequested" />
+                    <AppButton Label="Save" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="SaveRequested" />
                 </div>
             </div>
             <AppSwitchRow Label="IPv6 Support"

@@ -10,7 +10,7 @@
     }
 
     .media-quarantine-timer {
-        font-size: 9px;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         color: rgba(226, 75, 74, 0.7);
     }

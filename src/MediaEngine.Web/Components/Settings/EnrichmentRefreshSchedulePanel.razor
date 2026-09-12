@@ -11,7 +11,7 @@
             <h2 id="refresh-schedule-title">Upcoming refreshes</h2>
             <p>Review scheduled provider refreshes or start the full enrichment cycle early.</p>
         </div>
-        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" OnClick="LoadAsync" Disabled="@_loading">
+        <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" OnClick="LoadAsync" Disabled="@_loading">
             <MudIcon Icon="@Icons.Material.Outlined.Refresh" Size="Size.Small" />
             @(_loading ? "Refreshing..." : "Refresh schedule")
         </AppButton>
@@ -60,8 +60,8 @@
                             <td>Every @item.IntervalDays days</td>
                             <td><span class="refresh-schedule__status refresh-schedule__status--@item.Status.ToLowerInvariant()">@item.Status</span></td>
                             <td>
-                                <AppButton Variant="Variant.Text"
-                                           Color="Color.Primary"
+                                <AppButton ButtonStyle="AppButtonStyle.Text"
+                                           Tone="AppUiTone.Primary"
                                            Disabled="@(_queueing.Contains(item.EntityId) || item.Status.Equals("Queued", StringComparison.OrdinalIgnoreCase))"
                                            OnClick="@(() => QueueNowAsync(item))">
                                     @(_queueing.Contains(item.EntityId) ? "Queueing..." : "Run now")

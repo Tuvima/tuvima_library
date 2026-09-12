@@ -115,7 +115,7 @@
 
 .view-header__eyebrow {
     color: var(--tl-accent-primary);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
     letter-spacing: 0.13em;
     text-transform: uppercase;
@@ -392,7 +392,7 @@
 
 .view-tile__copy small {
     color: rgba(226, 232, 240, 0.65);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .view-tile__duration {
@@ -402,7 +402,7 @@
     padding: 3px 6px;
     border-radius: 5px;
     background: rgba(2, 6, 23, 0.84);
-    font-size: 0.66rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .view-viewer__action {

@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Library
+@namespace MediaEngine.Web.Components.Library
 @using System.Globalization
 @using MediaEngine.Web.Models.ViewDTOs
 @using Microsoft.AspNetCore.Components.Web
@@ -337,8 +337,8 @@ else
                             }
                             else if (col.Sortable && col.SortKey is not null)
                             {
-                                <AppButton Variant="Variant.Text"
-                                           Color="Color.Inherit"
+                                <AppButton ButtonStyle="AppButtonStyle.Text"
+                                           Tone="AppUiTone.Neutral"
                                            Class='@($"vmt-sort-header {(col.RenderType == ColumnRenderType.FavoriteToggle ? "vmt-sort-header--icon" : string.Empty)}")'
                                            OnClick="() => RequestSort(col.SortKey!)">
                                     @if (col.RenderType == ColumnRenderType.FavoriteToggle)
@@ -474,8 +474,8 @@ else
                                                             <span class="vmt-creator-sep">, </span>
                                                         }
                                                         <span @onclick:stopPropagation="true">
-                                                            <AppButton Variant="Variant.Text"
-                                                                       Color="Color.Inherit"
+                                                            <AppButton ButtonStyle="AppButtonStyle.Text"
+                                                                       Tone="AppUiTone.Neutral"
                                                                        Class="vmt-creator-link"
                                                                        OnClick="() => OnAuthorClicked.InvokeAsync(creator.Trim())">
                                                                 @creator.Trim().ToUpperInvariant()
@@ -558,7 +558,7 @@ else
                                     case ColumnRenderType.FavoriteToggle:
                                         <span @onclick:stopPropagation="true">
                                             <AppIconButton Icon="@(item.IsFavorite ? Icons.Material.Filled.Favorite : Icons.Material.Outlined.FavoriteBorder)"
-                                                           Color="Color.Inherit"
+                                                           Tone="AppUiTone.Neutral"
                                                            Class='@($"vmt-favorite-button {(item.IsFavorite ? "is-active" : string.Empty)}")'
                                                            aria-label="@(item.IsFavorite ? "Remove favorite" : "Add favorite")"
                                                            OnClick="() => HandleFavoriteToggleAsync(item.EntityId)" />
@@ -578,8 +578,8 @@ else
                                                     <span class="vmt-creator-sep">, </span>
                                                 }
                                                 <span @onclick:stopPropagation="true">
-                                                    <AppButton Variant="Variant.Text"
-                                                               Color="Color.Inherit"
+                                                    <AppButton ButtonStyle="AppButtonStyle.Text"
+                                                               Tone="AppUiTone.Neutral"
                                                                Class="vmt-creator-link"
                                                                OnClick="() => OnAuthorClicked.InvokeAsync(part)">
                                                         @part.ToUpperInvariant()
@@ -642,7 +642,7 @@ else
                                             {
                                                 <span @onclick:stopPropagation="true">
                                                     <AppIconButton Icon="@Icons.Material.Outlined.Edit"
-                                                                   Color="Color.Default"
+                                                                   Tone="AppUiTone.Neutral"
                                                                    Class="vmt-manage-btn"
                                                                    aria-label="Edit metadata"
                                                                    OnClick="() => OnEditClicked.InvokeAsync(item.EntityId)" />
@@ -652,7 +652,7 @@ else
                                             {
                                                 <span @onclick:stopPropagation="true">
                                                     <AppIconButton Icon="@Icons.Material.Outlined.Delete"
-                                                                   Color="Color.Error"
+                                                                   Tone="AppUiTone.Error"
                                                                    Class="vmt-manage-btn vmt-manage-btn--delete"
                                                                    aria-label="Delete"
                                                                    OnClick="() => OnDeleteClicked.InvokeAsync(item.EntityId)" />

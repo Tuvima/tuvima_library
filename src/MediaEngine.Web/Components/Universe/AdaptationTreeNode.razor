@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Universe
+@namespace MediaEngine.Web.Components.Universe
 
 @* Recursive tree node for AdaptationTree *@
 
@@ -23,7 +23,7 @@
                 @if (Node.Year.HasValue)
                 {
                     <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                             Class="tl-u-font-size-10px tl-u-height-20px">
+                             Class="tl-u-font-size-xs tl-u-height-20px">
                         @Node.Year
                     </AppChip>
                 }
@@ -31,13 +31,13 @@
                 {
                     <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
                              Color="@GetMediaTypeColor(Node.MediaType)"
-                             Class="tl-u-font-size-10px tl-u-height-20px">
+                             Class="tl-u-font-size-xs tl-u-height-20px">
                         @Node.MediaType
                     </AppChip>
                 }
                 @if (!string.IsNullOrWhiteSpace(Node.RelationshipToParent))
                 {
-                    <MudText Typo="Typo.caption" Class="tl-u-color-hex-888 tl-u-font-size-10px">
+                    <MudText Typo="Typo.caption" Class="tl-u-color-hex-888 tl-u-font-size-xs">
                         (@Node.RelationshipToParent)
                     </MudText>
                 }

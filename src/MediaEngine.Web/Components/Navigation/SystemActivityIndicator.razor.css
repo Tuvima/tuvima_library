@@ -91,7 +91,7 @@
     border-radius: 999px;
     color: #fff;
     background: var(--mud-palette-success);
-    font-size: 0.58rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
     line-height: 1;
 }

@@ -15,7 +15,7 @@
 .universal-results__eyebrow,
 .universal-results__type {
     color: #c4b5fd;
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
     letter-spacing: 0.09em;
     text-transform: uppercase;
@@ -200,7 +200,7 @@
 
 .universal-results__card small {
     color: var(--tl-text-muted);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .universal-results__preview {

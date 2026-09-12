@@ -42,6 +42,21 @@ public sealed class StartupLauncherGuardrailTests
         Assert.Contains("Start-Process \"http://localhost:5016\"", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void CombinedLauncher_SerializesLaunchesAndWaitsForPriorPortsToRelease()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "tools",
+            "Start-TuvimaApp.ps1"));
+
+        Assert.Contains("Local\\TuvimaLibrary.DevLauncher", source, StringComparison.Ordinal);
+        Assert.Contains("WaitOne(0)", source, StringComparison.Ordinal);
+        Assert.Contains("$process.WaitForExit(10000)", source, StringComparison.Ordinal);
+        Assert.Contains("Wait-ForTuvimaPortRelease", source, StringComparison.Ordinal);
+        Assert.Contains("@(61494, 61495, 5016)", source, StringComparison.Ordinal);
+    }
+
     private static string FindRepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

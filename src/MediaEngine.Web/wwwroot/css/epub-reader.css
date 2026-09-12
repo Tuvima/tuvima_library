@@ -795,7 +795,7 @@
 }
 
 .reader-stat-label {
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     color: var(--reader-chrome-text-dim);
     text-transform: uppercase;
     letter-spacing: 0.03em;

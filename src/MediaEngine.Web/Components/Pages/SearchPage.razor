@@ -125,7 +125,7 @@
                 <MudIcon Icon="@Icons.Material.Outlined.CloudOff" />
                 <h2>Search could not be completed</h2>
                 <p>Try again. Your query and filters have been preserved.</p>
-                <AppButton Variant="Variant.Outlined" Color="Color.Default" OnClick="SearchAsync">Try again</AppButton>
+                <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" OnClick="SearchAsync">Try again</AppButton>
             </div>
         }
         else if (FilteredResponse is { TotalCount: 0 } && !_loading)
@@ -136,7 +136,7 @@
                 <p>Remove a filter or try another query.</p>
                 @if (ActiveFilterChips.Count > 0)
                 {
-                    <AppButton Variant="Variant.Text" Color="Color.Default" OnClick="ClearFiltersAsync">Clear all filters</AppButton>
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="ClearFiltersAsync">Clear all filters</AppButton>
                 }
             </div>
         }

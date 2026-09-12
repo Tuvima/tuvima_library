@@ -2,7 +2,7 @@
 .access-notice { margin-bottom: 1rem; }
 .access-applications { overflow: visible; border: 1px solid var(--app-border); border-radius: var(--app-radius-lg); }
 .access-applications__header, .access-applications__row { display: grid; grid-template-columns: minmax(12rem, 1.3fr) 9rem 7rem 10rem 7rem 3rem; align-items: center; gap: 1rem; }
-.access-applications__header { padding: .7rem 1rem; color: var(--app-text-muted); font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.access-applications__header { padding: .7rem 1rem; color: var(--app-text-muted); font-size: var(--tl-font-size-xs); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
 .access-applications__row { min-height: 4.75rem; padding: .85rem 1rem; border-top: 1px solid var(--app-border); }
 .access-applications__row strong, .access-applications__row small { display: block; }
 .access-applications__row small { color: var(--app-text-muted); }

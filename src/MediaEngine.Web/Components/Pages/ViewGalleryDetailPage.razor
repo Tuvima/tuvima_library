@@ -49,11 +49,11 @@
                     <div class="view-feature-page__actions" role="group" aria-label="Gallery management">
                         @if (_gallery.Kind == ViewGalleryKind.Smart)
                         {
-                            <AppButton Label="Rules" Variant="Variant.Outlined" OnClick="OpenEdit" />
+                            <AppButton Label="Rules" ButtonStyle="AppButtonStyle.Outlined" OnClick="OpenEdit" />
                         }
                         @if (_shareTargets is not null)
                         {
-                            <AppButton Label="Share" Variant="Variant.Outlined" OnClick="OpenShareAsync" />
+                            <AppButton Label="Share" ButtonStyle="AppButtonStyle.Outlined" OnClick="OpenShareAsync" />
                         }
                     </div>
                 }
@@ -77,7 +77,7 @@
                                    OnSelectDateGroup="SelectGroup" />
                 @if (_gallery.Kind == ViewGalleryKind.Manual && _selected.Count > 0)
                 {
-                    <AppButton Variant="Variant.Outlined" OnClick="RemoveAsync">Remove from Gallery</AppButton>
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined" OnClick="RemoveAsync">Remove from Gallery</AppButton>
                 }
             }
         }

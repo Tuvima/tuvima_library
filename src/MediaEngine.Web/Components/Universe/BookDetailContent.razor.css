@@ -108,7 +108,7 @@
 
     .book-detail-sidebar-label {
         font-family: var(--font-ui);
-        font-size: 0.62rem;
+        font-size: var(--tl-font-size-xs);
         font-weight: 700;
         color: rgba(248, 248, 248, 0.35);
         text-transform: uppercase;
@@ -192,7 +192,7 @@
 
     .book-detail-center-genre-chip {
         font-family: var(--font-ui);
-        font-size: 0.68rem;
+        font-size: var(--tl-font-size-xs);
         font-weight: 600;
         letter-spacing: 0.04em;
         padding: 4px 10px;
@@ -214,7 +214,7 @@
 
     .book-detail-genre-chip {
         font-family: var(--font-ui);
-        font-size: 0.62rem;
+        font-size: var(--tl-font-size-xs);
         font-weight: 600;
         letter-spacing: 0.02em;
         padding: 3px 8px;
@@ -227,7 +227,7 @@
 
     .book-detail-genre-more {
         font-family: var(--font-ui);
-        font-size: 0.62rem;
+        font-size: var(--tl-font-size-xs);
         font-weight: 600;
         color: var(--tl-accent-primary);
         background: none;
@@ -320,7 +320,7 @@
 
     .book-detail-attribution {
         font-family: var(--font-ui);
-        font-size: 0.72rem;
+        font-size: var(--tl-font-size-xs);
         font-weight: 400;
         color: rgba(248, 248, 248, 0.35);
         margin: 4px 0 0 0;
@@ -367,7 +367,7 @@
 
     .book-detail-progress-label {
         font-family: var(--font-ui);
-        font-size: 0.73rem;
+        font-size: var(--tl-font-size-xs);
         font-weight: 600;
         color: var(--tl-accent-primary);
     }
@@ -586,7 +586,7 @@
 
     .book-detail-action-label {
         font-family: var(--font-ui);
-        font-size: 0.70rem;
+        font-size: var(--tl-font-size-xs);
         font-weight: 500;
         color: rgba(248, 248, 248, 0.50);
         white-space: nowrap;
@@ -721,7 +721,7 @@
         }
 
         .book-detail-action-label {
-            font-size: 0.62rem;
+            font-size: var(--tl-font-size-xs);
         }
 
     }

@@ -63,12 +63,16 @@
     --font-ui: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system,
         BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
     --font-brand: "Montserrat", sans-serif;
+    --font-reader: "Merriweather", Georgia, serif;
     --tl-font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace;
     --tl-font-size-xs: 0.75rem;
     --tl-font-size-sm: 0.875rem;
     --tl-font-size-md: 1rem;
     --tl-font-size-lg: 1.125rem;
     --tl-font-size-xl: 1.5rem;
+    --tl-font-size-caption: var(--tl-font-size-xs);
+    --tl-font-size-secondary: 0.8125rem;
+    --tl-font-size-body: var(--tl-font-size-sm);
     --tl-font-weight-regular: 400;
     --tl-font-weight-medium: 500;
     --tl-font-weight-semibold: 600;

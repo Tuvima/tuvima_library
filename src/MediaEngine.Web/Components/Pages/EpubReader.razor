@@ -180,7 +180,7 @@
                 }
 
                 <div class="tl-u-padding-12px-20px">
-                    <AppButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Primary" FullWidth="true"
                                StartIcon="@Icons.Material.Filled.BookmarkAdd"
                                OnClick="AddBookmark">
                         Bookmark This Page
@@ -216,7 +216,7 @@
                 <div class="reader-settings-section">
                     <div class="reader-settings-label">Size</div>
                     <div class="reader-size-control">
-                        <span class="reader-size-label tl-u-font-size-0-7rem" >A</span>
+                        <span class="reader-size-label tl-u-font-size-xs" >A</span>
                         <AppNativeInput Type="range" Min="12" Max="32" Value="@_settings.FontSize" OnChange="OnFontSizeChanged" />
                         <span class="reader-size-label tl-u-font-size-1-1rem" >A</span>
                     </div>
@@ -278,7 +278,7 @@
                       Icon="@Icons.Material.Filled.ErrorOutline"
                       Class="reader-loading">
             <Actions>
-                <AppButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExitReader">
+                <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Primary" OnClick="ExitReader">
                     Return to Library
                 </AppButton>
             </Actions>

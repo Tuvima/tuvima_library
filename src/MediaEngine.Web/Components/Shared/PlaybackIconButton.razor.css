@@ -77,7 +77,7 @@
 
 .playback-icon-button-shell ::deep .playback-icon-button__badge {
     color: var(--playback-icon-button-badge-color, currentColor);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1;
@@ -86,7 +86,7 @@
 
 .playback-icon-button-shell ::deep .playback-icon-button__label {
     color: currentColor;
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     line-height: 1.12;
     max-width: 100%;

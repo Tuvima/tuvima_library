@@ -139,7 +139,7 @@
 .ingestion-media-list-row__format small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .ingestion-media-list-row__copy strong { font-size: .9rem; }
 .ingestion-media-list-row__copy small,
-.ingestion-media-list-row__format small { min-height: 1.1rem; color: var(--mud-palette-text-secondary); font-size: .74rem; }
+.ingestion-media-list-row__format small { min-height: 1.1rem; color: var(--mud-palette-text-secondary); font-size: var(--tl-font-size-xs); }
 .ingestion-media-list-row__format strong { display: flex; align-items: center; gap: .42rem; font-size: .8rem; }
 .ingestion-media-list-row__format ::deep .mud-icon-root { flex: none; font-size: 1.1rem; }
 .ingestion-media-list-row__status { display: flex; align-items: center; gap: .42rem; min-width: 0; color: var(--ingestion-card-accent); font-size: .78rem; }

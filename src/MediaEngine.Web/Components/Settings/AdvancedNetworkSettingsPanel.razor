@@ -44,7 +44,7 @@
                           Value="@DirectRemoteEnabled"
                           ValueChanged="ChangeDirectEnabledAsync" />
             <div class="network-card-actions">
-                <AppButton Label="Save direct settings" OnClick="SaveRouterSettingsAsync" />
+                <AppButton Label="Save direct settings" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="SaveRouterSettingsAsync" />
                 <AppButton Label="Set up manually" StartIcon="@Icons.Material.Outlined.Tune" OnClick="OpenManual" />
                 <AppButton Label="Renew now" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="RenewAsync" />
             </div>
@@ -57,7 +57,7 @@
             <AppTextField T="string" @bind-Value="_trustedProxyText" Label="Trusted proxy addresses" HelpText="Comma-separated exact IP addresses." />
             <AppTextField T="string" @bind-Value="_trustedProxyNetworkText" Label="Trusted proxy networks" HelpText="Comma-separated CIDR ranges for isolated Docker proxy networks, for example 172.21.0.0/24." />
             <AppAlert Tone="AppUiTone.Info">Forwarded headers from every other peer are ignored. A Dashboard restart applies proxy trust changes.</AppAlert>
-            <AppButton Label="Save proxy trust" OnClick="SaveProxySettingsAsync" />
+            <AppButton Label="Save proxy trust" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="SaveProxySettingsAsync" />
         </div>
     </details>
 

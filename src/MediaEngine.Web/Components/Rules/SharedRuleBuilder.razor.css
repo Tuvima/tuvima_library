@@ -10,7 +10,7 @@
 
 .collection-rule-builder__header h3 { margin: 4px 0 0; font-size: 1.65rem; }
 .collection-rule-builder__header p { margin: 5px 0 0; color: var(--tl-text-secondary); font-size: .92rem; }
-.collection-rule-builder__eyebrow { color: var(--rule-accent); font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.collection-rule-builder__eyebrow { color: var(--rule-accent); font-size: var(--tl-font-size-xs); font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
 .collection-rule-builder__workspace, .collection-rule-builder__conditions { width: 100%; min-width: 0; }
 .collection-rule-builder__conditions { display: flex; flex-direction: column; gap: 12px; }
 

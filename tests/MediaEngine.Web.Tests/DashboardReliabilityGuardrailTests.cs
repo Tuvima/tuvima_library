@@ -12,6 +12,21 @@ public sealed class DashboardReliabilityGuardrailTests
         Assert.Contains("<FocusOnNavigate", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ReconnectModal_AutomaticallyRecoversAfterADevelopmentRestart()
+    {
+        var markup = Read(@"src\MediaEngine.Web\Components\Layout\ReconnectModal.razor");
+        var script = Read(@"src\MediaEngine.Web\Components\Layout\ReconnectModal.razor.js");
+
+        Assert.Contains("Tuvima will keep retrying", markup, StringComparison.Ordinal);
+        Assert.Contains("scheduleAutoRetry()", script, StringComparison.Ordinal);
+        Assert.Contains("autoRetryMaximumDelayMs = 10_000", script, StringComparison.Ordinal);
+        Assert.Contains("window.setTimeout", script, StringComparison.Ordinal);
+        Assert.Contains("retryInFlight", script, StringComparison.Ordinal);
+        Assert.Contains("location.reload()", script, StringComparison.Ordinal);
+        Assert.Contains("if (!reconnectModal.open)", script, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData(@"src\MediaEngine.Web\Components\Universe\PosterSwimlane.razor", "@key=\"item.Id\"")]
     [InlineData(@"src\MediaEngine.Web\Components\MediaTiles\MediaTileGrid.razor", "@key=\"item.Id\"")]

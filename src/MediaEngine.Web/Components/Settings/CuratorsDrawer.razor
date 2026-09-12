@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 <MudDrawer Open="@Open"
@@ -12,8 +12,8 @@
         <MudIcon Icon="@Icons.Material.Outlined.EditNote" Color="Color.Primary" Class="mr-2" />
         <MudText Typo="Typo.h6" Class="tl-u-flex-1">Correct Metadata</MudText>
         <AppIconButton Icon="@Icons.Material.Filled.Close"
-                       Color="Color.Default"
-                       Size="Size.Small"
+                       Tone="AppUiTone.Neutral"
+                       Size="AppControlSize.Compact"
                        OnClick="@CloseDrawer" />
     </MudStack>
 
@@ -115,8 +115,8 @@
         </AppPanel>
 
         <div class="px-4 mb-4">
-            <AppButton Variant="Variant.Filled"
-                       Color="Color.Primary"
+            <AppButton ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
                        FullWidth="true"
                        StartIcon="@Icons.Material.Filled.Lock"
                        OnClick="@ApplyCorrectionAsync"

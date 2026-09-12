@@ -21,6 +21,6 @@
 .view-tile__copy { position: absolute; z-index: 2; inset: auto .65rem .55rem; display: grid; }
 .view-tile__copy strong, .view-tile__copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .view-tile__copy small { color: rgba(226,232,240,.68); }
-.view-tile__duration { position: absolute; z-index: 2; right: .45rem; top: .45rem; padding: .2rem .38rem; border-radius: .3rem; background: rgba(2,6,23,.78); font-size: .72rem; }
+.view-tile__duration { position: absolute; z-index: 2; right: .45rem; top: .45rem; padding: .2rem .38rem; border-radius: .3rem; background: rgba(2,6,23,.78); font-size: var(--tl-font-size-xs); }
 .view-tile__file-icon { position: absolute; inset: 0; display: grid; place-items: center; }
 @media (max-width: 640px) { .view-grid, .view-density--compact .view-grid, .view-density--relaxed .view-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }

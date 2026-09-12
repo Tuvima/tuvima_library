@@ -9,7 +9,24 @@ status: "internal"
 
 # Tuvima Library UI Consistency Audit
 
-Date: 2026-04-26
+Original audit: 2026-04-26
+
+Implementation update: 2026-09-12
+
+## 2026-09-12 implementation update
+
+The current Dashboard now has one enforceable action and typography contract:
+
+- All `AppButton` and `AppIconButton` call sites use app-owned `ButtonStyle`, `Tone`, and `AppControlSize` values. The legacy MudBlazor `Variant` and `Color` pass-through path has been removed.
+- Primary commits and starts are filled purple; secondary actions are outlined; tertiary actions are text; destructive actions are outlined red until the explicit confirmation step.
+- `AppButton` now owns a real disabled loading state with a spinner and `aria-busy` instead of forwarding an inert HTML `Loading` attribute.
+- The Ingestion action is consistently named **Scan now** and remains filled purple because it is that surface's primary operation.
+- Interface text uses Segoe UI Variable/system UI. Montserrat is reserved for brand and media identity, Merriweather for reading, and JetBrains Mono for technical values.
+- Production UI type declarations now honor a 12px minimum through `--tl-font-size-xs`.
+- `/design-system/components` includes the action hierarchy, destructive/loading/disabled states, and typography specimens.
+- `UiConsistencyGuardrailTests` prevents the legacy API, page-level raw Mud buttons, and sub-12px type from returning.
+
+See [UI Consistency Standard](../design-system/ui-consistency-standard.md) for the active rules. The remainder of this document preserves the original findings for migration history.
 
 ## Scope
 

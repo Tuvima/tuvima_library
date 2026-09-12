@@ -42,7 +42,7 @@
                             @if (ShowSetDefault)
                             {
                                 <AppIconButton Icon="@Icons.Material.Outlined.Check"
-                                               Size="Size.Small"
+                                               Size="AppControlSize.Compact"
                                                AriaLabel="Make this the default series"
                                                Tooltip="Make default"
                                                Disabled="@_settingDefault"
@@ -111,7 +111,7 @@
                         @if (_hasMissingPreferenceOverride)
                         {
                             <AppIconButton Icon="@Icons.Material.Outlined.Restore"
-                                           Size="Size.Small"
+                                           Size="AppControlSize.Compact"
                                            AriaLabel="Use the configured media default"
                                            Tooltip="Use media default"
                                            Disabled="@_savingMissingPreference"
@@ -158,7 +158,7 @@
     <div class="tl-series-detail__carousel tl-season-browser">
         <AppIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--left"
                        Icon="@Icons.Material.Outlined.ChevronLeft"
-                       Size="Size.Large"
+                       Size="AppControlSize.Large"
                        AriaLabel="Previous seasons"
                        OnClick="@(() => PageSeasonRailAsync(-1))" />
         <div id="@_seasonStripId"
@@ -198,7 +198,7 @@
         </div>
         <AppIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--right"
                        Icon="@Icons.Material.Outlined.ChevronRight"
-                       Size="Size.Large"
+                       Size="AppControlSize.Large"
                        AriaLabel="Next seasons"
                        OnClick="@(() => PageSeasonRailAsync(1))" />
     </div>
@@ -208,7 +208,7 @@
     <div class="tl-series-detail__carousel">
         <AppIconButton Class="@LeftArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronLeft"
-                       Size="Size.Large"
+                       Size="AppControlSize.Large"
                        aria-label="@($"Previous {Placement.ItemPluralLabel.ToLowerInvariant()}")"
                        Disabled="@(!CanPageLeft)"
                        OnClick="PageLeft" />
@@ -243,7 +243,7 @@
         </AppCssElement>
         <AppIconButton Class="@RightArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronRight"
-                       Size="Size.Large"
+                       Size="AppControlSize.Large"
                        aria-label="@($"Next {Placement.ItemPluralLabel.ToLowerInvariant()}")"
                        Disabled="@(!CanPageRight)"
                        OnClick="PageRight" />
@@ -357,7 +357,7 @@ else
                     @if (_hasMissingPreferenceOverride)
                     {
                         <AppIconButton Icon="@Icons.Material.Outlined.Restore"
-                                       Size="Size.Small"
+                                       Size="AppControlSize.Compact"
                                        Class="tl-series-missing-preference__reset"
                                        AriaLabel="Use the configured media default"
                                        Tooltip="Use media default"
@@ -489,7 +489,7 @@ else
         <div class="tl-series-carousel">
         <AppIconButton Class="@LeftArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronLeft"
-                       Size="Size.Large"
+                       Size="AppControlSize.Large"
                        aria-label="@($"Previous {Placement.ItemPluralLabel.ToLowerInvariant()}")"
                        Disabled="@(!CanPageLeft)"
                        OnClick="PageLeft" />
@@ -520,7 +520,7 @@ else
         </AppCssElement>
         <AppIconButton Class="@RightArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronRight"
-                       Size="Size.Large"
+                       Size="AppControlSize.Large"
                        aria-label="@($"Next {Placement.ItemPluralLabel.ToLowerInvariant()}")"
                        Disabled="@(!CanPageRight)"
                        OnClick="PageRight" />

@@ -12,7 +12,7 @@
 .my-list-page__eyebrow {
     margin-bottom: 0.35rem;
     color: var(--app-primary, #7c4dff);
-    font-size: 0.74rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;

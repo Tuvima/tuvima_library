@@ -22,8 +22,8 @@
                 <p>Set the essentials and membership rules now, then refine artwork and contents in the same full editor.</p>
             </div>
             <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                           Size="Size.Small"
-                           Color="Color.Inherit"
+                           Size="AppControlSize.Compact"
+                           Tone="AppUiTone.Neutral"
                            Tooltip="Close setup"
                            AriaLabel="Close setup"
                            OnClick="Cancel" />
@@ -61,15 +61,15 @@
                 }
             </main>
             <footer class="collection-wizard__footer">
-            <AppButton Variant="Variant.Outlined"
-                       Color="Color.Inherit"
+            <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                       Tone="AppUiTone.Neutral"
                        StartIcon="@(_step == FirstStep ? null : Icons.Material.Outlined.ArrowBack)"
                        OnClick="BackOrCancel"
                        Disabled="@_saving">
                 @(_step == FirstStep ? "Cancel" : "Back")
             </AppButton>
-            <AppButton Variant="Variant.Filled"
-                       Color="Color.Primary"
+            <AppButton ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
                        Class="collection-wizard__primary"
                        EndIcon="@(_step == 3 ? null : Icons.Material.Outlined.ArrowForward)"
                        OnClick="ContinueOrSave"

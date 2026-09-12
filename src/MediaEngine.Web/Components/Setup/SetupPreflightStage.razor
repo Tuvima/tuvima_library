@@ -56,7 +56,7 @@
                         <AppStatusBadge Text="@(location.AllowWrite ? "Writable" : "Read only")" Tone="@(location.AllowWrite ? AppUiTone.Success : AppUiTone.Neutral)" />
                     </div>
                 }
-                <div class="setup-actions"><AppButton Label="Save and check again" StartIcon="@Icons.Material.Outlined.Refresh" Loading="@Busy" OnClick="SaveStorageLocations" /></div>
+                <div class="setup-actions"><AppButton Label="Save and check again" StartIcon="@Icons.Material.Outlined.Refresh" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@Busy" OnClick="SaveStorageLocations" /></div>
             </div>
         }
         <div class="setup-actions setup-actions--secondary"><AppButton Label="Run checks again" StartIcon="@Icons.Material.Outlined.Refresh" ButtonStyle="AppButtonStyle.Text" Loading="@Busy" OnClick="Retry" /></div>

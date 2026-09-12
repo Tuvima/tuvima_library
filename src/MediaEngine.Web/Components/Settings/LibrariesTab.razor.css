@@ -48,7 +48,7 @@
 .library-detail__folder-editor > * {min-width:0}
 .library-detail__folder-path {display:flex;gap:12px;align-items:center;min-width:0}
 .library-detail__folder-path span {min-width:0}
-.library-detail__folder-path code {display:block;overflow-wrap:anywhere;font-size:11px;color:var(--tl-text-muted);margin-top:4px}
+.library-detail__folder-path code {display:block;overflow-wrap:anywhere;font-size: var(--tl-font-size-xs);color:var(--tl-text-muted);margin-top:4px}
 .library-detail__folder-actions {display:flex;align-items:center}
 .library-detail__organization-options {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
 ::deep .library-detail__organization-option {display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:14px;width:100%;text-align:left;padding:16px;border:1px solid var(--tl-border-subtle);border-radius:10px;background:transparent;color:var(--tl-text-primary);font:inherit}

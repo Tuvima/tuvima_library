@@ -48,7 +48,7 @@
 .media-section-shell__rail-label {
     margin: 0;
     color: rgba(203, 213, 225, 0.48);
-    font-size: 0.68rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
     letter-spacing: 0.13em;
     text-transform: uppercase;
@@ -237,7 +237,7 @@
     border: 1px solid rgba(168, 85, 247, 0.3);
     border-radius: 999px;
     background: rgba(126, 34, 206, 0.14);
-    font-size: 0.58rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -261,7 +261,7 @@
 .media-section-shell__swipe-actions ::deep button {
     border: 0;
     color: white;
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
 }
 
@@ -314,7 +314,7 @@
 
 .media-section-shell__rail-meta {
     color: rgba(203, 213, 225, 0.48);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
 }
 
 .media-section-shell__content {
@@ -391,7 +391,7 @@
     .media-section-shell__mobile-nav-label {
         padding: 0.45rem 0.7rem 0.25rem;
         color: rgba(203, 213, 225, 0.52);
-        font-size: 0.68rem;
+        font-size: var(--tl-font-size-xs);
         font-weight: 800;
         letter-spacing: 0.12em;
         text-transform: uppercase;

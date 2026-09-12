@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.MediaEditor
+@namespace MediaEngine.Web.Components.MediaEditor
 @using System.Globalization
 @using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components.Forms
@@ -83,27 +83,27 @@
                     <div class="sme-inline-header-actions">
                         @if (IsDirty)
                         {
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Inherit"
+                            <AppButton ButtonStyle="AppButtonStyle.Text"
+                                       Tone="AppUiTone.Neutral"
                                        Class="sme-inline-reset"
                                        OnClick="ResetEditorChanges">
                                 Reset changes
                             </AppButton>
                         }
-                        <AppButton Variant="Variant.Outlined"
-                                   Color="Color.Inherit"
+                        <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                                   Tone="AppUiTone.Neutral"
                                    OnClick="HandleClose">
                             Cancel
                         </AppButton>
-                        <AppButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
+                        <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                   Tone="AppUiTone.Primary"
                                    Disabled="@(!IsDirty || _saving)"
                                    OnClick="SaveAsync">
                             @(_saving ? "Saving..." : "Save Changes")
                         </AppButton>
                         <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                                       Size="Size.Small"
-                                       Color="Color.Inherit"
+                                       Size="AppControlSize.Compact"
+                                       Tone="AppUiTone.Neutral"
                                        Class="sme-close sme-close--inline"
                                        Tooltip="Close editor"
                                        AriaLabel="Close editor"
@@ -115,8 +115,8 @@
                     <div class="sme-header-actions">
                         <AppMediaTypeSelect Value="@_selectedMediaType"
                                             ValueChanged="OnSelectedMediaTypeChanged" />
-                        <AppButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
+                        <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                   Tone="AppUiTone.Primary"
                                    Class="sme-header-type-action"
                                    Disabled="@_reclassifying"
                                    OnClick="ReclassifyMediaTypeAsync">
@@ -128,8 +128,8 @@
                 @if (!Inline)
                 {
                     <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                                   Size="Size.Small"
-                                   Color="Color.Inherit"
+                                   Size="AppControlSize.Compact"
+                                   Tone="AppUiTone.Neutral"
                                    Class="sme-close"
                                    Tooltip="Close editor"
                                    AriaLabel="Close editor"
@@ -160,8 +160,8 @@
                     </div>
                     @if (_saveConflict)
                     {
-                        <AppButton Variant="Variant.Outlined"
-                                   Color="Color.Inherit"
+                        <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                                   Tone="AppUiTone.Neutral"
                                    OnClick="ReloadAfterSaveConflictAsync">
                             Reload values
                         </AppButton>
@@ -177,10 +177,10 @@
                         <strong>Discard unsaved changes?</strong>
                         <span>Your edits will be lost and the unchanged detail page will return.</span>
                     </div>
-                    <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => _confirmDiscard = false)">
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="@(() => _confirmDiscard = false)">
                         Keep Editing
                     </AppButton>
-                    <AppButton Variant="Variant.Filled" Color="Color.Error" OnClick="DiscardAndClose">
+                    <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Error" OnClick="DiscardAndClose">
                         Discard
                     </AppButton>
                 </div>
@@ -194,11 +194,11 @@
                         <strong>Confirm structural change</strong>
                         <span>@_pendingMembershipPreview.Message</span>
                     </div>
-                    <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="@(() => _pendingMembershipPreview = null)">
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="@(() => _pendingMembershipPreview = null)">
                         Keep Editing
                     </AppButton>
-                    <AppButton Variant="Variant.Filled"
-                               Color="Color.Primary"
+                    <AppButton ButtonStyle="AppButtonStyle.Filled"
+                               Tone="AppUiTone.Primary"
                                Disabled="@_saving"
                                OnClick="ConfirmMembershipMoveAsync">
                         Save and Move
@@ -214,13 +214,13 @@
                         <strong>Save changes before editing @PendingTargetSwitchTitle?</strong>
                         <span>Choose what to do with the changes on @HeaderTitle.</span>
                     </div>
-                    <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="KeepEditingCurrentTarget">
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="KeepEditingCurrentTarget">
                         Stay here
                     </AppButton>
-                    <AppButton Variant="Variant.Outlined" Color="Color.Error" OnClick="DiscardAndSwitchTargetAsync">
+                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Error" OnClick="DiscardAndSwitchTargetAsync">
                         Discard and switch
                     </AppButton>
-                    <AppButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_saving" OnClick="SaveAndSwitchTargetAsync">
+                    <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@_saving" OnClick="SaveAndSwitchTargetAsync">
                         @(_saving ? "Saving..." : "Save and switch")
                     </AppButton>
                 </div>
@@ -230,8 +230,8 @@
             {
                 <nav class="sme-context-navigator" aria-label="Edit context">
                     <span class="sme-context-navigator__label">Edit context</span>
-                    <AppButton Variant="Variant.Text"
-                               Color="Color.Inherit"
+                    <AppButton ButtonStyle="AppButtonStyle.Text"
+                               Tone="AppUiTone.Neutral"
                                Class="@(SelectedNavigatorNode?.Depth == 0 ? "sme-context-root is-active" : "sme-context-root")"
                                OnClick="SelectContextRootAsync">
                         <span>@NavigatorRootNode!.Label</span>
@@ -268,8 +268,8 @@
                     {
                         var tabIndex = index;
                         var tab = Tabs[index];
-                        <AppButton Variant="Variant.Text"
-                                   Color="Color.Inherit"
+                        <AppButton ButtonStyle="AppButtonStyle.Text"
+                                   Tone="AppUiTone.Neutral"
                                    Class="@GetSectionNavClass(tab.Id)"
                                    aria-current="@(string.Equals(tab.Id, _activeTab, StringComparison.OrdinalIgnoreCase) ? "page" : null)"
                                    Disabled="@IsTabDisabled(tab.Id)"
@@ -283,8 +283,8 @@
                                 @foreach (var slotItem in ArtworkSlots)
                                 {
                                     var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
-                                    <AppButton Variant="Variant.Text"
-                                               Color="Color.Inherit"
+                                    <AppButton ButtonStyle="AppButtonStyle.Text"
+                                               Tone="AppUiTone.Neutral"
                                                Class="@(isSelectedSlot ? "app-selection-nav__item sme-section-nav__nested-item is-active" : "app-selection-nav__item sme-section-nav__nested-item")"
                                                aria-current="@(isSelectedSlot ? "page" : null)"
                                                OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
@@ -299,8 +299,8 @@
                     @if (IsSingleItem)
                     {
                         <div class="sme-section-nav__footer">
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Inherit"
+                            <AppButton ButtonStyle="AppButtonStyle.Text"
+                                       Tone="AppUiTone.Neutral"
                                        StartIcon="@Icons.Material.Outlined.Sync"
                                        Class="sme-section-nav__refresh"
                                        Disabled="@(_refreshQueueing || (_refreshSchedule?.Status.Equals("Queued", StringComparison.OrdinalIgnoreCase) ?? false))"
@@ -340,8 +340,8 @@
                             {
                                 <div class="sme-inherited-capability">
                                     <span>Artwork inherited from <strong>@InheritedArtworkOwnerScope.DisplayTitle</strong></span>
-                                    <AppButton Variant="Variant.Text"
-                                               Color="Color.Inherit"
+                                    <AppButton ButtonStyle="AppButtonStyle.Text"
+                                               Tone="AppUiTone.Neutral"
                                                OnClick="EditInheritedArtworkOwnerAsync">
                                         Edit @InheritedArtworkOwnerScope.Label.ToLowerInvariant() artwork
                                     </AppButton>
@@ -365,7 +365,7 @@
                                                       AutoFocus="@IsInlineFieldAutoFocus(field.Key)"
                                                       ActionIcon="@GetInlineFieldActionIcon(field.Key)"
                                                       ActionLabel="@GetInlineFieldActionLabel(field.Key, field.Label)"
-                                                      ActionColor="@GetInlineFieldActionColor(field.Key)"
+                                                      ActionTone="@GetInlineFieldActionTone(field.Key)"
                                                       OnAction="@(() => HandleInlineFieldActionAsync(field.Key, field.Label))"
                                                       ConfirmingAction="@IsInlineFieldConfirmingRevert(field.Key)"
                                                       ConfirmLabel="@($"Remove local override for {field.Label}")"
@@ -425,8 +425,8 @@
                                                                      HelpText="@GetParentPositionHelp(field.Key)" />
                                                     @if (CanSearchRetailMembership(field.Key))
                                                     {
-                                                        <AppButton Variant="Variant.Text"
-                                                                   Color="Color.Inherit"
+                                                        <AppButton ButtonStyle="AppButtonStyle.Text"
+                                                                   Tone="AppUiTone.Neutral"
                                                                    Class="sme-parent-position-search"
                                                                    OnClick="@(() => SearchRetailMembershipAsync(field.Key))">
                                                             Search outside this parent
@@ -437,8 +437,8 @@
                                                         <div class="sme-membership-suggestions" role="listbox" aria-label="@($"Suggestions for {field.Label}")">
                                                             @foreach (var suggestion in GetMembershipSuggestions(field.Key))
                                                             {
-                                                                <AppButton Variant="Variant.Text"
-                                                                           Color="Color.Inherit"
+                                                                <AppButton ButtonStyle="AppButtonStyle.Text"
+                                                                           Tone="AppUiTone.Neutral"
                                                                            FullWidth="true"
                                                                            Class="sme-membership-suggestion"
                                                                            OnClick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
@@ -665,8 +665,8 @@
                                 {
                                     var collapsed = IsContentGroupCollapsed(group);
                                     <div class="sme-content-group @(collapsed ? "is-collapsed" : string.Empty)">
-                                        <AppButton Variant="Variant.Text"
-                                                   Color="Color.Inherit"
+                                        <AppButton ButtonStyle="AppButtonStyle.Text"
+                                                   Tone="AppUiTone.Neutral"
                                                    FullWidth="true"
                                                    Class="sme-content-group-header"
                                                    UserAttributes="@GetContentGroupHeaderAttributes(collapsed)"
@@ -694,8 +694,8 @@
                                                     var item = entry.node;
                                                     var ordinal = GetContentOrdinalLabel(item, entry.index);
                                                     var meta = GetContentRowMeta(item);
-                                                    <AppButton Variant="Variant.Text"
-                                                               Color="Color.Inherit"
+                                                    <AppButton ButtonStyle="AppButtonStyle.Text"
+                                                               Tone="AppUiTone.Neutral"
                                                                FullWidth="true"
                                                                Disabled="@(!item.CanSelectAsEditorTarget)"
                                                                Class='@($"sme-content-item {(IsContentNodeSelected(item) ? "is-active" : string.Empty)} {(item.IsOwned ? "is-owned" : "is-missing")} {(item.IsClickable ? "is-clickable" : "is-disabled")}")'
@@ -841,8 +841,8 @@
                                         {
                                             <div class="sme-inherited-capability">
                                                 <span>Inherited from <strong>@CanonicalIdentityOwnerScope.DisplayTitle</strong></span>
-                                                <AppButton Variant="Variant.Text"
-                                                           Color="Color.Inherit"
+                                                <AppButton ButtonStyle="AppButtonStyle.Text"
+                                                           Tone="AppUiTone.Neutral"
                                                            OnClick="EditCanonicalIdentityOwnerAsync">
                                                     Edit @CanonicalIdentityOwnerScope.Label.ToLowerInvariant() identity
                                                 </AppButton>
@@ -898,8 +898,8 @@
                                                           Class="sme-text-input" />
                                             @if (IsActiveMatchSearchPending)
                                             {
-                                                <AppButton Variant="Variant.Outlined"
-                                                           Color="Color.Inherit"
+                                                <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                                                           Tone="AppUiTone.Neutral"
                                                            Class="sme-inline-btn"
                                                            StartIcon="@Icons.Material.Outlined.Sync"
                                                            OnClick="CancelActiveMatchSearch">
@@ -908,8 +908,8 @@
                                             }
                                             else
                                             {
-                                                <AppButton Variant="Variant.Filled"
-                                                           Color="Color.Primary"
+                                                <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                                           Tone="AppUiTone.Primary"
                                                            Class="sme-inline-btn sme-inline-btn--primary"
                                                            StartIcon="@Icons.Material.Outlined.Search"
                                                            OnClick="SearchCanonicalAsync">
@@ -1005,8 +1005,8 @@
                                                             </div>
                                                             @if (isSelected)
                                                             {
-                                                                <AppButton Variant="Variant.Filled"
-                                                                           Color="Color.Primary"
+                                                                <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                                                           Tone="AppUiTone.Primary"
                                                                            Class="sme-match-use-action"
                                                                            Disabled="@(!CanApplyLinkedCandidate(candidate))"
                                                                            OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
@@ -1067,15 +1067,15 @@
                                                     </div>
                                                 }
                                                 <div class="sme-file-actions">
-                                                    <AppButton Variant="Variant.Outlined"
-                                                               Color="Color.Inherit"
+                                                    <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                                                               Tone="AppUiTone.Neutral"
                                                                Class="sme-inline-btn"
                                                                Disabled="@_matchActionPending"
                                                                OnClick="MarkWikidataMissingAsync">
                                                         Mark canonical identity missing
                                                     </AppButton>
-                                                    <AppButton Variant="Variant.Outlined"
-                                                               Color="Color.Inherit"
+                                                    <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                                                               Tone="AppUiTone.Neutral"
                                                                Class="sme-inline-btn"
                                                                Disabled="@_matchActionPending"
                                                                OnClick="ClearWikidataMatchAsync">
@@ -1133,8 +1133,8 @@
                                                             </div>
                                                             @if (isSelected)
                                                             {
-                                                                <AppButton Variant="Variant.Filled"
-                                                                           Color="Color.Primary"
+                                                                <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                                                           Tone="AppUiTone.Primary"
                                                                            Class="sme-match-use-action"
                                                                            Disabled="@(!CanApplyRetailCandidate(candidate))"
                                                                            OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
@@ -1308,8 +1308,8 @@
                                                 <div class="sme-artwork-readonly-actions">
                                                     @foreach (var scope in GetArtworkReadOnlySwitchTargets())
                                                     {
-                                                        <AppButton Variant="Variant.Outlined"
-                                                                   Color="Color.Inherit"
+                                                        <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                                                                   Tone="AppUiTone.Neutral"
                                                                    Class="sme-inline-btn"
                                                                    OnClick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
                                                             Edit @scope.Label.ToLowerInvariant() artwork
@@ -1337,7 +1337,7 @@
                                                     <p>Choose the preferred @slot.Label.ToLowerInvariant() or add a new image.</p>
                                                 </div>
                                                 <div class="sme-artwork-editor-actions">
-                                                    <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="sme-artwork-action-upload">
+                                                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="sme-artwork-action-upload">
                                                         Upload
                                                         <span class="sme-art-slot-input-shell">
                                                             <InputFile class="sme-art-slot-file-input"
@@ -1380,7 +1380,7 @@
                                                             {
                                                                 <div class="sme-artwork-image-actions">
                                                                     <AppIconButton Icon="@Icons.Material.Outlined.ZoomIn"
-                                                                                   Size="Size.Small"
+                                                                                   Size="AppControlSize.Compact"
                                                                                    Class="sme-artwork-image-action"
                                                                                    Tooltip="Preview artwork"
                                                                                    AriaLabel="Preview artwork"
@@ -1388,7 +1388,7 @@
                                                                     @if (focusedItem.VariantId != Guid.Empty && focusedItem.CanDelete)
                                                                     {
                                                                     <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
-                                                                                   Size="Size.Small"
+                                                                                   Size="AppControlSize.Compact"
                                                                                    Tone="AppUiTone.Error"
                                                                                    Class="sme-artwork-image-action sme-artwork-image-action--delete"
                                                                                    Tooltip="@GetArtworkRemovalLabel(focusedItem)"
@@ -1403,14 +1403,14 @@
                                                                      role="group"
                                                                      aria-label="@GetArtworkRemovalQuestion(focusedItem)">
                                                                     <AppIconButton Icon="@Icons.Material.Outlined.Check"
-                                                                                   Size="Size.Small"
+                                                                                   Size="AppControlSize.Compact"
                                                                                    Tone="AppUiTone.Error"
                                                                                    Class="sme-artwork-delete-confirm__action sme-artwork-delete-confirm__action--accept"
                                                                                    Tooltip="@GetArtworkRemovalConfirmLabel(focusedItem)"
                                                                                    AriaLabel="@GetArtworkRemovalConfirmLabel(focusedItem)"
                                                                                    OnClick="@(() => ConfirmArtworkDeleteAsync(focusedItem))" />
                                                                     <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                                                                                   Size="Size.Small"
+                                                                                   Size="AppControlSize.Compact"
                                                                                    Class="sme-artwork-delete-confirm__action sme-artwork-delete-confirm__action--cancel"
                                                                                    Tooltip="Cancel"
                                                                                    AriaLabel="Cancel artwork removal"
@@ -1439,7 +1439,7 @@
                                                     <MudIcon Icon="@Icons.Material.Outlined.Add" />
                                                     <strong>Add artwork</strong>
                                                     <span>Upload or link a new @slot.Label.ToLowerInvariant() image.</span>
-                                                    <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="sme-artwork-action-upload">
+                                                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="sme-artwork-action-upload">
                                                         Upload file
                                                         <span class="sme-art-slot-input-shell">
                                                             <InputFile class="sme-art-slot-file-input"
@@ -1464,8 +1464,8 @@
                                                                   Immediate="true"
                                                                   Class="sme-text-input" />
                                                     <div class="sme-artwork-import-url-actions">
-                                                        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="ToggleArtworkUrlInput">Cancel</AppButton>
-                                                        <AppButton Variant="Variant.Filled" Color="Color.Primary" Class="sme-inline-btn sme-inline-btn--primary" Disabled="@(_artworkUrlSubmitting || string.IsNullOrWhiteSpace(_artworkUrlInput))" OnClick="ApplyArtworkUrlAsync">Add</AppButton>
+                                                        <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" Class="sme-inline-btn" OnClick="ToggleArtworkUrlInput">Cancel</AppButton>
+                                                        <AppButton ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Class="sme-inline-btn sme-inline-btn--primary" Disabled="@(_artworkUrlSubmitting || string.IsNullOrWhiteSpace(_artworkUrlInput))" OnClick="ApplyArtworkUrlAsync">Add</AppButton>
                                                     </div>
                                                 </div>
                                             }
@@ -1474,10 +1474,10 @@
                                             {
                                                 <div class="sme-artwork-import-status">
                                                     <span>@GetPendingArtworkFileName(slot.AssetType)</span>
-                                                    <AppButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => ClearArtworkSelection(slot.AssetType))">Clear</AppButton>
+                                                    <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" Class="sme-inline-btn" OnClick="@(() => ClearArtworkSelection(slot.AssetType))">Clear</AppButton>
                                                     @if (HasArtworkUploadError(slot.AssetType))
                                                     {
-                                                        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" Class="sme-inline-btn" OnClick="@(() => RetryArtworkUploadAsync(slot.AssetType))">Retry Upload</AppButton>
+                                                        <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Neutral" Class="sme-inline-btn" OnClick="@(() => RetryArtworkUploadAsync(slot.AssetType))">Retry Upload</AppButton>
                                                     }
                                                 </div>
                                             }
@@ -1893,14 +1893,14 @@
                 @if (_confirmDiscard)
                 {
                     <div class="sme-discard-warning">Discard unsaved changes?</div>
-                    <AppButton Variant="Variant.Text"
-                               Color="Color.Inherit"
+                    <AppButton ButtonStyle="AppButtonStyle.Text"
+                               Tone="AppUiTone.Neutral"
                                Class="sme-footer-btn sme-footer-btn--ghost"
                                OnClick="@(() => _confirmDiscard = false)">
                         Keep Editing
                     </AppButton>
-                    <AppButton Variant="Variant.Filled"
-                               Color="Color.Error"
+                    <AppButton ButtonStyle="AppButtonStyle.Filled"
+                               Tone="AppUiTone.Error"
                                Class="sme-footer-btn sme-footer-btn--danger"
                                OnClick="DiscardAndClose">
                         Discard
@@ -1912,14 +1912,14 @@
                     @if (_pendingMembershipPreview is not null)
                     {
                         <div class="sme-footer-note">@_pendingMembershipPreview.Message</div>
-                        <AppButton Variant="Variant.Text"
-                                   Color="Color.Inherit"
+                        <AppButton ButtonStyle="AppButtonStyle.Text"
+                                   Tone="AppUiTone.Neutral"
                                    Class="sme-footer-btn sme-footer-btn--ghost"
                                    OnClick="@(() => _pendingMembershipPreview = null)">
                             Keep Editing
                         </AppButton>
-                        <AppButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
+                        <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                   Tone="AppUiTone.Primary"
                                    Class="sme-footer-btn sme-footer-btn--primary"
                                    OnClick="ConfirmMembershipMoveAsync"
                                    Disabled="@_saving">
@@ -1928,8 +1928,8 @@
                     }
                     else if (IsDirty)
                     {
-                        <AppButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
+                        <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                   Tone="AppUiTone.Primary"
                                    Class="sme-footer-btn sme-footer-btn--primary"
                                    OnClick="SaveAsync"
                                    Disabled="@_saving">
@@ -1942,8 +1942,8 @@
                     }
                     else if (Request.Mode == SharedMediaEditorMode.Review)
                     {
-                        <AppButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
+                        <AppButton ButtonStyle="AppButtonStyle.Filled"
+                                   Tone="AppUiTone.Primary"
                                    Class="sme-footer-btn sme-footer-btn--primary"
                                    OnClick="HandleReviewPrimaryActionAsync"
                                    Disabled="@_saving">

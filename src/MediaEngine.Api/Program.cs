@@ -9,6 +9,7 @@ using MediaEngine.Api.Realtime;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.HealthChecks;
+using MediaEngine.Contracts.Startup;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Authorization;
@@ -26,6 +27,13 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.ResponseCompression;
 using Serilog;
+
+using var processInstanceLease = ProcessInstanceLease.TryAcquire(ProcessInstanceLease.EngineLeaseName);
+if (!processInstanceLease.IsAcquired)
+{
+    Console.WriteLine("Tuvima Library Engine is already running; the duplicate launch will exit without replacing it.");
+    return;
+}
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddMemoryCache();
@@ -432,4 +440,13 @@ if (app.Environment.IsDevelopment())
 app.MapEngineEndpoints();
 app.MapDevelopmentEngineEndpoints();
 
-app.Run();
+try
+{
+    app.Run();
+}
+catch (IOException ex) when (StartupFailureClassifier.IsAddressAlreadyInUse(ex))
+{
+    Log.Error(ex, "Tuvima Library Engine could not start because one of its configured addresses is already in use");
+    Console.Error.WriteLine("Tuvima Library Engine could not start because ports 61494/61495 are already in use. Stop the process using those ports, then start Tuvima again.");
+    Environment.ExitCode = 98;
+}

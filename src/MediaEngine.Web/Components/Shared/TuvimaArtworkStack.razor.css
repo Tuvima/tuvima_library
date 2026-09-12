@@ -97,7 +97,7 @@
     align-items: center;
     justify-content: center;
     font-family: var(--font-ui);
-    font-size: .68rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 600;
     line-height: 1;
     color: rgba(248, 250, 252, .96);

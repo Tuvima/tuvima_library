@@ -5,12 +5,12 @@
 ::deep button:disabled { cursor: not-allowed; opacity: .58; }
 span { display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid currentColor; border-radius: 50%; background: var(--tl-bg-base); font-weight: 700; }
 small { overflow: hidden; max-width: 100%; text-overflow: ellipsis; white-space: nowrap; }
-em { color: var(--tl-text-muted); font-size: .68rem; font-style: normal; }
+em { color: var(--tl-text-muted); font-size: var(--tl-font-size-xs); font-style: normal; }
 .is-current, .is-complete { color: var(--tl-accent-primary); }
 .is-current span { border-color: color-mix(in srgb, var(--tl-accent-primary) 78%, white); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tl-accent-primary) 14%, transparent); }
 .is-blocked { color: var(--tl-error); }
 .is-deferred { color: var(--tl-warning); }
 @media (max-width: 700px) {
     .setup-stepper { width: 100%; overflow-x: auto; grid-template-columns: repeat(5, minmax(76px, 1fr)); padding-bottom: 4px; }
-    small { font-size: .7rem; }
+    small { font-size: var(--tl-font-size-xs); }
 }

@@ -7,7 +7,7 @@
 
 .view-feature-page__header span {
     color: var(--tl-accent-primary);
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
     letter-spacing: 0.13em;
     text-transform: uppercase;

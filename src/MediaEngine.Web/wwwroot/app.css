@@ -12,6 +12,20 @@
     font-display: swap;
 }
 
+@font-face {
+    font-family: 'Merriweather';
+    src: url('fonts/Merriweather-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'JetBrains Mono';
+    src: url('fonts/JetBrainsMono-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-display: swap;
+}
+
 /* -- Legacy layout rules. Theme variables are provided by tuvima.tokens.css
    and the final token alias block later in this file. ------------------- */
 
@@ -1296,7 +1310,7 @@ body {
 .settings-admin-panel .settings-plugin-list-item__chips span {
     padding: 2px 7px;
     color: var(--app-text-secondary);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     line-height: 1.2;
     border: 1px solid var(--tl-divider);
     border-radius: 999px;
@@ -1579,7 +1593,7 @@ body {
 
 .mud-badge {
     border-radius: var(--app-radius-sm) !important;
-    font-size: 11px !important;
+    font-size: var(--tl-font-size-xs) !important;
     font-weight: 600 !important;
     line-height: 1 !important;
 }
@@ -1607,7 +1621,7 @@ body {
     color: var(--app-text-muted) !important;
     background: rgba(39, 40, 50, 0.72) !important;
     border-bottom: 1px solid var(--app-border) !important;
-    font-size: 11px !important;
+    font-size: var(--tl-font-size-xs) !important;
     font-weight: 700 !important;
     line-height: 1.4 !important;
     letter-spacing: 0.02em !important;
@@ -1876,7 +1890,7 @@ body {
 .st-label {
     color: var(--app-text-muted);
     font-family: var(--app-font-sans);
-    font-size: 11px;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.02em;
 }
@@ -2540,7 +2554,7 @@ body,
 
 .tl-kicker {
     color: var(--tl-text-muted) !important;
-    font-size: 0.68rem !important;
+    font-size: var(--tl-font-size-xs) !important;
     font-weight: 700 !important;
     text-transform: uppercase !important;
     letter-spacing: 0.08em !important;
@@ -3245,7 +3259,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 
 .activity-entry-chip {
     height: 20px;
-    font-size: 0.7rem;
+    font-size: var(--tl-font-size-xs);
     opacity: 0.78;
 }
 
@@ -3286,7 +3300,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 }
 
 .tl-chip-muted {
-  font-size: 0.7rem;
+  font-size: var(--tl-font-size-xs);
   opacity: 0.8;
 }
 
@@ -3926,7 +3940,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
         grid-row: 2;
         grid-template-columns: 2.7rem minmax(0, 1fr) 2.7rem;
         gap: 6px;
-        font-size: 0.68rem;
+        font-size: var(--tl-font-size-xs);
     }
 
     .listen-player .listen-player__actions {
@@ -3976,6 +3990,12 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     padding-inline: var(--tl-control-padding-x) !important;
     font-weight: 700 !important;
     text-transform: none !important;
+}
+
+.app-button__spinner {
+    flex: 0 0 auto;
+    margin-right: var(--tl-space-2);
+    color: currentColor !important;
 }
 
 .app-button--ghost.mud-button-text {
@@ -4121,7 +4141,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .app-table th {
     color: var(--tl-text-muted);
     background: var(--tl-bg-surface-raised);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.02em;
     line-height: 1.35;
@@ -4556,19 +4576,12 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .tl-u-font-family-app-font-sans { font-family: var(--font-ui) !important; }
 .tl-u-font-family-jetbrains-mono-monospace { font-family: 'JetBrains Mono', monospace !important; }
 .tl-u-font-family-monospace { font-family: monospace !important; }
-.tl-u-font-size-0-65rem { font-size: 0.65rem !important; }
-.tl-u-font-size-0-68rem { font-size: 0.68rem !important; }
-.tl-u-font-size-0-6rem { font-size: 0.6rem !important; }
-.tl-u-font-size-0-70rem { font-size: 0.70rem !important; }
-.tl-u-font-size-0-72rem { font-size: 0.72rem !important; }
+.tl-u-font-size-xs { font-size: var(--tl-font-size-xs) !important; }
 .tl-u-font-size-0-75rem { font-size: 0.75rem !important; }
 .tl-u-font-size-0-78rem { font-size: 0.78rem !important; }
-.tl-u-font-size-0-7rem { font-size: 0.7rem !important; }
 .tl-u-font-size-0-85rem { font-size: 0.85rem !important; }
 .tl-u-font-size-0-8rem { font-size: 0.8rem !important; }
 .tl-u-font-size-0-9rem { font-size: 0.9rem !important; }
-.tl-u-font-size-10px { font-size: 10px !important; }
-.tl-u-font-size-11px { font-size: 11px !important; }
 .tl-u-font-size-1-1rem { font-size: 1.1rem !important; }
 .tl-u-font-size-12px { font-size: 12px !important; }
 .tl-u-font-size-1-2rem { font-size: 1.2rem !important; }
@@ -5182,7 +5195,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     padding: 0.36rem 0.46rem 0.2rem;
     color: var(--tl-text-muted);
     font-family: var(--font-ui);
-    font-size: 0.64rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 800;
     line-height: 1;
     letter-spacing: 0.08em;

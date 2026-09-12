@@ -47,7 +47,7 @@
                         </div>
                         @if (Definition.Groups.Count > 1)
                         {
-                            <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small"
+                            <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="AppControlSize.Compact"
                                            Tooltip="Remove group" AriaLabel="Remove rule group"
                                            OnClick="@(() => RemoveGroupAsync(capturedGroupIndex))" />
                         }
@@ -120,13 +120,13 @@
                                                       DebounceInterval="300" Class="app-dialog-field" />
                                     </div>
                                 }
-                                <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small"
+                                <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="AppControlSize.Compact"
                                                Tooltip="Remove condition" AriaLabel="Remove condition"
                                                OnClick="@(() => RemoveConditionAsync(group, capturedConditionIndex))" />
                             </div>
                         }
                     </div>
-                    <AppButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add"
+                    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Primary" StartIcon="@Icons.Material.Outlined.Add"
                                Class="collection-rule-builder__add-condition"
                                OnClick="@(() => OpenConditionPicker(group))">Add condition</AppButton>
 
@@ -163,7 +163,7 @@
                 </article>
             }
 
-            <AppButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add"
+            <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Primary" StartIcon="@Icons.Material.Outlined.Add"
                        Class="collection-rule-builder__add-group" OnClick="AddGroupAsync">Add group</AppButton>
 
             @if (Catalog.ShowSortControls)
@@ -180,7 +180,7 @@
                     </div>
                     @if (string.IsNullOrWhiteSpace(SecondarySortField))
                     {
-                        <AppButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add"
+                        <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Primary" StartIcon="@Icons.Material.Outlined.Add"
                                    Class="collection-rule-builder__add-secondary" OnClick="AddSecondarySortAsync">Add “Then by”</AppButton>
                     }
                     else
@@ -189,7 +189,7 @@
                             <span>Then by</span>
                             @RenderSortFieldSelect(SecondarySortField, OnSecondarySortFieldChangedAsync)
                             @RenderSortDirectionSelect(SecondarySortField, SecondarySortDirection ?? "asc", OnSecondarySortDirectionChangedAsync)
-                            <AppIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small"
+                            <AppIconButton Icon="@Icons.Material.Outlined.Close" Size="AppControlSize.Compact"
                                            Tooltip="Remove secondary sort" AriaLabel="Remove secondary sort"
                                            OnClick="RemoveSecondarySortAsync" />
                         </div>

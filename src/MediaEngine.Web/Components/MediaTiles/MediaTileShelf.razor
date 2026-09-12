@@ -29,7 +29,7 @@
                 @if (Shelf.Items.Count > 1 && !_atStart)
                 {
                     <AppIconButton Icon="@Icons.Material.Filled.ChevronLeft"
-                                   Color="Color.Inherit"
+                                   Tone="AppUiTone.Neutral"
                                    Class="media-tile-shelf-arrow media-tile-shelf-arrow-left"
                                    aria-label="Scroll left"
                                    OnClick="ScrollLeftAsync" />
@@ -73,7 +73,7 @@
                 @if (Shelf.Items.Count > 1 && !_atEnd)
                 {
                     <AppIconButton Icon="@Icons.Material.Filled.ChevronRight"
-                                   Color="Color.Inherit"
+                                   Tone="AppUiTone.Neutral"
                                    Class="media-tile-shelf-arrow media-tile-shelf-arrow-right"
                                    aria-label="Scroll right"
                                    OnClick="ScrollRightAsync" />

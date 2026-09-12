@@ -32,7 +32,7 @@
     padding: 0.12rem 0.38rem;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.08);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     text-align: center;
 }
 

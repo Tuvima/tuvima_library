@@ -1,4 +1,4 @@
-﻿@using MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Components.LibraryItems
 @using MediaEngine.Web.Components.MediaEditor
 @using MediaEngine.Web.Services.Playback
@@ -20,7 +20,7 @@
 else if (_work is null)
 {
     <AppAlert Severity="Severity.Warning" Class="mb-4">Book not found.</AppAlert>
-    <AppButton Variant="Variant.Text" Color="Color.Primary" OnClick="@(() => Nav.NavigateTo("/"))">
+    <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Primary" OnClick="@(() => Nav.NavigateTo("/"))">
         Back to Home
     </AppButton>
 }
@@ -204,7 +204,7 @@ else
                     @if (!string.IsNullOrEmpty(_work.FictionalUniverseQid))
                     {
                         <div class="book-detail-sidebar-item">
-                            <AppButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth
+                            <AppButton ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Primary" FullWidth
                                        StartIcon="@Icons.Material.Filled.AccountTree"
                                        OnClick="@(() => Nav.NavigateTo($"/universe/{_work.FictionalUniverseQid}/explore"))">
                                 Explore Universe

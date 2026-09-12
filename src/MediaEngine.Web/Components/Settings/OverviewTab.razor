@@ -24,17 +24,17 @@
             <MudText Typo="Typo.caption" Class="admin-overview-muted">Last updated @FormatClock(_lastUpdated)</MudText>
         </div>
         <div class="admin-overview-actions">
-            <AppButton Variant="Variant.Outlined"
-                       Size="Size.Small"
-                       Color="Color.Default"
+            <AppButton ButtonStyle="AppButtonStyle.Outlined"
+                       Size="AppControlSize.Compact"
+                       Tone="AppUiTone.Neutral"
                        StartIcon="@Icons.Material.Outlined.Refresh"
                        Disabled="@_loading"
                        OnClick="LoadAsync">
                 Refresh
             </AppButton>
-            <AppButton Variant="Variant.Filled"
-                       Size="Size.Small"
-                       Color="Color.Primary"
+            <AppButton ButtonStyle="AppButtonStyle.Filled"
+                       Size="AppControlSize.Compact"
+                       Tone="AppUiTone.Primary"
                        StartIcon="@Icons.Material.Outlined.PlayArrow"
                        Disabled="@(_loading || _startingIngestion || _currentRun.IsActive)"
                        OnClick="StartIngestionAsync">

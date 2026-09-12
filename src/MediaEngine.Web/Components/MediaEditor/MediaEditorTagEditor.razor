@@ -9,8 +9,8 @@
         @if (OnAction.HasDelegate)
         {
             <AppIconButton Icon="@ActionIcon"
-                           Size="Size.Small"
-                           Color="@(OverrideActive ? Color.Warning : Color.Default)"
+                           Size="AppControlSize.Compact"
+                           Tone="@(OverrideActive ? AppUiTone.Warning : AppUiTone.Neutral)"
                            AriaLabel="@ActionLabel"
                            Tooltip="@ActionLabel"
                            OnClick="OnAction" />
@@ -41,23 +41,23 @@
                           OnKeyDown="HandleKeyDownAsync"
                           Class="sme-tag-editor__input" />
             <AppIconButton Icon="@Icons.Material.Outlined.Check"
-                           Size="Size.Small"
-                           Color="Color.Primary"
+                           Size="AppControlSize.Compact"
+                           Tone="AppUiTone.Primary"
                            AriaLabel="Add tag"
                            Tooltip="Add tag"
                            Disabled="@Locked"
                            OnClick="AddAsync" />
             <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                           Size="Size.Small"
-                           Color="Color.Inherit"
+                           Size="AppControlSize.Compact"
+                           Tone="AppUiTone.Neutral"
                            AriaLabel="Cancel adding tag"
                            Tooltip="Cancel"
                            OnClick="Cancel" />
         }
         else
         {
-            <AppButton Variant="Variant.Text"
-                       Color="Color.Inherit"
+            <AppButton ButtonStyle="AppButtonStyle.Text"
+                       Tone="AppUiTone.Neutral"
                        StartIcon="@Icons.Material.Outlined.Add"
                        Class="sme-tag-editor__add"
                        Disabled="@Locked"
@@ -72,8 +72,8 @@
             @foreach (var suggestion in FilteredSuggestions)
             {
                 var capturedSuggestion = suggestion;
-                <AppButton Variant="Variant.Text"
-                           Color="Color.Inherit"
+                <AppButton ButtonStyle="AppButtonStyle.Text"
+                           Tone="AppUiTone.Neutral"
                            Class="sme-tag-editor__suggestion"
                            OnClick="@(() => CommitAsync(capturedSuggestion))">
                     @capturedSuggestion
@@ -85,8 +85,8 @@
     {
         <div class="sme-tag-editor__confirmation" role="alert">
             <span>@ConfirmLabel</span>
-            <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="OnCancelAction">@CancelLabel</AppButton>
-            <AppButton Variant="Variant.Text" Color="Color.Warning" OnClick="OnConfirmAction">Remove</AppButton>
+            <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Neutral" OnClick="OnCancelAction">@CancelLabel</AppButton>
+            <AppButton ButtonStyle="AppButtonStyle.Text" Tone="AppUiTone.Warning" OnClick="OnConfirmAction">Remove</AppButton>
         </div>
     }
     <small>@HelpText</small>

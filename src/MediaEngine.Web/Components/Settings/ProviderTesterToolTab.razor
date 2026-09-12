@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Domain
 @using MediaEngine.Domain.Constants
 @using MediaEngine.Domain.Enums
@@ -65,8 +65,8 @@
                 </AppSelect>
             </MudItem>
             <MudItem xs="12" sm="4" Class="d-flex align-center">
-                <AppButton Variant="Variant.Filled"
-                           Color="Color.Primary"
+                <AppButton ButtonStyle="AppButtonStyle.Filled"
+                           Tone="AppUiTone.Primary"
                            FullWidth="true"
                            OnClick="@RunSearch"
                            Disabled="@(_loading || !HasAnyFieldValue())"
@@ -191,10 +191,10 @@
                             <AppChip T="string" Size="Size.Small"
                                      Color="@GetScoreColor(result.Confidence)"
                                      Variant="Variant.Outlined"
-                                     Class="tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-0-7rem">
+                                     Class="tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-xs">
                                 @result.Confidence.ToString("F2")
                             </AppChip>
-                            <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-faint tl-u-margin-top-4px tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-0-65rem">
+                            <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-faint tl-u-margin-top-4px tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-xs">
                                 @result.Qid
                             </MudText>
                         </div>
@@ -246,7 +246,7 @@
                                     @foreach (var (key, val) in result.BridgeIds)
                                     {
                                         <AppChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                                 Class="tl-u-font-size-0-65rem tl-u-height-20px tl-u-color-tl-text-muted tl-u-border-color-rgba-255-255-255-0-1"
+                                                 Class="tl-u-font-size-xs tl-u-height-20px tl-u-color-tl-text-muted tl-u-border-color-rgba-255-255-255-0-1"
                                                  title="@val">
                                             @LibraryHelpers.FormatClaimKey(key)
                                         </AppChip>
@@ -256,19 +256,19 @@
                             @if (result.MatchScores is not null)
                             {
                                 <div class="d-flex flex-wrap gap-3">
-                                    <span class="tl-u-font-size-0-7rem">
+                                    <span class="tl-u-font-size-xs">
                                         <span class="tl-u-color-tl-text-muted">Title:</span>
                                         <span class="tl-u-color-tl-text-secondary">@result.MatchScores.TitleScore.ToString("F2")</span>
                                     </span>
-                                    <span class="tl-u-font-size-0-7rem">
+                                    <span class="tl-u-font-size-xs">
                                         <span class="tl-u-color-tl-text-muted">Author:</span>
                                         <span class="tl-u-color-tl-text-secondary">@result.MatchScores.AuthorScore.ToString("F2")</span>
                                     </span>
-                                    <span class="tl-u-font-size-0-7rem">
+                                    <span class="tl-u-font-size-xs">
                                         <span class="tl-u-color-tl-text-muted">Year:</span>
                                         <span class="tl-u-color-tl-text-secondary">@result.MatchScores.YearScore.ToString("F2")</span>
                                     </span>
-                                    <span class="tl-u-font-size-0-7rem">
+                                    <span class="tl-u-font-size-xs">
                                         <span class="tl-u-color-tl-text-muted">Composite:</span>
                                         <span class="tl-u-color-tl-text-secondary">@result.MatchScores.CompositeScore.ToString("F2")</span>
                                     </span>
@@ -380,19 +380,19 @@
                                          Size="Size.Small"
                                          Color="@GetScoreColor(result.CompositeScore)"
                                          Variant="Variant.Outlined"
-                                         Class="tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-0-7rem">
+                                         Class="tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-xs">
                                     @result.CompositeScore.ToString("F2")
                                 </AppChip>
                                 @if (result.Confidence > 0 && Math.Abs(result.Confidence - result.CompositeScore) > 0.01)
                                 {
-                                    <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-faint tl-u-margin-top-2px tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-0-6rem"
+                                    <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-faint tl-u-margin-top-2px tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-xs"
                                              title="Raw provider confidence score">
                                         raw: @result.Confidence.ToString("F2")
                                     </MudText>
                                 }
                                 @if (!string.IsNullOrEmpty(result.ProviderItemId))
                                 {
-                                    <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-faint tl-u-margin-top-2px tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-0-65rem">
+                                    <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-faint tl-u-margin-top-2px tl-u-font-family-jetbrains-mono-monospace tl-u-font-size-xs">
                                         @(result.ProviderItemId.Length > 20 ? result.ProviderItemId[..17] + "..." : result.ProviderItemId)
                                     </MudText>
                                 }
@@ -409,7 +409,7 @@
                                 @if (!string.IsNullOrEmpty(result.Description))
                                 {
                                     <div class="mb-3">
-                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-0-6rem tl-u-margin-bottom-4px">
+                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-xs tl-u-margin-bottom-4px">
                                             Description
                                         </MudText>
                                         <MudText Typo="Typo.body2" Class="tl-u-color-tl-text-secondary tl-u-font-size-0-8rem tl-u-line-height-1-5">
@@ -420,7 +420,7 @@
 
                                 @* Scores breakdown *@
                                 <div class="mb-3">
-                                    <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-0-6rem tl-u-margin-bottom-4px">
+                                    <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-xs tl-u-margin-bottom-4px">
                                         Scores
                                     </MudText>
                                     <div class="d-flex flex-wrap gap-3">
@@ -443,15 +443,15 @@
                                     @if (result.MatchScores is not null)
                                     {
                                         <div class="d-flex flex-wrap gap-3 mt-1">
-                                            <span class="tl-u-font-size-0-7rem">
+                                            <span class="tl-u-font-size-xs">
                                                 <span class="tl-u-color-tl-text-muted">Title:</span>
                                                 <span class="tl-u-color-tl-text-secondary tl-u-font-family-jetbrains-mono-monospace">@result.MatchScores.TitleScore.ToString("F2")</span>
                                             </span>
-                                            <span class="tl-u-font-size-0-7rem">
+                                            <span class="tl-u-font-size-xs">
                                                 <span class="tl-u-color-tl-text-muted">Author:</span>
                                                 <span class="tl-u-color-tl-text-secondary tl-u-font-family-jetbrains-mono-monospace">@result.MatchScores.AuthorScore.ToString("F2")</span>
                                             </span>
-                                            <span class="tl-u-font-size-0-7rem">
+                                            <span class="tl-u-font-size-xs">
                                                 <span class="tl-u-color-tl-text-muted">Year:</span>
                                                 <span class="tl-u-color-tl-text-secondary tl-u-font-family-jetbrains-mono-monospace">@result.MatchScores.YearScore.ToString("F2")</span>
                                             </span>
@@ -466,7 +466,7 @@
                                 @if (details.Count > 0)
                                 {
                                     <div class="mb-3">
-                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-0-6rem tl-u-margin-bottom-4px">
+                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-xs tl-u-margin-bottom-4px">
                                             Metadata
                                         </MudText>
                                         <div class="d-flex flex-wrap gap-3">
@@ -488,7 +488,7 @@
                                 @if (bridges.Count > 0)
                                 {
                                     <div class="mb-3">
-                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-0-6rem tl-u-margin-bottom-4px">
+                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-xs tl-u-margin-bottom-4px">
                                             Bridge IDs
                                         </MudText>
                                         <div class="d-flex flex-wrap gap-1">
@@ -497,7 +497,7 @@
                                                 <AppChip T="string"
                                                          Size="Size.Small"
                                                          Variant="Variant.Outlined"
-                                                         Class="tl-u-font-size-0-65rem tl-u-height-22px tl-u-color-tl-text-secondary tl-u-border-color-tl-border-default"
+                                                         Class="tl-u-font-size-xs tl-u-height-22px tl-u-color-tl-text-secondary tl-u-border-color-tl-border-default"
                                                          title="@val">
                                                     @label: @(val.Length > 30 ? val[..27] + "..." : val)
                                                 </AppChip>
@@ -510,13 +510,13 @@
                                 @if (result.ExtraFields.Count > 0)
                                 {
                                     <div class="mb-2">
-                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-0-6rem tl-u-margin-bottom-4px">
+                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-xs tl-u-margin-bottom-4px">
                                             Extra Fields
                                         </MudText>
                                         <div class="d-flex flex-wrap gap-3">
                                             @foreach (var (key, val) in result.ExtraFields.OrderBy(kv => kv.Key))
                                             {
-                                                <span class="tl-u-font-size-0-7rem">
+                                                <span class="tl-u-font-size-xs">
                                                     <span class="tl-u-color-tl-text-muted">@LibraryHelpers.FormatClaimKey(key):</span>
                                                     <span class="tl-u-color-tl-text-secondary">@(val.Length > 120 ? val[..117] + "..." : val)</span>
                                                 </span>
@@ -529,7 +529,7 @@
                                 @if (result.DescriptionFieldMatches is { Count: > 0 })
                                 {
                                     <div>
-                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-0-6rem tl-u-margin-bottom-4px">
+                                        <MudText Typo="Typo.caption" Class="tl-u-color-tl-text-muted tl-u-text-transform-uppercase tl-u-letter-spacing-0-5px tl-u-font-size-xs tl-u-margin-bottom-4px">
                                             Description Field Matches
                                         </MudText>
                                         <div class="d-flex flex-wrap gap-2">
@@ -538,7 +538,7 @@
                                                 <AppChip T="string"
                                                          Size="Size.Small"
                                                          Variant="Variant.Outlined"
-                                                         Css="@($"font-size: 0.65rem; height: 22px; color: {(fm.Matched ? "#4CAF50" : "var(--tl-text-muted)")}; border-color: {(fm.Matched ? "var(--tl-status-success-border)" : "var(--tl-border-subtle)")};")">
+                                                         Css="@($"font-size: var(--tl-font-size-xs); height: 22px; color: {(fm.Matched ? "#4CAF50" : "var(--tl-text-muted)")}; border-color: {(fm.Matched ? "var(--tl-status-success-border)" : "var(--tl-border-subtle)")};")">
                                                     @LibraryHelpers.FormatClaimKey(fm.FieldKey)
                                                     @(fm.Matched ? " \u2713" : " \u2717")
                                                 </AppChip>

@@ -71,7 +71,7 @@
 .layout-shell__intent-dock-link span {
     max-width: 100%;
     overflow: hidden;
-    font-size: .64rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     line-height: 1;
     text-overflow: ellipsis;

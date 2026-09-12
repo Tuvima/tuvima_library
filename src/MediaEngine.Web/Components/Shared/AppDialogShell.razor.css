@@ -85,7 +85,7 @@
 .app-dialog-shell__eyebrow {
     margin-bottom: 4px;
     color: rgba(255, 255, 255, 0.54);
-    font-size: 0.72rem;
+    font-size: var(--tl-font-size-xs);
     font-weight: 700;
     letter-spacing: 0.1em;
     text-transform: uppercase;

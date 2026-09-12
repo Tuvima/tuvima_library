@@ -4,6 +4,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using MediaEngine.Domain.Models;
+using MediaEngine.Contracts.Startup;
 using MediaEngine.Web.Components;
 using MediaEngine.Web.Endpoints;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -27,6 +28,13 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting.WindowsServices;
 using MudBlazor.Services;
+
+using var processInstanceLease = ProcessInstanceLease.TryAcquire(ProcessInstanceLease.DashboardLeaseName);
+if (!processInstanceLease.IsAcquired)
+{
+    Console.WriteLine("Tuvima Library Dashboard is already running; the duplicate launch will exit without replacing it.");
+    return;
+}
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHttpContextAccessor();
@@ -409,7 +417,16 @@ app.MapStaticAssets().AllowAnonymous();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-app.Run();
+try
+{
+    app.Run();
+}
+catch (IOException ex) when (StartupFailureClassifier.IsAddressAlreadyInUse(ex))
+{
+    app.Logger.LogError(ex, "Tuvima Library Dashboard could not start because one of its configured addresses is already in use");
+    Console.Error.WriteLine("Tuvima Library Dashboard could not start because port 5016 is already in use. Stop the process using that port, then start Tuvima again.");
+    Environment.ExitCode = 98;
+}
 
 static async Task ProxyEngineStreamAsync(
     Guid assetId,
