@@ -338,6 +338,7 @@ public sealed class UnifiedDetailComponentTests
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor");
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var editor = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
 
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
@@ -350,14 +351,17 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-season-browser__strip", source);
         Assert.Contains("ArtworkSmallUrl", source);
         Assert.Contains("BackgroundArtworkUrl", source);
-        Assert.Contains("SeasonOwnedSummary", source);
-        Assert.Contains("Edit season artwork", source);
+        Assert.DoesNotContain("SeasonOwnedSummary", source);
+        Assert.DoesNotContain("Edit season artwork", source);
         Assert.DoesNotContain("Edit artwork for {season.Title}", source);
         Assert.DoesNotContain("tl-season-card__edit", source);
-        Assert.Contains("OnEditGroup", source);
-        Assert.Contains("OpenSeasonEditorAsync", detailPage);
-        Assert.Contains("InitialScope = \"season\"", detailPage);
-        Assert.Contains("InitialTab = \"artwork\"", detailPage);
+        Assert.DoesNotContain("OnEditGroup", source);
+        Assert.DoesNotContain("OpenSeasonEditorAsync", detailPage);
+        Assert.Contains("SeasonPosterArtworkSlot", editor);
+        Assert.Contains("(\"TV\", \"season\", true)", editor);
+        Assert.Contains("tl-season-toggle__chevron", source);
+        Assert.Contains("Icons.Material.Outlined.ExpandMore", source);
+        Assert.Contains("SeasonCountSummary", source);
         Assert.Contains("item.Route", source);
         Assert.Contains("CurrentActiveTab is \"episodes\"", detailPage);
         Assert.Contains("SequencePlacementPanel", detailPage);
@@ -370,12 +374,14 @@ public sealed class UnifiedDetailComponentTests
     {
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor.css");
 
-        Assert.Contains("grid-auto-columns: clamp(10rem, 13vw, 12.5rem)", styles);
-        Assert.Contains("padding: 0.45rem 0.45rem 0.35rem", styles);
+        Assert.Contains("grid-auto-columns: clamp(11.5rem, 15vw, 14rem)", styles);
+        Assert.Contains("justify-content: safe center", styles);
+        Assert.Contains("padding: 0.25rem 0.45rem 0.15rem", styles);
         Assert.Contains(".tl-series-detail.is-season-container .tl-series-detail__ownership", styles);
         Assert.Contains("min-height: 1.65rem", styles);
         Assert.Contains("padding-top: 0.15rem", styles);
         Assert.DoesNotContain(".tl-season-card__edit", styles);
+        Assert.DoesNotContain(".tl-series-detail__edit-season", styles);
     }
 
     [Fact]

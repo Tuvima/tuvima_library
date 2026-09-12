@@ -36,9 +36,7 @@
                 <DetailPrimaryModule Model="Model"
                                      Embedded="true"
                                      OnContainerSelected="HandleContainerSelectedAsync"
-                                     OnEditItem="OpenEpisodeEditorAsync"
-                                     OnEditGroup="OpenSeasonEditorAsync"
-                                     CanEditGroup="CanEditMedia" />
+                                     OnEditItem="OpenEpisodeEditorAsync" />
             }
 
             @if (ShowDetailNavigation)
@@ -57,9 +55,7 @@
             <DetailPrimaryModule Model="Model"
                                  Embedded="false"
                                  OnContainerSelected="HandleContainerSelectedAsync"
-                                 OnEditItem="OpenEpisodeEditorAsync"
-                                 OnEditGroup="OpenSeasonEditorAsync"
-                                 CanEditGroup="CanEditMedia" />
+                                 OnEditItem="OpenEpisodeEditorAsync" />
             </section>
         }
 
@@ -84,9 +80,7 @@
                     <SequencePlacementPanel Placement="Model.SequencePlacement"
                                             DetailSurface="true"
                                             OnContainerSelected="HandleContainerSelectedAsync"
-                                            OnEditItem="OpenEpisodeEditorAsync"
-                                            OnEditGroup="OpenSeasonEditorAsync"
-                                            CanEditGroup="CanEditMedia" />
+                                            OnEditItem="OpenEpisodeEditorAsync" />
                 }
                 else
                 {
@@ -104,9 +98,7 @@
                     <SequencePlacementPanel Placement="Model.SequencePlacement"
                                             DetailSurface="true"
                                             OnContainerSelected="HandleContainerSelectedAsync"
-                                            OnEditItem="OpenEpisodeEditorAsync"
-                                            OnEditGroup="OpenSeasonEditorAsync"
-                                            CanEditGroup="CanEditMedia" />
+                                            OnEditItem="OpenEpisodeEditorAsync" />
                 }
                 else
                 {
@@ -120,9 +112,7 @@
                     <SequencePlacementPanel Placement="Model.SequencePlacement"
                                             DetailSurface="true"
                                             OnContainerSelected="HandleContainerSelectedAsync"
-                                            OnEditItem="OpenEpisodeEditorAsync"
-                                            OnEditGroup="OpenSeasonEditorAsync"
-                                            CanEditGroup="CanEditMedia" />
+                                            OnEditItem="OpenEpisodeEditorAsync" />
                 }
                 else
                 {
@@ -477,58 +467,6 @@
         catch (Exception ex)
         {
             Snackbar.Add($"Episode editor could not open: {ex.Message}", Severity.Error);
-        }
-    }
-
-    private async Task OpenSeasonEditorAsync(SequenceGroupViewModel season)
-    {
-        if (Model is null
-            || !CanEditMedia
-            || !Guid.TryParse(season.EntityId, out var seasonWorkId))
-        {
-            return;
-        }
-
-        try
-        {
-            var activeProfile = await Orchestrator.GetActiveProfileAsync();
-            var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
-            {
-                EntityIds = [seasonWorkId],
-                LaunchEntityId = seasonWorkId,
-                LaunchEntityKind = "Work",
-                ContainerMode = "Canonical",
-                ActiveProfileId = activeProfile?.Id,
-                InitialSequencePlacement = Model.SequencePlacement,
-                Mode = SharedMediaEditorMode.Normal,
-                InitialTab = "artwork",
-                InitialScope = "season",
-                MediaType = "TV",
-                HeaderTitle = season.Title,
-                HeaderSubtitle = Model.Title,
-                CoverUrl = season.ArtworkUrl ?? season.ArtworkSmallUrl,
-                OnArtworkChanged = RefreshAfterEditorArtworkChangeAsync,
-                PreviewItems =
-                [
-                    new MediaEditorPreviewItem
-                    {
-                        EntityId = seasonWorkId,
-                        Title = season.Title,
-                        CoverUrl = season.ArtworkUrl ?? season.ArtworkSmallUrl,
-                        MediaType = "TV",
-                    },
-                ],
-            });
-
-            if (applied)
-            {
-                await RefreshCurrentDetailAsync();
-                Snackbar.Add("Season artwork updated.", Severity.Success);
-            }
-        }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Season editor could not open: {ex.Message}", Severity.Error);
         }
     }
 

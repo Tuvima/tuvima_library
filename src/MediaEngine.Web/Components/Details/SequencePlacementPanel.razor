@@ -77,7 +77,10 @@
                                         <span>@SeasonShortLabel(ActiveGroup)</span>
                                     }
                                 </span>
-                                <span>@(ActiveGroup?.Title ?? "Season")</span>
+                                <span class="tl-season-toggle__label">@(ActiveGroup?.Title ?? "Season")</span>
+                                <MudIcon Class="tl-season-toggle__chevron"
+                                         Icon="@Icons.Material.Outlined.ExpandMore"
+                                         Size="Size.Small" />
                             </AppNativeButton>
                         }
                         else
@@ -95,16 +98,6 @@
             </div>
 
             <div class="tl-series-detail__utilities">
-                @if (CanEditActiveSeason)
-                {
-                    <AppButton Variant="Variant.Text"
-                               Color="Color.Inherit"
-                               Class="tl-series-detail__edit-season"
-                               OnClick="EditActiveSeasonAsync">
-                        <MudIcon Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" />
-                        <span>Edit season artwork</span>
-                    </AppButton>
-                }
                 @if (CanShowMissingToggle)
                 {
                     <div class="tl-series-detail__missing">
@@ -200,7 +193,6 @@
                         }
                     </span>
                     <strong>@season.Title</strong>
-                    <small>@SeasonOwnedSummary(season)</small>
                 </AppNativeButton>
             }
         </div>
@@ -267,27 +259,37 @@
         </AppNativeButton>
     }
 
-    <footer class="tl-series-detail__ownership"
-            aria-label="@OwnershipSummaryLabel">
-        <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
-        <strong>@OwnedCount owned</strong>
-        @if (ShowCoverageBar)
-        {
-            <span class="tl-series-detail__ownership-separator" aria-hidden="true"></span>
-            <span>@MissingCount missing</span>
-            <span class="tl-series-detail__ownership-progress"
-                  role="progressbar"
-                  aria-label="@OwnershipSummaryLabel"
-                  aria-valuemin="0"
-                  aria-valuemax="@TotalItems"
-                  aria-valuenow="@OwnedCount">
-                <AppCssElement Tag="span"
-                               Class="tl-series-detail__ownership-progress-fill"
-                               Css="@OwnershipProgressStyle" />
-            </span>
-            <span>@TotalItems total</span>
-        }
-    </footer>
+    @if (_seasonBrowserOpen && IsSeasonContainer)
+    {
+        <footer class="tl-series-detail__ownership tl-series-detail__season-count"
+                aria-label="@SeasonCountSummary">
+            <span>@SeasonCountSummary</span>
+        </footer>
+    }
+    else
+    {
+        <footer class="tl-series-detail__ownership"
+                aria-label="@OwnershipSummaryLabel">
+            <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
+            <strong>@OwnedCount owned</strong>
+            @if (ShowCoverageBar)
+            {
+                <span class="tl-series-detail__ownership-separator" aria-hidden="true"></span>
+                <span>@MissingCount missing</span>
+                <span class="tl-series-detail__ownership-progress"
+                      role="progressbar"
+                      aria-label="@OwnershipSummaryLabel"
+                      aria-valuemin="0"
+                      aria-valuemax="@TotalItems"
+                      aria-valuenow="@OwnedCount">
+                    <AppCssElement Tag="span"
+                                   Class="tl-series-detail__ownership-progress-fill"
+                                   Css="@OwnershipProgressStyle" />
+                </span>
+                <span>@TotalItems total</span>
+            }
+        </footer>
+    }
 </section>
 }
 else
@@ -552,8 +554,6 @@ else
     [Parameter, EditorRequired] public SequencePlacementViewModel Placement { get; set; } = default!;
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
     [Parameter] public EventCallback<SequenceItemViewModel> OnEditItem { get; set; }
-    [Parameter] public EventCallback<SequenceGroupViewModel> OnEditGroup { get; set; }
-    [Parameter] public bool CanEditGroup { get; set; }
     [Parameter] public bool Compact { get; set; }
     [Parameter] public bool DetailSurface { get; set; }
 
@@ -668,8 +668,8 @@ else
         => SelectedGroupKey is null
             ? null
             : VisibleGroups.FirstOrDefault(group => group.Key == SelectedGroupKey);
-    private bool CanEditActiveSeason => ActiveGroup is { } season && CanEditSeason(season);
     private string SeasonToggleClass => $"tl-season-toggle{(_seasonBrowserOpen ? " is-open" : string.Empty)}";
+    private string SeasonCountSummary => $"{VisibleGroups.Count} {(VisibleGroups.Count == 1 ? "season" : "seasons")}";
     private string? SeasonAtmosphereStyle => string.IsNullOrWhiteSpace(ActiveGroup?.BackgroundArtworkUrl)
         ? null
         : $"--tl-season-atmosphere:url('{ActiveGroup.BackgroundArtworkUrl.Replace("'", "%27", StringComparison.Ordinal)}');";
@@ -960,28 +960,11 @@ else
     private Task PageSeasonRailAsync(int direction)
         => Js.InvokeVoidAsync("scrollSequenceRail", _seasonStripId, direction).AsTask();
 
-    private Task EditActiveSeasonAsync()
-        => CanEditActiveSeason && ActiveGroup is { } season
-            ? OnEditGroup.InvokeAsync(season)
-            : Task.CompletedTask;
-
-    private bool CanEditSeason(SequenceGroupViewModel season)
-        => IsSeasonContainer
-           && CanEditGroup
-           && OnEditGroup.HasDelegate
-           && !string.IsNullOrWhiteSpace(season.EntityId);
-
     private static string SeasonShortLabel(SequenceGroupViewModel? group)
     {
         var value = StringHelpers.FirstNonBlank(group?.Key, group?.Title, "Season")!;
         var number = new string(value.Where(char.IsDigit).ToArray());
         return string.IsNullOrWhiteSpace(number) ? "S" : $"S{number}";
-    }
-
-    private static string SeasonOwnedSummary(SequenceGroupViewModel group)
-    {
-        var count = group.Items.Count(item => item.IsOwned);
-        return $"{count} owned {(count == 1 ? "episode" : "episodes")}";
     }
 
     private async Task ShowMissingChangedAsync(bool value)
