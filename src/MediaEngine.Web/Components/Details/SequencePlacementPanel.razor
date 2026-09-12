@@ -1165,6 +1165,9 @@ else
         if (!item.IsOwned || (!IsSeasonContainer && item.IsCurrent))
             return null;
 
+        if (EpisodeDetailRoute(item) is { } episodeRoute)
+            return episodeRoute;
+
         if (!string.IsNullOrWhiteSpace(item.Route))
             return item.Route;
 

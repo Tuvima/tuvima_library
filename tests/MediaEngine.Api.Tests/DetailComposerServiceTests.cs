@@ -441,7 +441,9 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("SequenceLabel = StringHelpers.FirstNonBlankOr(string.Empty, item.RawOrdinal", source);
         Assert.Contains("PositionSort = positionSort", source);
         Assert.DoesNotContain("?? index + 1", source);
-        Assert.Contains("Guid.TryParse(selectedContainerId, out var showId)", source);
+        Assert.Contains("ResolveTvSeriesRootWorkIdAsync(workId, ct)", source);
+        Assert.Contains("if (episodeShowId is { } showId)", source);
+        Assert.Contains("WHERE child.depth < 32", source);
         Assert.Contains("workId,\n                profileId,\n                authorizedWorks: authorizedWorks);", source);
         Assert.Contains(".Where(work => expectedTotal is > 0 || work.IsOwned)", source);
         Assert.Contains("selectedGroup?.HasAuthoritativeTotal == true", source);

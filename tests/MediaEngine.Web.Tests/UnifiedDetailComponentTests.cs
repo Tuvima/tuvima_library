@@ -757,6 +757,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("/details/TvEpisode/", navigation, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("ShowDetailRoute", sequence);
         Assert.Contains("EpisodeDetailRoute", sequence);
+        Assert.Contains("EpisodeDetailRoute(item) is { } episodeRoute", sequence);
+        Assert.Contains("return episodeRoute;", sequence);
         Assert.Contains("&episode={episodeId:D}", sequence);
         Assert.Contains("SupplyParameterFromQuery(Name = \"episode\")", showPage);
         Assert.Contains("DetailRouteRequest.ForUnified(EntityType, Id, Context, EpisodeId)", showPage);

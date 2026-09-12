@@ -108,8 +108,17 @@ internal sealed partial class DetailCompositionOrchestrator
         SequencePlacementViewModel? sequencePlacement = null;
         IReadOnlyList<CreditGroupViewModel> fullContributorGroups = contributorGroups;
         string? episodeSeriesLogoUrl = null;
-        if (entityType == DetailEntityType.TvEpisode
-            && Guid.TryParse(selectedContainerId, out var showId))
+        Guid? episodeShowId = null;
+        if (entityType == DetailEntityType.TvEpisode)
+        {
+            episodeShowId = Guid.TryParse(selectedContainerId, out var selectedShowId)
+                ? selectedShowId
+                : string.IsNullOrWhiteSpace(selectedContainerId)
+                    ? await ResolveTvSeriesRootWorkIdAsync(workId, ct)
+                    : null;
+        }
+
+        if (episodeShowId is { } showId)
         {
             var showModel = await BuildCollectionAsync(
                 showId,
@@ -412,9 +421,21 @@ internal sealed partial class DetailCompositionOrchestrator
 
     private async Task<string?> LoadTvSeriesLogoForEpisodeAsync(Guid episodeWorkId, CancellationToken ct)
     {
+        var rootWorkId = await ResolveTvSeriesRootWorkIdAsync(episodeWorkId, ct);
+        if (!rootWorkId.HasValue)
+        {
+            return null;
+        }
+
+        var logo = await _entityAssets.GetPreferredAsync(rootWorkId.Value.ToString("D"), "Logo", ct);
+        return logo is null ? null : $"/stream/artwork/{logo.Id:D}";
+    }
+
+    private async Task<Guid?> ResolveTvSeriesRootWorkIdAsync(Guid episodeWorkId, CancellationToken ct)
+    {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rootWorkId = conn.QueryFirstOrDefault<Guid?>(
+        var rootWorkId = await conn.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition(
             """
             WITH RECURSIVE ancestors(id, parent_work_id, depth) AS (
                 SELECT id, parent_work_id, 0
@@ -424,21 +445,18 @@ internal sealed partial class DetailCompositionOrchestrator
                 SELECT parent.id, parent.parent_work_id, child.depth + 1
                 FROM works parent
                 INNER JOIN ancestors child ON parent.id = child.parent_work_id
-                WHERE child.depth < 3
+                WHERE child.depth < 32
             )
             SELECT id
             FROM ancestors
             ORDER BY depth DESC
             LIMIT 1;
             """,
-            new { episodeWorkId = GuidSql.ToBlob(episodeWorkId) });
-        if (!rootWorkId.HasValue || rootWorkId.Value == episodeWorkId)
-        {
-            return null;
-        }
-
-        var logo = await _entityAssets.GetPreferredAsync(rootWorkId.Value.ToString("D"), "Logo", ct);
-        return logo is null ? null : $"/stream/artwork/{logo.Id:D}";
+            new { episodeWorkId = GuidSql.ToBlob(episodeWorkId) },
+            cancellationToken: ct));
+        return rootWorkId.HasValue && rootWorkId.Value != episodeWorkId
+            ? rootWorkId
+            : null;
     }
 
 }
