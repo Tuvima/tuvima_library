@@ -13,6 +13,7 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging.Abstractions;
+using SkiaSharp;
 using StorageHttpClientConfig = MediaEngine.Domain.Configuration.HttpClientConfig;
 using StorageProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
@@ -179,10 +180,10 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task EnrichWorkImagesAsync_UsesNeutralPostersAndConfiguredLogoLanguage()
+    public async Task EnrichWorkImagesAsync_UsesConfiguredPosterAndLogoLanguageWithNeutralBackdrop()
     {
         var core = _configLoader.LoadCore();
-        core.Language.Metadata = "de-DE";
+        core.Language.Metadata = "en-US";
         _configLoader.SaveCore(core);
         var movie = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "Language.mkv");
         await SeedCanonicalsAsync(movie.WorkId, (BridgeIdKeys.TmdbId, "77"));
@@ -192,7 +193,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             var url = request.RequestUri?.ToString() ?? string.Empty;
             if (url.Contains("/movie/77/images?", StringComparison.OrdinalIgnoreCase))
             {
-                Assert.Contains("include_image_language=de,null", url, StringComparison.Ordinal);
+                Assert.Contains("include_image_language=en,null", url, StringComparison.Ordinal);
                 return JsonResponse("""
                     {
                       "posters": [
@@ -201,29 +202,79 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
                       ],
                       "logos": [
                         { "file_path": "/logo-neutral.png", "iso_639_1": null, "width": 1200, "height": 500, "vote_average": 9 },
-                        { "file_path": "/logo-de.png", "iso_639_1": "de", "width": 1200, "height": 500, "vote_average": 4 },
                         { "file_path": "/logo-en.png", "iso_639_1": "en", "width": 1200, "height": 500, "vote_average": 10 }
                       ],
                       "backdrops": [
-                        { "file_path": "/backdrop-de.jpg", "iso_639_1": "de", "width": 1920, "height": 1080, "vote_average": 10 },
+                        { "file_path": "/backdrop-en.jpg", "iso_639_1": "en", "width": 1920, "height": 1080, "vote_average": 10 },
                         { "file_path": "/backdrop-neutral.jpg", "iso_639_1": null, "width": 1920, "height": 1080, "vote_average": 5 }
                       ]
                     }
                     """);
             }
 
-            return ImageResponse([1, 2, 3, 4]);
+            return url.Contains("/logo-", StringComparison.OrdinalIgnoreCase)
+                ? ImageResponse(CreateLogoPng(hasVisibleContent: true))
+                : ImageResponse([1, 2, 3, 4]);
         });
 
         await service.EnrichWorkImagesAsync(movie.AssetId, "Q77");
 
         var posters = await _entityAssets.GetByEntityAsync(movie.WorkId.ToString(), "CoverArt");
         Assert.Single(posters);
-        Assert.EndsWith("/poster-neutral.jpg", posters[0].ImageUrl, StringComparison.Ordinal);
+        Assert.EndsWith("/poster-en.jpg", posters[0].ImageUrl, StringComparison.Ordinal);
         var preferredLogo = await _entityAssets.GetPreferredAsync(movie.WorkId.ToString(), "Logo");
-        Assert.EndsWith("/logo-de.png", preferredLogo?.ImageUrl, StringComparison.Ordinal);
+        Assert.EndsWith("/logo-en.png", preferredLogo?.ImageUrl, StringComparison.Ordinal);
         var preferredBackdrop = await _entityAssets.GetPreferredAsync(movie.WorkId.ToString(), "Background");
         Assert.EndsWith("/backdrop-neutral.jpg", preferredBackdrop?.ImageUrl, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EnrichWorkImagesAsync_RejectsUndecodableAndBlankLogosBeforeSelectingFallback()
+    {
+        var movie = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "Logo Validation.mkv");
+        await SeedCanonicalsAsync(movie.WorkId, (BridgeIdKeys.TmdbId, "78"));
+
+        var service = CreateService(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            if (url.Contains("/movie/78/images?", StringComparison.OrdinalIgnoreCase))
+            {
+                return JsonResponse("""
+                    {
+                      "posters": [],
+                      "backdrops": [],
+                      "logos": [
+                        { "file_path": "/unsupported.svg", "iso_639_1": "en", "width": 1200, "height": 500, "vote_average": 10 },
+                        { "file_path": "/transparent.png", "iso_639_1": "en", "width": 1200, "height": 500, "vote_average": 9 },
+                        { "file_path": "/corrupt.png", "iso_639_1": "en", "width": 1200, "height": 500, "vote_average": 8 },
+                        { "file_path": "/usable.png", "iso_639_1": "en", "width": 1200, "height": 500, "vote_average": 7 }
+                      ]
+                    }
+                    """);
+            }
+
+            if (url.EndsWith("/unsupported.svg", StringComparison.OrdinalIgnoreCase))
+            {
+                return ImageResponse(Encoding.UTF8.GetBytes("<svg xmlns=\"http://www.w3.org/2000/svg\"></svg>"));
+            }
+
+            if (url.EndsWith("/transparent.png", StringComparison.OrdinalIgnoreCase))
+            {
+                return ImageResponse(CreateLogoPng(hasVisibleContent: false));
+            }
+
+            return url.EndsWith("/usable.png", StringComparison.OrdinalIgnoreCase)
+                ? ImageResponse(CreateLogoPng(hasVisibleContent: true))
+                : ImageResponse([1, 2, 3, 4]);
+        });
+
+        var result = await service.EnrichWorkImagesAsync(movie.AssetId, "Q78");
+
+        var logos = await _entityAssets.GetByEntityAsync(movie.WorkId.ToString(), "Logo");
+        var logo = Assert.Single(logos);
+        Assert.True(logo.IsPreferred);
+        Assert.EndsWith("/usable.png", logo.ImageUrl, StringComparison.Ordinal);
+        Assert.Equal(1, result.StoredVariantCounts["Logo"]);
     }
 
     [Fact]
@@ -366,7 +417,18 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
                 return JsonResponse(payload);
             }
             if (url.Contains("/tv/54321/season/1/images?", StringComparison.OrdinalIgnoreCase))
-                return JsonResponse("""{ "posters": [{ "file_path": "/season-poster.jpg", "iso_639_1": null, "width": 1000, "height": 1500 }], "backdrops": [{ "file_path": "/season-thumb.jpg", "iso_639_1": null, "width": 1920, "height": 1080 }] }""");
+                return JsonResponse("""
+                    {
+                      "posters": [
+                        { "file_path": "/season-poster-en.jpg", "iso_639_1": "en", "width": 1000, "height": 1500 },
+                        { "file_path": "/season-poster-neutral.jpg", "iso_639_1": null, "width": 1000, "height": 1500 }
+                      ],
+                      "backdrops": [
+                        { "file_path": "/season-thumb-en.jpg", "iso_639_1": "en", "width": 1920, "height": 1080, "vote_average": 10 },
+                        { "file_path": "/season-thumb-neutral.jpg", "iso_639_1": null, "width": 1920, "height": 1080, "vote_average": 5 }
+                      ]
+                    }
+                    """);
 
             return ImageResponse([7, 7, 7, 7]);
         });
@@ -378,6 +440,8 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
 
         Assert.Equal("Season", seasonPoster.OwnerScope);
         Assert.Equal("Season", seasonThumb.OwnerScope);
+        Assert.EndsWith("/season-poster-en.jpg", seasonPoster.ImageUrl, StringComparison.Ordinal);
+        Assert.EndsWith("/season-thumb-neutral.jpg", seasonThumb.ImageUrl, StringComparison.Ordinal);
         Assert.True(File.Exists(seasonPoster.LocalImagePath));
         Assert.True(File.Exists(seasonThumb.LocalImagePath));
         Assert.Empty(await _entityAssets.GetByEntityAsync(episode.ToString(), "EpisodeStill"));
@@ -584,6 +648,22 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         {
             Content = new ByteArrayContent(bytes),
         };
+
+    private static byte[] CreateLogoPng(bool hasVisibleContent)
+    {
+        using var bitmap = new SKBitmap(320, 100, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var canvas = new SKCanvas(bitmap);
+        canvas.Clear(SKColors.Transparent);
+        if (hasVisibleContent)
+        {
+            using var paint = new SKPaint { Color = SKColors.White, IsAntialias = true };
+            canvas.DrawRoundRect(new SKRect(30, 25, 290, 75), 8, 8, paint);
+        }
+
+        using var image = SKImage.FromBitmap(bitmap);
+        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+        return data.ToArray();
+    }
 
     private sealed class RoutingHttpClientFactory : IHttpClientFactory
     {

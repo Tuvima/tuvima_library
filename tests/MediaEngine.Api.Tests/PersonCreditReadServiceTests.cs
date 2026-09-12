@@ -30,6 +30,8 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     {
         var personId = Guid.NewGuid();
         var collectionId = Guid.NewGuid();
+        var showWorkId = Guid.NewGuid();
+        var showCoverId = Guid.NewGuid();
         var characterId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow.ToString("O");
 
@@ -39,6 +41,16 @@ public sealed class PersonCreditReadServiceTests : IDisposable
             cmd.CommandText = """
                 INSERT INTO collections (id, display_name, collection_type, wikidata_qid, created_at)
                     VALUES ($collectionId, 'Sample Crime Show', 'Series', 'QSHOW', $now);
+
+                INSERT INTO works (id, collection_id, media_type, wikidata_qid, work_kind)
+                    VALUES ($showWorkId, $collectionId, 'TV', 'QSHOW', 'parent');
+                INSERT INTO entity_assets (
+                    id, entity_id, entity_type, asset_type, image_url,
+                    asset_class, storage_location, owner_scope, is_preferred, created_at
+                ) VALUES (
+                    $showCoverId, $showWorkId, 'Work', 'CoverArt', '/show-cover.jpg',
+                    'Artwork', 'Central', 'Work', 1, $now
+                );
 
                 INSERT INTO persons (id, name, created_at)
                     VALUES ($personId, 'Bryan Test Person', $now);
@@ -54,6 +66,8 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                     VALUES ($personId, $characterId, 'QSHOW');
                 """;
             AddGuid(cmd, "$collectionId", collectionId);
+            AddGuid(cmd, "$showWorkId", showWorkId);
+            AddGuid(cmd, "$showCoverId", showCoverId);
             AddGuid(cmd, "$personId", personId);
             AddGuid(cmd, "$characterId", characterId);
             cmd.Parameters.AddWithValue("$now", now);
@@ -67,8 +81,8 @@ public sealed class PersonCreditReadServiceTests : IDisposable
 
                 using var episodeCmd = conn.CreateCommand();
                 episodeCmd.CommandText = """
-                    INSERT INTO works (id, collection_id, media_type, wikidata_qid, work_kind, ordinal)
-                        VALUES ($workId, $collectionId, 'TV', $workQid, 'child', $episode);
+                    INSERT INTO works (id, parent_work_id, collection_id, media_type, wikidata_qid, work_kind, ordinal)
+                        VALUES ($workId, $showWorkId, $collectionId, 'TV', $workQid, 'child', $episode);
                     INSERT INTO editions (id, work_id)
                         VALUES ($editionId, $workId);
                     INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
@@ -83,6 +97,7 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                         VALUES ($workId, 'cast_member', 0, 'Bryan Test Person');
                     """;
                 AddGuid(episodeCmd, "$workId", workId);
+                AddGuid(episodeCmd, "$showWorkId", showWorkId);
                 AddGuid(episodeCmd, "$collectionId", collectionId);
                 episodeCmd.Parameters.AddWithValue("$workQid", $"QEP{episode}");
                 episodeCmd.Parameters.AddWithValue("$episode", episode);
@@ -105,6 +120,7 @@ public sealed class PersonCreditReadServiceTests : IDisposable
         {
             Assert.Equal(collectionId, credit.CollectionId);
             Assert.Equal("Sample Crime Show", credit.Title);
+            Assert.Equal($"/stream/artwork/{showCoverId:D}", credit.CoverUrl);
         });
         var actorCredit = Assert.Single(credits, credit => credit.Role == "Actor");
         Assert.Single(actorCredit.Characters);

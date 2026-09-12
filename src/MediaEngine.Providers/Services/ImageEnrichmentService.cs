@@ -10,6 +10,7 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Helpers;
 using Microsoft.Extensions.Logging;
+using SkiaSharp;
 
 namespace MediaEngine.Providers.Services;
 
@@ -190,32 +191,75 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private async Task<ImageAssetProcessingResult> ProcessRankedImagesAsync(IEnumerable<JsonNode?> imageNodes, AssetType assetType,
         Guid ownerEntityId, bool updatePreferred, string metadataLanguage, CancellationToken ct)
     {
-        var ranked = imageNodes.Where(node => node is not null && !string.IsNullOrWhiteSpace(node!["file_path"]?.GetValue<string>()))
+        var candidates = imageNodes.Where(node => node is not null && !string.IsNullOrWhiteSpace(node!["file_path"]?.GetValue<string>()))
             .Where(node => IsCompatibleImage(node!, assetType))
+            .ToList();
+        var useConfiguredPosterLanguage = assetType is AssetType.CoverArt or AssetType.SeasonPoster
+            && candidates.Any(node => string.Equals(
+                node!["iso_639_1"]?.GetValue<string>(),
+                metadataLanguage,
+                StringComparison.OrdinalIgnoreCase));
+        var ranked = candidates
             .Where(node => IsAllowedLanguage(node!["iso_639_1"]?.GetValue<string>(), assetType, metadataLanguage))
+            .Where(node => !useConfiguredPosterLanguage
+                || string.Equals(
+                    node!["iso_639_1"]?.GetValue<string>(),
+                    metadataLanguage,
+                    StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(node => LanguageRank(node!["iso_639_1"]?.GetValue<string>(), assetType, metadataLanguage))
             .ThenByDescending(node => node!["vote_average"]?.GetValue<double?>() ?? 0)
             .ThenByDescending(node => node!["vote_count"]?.GetValue<int?>() ?? 0)
             .ThenByDescending(node => (node!["width"]?.GetValue<int?>() ?? 0) * (node!["height"]?.GetValue<int?>() ?? 0))
-            .Take(MaxVariantsPerAssetType).ToList();
+            .ToList();
         if (ranked.Count == 0) return ImageAssetProcessingResult.Empty;
 
         var variants = (await _assetRepo.GetByEntityAsync(ownerEntityId.ToString(), assetType.ToString(), ct)).ToList();
         var currentPreferred = variants.FirstOrDefault(asset => asset.IsPreferred)?.Id;
         EntityAsset? preferred = updatePreferred ? variants.FirstOrDefault(asset => asset.IsPreferred && asset.IsUserOverride) : null;
         var stored = 0;
+        var accepted = 0;
         foreach (var node in ranked)
         {
+            if (accepted >= MaxVariantsPerAssetType)
+            {
+                break;
+            }
+
             var url = BuildImageUrl(node!["file_path"]!.GetValue<string>());
             await using var lease = await _imageDownloadCoordinator.AcquireAsync(url, ct).ConfigureAwait(false);
             var existing = variants.FirstOrDefault(asset => string.Equals(asset.ImageUrl, url, StringComparison.OrdinalIgnoreCase));
             if (existing is not null && !string.IsNullOrWhiteSpace(existing.LocalImagePath) && File.Exists(existing.LocalImagePath))
             {
+                if (assetType == AssetType.Logo)
+                {
+                    var existingBytes = await File.ReadAllBytesAsync(existing.LocalImagePath, ct).ConfigureAwait(false);
+                    if (!IsUsableDownloadedImage(existingBytes, assetType, out var existingRejectionReason))
+                    {
+                        _logger.LogWarning(
+                            "Ignoring unusable TMDB {AssetType} candidate {Url}: {Reason}",
+                            assetType,
+                            url,
+                            existingRejectionReason);
+                        continue;
+                    }
+                }
+
+                accepted++;
                 if (updatePreferred && preferred is null && !existing.IsUserOverride) preferred = existing;
                 continue;
             }
             var bytes = await GetCachedOrDownloadAsync(url, ct).ConfigureAwait(false);
             if (bytes is null || bytes.Length == 0) continue;
+            if (!IsUsableDownloadedImage(bytes, assetType, out var rejectionReason))
+            {
+                _logger.LogWarning(
+                    "Rejected unusable TMDB {AssetType} candidate {Url}: {Reason}",
+                    assetType,
+                    url,
+                    rejectionReason);
+                continue;
+            }
+
             var variant = existing ?? new EntityAsset
             {
                 Id = Guid.NewGuid(), EntityId = ownerEntityId.ToString(), EntityType = "Work", AssetTypeValue = assetType.ToString(),
@@ -228,6 +272,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             await _assetRepo.UpsertAsync(variant, ct).ConfigureAwait(false);
             if (existing is null) variants.Add(variant); else variants[variants.IndexOf(existing)] = variant;
             stored++;
+            accepted++;
             if (updatePreferred && preferred is null) preferred = variant;
         }
         if (!updatePreferred || preferred is null) return new ImageAssetProcessingResult(preferred?.LocalImagePath, stored, 0);
@@ -467,10 +512,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private static bool IsAllowedLanguage(string? language, AssetType type, string metadataLanguage) =>
         type switch
         {
-            AssetType.CoverArt or AssetType.SeasonPoster => string.IsNullOrWhiteSpace(language),
-            AssetType.Logo or AssetType.Background or AssetType.SeasonThumb =>
+            AssetType.CoverArt or AssetType.SeasonPoster or AssetType.Logo =>
                 string.IsNullOrWhiteSpace(language)
                 || string.Equals(language, metadataLanguage, StringComparison.OrdinalIgnoreCase),
+            AssetType.Background or AssetType.SeasonThumb => string.IsNullOrWhiteSpace(language),
             _ => true,
         };
 
@@ -480,10 +525,64 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             AssetType.Logo when string.Equals(language, metadataLanguage, StringComparison.OrdinalIgnoreCase) => 3,
             AssetType.Logo when string.IsNullOrWhiteSpace(language) => 2,
             AssetType.Background or AssetType.SeasonThumb when string.IsNullOrWhiteSpace(language) => 3,
-            AssetType.Background or AssetType.SeasonThumb when string.Equals(language, metadataLanguage, StringComparison.OrdinalIgnoreCase) => 2,
-            AssetType.CoverArt or AssetType.SeasonPoster when string.IsNullOrWhiteSpace(language) => 3,
+            AssetType.CoverArt or AssetType.SeasonPoster when string.Equals(language, metadataLanguage, StringComparison.OrdinalIgnoreCase) => 3,
+            AssetType.CoverArt or AssetType.SeasonPoster when string.IsNullOrWhiteSpace(language) => 2,
             _ => 0,
         };
+
+    private static bool IsUsableDownloadedImage(byte[] bytes, AssetType assetType, out string? rejectionReason)
+    {
+        rejectionReason = null;
+        if (assetType != AssetType.Logo)
+        {
+            return true;
+        }
+
+        SKBitmap? bitmap;
+        try
+        {
+            bitmap = SKBitmap.Decode(bytes);
+        }
+        catch (Exception)
+        {
+            rejectionReason = "unsupported_or_undecodable_image";
+            return false;
+        }
+
+        if (bitmap is null || bitmap.Width <= 0 || bitmap.Height <= 0)
+        {
+            rejectionReason = "unsupported_or_undecodable_image";
+            return false;
+        }
+
+        using (bitmap)
+        {
+            var stepX = Math.Max(1, bitmap.Width / 256);
+            var stepY = Math.Max(1, bitmap.Height / 128);
+            var sampledPixels = 0;
+            var visiblePixels = 0;
+            for (var y = 0; y < bitmap.Height; y += stepY)
+            {
+                for (var x = 0; x < bitmap.Width; x += stepX)
+                {
+                    sampledPixels++;
+                    if (bitmap.GetPixel(x, y).Alpha >= 24)
+                    {
+                        visiblePixels++;
+                    }
+                }
+            }
+
+            if (visiblePixels < Math.Max(8, sampledPixels / 1000))
+            {
+                rejectionReason = "insufficient_visible_pixels";
+                return false;
+            }
+
+            return true;
+        }
+    }
+
     private static string BuildImageUrl(string filePath) => $"{TmdbImageBaseUrl}/{filePath.TrimStart('/')}";
     private static string InferExtension(string url) => url.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ? ".png" : ".jpg";
     private static string OwnerScope(AssetType type) => type is AssetType.SeasonPoster or AssetType.SeasonThumb ? "Season" : "Work";

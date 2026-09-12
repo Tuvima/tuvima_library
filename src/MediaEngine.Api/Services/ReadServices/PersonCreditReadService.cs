@@ -1064,6 +1064,15 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                    primary_credit.via_group_name          AS ViaGroupName,
                    primary_credit.membership_start_date   AS MembershipStartDate,
                    primary_credit.membership_end_date     AS MembershipEndDate,
+                   (SELECT root_cover.id
+                    FROM entity_assets root_cover
+                    WHERE root_cover.entity_id = COALESCE(gp.id, p.id, w.id)
+                      AND root_cover.entity_type = 'Work'
+                      AND root_cover.asset_type = 'CoverArt'
+                    ORDER BY root_cover.is_preferred DESC,
+                             root_cover.is_user_override DESC,
+                             root_cover.created_at DESC
+                    LIMIT 1)                              AS RootCoverAssetId,
                    MIN(ma.id)                             AS FirstAssetId
             FROM effective_credit primary_credit
             INNER JOIN media_assets ma
@@ -1260,9 +1269,13 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                             : isMusicAlbumCredit
                                 ? StringHelpers.FirstNonBlank(representative.RootTitle, representative.Title, "Untitled")!
                             : StringHelpers.FirstNonBlank(representative.Title, "Untitled")!,
-                        CoverUrl = orderedRows.Select(row => row.FirstAssetId).FirstOrDefault(assetId => assetId.HasValue) is Guid assetId
-                            ? $"/stream/{assetId}/cover-thumb"
-                            : null,
+                        CoverUrl = isTvSeriesCredit
+                            ? representative.RootCoverAssetId is Guid rootCoverAssetId
+                                ? $"/stream/artwork/{rootCoverAssetId:D}"
+                                : null
+                            : orderedRows.Select(row => row.FirstAssetId).FirstOrDefault(assetId => assetId.HasValue) is Guid assetId
+                                ? $"/stream/{assetId}/cover-thumb"
+                                : null,
                         Year = representative.Year,
                         Role = role,
                         AssociationType = representative.AssociationType,
@@ -1590,6 +1603,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         public string? MembershipStartDate { get; init; }
         public string? MembershipEndDate { get; init; }
         public bool IsThroughGroup => AssociationType.Equals("ThroughGroup", StringComparison.OrdinalIgnoreCase);
+        public Guid? RootCoverAssetId { get; init; }
         public Guid? FirstAssetId { get; init; }
     }
 
