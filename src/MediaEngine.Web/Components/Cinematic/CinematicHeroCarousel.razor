@@ -91,34 +91,58 @@
         @if (Slides.Count > 1)
         {
             <div class="cinematic-hero-carousel__controls">
-                <AppNativeButton Type="button"
-                                 Class="cinematic-hero-carousel__control"
-                                 AriaLabel="Previous featured item"
-                                 Title="Previous featured item"
-                                 OnClick="PreviousAsync">
-                    <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />
-                </AppNativeButton>
+                <div class="cinematic-hero-carousel__timeline"
+                     role="group"
+                     aria-label="Choose featured item">
+                    @for (var index = 0; index < Slides.Count; index++)
+                    {
+                        var slideIndex = index;
+                        var isActive = slideIndex == _activeIndex;
+                        <AppNativeButton Type="button"
+                                         Class="@TimelineItemClass(isActive)"
+                                         AriaLabel="@TimelineItemLabel(slideIndex)"
+                                         aria-current="@(isActive ? "true" : null)"
+                                         Title="@Slides[slideIndex].Title"
+                                         OnClick="@(_ => SelectSlideAsync(slideIndex))">
+                            <span class="cinematic-hero-carousel__dash" aria-hidden="true">
+                                @if (isActive)
+                                {
+                                    <span @key="TimelineFillKey"
+                                          class="cinematic-hero-carousel__dash-fill"></span>
+                                }
+                            </span>
+                        </AppNativeButton>
+                    }
+                    <span class="cinematic-hero-carousel__status" aria-live="polite">
+                        @($"Featured item {_activeIndex + 1} of {Slides.Count}")
+                    </span>
+                </div>
 
-                <span class="cinematic-hero-carousel__counter"
-                      aria-label="@($"Featured item {_activeIndex + 1} of {Slides.Count}")">
-                    @(_activeIndex + 1) / @Slides.Count
-                </span>
+                <div class="cinematic-hero-carousel__navigation">
+                    <AppNativeButton Type="button"
+                                     Class="cinematic-hero-carousel__control"
+                                     AriaLabel="Previous featured item"
+                                     Title="Previous featured item"
+                                     OnClick="PreviousAsync">
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronLeft" />
+                    </AppNativeButton>
 
-                <AppNativeButton Type="button"
-                                 Class="cinematic-hero-carousel__control"
-                                 AriaLabel="Next featured item"
-                                 Title="Next featured item"
-                                 OnClick="NextAsync">
-                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
-                </AppNativeButton>
+                    <AppNativeButton Type="button"
+                                     Class="cinematic-hero-carousel__control"
+                                     AriaLabel="Next featured item"
+                                     Title="Next featured item"
+                                     OnClick="NextAsync">
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
+                    </AppNativeButton>
 
-                <AppNativeButton Type="button"
-                                 Class="cinematic-hero-carousel__control"
-                                 AriaLabel="@PauseButtonLabel"
-                                 Title="@PauseButtonLabel"
-                                 OnClick="TogglePauseAsync">
-                    <MudIcon Icon="@PauseButtonIcon" />
-                </AppNativeButton>
+                    <AppNativeButton Type="button"
+                                     Class="cinematic-hero-carousel__control"
+                                     AriaLabel="@PauseButtonLabel"
+                                     Title="@PauseButtonLabel"
+                                     OnClick="TogglePauseAsync">
+                        <MudIcon Icon="@PauseButtonIcon" />
+                    </AppNativeButton>
+                </div>
             </div>
         }
     </section>
@@ -134,8 +158,10 @@
 
     private const int MaxSlides = 5;
     private static readonly TimeSpan RotationInterval = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan RotationClockResolution = TimeSpan.FromMilliseconds(100);
     private readonly CancellationTokenSource _disposeCts = new();
     private int _activeIndex;
+    private int _rotationVersion;
     private bool _initializedMotionPreference;
     private bool _prefersReducedMotion;
     private bool _userPaused;
@@ -218,7 +244,7 @@
         }
         : null;
 
-    private string CarouselClass => $"cinematic-hero-carousel cinematic-hero-carousel--{Density.ToString().ToLowerInvariant()}";
+    private string CarouselClass => $"cinematic-hero-carousel cinematic-hero-carousel--{Density.ToString().ToLowerInvariant()}{(IsPaused ? " is-rotation-paused" : string.Empty)}";
     private string HeroClass => $"cinematic-hero cinematic-hero--landing cinematic-hero--{Density.ToString().ToLowerInvariant()} {HeroMediaClass}";
     private string HeroMediaClass => ActiveEntityType switch
     {
@@ -253,6 +279,7 @@
     };
     private string PauseButtonLabel => IsPaused ? "Resume featured item rotation" : "Pause featured item rotation";
     private string PauseButtonIcon => IsPaused ? Icons.Material.Filled.PlayArrow : Icons.Material.Filled.Pause;
+    private string TimelineFillKey => $"{_activeIndex}:{_rotationVersion}";
 
     private DetailEntityType ActiveEntityType => (ActiveHero.MediaKind ?? string.Empty).Trim().ToLowerInvariant() switch
     {
@@ -331,20 +358,45 @@
 
     private async Task RunRotationAsync(CancellationToken token)
     {
+        var elapsed = TimeSpan.Zero;
+        var observedVersion = Volatile.Read(ref _rotationVersion);
+        var previousTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
+
         while (!token.IsCancellationRequested)
         {
             try
             {
-                await Task.Delay(RotationInterval, token);
-                if (!IsPaused && Slides.Count > 1)
+                await Task.Delay(RotationClockResolution, token);
+                var currentTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
+                var currentVersion = Volatile.Read(ref _rotationVersion);
+                if (currentVersion != observedVersion)
                 {
-                    await InvokeAsync(async () =>
-                    {
-                        _activeIndex = (_activeIndex + 1) % Slides.Count;
-                        await NotifyActiveItemAsync();
-                        StateHasChanged();
-                    });
+                    elapsed = TimeSpan.Zero;
+                    observedVersion = currentVersion;
+                    previousTimestamp = currentTimestamp;
+                    continue;
                 }
+
+                if (IsPaused || Slides.Count < 2)
+                {
+                    previousTimestamp = currentTimestamp;
+                    continue;
+                }
+
+                elapsed += System.Diagnostics.Stopwatch.GetElapsedTime(previousTimestamp, currentTimestamp);
+                previousTimestamp = currentTimestamp;
+                if (elapsed < RotationInterval)
+                    continue;
+
+                elapsed = TimeSpan.Zero;
+                await InvokeAsync(async () =>
+                {
+                    _activeIndex = (_activeIndex + 1) % Slides.Count;
+                    ResetRotationClock();
+                    observedVersion = Volatile.Read(ref _rotationVersion);
+                    await NotifyActiveItemAsync();
+                    StateHasChanged();
+                });
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -355,22 +407,32 @@
 
     private async Task PreviousAsync()
     {
-        _userPaused = true;
         if (Slides.Count > 1)
         {
             _activeIndex = (_activeIndex - 1 + Slides.Count) % Slides.Count;
+            ResetRotationClock();
             await NotifyActiveItemAsync();
         }
     }
 
     private async Task NextAsync()
     {
-        _userPaused = true;
         if (Slides.Count > 1)
         {
             _activeIndex = (_activeIndex + 1) % Slides.Count;
+            ResetRotationClock();
             await NotifyActiveItemAsync();
         }
+    }
+
+    private async Task SelectSlideAsync(int index)
+    {
+        if (index < 0 || index >= Slides.Count)
+            return;
+
+        _activeIndex = index;
+        ResetRotationClock();
+        await NotifyActiveItemAsync();
     }
 
     private Task TogglePauseAsync()
@@ -486,6 +548,14 @@
     private void ResumeFromHover() => _hoverPaused = false;
     private void PauseForFocus() => _focusPaused = true;
     private void ResumeFromFocus() => _focusPaused = false;
+
+    private void ResetRotationClock() => Interlocked.Increment(ref _rotationVersion);
+
+    private string TimelineItemClass(bool isActive)
+        => $"cinematic-hero-carousel__timeline-item{(isActive ? " is-active" : string.Empty)}";
+
+    private string TimelineItemLabel(int index)
+        => $"Show featured item {index + 1} of {Slides.Count}: {Slides[index].Title}";
 
     private static double TrackPosition(string? value)
         => double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var position)

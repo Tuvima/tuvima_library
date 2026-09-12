@@ -131,16 +131,22 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
-    public void CinematicHeroCarousel_UsesSubtleCounterInsteadOfDotStrip()
+    public void CinematicHeroCarousel_UsesSelectableTimedDashes()
     {
         var source = Read(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroCarousel.razor");
         var styles = Read(@"src\MediaEngine.Web\Components\Cinematic\CinematicHeroCarousel.razor.css");
 
-        Assert.Contains("cinematic-hero-carousel__counter", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("cinematic-hero-carousel__dots", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("cinematic-hero-carousel__dot", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("cinematic-hero-carousel__dots", styles, StringComparison.Ordinal);
-        Assert.DoesNotContain("cinematic-hero-carousel__dot", styles, StringComparison.Ordinal);
+        Assert.Contains("cinematic-hero-carousel__timeline", source, StringComparison.Ordinal);
+        Assert.Contains("cinematic-hero-carousel__dash-fill", source, StringComparison.Ordinal);
+        Assert.Contains("<AppNativeButton Type=\"button\"", source, StringComparison.Ordinal);
+        Assert.Contains("SelectSlideAsync(slideIndex)", source, StringComparison.Ordinal);
+        Assert.Contains("aria-current=\"@(isActive ? \"true\" : null)\"", source, StringComparison.Ordinal);
+        Assert.Contains("--cinematic-hero-rotation-duration: 8s", styles, StringComparison.Ordinal);
+        Assert.Contains("@key=\"TimelineFillKey\"", source, StringComparison.Ordinal);
+        Assert.Contains("@keyframes cinematic-hero-dash-fill", styles, StringComparison.Ordinal);
+        Assert.Contains("animation-play-state: paused", styles, StringComparison.Ordinal);
+        Assert.Contains("@media (prefers-reduced-motion: reduce)", styles, StringComparison.Ordinal);
+        Assert.DoesNotContain("cinematic-hero-carousel__counter", source, StringComparison.Ordinal);
     }
 
     [Fact]
