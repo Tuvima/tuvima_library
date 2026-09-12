@@ -48,7 +48,6 @@ internal sealed partial class DetailCompositionOrchestrator
                 }
 
                 actions.Add(new() { Key = "status-history", Label = media is MediaType.Books or MediaType.Comics ? "Reading history" : media is MediaType.Audiobooks or MediaType.Music ? "Listening history" : "Viewing history", Icon = "history" });
-                actions.Add(new() { Key = "file-information", Label = "File information", Icon = "info" });
             }
         }
         if (model.EntityType == DetailEntityType.MusicAlbum && model.PersonalStatus?.OwnedCount > 0)
@@ -57,11 +56,6 @@ internal sealed partial class DetailCompositionOrchestrator
             actions.Add(new() { Key = "add-queue", Label = "Add to queue", Icon = "queue_music" });
             actions.Add(new() { Key = "add-playlist", Label = "Add to playlist", Icon = "playlist_add" });
         }
-        if (actionAuthorization.CanManageMetadata && model.PersonalStatus?.OwnedCount > 0)
-        {
-            actions.Add(new() { Key = "add-collection", Label = "Add to collection", Icon = "library_add" });
-        }
-
         actions.Add(new() { Key = "copy-link", Label = "Copy library link", Icon = "link" });
         actions.AddRange(model.OverflowActions);
         model.OverflowActions = actions;

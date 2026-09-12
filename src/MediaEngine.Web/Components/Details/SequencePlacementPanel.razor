@@ -176,32 +176,42 @@
             {
                 var season = VisibleGroups[index];
                 var selected = string.Equals(season.Key, SelectedGroupKey, StringComparison.OrdinalIgnoreCase);
-                <AppNativeButton Type="button"
-                                 Class="@(selected ? "tl-season-card is-selected" : "tl-season-card")"
-                                 OnClick="@(() => SelectSeason(season.Key))"
-                                 role="option"
-                                 aria-selected="@selected"
-                                 aria-current="@(selected ? "true" : null)"
-                                 data-sequence-index="@index">
-                    <span class="tl-season-card__art">
-                        @if (!string.IsNullOrWhiteSpace(season.ArtworkUrl))
-                        {
-                            <img src="@season.ArtworkUrl"
-                                 alt=""
-                                 width="240"
-                                 height="360"
-                                 loading="@(selected ? "eager" : "lazy")"
-                                 fetchpriority="@(selected ? "high" : "auto")"
-                                 decoding="async" />
-                        }
-                        else
-                        {
-                            <span>@SeasonShortLabel(season)</span>
-                        }
-                    </span>
-                    <strong>@season.Title</strong>
-                    <small>@SeasonOwnedSummary(season)</small>
-                </AppNativeButton>
+                <div class="tl-season-card-shell" data-sequence-index="@index">
+                    <AppNativeButton Type="button"
+                                     Class="@(selected ? "tl-season-card is-selected" : "tl-season-card")"
+                                     OnClick="@(() => SelectSeason(season.Key))"
+                                     role="option"
+                                     aria-selected="@selected"
+                                     aria-current="@(selected ? "true" : null)">
+                        <span class="tl-season-card__art">
+                            @if (!string.IsNullOrWhiteSpace(season.ArtworkUrl))
+                            {
+                                <img src="@season.ArtworkUrl"
+                                     alt=""
+                                     width="240"
+                                     height="360"
+                                     loading="@(selected ? "eager" : "lazy")"
+                                     fetchpriority="@(selected ? "high" : "auto")"
+                                     decoding="async" />
+                            }
+                            else
+                            {
+                                <span>@SeasonShortLabel(season)</span>
+                            }
+                        </span>
+                        <strong>@season.Title</strong>
+                        <small>@SeasonOwnedSummary(season)</small>
+                    </AppNativeButton>
+                    @if (CanEditSeason(season))
+                    {
+                        <AppIconButton Class="tl-season-card__edit"
+                                       Icon="@Icons.Material.Outlined.Edit"
+                                       Size="Size.Small"
+                                       AriaLabel="@($"Edit artwork for {season.Title}")"
+                                       Tooltip="Edit season artwork"
+                                       OnClick="@(() => EditSeasonAsync(season))" />
+                    }
+                </div>
             }
         </div>
         <AppIconButton Class="tl-series-carousel__arrow tl-series-carousel__arrow--right"
@@ -667,10 +677,7 @@ else
         => SelectedGroupKey is null
             ? null
             : VisibleGroups.FirstOrDefault(group => group.Key == SelectedGroupKey);
-    private bool CanEditActiveSeason => IsSeasonContainer
-        && CanEditGroup
-        && OnEditGroup.HasDelegate
-        && !string.IsNullOrWhiteSpace(ActiveGroup?.EntityId);
+    private bool CanEditActiveSeason => ActiveGroup is { } season && CanEditSeason(season);
     private string SeasonToggleClass => $"tl-season-toggle{(_seasonBrowserOpen ? " is-open" : string.Empty)}";
     private string? SeasonAtmosphereStyle => string.IsNullOrWhiteSpace(ActiveGroup?.BackgroundArtworkUrl)
         ? null
@@ -964,6 +971,17 @@ else
 
     private Task EditActiveSeasonAsync()
         => CanEditActiveSeason && ActiveGroup is { } season
+            ? OnEditGroup.InvokeAsync(season)
+            : Task.CompletedTask;
+
+    private bool CanEditSeason(SequenceGroupViewModel season)
+        => IsSeasonContainer
+           && CanEditGroup
+           && OnEditGroup.HasDelegate
+           && !string.IsNullOrWhiteSpace(season.EntityId);
+
+    private Task EditSeasonAsync(SequenceGroupViewModel season)
+        => CanEditSeason(season)
             ? OnEditGroup.InvokeAsync(season)
             : Task.CompletedTask;
 

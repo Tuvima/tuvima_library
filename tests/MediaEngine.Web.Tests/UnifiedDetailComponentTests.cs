@@ -352,6 +352,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("BackgroundArtworkUrl", source);
         Assert.Contains("SeasonOwnedSummary", source);
         Assert.Contains("Edit season artwork", source);
+        Assert.Contains("Edit artwork for {season.Title}", source);
+        Assert.Contains("tl-season-card__edit", source);
         Assert.Contains("OnEditGroup", source);
         Assert.Contains("OpenSeasonEditorAsync", detailPage);
         Assert.Contains("InitialScope = \"season\"", detailPage);

@@ -438,7 +438,8 @@ public sealed class AuthorizedDisplayProjectionReadServiceTests : IDisposable
             MediaEngine.Domain.Aggregates.Profile.SeedProfileId,
             new DetailActionAuthorizationContext(CanManageMetadata: true),
             allowedAssets);
-        Assert.Contains(managedDetail!.OverflowActions, action => action.Key == "add-collection");
+        Assert.DoesNotContain(managedDetail!.OverflowActions, action => action.Key == "add-collection");
+        Assert.DoesNotContain(managedDetail.OverflowActions, action => action.Key == "file-information");
 
         Assert.Null(await composer.BuildAuthorizedAsync(
             MediaEngine.Contracts.Details.DetailEntityType.Book,

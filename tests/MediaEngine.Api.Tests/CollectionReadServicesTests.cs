@@ -583,6 +583,8 @@ public sealed class CollectionReadServicesTests : IDisposable
         var secondEditionId = Guid.NewGuid();
         var firstAssetId = Guid.NewGuid();
         var secondAssetId = Guid.NewGuid();
+        var showPosterAssetId = Guid.NewGuid();
+        var seasonPosterAssetId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow.ToString("O");
 
         using (var connection = _database.CreateConnection())
@@ -620,6 +622,15 @@ public sealed class CollectionReadServicesTests : IDisposable
                     (@SecondAssetId, 'network', 'HBO', @Now),
                     (@SecondAssetId, 'air_date', '2023-06-12', @Now),
                     (@SecondAssetId, 'season_number', '1', @Now);
+
+                INSERT INTO entity_assets (
+                    id, entity_id, entity_type, asset_type, aspect_class,
+                    local_image_path, is_preferred, created_at)
+                VALUES
+                    (@ShowPosterAssetId, @ShowWorkId, 'Work', 'CoverArt', 'Portrait',
+                     'C:/managed-art/test-show/poster.jpg', 1, @Now),
+                    (@SeasonPosterAssetId, @SeasonWorkId, 'Work', 'SeasonPoster', 'Portrait',
+                     'C:/managed-art/test-show/season-01-poster.jpg', 1, @Now);
                 """,
                 new
                 {
@@ -631,6 +642,8 @@ public sealed class CollectionReadServicesTests : IDisposable
                     SecondEditionId = secondEditionId,
                     FirstAssetId = firstAssetId,
                     SecondAssetId = secondAssetId,
+                    ShowPosterAssetId = showPosterAssetId,
+                    SeasonPosterAssetId = seasonPosterAssetId,
                     Now = now,
                 });
         }
@@ -656,6 +669,8 @@ public sealed class CollectionReadServicesTests : IDisposable
         Assert.Equal(2020, timeline.EarliestYear);
         Assert.Equal(2020, timeline.LatestYear);
         Assert.Equal("2020", timeline.Year);
+        Assert.Equal($"/stream/artwork/{showPosterAssetId:D}", timeline.CoverUrl);
+        Assert.DoesNotContain(seasonPosterAssetId.ToString("D"), timeline.CoverUrl, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(showWorkId, Assert.Single(timeline.PreviewItems).WorkId);
     }
 

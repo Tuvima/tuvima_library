@@ -21,6 +21,9 @@ public sealed class CollectionSystemViewGroupReadModel
     public int AlbumCount { get; init; }
     public Guid? FirstAssetId { get; init; }
     public Guid? RootWorkId { get; init; }
+    public Guid? RootCoverAssetId { get; init; }
+    public Guid? RootBackgroundAssetId { get; init; }
+    public Guid? RootLogoAssetId { get; init; }
     public string? Creator { get; init; }
     public string? Network { get; init; }
     public string? Year { get; init; }
@@ -798,6 +801,30 @@ public sealed class CollectionBrowseReadService(
                    g.AlbumCount,
                    g.FirstAssetId,
                    g.RootWorkId,
+                   CASE WHEN @IsTvShowGroup = 1 THEN (SELECT ea.id
+                     FROM entity_assets ea
+                     WHERE ea.entity_id = g.RootWorkId
+                       AND ea.entity_type = 'Work'
+                       AND ea.asset_type = 'CoverArt'
+                       AND COALESCE(NULLIF(ea.local_image_path_m, ''), NULLIF(ea.local_image_path, '')) IS NOT NULL
+                     ORDER BY ea.is_user_override DESC, ea.is_preferred DESC, COALESCE(ea.updated_at, ea.created_at) DESC
+                     LIMIT 1) ELSE NULL END AS RootCoverAssetId,
+                   CASE WHEN @IsTvShowGroup = 1 THEN (SELECT ea.id
+                     FROM entity_assets ea
+                     WHERE ea.entity_id = g.RootWorkId
+                       AND ea.entity_type = 'Work'
+                       AND ea.asset_type = 'Background'
+                       AND COALESCE(NULLIF(ea.local_image_path_m, ''), NULLIF(ea.local_image_path, '')) IS NOT NULL
+                     ORDER BY ea.is_user_override DESC, ea.is_preferred DESC, COALESCE(ea.updated_at, ea.created_at) DESC
+                     LIMIT 1) ELSE NULL END AS RootBackgroundAssetId,
+                   CASE WHEN @IsTvShowGroup = 1 THEN (SELECT ea.id
+                     FROM entity_assets ea
+                     WHERE ea.entity_id = g.RootWorkId
+                       AND ea.entity_type = 'Work'
+                       AND ea.asset_type = 'Logo'
+                       AND COALESCE(NULLIF(ea.local_image_path_m, ''), NULLIF(ea.local_image_path, '')) IS NOT NULL
+                     ORDER BY ea.is_user_override DESC, ea.is_preferred DESC, COALESCE(ea.updated_at, ea.created_at) DESC
+                     LIMIT 1) ELSE NULL END AS RootLogoAssetId,
                    g.WorkCreator AS Creator,
                    COALESCE(root.Network, asset.Network) AS Network,
                    COALESCE(root.Year, asset.Year) AS Year,
@@ -996,6 +1023,8 @@ public sealed class CollectionBrowseReadService(
             }
 
             var assetRoute = row.FirstAssetId?.ToString("D");
+            var usesRootTvArtwork = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+                && string.Equals(groupByField, "show_name", StringComparison.OrdinalIgnoreCase);
             result.Add(new ContentGroupDto
             {
                 CollectionId = collection.Id,
@@ -1005,10 +1034,16 @@ public sealed class CollectionBrowseReadService(
                 WorkCount = row.WorkCount,
                 DistinctTitleCount = row.DistinctTitleCount,
                 PreviewItems = previews.GetValueOrDefault(row.GroupName) ?? [],
-                CoverUrl = assetRoute is null ? null : $"/stream/{assetRoute}/cover",
-                BackgroundUrl = assetRoute is null ? null : $"/stream/{assetRoute}/background",
+                CoverUrl = usesRootTvArtwork
+                    ? row.RootCoverAssetId is { } rootCoverId ? $"/stream/artwork/{rootCoverId:D}" : null
+                    : assetRoute is null ? null : $"/stream/{assetRoute}/cover",
+                BackgroundUrl = usesRootTvArtwork
+                    ? row.RootBackgroundAssetId is { } rootBackgroundId ? $"/stream/artwork/{rootBackgroundId:D}" : null
+                    : assetRoute is null ? null : $"/stream/{assetRoute}/background",
                 BannerUrl = null,
-                LogoUrl = assetRoute is null ? null : $"/stream/{assetRoute}/logo",
+                LogoUrl = usesRootTvArtwork
+                    ? row.RootLogoAssetId is { } rootLogoId ? $"/stream/artwork/{rootLogoId:D}" : null
+                    : assetRoute is null ? null : $"/stream/{assetRoute}/logo",
                 CoverAspectClass = row.CoverAspectClass,
                 SquareAspectClass = row.SquareAspectClass,
                 BackgroundAspectClass = row.BackgroundAspectClass,

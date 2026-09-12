@@ -5320,19 +5320,21 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .tl-detail-overflow-popover .mud-list-item,
 .tl-detail-overflow-popover .mud-menu-item,
 .tl-detail-overflow-popover .app-menu-item {
-    min-height: 2.2rem !important;
-    gap: 0.52rem !important;
-    padding: 0.34rem 0.48rem !important;
+    min-height: 2.5rem !important;
+    justify-content: flex-start !important;
+    gap: 0.68rem !important;
+    padding: 0.46rem 0.68rem !important;
     border-radius: 0.4rem !important;
     font-size: 0.84rem !important;
     font-weight: 600 !important;
+    text-align: left !important;
 }
 
 .tl-detail-overflow-popover .mud-list-item .mud-icon-root,
 .tl-detail-overflow-popover .mud-menu-item .mud-icon-root,
 .tl-detail-overflow-popover .app-menu-item .mud-icon-root {
-    flex-basis: 1.05rem !important;
-    font-size: 1.05rem !important;
+    flex: 0 0 1.2rem !important;
+    font-size: 1.12rem !important;
 }
 
 /* Temporary drawers are rendered outside component CSS isolation. */

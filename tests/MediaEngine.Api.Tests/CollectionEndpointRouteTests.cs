@@ -24,7 +24,11 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("Tagline = row.Tagline", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("Network = row.Network", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("SeasonCount = row.SeasonCount is > 0", browseReadServiceSource, StringComparison.Ordinal);
-        Assert.Contains("LogoUrl = assetRoute is null", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("RootCoverAssetId", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("RootBackgroundAssetId", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("RootLogoAssetId", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("ea.asset_type = 'CoverArt'", browseReadServiceSource, StringComparison.Ordinal);
+        Assert.Contains("? row.RootLogoAssetId is", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("BackgroundUrl = combinedBackground", source, StringComparison.Ordinal);
         Assert.Contains("BannerUrl = combinedBanner", source, StringComparison.Ordinal);
         Assert.Contains("HeroUrl = combinedHero", source, StringComparison.Ordinal);

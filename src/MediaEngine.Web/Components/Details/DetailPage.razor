@@ -236,14 +236,16 @@
             Snackbar.Add($"Added {tracks.Count} tracks to the queue.", Severity.Success);
             return;
         }
-        if (action.Key is "add-playlist" or "add-collection")
+        if (action.Key == "add-playlist")
         {
-            IReadOnlyList<Guid> works = action.Key == "add-playlist"
-                ? Model.MediaGroups.SelectMany(g => g.Items).Where(item => item.IsOwned && Guid.TryParse(item.Id, out _))
-                    .OrderBy(TrackSortKey).Select(item => Guid.Parse(item.Id)).Distinct().ToList()
-                : [Guid.Parse(Model.EditorTarget?.EntityId ?? Model.Id)];
+            IReadOnlyList<Guid> works = Model.MediaGroups.SelectMany(g => g.Items)
+                .Where(item => item.IsOwned && Guid.TryParse(item.Id, out _))
+                .OrderBy(TrackSortKey)
+                .Select(item => Guid.Parse(item.Id))
+                .Distinct()
+                .ToList();
             await Dialogs.ShowAsync<MediaMembershipDialog>(action.Label, new DialogParameters<MediaMembershipDialog> {
-                { d => d.Playlist, action.Key == "add-playlist" }, { d => d.WorkIds, works },
+                { d => d.Playlist, true }, { d => d.WorkIds, works },
             });
             return;
         }
@@ -256,11 +258,6 @@
         {
             try { await Js.InvokeVoidAsync("navigator.clipboard.writeText", Nav.Uri); Snackbar.Add("Library link copied.", Severity.Success); }
             catch { Snackbar.Add("The browser could not copy the link.", Severity.Error); }
-            return;
-        }
-        if (action.Key == "file-information")
-        {
-            await SetActiveTabAsync("details");
             return;
         }
         if (action.Key is "edit-media" or "edit")
