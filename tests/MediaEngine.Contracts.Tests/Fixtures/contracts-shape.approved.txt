@@ -3858,6 +3858,7 @@ MediaEngine.Contracts.Metadata.MediaEngine.Contracts.Metadata.MediaEditorIdentit
   MatchMethod: System.String | nullability=nullable | accessors=get,set
   WikidataQid: System.String | nullability=nullable | accessors=get,set
   WikidataStatus: System.String | nullability=nullable | accessors=get,set
+  QidResolutionMethod: System.String | nullability=nullable | accessors=get,set
   MatchLevel: System.String | nullability=nullable | accessors=get,set
   UniverseName: System.String | nullability=nullable | accessors=get,set
   UniverseQid: System.String | nullability=nullable | accessors=get,set
@@ -3923,6 +3924,7 @@ MediaEngine.Contracts.Metadata.MediaEngine.Contracts.Metadata.MediaEditorNavigat
   CompactOrdinalLabel: System.String | nullability=nullable | accessors=get,set
   TechnicalBadges: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
   IsClickable: System.Boolean | nullability=not-null | accessors=get,set
+  CanSelectAsEditorTarget: System.Boolean | nullability=not-null | accessors=get,set
   CanQuarantine: System.Boolean | nullability=not-null | accessors=get,set
   QuarantineCount: System.Int32 | nullability=not-null | accessors=get,set
 
@@ -3943,6 +3945,15 @@ MediaEngine.Contracts.Metadata.MediaEngine.Contracts.Metadata.MediaEditorScopeDt
   ReadOnlyHint: System.String | nullability=nullable | accessors=get,set
   CanEditFields: System.Boolean | nullability=not-null | accessors=get,set
   CanEditArtwork: System.Boolean | nullability=not-null | accessors=get,set
+  AvailableTabs: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+  ContentTabLabel: System.String | nullability=nullable | accessors=get,set
+  RetailIdentityMode: System.String | nullability=not-null | accessors=get,set
+  CanonicalIdentityMode: System.String | nullability=not-null | accessors=get,set
+  CanonicalIdentityOwnerScopeId: System.String | nullability=nullable | accessors=get,set
+  ArtworkMode: System.String | nullability=not-null | accessors=get,set
+  ArtworkOwnerScopeId: System.String | nullability=nullable | accessors=get,set
+  FilesMode: System.String | nullability=not-null | accessors=get,set
+  HistoryOwnerScopeId: System.String | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Metadata.MediaEngine.Contracts.Metadata.MediaEditorTargetSummaryDto
   Label: System.String | nullability=not-null | accessors=get,set

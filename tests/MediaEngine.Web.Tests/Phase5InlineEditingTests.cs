@@ -208,10 +208,13 @@ public sealed class Phase5InlineEditingTests
     public void SharedEditor_OverlaysArtworkActionsOnTheSelectedImage()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
 
         Assert.Contains("sme-artwork-image-actions", source, StringComparison.Ordinal);
         Assert.Contains("AriaLabel=\"Preview artwork\"", source, StringComparison.Ordinal);
-        Assert.Contains("AriaLabel=\"Remove artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"@GetArtworkRemovalLabel(focusedItem)\"", source, StringComparison.Ordinal);
+        Assert.Contains("Delete uploaded image", code, StringComparison.Ordinal);
+        Assert.Contains("Remove from item", code, StringComparison.Ordinal);
         Assert.DoesNotContain("<div class=\"sme-artwork-primary-actions\">", source, StringComparison.Ordinal);
     }
 
@@ -270,7 +273,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Discard unsaved changes?", shell, StringComparison.Ordinal);
         Assert.Contains("Inline && _pendingMembershipPreview is not null", shell, StringComparison.Ordinal);
         Assert.Contains("Save and Move", shell, StringComparison.Ordinal);
-        Assert.Contains("Title=\"Parent & position\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Title=\"Library placement\"", shell, StringComparison.Ordinal);
         Assert.Contains("Search outside this parent", shell, StringComparison.Ordinal);
     }
 
@@ -281,12 +284,12 @@ public sealed class Phase5InlineEditingTests
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
         var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
 
-        Assert.Contains("else if (_activeTab == \"contents\")", shell, StringComparison.Ordinal);
+        Assert.Contains("else if (_activeTab == \"contents\"", shell, StringComparison.Ordinal);
         Assert.Contains("This track boundary is embedded in the audiobook file. Timing remains read-only.", shell, StringComparison.Ordinal);
         Assert.Contains("QueueAudiobookChapterReset", shell, StringComparison.Ordinal);
         Assert.Contains("UpsertAudiobookChapterTitleOverrideAsync", code, StringComparison.Ordinal);
         Assert.Contains("DeleteAudiobookChapterTitleOverrideAsync", code, StringComparison.Ordinal);
-        Assert.Contains("if (normalized == \"Audiobooks\")", metadata, StringComparison.Ordinal);
+        Assert.Contains("case (\"Audiobooks\", \"audiobook\")", metadata, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -345,9 +348,17 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Your item", shell, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentRetailMatchCard", code, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentWikidataMatchCard", code, StringComparison.Ordinal);
+        Assert.Contains("UsesParentRetailIdentityOnly", code, StringComparison.Ordinal);
+        Assert.Contains("Exact match needed", code, StringComparison.Ordinal);
+        Assert.Contains("The Series match supplies search context", code, StringComparison.Ordinal);
+        Assert.Contains("CanonicalIdentityTargetSummary", code, StringComparison.Ordinal);
+        Assert.Contains("BuildContextPlaceholder", shell, StringComparison.Ordinal);
+        Assert.Contains("Select {article} {normalized}", code, StringComparison.Ordinal);
         Assert.Contains("IdentityLinkDisplay", code, StringComparison.Ordinal);
         Assert.Contains(".GetExternalUrls(identifiers, _selectedMediaType", code, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentIdentityIdentifiers", code, StringComparison.Ordinal);
+        Assert.Contains("identifiers.Remove(\"wikidata_qid\")", code, StringComparison.Ordinal);
+        Assert.Contains("identifiers.Remove(\"wikipedia_url\")", code, StringComparison.Ordinal);
         Assert.DoesNotContain("BuildProviderItemUrl", code, StringComparison.Ordinal);
         Assert.DoesNotContain("https://www.themoviedb.org/", code, StringComparison.Ordinal);
         Assert.Contains("left: calc(8.75rem + 0.85rem + 1.625rem);", styles, StringComparison.Ordinal);
@@ -361,7 +372,8 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("MediaType = _selectedMediaType", code, StringComparison.Ordinal);
         Assert.Contains("Retail Provider", shell, StringComparison.Ordinal);
         Assert.Contains("Canonical Identity", shell, StringComparison.Ordinal);
-        Assert.Contains("The canonical Wikidata identity remains unchanged.", shell, StringComparison.Ordinal);
+        Assert.Contains("RetailMatchChangeDescription", shell, StringComparison.Ordinal);
+        Assert.Contains("The Series canonical identity remains unchanged.", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Cancel change", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Provider match pending", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("CurrentMatchStatusLabel", code, StringComparison.Ordinal);
@@ -465,9 +477,28 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("sme-source-fact__icon", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"Source facts\"", shell, StringComparison.Ordinal);
         Assert.Contains("AddSourceFact(facts, \"Provider\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"Series TMDB\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"Series Wikidata\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("AddSourceFact(facts, \"Genres\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-match-override-summary", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("fields overridden", shell, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArtworkLightbox_SupportsFitActualZoomPanAndKeyboardNavigation()
+    {
+        var lightbox = ReadSource("src/MediaEngine.Web/Components/MediaEditor/MediaEditorArtworkLightbox.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/MediaEditorArtworkLightbox.razor.css");
+
+        Assert.Contains("Actual size", lightbox, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Zoom out\"", lightbox, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Zoom in\"", lightbox, StringComparison.Ordinal);
+        Assert.Contains("ArrowLeft", lightbox, StringComparison.Ordinal);
+        Assert.Contains("ArrowRight", lightbox, StringComparison.Ordinal);
+        Assert.Contains("\"+\" or \"=\"", lightbox, StringComparison.Ordinal);
+        Assert.Contains("\"0\" => FitImageAsync()", lightbox, StringComparison.Ordinal);
+        Assert.Contains("overflow: auto", styles, StringComparison.Ordinal);
+        Assert.Contains("sme-art-lightbox-image--zoom-300", styles, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -516,13 +547,12 @@ public sealed class Phase5InlineEditingTests
         var schema = ReadSource("src/MediaEngine.Web/Services/Editing/MediaEditorModels.cs");
 
         Assert.Contains("item.TechnicalBadges", shell, StringComparison.Ordinal);
-        Assert.Contains("Disabled=\"@(!item.IsClickable)\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Disabled=\"@(!item.CanSelectAsEditorTarget)\"", shell, StringComparison.Ordinal);
         Assert.Contains("SelectContentItemAsync(group, item)", shell, StringComparison.Ordinal);
-        Assert.Contains("sme-content-inspector", shell, StringComparison.Ordinal);
-        Assert.Contains("SaveFocusedContentItemAsync", shell, StringComparison.Ordinal);
-        Assert.Contains("LoadSingleItemAsync(item.EntityId, resetEditorState: false, preferredScopeId: \"episode\")", code, StringComparison.Ordinal);
-        Assert.Contains("_focusedContentItem = item;", code, StringComparison.Ordinal);
-        Assert.Contains("string.Equals(_selectedMediaType, \"TV\"", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("sme-content-inspector", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("SaveFocusedContentItemAsync", code, StringComparison.Ordinal);
+        Assert.Contains("RequestEditorTargetSwitchAsync(item)", code, StringComparison.Ordinal);
+        Assert.Contains("CanSelectAsEditorTarget", dto, StringComparison.Ordinal);
         Assert.Contains("CompactOrdinalLabel", dto, StringComparison.Ordinal);
         Assert.Contains("PrimaryAssetId", dto, StringComparison.Ordinal);
         Assert.Contains("IsClickable", dto, StringComparison.Ordinal);
@@ -536,7 +566,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("detail.EpisodeNumber ?? FindCanonicalValue(canonicals, \"episode_number\")", schema, StringComparison.Ordinal);
         Assert.Contains("detail.EpisodeTitle ?? FindCanonicalValue(canonicals, \"episode_title\")", schema, StringComparison.Ordinal);
         Assert.DoesNotContain("Field(\"episode_title\", \"Title\", identity: true)", schema, StringComparison.Ordinal);
-        Assert.Contains("(\"TV\", \"episode\") => [\"episode_title\", \"tagline\", \"description\", \"season_number\", \"episode_number\"", code, StringComparison.Ordinal);
+        Assert.Contains("(\"TV\", \"episode\") => [\"episode_title\", \"description\", \"custom_tags\", \"sort_title\"]", code, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -600,17 +630,25 @@ public sealed class Phase5InlineEditingTests
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
         var context = ReadSource("src/MediaEngine.Contracts/Metadata/MediaEditorContracts.cs");
 
-        Assert.Contains("aria-label=\"Edit level\"", shell, StringComparison.Ordinal);
-        Assert.Contains("SelectScopeAsync(scope.ScopeId)", shell, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Edit context\"", shell, StringComparison.Ordinal);
+        Assert.Contains("SelectContextLevelOneAsync", shell, StringComparison.Ordinal);
+        Assert.Contains("SelectContextLevelTwoAsync", shell, StringComparison.Ordinal);
+        Assert.Contains("Save and switch", shell, StringComparison.Ordinal);
+        Assert.Contains("Discard and switch", shell, StringComparison.Ordinal);
+        Assert.Contains("Stay here", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Open in Library", shell, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Identity target", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-section-heading", shell, StringComparison.Ordinal);
-        Assert.Contains("Open @scope.Label Artwork", shell, StringComparison.Ordinal);
+        Assert.Contains("EditInheritedArtworkOwnerAsync", shell, StringComparison.Ordinal);
         Assert.Contains("private Guid CanonicalEndpointEntityId => CurrentEntityId", code, StringComparison.Ordinal);
         Assert.Contains("CoverUrl = candidate.CoverUrl", code, StringComparison.Ordinal);
         Assert.Contains("await Request.OnArtworkChanged.Invoke()", code, StringComparison.Ordinal);
         Assert.Contains("ActiveScope?.IdentitySummary", code, StringComparison.Ordinal);
         Assert.Contains("IdentityProviderItemId", ReadSource("src/MediaEngine.Domain/MetadataFieldConstants.cs"), StringComparison.Ordinal);
         Assert.Contains("JsonPropertyName(\"identity_summary\")", context, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"available_tabs\")", context, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"canonical_identity_mode\")", context, StringComparison.Ordinal);
+        Assert.Contains("JsonPropertyName(\"can_select_as_editor_target\")", context, StringComparison.Ordinal);
     }
 
     private static string ReadSource(

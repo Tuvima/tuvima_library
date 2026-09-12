@@ -457,8 +457,11 @@ public sealed class MediaEditorNavigationReadService(
         SqliteConnection conn,
         IReadOnlyList<NavigatorTreeRow> rows)
     {
-        var workIds = rows.Select(row => row.WorkId).Distinct().ToArray();
-        if (workIds.Length == 0)
+        var workIdHexes = rows
+            .Select(row => row.WorkId.ToString("N"))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (workIdHexes.Length == 0)
         {
             return [];
         }
@@ -469,7 +472,7 @@ public sealed class MediaEditorNavigationReadService(
                        MIN(ma.id) AS AssetId
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE e.work_id IN @workIds
+                WHERE LOWER(HEX(e.work_id)) IN @workIdHexes
                 GROUP BY e.work_id
             ),
             representative_assets AS (
@@ -523,9 +526,9 @@ public sealed class MediaEditorNavigationReadService(
             LEFT JOIN playback_inspection_cache pic ON pic.asset_id = ra.AssetId AND pic.source_hash = ra.ContentHash
             LEFT JOIN canonical_values wv ON wv.entity_id = w.id
             LEFT JOIN canonical_values av ON av.entity_id = ra.AssetId
-            WHERE w.id IN @workIds
+            WHERE LOWER(HEX(w.id)) IN @workIdHexes
             GROUP BY w.id, ra.AssetId, ra.FilePath, ra.ContentHash, ra.FormatLabel, pic.file_size, pic.container, w.display_overrides_json, w.parent_key;
-            """, new { workIds }).ToList();
+            """, new { workIdHexes }).ToList();
 
         return result.ToDictionary(row => row.WorkId);
     }
@@ -537,6 +540,7 @@ public sealed class MediaEditorNavigationReadService(
         mediaType switch
         {
             "TV" or "Music" => true,
+            "Books" or "Audiobooks" or "Comics" => rows.Count > 1,
             _ => false,
         };
 
@@ -630,6 +634,9 @@ public sealed class MediaEditorNavigationReadService(
         var compactOrdinalLabel = ResolveCompactNavigatorOrdinalLabel(mediaType, row, value);
         var technicalBadges = primaryAssetId.HasValue ? BuildNavigatorTechnicalBadges(mediaType, value) : [];
         var isClickable = primaryAssetId.HasValue && isOwned && !isParent;
+        var canSelectAsEditorTarget = (row.Depth == 0 || isParent)
+            ? isOwned || row.Depth == 0
+            : isClickable;
 
         return new MediaEditorNavigatorNodeEnvelope(
             NodeId: row.WorkId,
@@ -649,6 +656,7 @@ public sealed class MediaEditorNavigationReadService(
             CompactOrdinalLabel: compactOrdinalLabel,
             TechnicalBadges: technicalBadges,
             IsClickable: isClickable,
+            CanSelectAsEditorTarget: canSelectAsEditorTarget,
             CanQuarantine: quarantineCount > 0,
             QuarantineCount: quarantineCount);
     }

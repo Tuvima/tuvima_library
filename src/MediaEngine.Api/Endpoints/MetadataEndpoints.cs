@@ -623,27 +623,40 @@ public static partial class MetadataEndpoints
                 DisplayOverrideKeys = context.DisplayOverrideKeys.ToList(),
                 DisplayOverrides = new Dictionary<string, string>(context.DisplayOverrides, StringComparer.OrdinalIgnoreCase),
                 InitialScope = context.InitialScope,
-                Scopes = context.Scopes.Select(scope => new MediaEditorScopeDto
+                Scopes = context.Scopes.Select(scope =>
                 {
-                    ScopeId = scope.ScopeId,
-                    Label = scope.Label,
-                    Order = scope.Order,
-                    FieldEntityId = scope.FieldEntityId,
-                    FieldEntityKind = scope.FieldEntityKind,
-                    ArtworkOwnerEntityId = scope.ArtworkOwnerEntityId,
-                    ArtworkOwnerEntityKind = scope.ArtworkOwnerEntityKind,
-                    DisplayTitle = scope.DisplayTitle,
-                    DisplaySubtitle = scope.DisplaySubtitle,
-                    BreadcrumbLabel = scope.BreadcrumbLabel,
-                    CanonicalTargetGroup = scope.CanonicalTargetGroup,
-                    IdentitySummary = ToContract(
-                        context.ScopeIdentitySummaries.TryGetValue(scope.FieldEntityId, out var scopeIdentity)
-                            ? scopeIdentity
-                            : context.IdentitySummary),
-                    ScopeSummary = scope.ScopeSummary,
-                    ReadOnlyHint = scope.ReadOnlyHint,
-                    CanEditFields = scope.CanEditFields,
-                    CanEditArtwork = scope.CanEditArtwork,
+                    var scopeIdentity = context.ScopeIdentitySummaries.TryGetValue(scope.FieldEntityId, out var resolvedScopeIdentity)
+                        ? resolvedScopeIdentity
+                        : context.IdentitySummary;
+                    var capabilities = BuildEditorScopeCapabilities(scope, scopeIdentity.QidResolutionMethod);
+                    return new MediaEditorScopeDto
+                    {
+                        ScopeId = scope.ScopeId,
+                        Label = scope.Label,
+                        Order = scope.Order,
+                        FieldEntityId = scope.FieldEntityId,
+                        FieldEntityKind = scope.FieldEntityKind,
+                        ArtworkOwnerEntityId = scope.ArtworkOwnerEntityId,
+                        ArtworkOwnerEntityKind = scope.ArtworkOwnerEntityKind,
+                        DisplayTitle = scope.DisplayTitle,
+                        DisplaySubtitle = scope.DisplaySubtitle,
+                        BreadcrumbLabel = scope.BreadcrumbLabel,
+                        CanonicalTargetGroup = scope.CanonicalTargetGroup,
+                        IdentitySummary = ToContract(scopeIdentity),
+                        ScopeSummary = scope.ScopeSummary,
+                        ReadOnlyHint = scope.ReadOnlyHint,
+                        CanEditFields = scope.CanEditFields,
+                        CanEditArtwork = scope.CanEditArtwork,
+                        AvailableTabs = capabilities.AvailableTabs.ToList(),
+                        ContentTabLabel = capabilities.ContentTabLabel,
+                        RetailIdentityMode = capabilities.RetailIdentityMode,
+                        CanonicalIdentityMode = capabilities.CanonicalIdentityMode,
+                        CanonicalIdentityOwnerScopeId = capabilities.CanonicalIdentityOwnerScopeId,
+                        ArtworkMode = capabilities.ArtworkMode,
+                        ArtworkOwnerScopeId = capabilities.ArtworkOwnerScopeId,
+                        FilesMode = capabilities.FilesMode,
+                        HistoryOwnerScopeId = capabilities.HistoryOwnerScopeId,
+                    };
                 }).ToList(),
             });
         })
@@ -2147,11 +2160,15 @@ public static partial class MetadataEndpoints
     }
 
     private static bool IsContainerEditorMediaType(string? mediaType) =>
-        NormalizeEditorMediaType(mediaType) is "TV" or "Music";
+        NormalizeEditorMediaType(mediaType) is "TV" or "Music" or "Books" or "Audiobooks" or "Comics";
 
     private static bool IsContainerEditorLaunch(EditorLaunchContext launch) =>
-        IsContainerEditorMediaType(launch.MediaType)
-        && !string.Equals(launch.WorkKind, "child", StringComparison.OrdinalIgnoreCase);
+        NormalizeEditorMediaType(launch.MediaType) switch
+        {
+            "TV" or "Music" => !string.Equals(launch.WorkKind, "child", StringComparison.OrdinalIgnoreCase),
+            "Books" or "Audiobooks" or "Comics" => string.Equals(launch.WorkKind, "parent", StringComparison.OrdinalIgnoreCase),
+            _ => false,
+        };
 
     private static IReadOnlyList<string> BuildEditorAvailableTabs(
         string editorMode,
@@ -2160,38 +2177,162 @@ public static partial class MetadataEndpoints
         bool canEditArtwork,
         string? representativeMediaFilePath)
     {
-        var normalized = NormalizeEditorMediaType(mediaType);
-        if (string.Equals(editorMode, "container", StringComparison.OrdinalIgnoreCase))
-        {
-            return normalized switch
-            {
-                "TV" => ["details", "episodes", "artwork", "links", "file", "history"],
-                "Music" => ["details", "tracks", "artwork", "links", "file", "history"],
-                _ => ["details", "links", "history"],
-            };
-        }
+        var syntheticScope = new EditorScopeResolution(
+            scopeId,
+            scopeId,
+            0,
+            Guid.Empty,
+            "Work",
+            canEditArtwork ? Guid.Empty : null,
+            canEditArtwork ? "Work" : null,
+            string.Empty,
+            null,
+            string.Empty,
+            string.Empty,
+            null,
+            null,
+            CanEditFields: true,
+            CanEditArtwork: canEditArtwork,
+            MediaType: mediaType,
+            ArtworkFolderPath: null,
+            RepresentativeMediaFilePath: representativeMediaFilePath);
+        return BuildEditorScopeCapabilities(syntheticScope).AvailableTabs;
+    }
 
+    private static EditorTargetCapabilities BuildEditorScopeCapabilities(
+        EditorScopeResolution scope,
+        string? qidResolutionMethod = null)
+    {
+        var mediaType = NormalizeEditorMediaType(scope.MediaType);
+        var scopeId = scope.ScopeId.Trim().ToLowerInvariant();
+        var hasFile = !string.IsNullOrWhiteSpace(scope.RepresentativeMediaFilePath);
         var tabs = new List<string> { "details" };
-        if (normalized == "Audiobooks")
+        string? contentLabel = null;
+        var retailMode = "owned";
+        var canonicalMode = "owned";
+        string? canonicalOwner = null;
+        var artworkMode = scope.CanEditArtwork ? "owned" : "none";
+        string? artworkOwner = null;
+        var filesMode = hasFile ? "item" : "none";
+        string? historyOwner = scopeId;
+
+        void AddArtwork()
         {
-            tabs.Add("contents");
+            if (scope.CanEditArtwork)
+            {
+                tabs.Add("artwork");
+            }
         }
 
-        if (canEditArtwork)
+        void AddFiles(bool aggregate = false)
         {
-            tabs.Add("artwork");
+            if (hasFile || aggregate)
+            {
+                tabs.Add("file");
+                filesMode = aggregate ? "aggregate" : "item";
+            }
         }
 
-        tabs.Add("links");
-
-        if (!string.IsNullOrWhiteSpace(representativeMediaFilePath))
+        switch ((mediaType, scopeId))
         {
-            tabs.Add("file");
+            case ("TV", "series"):
+                tabs.Add("episodes");
+                contentLabel = "Contents";
+                AddArtwork();
+                tabs.Add("links");
+                AddFiles(aggregate: true);
+                tabs.Add("history");
+                break;
+            case ("TV", "season"):
+                tabs.Add("episodes");
+                contentLabel = "Contents";
+                AddArtwork();
+                AddFiles(aggregate: true);
+                retailMode = "derived";
+                canonicalMode = "inherited";
+                canonicalOwner = "series";
+                historyOwner = "series";
+                break;
+            case ("TV", "episode"):
+                AddArtwork();
+                tabs.Add("links");
+                AddFiles();
+                canonicalMode = "inherited";
+                canonicalOwner = "series";
+                historyOwner = "series";
+                break;
+            case ("Music", "album"):
+                tabs.Add("tracks");
+                contentLabel = "Contents";
+                AddArtwork();
+                tabs.Add("links");
+                AddFiles(aggregate: true);
+                tabs.Add("history");
+                break;
+            case ("Music", "track"):
+                tabs.Add("links");
+                AddFiles();
+                canonicalMode = "shared";
+                canonicalOwner = "album";
+                artworkMode = "inherited";
+                artworkOwner = "album";
+                historyOwner = "album";
+                break;
+            case ("Audiobooks", "series"):
+            case ("Books", "series"):
+            case ("Comics", "series"):
+                tabs.Add("contents");
+                contentLabel = "Contents";
+                AddArtwork();
+                tabs.Add("links");
+                AddFiles(aggregate: true);
+                tabs.Add("history");
+                break;
+            case ("Audiobooks", "audiobook"):
+            case ("Audiobooks", "item"):
+                tabs.Add("contents");
+                contentLabel = "Chapters";
+                AddArtwork();
+                tabs.Add("links");
+                AddFiles();
+                tabs.Add("history");
+                canonicalMode = "shared";
+                break;
+            case ("Comics", "issue"):
+            case ("Comics", "item"):
+                AddArtwork();
+                tabs.Add("links");
+                AddFiles();
+                historyOwner = scopeId == "issue" ? "series" : scopeId;
+                if (scopeId == "issue"
+                    && string.Equals(qidResolutionMethod, "comic_series_rollup", StringComparison.OrdinalIgnoreCase))
+                {
+                    canonicalMode = "inherited";
+                    canonicalOwner = "series";
+                }
+                if (scopeId == "item")
+                {
+                    tabs.Add("history");
+                }
+                break;
+            default:
+                AddArtwork();
+                tabs.Add("links");
+                AddFiles();
+                tabs.Add("history");
+                break;
         }
 
-        tabs.Add("history");
-
-        return tabs;
+        return new EditorTargetCapabilities(
+            tabs,
+            contentLabel,
+            retailMode,
+            canonicalMode,
+            canonicalOwner,
+            artworkMode,
+            artworkOwner,
+            filesMode,
+            historyOwner);
     }
 
     private static string? BuildContentTabLabel(string editorMode, string mediaType) =>
@@ -2218,6 +2359,11 @@ public static partial class MetadataEndpoints
             detail?.MatchMethod,
             detail?.WikidataQid,
             detail?.WikidataStatus,
+            detail?.CanonicalValues
+                .Where(value => string.Equals(value.Key, MetadataFieldConstants.QidResolutionMethod, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(value => value.LastScoredAt)
+                .Select(value => value.Value)
+                .FirstOrDefault(),
             detail?.MatchLevel,
             detail?.UniverseSummary?.UniverseName,
             detail?.UniverseSummary?.UniverseQid,
@@ -2372,7 +2518,8 @@ public static partial class MetadataEndpoints
                         launch.WorkId,
                         "Work",
                         episodeTitle,
-                        !string.IsNullOrWhiteSpace(episodeNumber) ? episodeLabel : seasonLabel,
+                        string.Join(" · ", new[] { showName, seasonLabel, episodeLabel }
+                            .Where(value => !string.IsNullOrWhiteSpace(value))),
                         episodeTitle,
                         "show_episode",
                         "Episode metadata and episode still artwork live here.",
@@ -2455,15 +2602,76 @@ public static partial class MetadataEndpoints
             case "Comics":
             case "Audiobooks":
             case "Books":
+                var leafScopeId = mediaType switch
+                {
+                    "Comics" => "issue",
+                    "Audiobooks" => "audiobook",
+                    _ => "book",
+                };
+                var leafLabel = mediaType switch
+                {
+                    "Comics" => "Issue",
+                    "Audiobooks" => "Audiobook",
+                    _ => "Book",
+                };
+                var hasStructuralSeries = hasDistinctRoot || isParentLaunch;
+
+                if (hasStructuralSeries)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        "series",
+                        "Series",
+                        0,
+                        rootWorkId,
+                        "Work",
+                        rootWorkId,
+                        "Work",
+                        seriesName,
+                        StringHelpers.FirstNonBlankOr(string.Empty, detail?.Author, rootYear),
+                        seriesName,
+                        "series",
+                        $"{mediaType.TrimEnd('s')} series details and ordered contents live here.",
+                        null,
+                        CanEditFields: true,
+                        CanEditArtwork: true,
+                        MediaType: mediaType,
+                        ArtworkFolderPath: seriesFolder ?? containerFolder,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
+
+                if (!isParentLaunch || !hasStructuralSeries)
+                {
+                    scopes.Add(new EditorScopeResolution(
+                        leafScopeId,
+                        leafLabel,
+                        hasStructuralSeries ? 1 : 0,
+                        launch.WorkId,
+                        "Work",
+                        launch.WorkId,
+                        "Work",
+                        itemTitle,
+                        StringHelpers.FirstNonBlankOr(string.Empty, seriesName, itemYear),
+                        itemTitle,
+                        mediaType switch
+                        {
+                            "Comics" => "issue",
+                            "Audiobooks" => "audiobook_identity",
+                            _ => "book_identity",
+                        },
+                        $"{leafLabel} metadata and owned artwork live here.",
+                        hasStructuralSeries ? $"Series-owned information is inherited from {seriesName}." : null,
+                        CanEditFields: true,
+                        CanEditArtwork: true,
+                        MediaType: mediaType,
+                        ArtworkFolderPath: containerFolder,
+                        RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
+                }
+                break;
+
             default:
                 scopes.Add(new EditorScopeResolution(
                     "item",
-                    mediaType switch
-                    {
-                        "Comics" => "Comic",
-                        "Audiobooks" => "Audiobook",
-                        _ => "Book",
-                    },
+                    "Item",
                     0,
                     launch.WorkId,
                     "Work",
@@ -2472,12 +2680,7 @@ public static partial class MetadataEndpoints
                     itemTitle,
                     StringHelpers.FirstNonBlankOr(string.Empty, seriesName, itemYear),
                     itemTitle,
-                    mediaType switch
-                    {
-                        "Comics" => "issue",
-                        "Audiobooks" => "audiobook_identity",
-                        _ => "book_identity",
-                    },
+                    "item",
                     "Item metadata and artwork live here.",
                     null,
                     CanEditFields: true,
@@ -2486,35 +2689,6 @@ public static partial class MetadataEndpoints
                     ArtworkFolderPath: containerFolder,
                     RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
                 break;
-        }
-
-        if (!IsContainerEditorMediaType(mediaType) || string.Equals(launch.WorkKind, "child", StringComparison.OrdinalIgnoreCase))
-        {
-            scopes.Add(new EditorScopeResolution(
-                "file",
-                "File",
-                scopes.Count,
-                launch.WorkId,
-                "Work",
-                null,
-                null,
-                Path.GetFileName(launch.RepresentativeMediaFilePath) ?? "File",
-                launch.RepresentativeMediaFilePath,
-                "File",
-                mediaType switch
-                {
-                    "Movies" => "movie_identity",
-                    "Comics" => "issue",
-                    "Audiobooks" => "audiobook_identity",
-                    _ => "book_identity",
-                },
-                "File inspection and technical details for the concrete media file.",
-                "File scope is read-only in the edit panel.",
-                CanEditFields: false,
-                CanEditArtwork: false,
-                MediaType: mediaType,
-                ArtworkFolderPath: null,
-                RepresentativeMediaFilePath: launch.RepresentativeMediaFilePath));
         }
 
         return scopes;
@@ -2530,7 +2704,13 @@ public static partial class MetadataEndpoints
             "TV" => "series",
             "Music" when string.Equals(launchWorkKind, "child", StringComparison.OrdinalIgnoreCase) => "track",
             "Music" => "album",
-            "Movies" or "Comics" or "Books" or "Audiobooks" => "item",
+            "Comics" when string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase) => "series",
+            "Comics" => "issue",
+            "Books" when string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase) => "series",
+            "Books" => "book",
+            "Audiobooks" when string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase) => "series",
+            "Audiobooks" => "audiobook",
+            "Movies" => "item",
             _ => scopes[0].ScopeId,
         };
 
@@ -2608,6 +2788,7 @@ public static partial class MetadataEndpoints
         MatchMethod = source.MatchMethod,
         WikidataQid = source.WikidataQid,
         WikidataStatus = source.WikidataStatus,
+        QidResolutionMethod = source.QidResolutionMethod,
         MatchLevel = source.MatchLevel,
         UniverseName = source.UniverseName,
         UniverseQid = source.UniverseQid,
@@ -2625,6 +2806,7 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("match_method")] string? MatchMethod,
         [property: JsonPropertyName("wikidata_qid")] string? WikidataQid,
         [property: JsonPropertyName("wikidata_status")] string? WikidataStatus,
+        [property: JsonPropertyName("qid_resolution_method")] string? QidResolutionMethod,
         [property: JsonPropertyName("match_level")] string? MatchLevel,
         [property: JsonPropertyName("universe_name")] string? UniverseName,
         [property: JsonPropertyName("universe_qid")] string? UniverseQid,
@@ -2674,6 +2856,16 @@ public static partial class MetadataEndpoints
         string MediaType,
         string? ArtworkFolderPath,
         string? RepresentativeMediaFilePath);
+    private sealed record EditorTargetCapabilities(
+        IReadOnlyList<string> AvailableTabs,
+        string? ContentTabLabel,
+        string RetailIdentityMode,
+        string CanonicalIdentityMode,
+        string? CanonicalIdentityOwnerScopeId,
+        string ArtworkMode,
+        string? ArtworkOwnerScopeId,
+        string FilesMode,
+        string? HistoryOwnerScopeId);
 
     /// <summary>
     /// Builds a flat dictionary of all extracted fields from a search result item.

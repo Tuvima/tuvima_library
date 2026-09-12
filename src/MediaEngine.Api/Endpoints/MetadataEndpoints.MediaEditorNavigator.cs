@@ -111,6 +111,7 @@ public static partial class MetadataEndpoints
                 CompactOrdinalLabel = node.CompactOrdinalLabel,
                 TechnicalBadges = node.TechnicalBadges.ToList(),
                 IsClickable = node.IsClickable,
+                CanSelectAsEditorTarget = node.CanSelectAsEditorTarget,
                 CanQuarantine = node.CanQuarantine,
                 QuarantineCount = node.QuarantineCount,
             }).ToList(),

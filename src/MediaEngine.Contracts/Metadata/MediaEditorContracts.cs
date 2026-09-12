@@ -82,6 +82,9 @@ public sealed class MediaEditorIdentitySummaryDto
     [JsonPropertyName("wikidata_status")]
     public string? WikidataStatus { get; set; }
 
+    [JsonPropertyName("qid_resolution_method")]
+    public string? QidResolutionMethod { get; set; }
+
     [JsonPropertyName("match_level")]
     public string? MatchLevel { get; set; }
 
@@ -144,6 +147,33 @@ public sealed class MediaEditorScopeDto
 
     [JsonPropertyName("can_edit_artwork")]
     public bool CanEditArtwork { get; set; }
+
+    [JsonPropertyName("available_tabs")]
+    public List<string> AvailableTabs { get; set; } = [];
+
+    [JsonPropertyName("content_tab_label")]
+    public string? ContentTabLabel { get; set; }
+
+    [JsonPropertyName("retail_identity_mode")]
+    public string RetailIdentityMode { get; set; } = "owned";
+
+    [JsonPropertyName("canonical_identity_mode")]
+    public string CanonicalIdentityMode { get; set; } = "owned";
+
+    [JsonPropertyName("canonical_identity_owner_scope_id")]
+    public string? CanonicalIdentityOwnerScopeId { get; set; }
+
+    [JsonPropertyName("artwork_mode")]
+    public string ArtworkMode { get; set; } = "owned";
+
+    [JsonPropertyName("artwork_owner_scope_id")]
+    public string? ArtworkOwnerScopeId { get; set; }
+
+    [JsonPropertyName("files_mode")]
+    public string FilesMode { get; set; } = "item";
+
+    [JsonPropertyName("history_owner_scope_id")]
+    public string? HistoryOwnerScopeId { get; set; }
 }
 
 public sealed class MediaEditorNavigatorDto
@@ -225,6 +255,9 @@ public sealed class MediaEditorNavigatorNodeDto
 
     [JsonPropertyName("is_clickable")]
     public bool IsClickable { get; set; }
+
+    [JsonPropertyName("can_select_as_editor_target")]
+    public bool CanSelectAsEditorTarget { get; set; }
 
     [JsonPropertyName("can_quarantine")]
     public bool CanQuarantine { get; set; }

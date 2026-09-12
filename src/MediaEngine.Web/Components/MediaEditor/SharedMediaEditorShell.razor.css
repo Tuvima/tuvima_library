@@ -2165,6 +2165,98 @@
     }
 }
 
+/* The edit context is the editor's only hierarchy control. Keep it visually
+   separate from section navigation so changing a target never looks like
+   changing a tab. */
+.sme-context-navigator {
+    display: flex;
+    align-items: center;
+    gap: var(--tl-space-3);
+    min-height: 4.5rem;
+    padding: var(--tl-space-3) var(--tl-space-5);
+    border-block: 1px solid var(--tl-color-border-subtle);
+    background: color-mix(in srgb, var(--tl-color-surface-1) 86%, transparent);
+}
+
+.sme-context-navigator__label {
+    flex: 0 0 auto;
+    color: var(--tl-color-text-muted);
+    font-size: var(--tl-font-size-xs);
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+::deep .sme-context-root {
+    min-width: 12rem;
+    justify-content: flex-start;
+    border: 1px solid var(--tl-color-border-subtle);
+    border-radius: var(--tl-radius-md);
+    padding: var(--tl-space-2) var(--tl-space-3);
+}
+
+::deep .sme-context-root .mud-button-label {
+    display: grid;
+    justify-items: start;
+    line-height: 1.2;
+}
+
+::deep .sme-context-root span {
+    color: var(--tl-color-text-muted);
+    font-size: var(--tl-font-size-xs);
+}
+
+::deep .sme-context-root.is-active {
+    border-color: var(--tl-color-primary);
+    background: color-mix(in srgb, var(--tl-color-primary) 16%, transparent);
+}
+
+.sme-context-chevron {
+    flex: 0 0 auto;
+    color: var(--tl-color-text-muted);
+}
+
+::deep .sme-context-select {
+    flex: 1 1 16rem;
+    max-width: 22rem;
+    margin: 0;
+}
+
+.sme-inherited-capability {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--tl-space-3);
+    padding: var(--tl-space-3) var(--tl-space-4);
+    border-top: 1px solid var(--tl-color-border-subtle);
+    color: var(--tl-color-text-muted);
+    font-size: var(--tl-font-size-sm);
+}
+
+@media (max-width: 840px) {
+    .sme-context-navigator {
+        align-items: stretch;
+        flex-direction: column;
+        gap: var(--tl-space-2);
+        padding: var(--tl-space-3);
+    }
+
+    .sme-context-chevron {
+        display: none;
+    }
+
+    ::deep .sme-context-root,
+    ::deep .sme-context-select {
+        width: 100%;
+        max-width: none;
+    }
+
+    .sme-inherited-capability {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .sme-match-search-spinner {
         animation-duration: 1.8s;

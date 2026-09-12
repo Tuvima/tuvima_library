@@ -44,6 +44,7 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("technical_badges", navigatorService, StringComparison.Ordinal);
         Assert.Contains("primary_asset_id", navigatorService, StringComparison.Ordinal);
         Assert.Contains("is_clickable", navigatorService, StringComparison.Ordinal);
+        Assert.Contains("can_select_as_editor_target", navigatorService, StringComparison.Ordinal);
         Assert.Contains("BuildNavigatorTechnicalBadges", navigatorService, StringComparison.Ordinal);
         Assert.Contains("playback_inspection_cache", navigatorService, StringComparison.Ordinal);
         Assert.Contains("file_size_bytes", navigatorService, StringComparison.Ordinal);
@@ -55,6 +56,8 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.DoesNotContain("\"display_subtitle\"", navigatorService, StringComparison.Ordinal);
         Assert.Contains("IsContainerEditorLaunch(launch)", metadata, StringComparison.Ordinal);
         Assert.Contains("!string.Equals(launch.WorkKind, \"child\"", metadata, StringComparison.Ordinal);
+        Assert.Contains("BuildEditorScopeCapabilities", metadata, StringComparison.Ordinal);
+        Assert.Contains("CanonicalIdentityOwnerScopeId", metadata, StringComparison.Ordinal);
     }
 
     [Fact]

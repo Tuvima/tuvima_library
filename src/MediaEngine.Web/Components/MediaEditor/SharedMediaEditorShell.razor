@@ -56,18 +56,22 @@
                     {
                         <div class="sme-kicker">@HeaderKicker</div>
                         <h2 class="sme-title" tabindex="-1">@HeaderTitle</h2>
+                        @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
+                        {
+                            <div class="sme-subtitle">@HeaderSubtitle</div>
+                        }
                         @if (IsSingleItem)
                         {
                             <div class="sme-header-match-state" aria-label="Identity match status">
                                 <span class="sme-header-match-state__item @(HasCurrentRetailMatch ? "is-matched" : "is-unmatched")"
-                                      title="@(HasCurrentRetailMatch ? "Retail match linked" : "No retail match")">
+                                      title="@RetailStatusDescription">
                                     <MudIcon Icon="@(HasCurrentRetailMatch ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.Close)" Size="Size.Small" />
-                                    Retail
+                                    @RetailStatusLabel
                                 </span>
                                 <span class="sme-header-match-state__item @(HasCurrentCanonicalIdentity ? "is-matched" : "is-unmatched")"
                                       title="@(HasCurrentCanonicalIdentity ? "Canonical identity linked" : "No canonical identity")">
                                     <MudIcon Icon="@(HasCurrentCanonicalIdentity ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.Close)" Size="Size.Small" />
-                                    Canonical
+                                    @CanonicalStatusLabel
                                 </span>
                             </div>
                         }
@@ -202,30 +206,59 @@
                 </div>
             }
 
-            @if (IsSingleItem && ScopeOptions.Count(scope => scope.ScopeId != "file") > 1)
+            @if (HasPendingTargetSwitch)
             {
-                <nav class="sme-scope-switcher" aria-label="Edit level">
-                    <div class="sme-scope-switcher-copy">
-                        <span class="sme-scope-picker-kicker">Editing level</span>
-                        <span class="sme-scope-switcher-hint">Choose the owner before changing details, identity, or artwork.</span>
+                <div class="sme-inline-decision sme-target-switch-decision" role="alert">
+                    <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
+                    <div>
+                        <strong>Save changes before editing @PendingTargetSwitchTitle?</strong>
+                        <span>Choose what to do with the changes on @HeaderTitle.</span>
                     </div>
-                    <div class="sme-scope-switcher-items">
-                        @foreach (var scope in ScopeOptions.Where(scope => scope.ScopeId != "file"))
-                        {
-                            var isActiveScope = string.Equals(scope.ScopeId, ActiveScope?.ScopeId, StringComparison.OrdinalIgnoreCase);
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Inherit"
-                                       Class="@(isActiveScope ? "sme-scope-chip sme-scope-chip--active" : "sme-scope-chip")"
-                                       title="@scope.ScopeSummary"
-                                       OnClick="@(() => SelectScopeAsync(scope.ScopeId))">
-                                <span>@scope.Label</span>
-                                @if (!string.IsNullOrWhiteSpace(GetScopePickerTitle(scope)))
-                                {
-                                    <small>@GetScopePickerTitle(scope)</small>
-                                }
-                            </AppButton>
-                        }
-                    </div>
+                    <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="KeepEditingCurrentTarget">
+                        Stay here
+                    </AppButton>
+                    <AppButton Variant="Variant.Outlined" Color="Color.Error" OnClick="DiscardAndSwitchTargetAsync">
+                        Discard and switch
+                    </AppButton>
+                    <AppButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_saving" OnClick="SaveAndSwitchTargetAsync">
+                        @(_saving ? "Saving..." : "Save and switch")
+                    </AppButton>
+                </div>
+            }
+
+            @if (HasContextNavigator)
+            {
+                <nav class="sme-context-navigator" aria-label="Edit context">
+                    <span class="sme-context-navigator__label">Edit context</span>
+                    <AppButton Variant="Variant.Text"
+                               Color="Color.Inherit"
+                               Class="@(SelectedNavigatorNode?.Depth == 0 ? "sme-context-root is-active" : "sme-context-root")"
+                               OnClick="SelectContextRootAsync">
+                        <span>@NavigatorRootNode!.Label</span>
+                        <strong>@NavigatorRootNode.Title</strong>
+                    </AppButton>
+
+                    @if (ContextLevelOneNodes.Count > 0)
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="sme-context-chevron" />
+                        <AppSelect Value="@SelectedContextLevelOneValue"
+                                   ValueChanged="SelectContextLevelOneAsync"
+                                   Options="@ContextLevelOneOptions"
+                                   Placeholder="@BuildContextPlaceholder(ContextLevelOneLabel)"
+                                   aria-label="@($"Select {ContextLevelOneLabel.ToLowerInvariant()}")"
+                                   Class="sme-context-select" />
+                    }
+
+                    @if (SelectedContextLevelOneNode is not null && ContextLevelTwoNodes.Count > 0)
+                    {
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="sme-context-chevron" />
+                        <AppSelect Value="@SelectedContextLevelTwoValue"
+                                   ValueChanged="SelectContextLevelTwoAsync"
+                                   Options="@ContextLevelTwoOptions"
+                                   Placeholder="@BuildContextPlaceholder(ContextLevelTwoLabel)"
+                                   aria-label="@($"Select {ContextLevelTwoLabel.ToLowerInvariant()}")"
+                                   Class="sme-context-select" />
+                    }
                 </nav>
             }
 
@@ -280,23 +313,6 @@
 
                 </nav>
                 <div class="sme-main-pane">
-                    @if (HasContainerReturnState)
-                    {
-                        <div class="sme-container-return">
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Inherit"
-                                       StartIcon="@Icons.Material.Outlined.ArrowBack"
-                                       Class="sme-container-return-button"
-                                       OnClick="ReturnToContainerEditorAsync">
-                                @ContainerReturnLabel
-                            </AppButton>
-                            @if (!string.IsNullOrWhiteSpace(ContainerReturnContext))
-                            {
-                                <span>@ContainerReturnContext</span>
-                            }
-                        </div>
-                    }
-
                     <div class="sme-body">
                 @if (_loading)
                 {
@@ -319,6 +335,18 @@
                                 <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
                                 <span>Source-managed facts refresh when matching changes. Customize only the values that control how this item appears in your library.</span>
                             </div>
+
+                            @if (HasInheritedArtwork && InheritedArtworkOwnerScope is not null)
+                            {
+                                <div class="sme-inherited-capability">
+                                    <span>Artwork inherited from <strong>@InheritedArtworkOwnerScope.DisplayTitle</strong></span>
+                                    <AppButton Variant="Variant.Text"
+                                               Color="Color.Inherit"
+                                               OnClick="EditInheritedArtworkOwnerAsync">
+                                        Edit @InheritedArtworkOwnerScope.Label.ToLowerInvariant() artwork
+                                    </AppButton>
+                                </div>
+                            }
 
                             <div class="sme-details-stack">
                                 <MediaEditorPanel Title="Appearance" Description="The title and copy shown across Tuvima Library." Class="sme-details-section">
@@ -380,6 +408,58 @@
                                         }
                                 </MediaEditorPanel>
 
+                                @if (GetParentPositionFields().Count > 0)
+                                {
+                                    <MediaEditorPanel Title="Library placement"
+                                                      Description="Choose where this item belongs. Structural changes are previewed before they are applied."
+                                                      Class="sme-details-section">
+                                        <div class="sme-parent-position-grid">
+                                            @foreach (var field in GetParentPositionFields())
+                                            {
+                                                <div class="sme-parent-position-field">
+                                                    <AppFormFieldRow Label="@field.Label"
+                                                                     Value="@GetEditableValue(field.Key)"
+                                                                     ValueChanged="@((string? value) => OnMembershipFieldInputAsync(field.Key, value))"
+                                                                     Placeholder="@field.Placeholder"
+                                                                     InputKind="@field.InputKind"
+                                                                     HelpText="@GetParentPositionHelp(field.Key)" />
+                                                    @if (CanSearchRetailMembership(field.Key))
+                                                    {
+                                                        <AppButton Variant="Variant.Text"
+                                                                   Color="Color.Inherit"
+                                                                   Class="sme-parent-position-search"
+                                                                   OnClick="@(() => SearchRetailMembershipAsync(field.Key))">
+                                                            Search outside this parent
+                                                        </AppButton>
+                                                    }
+                                                    @if (GetMembershipSuggestions(field.Key).Count > 0)
+                                                    {
+                                                        <div class="sme-membership-suggestions" role="listbox" aria-label="@($"Suggestions for {field.Label}")">
+                                                            @foreach (var suggestion in GetMembershipSuggestions(field.Key))
+                                                            {
+                                                                <AppButton Variant="Variant.Text"
+                                                                           Color="Color.Inherit"
+                                                                           FullWidth="true"
+                                                                           Class="sme-membership-suggestion"
+                                                                           OnClick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
+                                                                    <span>
+                                                                        <strong>@suggestion.Label</strong>
+                                                                        @if (!string.IsNullOrWhiteSpace(suggestion.Subtitle))
+                                                                        {
+                                                                            <small>@suggestion.Subtitle</small>
+                                                                        }
+                                                                    </span>
+                                                                    <small>@(suggestion.LocalExisting ? "In your library" : suggestion.ProviderName)</small>
+                                                                </AppButton>
+                                                            }
+                                                        </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </MediaEditorPanel>
+                                }
+
                                 @if (GetSourceFacts().Count > 0)
                                 {
                                     <MediaEditorPanel Title="Source facts"
@@ -419,7 +499,9 @@
                         </div>
                     </div>
                 }
-                else if (_activeTab == "contents")
+                else if (_activeTab == "contents"
+                         && string.Equals(_selectedMediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase)
+                         && !string.Equals(ActiveScope?.ScopeId, "series", StringComparison.OrdinalIgnoreCase))
                 {
                     <div class="sme-content-tab sme-audiobook-contents">
                         <section class="sme-content-media-summary">
@@ -517,7 +599,7 @@
                             }
                     </div>
                 }
-                else if (_activeTab == "episodes" || _activeTab == "tracks")
+                else if (_activeTab == "episodes" || _activeTab == "tracks" || _activeTab == "contents")
                 {
                     <div class="sme-content-tab">
                         <section class="sme-content-media-summary">
@@ -528,11 +610,11 @@
                                 }
                                 else
                                 {
-                                    <MudIcon Icon="@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? Icons.Material.Outlined.Album : Icons.Material.Outlined.LiveTv)" />
+                                    <MudIcon Icon="@GetContentsIcon()" />
                                 }
                             </span>
                             <span class="sme-content-media-summary__copy">
-                                <span><strong>@HeaderTitle</strong><AppChip Text="@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "Album" : "TV Show")" Tone="AppUiTone.Primary" /></span>
+                                <span><strong>@HeaderTitle</strong><AppChip Text="@GetContainerKindLabel()" Tone="AppUiTone.Primary" /></span>
                                 @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
                                 {
                                     <small>@NormalizeDisplaySpacing(HeaderSubtitle)</small>
@@ -554,7 +636,7 @@
                         }
                         else
                         {
-                                    <div class="sme-content-master-detail @(_focusedContentItem is not null ? "has-inspector" : string.Empty)">
+                                    <div class="sme-content-master-detail">
                                     <section class="sme-group">
                                 <div class="sme-content-completion">
                                     <div>
@@ -615,7 +697,7 @@
                                                     <AppButton Variant="Variant.Text"
                                                                Color="Color.Inherit"
                                                                FullWidth="true"
-                                                               Disabled="@(!item.IsClickable)"
+                                                               Disabled="@(!item.CanSelectAsEditorTarget)"
                                                                Class='@($"sme-content-item {(IsContentNodeSelected(item) ? "is-active" : string.Empty)} {(item.IsOwned ? "is-owned" : "is-missing")} {(item.IsClickable ? "is-clickable" : "is-disabled")}")'
                                                                OnClick="@(() => SelectContentItemAsync(group, item))">
                                                         <span class="sme-content-item-badge">@ordinal</span>
@@ -652,62 +734,6 @@
                                     </div>
                                 }
                             </section>
-                            @if (_focusedContentItem is { } focusedItem)
-                            {
-                                <aside class="sme-content-inspector" aria-label="@($"Edit {ContentItemSingular.ToLowerInvariant()}")">
-                                    <div class="sme-content-inspector__heading">
-                                        <div>
-                                            <span>Edit @ContentItemSingular</span>
-                                            <strong>@(_focusedContentGroup?.Title)</strong>
-                                        </div>
-                                        <AppIconButton Icon="@Icons.Material.Outlined.Close"
-                                                       Size="Size.Small"
-                                                       Color="Color.Inherit"
-                                                       Tooltip="Close inspector"
-                                                       AriaLabel="Close inspector"
-                                                       OnClick="CloseContentInspector" />
-                                    </div>
-                                    <div class="sme-content-inspector__note">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
-                                        <span>@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase)
-                                            ? "Track metadata stays in this panel. Artwork is inherited from the album, so album artwork changes apply to every track."
-                                            : "Episode metadata stays in this panel so the season list remains visible while you edit.")</span>
-                                    </div>
-                                    <label>@ContentItemSingular title</label>
-                                    <AppTextField T="string"
-                                                  Value="@_focusedContentTitle"
-                                                  ValueChanged="@((string? value) => _focusedContentTitle = value ?? string.Empty)"
-                                                  Variant="Variant.Outlined"
-                                                  Margin="Margin.Dense"
-                                                  Immediate="true" />
-                                    <div class="sme-content-inspector__facts">
-                                        <span><small>Number</small><strong>@GetContentOrdinalLabel(focusedItem, 0)</strong></span>
-                                        <span><small>Group</small><strong>@(_focusedContentGroup?.Title)</strong></span>
-                                        @if (!string.IsNullOrWhiteSpace(focusedItem.Subtitle))
-                                        {
-                                            <span class="is-wide"><small>Details</small><strong>@NormalizeContributorDisplay(focusedItem.Subtitle)</strong></span>
-                                        }
-                                    </div>
-                                    @if (string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase))
-                                    {
-                                        <div class="sme-content-inspector__artwork-note">
-                                            <span class="sme-content-inspector__album-art @ArtworkShapeClass">
-                                                @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
-                                                {
-                                                    <img src="@CurrentCoverUrl" alt="Album artwork" />
-                                                }
-                                            </span>
-                                            <span><strong>Inherited album artwork</strong><small>Manage it once from Artwork to update the whole album.</small></span>
-                                        </div>
-                                    }
-                                    <AppButton Label="@(_savingFocusedContent ? "Saving..." : $"Save {ContentItemSingular.ToLowerInvariant()}")"
-                                               Variant="Variant.Filled"
-                                               Color="Color.Primary"
-                                               FullWidth="true"
-                                               Disabled="@(_savingFocusedContent || string.IsNullOrWhiteSpace(_focusedContentTitle) || string.Equals(_focusedContentTitle.Trim(), focusedItem.Title, StringComparison.Ordinal))"
-                                               OnClick="SaveFocusedContentItemAsync" />
-                                </aside>
-                            }
                             </div>
                         }
                     </div>
@@ -715,56 +741,6 @@
                 else if (_activeTab == "links")
                 {
                     <div class="sme-match-tab">
-                        @if (GetParentPositionFields().Count > 0)
-                        {
-                            <MediaEditorPanel Title="Parent & position" Description="Structural changes are previewed before they are applied.">
-                                <div class="sme-parent-position-grid">
-                                    @foreach (var field in GetParentPositionFields())
-                                    {
-                                        <div class="sme-parent-position-field">
-                                            <AppFormFieldRow Label="@field.Label"
-                                                             Value="@GetEditableValue(field.Key)"
-                                                             ValueChanged="@((string? value) => OnMembershipFieldInputAsync(field.Key, value))"
-                                                             Placeholder="@field.Placeholder"
-                                                             InputKind="@field.InputKind"
-                                                             HelpText="@GetParentPositionHelp(field.Key)" />
-                                            @if (CanSearchRetailMembership(field.Key))
-                                            {
-                                                <AppButton Variant="Variant.Text"
-                                                           Color="Color.Inherit"
-                                                           Class="sme-parent-position-search"
-                                                           OnClick="@(() => SearchRetailMembershipAsync(field.Key))">
-                                                    Search outside this parent
-                                                </AppButton>
-                                            }
-                                            @if (GetMembershipSuggestions(field.Key).Count > 0)
-                                            {
-                                                <div class="sme-membership-suggestions" role="listbox" aria-label="@($"Suggestions for {field.Label}")">
-                                                    @foreach (var suggestion in GetMembershipSuggestions(field.Key))
-                                                    {
-                                                        <AppButton Variant="Variant.Text"
-                                                                   Color="Color.Inherit"
-                                                                   FullWidth="true"
-                                                                   Class="sme-membership-suggestion"
-                                                                   OnClick="@(() => ApplyMembershipSuggestionAsync(field.Key, suggestion))">
-                                                            <span>
-                                                                <strong>@suggestion.Label</strong>
-                                                                @if (!string.IsNullOrWhiteSpace(suggestion.Subtitle))
-                                                                {
-                                                                    <small>@suggestion.Subtitle</small>
-                                                                }
-                                                            </span>
-                                                            <small>@(suggestion.LocalExisting ? "In your library" : suggestion.ProviderName)</small>
-                                                        </AppButton>
-                                                    }
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-                                </div>
-                            </MediaEditorPanel>
-                        }
-
                         @if (!string.IsNullOrWhiteSpace(_matchActionStatus))
                         {
                             <div class="sme-match-progress @(_matchActionPending ? "sme-match-progress--active" : string.Empty)" role="status">
@@ -790,7 +766,7 @@
                                 <div class="sme-match-current-grid">
                                     <section class="sme-match-current-panel sme-match-summary-card">
                                         <div class="sme-match-summary-heading">
-                                            <h3>Retail Provider</h3>
+                                            <h3>@RetailIdentityHeading</h3>
                                         </div>
                                         <div class="sme-match-summary-body">
                                             <div class="sme-match-identity-art @ArtworkShapeClass">
@@ -832,7 +808,7 @@
 
                                     <section class="sme-canonical-identity-panel sme-match-summary-card">
                                         <div class="sme-match-summary-heading">
-                                            <h3>Canonical Identity</h3>
+                                            <h3>@CanonicalIdentityHeading</h3>
                                         </div>
                                         <div class="sme-match-summary-body">
                                             <div class="sme-match-canonical-art"><MudIcon Icon="@Icons.Material.Outlined.Hub" /></div>
@@ -861,6 +837,17 @@
                                                 }
                                             </div>
                                         }
+                                        @if (HasInheritedCanonicalIdentity && CanonicalIdentityOwnerScope is not null)
+                                        {
+                                            <div class="sme-inherited-capability">
+                                                <span>Inherited from <strong>@CanonicalIdentityOwnerScope.DisplayTitle</strong></span>
+                                                <AppButton Variant="Variant.Text"
+                                                           Color="Color.Inherit"
+                                                           OnClick="EditCanonicalIdentityOwnerAsync">
+                                                    Edit @CanonicalIdentityOwnerScope.Label.ToLowerInvariant() identity
+                                                </AppButton>
+                                            </div>
+                                        }
                                     </section>
                                 </div>
 
@@ -873,28 +860,31 @@
                                                              role="tab"
                                                              aria-selected="@(!IsWikidataSearchMode)"
                                                              OnClick="@(() => SelectMatchSearchMode("retail"))">
-                                                Retail Provider
+                                                @RetailIdentityHeading
                                             </AppNativeButton>
-                                            <AppNativeButton Type="button"
-                                                             Class="@(IsWikidataSearchMode ? "sme-match-search-mode is-active" : "sme-match-search-mode")"
-                                                             role="tab"
-                                                             aria-selected="@IsWikidataSearchMode"
-                                                             OnClick="@(() => SelectMatchSearchMode("wikidata"))">
-                                                Canonical Identity
-                                            </AppNativeButton>
+                                            @if (CanEditCanonicalIdentity)
+                                            {
+                                                <AppNativeButton Type="button"
+                                                                 Class="@(IsWikidataSearchMode ? "sme-match-search-mode is-active" : "sme-match-search-mode")"
+                                                                 role="tab"
+                                                                 aria-selected="@IsWikidataSearchMode"
+                                                                 OnClick="@(() => SelectMatchSearchMode("wikidata"))">
+                                                    Canonical Identity
+                                                </AppNativeButton>
+                                            }
                                         </div>
 
                                         <div class="sme-match-independence-note">
                                             <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
                                             <span>@(IsWikidataSearchMode
                                                 ? "Changing the canonical identity links this item to its shared work record. The retail edition and provider metadata remain unchanged."
-                                                : "Changing the retail provider match updates this edition or release. The canonical Wikidata identity remains unchanged.")</span>
+                                                : RetailMatchChangeDescription)</span>
                                         </div>
 
                                         <div class="sme-match-section-heading sme-match-section-heading--search">
                                             <p>@(IsWikidataSearchMode
                                                 ? "Select the shared Wikidata identity and relationships represented by this item."
-                                                : "Select the retail provider record that represents this specific edition or release.")</p>
+                                                : RetailSearchInstruction)</p>
                                         </div>
 
                                         <div class="sme-search-row">
@@ -1322,7 +1312,7 @@
                                                                    Color="Color.Inherit"
                                                                    Class="sme-inline-btn"
                                                                    OnClick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
-                                                            Open @scope.Label Artwork
+                                                            Edit @scope.Label.ToLowerInvariant() artwork
                                                         </AppButton>
                                                     }
                                                 </div>
@@ -1395,14 +1385,14 @@
                                                                                    Tooltip="Preview artwork"
                                                                                    AriaLabel="Preview artwork"
                                                                                    OnClick="@(() => OpenArtworkZoom(slot, focusedItem))" />
-                                                                    @if (focusedItem.VariantId != Guid.Empty)
+                                                                    @if (focusedItem.VariantId != Guid.Empty && focusedItem.CanDelete)
                                                                     {
                                                                     <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
                                                                                    Size="Size.Small"
                                                                                    Tone="AppUiTone.Error"
                                                                                    Class="sme-artwork-image-action sme-artwork-image-action--delete"
-                                                                                   Tooltip="Remove artwork"
-                                                                                   AriaLabel="Remove artwork"
+                                                                                   Tooltip="@GetArtworkRemovalLabel(focusedItem)"
+                                                                                   AriaLabel="@GetArtworkRemovalLabel(focusedItem)"
                                                                                    OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(focusedItem))" />
                                                                     }
                                                                 </div>
@@ -1410,9 +1400,9 @@
                                                             @if (IsArtworkDeleteConfirming(focusedItem))
                                                             {
                                                                 <div class="sme-artwork-delete-confirm">
-                                                                    <span>Remove this artwork?</span>
+                                                                    <span>@GetArtworkRemovalQuestion(focusedItem)</span>
                                                                     <AppButton Label="Cancel" OnClick="@(() => CancelArtworkDelete(focusedItem))" />
-                                                                    <AppButton Label="Remove" Tone="AppUiTone.Error" OnClick="@(() => ConfirmArtworkDeleteAsync(focusedItem))" />
+                                                                    <AppButton Label="@GetArtworkRemovalLabel(focusedItem)" Tone="AppUiTone.Error" OnClick="@(() => ConfirmArtworkDeleteAsync(focusedItem))" />
                                                                 </div>
                                                             }
                                                         </div>
@@ -1531,6 +1521,10 @@
                                                         Summary="@(ZoomArtworkSlot is not null && ZoomArtworkVariant is not null ? BuildArtworkVariantSummary(ZoomArtworkSlot, ZoomArtworkVariant) : null)"
                                                         PreviewClass="@(ZoomArtworkSlot is null ? null : GetArtworkPreviewClass(ZoomArtworkSlot, ZoomArtworkVariant))"
                                                         ImageClass="@ZoomArtworkSlot?.ImageClass"
+                                                        CanGoPrevious="@CanZoomPrevious"
+                                                        CanGoNext="@CanZoomNext"
+                                                        OnPrevious="ShowPreviousArtworkVariant"
+                                                        OnNext="ShowNextArtworkVariant"
                                                         OnClose="CloseArtworkZoom" />
                         }
                         else

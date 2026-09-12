@@ -48,6 +48,7 @@ public sealed record MediaEditorNavigatorNodeEnvelope(
     [property: JsonPropertyName("compact_ordinal_label")] string? CompactOrdinalLabel,
     [property: JsonPropertyName("technical_badges")] IReadOnlyList<string> TechnicalBadges,
     [property: JsonPropertyName("is_clickable")] bool IsClickable,
+    [property: JsonPropertyName("can_select_as_editor_target")] bool CanSelectAsEditorTarget,
     [property: JsonPropertyName("can_quarantine")] bool CanQuarantine,
     [property: JsonPropertyName("quarantine_count")] int QuarantineCount);
 

@@ -19,6 +19,19 @@ public sealed class CanonicalCandidateBuilderTests
         SearchUniverse: true,
         AllowsTextOnly: true);
 
+    private static readonly ItemCanonicalEndpoints.CanonicalTargetPolicy EpisodePolicy = new(
+        "TV",
+        "item",
+        "show_episode",
+        ["show_name", "season_number", "episode_number"],
+        ["episode_title", "year"],
+        ["tmdb_id", "tmdb_episode_id"],
+        ["wikidata_qid"],
+        ["show_name", "season_number", "episode_number", "episode_title"],
+        SearchRetail: true,
+        SearchUniverse: true,
+        AllowsTextOnly: true);
+
     [Fact]
     public void RetailAudiobookCandidate_DoesNotRequireNarratorToBeApplicable()
     {
@@ -122,5 +135,31 @@ public sealed class CanonicalCandidateBuilderTests
         Assert.NotNull(result.MatchScores);
         Assert.Equal(1, result.MatchScores.TitleScore);
         Assert.Null(result.CoverUrl);
+    }
+
+    [Fact]
+    public void EpisodeQuery_RetainsSeriesSeasonAndEpisodeWhenUserRefinesSearch()
+    {
+        var draft = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["show_name"] = "The Expanse",
+            ["season_number"] = "2",
+            ["episode_number"] = "5",
+        };
+
+        var result = CanonicalCandidateBuilder.BuildCanonicalQuery(EpisodePolicy, draft, "Home");
+
+        Assert.Equal("Home The Expanse 2 5", result);
+    }
+
+    [Fact]
+    public void NonEpisodeQuery_AllowsAFreeTextOverride()
+    {
+        var result = CanonicalCandidateBuilder.BuildCanonicalQuery(
+            AudiobookPolicy,
+            new Dictionary<string, string> { ["title"] = "Original" },
+            "Replacement");
+
+        Assert.Equal("Replacement", result);
     }
 }

@@ -125,7 +125,25 @@ internal sealed class CanonicalCandidateBuilder(
     {
         if (!string.IsNullOrWhiteSpace(queryOverride))
         {
-            return queryOverride.Trim();
+            if (!string.Equals(policy.TargetFieldGroup, "show_episode", StringComparison.OrdinalIgnoreCase))
+            {
+                return queryOverride.Trim();
+            }
+
+            // Episode matching must stay inside the selected series/season context.
+            // A free-text refinement may narrow the episode, but it must never
+            // replace the parent identity and ordinal constraints.
+            var constrainedParts = new[]
+                {
+                    queryOverride.Trim(),
+                    draftFields.GetValueOrDefault(MetadataFieldConstants.ShowName),
+                    draftFields.GetValueOrDefault(MetadataFieldConstants.SeasonNumber),
+                    draftFields.GetValueOrDefault(MetadataFieldConstants.EpisodeNumber),
+                }
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase);
+            return string.Join(" ", constrainedParts);
         }
 
         return string.Join(" ", policy.QueryFieldKeys

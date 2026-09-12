@@ -4,6 +4,9 @@
          role="dialog"
          aria-modal="true"
          aria-label="Artwork preview"
+         tabindex="-1"
+         @ref="_dialog"
+         @onkeydown="HandleKeyDownAsync"
          @onclick="CloseAsync">
         <div class="sme-art-lightbox-panel" @onclick:stopPropagation="true">
             <AppIconButton Icon="@Icons.Material.Outlined.Close"
@@ -16,12 +19,52 @@
                 <div class="sme-art-lightbox-title">@Label</div>
                 <div class="sme-art-lightbox-text">@Summary</div>
             </div>
-            <div class="sme-art-lightbox-frame sme-art-lightbox-frame--@PreviewClass">
+            <div class="sme-art-lightbox-toolbar" aria-label="Artwork zoom controls">
+                <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="FitImageAsync">
+                    Fit
+                </AppButton>
+                <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="ShowActualSizeAsync">
+                    Actual size
+                </AppButton>
+                <AppIconButton Icon="@Icons.Material.Outlined.Remove"
+                               Size="Size.Small"
+                               Color="Color.Inherit"
+                               Disabled="@CannotZoomOut"
+                               aria-label="Zoom out"
+                               OnClick="ZoomOutAsync" />
+                <span class="sme-art-lightbox-zoom" aria-live="polite">@ZoomLabel</span>
+                <AppIconButton Icon="@Icons.Material.Outlined.Add"
+                               Size="Size.Small"
+                               Color="Color.Inherit"
+                               Disabled="@CannotZoomIn"
+                               aria-label="Zoom in"
+                               OnClick="ZoomInAsync" />
+            </div>
+            <div class="sme-art-lightbox-frame sme-art-lightbox-frame--@PreviewClass sme-art-lightbox-frame--@ViewMode">
                 @if (!string.IsNullOrWhiteSpace(ImageUrl))
                 {
-                    <img src="@ImageUrl" alt="@Label" class="sme-art-lightbox-image sme-art-lightbox-image--@ImageClass" />
+                    <img src="@ImageUrl" alt="@Label" class="sme-art-lightbox-image sme-art-lightbox-image--@ImageClass @ZoomClass" />
                 }
             </div>
+            @if (CanGoPrevious || CanGoNext)
+            {
+                <div class="sme-art-lightbox-navigation" aria-label="Artwork options">
+                    <AppButton Variant="Variant.Outlined"
+                               Color="Color.Inherit"
+                               StartIcon="@Icons.Material.Outlined.ChevronLeft"
+                               Disabled="@(!CanGoPrevious)"
+                               OnClick="PreviousAsync">
+                        Previous
+                    </AppButton>
+                    <AppButton Variant="Variant.Outlined"
+                               Color="Color.Inherit"
+                               EndIcon="@Icons.Material.Outlined.ChevronRight"
+                               Disabled="@(!CanGoNext)"
+                               OnClick="NextAsync">
+                        Next
+                    </AppButton>
+                </div>
+            }
         </div>
     </div>
 }
@@ -34,6 +77,114 @@
     [Parameter] public string? PreviewClass { get; set; }
     [Parameter] public string? ImageClass { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public bool CanGoPrevious { get; set; }
+    [Parameter] public bool CanGoNext { get; set; }
+    [Parameter] public EventCallback OnPrevious { get; set; }
+    [Parameter] public EventCallback OnNext { get; set; }
+
+    private ElementReference _dialog;
+    private bool _focused;
+    private string? _lastImageUrl;
+    private string _viewMode = "fit";
+    private int _zoomIndex;
+    private static readonly int[] ZoomLevels = [100, 125, 150, 200, 300];
+
+    private string ViewMode => _viewMode;
+    private string ZoomLabel => _viewMode switch
+    {
+        "fit" => "Fit",
+        "actual" => "100%",
+        _ => $"{ZoomLevels[_zoomIndex]}%",
+    };
+    private string ZoomClass => _viewMode == "zoom" ? $"sme-art-lightbox-image--zoom-{ZoomLevels[_zoomIndex]}" : $"sme-art-lightbox-image--{_viewMode}";
+    private bool CannotZoomOut => _viewMode == "fit";
+    private bool CannotZoomIn => _viewMode == "zoom" && _zoomIndex >= ZoomLevels.Length - 1;
+
+    protected override void OnParametersSet()
+    {
+        if (!string.Equals(_lastImageUrl, ImageUrl, StringComparison.Ordinal))
+        {
+            _lastImageUrl = ImageUrl;
+            ResetView();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsOpen && !_focused)
+        {
+            _focused = true;
+            await _dialog.FocusAsync();
+        }
+        else if (!IsOpen)
+        {
+            _focused = false;
+        }
+    }
 
     private Task CloseAsync() => OnClose.InvokeAsync();
+    private Task PreviousAsync() => OnPrevious.InvokeAsync();
+    private Task NextAsync() => OnNext.InvokeAsync();
+    private Task FitImageAsync()
+    {
+        ResetView();
+        return Task.CompletedTask;
+    }
+
+    private Task ShowActualSizeAsync()
+    {
+        _viewMode = "actual";
+        _zoomIndex = 0;
+        return Task.CompletedTask;
+    }
+
+    private Task ZoomInAsync()
+    {
+        if (_viewMode is "fit" or "actual")
+        {
+            _zoomIndex = 1;
+        }
+        else if (_zoomIndex < ZoomLevels.Length - 1)
+        {
+            _zoomIndex++;
+        }
+
+        _viewMode = "zoom";
+        return Task.CompletedTask;
+    }
+
+    private Task ZoomOutAsync()
+    {
+        if (_viewMode == "actual")
+        {
+            ResetView();
+        }
+        else if (_viewMode == "zoom" && _zoomIndex > 0)
+        {
+            _zoomIndex--;
+            if (_zoomIndex == 0)
+            {
+                _viewMode = "actual";
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void ResetView()
+    {
+        _viewMode = "fit";
+        _zoomIndex = 0;
+    }
+
+    private Task HandleKeyDownAsync(KeyboardEventArgs args) => args.Key switch
+    {
+        "Escape" => CloseAsync(),
+        "ArrowLeft" when CanGoPrevious => PreviousAsync(),
+        "ArrowRight" when CanGoNext => NextAsync(),
+        "+" or "=" => ZoomInAsync(),
+        "-" => ZoomOutAsync(),
+        "0" => FitImageAsync(),
+        _ => Task.CompletedTask,
+    };
 }
