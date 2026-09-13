@@ -317,6 +317,7 @@ public sealed class SettingsNavTests
             "Libraries",
             "Metadata Providers",
         ], SettingsNav.FilteredTreeItems(libraryIngestion, true).Select(item => item.Label));
+        Assert.False(SettingsNav.AllItems.Single(item => item.Value == SettingsSection.Libraries).SectionBreakBefore);
 
         Assert.DoesNotContain("Reg" + "istry", adminLabels);
         Assert.DoesNotContain("Maintenance", adminLabels);

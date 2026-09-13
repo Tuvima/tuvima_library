@@ -576,12 +576,19 @@
 
     private MediaSectionNavigationItem BuildNavigationItem(SettingsItemDef item)
     {
+        var showReviewNotification = item.Value == SettingsSection.RecentlyAdded && _reviewCount > 0;
+
         return new(
             item.Label,
             SettingsNav.RouteFor(item.Value),
             item.Icon,
+            Meta: showReviewNotification ? DisplayFormat.FormatCount(_reviewCount) : null,
             Exact: true,
-            SectionBreakBefore: item.SectionBreakBefore);
+            SectionBreakBefore: item.SectionBreakBefore,
+            MetaIsNotification: showReviewNotification,
+            MetaAriaLabel: showReviewNotification
+                ? $"{DisplayFormat.FormatCount(_reviewCount)} item{(_reviewCount == 1 ? "" : "s")} need review"
+                : null);
     }
 
     private bool IsItemEnabledByUiSettings(SettingsItemDef item) => item.Value switch

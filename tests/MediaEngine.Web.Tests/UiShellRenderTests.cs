@@ -193,11 +193,19 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             builder.CloseComponent();
         });
 
+        cut.Find("button[aria-label='Expand Library & Ingestion']").Click();
+
         cut.WaitForAssertion(() =>
         {
             Assert.Single(cut.FindAll(".media-section-shell"));
             Assert.Single(cut.FindAll(".media-section-shell__rail"));
             Assert.NotEmpty(cut.FindAll(".media-section-shell__rail-item"));
+            var recentlyAdded = cut.FindAll(".media-section-shell__rail-item--child")
+                .Single(item => item.TextContent.Contains("Recently Added", StringComparison.Ordinal));
+            var reviewNotification = recentlyAdded.QuerySelector(".media-section-shell__rail-meta--notification");
+            Assert.NotNull(reviewNotification);
+            Assert.Equal("3", reviewNotification!.TextContent.Trim());
+            Assert.Equal("3 items need review", reviewNotification.GetAttribute("aria-label"));
             Assert.Contains("System exceptions", cut.Markup);
             Assert.NotNull(cut.Find(".admin-library-summary").QuerySelector(".admin-overview-card--attention"));
             Assert.DoesNotContain("No active transcodes", cut.Markup);

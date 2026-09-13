@@ -9,7 +9,9 @@ public sealed record MediaSectionNavigationItem(
     MediaSectionNavigationDropTarget? DropTarget = null,
     IReadOnlyList<MediaSectionNavigationItem>? Children = null,
     MediaSectionNavigationItemManagement? Management = null,
-    bool SectionBreakBefore = false);
+    bool SectionBreakBefore = false,
+    bool MetaIsNotification = false,
+    string? MetaAriaLabel = null);
 
 public sealed record MediaSectionNavigationGroup(
     string Label,

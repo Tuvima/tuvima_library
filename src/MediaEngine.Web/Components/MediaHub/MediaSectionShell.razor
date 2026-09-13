@@ -120,7 +120,8 @@
                                     <span>@item.Label</span>
                                     @if (!string.IsNullOrWhiteSpace(item.Meta))
                                     {
-                                        <span class="media-section-shell__rail-meta">@item.Meta</span>
+                                        <span class="media-section-shell__rail-meta @(item.MetaIsNotification ? "media-section-shell__rail-meta--notification" : null)"
+                                              aria-label="@item.MetaAriaLabel">@item.Meta</span>
                                     }
                                 </a>
                                 <AppNativeButton Type="button"
@@ -207,7 +208,8 @@
                                                             }
                                                             else if (!string.IsNullOrWhiteSpace(child.Meta))
                                                             {
-                                                                <span class="media-section-shell__rail-meta">@child.Meta</span>
+                                                                <span class="media-section-shell__rail-meta @(child.MetaIsNotification ? "media-section-shell__rail-meta--notification" : null)"
+                                                                      aria-label="@child.MetaAriaLabel">@child.Meta</span>
                                                             }
                                                         </a>
                                                         <AppOverflowMenu Icon="@Icons.Material.Outlined.MoreVert" AriaLabel="@($"Manage {child.Label}")" Size="AppControlSize.Compact" Class="media-section-shell__manage-menu">
@@ -243,7 +245,8 @@
                                                 <span>@child.Label</span>
                                                 @if (!string.IsNullOrWhiteSpace(child.Meta))
                                                 {
-                                                    <span class="media-section-shell__rail-meta">@child.Meta</span>
+                                                    <span class="media-section-shell__rail-meta @(child.MetaIsNotification ? "media-section-shell__rail-meta--notification" : null)"
+                                                          aria-label="@child.MetaAriaLabel">@child.Meta</span>
                                                 }
                                             </a>
                                         }
@@ -319,7 +322,8 @@
                                         }
                                         else if (!string.IsNullOrWhiteSpace(item.Meta))
                                         {
-                                            <span class="media-section-shell__rail-meta">@item.Meta</span>
+                                            <span class="media-section-shell__rail-meta @(item.MetaIsNotification ? "media-section-shell__rail-meta--notification" : null)"
+                                                  aria-label="@item.MetaAriaLabel">@item.Meta</span>
                                         }
                                     </a>
                                     <AppOverflowMenu Icon="@Icons.Material.Outlined.MoreVert" AriaLabel="@($"Manage {item.Label}")" Size="AppControlSize.Compact" Class="media-section-shell__manage-menu">
@@ -356,7 +360,8 @@
                             <span>@item.Label</span>
                             @if (!string.IsNullOrWhiteSpace(item.Meta))
                             {
-                                <span class="media-section-shell__rail-meta">@item.Meta</span>
+                                <span class="media-section-shell__rail-meta @(item.MetaIsNotification ? "media-section-shell__rail-meta--notification" : null)"
+                                      aria-label="@item.MetaAriaLabel">@item.Meta</span>
                             }
                         </a>
                     }

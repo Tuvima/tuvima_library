@@ -356,6 +356,21 @@
     font-size: var(--tl-font-size-xs);
 }
 
+.media-section-shell__rail-meta--notification {
+    display: inline-grid;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--tl-accent-primary) 48%, transparent);
+    border-radius: var(--tl-radius-pill);
+    color: var(--tl-text-primary);
+    background: color-mix(in srgb, var(--tl-accent-primary) 28%, var(--tl-bg-surface-raised));
+    font-size: var(--tl-font-size-xs);
+    font-weight: var(--tl-font-weight-semibold);
+    line-height: 1;
+}
+
 .media-section-shell__content {
     min-width: 0;
     min-height: 0;
