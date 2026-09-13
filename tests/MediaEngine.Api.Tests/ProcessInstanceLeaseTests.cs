@@ -33,4 +33,41 @@ public sealed class ProcessInstanceLeaseTests
         Assert.True(StartupFailureClassifier.IsAddressAlreadyInUse(exception));
         Assert.False(StartupFailureClassifier.IsAddressAlreadyInUse(new IOException("Different failure.")));
     }
+
+    [Fact]
+    public void PathClassifier_ReturnsNestedAccessFailure()
+    {
+        var denied = new UnauthorizedAccessException("Access to the configured data path is denied.");
+        var exception = new InvalidOperationException("Startup failed.", denied);
+
+        Assert.Same(denied, StartupFailureClassifier.FindPathAccessDenied(exception));
+        Assert.Null(StartupFailureClassifier.FindPathAccessDenied(new IOException("Different failure.")));
+    }
+
+    [Fact]
+    public void AcquiredLease_CanBeDisposedFromAnotherThread()
+    {
+        var leaseName = $"TuvimaLibrary.Tests.{Guid.NewGuid():N}";
+        var lease = ProcessInstanceLease.TryAcquire(leaseName);
+        Assert.True(lease.IsAcquired);
+
+        Exception? disposalFailure = null;
+        var disposalThread = new Thread(() =>
+        {
+            try
+            {
+                lease.Dispose();
+            }
+            catch (Exception exception)
+            {
+                disposalFailure = exception;
+            }
+        });
+        disposalThread.Start();
+        Assert.True(disposalThread.Join(TimeSpan.FromSeconds(5)));
+
+        Assert.Null(disposalFailure);
+        using var replacement = ProcessInstanceLease.TryAcquire(leaseName);
+        Assert.True(replacement.IsAcquired);
+    }
 }

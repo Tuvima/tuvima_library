@@ -40,6 +40,7 @@ public sealed class PluginCatalogTests
             Assert.True(registration.SettingsSchema!.Value.TryGetProperty("properties", out var properties));
             Assert.True(properties.TryGetProperty("source_mode", out var sourceMode));
             Assert.Equal("Source mode", sourceMode.GetProperty("title").GetString());
+            Assert.False(Directory.Exists(Path.Combine(libraryRoot, ".data", "plugin-config")));
         }
         finally
         {

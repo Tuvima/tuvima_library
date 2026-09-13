@@ -23,7 +23,6 @@ public sealed class PluginSettingsService
             ? Path.GetFullPath(".data")
             : Path.Combine(core.LibraryRoot, ".data");
         _configRoot = Path.Combine(root, "plugin-config");
-        Directory.CreateDirectory(_configRoot);
     }
 
     public PluginUserConfiguration Load(PluginManifest manifest)

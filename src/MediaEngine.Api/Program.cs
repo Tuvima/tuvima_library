@@ -460,3 +460,8 @@ catch (IOException ex) when (StartupFailureClassifier.IsAddressAlreadyInUse(ex))
     Console.Error.WriteLine("Tuvima Library Engine could not start because ports 61494/61495 are already in use. Stop the process using those ports, then start Tuvima again.");
     Environment.ExitCode = 98;
 }
+catch (Exception exception) when (StartupFailureClassifier.FindPathAccessDenied(exception) is { } denied)
+{
+    Log.Error("Tuvima Library Engine could not start because a configured path is not accessible: {AccessFailure}", denied.Message);
+    Environment.ExitCode = 77;
+}

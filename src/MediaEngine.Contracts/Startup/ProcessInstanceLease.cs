@@ -15,20 +15,20 @@ public sealed class ProcessInstanceLease : IDisposable
 
     private static readonly ConcurrentDictionary<string, byte> ProcessLeases = new(StringComparer.Ordinal);
 
-    private readonly Mutex? _mutex;
+    private readonly MutexLeaseOwner? _owner;
     private readonly string _name;
     private readonly bool _registeredInProcess;
-    private bool _ownsLease;
+    private int _ownsLease;
 
-    private ProcessInstanceLease(Mutex? mutex, string name, bool ownsLease, bool registeredInProcess)
+    private ProcessInstanceLease(MutexLeaseOwner? owner, string name, bool ownsLease, bool registeredInProcess)
     {
-        _mutex = mutex;
+        _owner = owner;
         _name = name;
-        _ownsLease = ownsLease;
+        _ownsLease = ownsLease ? 1 : 0;
         _registeredInProcess = registeredInProcess;
     }
 
-    public bool IsAcquired => _ownsLease;
+    public bool IsAcquired => Volatile.Read(ref _ownsLease) == 1;
 
     public static ProcessInstanceLease TryAcquire(string name)
     {
@@ -37,39 +37,114 @@ public sealed class ProcessInstanceLease : IDisposable
         if (!ProcessLeases.TryAdd(name, 0))
             return new ProcessInstanceLease(null, name, ownsLease: false, registeredInProcess: false);
 
-        var mutex = new Mutex(initiallyOwned: false, name);
+        var owner = new MutexLeaseOwner(name);
         try
         {
-            var ownsLease = mutex.WaitOne(0);
+            var ownsLease = owner.TryAcquire();
             if (!ownsLease)
                 ProcessLeases.TryRemove(name, out _);
-            return new ProcessInstanceLease(mutex, name, ownsLease, registeredInProcess: ownsLease);
-        }
-        catch (AbandonedMutexException)
-        {
-            // The previous owner terminated without releasing the mutex. The
-            // current process owns it now and can safely continue startup.
-            return new ProcessInstanceLease(mutex, name, ownsLease: true, registeredInProcess: true);
+            return new ProcessInstanceLease(owner, name, ownsLease, registeredInProcess: ownsLease);
         }
         catch
         {
             ProcessLeases.TryRemove(name, out _);
-            mutex.Dispose();
+            owner.Dispose();
             throw;
         }
     }
 
     public void Dispose()
     {
-        if (_ownsLease)
+        if (Interlocked.Exchange(ref _ownsLease, 0) == 1)
         {
-            _mutex!.ReleaseMutex();
-            _ownsLease = false;
+            try
+            {
+                _owner!.Dispose();
+            }
+            finally
+            {
+                if (_registeredInProcess)
+                    ProcessLeases.TryRemove(_name, out _);
+            }
+            return;
         }
 
-        _mutex?.Dispose();
-        if (_registeredInProcess)
-            ProcessLeases.TryRemove(_name, out _);
+        _owner?.Dispose();
+    }
+
+    private sealed class MutexLeaseOwner : IDisposable
+    {
+        private readonly Mutex _mutex;
+        private readonly ManualResetEventSlim _acquisitionCompleted = new(false);
+        private readonly ManualResetEventSlim _releaseRequested = new(false);
+        private readonly Thread _ownerThread;
+        private Exception? _acquisitionFailure;
+        private bool _acquired;
+        private int _disposed;
+
+        public MutexLeaseOwner(string name)
+        {
+            _mutex = new Mutex(initiallyOwned: false, name);
+            _ownerThread = new Thread(OwnLease)
+            {
+                IsBackground = true,
+                Name = $"Tuvima lease owner: {name}",
+            };
+        }
+
+        public bool TryAcquire()
+        {
+            _ownerThread.Start();
+            _acquisitionCompleted.Wait();
+            if (_acquisitionFailure is not null)
+                global::System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(_acquisitionFailure).Throw();
+            return _acquired;
+        }
+
+        private void OwnLease()
+        {
+            try
+            {
+                try
+                {
+                    _acquired = _mutex.WaitOne(0);
+                }
+                catch (AbandonedMutexException)
+                {
+                    // The previous process exited without cleanup. Windows gives this
+                    // owner the abandoned mutex, so the new host can start safely.
+                    _acquired = true;
+                }
+            }
+            catch (Exception exception)
+            {
+                _acquisitionFailure = exception;
+            }
+            finally
+            {
+                _acquisitionCompleted.Set();
+            }
+
+            if (!_acquired)
+                return;
+
+            _releaseRequested.Wait();
+            _mutex.ReleaseMutex();
+        }
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 1)
+                return;
+
+            if (_acquired)
+                _releaseRequested.Set();
+            if (_ownerThread.IsAlive)
+                _ownerThread.Join();
+            _releaseRequested.Dispose();
+            _acquisitionCompleted.Dispose();
+            _mutex.Dispose();
+        }
     }
 }
 
@@ -86,5 +161,18 @@ public static class StartupFailureClassifier
         }
 
         return false;
+    }
+
+    public static UnauthorizedAccessException? FindPathAccessDenied(Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        for (Exception? current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is UnauthorizedAccessException denied)
+                return denied;
+        }
+
+        return null;
     }
 }
