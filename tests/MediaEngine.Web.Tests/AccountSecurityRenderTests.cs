@@ -1,0 +1,86 @@
+using System.Net;
+using System.Net.Http.Json;
+using Bunit;
+using MediaEngine.Contracts.Authentication;
+using MediaEngine.Web.Components.Settings;
+using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Tests.Support;
+using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
+using MudBlazor.Services;
+
+namespace MediaEngine.Web.Tests;
+
+public sealed class AccountSecurityRenderTests : AsyncBunitContext
+{
+    public AccountSecurityRenderTests()
+    {
+        JSInterop.Mode = JSRuntimeMode.Loose;
+        Services.AddLocalization();
+        Services.AddLogging();
+        Services.AddMudServices();
+        Services.AddSingleton<IHttpClientFactory>(new AccountSecurityClientFactory());
+        Services.AddScoped<DashboardIdentityClient>();
+        Services.AddScoped<DashboardSessionAccessor>();
+        Services.AddSingleton<IReadOnlyList<RegisteredExternalAuthProvider>>([]);
+        Render<MudPopoverProvider>();
+    }
+
+    [Fact]
+    public void AccountSecurity_WithNoPasskeys_RendersPasskeyEmptyStateWithoutParameterErrors()
+    {
+        var cut = Render<AccountSettingsTab>();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Passkeys", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("No passkeys added yet", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Passkeys are not available on this server.", cut.Markup, StringComparison.Ordinal);
+        });
+    }
+
+    private sealed class AccountSecurityClientFactory : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(new AccountSecurityHandler())
+        {
+            BaseAddress = new Uri("https://engine.example.test"),
+        };
+    }
+
+    private sealed class AccountSecurityHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var response = request.RequestUri!.AbsolutePath switch
+            {
+                "/access/self-service" => JsonResponse(new AccountSelfServiceResponse(
+                    Guid.NewGuid(),
+                    "owner@example.test",
+                    false,
+                    Guid.NewGuid(),
+                    Guid.NewGuid(),
+                    [],
+                    [],
+                    new AccountSecurityCapabilitiesResponse(
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        false,
+                        []))),
+                "/auth/sessions" => JsonResponse(Array.Empty<DeviceSessionResponse>()),
+                "/auth/passkeys" => JsonResponse(Array.Empty<PasskeyCredentialResponse>()),
+                _ => new HttpResponseMessage(HttpStatusCode.NotFound),
+            };
+
+            return Task.FromResult(response);
+        }
+
+        private static HttpResponseMessage JsonResponse<T>(T value) => new(HttpStatusCode.OK)
+        {
+            Content = JsonContent.Create(value),
+        };
+    }
+}
