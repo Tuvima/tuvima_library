@@ -80,8 +80,11 @@
                                       InputType="InputType.Password" autocomplete="new-password" MaxLength="128"
                                       Error="@(_confirmPassword.Length > 0 && !PasswordsMatch)"
                                       ErrorText="Passwords do not match." />
-                        <AppButton Label="Change password" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary"
-                                   Loading="@_changingPassword" Disabled="@(!CanChangePassword)" OnClick="ChangePasswordAsync" />
+                        <div class="app-field account-security-settings__field-action">
+                            <span class="app-field__label" aria-hidden="true">Action</span>
+                            <AppButton Label="Change password" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary"
+                                       Loading="@_changingPassword" Disabled="@(!CanChangePassword)" OnClick="ChangePasswordAsync" />
+                        </div>
                     </div>
                 </SettingsSectionPanel>
             }
@@ -178,59 +181,62 @@
             }
 
             <SettingsSectionPanel Title="Devices & sessions" Description="Review devices currently signed in to your account."
-                                  Icon="@Icons.Material.Outlined.Devices">
-                @if (OtherSessions.Any())
-                {
-                    <div class="account-security-settings__bulk-action">
+                                  Icon="@Icons.Material.Outlined.Devices"
+                                  Class="tl-card settings-section-card settings-section-card--dense account-security-settings__sessions-card">
+                <Actions>
+                    @if (OtherSessions.Any())
+                    {
                         <AppButton Label="Sign out all other sessions" Size="AppControlSize.Compact" Tone="AppUiTone.Error"
                                    Disabled="@_busy" OnClick="RevokeOtherSessionsAsync" />
-                    </div>
-                }
-                @if (_sessionsLoading)
-                {
-                    <MudSkeleton Height="128px" Animation="Animation.Wave" aria-label="Loading devices and sessions" />
-                }
-                else if (_sessionsError is not null)
-                {
-                    <AppAlert Tone="AppUiTone.Error">@_sessionsError</AppAlert>
-                }
-                else if (_sessions.Count == 0)
-                {
-                    <AppEmptyState Class="app-page-state--compact" Title="Sessions unavailable"
-                                   Message="No active sessions were returned for this account." />
-                }
-                else
-                {
-                    <div class="account-security-settings__session-list">
-                        @foreach (var session in OrderedSessions)
-                        {
-                            var current = IsCurrent(session);
-                            var display = SecuritySessionDisplayFormatter.Format(session);
-                            <div class="account-security-settings__session" @key="session.Id">
-                                <span class="account-security-settings__session-icon" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.Devices" /></span>
-                                <div class="account-security-settings__session-copy">
-                                    <div class="account-security-settings__session-title">
-                                        <strong>@display.DeviceName</strong>
-                                        @if (current)
-                                        {
-                                            <span class="account-security-settings__current" aria-label="Current session">Current session</span>
-                                        }
+                    }
+                </Actions>
+                <ChildContent>
+                    @if (_sessionsLoading)
+                    {
+                        <MudSkeleton Height="128px" Animation="Animation.Wave" aria-label="Loading devices and sessions" />
+                    }
+                    else if (_sessionsError is not null)
+                    {
+                        <AppAlert Tone="AppUiTone.Error">@_sessionsError</AppAlert>
+                    }
+                    else if (_sessions.Count == 0)
+                    {
+                        <AppEmptyState Class="app-page-state--compact" Title="Sessions unavailable"
+                                       Message="No active sessions were returned for this account." />
+                    }
+                    else
+                    {
+                        <div class="account-security-settings__session-list">
+                            @foreach (var session in OrderedSessions)
+                            {
+                                var current = IsCurrent(session);
+                                var display = SecuritySessionDisplayFormatter.Format(session);
+                                <div class="account-security-settings__session" @key="session.Id">
+                                    <span class="account-security-settings__session-icon" aria-hidden="true"><MudIcon Icon="@Icons.Material.Outlined.Devices" /></span>
+                                    <div class="account-security-settings__session-copy">
+                                        <div class="account-security-settings__session-title">
+                                            <strong>@display.DeviceName</strong>
+                                            @if (current)
+                                            {
+                                                <span class="account-security-settings__current" aria-label="Current session">Current session</span>
+                                            }
+                                        </div>
+                                        <span>@display.ClientDescription</span>
                                     </div>
-                                    <span>@display.ClientDescription</span>
+                                    <div class="account-security-settings__session-status">
+                                        <strong>@(current ? "Active now" : $"Last active {RelativeTime(session.LastSeenAt)}")</strong>
+                                        <span>Signed in @FormatDate(session.CreatedAt)</span>
+                                    </div>
+                                    @if (!current)
+                                    {
+                                        <AppButton Label="Sign out" Size="AppControlSize.Compact" Tone="AppUiTone.Error"
+                                                   Disabled="@_busy" OnClick="@(() => RevokeSessionAsync(session))" />
+                                    }
                                 </div>
-                                <div class="account-security-settings__session-status">
-                                    <strong>@(current ? "Active now" : $"Last active {RelativeTime(session.LastSeenAt)}")</strong>
-                                    <span>Signed in @FormatDate(session.CreatedAt)</span>
-                                </div>
-                                @if (!current)
-                                {
-                                    <AppButton Label="Sign out" Size="AppControlSize.Compact" Tone="AppUiTone.Error"
-                                               Disabled="@_busy" OnClick="@(() => RevokeSessionAsync(session))" />
-                                }
-                            </div>
-                        }
-                    </div>
-                }
+                            }
+                        </div>
+                    }
+                </ChildContent>
             </SettingsSectionPanel>
 
             @if (Capabilities.HasPassword)
@@ -242,10 +248,13 @@
                     <div class="account-security-settings__recovery">
                         <AppTextField T="string" @bind-Value="_recoveryPassword" Label="Current password"
                                       InputType="InputType.Password" autocomplete="current-password" />
-                        <AppButton Label="Generate new recovery codes" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Warning"
-                                   Loading="@_generatingRecoveryCodes"
-                                   Disabled="@(_busy || string.IsNullOrWhiteSpace(_recoveryPassword))"
-                                   OnClick="GenerateRecoveryCodesAsync" />
+                        <div class="app-field account-security-settings__field-action">
+                            <span class="app-field__label" aria-hidden="true">Action</span>
+                            <AppButton Label="Generate new recovery codes" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Warning"
+                                       Loading="@_generatingRecoveryCodes"
+                                       Disabled="@(_busy || string.IsNullOrWhiteSpace(_recoveryPassword))"
+                                       OnClick="GenerateRecoveryCodesAsync" />
+                        </div>
                     </div>
                     @if (_recoveryCodes.Count > 0)
                     {

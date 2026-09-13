@@ -66,6 +66,7 @@ public sealed class AuthenticationSettingsUiTests
         Assert.Contains("Capabilities.CanRegisterPasskey", account, StringComparison.Ordinal);
         Assert.Contains("Sign out all other sessions", account, StringComparison.Ordinal);
         Assert.Contains("ShowMessageBoxAsync", account, StringComparison.Ordinal);
+        Assert.Equal(2, CountOccurrences(account, "account-security-settings__field-action"));
         Assert.Contains("GetSessionsAsync", account, StringComparison.Ordinal);
         Assert.Contains("GetPasskeysAsync", account, StringComparison.Ordinal);
         Assert.DoesNotContain("UpdateAuthSettingsAsync", account, StringComparison.Ordinal);
@@ -73,9 +74,19 @@ public sealed class AuthenticationSettingsUiTests
         Assert.Contains("max-width: none", accountCss, StringComparison.Ordinal);
         Assert.DoesNotContain("width: min(100%, 1100px)", accountCss, StringComparison.Ordinal);
         Assert.Contains("@container account-security (max-width: 640px)", accountCss, StringComparison.Ordinal);
+        Assert.Contains("grid-template-areas: \"icon copy status action\"", accountCss, StringComparison.Ordinal);
+        Assert.Contains("\"icon copy action\"", accountCss, StringComparison.Ordinal);
+        Assert.Contains("\"action action\"", accountCss, StringComparison.Ordinal);
+        Assert.Contains("grid-area: action", accountCss, StringComparison.Ordinal);
+        Assert.Contains("<Actions>", account, StringComparison.Ordinal);
+        Assert.DoesNotContain("account-security-settings__bulk-action", account, StringComparison.Ordinal);
+        Assert.DoesNotContain("account-security-settings__bulk-action", accountCss, StringComparison.Ordinal);
         Assert.Contains("/settings/account", endpoints, StringComparison.Ordinal);
         Assert.DoesNotContain("private static string SecurityPage", endpoints, StringComparison.Ordinal);
     }
+
+    private static int CountOccurrences(string source, string value) =>
+        source.Split(value, StringSplitOptions.None).Length - 1;
 
     private static string Read(string relativePath) => File.ReadAllText(Path.Combine(
         FindRepoRoot(), relativePath.Replace('/', Path.DirectorySeparatorChar)));

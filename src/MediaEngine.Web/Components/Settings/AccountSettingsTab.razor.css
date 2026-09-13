@@ -109,9 +109,12 @@
     gap: var(--tl-space-4, 16px);
 }
 
-.account-security-settings__password-grid ::deep .app-button {
-    min-height: 48px;
-    margin-top: 4px;
+.account-security-settings__field-action {
+    align-self: start;
+}
+
+.account-security-settings__field-action > .app-field__label {
+    visibility: hidden;
 }
 
 .account-security-settings__rows {
@@ -141,8 +144,7 @@
     gap: 3px;
 }
 
-.account-security-settings__actions,
-.account-security-settings__bulk-action {
+.account-security-settings__actions {
     display: flex;
     justify-content: flex-end;
     margin-top: var(--tl-space-4, 16px);
@@ -151,11 +153,6 @@
 .account-security-settings__availability {
     margin-top: 8px;
     text-align: right;
-}
-
-.account-security-settings__bulk-action {
-    margin-top: 0;
-    margin-bottom: var(--tl-space-3, 12px);
 }
 
 .account-security-settings__session-list {
@@ -167,6 +164,7 @@
 .account-security-settings__session {
     display: grid;
     grid-template-columns: auto minmax(220px, 1fr) minmax(180px, auto) auto;
+    grid-template-areas: "icon copy status action";
     align-items: center;
     gap: var(--tl-space-4, 16px);
     min-height: 74px;
@@ -179,8 +177,13 @@
 }
 
 .account-security-settings__session-icon {
+    grid-area: icon;
     width: 38px;
     height: 38px;
+}
+
+.account-security-settings__session-copy {
+    grid-area: copy;
 }
 
 .account-security-settings__session-title {
@@ -202,8 +205,13 @@
 }
 
 .account-security-settings__session-status {
+    grid-area: status;
     align-items: flex-end;
     text-align: right;
+}
+
+.account-security-settings__session > ::deep .app-button {
+    grid-area: action;
 }
 
 .account-security-settings__recovery {
@@ -214,26 +222,23 @@
     margin-top: var(--tl-space-3, 12px);
 }
 
-.account-security-settings__recovery ::deep .app-button {
-    min-height: 48px;
-    margin-top: 4px;
-}
-
 @container account-security (max-width: 920px) {
     .account-security-settings__password-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .account-security-settings__password-grid ::deep .app-button {
+    .account-security-settings__field-action {
         justify-self: start;
     }
 
     .account-security-settings__session {
         grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "icon copy action"
+            "icon status action";
     }
 
     .account-security-settings__session-status {
-        grid-column: 2;
         align-items: flex-start;
         text-align: left;
     }
@@ -261,32 +266,57 @@
     }
 
     .account-security-settings__row ::deep .app-button,
-    .account-security-settings__password-grid ::deep .app-button,
-    .account-security-settings__recovery ::deep .app-button,
+    .account-security-settings__field-action,
+    .account-security-settings__field-action ::deep .app-button,
     .account-security-settings__actions,
     .account-security-settings__actions ::deep .app-button,
-    .account-security-settings__bulk-action,
-    .account-security-settings__bulk-action ::deep .app-button {
+    .account-security-settings ::deep .account-security-settings__sessions-card .settings-section-header__actions,
+    .account-security-settings ::deep .account-security-settings__sessions-card .settings-section-header__actions .app-button {
         width: 100%;
+    }
+
+    .account-security-settings__field-action {
+        gap: 0;
+    }
+
+    .account-security-settings__field-action > .app-field__label {
+        display: none;
     }
 
     .account-security-settings__availability {
         text-align: left;
     }
 
+    .account-security-settings ::deep .account-security-settings__sessions-card .settings-section-card__header {
+        display: grid;
+        grid-template-columns: var(--settings-section-icon-size) minmax(0, 1fr);
+    }
+
+    .account-security-settings ::deep .account-security-settings__sessions-card .settings-section-card__header > .mud-icon-root {
+        grid-column: 1;
+    }
+
+    .account-security-settings ::deep .account-security-settings__sessions-card .settings-section-header__copy {
+        grid-column: 2;
+    }
+
+    .account-security-settings ::deep .account-security-settings__sessions-card .settings-section-header__actions {
+        grid-column: 1 / -1;
+        margin-left: 0;
+    }
+
     .account-security-settings__session {
         grid-template-columns: auto minmax(0, 1fr);
+        grid-template-areas:
+            "icon copy"
+            "icon status"
+            "action action";
         align-items: start;
         gap: 10px;
         padding: 14px;
     }
 
-    .account-security-settings__session-status {
-        grid-column: 2;
-    }
-
     .account-security-settings__session > ::deep .app-button {
-        grid-column: 1 / -1;
         width: 100%;
     }
 }
